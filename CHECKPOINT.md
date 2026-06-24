@@ -3555,3 +3555,236 @@ changes.
 
 Artifacts (eval cluster): `$HOME/fn_analysis/fn_evidence.tsv` (per-locus depth/AF/
 class/candidate table) and `$HOME/fn_analysis/FN_FINDINGS.md` (write-up).
+
+---
+
+## Four-Pipeline Comparison — HG002 HiFi chr18
+
+Full chr18 evaluation using HG002 HiFi reads aligned to CHM13 chr18.
+Truth: HG002 v1.1 diploid assembly (chr18_MATERNAL / chr18_PATERNAL slices),
+assigned via diplinator. `--min-reads 5`, 8 threads.
+Gap-fill: `--gapfill 2` (hybrid core + BAM-only reads at PS offset 1e9,
+then graph-only reads at PS offset 2e9).
+
+### Accuracy & errors
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| **Runtime** | 86 s | **32 s** | 131 s | +post-process |
+| Accuracy | 98.24% | 99.05% | **99.24%** | 98.58% |
+| Hamming | 1.76% | 0.95% | **0.76%** | 1.42% |
+| Switch errors | 891 | 335 | **367** | 886 |
+| Flip errors | 1,421 | 802 | **819** | 1,560 |
+| Switchflip | 2,312 | 1,137 | **1,186** | 2,446 |
+| Switch rate | 0.32% | 0.13% | **0.13%** | 0.31% |
+| Switchflip rate | 0.82% | 0.43% | **0.43%** | 0.86% |
+| Switch opportunities | 281,249 | 262,574 | 274,731 | 284,728 |
+| Concordant reads | 276,863 | 260,529 | 273,115 | 281,332 |
+| Discordant reads | 4,953 | 2,497 | **2,083** | 4,049 |
+
+### Yield & phase blocks
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| Total input reads | 346,878 | 295,387 | 346,878 | 346,878 |
+| Phased reads | 281,840 | 263,026 | 275,210 | **285,570** |
+| Fraction phased | 81.3% | **89.0%** | 79.3% | 82.3% |
+| Reads evaluated | 281,816 | 263,026 | 275,198 | 285,381 |
+| Phase sets (total) | 574 | 452 | 470 | 773 |
+| Phase sets (eval) | 567 | 452 | 467 | 653 |
+| Perfect PS | 201 | **193** | 185 | **237** |
+| Perfect PS % | 35.4% | **42.7%** | 39.6% | 36.3% |
+| Candidates | 140,565 | 82,069 | 152,706 | — |
+| Block N50 (bp) | 1,718,322 | 1,720,559 | **1,735,751** | 1,704,636 |
+| Block auN (bp) | 5,002,792 | 1,802,513 | **5,327,723** | 4,634,692 |
+| Block median span (bp) | 1,691,650 | 1,698,316 | 1,698,043 | 1,688,711 |
+| Block max span (bp) | 54,389,768 | 2,982,830 | 52,161,576 | **54,389,768** |
+| Genome covered (bp) | 887,637,832 | 673,136,287 | 745,359,642 | **999,757,287** |
+| Genome covered (%) | 28.7% | 21.8% | 24.1% | **32.4%** |
+
+### Phaseable vs unphaseable split (confidence threshold 0.6)
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| Phaseable PS / reads | 525 / 278,842 | 441 / 262,365 | 447 / 274,376 | 592 / 281,853 |
+| Phaseable accuracy | 98.72% | **99.17%** | **99.37%** | 99.13% |
+| Unphaseable PS / reads | 42 / 2,974 | **11 / 661** | 20 / 822 | 61 / 3,528 |
+| Unphaseable accuracy | 53.63% | 52.95% | 55.60% | 54.65% |
+
+### Gap-fill breakdown
+
+Stage 1 (BAM-only reads) recovered **9,052 reads**; stage 2 (graph-only reads)
+added **1,308 reads** (total 10,360 added to hybrid core).
+
+### Observations
+
+- **Hybrid wins every accuracy metric** (99.24%, Hamming 0.76%, switch rate
+  0.13%) and best auN (5,327,723 bp) — consistent with chr20 results.
+- **Graph is the accuracy-per-second winner** (99.05% in 32 s), highest
+  fraction phased (89.0%), most perfect PS % (42.7%).
+- **Hybrid+Gapfill Pareto-beats BAM**: more reads phased (285,570 vs 281,840),
+  lower Hamming (1.42% vs 1.76%), more genome covered (32.4% vs 28.7%),
+  more perfect PS (237 vs 201). Hybrid core preserved exactly.
+- chr18 N50 (~1.7 Mbp) is higher than chr20 N50 (~1.0 Mbp) across all
+  pipelines, consistent with chr18's simpler repeat structure.
+
+
+---
+
+## Four-Pipeline Comparison — HG002 HiFi chr12
+
+Full chr12 evaluation (133 Mbp) using HG002 HiFi reads aligned to CHM13 chr12.
+Truth: HG002 v1.1 diploid assembly (chr12_MATERNAL / chr12_PATERNAL slices),
+assigned via diplinator. `--min-reads 5`, 8 threads. Gap-fill: `--gapfill 2`.
+
+### Accuracy & errors
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| **Runtime** | 123 s | **57 s** | 229 s | +post-process |
+| Accuracy | 98.51% | 99.09% | **99.31%** | 98.73% |
+| Hamming | 1.49% | 0.91% | **0.69%** | 1.27% |
+| Switch errors | 1,271 | 471 | **342** | 1,233 |
+| Flip errors | 2,469 | 1,406 | **1,456** | 2,565 |
+| Switchflip | 3,740 | 1,877 | **1,798** | 3,798 |
+| Switch rate | 0.26% | 0.10% | **0.07%** | 0.25% |
+| Switchflip rate | 0.75% | 0.40% | **0.37%** | 0.76% |
+| Switch opportunities | 496,223 | 470,523 | 488,855 | 500,796 |
+| Concordant reads | 489,581 | 466,900 | 486,095 | 495,312 |
+| Discordant reads | 7,381 | 4,280 | **3,394** | 6,368 |
+
+### Yield & phase blocks
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| Total input reads | 579,483 | 521,096 | 579,483 | 579,483 |
+| Phased reads | 496,971 | 471,180 | 489,495 | **501,975** |
+| Fraction phased | 85.8% | **90.4%** | 84.5% | 86.6% |
+| Reads evaluated | 496,962 | 471,180 | 489,489 | 501,680 |
+| Phase sets (total) | 742 | 657 | 636 | 1,055 |
+| Phase sets (eval) | 739 | 657 | 634 | 884 |
+| Perfect PS | 261 | **282** | 260 | **327** |
+| Perfect PS % | 35.3% | **42.9%** | 41.0% | 37.0% |
+| Candidates | 219,231 | 150,221 | 239,312 | — |
+| Block N50 (bp) | 1,095,879 | 455,084 | **1,692,256** | 1,402,401 |
+| Block auN (bp) | 42,186,534 | 676,738 | **54,771,185** | 51,180,910 |
+| Block max span (bp) | 102,337,347 | 4,305,703 | **118,870,322** | **118,870,322** |
+
+### Phaseable vs unphaseable split (confidence threshold 0.6)
+
+| Metric | BAM | Graph | **Hybrid** | Hybrid+Gapfill |
+|---|---|---|---|---|
+| Phaseable PS / reads | 705 / 493,651 | 642 / 470,140 | 630 / 488,842 | 811 / 497,320 |
+| Phaseable accuracy | 98.82% | **99.19%** | **99.36%** | 99.12% |
+| Unphaseable PS / reads | 34 / 3,311 | **15 / 1,040** | **4 / 647** | 73 / 4,360 |
+| Unphaseable accuracy | 53.43% | 54.62% | 56.41% | 53.81% |
+
+### Gap-fill breakdown
+
+Stage 1 (BAM-only reads) recovered **10,664 reads**; stage 2 (graph-only reads)
+added **1,816 reads** (total 12,480 added to hybrid core).
+
+### Observations
+
+- **Hybrid wins all accuracy metrics** (99.31%, Hamming 0.69%, switch rate 0.07%)
+  and all contiguity metrics (auN 54.8M, largest block 118.9 Mbp — near the full
+  133 Mbp chromosome). Pattern consistent with chr18 and chr20.
+- **Graph wins accuracy-per-second** (99.09% in 57 s, 90.4% phased, 42.9% perfect PS).
+- **Hybrid+Gapfill** phases the most reads (501,975 / 86.6%), Pareto-beats BAM on
+  all axes, and recovers 12,480 gap-fill reads at high accuracy (99.12% phaseable).
+- Hybrid's 4 unphaseable phase sets (647 reads) is the lowest of any pipeline across
+  all three chromosomes — chr12's haplotype structure is well-suited to hybrid phasing.
+- For DeepVariant HP-tagging: **hybrid+gapfill** is optimal (501,975 HP-tagged reads,
+  86.6% of 579,483 BAM reads, 99.12% phaseable accuracy).
+
+
+---
+
+## Additional Whole-Chromosome Test Files
+
+Test inputs for chr18 and chr12, generated from the same source data as chr20
+(HG002 HiFi, CHM13 T2T v2.0, HPRC v2.1 pangenome GBZ). Not committed to git
+(too large); recreate with the commands below.
+
+### chr1 test files
+
+| File | Description |
+|------|-------------|
+| `test_data/chm13v2.0.chr1.renamed.fa` (+`.fai`) | CHM13 chr1 reference (contig `chr1`, 248 Mbp) |
+| `test_data/HG002_chr1_hifi_mapped_to_CHM13_chr1_annotated.bam` (+`.bai`) | 1,044,741 HiFi reads aligned to CHM13 chr1 |
+| `test_data/chr1.sites.vcf.gz` (+`.tbi`) | 3,199,313 graph snarl sites |
+| `test_data/HG002.chr1.annotated.coord.gaf.gz` (+`.tbi`) | bgzipped + tabix-indexed coord-annotated GAF |
+
+### chr18 test files
+
+| File | Description |
+|------|-------------|
+| `test_data/chm13v2.0.chr18.renamed.fa` (+`.fai`) | CHM13 chr18 reference (contig `chr18`, 78 Mbp) |
+| `test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam` (+`.bai`) | 346,878 HiFi reads aligned to CHM13 chr18 |
+| `test_data/chr18.sites.vcf.gz` (+`.tbi`) | 1,067,783 graph snarl sites |
+| `test_data/HG002.chr18.annotated.coord.gaf.gz` (+`.tbi`) | bgzipped + tabix-indexed coord-annotated GAF |
+
+### chr12 test files
+
+| File | Description |
+|------|-------------|
+| `test_data/chm13v2.0.chr12.renamed.fa` (+`.fai`) | CHM13 chr12 reference (contig `chr12`, 129 Mbp) |
+| `test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam` (+`.bai`) | 579,483 HiFi reads aligned to CHM13 chr12 |
+| `test_data/chr12.sites.vcf.gz` (+`.tbi`) | 1,789,539 graph snarl sites |
+| `test_data/HG002.chr12.annotated.coord.gaf.gz` (+`.tbi`) | bgzipped + tabix-indexed coord-annotated GAF |
+
+### Reconstruction commands
+
+Source files (not committed, stored on the analysis machine):
+- Full GBZ: `~/Downloads/pgbam-experiments/hprc-v2.1-mc-chm13-eval.gbz` (5.7 GB)
+- Full r-index: `~/Downloads/pgbam-experiments/hprc-v2.1-mc-chm13-eval.ri` (11 GB)
+- Full sorted BAM: `~/Downloads/pgbam-experiments/HG002.full.sorted.bam` (65 GB)
+- Full GAM: `~/Downloads/pgbam-experiments/HG002.full.gam` (145 GB, alphanumeric chr order)
+
+```bash
+CHR=chr18   # or chr12
+FULL_GBZ=~/Downloads/pgbam-experiments/hprc-v2.1-mc-chm13-eval.gbz
+FULL_RI=~/Downloads/pgbam-experiments/hprc-v2.1-mc-chm13-eval.ri
+FULL_BAM=~/Downloads/pgbam-experiments/HG002.full.sorted.bam
+FULL_GAM=~/Downloads/pgbam-experiments/HG002.full.gam
+
+# 1. Extract per-chromosome reference FASTA
+samtools faidx ~/Downloads/pgbam-experiments/chm13v2.0.fa "CHM13#0#${CHR}" \
+  | sed "s/>CHM13#0#${CHR}/>$CHR/" \
+  > test_data/chm13v2.0.${CHR}.renamed.fa
+samtools faidx test_data/chm13v2.0.${CHR}.renamed.fa
+
+# 2. Extract per-chromosome HiFi BAM (rename CHM13#0#chrN → chrN)
+(samtools view -H "$FULL_BAM" \
+     | awk "!/^@SQ/ || /SN:CHM13#0#${CHR}/" \
+     | sed "s/CHM13#0#${CHR}/${CHR}/g"
+ samtools view "$FULL_BAM" "CHM13#0#${CHR}" \
+     | sed "s/\tCHM13#0#${CHR}\t/\t${CHR}\t/g") \
+  | samtools sort -@ 4 -O bam \
+  -o test_data/HG002_${CHR}_hifi_mapped_to_CHM13_${CHR}_annotated.bam
+samtools index test_data/HG002_${CHR}_hifi_mapped_to_CHM13_${CHR}_annotated.bam
+
+# 3. Build snarl-site VCF via per-chr GBZ chunk (~2-5 GB RAM; full GBZ needs ~80 GB)
+vg chunk --gbz --contig "$CHR" -x "$FULL_GBZ" -b /tmp/${CHR}
+./pgphase build-snarl-catalog --ref-sample CHM13 --contig "$CHR" -t 8 \
+  -o test_data/${CHR}.sites.vcf.gz /tmp/${CHR}_0_${CHR}.gbz
+
+# 4. Build coord-indexed GAF
+#    4a. Extract read names aligned to this chromosome from the BAM
+samtools view test_data/HG002_${CHR}_hifi_mapped_to_CHM13_${CHR}_annotated.bam \
+  | awk '{print $1}' | sort -u > /tmp/${CHR}_qnames.txt
+#    4b. Filter full GAM to this chromosome's reads (run alone, not concurrent)
+vg filter -t 4 -N /tmp/${CHR}_qnames.txt -e "$FULL_GAM" > /tmp/${CHR}.gam
+#    4c. Convert GAM → GAF using full GBZ for node ID lookup (~14 GB RAM)
+vg convert -G /tmp/${CHR}.gam "$FULL_GBZ" > /tmp/${CHR}.gaf
+#    4d. Annotate with reference coordinates and haplotype-set tags
+~/Downloads/pggaf/build/pggaf annotate-gaf \
+  --gaf /tmp/${CHR}.gaf --gbz "$FULL_GBZ" --r-index "$FULL_RI" \
+  --ref-sample CHM13 \
+  --out-gaf /tmp/${CHR}.annotated.gaf --out-sets /tmp/${CHR}.pgs
+#    4e. Coordinate-sort, bgzip, and tabix-index
+~/Downloads/pggaf/build/pggaf index-gaf \
+  --in /tmp/${CHR}.annotated.gaf \
+  --out test_data/HG002.${CHR}.annotated.coord.gaf.gz
+```
+
