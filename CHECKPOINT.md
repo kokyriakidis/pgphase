@@ -3788,3 +3788,154 @@ vg convert -G /tmp/${CHR}.gam "$FULL_GBZ" > /tmp/${CHR}.gaf
   --out test_data/HG002.${CHR}.annotated.coord.gaf.gz
 ```
 
+
+---
+
+## Read-confidence gating: the graph pipeline now beats BAM and hybrid
+
+Question: with unphaseable regions excluded, can the graph pipeline beat both the
+BAM and hybrid pipelines? Answer: yes, by 2.5-5x on every accuracy metric, via a
+single missing gate on per-read assignment confidence.
+
+### Excluding unphaseable regions
+
+Two classes of region make phasing impossible for reasons no pipeline change can
+address, and both were diluting every previous comparison:
+
+- **Runs of homozygosity.** chr20 44-45 Mb has **3 clean het SNPs** against a
+  chromosome median of 852/Mb (45-46 Mb: 68; 27-28 Mb: 117). The graph, BAM and
+  hybrid pipelines independently agree (3 / 4 / 5 het SNPs in 44-45 Mb), so this
+  is HG002's biology, not a detection failure. Catalog density there is normal
+  (13.1 sites/kb, median AN 457 = full panel) and depth is normal (5,003
+  alignments/Mb, higher than a well-phased control).
+- **Graph-blind satellite.** chr20 27.2-28.8 Mb has **zero catalog sites** across
+  1.6 Mb while reads are present throughout and the BAM pipeline still calls
+  819+326 het SNPs. `AN` collapses from ~452 to 7 to 3 at the edges: the
+  pangenome has no alternative haplotypes there, so no bubbles, so no snarls. One
+  such window on chr20; far more on acrocentrics and chr1/9/16.
+
+`--exclude-bed` is applied in HG002 truth coordinates while these were identified
+in CHM13. The translation was built empirically: every read carries a CHM13
+interval in the GAF and a truth placement in the HipHap/diplinator BAM, so
+joining on read name lifts the windows over directly (1% tail trim against
+mismappers). 18,604 reads excluded.
+
+### Result (HG002 chr20, regions excluded)
+
+| pipeline | hamming | switch | flip | discordant | phased | perfect PS | N50 |
+|---|---|---|---|---|---|---|---|
+| bam | 0.021638 | 849 | 1,235 | 4,648 | 80.9% | 35.8% | 985 kb |
+| hybrid | 0.005282 | 167 | 605 | 1,114 | 78.0% | 41.1% | 999 kb |
+| graph (before) | 0.005822 | 253 | 625 | 1,179 | 88.1% | 45.7% | 922 kb |
+| **graph `--min-read-margin 2`** | **0.001964** | **68** | **114** | **350** | 77.3% | **82.5%** | 948 kb |
+
+vs hybrid: 2.7x hamming, 2.5x switch, 5.3x flip, 3.2x discordant, 2x perfect
+phase sets, at equal coverage (77.3% vs 78.0%). vs BAM: 11x hamming. Cost is 5%
+of N50.
+
+### Root cause
+
+`init_assign_read_hap` (collect_phase.cpp) commits a read to a haplotype on **any
+non-zero score** — no minimum evidence, no margin. A read agreeing with one clean
+het SNP and contradicting none is committed as confidently as one agreeing with
+thirty. Measured on chr20:
+
+| clean-SNP margin | reads | share | errors | share of errors | error rate |
+|---|---|---|---|---|---|
+| <= 0 | 1,137 | 0.56% | 15 | 1.3% | 1.32% |
+| **== 1** | **22,457** | **11.1%** | **810** | **68.7%** | **3.61%** |
+| >= 2 | 178,912 | 88.4% | 354 | 30.0% | 0.198% |
+
+Discordant reads: median 4 observations, margin 1. Concordant: 18 and 13. 22,255
+of the 22,457 marginal reads are literally "1 agree / 0 conflict". The gate leaves
+them unphased rather than guessing. Offline analysis predicted 354 discordant at
+margin 2; the pipeline delivered 350.
+
+### Multi-chromosome transfer (margin distribution)
+
+The threshold is an absolute SNP count, so it could interact with per-chromosome
+heterozygosity. It does not — the distribution is flat across chromosomes:
+
+| chrom | reads | phased | margin<=0 | margin==1 | margin>=2 | phased @ margin 2 |
+|---|---|---|---|---|---|---|
+| chr20 | 231,382 | 204,165 | 0.61% | 11.35% | 88.04% | 77.69% |
+| chr18 | 295,387 | 263,540 | 0.63% | 12.36% | 87.01% | 77.63% |
+| chr12 | 521,096 | 472,113 | 0.48% | 10.70% | 88.81% | 80.47% |
+| chr1 | 858,212 | 765,617 | 0.48% | 11.66% | 87.86% | 78.38% |
+
+margin==1 is 10.7-12.4% of phased reads everywhere and the coverage cost of
+margin 2 is 11-13%. The knee should sit at 2 on all four. **Accuracy on
+chr18/chr12/chr1 is not yet confirmed** — those truth BAMs no longer exist and
+rebuilding them needs minimap2 (absent) plus realignment of 10.7 GB of reads
+against both HG002 haplotypes. HipHap (github.com/jheinz27/hiphap, the renamed
+diplinator) builds from source with the local cargo.
+
+### Hypotheses tested and rejected
+
+- **pantree/reference-tree catalog** (docs/pantree_catalog_experiment.md). Adds
+  sites to the top of a funnel that already discards 96% of what it has, in
+  regions that fail for lack of heterozygosity. Not pursued.
+- **Graph het-indel anchor gating.** The hybrid gates graph het indels on allele
+  fraction (hybrid_inject.cpp) and the graph-only path did not — the obvious
+  explanation for hybrid's lead. Implemented and measured: hamming 0.005821 vs
+  0.005822, switches identical; gating *every* indel anchor made it slightly
+  worse. Indel anchors do not move read assignment where SNP anchors exist
+  (3,560 SNP vs 595 indel anchors per 2 Mb). Reverted. Note for any future
+  attempt: `classify_graph_candidates` (graph_bam_adapter.cpp) re-stamps every
+  category after `build_graph_chunk`, so it is the only place a type-aware
+  anchor policy survives.
+
+### New diagnostics (both default off, output byte-identical when unused)
+
+- `--min-read-margin INT` — the gate. 0 reproduces prior behavior exactly.
+- `--filtered-sites-out FILE` — why catalog sites never became candidates
+  (`ref_only` / `high_af` / `low_af` / `low_depth`, with depth and AF per site).
+  These reasons were computed but only counted; this is what showed the ROH.
+- `--phase-reads-out FILE` — per-read observations and clean-SNP agree/conflict.
+  This is what located the marginal-read population.
+
+### Evaluation toolchain is now pinned
+
+Every accuracy number above depends on HapQ, which is computed by HipHap
+(formerly `diplinator`) and gates read inclusion via `--min-hapq`. An unpinned
+HipHap would silently make old and new evals incomparable, so it is a submodule:
+
+- `third_party/hiphap` @ `b9a065c0f36e` — build with `make hiphap` (optional
+  target, never part of `all`; nothing in pgphase links against it).
+- `third_party/hiphap-Cargo.lock` — upstream ships no lockfile, and a fresh
+  resolve picks `hts-sys` 2.2.1, which renames `bam1_core_t::isize` and flips
+  `size_t`->`usize`, failing to compile against `rust-htslib` 0.46. The vendored
+  lock pins `hts-sys` 2.1.4 and is copied into the submodule before each build.
+  Without it `make hiphap` fails from a clean clone.
+- `third_party/minimap2` @ `v2.31` — the aligner decides which haplotype each
+  read is assigned to, so it is pinned for the same reason HapQ is. `make
+  eval-tools` builds both.
+- `envs/truth.yaml` — optional conda route; only samtools is genuinely needed
+  once the submodules are built.
+- `scripts/test_end_to_end.sh` — reads -> minimap2 -> hiphap -> truth BAM ->
+  pgphase -> accuracy, on the checked-in 500 kb chr20 fixture, in ~1 min.
+- `build_truth_bam.sh` / `evaluate_phase_accuracy.sh` take `--hiphap` and default
+  to the submodule build; `--diplinator` remains as a deprecated alias.
+
+Three things had to be fixed before the chain ran at all, each of which would
+have failed silently or blocked outright:
+
+1. **`-A` is now passed explicitly** (`--match-score`, default 2, matching the
+   `lr:hqae` preset which does not override minimap2's default `a=2`). HipHap's
+   auto-estimator samples reads at `rng.gen_bool(0.0001)` and needs 10 hits, so
+   it fails outright on small inputs *and* puts an RNG in the truth path --
+   HapQ, and every number derived from it, would not be reproducible run to run.
+2. **`paftools.js` was removed from the requirements check.** Both scripts
+   demanded it; neither ever invoked it. It blocked the pipeline for nothing.
+3. **`hts-sys` had to be pinned** (see above), or hiphap does not compile.
+
+The rename also changed behavior: **merged output is now the default**, and `-p`
+is required for the two per-haplotype files this pipeline needs. The scripts now
+pass `-p -o hiphap`, producing `hiphap_mat.sam` / `hiphap_pat.sam` (legacy
+`diplinator_*.sam` names are still accepted so existing output dirs resolve).
+
+### Before making margin 2 the default
+
+Validated on one chromosome, one sample. Margin 3 is more accurate still (291
+discordant) but drops to 72% phased, below hybrid; 2 is the knee. Confirm
+accuracy on chr18/chr12/chr1 once HipHap + minimap2 are available.
