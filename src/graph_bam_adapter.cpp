@@ -5,6 +5,7 @@
 #include "noise_filter.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <numeric>
@@ -389,17 +390,20 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
         const GraphSite& site = catalog[site_i];
         const std::string sid = graph_site_key_str(site);
         if (!site.eligible) {
-            out.filtered_sites.push_back({sid, 0, 0, 0, 0.0, "precandidate_ineligible"});
+            out.filtered_sites.push_back({sid, site.ref_contig.empty() ? site.chrom : site.ref_contig,
+                                          site.pos, 0, 0, 0, 0.0, "precandidate_ineligible"});
             continue;
         }
         const bool released_walk_storage = graph_site_has_released_walk_storage(site);
         if (!released_walk_storage && !graph_site_is_queryable(site)) {
-            out.filtered_sites.push_back({sid, 0, 0, 0, 0.0, "precandidate_not_queryable"});
+            out.filtered_sites.push_back({sid, site.ref_contig.empty() ? site.chrom : site.ref_contig,
+                                          site.pos, 0, 0, 0, 0.0, "precandidate_not_queryable"});
             continue;
         }
         const int n_alleles = static_cast<int>(site.allele_walks.size());
         if (n_alleles < 2) {
-            out.filtered_sites.push_back({sid, 0, 0, 0, 0.0, "precandidate_monoallelic"});
+            out.filtered_sites.push_back({sid, site.ref_contig.empty() ? site.chrom : site.ref_contig,
+                                          site.pos, 0, 0, 0, 0.0, "precandidate_monoallelic"});
             continue;
         }
         site_to_candidate.emplace(sid, static_cast<int>(out.chunk.candidates.size()));
@@ -658,12 +662,18 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     for (size_t i = 0; i < n_cands; ++i) {
         const std::vector<int>& ac = allele_counts[i];
         if (ac.size() < 2) {
-            out.filtered_sites.push_back({out.site_ids[i], ac[0], 0, ac[0], 0.0, "ref_only"});
+            out.filtered_sites.push_back({out.site_ids[i], out.site_meta[i].chrom,
+                                          out.site_meta[i].pos, ac[0], 0, ac[0], 0.0,
+                                          "ref_only"});
             continue;
         }
         const std::vector<int>& fc = fwd_strand_counts[i];
         const std::vector<int>& rc_s = rev_strand_counts[i];
         const int ref_c = ac[0];
+        // Copied out for the filtered-site dump: the per-pair drop below runs
+        // before `meta` is bound, and site_meta[i] is stable for the whole loop.
+        const std::string& meta_chrom = out.site_meta[i].chrom;
+        const hts_pos_t meta_pos = out.site_meta[i].pos;
         for (size_t a = 1; a < ac.size(); ++a) {
             const int alt_c   = ac[a];
             const int total_c = ref_c + alt_c;
@@ -683,7 +693,8 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                 drop_reason = "low_af";
             }
             if (!drop_reason.empty()) {
-                out.filtered_sites.push_back({pair_id, ref_c, alt_c, total_c, af,
+                out.filtered_sites.push_back({pair_id, meta_chrom, meta_pos,
+                                              ref_c, alt_c, total_c, af,
                                               std::move(drop_reason)});
                 continue;
             }
@@ -745,6 +756,7 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                     pair_cand.key.ref_len = static_cast<int>(ref_len);
                 }
             }
+
 
             pair_cand.counts.alle_covs       = {ref_c, alt_c};
             pair_cand.counts.n_uniq_alles    = 2;
@@ -920,7 +932,8 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 
 void merge_graph_chunk_into_read_rows(
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
-    const GraphChunkBuildResult& gc) {
+    const GraphChunkBuildResult& gc,
+    int min_read_hap_margin) {
     const PhasingChunk& chunk = gc.chunk;
     for (const ReadVariantProfile& profile : chunk.read_var_profile) {
         const size_t read_i = static_cast<size_t>(profile.read_id);
@@ -928,7 +941,18 @@ void merge_graph_chunk_into_read_rows(
         PhaseReadOutputRow& row = rows_by_read[read.qname];
         if (row.read_name.empty()) row.read_name = read.qname;
 
-        const int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
+        int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
+        // Read-confidence gate.  init_assign_read_hap commits a read to a
+        // haplotype on any non-zero score, with no minimum evidence: a read
+        // agreeing with a single clean het SNP and contradicting none is
+        // assigned as confidently as one agreeing with thirty.  On HG002 chr20
+        // those one-SNP-margin reads are 11% of reads and 69% of all phasing
+        // errors, at an 18x elevated error rate.  Leaving them unphased is
+        // better than guessing.
+        if (min_read_hap_margin > 0 &&
+            read.n_clean_agree_snps - read.n_clean_conflict_snps < min_read_hap_margin) {
+            hap = 0;
+        }
         const hts_pos_t phase_set =
             read_i < chunk.phase_sets.size()
                 ? chunk.phase_sets[read_i]

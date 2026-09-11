@@ -790,6 +790,32 @@ void run_collect_graph_variation(const Options& opts) {
     //     Mirrors run_collect_bam_variation's batch loop exactly.
     size_t n_variants = 0;
     size_t n_filtered = 0;
+    // Diagnostic: why catalog sites never became candidates. Streamed alongside
+    // the batch loop so a whole-chromosome run does not buffer millions of rows.
+    std::unique_ptr<std::FILE, int (*)(std::FILE*)> filtered_out(nullptr, std::fclose);
+    if (!opts.output_filtered_sites.empty()) {
+        std::FILE* raw = std::fopen(opts.output_filtered_sites.c_str(), "w");
+        if (raw == nullptr)
+            throw std::runtime_error("failed to open filtered sites file: " +
+                                     opts.output_filtered_sites);
+        filtered_out.reset(raw);
+        std::fprintf(filtered_out.get(),
+                     "CHROM\tPOS\tSITE_ID\tREF_COV\tALT_COV\tTOTAL_COV\tAF\tREASON\n");
+    }
+    // Per-read phasing evidence, accumulated across chunks. Used to diagnose
+    // which reads get a haplotype on thin or contradictory evidence: a read is
+    // assigned by init_assign_read_hap with no minimum-observation or margin
+    // requirement, so a single informative site is enough to commit it.
+    struct PhaseReadDiag {
+        int hap = 0;
+        hts_pos_t phase_set = -1;
+        int n_obs = 0;
+        int agree = 0;
+        int conflict = 0;
+    };
+    std::unordered_map<std::string, PhaseReadDiag> phase_read_diag;
+    const bool emit_phase_reads = !opts.output_phase_reads.empty();
+
     size_t batch_begin = 0;
     while (batch_begin < chunks.size()) {
         size_t batch_end = batch_begin + 1;
@@ -810,8 +836,43 @@ void run_collect_graph_variation(const Options& opts) {
                       header.get(), qconfig, ref_sample, fai_full_to_suffix,
                       chrom_remap, opts, pgbam_sidecar.get());
 
-        for (const GraphChunkBuildResult& gc : graph_chunks)
+        if (emit_phase_reads) {
+            for (const GraphChunkBuildResult& gc : graph_chunks) {
+                const PhasingChunk& pc = gc.chunk;
+                for (const ReadVariantProfile& profile : pc.read_var_profile) {
+                    const size_t read_i = static_cast<size_t>(profile.read_id);
+                    if (read_i >= pc.reads.size()) continue;
+                    const ReadRecord& rr = pc.reads[read_i];
+                    PhaseReadDiag& d = phase_read_diag[rr.qname];
+                    int obs = 0;
+                    for (int allele : profile.alleles)
+                        if (allele >= 0) ++obs;
+                    d.n_obs += obs;
+                    d.agree += rr.n_clean_agree_snps;
+                    d.conflict += rr.n_clean_conflict_snps;
+                    const int hap = read_i < pc.haps.size() ? pc.haps[read_i] : 0;
+                    if (hap != 0) {
+                        d.hap = hap;
+                        d.phase_set = read_i < pc.phase_sets.size()
+                                          ? pc.phase_sets[read_i]
+                                          : static_cast<hts_pos_t>(-1);
+                    }
+                }
+            }
+        }
+
+        for (const GraphChunkBuildResult& gc : graph_chunks) {
             n_filtered += gc.filtered_sites.size();
+            if (filtered_out) {
+                for (const FilteredGraphSite& fs : gc.filtered_sites) {
+                    std::fprintf(filtered_out.get(), "%s\t%lld\t%s\t%d\t%d\t%d\t%.4f\t%s\n",
+                                 fs.chrom.c_str(), static_cast<long long>(fs.pos),
+                                 fs.site_id.c_str(), fs.ref_cov, fs.alt_cov,
+                                 fs.total_cov, fs.allele_fraction,
+                                 fs.filter_reason.c_str());
+                }
+            }
+        }
 
         CandidateTable variants =
             graph_chunks_to_candidate_table(graph_chunks, contig_to_tid, opts);
@@ -828,13 +889,28 @@ void run_collect_graph_variation(const Options& opts) {
         // flush everything after each batch.
         if (emit_phased_bam) {
             for (const GraphChunkBuildResult& gc : graph_chunks)
-                merge_graph_chunk_into_read_rows(phased_bam_rows, gc);
+                merge_graph_chunk_into_read_rows(phased_bam_rows, gc,
+                                                 opts.min_read_hap_margin);
             flush_graph_phase_bam_after_merge(
                 phased_bam_fp.get(), phased_bam_hdr.get(),
                 phased_bam_rows, nullptr, phased_bam_emitted);
         }
 
         batch_begin = batch_end;
+    }
+
+    if (emit_phase_reads) {
+        std::FILE* fp = std::fopen(opts.output_phase_reads.c_str(), "w");
+        if (fp == nullptr)
+            throw std::runtime_error("failed to open phase reads file: " +
+                                     opts.output_phase_reads);
+        std::fprintf(fp, "READ\tHAP\tPHASE_SET\tN_OBS\tCLEAN_AGREE\tCLEAN_CONFLICT\n");
+        for (const auto& [qname, d] : phase_read_diag) {
+            std::fprintf(fp, "%s\t%d\t%lld\t%d\t%d\t%d\n", qname.c_str(), d.hap,
+                         static_cast<long long>(d.phase_set), d.n_obs, d.agree, d.conflict);
+        }
+        std::fclose(fp);
+        std::cerr << "Wrote per-read phasing evidence to " << opts.output_phase_reads << "\n";
     }
 
     std::cerr << "Processed " << chunks.size() << " region chunks with " << opts.threads
@@ -867,6 +943,11 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
+        << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
+        << "      --graph-indel-af-margin F  Max |AF-0.5| for a het-indel k-means anchor [0.11]\n"
+        << "      --graph-indel-min-alt INT  Min alt support for a het-indel k-means anchor [0]\n"
+        << "      --min-read-margin INT     Min clean-SNP (agree-conflict) to phase a read [0=off]\n"
         << "  -t, --threads INT             Worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
@@ -945,6 +1026,11 @@ enum GraphCollectOption {
     kGcNoPgbamRelaxedCleanupPass,
     kGcPgbamRelaxedCleanupMargin,
     kGcPgbamRelaxedCleanupMinWinning,
+    kGcFilteredSitesOut,
+    kGcPhaseReadsOut,
+    kGcGraphIndelAfMargin,
+    kGcGraphIndelMinAlt,
+    kGcMinReadHapMargin,
 };
 
 } // namespace
@@ -968,6 +1054,11 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
+        {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
+        {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
+        {"graph-indel-af-margin", required_argument, nullptr, kGcGraphIndelAfMargin},
+        {"graph-indel-min-alt",   required_argument, nullptr, kGcGraphIndelMinAlt},
+        {"min-read-margin",   required_argument, nullptr, kGcMinReadHapMargin},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1011,6 +1102,17 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
+            case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
+            case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;
+            case kGcGraphIndelAfMargin:
+                opts.graph_indel_af_margin = parse_double_arg(optarg, "--graph-indel-af-margin");
+                break;
+            case kGcGraphIndelMinAlt:
+                opts.graph_indel_min_alt = parse_int_arg(optarg, "--graph-indel-min-alt");
+                break;
+            case kGcMinReadHapMargin:
+                opts.min_read_hap_margin = parse_int_arg(optarg, "--min-read-margin");
+                break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
             case 'D': opts.min_depth = parse_int_arg(optarg, "--min-depth"); break;

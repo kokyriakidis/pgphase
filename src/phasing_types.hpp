@@ -247,6 +247,12 @@ struct Options {
     std::string output_vcf;
     std::string output_phased_vcf;
     std::string output_phased_bam;
+    /** If non-empty, write a TSV of sites dropped during graph candidate collection. */
+    std::string output_filtered_sites;
+    /** If non-empty, write a per-read TSV of phasing evidence (observations, agree/conflict). */
+    std::string output_phase_reads;
+    /** Minimum (clean-SNP agree - conflict) margin to commit a read to a haplotype. 0 disables. */
+    int min_read_hap_margin = 0;
     // If non-empty, output phased SAM/BAM/CRAM with HP/PS tags.
     std::string output_aln;
     // Output alignment format selected by -S/-b/-C.

@@ -36,6 +36,8 @@ struct PhaseReadOutputRow {
 // Record for a site that was dropped during depth/AF filtering (Phase 1-2).
 struct FilteredGraphSite {
     std::string site_id;
+    std::string chrom;          // output contig, for the --filtered-sites-out dump
+    hts_pos_t pos = 0;          // VCF POS, so drops can be stratified by region
     int ref_cov = 0;
     int alt_cov = 0;
     int total_cov = 0;
@@ -104,7 +106,8 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 // Fold one stitched chunk's per-read hap/PS assignments into a running map.
 void merge_graph_chunk_into_read_rows(
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
-    const GraphChunkBuildResult& gc);
+    const GraphChunkBuildResult& gc,
+    int min_read_hap_margin = 0);
 
 // Write phased-BAM records for reads whose chunks are fully stitched.
 // Reads still needed by the next chunk (next_chunk_qnames) are held back;
