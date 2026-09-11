@@ -20,6 +20,7 @@
 #
 # Usage:
 #   ./scripts/test_end_to_end.sh [--asm /path/to/hg002v1.1.fasta] [--outdir DIR]
+#                                [--eval-data DIR]   # default $PGPHASE_EVAL_DATA
 #
 # Requires: samtools, and `make eval-tools` already run (or hiphap/minimap2 on PATH).
 
@@ -27,12 +28,18 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASM="${HG002_ASM:-/home/kokyriakidis/Downloads/hg002v1.1.fasta}"
+# Reusable eval artifacts live OUTSIDE the repo so re-cloning, updating or
+# git-cleaning pgphase cannot delete them.  A truth BAM costs 35-90 min to
+# rebuild and depends only on (reads, assembly, minimap2, hiphap) -- never on a
+# pgphase setting -- so it is cached here and shared by every run.
+EVAL_DATA="${PGPHASE_EVAL_DATA:-/home/kokyriakidis/Downloads/pgphase-eval-data}"
 OUTDIR=""
 THREADS=8
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --asm)     ASM="$2";     shift 2 ;;
+        --asm)       ASM="$2";       shift 2 ;;
+        --eval-data) EVAL_DATA="$2"; shift 2 ;;
         --outdir)  OUTDIR="$2";  shift 2 ;;
         --threads) THREADS="$2"; shift 2 ;;
         -h|--help) sed -n '2,25p' "${BASH_SOURCE[0]}"; exit 0 ;;
@@ -85,11 +92,21 @@ n_reads=$(( $(wc -l < "$WORK/reads.fq") / 4 ))
 
 echo
 echo "== 2/4 building truth BAM (minimap2 + hiphap) =="
-"$REPO/scripts/build_truth_bam.sh" \
-    --reads "$WORK/reads.fq" --mat-ref "$WORK/mat.fa" --pat-ref "$WORK/pat.fa" \
-    --outdir "$WORK/truth" --threads "$THREADS" > "$WORK/truth.log" 2>&1 || {
-        fail "build_truth_bam.sh failed; see $WORK/truth.log"; tail -5 "$WORK/truth.log"; exit 1; }
-TRUTH="$WORK/truth/diplinator_merged.bam"
+# Cached in the external store: the truth BAM is a function of the reads and the
+# assembly only, so it is reused across runs rather than rebuilt each time.
+TRUTH_DIR="$EVAL_DATA/truth/chr20_25M"
+TRUTH="$TRUTH_DIR/diplinator_merged.bam"
+if [[ -s "$TRUTH" ]]; then
+    ok "reusing cached truth BAM: $TRUTH"
+else
+    mkdir -p "$TRUTH_DIR"
+    "$REPO/scripts/build_truth_bam.sh" \
+        --reads "$WORK/reads.fq" --mat-ref "$WORK/mat.fa" --pat-ref "$WORK/pat.fa" \
+        --outdir "$TRUTH_DIR" --threads "$THREADS" > "$WORK/truth.log" 2>&1 || {
+            fail "build_truth_bam.sh failed; see $WORK/truth.log"; tail -5 "$WORK/truth.log"; exit 1; }
+    # Keep only the merged BAM; the per-haplotype SAMs are large and derivable.
+    rm -f "$TRUTH_DIR"/vs_*.sam "$TRUTH_DIR"/hiphap_*.sam "$TRUTH_DIR"/*_span_chrom.fastq
+fi
 [[ -s "$TRUTH" ]] && ok "truth BAM: $(samtools view -c "$TRUTH") reads" || fail "no truth BAM produced"
 # Both haplotype tags must be present, or the haplotype-of-origin stamping broke
 # -- which is exactly what a silent revert to hiphap's merged default would do.

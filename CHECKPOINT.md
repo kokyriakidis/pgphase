@@ -3914,6 +3914,13 @@ HipHap would silently make old and new evals incomparable, so it is a submodule:
   once the submodules are built.
 - `scripts/test_end_to_end.sh` — reads -> minimap2 -> hiphap -> truth BAM ->
   pgphase -> accuracy, on the checked-in 500 kb chr20 fixture, in ~1 min.
+- **Truth BAMs live outside the repo**, at `$PGPHASE_EVAL_DATA`
+  (default `~/Downloads/pgphase-eval-data/truth/<chrom>/`), so updating or
+  re-cloning pgphase cannot delete them. Each is one mapping of the reads
+  against the diploid assembly and depends only on (reads, assembly, minimap2,
+  hiphap) -- not on any pgphase setting -- so it is built once per chromosome
+  and reused by every pipeline, every margin and every later experiment.
+  Rebuilding costs 35 min (chr18) to ~90 min (chr1) and ~2 GB each.
 - `build_truth_bam.sh` / `evaluate_phase_accuracy.sh` take `--hiphap` and default
   to the submodule build; `--diplinator` remains as a deprecated alias.
 

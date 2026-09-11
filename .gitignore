@@ -114,3 +114,9 @@ src/gbz_ffi/Cargo.lock
 .DS_Store
 Thumbs.db
 test_phase_block_stitch
+
+# Truth BAMs built by scripts/build_truth_bam.sh (minimap2 + hiphap).  These are
+# reusable per-chromosome artifacts -- one mapping of the reads against the
+# diploid assembly, shared by every pipeline, margin and later experiment -- but
+# they are ~2 GB each, so they are kept on disk and never committed.
+/test_data/bam_eval_chr*/
