@@ -5,6 +5,8 @@ WFA2_ROOT ?= $(THIRD_PARTY)/WFA2-lib
 ABPOA_ROOT ?= $(THIRD_PARTY)/abPOA
 EDLIB_ROOT ?= $(THIRD_PARTY)/edlib/edlib
 GBZ_BASE_ROOT ?= $(THIRD_PARTY)/gbz-base
+HIPHAP_ROOT ?= $(THIRD_PARTY)/hiphap
+MINIMAP2_ROOT ?= $(THIRD_PARTY)/minimap2
 # Prefer the rustup-managed toolchain over any system-installed rustc/cargo.
 CARGO       ?= $(firstword $(wildcard $(HOME)/.cargo/bin/cargo) cargo)
 CARGO_RUSTC ?= $(firstword $(wildcard $(HOME)/.cargo/bin/rustc) rustc)
@@ -12,6 +14,8 @@ CARGO_RUSTC ?= $(firstword $(wildcard $(HOME)/.cargo/bin/rustc) rustc)
 GBZ_QUERY_BIN = $(GBZ_BASE_ROOT)/target/release/query
 GAF2DB_BIN    = $(GBZ_BASE_ROOT)/target/release/gaf2db
 GBZ2DB_BIN    = $(GBZ_BASE_ROOT)/target/release/gbz2db
+HIPHAP_BIN    = $(HIPHAP_ROOT)/target/release/hiphap
+MINIMAP2_BIN  = $(MINIMAP2_ROOT)/minimap2
 
 CXXFLAGS ?= -O3 -std=c++17 -Wall -Wextra -MMD -MP
 WFA_CPPFLAGS = -I$(WFA2_ROOT)
@@ -56,7 +60,7 @@ LDFLAGS ?= -lhts -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests third-party-libs gbz-base portable-bundle release release-strict
+.PHONY: all clean check unit-tests third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
@@ -91,6 +95,33 @@ src/align.o: src/align.cpp
 third-party-libs: $(WFA2_LIB) $(ABPOA_LIB)
 
 gbz-base: $(GBZ_QUERY_BIN) $(GAF2DB_BIN)
+
+# HipHap (formerly diplinator): builds the truth BAM used by
+# scripts/evaluate_phase_accuracy.sh.  Evaluation-only -- nothing in pgphase
+# links against it, so this is never part of `all`.  Pinned as a submodule
+# because HapQ feeds --min-hapq and therefore every recorded accuracy number;
+# an unpinned HipHap would silently make old and new evals incomparable.
+hiphap: $(HIPHAP_BIN)
+
+# Upstream ships no Cargo.lock, so a fresh `cargo build` resolves hts-sys 2.2.1,
+# which renames bam1_core_t::isize and flips size_t->usize and therefore fails to
+# compile against rust-htslib 0.46.  third_party/hiphap-Cargo.lock pins the
+# resolution that actually builds; it is installed into the submodule (which is
+# upstream's working tree and cannot carry it) before every build.
+# Everything scripts/build_truth_bam.sh needs beyond samtools.  Evaluation only.
+eval-tools: hiphap minimap2
+
+# minimap2, pinned to a release tag: the aligner version determines which
+# haplotype each read is assigned to, and therefore every recorded accuracy
+# number, exactly as HapQ does.
+minimap2: $(MINIMAP2_BIN)
+
+$(MINIMAP2_BIN):
+	$(MAKE) -C $(MINIMAP2_ROOT)
+
+$(HIPHAP_BIN): $(THIRD_PARTY)/hiphap-Cargo.lock
+	cp $(THIRD_PARTY)/hiphap-Cargo.lock $(HIPHAP_ROOT)/Cargo.lock
+	cd $(HIPHAP_ROOT) && RUSTC=$(CARGO_RUSTC) $(CARGO) build --release --locked
 
 $(GBZ_QUERY_BIN) $(GAF2DB_BIN) $(GBZ2DB_BIN):
 	cd $(GBZ_BASE_ROOT) && RUSTC=$(CARGO_RUSTC) $(CARGO) build --release --bin query --bin gaf2db --bin gbz2db

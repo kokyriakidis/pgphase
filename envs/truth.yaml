@@ -1,0 +1,18 @@
+# Optional conda route for the truth-BAM toolchain.
+#
+# Preferred route is to build the pinned submodules instead, so that the aligner
+# and HapQ implementations -- both of which determine which haplotype each read
+# is assigned to, and therefore every recorded accuracy number -- stay fixed:
+#
+#   make eval-tools        # builds third_party/minimap2 and third_party/hiphap
+#
+# This env only provides samtools, plus an unpinned minimap2 for anyone who
+# would rather not build it. hiphap has no conda package; use `make hiphap`.
+name: truth
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - samtools>=1.17
+  - minimap2>=2.26
+  - python=3.11

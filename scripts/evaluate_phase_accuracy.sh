@@ -9,7 +9,7 @@
 # best haplotype per read, avoiding the MAPQ penalty that a combined
 # diploid reference causes.
 #
-# Requirements: samtools >= 1.17, minimap2 >= 2.26, diplinator,
+# Requirements: samtools >= 1.17, minimap2 >= 2.26, hiphap (make hiphap),
 #               python3 (+ matplotlib optional)
 #
 # ── Step 0: Generate inputs (uncomment and adjust paths) ─────────────
@@ -67,8 +67,12 @@ OUTDIR=""
 MIN_MAPQ=0
 MIN_READS_PER_PS=5
 MIN_HAPQ=0
-MINIMAP2="minimap2"
-DIPLINATOR="diplinator"
+MINIMAP2="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../third_party/minimap2/minimap2"
+[[ -x "$MINIMAP2" ]] || MINIMAP2="minimap2"
+# HipHap (formerly diplinator).  Prefer the pinned submodule build.
+SCRIPT_DIR_EV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HIPHAP="$SCRIPT_DIR_EV/../third_party/hiphap/target/release/hiphap"
+[[ -x "$HIPHAP" ]] || HIPHAP="hiphap"
 SAMTOOLS="samtools"
 EXCLUDE_BED=""
 CENSAT_BED=""
@@ -100,7 +104,8 @@ Optional:
   --sites-vcf   FILE   Sites VCF from graph decomposition (to detect unphaseable blocks)
   --samtools    PATH    Path to samtools executable [samtools]
   --minimap2    PATH    Path to minimap2 executable [minimap2]
-  --diplinator  PATH    Path to diplinator executable [diplinator]
+  --hiphap      PATH    Path to hiphap [third_party/hiphap build, else PATH]
+  --diplinator  PATH    Deprecated alias for --hiphap
   -h, --help            Show this help
 EOF
     exit 1
@@ -131,7 +136,8 @@ while [[ $# -gt 0 ]]; do
         --sites-vcf)   SITES_VCF="$2";  shift 2 ;;
         --samtools)    SAMTOOLS="$2";   shift 2 ;;
         --minimap2)    MINIMAP2="$2";   shift 2 ;;
-        --diplinator)  DIPLINATOR="$2"; shift 2 ;;
+        --hiphap)      HIPHAP="$2"; shift 2 ;;
+        --diplinator)  HIPHAP="$2"; shift 2 ;;  # deprecated alias
         --outdir)      OUTDIR="$2";     shift 2 ;;
         -h|--help)     usage ;;
         *)             echo "Unknown option: $1" >&2; usage ;;
@@ -156,7 +162,7 @@ else
     for f in "$READS" "$MAT_REF" "$PAT_REF"; do
         [[ -f "$f" ]] || { echo "Error: file not found: $f" >&2; exit 1; }
     done
-    for cmd in "$SAMTOOLS" "$MINIMAP2" "$DIPLINATOR" python3 paftools.js; do
+    for cmd in "$SAMTOOLS" "$MINIMAP2" "$HIPHAP" python3; do
         if [[ "$cmd" == */* ]]; then
             [[ -x "$cmd" ]] || { echo "Error: $cmd not found or not executable" >&2; exit 1; }
         else
@@ -183,7 +189,7 @@ else
             --threads "$THREADS" \
             --samtools "$SAMTOOLS" \
             --minimap2 "$MINIMAP2" \
-            --diplinator "$DIPLINATOR"
+            --hiphap "$HIPHAP"
     else
         echo "Truth BAM exists: $MERGED_BAM"
     fi

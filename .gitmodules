@@ -13,3 +13,10 @@
 [submodule "third_party/pggaf"]
 	path = third_party/pggaf
 	url = https://github.com/kokyriakidis/pggaf.git
+[submodule "third_party/hiphap"]
+	path = third_party/hiphap
+	url = https://github.com/jheinz27/hiphap.git
+	ignore = untracked
+[submodule "third_party/minimap2"]
+	path = third_party/minimap2
+	url = https://github.com/lh3/minimap2.git

@@ -27,6 +27,12 @@ make third-party-libs
 # Build the gbz-base Rust tools (query, gaf2db, gbz2db) — optional
 # make gbz-base
 
+# Build the evaluation toolchain (phase accuracy only; not needed to run pgphase)
+# make eval-tools      # third_party/minimap2 (v2.31) + third_party/hiphap
+
+# Verify the whole evaluation chain end to end (~1 min)
+# ./scripts/test_end_to_end.sh --asm /path/to/hg002v1.1.fasta
+
 # Build pgphase
 make -j$(nproc)
 ```
