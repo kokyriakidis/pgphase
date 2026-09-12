@@ -4095,3 +4095,77 @@ min_af/max_af already bound AF to [0.20, 0.80], but comparing |AF - 0.5| against
 0.30 rejects AF exactly 0.20 on floating-point rounding, which silently changed
 4 reads.
 
+---
+
+## Where the BAM pipeline still beats the graph, and why
+
+Measured on chr18 and chr20 with the two gates on (`--min-read-margin 2
+--anchor-af-margin 0.12`), comparing per-read against the same truth BAM.
+
+### Accuracy: the graph wins, decisively
+
+| | graph wrong / BAM right | BAM wrong / graph right | ratio |
+|---|---|---|---|
+| chr20 | 40 | 1,516 | graph 37.9:1 |
+| chr18 | 283 | 636 | graph 2.2:1 |
+
+Of chr18's 283 losses, 56% sit at chr18:47-48 Mb, a **haplotype-asymmetric**
+segdup: 15.9% segdup coverage on PATERNAL against 0.8% on MATERNAL. Its anchors
+are only mildly off-centre (14.1% outside AF 0.35-0.65 against 9.5%
+chromosome-wide), below what `--anchor-af-margin 0.12` removes.
+
+### Coverage: BAM phases ~20% more reads
+
+BAM phases 57,680 chr18 reads (40,065 on chr20) the graph declines, at **7.4%**
+error against its own ~1.8% average. Of those chr18 reads: 100% are in the GAF,
+86.5% are seen by the graph pipeline but carry a median of **2 observations and
+margin 1**, and 98% are dropped by `--min-read-margin 2`. Those windows have
+0.07-0.21 het candidates/kb against 1.28 in a well-phased control -- roughly 10x
+less heterozygosity -- with the same filter-reason mix (96.3% `ref_only` at
+median depth 72 vs 94.7%). Most of that coverage is not recoverable by anyone;
+BAM buys it by phasing on two anchors and being wrong 7.4% of the time.
+
+### `--min-mapq` is the strongest single filter
+
+| `-q` | candidates | reads | discordant | hamming | switch | flip |
+|---|---|---|---|---|---|---|
+| 0 | 82,679 | 231,956 | 1,392 | 0.006001 | 184 | 278 |
+| 10 | 82,481 | 230,084 | 712 | 0.003095 | 100 | 145 |
+| **30 (default)** | 82,069 | 224,746 | **388** | **0.001726** | 52 | 79 |
+| 60 | 80,721 | 209,770 | 256 | 0.001220 | 20 | 53 |
+
+Removing it costs 3.6x more discordant reads for 3.1% more reads. It is not
+redundant with the two gates: it acts on *placement* (a read that placed
+ambiguously across graph paths) rather than on evidence. `-q 60` is a further
+coverage/accuracy dial, same shape as `--min-read-margin`.
+
+## OPEN: ~57,600 chr18 sites dropped `ref_only` that BAM calls het
+
+Scale is established, mechanism is **not**. Chromosome-wide the BAM pipeline
+calls 101,244 het candidates against the graph's 82,069. Of the 32,411 het sites
+BAM calls and the graph does not, 42% (13,645) are present in the graph catalog
+-- so they are reachable without any BAM. Every one of those the graph evaluated
+was dropped `ref_only`.
+
+Ruled out by measurement, each:
+
+- **Nested-snarl parent gating** -- all sampled sites are LV=0 with no PS/PA.
+- **MAPQ** -- alt- and ref-carrying reads both median 60, ~1% below the threshold.
+- **`min_alt_depth` scattering across multiallelic STR alleles** -- dropping it to
+  1 recovers 59 candidates of ~57,600 and changes accuracy not at all.
+- **Chunking** -- a lost site stays `ref_only` when run alone, in a 100 kb window,
+  and in a 500 kb window.
+- **Walk fragmentation** -- where alt-walk reads exist, 100% contain the allele
+  walk contiguously.
+
+Note `ref_only` is a misleading label: `graph_bam_adapter.cpp` always keeps the
+ref walk at index 0 and appends only alts clearing `min_alt_depth`, so the
+reason fires when *no alt allele cleared the threshold*, not when only the
+reference was seen.
+
+Caveat on the remaining evidence: the read-side checks above matched allele
+walks by forward-orientation substring, while the pipeline also matches reverse
+complement. At least one site showed the ALT walk in 15 forward reads and the
+REF walk in 0, yet the pipeline counted 58 on ref -- consistent with most reads
+matching reverse. Any further work here should compare orientation-aware.
+
