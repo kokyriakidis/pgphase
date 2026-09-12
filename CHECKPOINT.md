@@ -4044,3 +4044,54 @@ form -- so that step silently produces a header-only FASTA. Use:
 
     samtools faidx "$P/chm13v2.0.fa" "${CHR}" | sed "1s/^>.*/>${CHR}/" > ...
 
+---
+
+## Fix: gate k-means anchors on allele fraction (`--anchor-af-margin`)
+
+The collapse described above is detectable at the site level. Where the graph
+merges two paralogous loci, a site that is het on one copy and hom on the other
+lands near AF 0.25 or 0.75 -- comfortably inside the 0.20/0.80 depth filters --
+and then votes as if it were a haplotype marker. Measured on chr20:
+
+| region | candidates | AF median | AF in 0.40-0.60 | AF outside 0.35-0.65 |
+|---|---|---|---|---|
+| bad block 65.99-66.21 Mb | 425 | 0.536 | **49.6%** | **32.9%** |
+| control 58.79-59.79 Mb | 1,246 | 0.484 | 83.3% | 7.0% |
+| whole chr20 | 73,627 | 0.500 | 77.7% | 11.8% |
+
+`--anchor-af-margin F` requires |AF - 0.5| <= F for a site to vote in k-means.
+It applies to every site, not just indels (which already had
+`--graph-indel-af-margin`). As with the indel gate, only `lcd_var_i_to_cate`
+changes: the site is still emitted as a call, it just stops voting.
+
+### Results (both at `--min-read-margin 2`)
+
+| chrom | anchor-af | reads | discordant | hamming | switch | flip | perfect PS |
+|---|---|---|---|---|---|---|---|
+| chr20 | 0.5 (off) | 178,205 | 350 | 0.001964 | 68 | 113 | 82.5% |
+| chr20 | **0.12** | 175,173 | **237** | **0.001353** | 59 | 75 | 87.4% |
+| chr20 | 0.08 | 166,032 | 188 | 0.001132 | 48 | 67 | 89.8% |
+| chr18 | 0.5 (off) | 228,265 | 1,207 | 0.005288 | 89 | 105 | 83.1% |
+| chr18 | **0.12** | 224,746 | **388** | **0.001726** | 52 | 79 | 86.0% |
+| chr18 | 0.10 | 221,959 | 392 | 0.001766 | 49 | 77 | 87.8% |
+
+0.12 is the knee: 1.48x fewer discordant reads on chr20 and **3.11x** on chr18,
+for 1.5-1.7% of reads and no N50 cost. Tightening further keeps helping chr20
+but costs reads disproportionately (0.08 gives up 6.8%), and chr18 is flat
+between 0.12 and 0.10.
+
+### Standing against the other pipelines
+
+    chr20  graph (margin 2, af 0.12)  175,173 reads    237 disc  hamming 0.001353
+           hybrid                     210,905 reads  1,114 disc  hamming 0.005282
+    chr18  graph (margin 2, af 0.12)  224,746 reads    388 disc  hamming 0.001726
+           BAM                        281,816 reads  4,953 disc  hamming 0.017575
+
+3.9x hamming over hybrid on chr20, 10.2x over BAM on chr18.
+
+Default is 0.5, i.e. off, and reproduces prior output exactly (chr18: 1,207
+discordant / 0.005288 either way). Note the default is 0.5 rather than 0.30:
+min_af/max_af already bound AF to [0.20, 0.80], but comparing |AF - 0.5| against
+0.30 rejects AF exactly 0.20 on floating-point rounding, which silently changed
+4 reads.
+

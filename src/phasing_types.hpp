@@ -188,6 +188,10 @@ struct Options {
     int stitch_rule = kDefaultStitchRule;
     // Graph-only het-indel anchor gates (hybrid pipeline).  See constants above.
     double graph_indel_af_margin = kDefaultGraphIndelAfMargin;
+    /** Max |AF-0.5| for ANY graph site to vote in k-means.  Default 0.5 is
+        off: min_af/max_af already bound AF to [0.20, 0.80], and comparing
+        against 0.30 would reject AF exactly 0.20 on floating-point rounding. */
+    double anchor_af_margin = 0.5;
     int graph_indel_min_alt = kDefaultGraphIndelMinAlt;
     // When true, keep step-4 noisy-region MSA variant recall (so noisy variants
     // still appear in the output VCF) but skip the kCandGermlineVarCate k-means

@@ -275,10 +275,31 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
         }
 
         // Surviving het — type-aware classification.
+        //
+        // Allele fraction gates k-means participation for every site, not just
+        // indels.  Where the graph collapses two paralogous loci into one, reads
+        // from both pile up together: a site that is het on one copy and hom on
+        // the other lands near AF 0.25 or 0.75, which clears the 0.20/0.80
+        // depth filters and then votes as if it were a haplotype marker.  The
+        // pipeline consequently separates paralogs rather than haplotypes, and
+        // does so *confidently* -- on HG002 chr20:65.99-66.21 Mb the discordant
+        // reads carry a higher evidence margin (24) than the concordant ones
+        // (16).  In that window 32.9% of anchors sit outside AF 0.35-0.65
+        // against 11.8% chromosome-wide.
+        //
+        // Only lcd_var_i_to_cate changes: the site is still emitted as a call,
+        // it just stops voting.
+        const bool af_centred =
+            std::abs(c.allele_fraction - 0.5) <= opts.anchor_af_margin;
         if (cand.key.type == VariantType::Snp) {
             c.category = VariantCategory::CleanHetSnp;
             c.candvarcate_initial = VariantCategory::CleanHetSnp;
-            cand.lcd_var_i_to_cate = kCandCleanHetSnp;
+            cand.lcd_var_i_to_cate =
+                af_centred ? kCandCleanHetSnp : kLongcalldLowAfVar;
+        } else if (!af_centred) {
+            c.category = VariantCategory::CleanHetIndel;
+            c.candvarcate_initial = VariantCategory::CleanHetIndel;
+            cand.lcd_var_i_to_cate = kLongcalldLowAfVar;
         } else {
             c.category = VariantCategory::CleanHetIndel;
             c.candvarcate_initial = VariantCategory::CleanHetIndel;

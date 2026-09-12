@@ -950,6 +950,7 @@ static void print_graph_collect_help() {
         << "      --min-read-margin INT     Min clean-SNP (agree-conflict) to phase a read [0=off]\n"
         << "      --stitch-min-margin INT   Abstain on chunk seams below this vote margin [0]\n"
         << "      --stitch-rule INT         0=net-margin 1=both-strands 2=literal 3=both+margin [0]\n"
+        << "      --anchor-af-margin F      Max |AF-0.5| for a site to vote in k-means [0.5=off]\n"
         << "  -t, --threads INT             Worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
@@ -1035,6 +1036,7 @@ enum GraphCollectOption {
     kGcMinReadHapMargin,
     kGcStitchMinMargin,
     kGcStitchRule,
+    kGcAnchorAfMargin,
 };
 
 } // namespace
@@ -1065,6 +1067,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"min-read-margin",   required_argument, nullptr, kGcMinReadHapMargin},
         {"stitch-min-margin", required_argument, nullptr, kGcStitchMinMargin},
         {"stitch-rule",       required_argument, nullptr, kGcStitchRule},
+        {"anchor-af-margin",  required_argument, nullptr, kGcAnchorAfMargin},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1124,6 +1127,9 @@ int collect_graph_variation(int argc, char* argv[]) {
                 break;
             case kGcStitchRule:
                 opts.stitch_rule = parse_int_arg(optarg, "--stitch-rule");
+                break;
+            case kGcAnchorAfMargin:
+                opts.anchor_af_margin = parse_double_arg(optarg, "--anchor-af-margin");
                 break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
