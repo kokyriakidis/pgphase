@@ -4376,3 +4376,63 @@ is a window-quality prediction problem, not a filtering-policy problem.
 Until then the per-read margin is the honest dial, and the trade is real: margin
 1 for ~95% of hybrid's coverage, margin 2 for 4.7-13.2x its accuracy.
 
+---
+
+## Where the unphased reads go, and whether any are recoverable
+
+Full funnel for chr18, `--min-read-margin 0 --anchor-af-margin 0.12 -q 30`,
+over the 346,878 reads in the coordinate-indexed GAF:
+
+| bucket | reads | share | |
+|---|---|---|---|
+| MAPQ < 30 | 29,068 | 8.4% | filtered before matching |
+| pass MAPQ, zero site observations | 22,423 | 6.5% | |
+| observed but unassignable (hap 0) | 35,443 | 10.2% | median 2 observations |
+| phased | 259,944 | 74.9% | of which ~34,000 more drop at margin 2 |
+
+### None of the three loss buckets is recoverable
+
+**MAPQ (8.4%) -- tested, no.** Lowering `-q` and compensating with a higher
+read margin never wins; every combination keeps *fewer* reads than
+`-q 30 / margin 2` and most add errors:
+
+| -q / margin | reads | discordant | vs q30/m2 |
+|---|---|---|---|
+| 0 / 3 | 213,277 | 1,110 | -11,469 reads, +722 disc |
+| 10 / 4 | 198,978 | 420 | -25,768 reads, +32 disc |
+| 20 / 4 | 198,010 | 250 | -26,736 reads, -138 disc |
+
+A low graph MAPQ means ambiguous placement, and a read placed on the wrong path
+can agree *strongly* with the wrong haplotype -- high margin, wrong answer. The
+margin cannot discriminate against that, which is the paralog failure mode again.
+
+**Zero-observation reads (6.5%) -- heterozygosity, not catalog.** Their spans
+carry a median of **176 catalog sites** but **0 surviving candidates**, and 93%
+have no het candidate at all. The catalog is there; the sample is homozygous
+across it.
+
+**hap-0 reads (10.2%) -- unphasable by anyone.** Comparing median het density
+per read span between the graph and the BAM pipeline:
+
+| read group | reads | graph cands/read | BAM hets/read | BAM's gain |
+|---|---|---|---|---|
+| never observed (MAPQ ok) | 22,423 | 0 | 1 | +1 |
+| observed but hap 0 | 35,443 | 2 | **2** | **0** |
+| phased | 259,944 | 17 | 18 | +1 |
+
+For the hap-0 reads the BAM pipeline has **exactly the same** het density the
+graph does -- two per read. There is no hidden evidence for a better method to
+find. Two het sites is not enough to assign a read, and hybrid's apparent
+coverage advantage over these reads is it committing anyway: those are the reads
+it phases at 7.4% error against its own 1.8% average.
+
+### What would actually fix it
+
+Not an algorithm. The binding constraint is het sites per read, so the levers are
+longer reads (a read spanning 10 hets is phasable where one spanning 2 is not) or
+a more heterozygous sample -- not a better model over this data. The one
+algorithmic lever left is calling novel variants from the GAF's `cs` tags rather
+than only genotyping catalog sites, which would help the 22,423 zero-observation
+reads (BAM finds ~1 het/read there that the catalog lacks) but not the 35,443
+hap-0 reads, where there is nothing extra to find.
+
