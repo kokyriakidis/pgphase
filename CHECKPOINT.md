@@ -3941,8 +3941,35 @@ is required for the two per-haplotype files this pipeline needs. The scripts now
 pass `-p -o hiphap`, producing `hiphap_mat.sam` / `hiphap_pat.sam` (legacy
 `diplinator_*.sam` names are still accepted so existing output dirs resolve).
 
+### Multi-chromosome confirmation
+
+Truth BAMs were rebuilt with the pinned toolchain and the gate re-measured.
+The knee sits at margin 2 on every chromosome tested:
+
+| chrom | margin | reads | discordant | hamming | switch | flip | perfect PS |
+|---|---|---|---|---|---|---|---|
+| chr18 | 0 | 263,026 | 2,497 | 0.009493 | 335 | 802 | 42.7% |
+| chr18 | **2** | 228,264 | **1,207** | **0.005288** | **89** | **107** | 83.1% |
+| chr18 | 3 | 210,499 | 927 | 0.004404 | 44 | 37 | 91.0% |
+| chr12 | 0 | 471,180 | 4,280 | 0.009084 | 471 | 1,406 | 42.9% |
+| chr12 | **2** | 417,496 | **2,003** | **0.004798** | **78** | **160** | 83.7% |
+| chr12 | 3 | 384,764 | 1,597 | 0.004151 | 48 | 51 | 93.9% |
+
+Margin 2 vs margin 0: chr18 1.8x hamming / 3.8x switch / 7.5x flip keeping 86.8%
+of reads; chr12 1.9x / 6.0x / 8.8x keeping 88.6%; chr20 3.0x / 3.7x / 5.5x
+keeping ~88%. Perfect phase sets roughly double on both new chromosomes
+(43% -> 83%). Margin 3 keeps improving accuracy but costs a further 8% of reads,
+matching chr20 where it fell below hybrid's coverage.
+
+chr1 is still building at the time of writing -- its satellite regions are very
+slow under the `lr:hqae` preset (one 31k-read batch took 16 min against 14 s
+elsewhere), so a full chr1 truth BAM is a ~3 h job rather than the ~35-50 min the
+other autosomes take.
+
 ### Before making margin 2 the default
 
-Validated on one chromosome, one sample. Margin 3 is more accurate still (291
-discordant) but drops to 72% phased, below hybrid; 2 is the knee. Confirm
-accuracy on chr18/chr12/chr1 once HipHap + minimap2 are available.
+Three chromosomes agree on the knee and a fourth is in progress. The remaining
+judgement call is the coverage/accuracy trade: margin 2 gives up 11-13% of
+phased reads everywhere. That is the right trade against hybrid, which phases
+fewer reads at worse accuracy, but it is a real loss against margin 0 if
+downstream consumers care more about yield than switch rate.
