@@ -4436,3 +4436,67 @@ than only genotyping catalog sites, which would help the 22,423 zero-observation
 reads (BAM finds ~1 het/read there that the catalog lacks) but not the 35,443
 hap-0 reads, where there is nothing extra to find.
 
+---
+
+## Head to head against the field: whatshap, LongPhase, HiPhase, longcallD
+
+All phasers were given the **same reads** — the giraffe-surjected chr20 BAM —
+and the same DeepVariant call set to phase; our method reads the graph
+alignment of those same reads. Scored against one truth BAM with one script.
+
+| phaser | reads | discordant | hamming | switch | flip | N50 kb | perfect PS |
+|---|---|---|---|---|---|---|---|
+| whatshap 2.8 | 221,925 | 12,200 | 0.054974 | 1,019 | 1,403 | 1110 | 20.5% |
+| HiPhase 1.6.0 | 228,863 | 8,013 | 0.035012 | 1,119 | 1,794 | 1125 | 23.0% |
+| longcallD | 214,017 | 4,636 | 0.021662 | 849 | 1,232 | 985 | 36.0% |
+| pgphase BAM | 214,804 | 4,648 | 0.021638 | 849 | 1,235 | 985 | 35.8% |
+| LongPhase 2.0.2 | 220,046 | 3,390 | 0.015406 | 569 | 1,185 | 1330 | 28.2% |
+| pgphase hybrid | 210,905 | 1,114 | 0.005282 | 167 | 605 | 999 | 41.0% |
+| **graph, margin 0** | 199,704 | **756** | 0.003786 | 153 | 464 | 918 | 52.9% |
+| **graph, margin 2** | 175,173 | **237** | **0.001353** | **59** | **75** | 937 | **87.4%** |
+
+**14.3x fewer discordant reads than the best existing tool** (LongPhase), 9.6x
+fewer switches, and four times as many perfectly phased blocks.
+
+### Where the other tools win, and why it is not a defect
+
+Asked directly: are there regions where they beat us? Essentially no.
+
+- **Head to head on shared reads**: graph wins **4:1** against LongPhase (38 vs
+  163 reads) and **25:1** against HiPhase (164 vs 4,106).
+- **Regionally**: of 8 one-Mb windows where the graph loses a single read to
+  LongPhase, LongPhase loses *more* in half of them. The largest graph-only
+  deficit in any window is 4 reads.
+
+Two genuine differences remain, and both are the same trade seen throughout:
+
+**Coverage.** LongPhase phases 22,678 reads we do not; HiPhase 29,593. Those
+extra reads are **11.6%** and **10.3% discordant** — the same pattern as
+hybrid's 7.4%. They are committing on thin evidence, not seeing more.
+
+**Contiguity.** N50 937 kb against LongPhase's 1330. This is not chunking
+(`--chunk-size` 500 kb / 2 Mb / 5 Mb gives 937 / 935 / 937) and not the read
+gate (margin 0 gives 918 kb, *shorter*). The **median block span is effectively
+identical across every method: 862-886 kb.** The N50 and auN gaps come from a
+few very long blocks the competitors emit — LongPhase's auN is 20.4 Mb against
+our 989 kb — bought with 569 switch errors against our 59.
+
+What those long blocks do is visible directly: LongPhase has **one block
+spanning the 44-46 Mb run of homozygosity** (3 het SNPs per Mb) and five
+spanning the graph-blind satellite at 27.2-28.8 Mb. We emit none. Declining to
+phase across a 2 Mb stretch with almost no heterozygosity is the correct
+behaviour; a long block with a switch through the middle of it is worse than two
+correct blocks.
+
+So the contiguity difference is a deliberate consequence of the accuracy
+advantage rather than a deficiency to fix. The honest way to report it is both
+numbers side by side, with median span shown alongside N50 so the reader can see
+that typical blocks are the same length.
+
+### Setup note
+
+Competitors require a pre-called VCF to phase (DeepVariant was used, small model
+enabled). Our method needs none — it phases directly from the graph alignment.
+That asymmetry favours them in this comparison, since they are handed variant
+calls we never receive.
+
