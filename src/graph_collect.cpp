@@ -951,6 +951,8 @@ static void print_graph_collect_help() {
         << "      --stitch-min-margin INT   Abstain on chunk seams below this vote margin [0]\n"
         << "      --stitch-rule INT         0=net-margin 1=both-strands 2=literal 3=both+margin [0]\n"
         << "      --anchor-af-margin F      Max |AF-0.5| for a site to vote in k-means [0.5=off]\n"
+        << "      --af-vs-site-depth        Score allele fraction against total site depth,\n"
+        << "                                recovering hets between two non-reference alleles\n"
         << "  -t, --threads INT             Worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
@@ -1037,6 +1039,7 @@ enum GraphCollectOption {
     kGcStitchMinMargin,
     kGcStitchRule,
     kGcAnchorAfMargin,
+    kGcAfVsSiteDepth,
 };
 
 } // namespace
@@ -1068,6 +1071,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"stitch-min-margin", required_argument, nullptr, kGcStitchMinMargin},
         {"stitch-rule",       required_argument, nullptr, kGcStitchRule},
         {"anchor-af-margin",  required_argument, nullptr, kGcAnchorAfMargin},
+        {"af-vs-site-depth",  no_argument,       nullptr, kGcAfVsSiteDepth},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1131,6 +1135,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcAnchorAfMargin:
                 opts.anchor_af_margin = parse_double_arg(optarg, "--anchor-af-margin");
                 break;
+            case kGcAfVsSiteDepth: opts.af_vs_site_depth = true; break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
             case 'D': opts.min_depth = parse_int_arg(optarg, "--min-depth"); break;

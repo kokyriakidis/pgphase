@@ -2,6 +2,8 @@
 #include "gbz_ffi.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstdio>
 #include <array>
 #include <cstring>
 #include <limits>
@@ -425,10 +427,30 @@ size_t scan_gaf_line_compact(std::string_view line,
 
     size_t emitted = 0;
     const std::string read_name(fields.read_name);
+    // Orientation-aware matching trace for one site, enabled by
+    // PGPHASE_DEBUG_SITE=<pos>.  Reports, per read, whether each boundary handle
+    // was found in forward and in reverse-complement orientation and what the
+    // span match returned -- the questions an outside-the-binary substring test
+    // cannot answer because it is blind to reverse-complement traversal.
+    static const char* dbg_env = getenv("PGPHASE_DEBUG_SITE");
+    static const long dbg_pos = dbg_env ? atol(dbg_env) : -1;
     for (size_t compact_site_index : candidates) {
         const CompactGraphSite& site = compact_index.sites[compact_site_index];
         bool rev = false;
         const int allele = match_compact_site_on_read(read_walk, boundary_positions, site, &rev);
+        if (dbg_pos >= 0 && static_cast<long>(site.pos) == dbg_pos) {
+            auto count = [&](CompactHandle h) {
+                auto [b, e] = boundary_positions.find(h);
+                return b ? static_cast<int>(e - b) : 0;
+            };
+            std::fprintf(stderr,
+                "[site %ld] read=%.40s mapq=%d L=%d R=%d Lrev=%d Rrev=%d "
+                "n_alleles=%zu maxwalk=%zu -> allele=%d rev=%d\n",
+                static_cast<long>(site.pos), read_name.c_str(), fields.mapq,
+                count(site.left), count(site.right),
+                count(site.left_rev), count(site.right_rev),
+                site.alleles.n_alleles, site.max_walk_len, allele, rev ? 1 : 0);
+        }
         if (allele < 0) continue;
         emit(worker_id, GraphReadAllele{
             site.site_id,

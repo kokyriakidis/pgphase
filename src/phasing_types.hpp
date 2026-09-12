@@ -192,6 +192,10 @@ struct Options {
         off: min_af/max_af already bound AF to [0.20, 0.80], and comparing
         against 0.30 would reject AF exactly 0.20 on floating-point rounding. */
     double anchor_af_margin = 0.5;
+    /** Compute a graph site's allele fraction against total site depth rather
+        than against the ref+alt pair only.  Identical for biallelic sites;
+        differs only where a site has several observed alleles. */
+    bool af_vs_site_depth = false;
     int graph_indel_min_alt = kDefaultGraphIndelMinAlt;
     // When true, keep step-4 noisy-region MSA variant recall (so noisy variants
     // still appear in the output VCF) but skip the kCandGermlineVarCate k-means

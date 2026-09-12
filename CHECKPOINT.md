@@ -4139,7 +4139,7 @@ redundant with the two gates: it acts on *placement* (a read that placed
 ambiguously across graph paths) rather than on evidence. `-q 60` is a further
 coverage/accuracy dial, same shape as `--min-read-margin`.
 
-## OPEN: ~57,600 chr18 sites dropped `ref_only` that BAM calls het
+## RESOLVED (see next section): ~57,600 chr18 sites dropped `ref_only` that BAM calls het
 
 Scale is established, mechanism is **not**. Chromosome-wide the BAM pipeline
 calls 101,244 het candidates against the graph's 82,069. Of the 32,411 het sites
@@ -4168,4 +4168,56 @@ walks by forward-orientation substring, while the pipeline also matches reverse
 complement. At least one site showed the ALT walk in 15 forward reads and the
 REF walk in 0, yet the pipeline counted 58 on ref -- consistent with most reads
 matching reverse. Any further work here should compare orientation-aware.
+
+---
+
+## Resolved: the graph pipeline cannot see a het between two non-reference alleles
+
+An orientation-aware trace inside `match_compact_site_on_read`
+(`PGPHASE_DEBUG_SITE=<pos>`) settled this. At chr18:51004598, a 20-allele STR:
+
+    58 reads, 58 matched, 0 unmatched   (25 forward, 33 reverse complement)
+    allele 0 (the graph's reference walk):  0 reads
+    allele 1: 40   allele 8: 12   allele 5: 5   allele 2: 1
+
+Matching is not broken -- every read matched, and a third of them only via
+reverse complement, which is why the earlier forward-substring checks looked
+like lost observations. They were measurement error on my part, not a bug.
+
+The real limitation is the **allele-fraction denominator**. Each alt is scored
+`alt / (ref + alt)`, i.e. as though the site were biallelic against the graph's
+reference allele. Where no read carries that reference allele, every alt scores
+AF = 1.0 and the site is discarded as homozygous -- however the reads actually
+split between the alts. Above, a clear 40/12 split is thrown away.
+
+Scale on chr18: **34,698 sites** dropped `high_af` have `REF_COV = 0` (78.4% of
+all `high_af` drops), median alt depth **66**, and 33,853 of them have alt depth
+>= 10. That is the right order of magnitude for the 23% het-call gap against the
+BAM pipeline.
+
+### `--af-vs-site-depth` -- implemented, and off by default on purpose
+
+Scoring against total site depth instead makes the site above read 40/58 and
+12/58 rather than 1.0 and 1.0. For a biallelic site the two denominators are
+identical, so only multi-allele sites change.
+
+| af denominator | candidates | reads | discordant | hamming | switch | flip |
+|---|---|---|---|---|---|---|
+| ref+alt (default) | 82,069 | 224,746 | **388** | **0.001726** | 52 | 79 |
+| site depth | 85,928 | 225,160 | 456 | 0.002025 | 57 | 89 |
+
+It recovers 3,859 candidates (+4.7%) and 414 reads, and **degrades phasing**:
+388 -> 456 discordant. The recovered sites are alt-vs-alt hets at multiallelic
+tandem repeats, which are exactly the unreliable anchors the AF gate exists to
+remove. So it stays off for phasing.
+
+Its value, if any, is variant-calling completeness rather than phasing -- those
+are real het loci the pipeline currently cannot represent. That was not
+evaluated here: it needs a small-variant truth set, not a phasing truth BAM.
+
+### Note on the earlier `ref_only` framing
+
+`ref_only` fires when no alt cleared `min_alt_depth`, not when only the
+reference was observed, and `REF_COV = 0` on 53.3% of those rows. The label
+misled several steps of this investigation.
 

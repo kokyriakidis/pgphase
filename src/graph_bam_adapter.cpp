@@ -695,9 +695,21 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
         // before `meta` is bound, and site_meta[i] is stable for the whole loop.
         const std::string& meta_chrom = out.site_meta[i].chrom;
         const hts_pos_t meta_pos = out.site_meta[i].pos;
+        // Total depth across every observed allele at this site.  The default
+        // denominator, ref_c + alt_c, treats each alt as if the site were
+        // biallelic against the graph's reference allele.  Where no read carries
+        // that reference allele -- 34,698 sites on HG002 chr18, median alt depth
+        // 66 -- every alt then scores AF = 1.0 and the site is discarded as
+        // homozygous, however the reads actually split between the alts.  A het
+        // between two non-reference alleles is invisible to that model.
+        // Measuring against site depth makes such a site read as, say, 40/58 and
+        // 12/58 rather than 1.0 and 1.0.  For a biallelic site the two
+        // denominators are equal, so only multi-allele sites change.
+        int site_total = 0;
+        for (int c : ac) site_total += c;
         for (size_t a = 1; a < ac.size(); ++a) {
             const int alt_c   = ac[a];
-            const int total_c = ref_c + alt_c;
+            const int total_c = opts.af_vs_site_depth ? site_total : ref_c + alt_c;
             const double af   = total_c > 0 ? static_cast<double>(alt_c) / total_c : 0.0;
             const int orig_alt = allele_orig_idx[i][a];
 
