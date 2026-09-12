@@ -4221,3 +4221,52 @@ evaluated here: it needs a small-variant truth set, not a phasing truth BAM.
 reference was observed, and `REF_COV = 0` on 53.3% of those rows. The label
 misled several steps of this investigation.
 
+---
+
+## Graph vs hybrid, head to head on chr18
+
+A hybrid baseline was run on chr18 against the same truth BAM. With
+`--anchor-af-margin 0.12` the graph pipeline beats hybrid on accuracy at
+**every** operating point, and `--min-read-margin` is the coverage/accuracy dial:
+
+| config | reads | discordant | hamming | switch | flip | perfect PS |
+|---|---|---|---|---|---|---|
+| **hybrid** | 275,198 | 2,083 | 0.007569 | 367 | 819 | 39.6% |
+| graph margin 0 | 259,663 | 1,218 | 0.004691 | 198 | 660 | 47.6% |
+| graph margin 1 | 258,208 | 1,192 | 0.004616 | 189 | 645 | 48.2% |
+| graph margin 2 | 224,746 | 388 | 0.001726 | 52 | 79 | 86.0% |
+| graph margin 3 | 207,134 | 261 | 0.001260 | 35 | 22 | 93.1% |
+
+Margin 0 is the notable one: **94% of hybrid's reads at 1.7x fewer discordant
+reads**. Margin 2 gives 5.4x and margin 3 gives 8x, at 82% and 75% of hybrid's
+coverage. Note the margin knee moved once the AF gate existed -- margin 0 with
+the AF gate (1,218) is better than margin 0 without it (2,497), so the two gates
+are not independent and the operating point should be re-picked after any change
+to either.
+
+### Rejected: gating the consensus rather than the output
+
+`--min-read-margin` suppresses a thin read's HP tag at output time, but the read
+still shapes the k-means consensus that every other read is scored against.
+Gating the consensus instead looked like it should give cleaner profiles *and*
+full coverage.
+
+It does not work, in two distinct ways, and was reverted:
+
+1. **Gating during Phase 2 is circular.** Margins are only defined once a
+   consensus exists, so a cold start with the gate on never forms one: 0 reads
+   phased.
+2. **Gating as a post-convergence refinement is worse than useless.** Letting
+   Phase 2 converge, then rebuilding the profile from confident reads alone and
+   re-assigning everything, gives 80,741 discordant reads against a 1,218
+   baseline -- hamming 0.33, essentially random. Variants covered only by thin
+   reads end up with an empty profile and a degenerate consensus, and every read
+   is then scored against that.
+
+The k-means keeps coupled state across `hap_to_alle_profile`, `hap_to_cons_alle`
+and the phase sets, maintained jointly by `iter_update_var_hap_cons_phase_set`
+and `iter_update_var_hap_to_cons_alle`. A refinement pass that rebuilds one of
+them in isolation violates that invariant. Any future attempt needs to preserve
+all three together, and to leave variants with no confident coverage at their
+converged consensus rather than resetting them.
+
