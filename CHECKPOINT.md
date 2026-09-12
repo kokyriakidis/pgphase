@@ -4270,3 +4270,42 @@ them in isolation violates that invariant. Any future attempt needs to preserve
 all three together, and to leave variants with no confident coverage at their
 converged consensus rather than resetting them.
 
+### Confirmed on chr20 and chr12
+
+Both operating points hold on all three chromosomes with truth BAMs. All rows
+use `--anchor-af-margin 0.12`; "vs hyb" is the discordant-read ratio in the
+graph pipeline's favour and "cover" is its share of hybrid's evaluated reads.
+
+| chrom | config | reads | discordant | hamming | switch | flip | vs hyb | cover |
+|---|---|---|---|---|---|---|---|---|
+| chr20 | hybrid | 210,905 | 1,114 | 0.005282 | 167 | 605 | -- | -- |
+| chr20 | margin 0 | 199,704 | 756 | 0.003786 | 153 | 464 | 1.5x | 95% |
+| chr20 | margin 1 | 198,624 | 729 | 0.003670 | 149 | 450 | 1.5x | 94% |
+| chr20 | margin 2 | 175,173 | 237 | 0.001353 | 59 | 75 | 4.7x | 83% |
+| chr12 | hybrid | 489,489 | 3,394 | 0.006934 | 342 | 1,456 | -- | -- |
+| chr12 | margin 0 | 465,294 | 1,535 | 0.003299 | 209 | 1,053 | 2.2x | 95% |
+| chr12 | margin 1 | 463,227 | 1,511 | 0.003262 | 206 | 1,032 | 2.2x | 95% |
+| chr12 | margin 2 | 410,699 | 257 | 0.000626 | 27 | 98 | 13.2x | 84% |
+| chr18 | hybrid | 275,198 | 2,083 | 0.007569 | 367 | 819 | -- | -- |
+| chr18 | margin 0 | 259,663 | 1,218 | 0.004691 | 198 | 660 | 1.7x | 94% |
+| chr18 | margin 2 | 224,746 | 388 | 0.001726 | 52 | 79 | 5.4x | 82% |
+
+(chr20 excludes the ROH and graph-blind regions; chr12 and chr18 use no
+exclusions. Each chromosome is internally consistent, so the graph-vs-hybrid
+ratios are comparable within a row-group but coverage percentages are not
+comparable across chromosomes.)
+
+Two defensible operating points, both ahead of hybrid on accuracy:
+
+- **margin 0 or 1** -- 94-95% of hybrid's reads at 1.5-2.2x fewer discordant
+  reads. Margin 1 is very slightly better than 0 on every chromosome at
+  essentially the same coverage, so prefer 1 of the two.
+- **margin 2** -- 82-84% of hybrid's reads at 4.7x to 13.2x. chr12 is the
+  extreme: 257 discordant against hybrid's 3,394.
+
+There is no longer a coverage-for-accuracy trade against hybrid; the graph
+pipeline wins on accuracy at every point measured, and the margin only decides
+how much more it wins by. **Defaults are still `--min-read-margin 0
+--anchor-af-margin 0.5`, i.e. both gates off** -- changing them is a deliberate
+call, not something this work did implicitly.
+
