@@ -3973,3 +3973,74 @@ judgement call is the coverage/accuracy trade: margin 2 gives up 11-13% of
 phased reads everywhere. That is the right trade against hybrid, which phases
 fewer reads at worse accuracy, but it is a real loss against margin 0 if
 downstream consumers care more about yield than switch rate.
+
+---
+
+## Residual error after the read-confidence gate: a graph-space collapse
+
+With `--min-read-margin 2` the remaining error is **highly concentrated**: the
+top 10 phase sets hold 82% (chr20) / 89% (chr18) of all discordant reads, and
+only ~17% of phase sets have any error at all. Chasing the aggregate is
+therefore the wrong move; chasing the handful of bad blocks is the right one.
+
+### The dominant chr18 block is an orientation swap, not scattered error
+
+PS 57679490 alone holds 647 of chr18's 1,207 discordant reads, yet records only
+3 switches and 0 flips. Sorting its reads by truth position gives exactly four
+runs:
+
+    concordant   56.262-56.547 Mb   589 reads
+    DISCORDANT   56.564-56.732 Mb   308 reads
+    concordant   57.899-58.186 Mb   574 reads
+    DISCORDANT   58.191-58.365 Mb   339 reads
+
+Two clean seams, each inverting everything after it. The switch metric counts
+transitions, so it reports 3; Hamming counts reads, so it reports 647. When the
+two disagree this sharply, trust Hamming.
+
+### What it is not
+
+- **Not chunk stitching.** `--stitch-min-margin` and `--stitch-rule` are now
+  exposed on `collect-graph-variation` (they existed only on the hybrid path).
+  Setting them to the hybrid's values (margin 10, both-strands-bridged) changes
+  chr20 not at all (350 discordant either way) and chr18 by 0.4% (1,207 ->
+  1,202). Those seams are merged on *strong* evidence, not weak.
+- **Not annotated segdups.** The two swapped intervals have 0.9% and 0.0%
+  segdup coverage, against 0.5% for a clean control interval.
+- **Not a truth artifact.** The BAM pipeline, over the same reads and the same
+  truth BAM, is 0.7% and 1.0% discordant on those exact intervals where the
+  graph pipeline is 47.1% and 48.5%.
+- **Not low-confidence reads.** The discordant reads there carry median margin
+  13 and p90 38-48 -- they agree with dozens of clean het SNPs. The anchors
+  themselves are mis-genotyped; the reads follow them faithfully.
+
+### What it is
+
+Joining read names between the eval and the GAF puts both swapped segments at
+**the same CHM13 interval**: chr18:57.955-58.147 Mb. Reads from two distinct
+HG002 loci (56.6 Mb and 58.2 Mb) project onto one graph locus. The graph
+pipeline then separates *paralogs* rather than haplotypes -- consistently, which
+is why the read margins are high and the discordance sits at ~50%.
+
+The depth signature is weak: 1.18x the chromosome-median DP (79 vs 67) and AF
+0.46 vs 0.50. A naive 2x-depth collapse filter would not catch it, so detection
+needs something better -- candidates: per-locus disagreement between a read's
+GAF projection and its linear placement, or graph path multiplicity.
+
+### Aside: chr18 graph vs BAM at margin 2
+
+    graph (margin 2)  228,264 reads  1,207 discordant  hamming 0.005288  switch 89   flip 107
+    BAM               281,816 reads  4,953 discordant  hamming 0.017575  switch 891  flip 1,421
+
+3.3x Hamming, 10x switch, 13x flip in the graph pipeline's favour, consistent
+with chr20.
+
+### Correction to the per-chromosome test-file recipe above
+
+Step 1 of the reconstruction commands extracts the reference with
+`samtools faidx chm13v2.0.fa "CHM13#0#${CHR}"`. The `chm13v2.0.fa` on this
+machine uses plain `chrN` contig names -- only the BAM uses the `CHM13#0#chrN`
+form -- so that step silently produces a header-only FASTA. Use:
+
+    samtools faidx "$P/chm13v2.0.fa" "${CHR}" | sed "1s/^>.*/>${CHR}/" > ...
+

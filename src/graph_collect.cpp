@@ -948,6 +948,8 @@ static void print_graph_collect_help() {
         << "      --graph-indel-af-margin F  Max |AF-0.5| for a het-indel k-means anchor [0.11]\n"
         << "      --graph-indel-min-alt INT  Min alt support for a het-indel k-means anchor [0]\n"
         << "      --min-read-margin INT     Min clean-SNP (agree-conflict) to phase a read [0=off]\n"
+        << "      --stitch-min-margin INT   Abstain on chunk seams below this vote margin [0]\n"
+        << "      --stitch-rule INT         0=net-margin 1=both-strands 2=literal 3=both+margin [0]\n"
         << "  -t, --threads INT             Worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
@@ -1031,6 +1033,8 @@ enum GraphCollectOption {
     kGcGraphIndelAfMargin,
     kGcGraphIndelMinAlt,
     kGcMinReadHapMargin,
+    kGcStitchMinMargin,
+    kGcStitchRule,
 };
 
 } // namespace
@@ -1059,6 +1063,8 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"graph-indel-af-margin", required_argument, nullptr, kGcGraphIndelAfMargin},
         {"graph-indel-min-alt",   required_argument, nullptr, kGcGraphIndelMinAlt},
         {"min-read-margin",   required_argument, nullptr, kGcMinReadHapMargin},
+        {"stitch-min-margin", required_argument, nullptr, kGcStitchMinMargin},
+        {"stitch-rule",       required_argument, nullptr, kGcStitchRule},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1112,6 +1118,12 @@ int collect_graph_variation(int argc, char* argv[]) {
                 break;
             case kGcMinReadHapMargin:
                 opts.min_read_hap_margin = parse_int_arg(optarg, "--min-read-margin");
+                break;
+            case kGcStitchMinMargin:
+                opts.stitch_min_margin = parse_int_arg(optarg, "--stitch-min-margin");
+                break;
+            case kGcStitchRule:
+                opts.stitch_rule = parse_int_arg(optarg, "--stitch-rule");
                 break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
