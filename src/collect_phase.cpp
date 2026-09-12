@@ -352,13 +352,17 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
         else if (hap_scores[hap] < min_score) { min_hap = hap; min_score = hap_scores[hap]; }
     }
 
+    read.hap_score_margin = std::abs(hap_scores[1] - hap_scores[2]);
+
     if (n_vars_used[1] == 0 && n_vars_used[2] == 0) return -1;
     if (max_score == 0 && min_score == 0) return 0;
     if (max_score > 0) {
         read.n_clean_agree_snps = n_clean_agree[max_hap];
         read.n_clean_conflict_snps = n_clean_conflict[max_hap];
+        read.n_vars_scored = n_vars_used[max_hap];
         return max_hap;
     }
+    read.n_vars_scored = n_vars_used[3 - min_hap];
     return 3 - min_hap;
 }
 

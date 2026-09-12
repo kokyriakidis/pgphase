@@ -812,6 +812,8 @@ void run_collect_graph_variation(const Options& opts) {
         int n_obs = 0;
         int agree = 0;
         int conflict = 0;
+        int score_margin = 0;
+        int n_scored = 0;
     };
     std::unordered_map<std::string, PhaseReadDiag> phase_read_diag;
     const bool emit_phase_reads = !opts.output_phase_reads.empty();
@@ -850,6 +852,9 @@ void run_collect_graph_variation(const Options& opts) {
                     d.n_obs += obs;
                     d.agree += rr.n_clean_agree_snps;
                     d.conflict += rr.n_clean_conflict_snps;
+                    if (rr.hap_score_margin > d.score_margin)
+                        d.score_margin = rr.hap_score_margin;
+                    if (rr.n_vars_scored > d.n_scored) d.n_scored = rr.n_vars_scored;
                     const int hap = read_i < pc.haps.size() ? pc.haps[read_i] : 0;
                     if (hap != 0) {
                         d.hap = hap;
@@ -904,10 +909,11 @@ void run_collect_graph_variation(const Options& opts) {
         if (fp == nullptr)
             throw std::runtime_error("failed to open phase reads file: " +
                                      opts.output_phase_reads);
-        std::fprintf(fp, "READ\tHAP\tPHASE_SET\tN_OBS\tCLEAN_AGREE\tCLEAN_CONFLICT\n");
+        std::fprintf(fp, "READ\tHAP\tPHASE_SET\tN_OBS\tCLEAN_AGREE\tCLEAN_CONFLICT\tSCORE_MARGIN\tN_SCORED\n");
         for (const auto& [qname, d] : phase_read_diag) {
-            std::fprintf(fp, "%s\t%d\t%lld\t%d\t%d\t%d\n", qname.c_str(), d.hap,
-                         static_cast<long long>(d.phase_set), d.n_obs, d.agree, d.conflict);
+            std::fprintf(fp, "%s\t%d\t%lld\t%d\t%d\t%d\t%d\t%d\n", qname.c_str(), d.hap,
+                         static_cast<long long>(d.phase_set), d.n_obs, d.agree, d.conflict,
+                         d.score_margin, d.n_scored);
         }
         std::fclose(fp);
         std::cerr << "Wrote per-read phasing evidence to " << opts.output_phase_reads << "\n";

@@ -4309,3 +4309,70 @@ how much more it wins by. **Defaults are still `--min-read-margin 0
 --anchor-af-margin 0.5`, i.e. both gates off** -- changing them is a deliberate
 call, not something this work did implicitly.
 
+---
+
+## Can coverage and accuracy be had together? Investigated: not by filtering
+
+Between `--min-read-margin` 1 and 2 the pipeline discards 34,000 chr18 reads to
+remove ~830 errors. Those reads are **97.6% correct** -- 34,000 good reads
+thrown away to catch 830 bad ones -- so it looked like a better discriminator
+should exist. Three were tried.
+
+### Per-read signals do not separate the discarded reads
+
+The k-means score margin (`|hap_scores[1] - hap_scores[2]|`) and the number of
+informative variants behind the call are now exposed per read via
+`--phase-reads-out` (`SCORE_MARGIN`, `N_SCORED`). Neither separates the
+discarded population, which sits near 2.4% error almost uniformly:
+
+| SCORE_MARGIN | reads | discordant | rate |
+|---|---|---|---|
+| 3-5 | 32,338 | 818 | 2.53% |
+| 6-10 | 1,552 | 7 | 0.45% |
+
+The useful bucket holds 1,552 of 33,994 reads. `N_SCORED` is worse than useless
+-- error *rises* with it (1 -> 2.46%, 4-7 -> 22.6%), the repeat-rich signature
+seen earlier.
+
+### Regional signals predict, but too weakly
+
+Errors are strongly regional, so window-level filtering should be more
+efficient. Spearman against per-window error rate, all truth-free:
+
+| window signal | Spearman |
+|---|---|
+| fraction of reads with clean-SNP margin < 2 | **+0.517** |
+| fraction of candidates with off-centre AF | +0.335 |
+| median observations per read | -0.404 |
+| fraction of reads with a conflicting clean SNP | -0.320 |
+
+### The frontier
+
+Post-hoc over the chr18 margin-0 population (259,663 reads, 1,218 discordant):
+
+| policy | kept | % | discordant | rate |
+|---|---|---|---|---|
+| keep all | 259,663 | 100.0% | 1,218 | 0.469% |
+| per-read margin >= 2 | 225,669 | 86.9% | 391 | 0.173% |
+| per-read margin >= 3 | 208,313 | 80.2% | 268 | 0.129% |
+| regional: window thin-frac < 0.15 | 190,056 | 73.2% | 230 | 0.121% |
+| margin >= 2 OR window thin-frac < 0.2 | 233,778 | 90.0% | 571 | 0.244% |
+| margin >= 1 AND window thin-frac < 0.25 | 213,832 | 82.3% | 378 | 0.177% |
+| **oracle: drop worst 100 windows by truth** | **231,731** | **89.2%** | **297** | **0.128%** |
+
+**Nothing beats the per-read margin ladder.** Every combination tried is either
+dominated by it or trades along the same curve. The disjunctive policy buys 3.1%
+more reads for a 41% worse error rate; the conjunctive one is dominated outright.
+
+### The headroom is real but needs a better predictor
+
+The oracle row is the point: selecting windows *with* the truth keeps **89.2% of
+reads at 0.128%**, which strictly dominates `margin >= 2` (86.9% at 0.173%) --
+more reads *and* fewer errors. So a regional policy can beat the per-read gate;
+the best truth-free window signal found (+0.517) simply is not sharp enough to
+find those windows. Closing the gap between 0.173% and 0.128% at ~89% coverage
+is a window-quality prediction problem, not a filtering-policy problem.
+
+Until then the per-read margin is the honest dial, and the trade is real: margin
+1 for ~95% of hybrid's coverage, margin 2 for 4.7-13.2x its accuracy.
+

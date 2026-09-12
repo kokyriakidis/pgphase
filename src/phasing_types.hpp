@@ -427,6 +427,13 @@ struct ReadRecord {
     bool is_ont_palindrome = false;
     int n_clean_agree_snps = 0;    // populated during phasing (Step 2)
     int n_clean_conflict_snps = 0; // populated during phasing (Step 2)
+    // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap call,
+    // and the number of informative variants behind the winning haplotype.
+    // The clean-SNP agree/conflict counts above see only germline clean SNPs;
+    // these see every category that votes, so they separate a confidently
+    // assigned read from a marginal one more finely.
+    int hap_score_margin = 0;
+    int n_vars_scored = 0;
     int total_cand_events = 0; // total candidate variant events (includes long-clip noisy windows)
 };
 
