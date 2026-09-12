@@ -1,7 +1,6 @@
 /// @file hybrid_inject.cpp
 /// @brief Augment BAM-derived PhasingChunk with graph snarl observations.
 
-#include <cmath>
 #include "hybrid_inject.hpp"
 
 #include "collect_phase.hpp"
@@ -9,8 +8,13 @@
 #include "fisher_exact.hpp"
 #include "noise_filter.hpp"
 
+#include <htslib/vcf.h>
+
 #include <algorithm>
 #include <cassert>
+#include <cmath>
+#include <memory>
+#include <stdexcept>
 #include <unordered_set>
 
 extern "C" {
@@ -18,6 +22,96 @@ extern "C" {
 }
 
 namespace pgphase_collect {
+
+static int resolve_private_vcf_tid(const std::string& contig,
+                                   const bam_hdr_t* bam_header) {
+    int matched_tid = -1;
+    for (int tid = 0; tid < bam_header->n_targets; ++tid) {
+        const std::string name = bam_header->target_name[tid];
+        if (name == contig) return tid;
+        const size_t hash = name.rfind('#');
+        const std::string suffix = hash == std::string::npos
+                                       ? name
+                                       : name.substr(hash + 1);
+        if (suffix != contig) continue;
+        if (matched_tid >= 0) return -1;
+        matched_tid = tid;
+    }
+    return matched_tid;
+}
+
+VariantKeySet load_private_variant_keys(const std::string& path,
+                                        const bam_hdr_t* bam_header) {
+    using BcfFilePtr = std::unique_ptr<htsFile, decltype(&hts_close)>;
+    using BcfHeaderPtr = std::unique_ptr<bcf_hdr_t, decltype(&bcf_hdr_destroy)>;
+    using BcfRecordPtr = std::unique_ptr<bcf1_t, decltype(&bcf_destroy)>;
+
+    BcfFilePtr fp(bcf_open(path.c_str(), "r"), hts_close);
+    if (!fp) throw std::runtime_error("failed to open private-sites VCF: " + path);
+    BcfHeaderPtr header(bcf_hdr_read(fp.get()), bcf_hdr_destroy);
+    if (!header)
+        throw std::runtime_error("failed to read private-sites VCF header: " + path);
+    BcfRecordPtr record(bcf_init(), bcf_destroy);
+    if (!record)
+        throw std::runtime_error("failed to allocate private-sites VCF record");
+
+    VariantKeySet keys;
+    int read_status = 0;
+    while ((read_status = bcf_read(fp.get(), header.get(), record.get())) == 0) {
+        bcf_unpack(record.get(), BCF_UN_STR);
+        if (record->n_allele != 2) continue;
+        const char* contig = bcf_hdr_id2name(header.get(), record->rid);
+        if (contig == nullptr) continue;
+        const int tid = resolve_private_vcf_tid(contig, bam_header);
+        if (tid < 0) continue;
+        keys.insert(vcf_to_variant_key(
+            tid, record->pos + 1, record->d.allele[0], record->d.allele[1]));
+    }
+    if (read_status < -1)
+        throw std::runtime_error("failed while reading private-sites VCF: " + path);
+    return keys;
+}
+
+size_t retain_private_bam_candidates(PhasingChunk& chunk,
+                                     const VariantKeySet& private_keys) {
+    CandidateTable retained;
+    retained.reserve(std::min(chunk.candidates.size(), private_keys.size()));
+    for (CandidateVariant& candidate : chunk.candidates) {
+        if (private_keys.find(candidate.key) != private_keys.end())
+            retained.push_back(std::move(candidate));
+    }
+    chunk.candidates = std::move(retained);
+    return chunk.candidates.size();
+}
+
+void clear_bam_evidence_at_graph_candidates(
+        PhasingChunk& chunk,
+        const std::unordered_set<int>& graph_only_candidates) {
+    for (const int candidate_i : graph_only_candidates) {
+        if (candidate_i < 0 || candidate_i >= static_cast<int>(chunk.candidates.size()))
+            continue;
+        CandidateVariant& candidate = chunk.candidates[static_cast<size_t>(candidate_i)];
+        candidate.counts.ref_cov = 0;
+        candidate.counts.alt_cov = 0;
+        candidate.counts.total_cov = 0;
+        candidate.counts.low_qual_cov = 0;
+        candidate.counts.forward_ref = 0;
+        candidate.counts.reverse_ref = 0;
+        candidate.counts.forward_alt = 0;
+        candidate.counts.reverse_alt = 0;
+        candidate.counts.alle_covs.clear();
+    }
+
+    for (ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.start_var_idx < 0) continue;
+        for (const int candidate_i : graph_only_candidates) {
+            if (candidate_i < profile.start_var_idx || candidate_i > profile.end_var_idx)
+                continue;
+            const size_t offset = static_cast<size_t>(candidate_i - profile.start_var_idx);
+            if (offset < profile.alleles.size()) profile.alleles[offset] = -1;
+        }
+    }
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Internal helpers
@@ -150,7 +244,8 @@ SiteToCandidateMap inject_graph_sites(
         int* sites_bridged_out,
         int* sites_added_out,
         std::unordered_set<int>* graph_only_candidates_out,
-        GraphOnlyVcfAlleles* graph_only_vcf_alleles_out) {
+        GraphOnlyVcfAlleles* graph_only_vcf_alleles_out,
+        std::unordered_set<int>* all_graph_candidates_out) {
     (void)opts;
     (void)chrom_remap;
     SiteToCandidateMap site_to_candidate;
@@ -160,6 +255,7 @@ SiteToCandidateMap inject_graph_sites(
     // (ref, alt) strings so the noise filter can screen on the catalog
     // representation, matching the standalone graph pipeline.
     std::vector<int> graph_only_pre_sort;
+    std::unordered_set<int> all_graph_pre_sort;
     std::unordered_map<int, GraphOnlyVcfAllele> pre_sort_vcf_alleles;
 
     if (graph_sites.empty()) {
@@ -203,12 +299,16 @@ SiteToCandidateMap inject_graph_sites(
 
             if (match_idx >= 0 && match_idx < orig_count) {
                 site_to_candidate[site_key] = match_idx;
+                all_graph_pre_sort.insert(match_idx);
+                pre_sort_vcf_alleles[match_idx] =
+                    GraphOnlyVcfAllele{site.pos, site.ref, vcf_alt};
                 ++bridged;
             } else if (match_idx < 0) {
                 const int new_idx = add_graph_only_candidate(
                     chunk, site, vcf_alt, chunk_tid);
                 site_to_candidate[site_key] = new_idx;
                 graph_only_pre_sort.push_back(new_idx);
+                all_graph_pre_sort.insert(new_idx);
                 pre_sort_vcf_alleles[new_idx] =
                     GraphOnlyVcfAllele{site.pos, site.ref, vcf_alt};
                 ++added;
@@ -248,6 +348,11 @@ SiteToCandidateMap inject_graph_sites(
                 graph_only_candidates_out->insert(
                     old_to_new[static_cast<size_t>(pre_idx)]);
         }
+        if (all_graph_candidates_out) {
+            for (int pre_idx : all_graph_pre_sort)
+                all_graph_candidates_out->insert(
+                    old_to_new[static_cast<size_t>(pre_idx)]);
+        }
         if (graph_only_vcf_alleles_out) {
             for (const auto& [pre_idx, alleles] : pre_sort_vcf_alleles)
                 (*graph_only_vcf_alleles_out)[
@@ -258,6 +363,8 @@ SiteToCandidateMap inject_graph_sites(
             for (int idx : graph_only_pre_sort)
                 graph_only_candidates_out->insert(idx);
         }
+        if (all_graph_candidates_out)
+            *all_graph_candidates_out = std::move(all_graph_pre_sort);
         if (graph_only_vcf_alleles_out) {
             for (const auto& [idx, alleles] : pre_sort_vcf_alleles)
                 (*graph_only_vcf_alleles_out)[idx] = alleles;
@@ -677,9 +784,19 @@ int classify_graph_only_candidates(
 
         c.category = cat;
         c.candvarcate_initial = cat;
-        cand.lcd_var_i_to_cate = category_to_flag(cat);
-        if (cat == VariantCategory::CleanHetSnp ||
-            cat == VariantCategory::CleanHetIndel) {
+        const bool clean_het = cat == VariantCategory::CleanHetSnp ||
+                               cat == VariantCategory::CleanHetIndel;
+        const bool centred_anchor =
+            std::abs(c.allele_fraction - 0.5) <= opts.anchor_af_margin;
+        // Preserve off-centre graph hets as calls while preventing them from
+        // voting. This matches the standalone graph pipeline and protects the
+        // joint model when several paralogous loci collapse onto one graph
+        // interval, producing confident but non-diploid AF near 0.25 or 0.75.
+        cand.lcd_var_i_to_cate =
+            clean_het && !centred_anchor
+                ? kCandNonAnchorHet
+                : category_to_flag(cat);
+        if (clean_het && centred_anchor) {
             ++promoted;
         }
     }

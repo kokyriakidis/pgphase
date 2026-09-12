@@ -257,10 +257,42 @@ struct Options {
     std::string output_phased_bam;
     /** If non-empty, write a TSV of sites dropped during graph candidate collection. */
     std::string output_filtered_sites;
+    /** If non-empty, write retained graph site candidates with source SITE_ID. */
+    std::string output_phase_sites;
     /** If non-empty, write a per-read TSV of phasing evidence (observations, agree/conflict). */
     std::string output_phase_reads;
     /** Minimum (clean-SNP agree - conflict) margin to commit a read to a haplotype. 0 disables. */
     int min_read_hap_margin = 0;
+    /** Spanning reads required to carry a phase block across two adjacent het
+        variants.  Below this the block is cut.  Lowering it trades a higher
+        chance of a wrong link for longer blocks; 2 is the historical value. */
+    int min_block_link_reads = 2;
+    // How many preceding het variants to consider when looking for a spanning-read
+    // link.  1 reproduces the original adjacent-pair chain; higher values let a
+    // block survive a single weakly covered variant by linking across it.
+    int block_link_window = 1;
+    // Link variants by the allele pattern a read carries rather than by agreement
+    // with the read's assigned haplotype, so untagged reads still contribute
+    // connectivity.
+    bool link_by_alleles = false;
+    // Emit and phase hets that fail the anchor AF margin instead of discarding
+    // them.  They still never anchor k-means; this only restores their output.
+    bool emit_nonanchor_hets = false;
+    // Widen only the GAF read query around each chunk.  Sites are loaded on the
+    // unpadded window, but a snarl near a chunk edge is traversed by reads whose
+    // alignment starts outside it; without padding those sites see zero evidence
+    // and are dropped as if uncovered.
+    int gaf_pad = 0;
+    // Treat a multi-allelic snarl as one locus: for each alt, contrast reads
+    // carrying it against reads carrying any other allele, instead of against
+    // the graph reference alone.
+    bool snarl_allele_phasing = false;
+    // With snarl_allele_phasing, keep multi-allelic snarls as single n-allelic
+    // anchors instead of scoring each alt separately.
+    bool snarl_keep_whole = false;
+    // Minimum share of a snarl's reads that must fall on its two best-supported
+    // alleles for it to be used as a phasing anchor.
+    double snarl_top2_frac = 0.9;
     // If non-empty, output phased SAM/BAM/CRAM with HP/PS tags.
     std::string output_aln;
     // Output alignment format selected by -S/-b/-C.
@@ -288,6 +320,14 @@ struct Options {
     std::string gaf_db;
     /** Optional precomputed vg deconstruct VCF used as a development/debug graph-site catalog. */
     std::string graph_sites_vcf;
+    /** Optional whitelist of BAM-derived sites added to graph+private joint phasing. */
+    std::string private_sites_vcf;
+    /** Keep GAF as the sole evidence source at every graph-represented site. */
+    bool graph_authoritative = false;
+    /** BED intervals where clean BAM candidates replace graph/GAF evidence. */
+    std::string bam_authoritative_bed;
+    /** Suppress output assignments from phase sets with fewer phased reads. */
+    int min_phase_set_reads = 0;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer

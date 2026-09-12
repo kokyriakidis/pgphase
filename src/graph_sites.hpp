@@ -106,8 +106,9 @@ struct SitesVcfHandle {
     explicit operator bool() const { return fp && tbx; }
 };
 
-// Load sites overlapping [beg, end) on `contig` from a pre-opened handle.
-// The returned catalog is finalized (sorted, validated).
+/// Load sites overlapping the 1-based inclusive VCF interval [beg, end].
+/// The returned catalog is finalized (sorted, validated). Callers querying
+/// zero-based APIs such as GAF must convert those coordinates separately.
 GraphSiteCatalog load_sites_for_region(SitesVcfHandle& handle,
                                        const std::string& contig,
                                        hts_pos_t beg, hts_pos_t end);

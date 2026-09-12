@@ -384,7 +384,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
 
                     // Load sites for this chunk's region via tabix.
                     GraphSiteCatalog chunk_catalog = load_sites_for_region(
-                        sites_handle, batch_contig, region.beg - 1, region.end);
+                        sites_handle, batch_contig, region.beg, region.end);
                     // Normalize contig names to match FAI convention.
                     for (GraphSite& s : chunk_catalog.sites) {
                         auto it = chrom_remap.find(s.chrom);
@@ -514,7 +514,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     const RegionChunk& region = chunks[batch_begin + offset];
 
                     GraphSiteCatalog chunk_catalog = load_sites_for_region(
-                        sites_handle, batch_contig_gaf, region.beg - 1, region.end);
+                        sites_handle, batch_contig_gaf, region.beg, region.end);
                     for (GraphSite& s : chunk_catalog.sites) {
                         auto it = chrom_remap.find(s.chrom);
                         if (it != chrom_remap.end()) s.chrom = it->second;
@@ -528,9 +528,10 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 
                     std::vector<GraphReadAllele> chunk_rows;
                     if (!chunk_view.empty()) {
+                        const hts_pos_t pad = static_cast<hts_pos_t>(opts.gaf_pad);
                         chunk_rows = scan_indexed_gaf_chunk(
                             gaf_handle, batch_query_contig_gaf,
-                            region.beg - 1, region.end,
+                            std::max<hts_pos_t>(0, region.beg - 1 - pad), region.end + pad,
                             chunk_view, min_mapq);
                     }
 
@@ -574,6 +575,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     for (std::thread& w : workers) w.join();
     if (first_error) std::rethrow_exception(first_error);
 
+    if (opts.verbose >= 1) graph_query_report_match_stats();
     populate_graph_chunk_overlaps(graph_chunks);
 
     std::vector<PhasingChunk> phasing_chunks;
@@ -802,6 +804,14 @@ void run_collect_graph_variation(const Options& opts) {
         std::fprintf(filtered_out.get(),
                      "CHROM\tPOS\tSITE_ID\tREF_COV\tALT_COV\tTOTAL_COV\tAF\tREASON\n");
     }
+    std::ofstream phase_sites_out;
+    if (!opts.output_phase_sites.empty()) {
+        phase_sites_out.open(opts.output_phase_sites);
+        if (!phase_sites_out)
+            throw std::runtime_error("failed to open phase sites file: " +
+                                     opts.output_phase_sites);
+        write_graph_phase_sites_tsv_header(phase_sites_out);
+    }
     // Per-read phasing evidence, accumulated across chunks. Used to diagnose
     // which reads get a haplotype on thin or contradictory evidence: a read is
     // assigned by init_assign_read_hap with no minimum-observation or margin
@@ -877,6 +887,9 @@ void run_collect_graph_variation(const Options& opts) {
                                  fs.filter_reason.c_str());
                 }
             }
+            if (phase_sites_out) {
+                write_graph_phase_sites_tsv_rows(phase_sites_out, gc);
+            }
         }
 
         CandidateTable variants =
@@ -927,6 +940,8 @@ void run_collect_graph_variation(const Options& opts) {
         std::cerr << "Wrote candidate VCF to " << opts.output_vcf << "\n";
     if (!opts.output_phased_vcf.empty())
         std::cerr << "Wrote phased candidate VCF to " << opts.output_phased_vcf << "\n";
+    if (!opts.output_phase_sites.empty())
+        std::cerr << "Wrote retained graph sites to " << opts.output_phase_sites << "\n";
     if (emit_phased_bam)
         std::cerr << "Wrote phased BAM to " << opts.output_phased_bam << "\n";
 }
@@ -950,6 +965,7 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
+        << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
         << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
         << "      --graph-indel-af-margin F  Max |AF-0.5| for a het-indel k-means anchor [0.11]\n"
         << "      --graph-indel-min-alt INT  Min alt support for a het-indel k-means anchor [0]\n"
@@ -957,6 +973,14 @@ static void print_graph_collect_help() {
         << "      --stitch-min-margin INT   Abstain on chunk seams below this vote margin [0]\n"
         << "      --stitch-rule INT         0=net-margin 1=both-strands 2=literal 3=both+margin [0]\n"
         << "      --anchor-af-margin F      Max |AF-0.5| for a site to vote in k-means [0.5=off]\n"
+        << "      --min-block-link-reads INT Spanning reads needed to carry a phase block [2]\n"
+        << "      --block-link-window INT   Preceding het variants searched for that link [1]\n"
+        << "      --link-by-alleles         Let untagged reads link variants by allele pattern\n"
+        << "      --emit-nonanchor-hets     Emit/phase hets outside --anchor-af-margin (never anchor)\n"
+        << "      --gaf-pad INT             Widen the per-chunk GAF read query by INT bp [0]\n"
+        << "      --snarl-allele-phasing    Score multi-allelic snarls as alt-vs-other, not alt-vs-ref\n"
+        << "      --snarl-keep-whole        Keep multi-allelic snarls as single n-allelic anchors\n"
+        << "      --snarl-top2-frac FLOAT   Min read share on a snarl's top 2 alleles to anchor [0.9]\n"
         << "      --af-vs-site-depth        Score allele fraction against total site depth,\n"
         << "                                recovering hets between two non-reference alleles\n"
         << "  -t, --threads INT             Worker threads [1]\n"
@@ -1038,6 +1062,7 @@ enum GraphCollectOption {
     kGcPgbamRelaxedCleanupMargin,
     kGcPgbamRelaxedCleanupMinWinning,
     kGcFilteredSitesOut,
+    kGcPhaseSitesOut,
     kGcPhaseReadsOut,
     kGcGraphIndelAfMargin,
     kGcGraphIndelMinAlt,
@@ -1046,6 +1071,14 @@ enum GraphCollectOption {
     kGcStitchRule,
     kGcAnchorAfMargin,
     kGcAfVsSiteDepth,
+    kGcBlockLink,
+    kGcBlockLinkWindow,
+    kGcLinkByAlleles,
+    kGcEmitNonAnchorHets,
+    kGcGafPad,
+    kGcSnarlAllelePhasing,
+    kGcSnarlKeepWhole,
+    kGcSnarlTop2Frac,
 };
 
 } // namespace
@@ -1070,6 +1103,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
+        {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
         {"graph-indel-af-margin", required_argument, nullptr, kGcGraphIndelAfMargin},
         {"graph-indel-min-alt",   required_argument, nullptr, kGcGraphIndelMinAlt},
@@ -1078,6 +1112,14 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"stitch-rule",       required_argument, nullptr, kGcStitchRule},
         {"anchor-af-margin",  required_argument, nullptr, kGcAnchorAfMargin},
         {"af-vs-site-depth",  no_argument,       nullptr, kGcAfVsSiteDepth},
+        {"min-block-link-reads", required_argument, nullptr, kGcBlockLink},
+        {"block-link-window",    required_argument, nullptr, kGcBlockLinkWindow},
+        {"link-by-alleles",      no_argument,       nullptr, kGcLinkByAlleles},
+        {"emit-nonanchor-hets",  no_argument,       nullptr, kGcEmitNonAnchorHets},
+        {"gaf-pad",              required_argument, nullptr, kGcGafPad},
+        {"snarl-allele-phasing", no_argument,       nullptr, kGcSnarlAllelePhasing},
+        {"snarl-keep-whole",     no_argument,       nullptr, kGcSnarlKeepWhole},
+        {"snarl-top2-frac",      required_argument, nullptr, kGcSnarlTop2Frac},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1122,6 +1164,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
+            case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;
             case kGcGraphIndelAfMargin:
                 opts.graph_indel_af_margin = parse_double_arg(optarg, "--graph-indel-af-margin");
@@ -1142,6 +1185,18 @@ int collect_graph_variation(int argc, char* argv[]) {
                 opts.anchor_af_margin = parse_double_arg(optarg, "--anchor-af-margin");
                 break;
             case kGcAfVsSiteDepth: opts.af_vs_site_depth = true; break;
+            case kGcBlockLink:
+                opts.min_block_link_reads = parse_int_arg(optarg, "--min-block-link-reads");
+                break;
+            case kGcBlockLinkWindow:
+                opts.block_link_window = parse_int_arg(optarg, "--block-link-window");
+                break;
+            case kGcLinkByAlleles: opts.link_by_alleles = true; break;
+            case kGcEmitNonAnchorHets: opts.emit_nonanchor_hets = true; break;
+            case kGcGafPad: opts.gaf_pad = parse_int_arg(optarg, "--gaf-pad"); break;
+            case kGcSnarlAllelePhasing: opts.snarl_allele_phasing = true; break;
+            case kGcSnarlKeepWhole: opts.snarl_keep_whole = true; opts.snarl_allele_phasing = true; break;
+            case kGcSnarlTop2Frac: opts.snarl_top2_frac = parse_double_arg(optarg, "--snarl-top2-frac"); break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
             case 'D': opts.min_depth = parse_int_arg(optarg, "--min-depth"); break;

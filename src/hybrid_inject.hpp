@@ -5,16 +5,33 @@
 /// @brief Augment a BAM-derived PhasingChunk with graph snarl site
 ///        observations.  Used by the hybrid BAM+graph phasing mode.
 
+#include "collect_var.hpp"
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
 #include "phasing_types.hpp"
 
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace pgphase_collect {
+
+using VariantKeySet = std::set<VariantKey, VariantKeyLess>;
+
+VariantKeySet load_private_variant_keys(const std::string& path,
+                                        const bam_hdr_t* bam_header);
+
+size_t retain_private_bam_candidates(PhasingChunk& chunk,
+                                     const VariantKeySet& private_keys);
+
+/// Remove all BAM-derived alleles and count fields at graph-owned candidates.
+/// Graph GAF injection then repopulates these slots, keeping graph evidence
+/// authoritative while preserving BAM evidence at non-graph candidates.
+void clear_bam_evidence_at_graph_candidates(
+    PhasingChunk& chunk,
+    const std::unordered_set<int>& graph_only_candidates);
 
 /// Maps graph site keys to candidate indices in the augmented table.
 using SiteToCandidateMap = std::unordered_map<std::string, int>;
@@ -70,7 +87,8 @@ SiteToCandidateMap inject_graph_sites(
     int* sites_bridged_out,
     int* sites_added_out,
     std::unordered_set<int>* graph_only_candidates_out = nullptr,
-    GraphOnlyVcfAlleles* graph_only_vcf_alleles_out = nullptr);
+    GraphOnlyVcfAlleles* graph_only_vcf_alleles_out = nullptr,
+    std::unordered_set<int>* all_graph_candidates_out = nullptr);
 
 /// Phase B: Inject graph-only reads and extend doubly-mapped read profiles.
 ///

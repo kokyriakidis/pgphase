@@ -4500,3 +4500,342 @@ enabled). Our method needs none — it phases directly from the graph alignment.
 That asymmetry favours them in this comparison, since they are handed variant
 calls we never receive.
 
+---
+
+## Whole-snarl phasing regression: two bugs fixed, default unchanged
+
+Revisited the `docs/HANDOFF.md` open problem for `--snarl-keep-whole` on HG002
+chr20 (CHM13 catalog/GAF, `--min-read-margin 2 --anchor-af-margin 0.12`).
+
+Two implementation bugs were found:
+
+1. `build_graph_chunk` rewrote `allele_counts` from old site space into final
+   candidate space before remapping read observations. Phase 3 then tested
+   `allele_counts[old_si].size() > 2` to decide whether the original source
+   snarl was multi-allelic. For decomposed sites this could be false after the
+   rewrite, so reads on alt_j failed to appear as allele-0 evidence against
+   alt_i under `--snarl-allele-phasing`.
+2. Whole n-allelic candidates were classified from collapsed non-ref AF
+   (`alt_total / site_total`). A no-reference alt_1/alt_2 heterozygote was
+   therefore marked `CleanHom`, despite carrying exactly the two allele indices
+   needed for whole-snarl phasing.
+
+Fixes:
+
+- Preserve a per-source `source_is_multi` flag through candidate rewriting and
+  use that during observation remap.
+- For n-allelic candidates, classify hom/het by top allele fraction rather than
+  collapsed non-ref AF.
+- Give n-allelic anchors single k-means weight and exclude them from clean-SNP
+  read-margin accounting.
+- Added focused `test_graph_bam_adapter` regressions for alt-vs-other read
+  remapping and no-reference alt_1/alt_2 whole-snarl classification.
+
+Fresh post-fix read-level results:
+
+| config | candidates | phase sets | reads evaluated | discordant | hamming |
+|---|---:|---:|---:|---:|---:|
+| baseline | 73,627 | 279 | 175,843 | **248** | **0.001410** |
+| `--snarl-allele-phasing` | 77,570 | 282 | 176,196 | 518 | 0.002940 |
+| `--snarl-keep-whole` (`top2 >= 0.90`) | 80,837 | 281 | 175,792 | 393 | 0.002236 |
+| `--snarl-keep-whole --snarl-top2-frac 0.95` | 79,270 | 281 | 175,828 | 395 | 0.002247 |
+
+Conclusion: whole-snarl phasing is no longer the 25x read-accuracy regression
+previously measured (6,322 discordant reads); the main regression was a bug. It
+still loses to the baseline, so defaults remain unchanged. The remaining
+research direction is allele clustering inside high-multiplicity snarls rather
+than exact allele-index equality.
+
+---
+
+## Competitor-site gap diagnosis with graph SITE_ID accounting
+
+Added two diagnostics to make the "other tools phase here and pgphase does not"
+question reproducible:
+
+- `collect-graph-variation --phase-sites-out FILE` streams retained graph-site
+  candidates with source `SITE_ID`, allele counts, phase set, and hap allele
+  assignments.
+- `scripts/analyze_graph_gap_site_loss.py` classifies truth hets outside pgphase
+  merged phase blocks, optionally narrowed to sites covered by competitor phased
+  VCFs.  When `--phase-sites-tsv` is supplied, retained and filtered graph sites
+  are matched by parent `SITE_ID` rather than by normalized variant position.
+
+Competitor VCFs used:
+
+```
+/tmp/claude-1000/-home-kokyriakidis-Downloads-pgphase/68d70dd6-387e-4e2f-885c-9efbd718ca83/scratchpad/phasers/chr20/
+  hp.vcf.gz
+  lp.vcf.gz
+  ws.vcf.gz
+```
+
+Baseline accounting for `chr20.sites.vcf.gz`:
+
+| item | count |
+|---|---:|
+| catalog records | 977,275 |
+| duplicate catalog IDs | 0 |
+| retained graph-site parent IDs | 70,581 |
+| filtered graph-site parent IDs | 976,572 |
+| catalog IDs with no retained or filtered row | 3 |
+
+Conclusion: the graph pipeline is accounting for essentially every catalog
+record. The missing-site problem now splits into catalog incompleteness relative
+to the source graph, evidence concentrated in a different/nested catalog site,
+and retained sites that fail to become phase-block anchors/bridges.
+
+Exact-position competitor-site target (truth het outside pgphase blocks and at
+the same position as a phased HiPhase/LongPhase/WhatsHap variant):
+
+| reason | baseline | `--snarl-allele-phasing` |
+|---|---:|---:|
+| no catalog record within ±25 bp | 1,012 | 1,012 |
+| `ref_only` | 753 | 756 |
+| retained graph site, unphased | 606 | 709 |
+| `no_reads_in_chunk` | 386 | 388 |
+| `high_af` | 268 | 119 |
+| `low_depth` | 143 | 144 |
+| `low_af` | 17 | 22 |
+| retained graph site, phased nearby | 12 | 21 |
+
+The multi-allelic fix does what it should: it cuts exact-target `high_af` misses
+from 268 to 119. It does not materially reduce the gap count because those
+newly retained sites mostly remain unphased. The next experiment should classify
+retained-but-unphased rows by anchor mask, spanning-read links, and allele-count
+class, then test allele clustering inside high-multiplicity snarls.
+
+## Surjected-BAM private-site recovery against competitor-only graph gaps
+
+The graph-gap audit was extended with repeatable `--recovery-vcf LABEL=PATH`
+measurements in `scripts/analyze_graph_gap_site_loss.py`. A fresh chr20
+`collect-hybrid-variation` run used the surjected HG002 BAM, graph catalog, and
+GAF and emitted 134,646 candidates / 64,184 phased positions.
+
+On the strict 3,197-site target (truth het, outside merged graph blocks, phased
+at the exact position by HiPhase/LongPhase/WhatsHap), hybrid recovered 808 exact
+phased hets and placed 1,624 sites inside a hybrid phase block. Exact recovery by
+graph-gap reason was: no catalog 201/1,012; ref-only 244/753; retained-unphased
+272/606; no-reads-in-chunk 33/386; high-AF 27/268; low-depth 29/143. Every exact
+hybrid het was phased, so the remaining 2,389 are absent from hybrid output, not
+merely present and unphased.
+
+Decision: the next graph improvement should test an external linear-VCF seed
+path, using high-confidence heterozygous calls from the surjected BAM (initially
+the same DeepVariant call set supplied to competitors). Preserve graph-core
+assignments; phase BAM-private gap evidence additively in disjoint/local phase
+sets, and permit merging only with direct two-haplotype spanning-read support.
+Do not globally rerun the graph core with all private sites: earlier gap-fill
+work measured about 21% error in BAM-only reads concentrated in segdups.
+
+## Corrected shared-call transfer and private-site prototype (2026-09-12)
+
+The existing shared-call benchmark was contaminated: the DeepVariant VCF
+already contained 67,127 phased heterozygotes, while
+`scripts/phase_vcf_from_hp.py` left unsupported records unchanged. It now
+clears GT phasing and PS for every heterozygote before applying evidence from
+the supplied haplotagged BAM. It also resolves graph-style BAM contig names,
+parses interval regions correctly, scans each BAM once into a reusable support
+cache, and can infer parity-consistent merges between overlapping phase sets.
+The scan implementation was checked against the original pileup implementation
+on chr20:1,000,000-2,000,000; their output VCFs were byte-identical.
+
+Corrected HG002 chr20 results on the same DeepVariant call set:
+
+| configuration | assessed | blocks | N50 kb | NGC50 kb | switchflips | Hamming |
+|---|---:|---:|---:|---:|---:|---:|
+| graph transfer | 59,015 | 276 | 215 | 204 | 15 | 16 |
+| current hybrid transfer | 59,665 | 298 | 312 | 290 | 41 | 68 |
+| all-linear-site seed, no merge | 59,672 | 303 | 290 | 267 | 39 | 62 |
+| all-linear-site seed + conservative PS merge | 59,447 | 247 | 401 | 374 | 39 | 79 |
+
+The seed was built by `scripts/augment_graph_catalog_with_linear_hets.py`, which
+now excludes exact graph REF/ALT matches by default. Of 77,484 biallelic
+DeepVariant hets, 22,084 are exact graph misses and 4,206 remain at PASS/GQ20.
+Adding those 4,206 produced 183 extra hybrid candidates but only one extra
+transferred phase call. Hybrid N50/NGC50 moved 312/290 -> 314/296 kb with
+switchflips/Hamming unchanged at 41/68. Conservative PS merging of this private
+run reached 397/366 kb but Hamming worsened to 379.
+
+The stronger tabled experiment deliberately added all 77,484 sites, including
+55,400 exact graph matches. It produced 1,748 extra candidates and 253 extra
+transferred calls. Its advantage over private-only seeding shows that the main
+missing layer is variant-first use of represented alleles as anchors, not raw
+catalog completeness. Most private records still fail BAM evidence/candidate
+classification or do not bridge a phase set.
+
+The conservative PS merge uses output calls at two reads/haplotype and 0.70
+purity. Edge proposals may use one haplotype at 0.60 only if the other phase set
+has both haplotypes represented. It requires two agreeing sites, vote margin
+two, summed support two, and support four for PS-label distances over 500 kb.
+More aggressive merging reached raw NG50 595 kb but Hamming exceeded 2,000. A
+truth-guided two-edge exclusion oracle reached N50/NGC50 425/393 kb at Hamming
+232, still below LongPhase NGC50 400 kb and HiPhase 644 kb. This exhausts the
+available local overlap evidence on chr20; further contiguity needs new spanning
+evidence or a variant-first joint model, not looser adjacency merging.
+
+`scripts/compute_ngc50.py` also no longer silently forces a 3.1 Gb denominator
+for chromosome experiments. Use `--genome-size 66210255` for this chr20 setup.
+
+## Graph-authoritative joint private-gap phasing (2026-09-12)
+
+The all-linear-site experiment was not the requested architecture. The corrected
+design uses `scripts/extract_private_gap_sites.py` to select only exact-private
+linear heterozygotes inside gaps between merged graph phase blocks, then passes
+that VCF to `collect-hybrid-variation --private-sites FILE`.
+
+The new mode enforces three ownership boundaries before joint k-means:
+
+1. BAM candidates not present in the private-gap VCF are removed.
+2. BAM profile alleles/counts at graph-owned candidates are cleared; GAF
+   injection is the sole source of graph-site evidence.
+3. BAM noisy-region MSA recall is disabled so no unlisted candidate can enter
+   after whitelisting.
+
+Graph and private observations then use the existing shared k-means and chunk
+stitching together. The graph read confidence gate is available on hybrid as
+`--min-read-margin`; experiments used 2 with graph-style stitch margin/rule 0.
+
+HG002 chr20 results on the corrected shared DeepVariant call set:
+
+| config | private sites offered | phased reads | read discordant | read N50 kb | assessed | DV N50/NGC50 kb | switchflips | Hamming |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| graph only | 0 | 175,843 | 248 | 937 | 59,015 | 215/204 | 15 | 16 |
+| private GQ20 | 271 | 178,284 | 320 | 945 | 59,038 | 280/224 | 20 | 21 |
+| **private GQ10** | **958** | **180,800** | **366** | **952** | **59,148** | **300/280** | **25** | **27** |
+| private GQ0 | 6,607 | 181,401 | 384 | 965 | 59,185 | 303/280 | 32 | 36 |
+
+Decision: GQ10 is the current experimental operating point. It improves
+corrected NGC50 204 -> 280 kb (+37%), phases 4,957 more truth-evaluable reads,
+and keeps shared-call Hamming at 27 (LongPhase 605, HiPhase 2,279). GQ0 adds no
+NGC50 beyond GQ10 and only increases errors. This is a genuine graph-first gap
+fill: no BAM-wide site set participates.
+
+Graph-core stability at GQ10: 173,490 graph reads are shared with the joint
+evaluation. Truth-status transitions are 25 discordant->concordant and 24
+concordant->discordant, so joint private evidence is net neutral on retained
+graph accuracy. The margin gate removes 2,380 marginal graph reads. Of 7,333
+newly evaluable reads, 7,184 are concordant and 143 discordant.
+
+## All-BAM graph-authoritative control and VCF query fix (2026-09-12)
+
+Added `collect-hybrid-variation --graph-authoritative`. BAM calling and normal
+candidate classification run first. The hybrid join tracks both newly added
+graph candidates and exact BAM/graph matches through candidate-table sorting.
+At every graph-owned candidate it clears the BAM read-profile allele plus all
+BAM-derived count fields (depth, low-quality depth, and strand counts), then
+repopulates evidence only from GAF. All surviving non-graph BAM candidates are
+retained and jointly phased. `--private-sites` now implies this ownership rule.
+
+HG002 chr20, read margin 2: all clean BAM sites evaluated 184,911 reads with
+812 discordant (0.439% Hamming) and 965 kb read N50. On the shared DeepVariant
+call set it assessed 59,269 pairs at 300/260 kb N50/NGC50, 36 switchflips, and
+133 Hamming errors. Margin 3 evaluated 169,685 reads with 731 discordant
+(0.431%) and 1,014 kb N50, so confidence gating did not cure the conflict.
+The corrected selective GQ10 mode remains better: 180,800 reads, 366 discordant
+(0.202%), and shared-call 300/280 kb N50/NGC50, 25 switchflips, Hamming 27.
+
+During this experiment, verbose counts exposed 977,275 graph candidates in
+chunk 0 versus roughly 6,000 in ordinary 500 kb chunks. `load_sites_for_region`
+constructs a 1-based VCF region, while all graph/hybrid callers passed
+`region.beg - 1`; first-chunk start zero caused the formatter to issue a whole-
+contig tabix query. The three VCF catalog callers now pass `region.beg`.
+Zero-based GAF/FASTA calls are unchanged. A corrected GQ10 rerun reproduced the
+shared-call metrics exactly and changed read evaluation by only four reads,
+showing this was primarily a severe runtime/memory and boundary-query bug here.
+
+## Regional failures, BAM fallback, and supported private bridges (2026-09-12)
+
+The six phase sets below 60% accuracy in the corrected GQ10 run are not evidence
+that the competing phasers generally solve these regions. Over the union of the
+same six exact truth-coordinate intervals, pgphase evaluated 1,369 reads with
+68 errors (5.0%); HiPhase evaluated 2,552 with 644 errors (25.2%), LongPhase
+3,068 with 943 (30.7%), and WhatsHap 1,752 with 184 (10.5%). The competitors
+phase more reads but are less accurate in aggregate. They do beat pgphase in two
+small intervals near 31.77-31.89 Mb and 32.45-32.47 Mb; those are useful
+diagnostic targets, not a reason for chromosome-wide BAM ownership.
+
+`--bam-authoritative-bed FILE` was added to test that distinction. Within BED
+intervals clean BAM candidates replace the graph catalog and GAF evidence;
+outside, graph-authoritative private-gap behavior is unchanged. Broad cenSat
+fallback was worse (180,790 reads, 383 discordant versus 366), and a 65 Mb
+terminal fallback was neutral (180,814, 364). An oracle BED containing only the
+two competitor-winning intervals reached 180,769/355, but BAM clipping and GAF
+coverage did not identify those intervals: target reads had median/p90 BAM clip
+fraction zero and GAF aligned fraction 1.0. Do not select fallback regions from
+truth or annotation alone.
+
+`scripts/extract_private_gap_sites.py --bam FILE` now offers a truth-free,
+bridge-only private-site filter. For each gap it builds read-overlap edges among
+the left graph boundary, private candidates, and right graph boundary, then
+retains the strongest complete path whose edges have at least
+`--min-bridge-reads` MAPQ-filtered reads. On chr20 this retained 203/958 GQ10
+private sites in 112/364 gaps. It evaluated 177,901 reads with 318 discordant
+(0.18%) and 971 kb N50; adding `--min-phase-set-reads 10` yielded 177,829/303
+and 972 kb. This validates private sites as real connectors, but bridge-only is
+too conservative for the best coverage because useful one-sided/local gap
+islands are discarded.
+
+The best current chr20 accuracy/coverage point keeps all 958 GQ10 private gap
+sites and suppresses output from phase sets with fewer than 50 assigned reads:
+
+| configuration | evaluated reads | discordant | Hamming | read N50 kb | bad PS | DV assessed | DV N50/NGC50 kb | switchflips | DV Hamming |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| GQ10 private | 180,800 | 366 | 0.202% | 952 | 6 | 59,148 | 300/280 | 25 | 27 |
+| + min PS 10 | 180,701 | 344 | 0.190% | 964 | 3 | 59,127 | 300/280 | 22 | 23 |
+| **+ min PS 50** | **179,494** | **269** | **0.150%** | **991** | **0** | **58,785** | **300/280** | **18** | **19** |
+| bridge-only + min PS 10 | 177,829 | 303 | 0.170% | 972 | 2 | not run | not run | not run | not run |
+
+`--min-phase-set-reads` is a truth-free output-confidence gate. Fifty is the
+selected chr20 experimental point, not yet a default: it must reproduce on
+chr12/chr18 and another sample before being promoted. The design lesson is to
+retain graph trust, use private BAM sites only in graph phase gaps, let direct
+read connectivity form joint blocks, and abstain on small unsupported blocks.
+The gate counts unique `(input, read name)` identities, so chunk-overlap copies
+cannot inflate phase-set support; correcting that audit detail left the chr20
+result unchanged.
+
+## Why competitors appear better in the two chr20 target intervals (2026-09-12)
+
+The apparent wins at CHM13 chr20:31,766,466-31,888,625 and
+32,449,119-32,466,111 are haplotype-specific centromeric/segmental-duplication
+alignments, not ordinary diploid phase blocks. Truth-label and input-BAM audits
+showed 297/298 primary reads in the broader first interval are paternal and all
+72 in the second are paternal. The nine reads assigned to each pgphase target
+PS are all paternal. BAM and GAF alignments are not clipped, have high MAPQ
+among assigned reads, and cover the sites fully; the absent maternal signal is
+a copy/representation issue rather than low mapping confidence.
+
+Hybrid `--phase-matrix-dump PREFIX` was exposed to inspect these blocks. No
+private BAM candidate is decisive: every separating anchor is graph-owned. At
+32,449,119, dozens of clean graph SNP/indel anchors repeat the same 5:4 read
+partition; the catalog has 201 records under one large parent snarl in 2 kb. At
+31.7-31.9 Mb, 634 nested records share another parent. These correlated nested
+sites distinguish repeat/paralog copies among reads from the same paternal
+haplotype. pgphase counts them as independent diploid evidence, then k-means is
+required to produce HP1 and HP2, creating a false 5:4 split.
+
+The competitor advantage is mostly abstention or presentation:
+
+- On the exact nine reads at 31,766,466, HiPhase also splits them 5:4; its much
+  larger surrounding PS is 98.3% accurate and makes the interval aggregate look
+  better. LongPhase and WhatsHap also split these paternal-only reads.
+- At 32,449,119, HiPhase's perfect 20-read PS contains 20 paternal reads tagged
+  HP2 and zero HP1 reads. LongPhase leaves the nine pgphase reads unphased.
+  WhatsHap's local PS is 11 paternal reads in each HP and exactly 50% accurate.
+  No competitor reconstructs two biological haplotypes in this interval.
+
+A truth-free control collapsed small (<30-read), compact (<100 kb read-start
+span), >=90% soft-masked phase sets to one HP. It fixed both target PSs (4 -> 0
+errors each) and reduced whole-chromosome discordance 366 -> 310 without losing
+evaluated reads, but incorrectly collapsed a genuinely diploid centromeric
+block. Chromosome-wide matrices found correlated partitions in true and false
+blocks, so soft masking, density, parent identity, MAPQ, and partition
+redundancy are insufficient to call a block mono-haplotype safely.
+
+Decision: retain `--min-phase-set-reads 50` as the safe experimental policy. It
+abstains on both false blocks and yields 269 chr20 errors. Do not emit one-sided
+HP blocks without sample-aware graph-thread or copy-number evidence. A
+principled future fix is to group nested sites by graph parent/read partition so
+correlated observations contribute one evidence unit, then require independent
+flanking or private-site support before emitting a diploid PS.

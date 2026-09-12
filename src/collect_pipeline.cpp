@@ -31,11 +31,103 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include <htslib/sam.h>
 
 namespace pgphase_collect {
+
+using BamAuthorityIntervals = std::unordered_map<int, std::vector<Interval>>;
+
+static std::string authority_bed_contig(std::string contig) {
+    constexpr const char* kMaternalSuffix = "_MATERNAL";
+    constexpr const char* kPaternalSuffix = "_PATERNAL";
+    for (const char* suffix : {kMaternalSuffix, kPaternalSuffix}) {
+        const size_t n = std::char_traits<char>::length(suffix);
+        if (contig.size() >= n &&
+            contig.compare(contig.size() - n, n, suffix) == 0) {
+            contig.resize(contig.size() - n);
+            break;
+        }
+    }
+    return contig;
+}
+
+static int authority_bed_tid(const std::string& bed_contig,
+                             const bam_hdr_t* header) {
+    const std::string normalized = authority_bed_contig(bed_contig);
+    int match = -1;
+    for (int tid = 0; tid < header->n_targets; ++tid) {
+        const std::string target = header->target_name[tid];
+        const size_t hash = target.rfind('#');
+        const std::string suffix = hash == std::string::npos
+                                       ? target
+                                       : target.substr(hash + 1);
+        if (target != normalized && suffix != normalized) continue;
+        if (match >= 0) return -1;
+        match = tid;
+    }
+    return match;
+}
+
+static BamAuthorityIntervals load_bam_authority_intervals(
+        const std::string& path,
+        const bam_hdr_t* header) {
+    std::ifstream in(path);
+    if (!in) throw std::runtime_error("failed to open BAM-authoritative BED: " + path);
+
+    BamAuthorityIntervals intervals;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#' || line.rfind("track", 0) == 0)
+            continue;
+        std::istringstream fields(line);
+        std::string contig;
+        hts_pos_t bed_beg = 0;
+        hts_pos_t bed_end = 0;
+        if (!(fields >> contig >> bed_beg >> bed_end) ||
+            bed_beg < 0 || bed_end <= bed_beg) {
+            throw std::runtime_error("invalid interval in BAM-authoritative BED: " + line);
+        }
+        const int tid = authority_bed_tid(contig, header);
+        if (tid < 0) continue;
+        intervals[tid].push_back(Interval{bed_beg + 1, bed_end});
+    }
+
+    for (auto& [tid, rows] : intervals) {
+        (void)tid;
+        std::sort(rows.begin(), rows.end(), [](const Interval& a, const Interval& b) {
+            return a.beg < b.beg || (a.beg == b.beg && a.end < b.end);
+        });
+        std::vector<Interval> merged;
+        for (const Interval& row : rows) {
+            if (!merged.empty() && row.beg <= merged.back().end + 1) {
+                merged.back().end = std::max(merged.back().end, row.end);
+            } else {
+                merged.push_back(row);
+            }
+        }
+        rows = std::move(merged);
+    }
+    return intervals;
+}
+
+static bool is_bam_authoritative_position(
+        const BamAuthorityIntervals* intervals,
+        int tid,
+        hts_pos_t pos) {
+    if (intervals == nullptr) return false;
+    const auto found = intervals->find(tid);
+    if (found == intervals->end()) return false;
+    const std::vector<Interval>& rows = found->second;
+    const auto it = std::upper_bound(
+        rows.begin(), rows.end(), pos,
+        [](hts_pos_t value, const Interval& row) { return value < row.beg; });
+    if (it == rows.begin()) return false;
+    const Interval& row = *std::prev(it);
+    return pos >= row.beg && pos <= row.end;
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 // Region chunking
@@ -684,17 +776,31 @@ static PhasingChunk process_chunk_hybrid(
         SitesVcfHandle& sites_handle,
         IndexedGafHandle& gaf_handle,
         const std::string& graph_query_contig,
-        const std::unordered_map<std::string, std::string>& chrom_remap) {
+        const std::unordered_map<std::string, std::string>& chrom_remap,
+        const VariantKeySet* private_keys,
+        const BamAuthorityIntervals* bam_authority) {
     PhasingChunk chunk;
     chunk.region = region;
     load_and_prepare_chunk(chunk, opts, context);
 
     // Steps 1-2: BAM candidate discovery + classification.
     collect_var_classify(chunk, opts, context.primary_header());
+    if (private_keys != nullptr) {
+        CandidateTable retained;
+        retained.reserve(chunk.candidates.size());
+        for (CandidateVariant& candidate : chunk.candidates) {
+            if (private_keys->find(candidate.key) != private_keys->end() ||
+                is_bam_authoritative_position(
+                    bam_authority, candidate.key.tid, candidate.key.sort_pos())) {
+                retained.push_back(std::move(candidate));
+            }
+        }
+        chunk.candidates = std::move(retained);
+    }
 
     // Load graph sites and GAF reads for this region.
     GraphSiteCatalog chunk_catalog = load_sites_for_region(
-        sites_handle, graph_query_contig, region.beg - 1, region.end);
+        sites_handle, graph_query_contig, region.beg, region.end);
     for (GraphSite& s : chunk_catalog.sites) {
         auto it = chrom_remap.find(s.chrom);
         if (it != chrom_remap.end()) s.chrom = it->second;
@@ -703,7 +809,15 @@ static PhasingChunk process_chunk_hybrid(
             if (it2 != chrom_remap.end()) s.ref_contig = it2->second;
         }
     }
-    GraphSiteCatalogView chunk_view = chunk_catalog.view_all();
+    GraphSiteCatalogView chunk_view;
+    chunk_view.source = &chunk_catalog.sites;
+    chunk_view.indices.reserve(chunk_catalog.sites.size());
+    for (size_t site_i = 0; site_i < chunk_catalog.sites.size(); ++site_i) {
+        if (!is_bam_authoritative_position(
+                bam_authority, region.tid, chunk_catalog.sites[site_i].pos)) {
+            chunk_view.indices.push_back(site_i);
+        }
+    }
 
     std::vector<GraphReadAllele> chunk_rows;
     if (!chunk_view.empty()) {
@@ -718,13 +832,22 @@ static PhasingChunk process_chunk_hybrid(
     // allele counts are final (see classify_graph_only_candidates below).
     SiteToCandidateMap site_map;
     std::unordered_set<int> graph_only_cands;
+    std::unordered_set<int> all_graph_cands;
     GraphOnlyVcfAlleles graph_only_vcf_alleles;
     int bridged = 0, added = 0;
     if (!chunk_view.empty()) {
         site_map = inject_graph_sites(
             chunk, chunk_view, chrom_remap, opts, &bridged, &added,
-            &graph_only_cands, &graph_only_vcf_alleles);
+            &graph_only_cands, &graph_only_vcf_alleles, &all_graph_cands);
     }
+
+    // In authoritative mode, graph observations own every catalog-matched
+    // candidate, including exact BAM/graph matches. Non-graph BAM candidates
+    // remain untouched and are phased jointly with that graph-owned core.
+    const bool graph_authoritative =
+        opts.graph_authoritative || private_keys != nullptr;
+    const std::unordered_set<int>& graph_owned_cands =
+        graph_authoritative ? all_graph_cands : graph_only_cands;
 
     // Step 3.1: build BAM read profiles against augmented candidate table.
     collect_var_build_profiles(chunk, opts);
@@ -732,7 +855,10 @@ static PhasingChunk process_chunk_hybrid(
     // Backfill allele counts on graph-only candidates from BAM profiles.
     // The BAM profile builder records alleles but doesn't update candidate
     // counts; this pass accumulates the missing ref/alt/total coverage.
-    backfill_graph_candidate_counts(chunk, graph_only_cands);
+    if (graph_authoritative)
+        clear_bam_evidence_at_graph_candidates(chunk, graph_owned_cands);
+    else
+        backfill_graph_candidate_counts(chunk, graph_only_cands);
 
     // Phase B: inject graph-only reads and extend doubly-mapped profiles.
     const size_t n_bam_reads = chunk.reads.size();
@@ -740,7 +866,7 @@ static PhasingChunk process_chunk_hybrid(
     int reads_extended = 0;
     if (!chunk_rows.empty() && !site_map.empty()) {
         reads_injected = inject_graph_reads(
-            chunk, chunk_rows, site_map, graph_only_cands, opts,
+            chunk, chunk_rows, site_map, graph_owned_cands, opts,
             &reads_extended);
     }
 
@@ -756,26 +882,34 @@ static PhasingChunk process_chunk_hybrid(
     // on the promoted CleanHetIndel candidates.  Order matters: the noise
     // filter only acts on CleanHetIndel, so it must follow classification.
     int promoted = 0;
-    if (!graph_only_cands.empty()) {
-        promoted = classify_graph_only_candidates(chunk, graph_only_cands, opts);
+    if (!graph_owned_cands.empty()) {
+        promoted = classify_graph_only_candidates(chunk, graph_owned_cands, opts);
         if (!chunk.ref_seq.empty()) {
             apply_hybrid_noise_filter(
                 chunk, chunk.ref_seq, chunk.ref_beg, chunk.ref_end,
-                graph_only_cands, opts.noisy_reg_max_xgaps,
+                graph_owned_cands, opts.noisy_reg_max_xgaps,
                 &graph_only_vcf_alleles, opts.exp_hybrid_trim);
         }
     }
 
     if (opts.verbose >= 1 && (added > 0 || reads_injected > 0 || reads_extended > 0)) {
         std::fprintf(stderr,
-            "hybrid chunk %d: bridged=%d added=%d promoted=%d "
+            "hybrid chunk %d: bridged=%d added=%d graph_owned=%zu promoted=%d "
             "reads_injected=%d reads_extended=%d\n",
-            region.chunk_id, bridged, added, promoted,
+            region.chunk_id, bridged, added, graph_owned_cands.size(), promoted,
             reads_injected, reads_extended);
     }
 
-    // Steps 3.2-4: k-means + noisy-region MSA.
-    collect_var_run_phasing(chunk, opts);
+    // Steps 3.2-4: k-means + noisy-region MSA. In graph+private mode the VCF
+    // whitelist is a hard ownership boundary, so prevent BAM MSA recall from
+    // adding unlisted candidates after the graph and private tables are joined.
+    if (private_keys != nullptr) {
+        Options private_phase_opts = opts;
+        private_phase_opts.max_noisy_reg_len = 0;
+        collect_var_run_phasing(chunk, private_phase_opts);
+    } else {
+        collect_var_run_phasing(chunk, opts);
+    }
 
     // Drop graph-only candidates that failed the gate (LowCoverage /
     // LowAlleleFraction-folded / NonVariant / StrandBias).  The BAM pipeline
@@ -797,7 +931,9 @@ static ChunkBatchResult collect_hybrid_chunk_batch_parallel(
         size_t batch_begin,
         size_t batch_end,
         const std::string& graph_query_contig,
-        const std::unordered_map<std::string, std::string>& chrom_remap) {
+        const std::unordered_map<std::string, std::string>& chrom_remap,
+        const VariantKeySet* private_keys,
+        const BamAuthorityIntervals* bam_authority) {
     const size_t batch_size = batch_end - batch_begin;
     ChunkBatchResult result;
     result.chunks.resize(batch_size);
@@ -825,7 +961,8 @@ static ChunkBatchResult collect_hybrid_chunk_batch_parallel(
                     result.chunks[offset] = process_chunk_hybrid(
                         chunks[batch_begin + offset], opts, context,
                         sites_handle, gaf_handle,
-                        graph_query_contig, chrom_remap);
+                        graph_query_contig, chrom_remap, private_keys,
+                        bam_authority);
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -836,6 +973,52 @@ static ChunkBatchResult collect_hybrid_chunk_batch_parallel(
     for (std::thread& w : workers) w.join();
     if (first_error) std::rethrow_exception(first_error);
     return result;
+}
+
+static void filter_hybrid_reads_by_margin(std::vector<PhasingChunk>& chunks,
+                                          int min_margin) {
+    if (min_margin <= 0) return;
+    for (PhasingChunk& chunk : chunks) {
+        for (size_t i = 0; i < chunk.reads.size(); ++i) {
+            const ReadRecord& read = chunk.reads[i];
+            if (read.n_clean_agree_snps - read.n_clean_conflict_snps >= min_margin)
+                continue;
+            if (i < chunk.haps.size()) chunk.haps[i] = 0;
+            if (i < chunk.phase_sets.size()) chunk.phase_sets[i] = -1;
+        }
+    }
+}
+
+static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
+                                           int min_reads) {
+    if (min_reads <= 0) return;
+    std::unordered_map<hts_pos_t, std::unordered_set<std::string>> phase_set_reads;
+    for (const PhasingChunk& chunk : chunks) {
+        for (size_t i = 0; i < chunk.haps.size() &&
+                           i < chunk.phase_sets.size() &&
+                           i < chunk.reads.size(); ++i) {
+            if ((chunk.haps[i] == 1 || chunk.haps[i] == 2) &&
+                chunk.phase_sets[i] >= 0) {
+                std::string read_key = std::to_string(chunk.reads[i].input_index);
+                read_key.push_back('\0');
+                read_key += chunk.reads[i].qname;
+                phase_set_reads[chunk.phase_sets[i]].insert(std::move(read_key));
+            }
+        }
+    }
+    for (PhasingChunk& chunk : chunks) {
+        for (size_t i = 0; i < chunk.haps.size() && i < chunk.phase_sets.size(); ++i) {
+            const hts_pos_t phase_set = chunk.phase_sets[i];
+            const auto found = phase_set_reads.find(phase_set);
+            if (phase_set < 0 ||
+                (found != phase_set_reads.end() &&
+                 static_cast<int>(found->second.size()) >= min_reads)) {
+                continue;
+            }
+            chunk.haps[i] = 0;
+            chunk.phase_sets[i] = -1;
+        }
+    }
 }
 
 void run_collect_hybrid_variation(const Options& opts) {
@@ -856,6 +1039,32 @@ void run_collect_hybrid_variation(const Options& opts) {
     std::unique_ptr<bam_hdr_t, HeaderDeleter> header(sam_hdr_read(bam.get()));
     if (!header) throw std::runtime_error("failed to read BAM header");
     ReferenceCache ref(fai.get());
+
+    VariantKeySet private_keys;
+    const VariantKeySet* private_keys_ptr = nullptr;
+    if (!opts.private_sites_vcf.empty()) {
+        private_keys = load_private_variant_keys(opts.private_sites_vcf, header.get());
+        private_keys_ptr = &private_keys;
+        std::cerr << "Loaded " << private_keys.size()
+                  << " private BAM candidate key(s) from "
+                  << opts.private_sites_vcf << "\n";
+    }
+
+    BamAuthorityIntervals bam_authority;
+    const BamAuthorityIntervals* bam_authority_ptr = nullptr;
+    if (!opts.bam_authoritative_bed.empty()) {
+        bam_authority = load_bam_authority_intervals(
+            opts.bam_authoritative_bed, header.get());
+        bam_authority_ptr = &bam_authority;
+        size_t interval_count = 0;
+        for (const auto& [tid, rows] : bam_authority) {
+            (void)tid;
+            interval_count += rows.size();
+        }
+        std::cerr << "Loaded " << interval_count
+                  << " merged BAM-authoritative interval(s) from "
+                  << opts.bam_authoritative_bed << "\n";
+    }
 
     // Contig name resolution between BAM (e.g. "chr20") and pangenome paths
     // (e.g. "GRCh38#0#chr20") is handled by suffix matching in the tabix
@@ -909,8 +1118,11 @@ void run_collect_hybrid_variation(const Options& opts) {
 
         ChunkBatchResult batch = collect_hybrid_chunk_batch_parallel(
             opts, chunks, batch_begin, batch_end,
-            graph_query_contig, chrom_remap);
+            graph_query_contig, chrom_remap, private_keys_ptr,
+            bam_authority_ptr);
         stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
+        filter_hybrid_reads_by_margin(batch.chunks, opts.min_read_hap_margin);
+        filter_hybrid_small_phase_sets(batch.chunks, opts.min_phase_set_reads);
         CandidateTable variants = merge_chunk_candidates(batch.chunks);
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);

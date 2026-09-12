@@ -97,6 +97,99 @@ int main() {
                     "INS TA->TAAA normalizes to pos=102 ref_len=0 alt=AA");
     }
 
+    // Authoritative ownership includes exact BAM/graph matches as well as
+    // graph-only additions, and both sets survive the candidate-table sort.
+    {
+        PhasingChunk ownership_chunk;
+        ownership_chunk.region.tid = 0;
+        CandidateVariant shared = make_graph_snp(100, 5, 5);
+        shared.key.alt = "T";
+        ownership_chunk.candidates.push_back(shared);
+
+        GraphSiteCatalog catalog;
+        GraphSite shared_site;
+        shared_site.chrom = "chr20";
+        shared_site.pos = 100;
+        shared_site.id = "shared";
+        shared_site.ref = "C";
+        shared_site.alts = {"T"};
+        catalog.sites.push_back(shared_site);
+
+        GraphSite added_site;
+        added_site.chrom = "chr20";
+        added_site.pos = 200;
+        added_site.id = "added";
+        added_site.ref = "C";
+        added_site.alts = {"A"};
+        catalog.sites.push_back(added_site);
+
+        std::unordered_set<int> graph_only;
+        std::unordered_set<int> all_graph;
+        GraphOnlyVcfAlleles graph_alleles;
+        int bridged = 0;
+        int added = 0;
+        Options ownership_opts;
+        const SiteToCandidateMap site_map = inject_graph_sites(
+            ownership_chunk, catalog.view_all(), {}, ownership_opts,
+            &bridged, &added, &graph_only, &graph_alleles, &all_graph);
+
+        ok &= check(site_map.size() == 2 && bridged == 1 && added == 1,
+                    "graph injection bridges one site and adds one site");
+        ok &= check(graph_only.size() == 1 && all_graph.size() == 2,
+                    "authoritative ownership includes shared and graph-only sites");
+        ok &= check(graph_alleles.size() == 2,
+                    "catalog alleles are retained for every graph-owned site");
+    }
+
+    // --private-sites must remove every BAM candidate not explicitly listed
+    // before graph candidates and read profiles are added.
+    {
+        PhasingChunk private_chunk;
+        CandidateVariant keep = make_graph_snp(100, 5, 5);
+        keep.key.alt = "T";
+        CandidateVariant drop = make_graph_snp(200, 5, 5);
+        drop.key.alt = "G";
+        drop.counts.low_qual_cov = 3;
+        drop.counts.forward_ref = 2;
+        drop.counts.reverse_ref = 3;
+        drop.counts.forward_alt = 4;
+        drop.counts.reverse_alt = 1;
+        private_chunk.candidates.push_back(keep);
+        private_chunk.candidates.push_back(drop);
+
+        VariantKeySet private_keys;
+        private_keys.insert(keep.key);
+        const size_t retained =
+            retain_private_bam_candidates(private_chunk, private_keys);
+        ok &= check(retained == 1 && private_chunk.candidates.size() == 1,
+                    "private whitelist retains exactly one BAM candidate");
+        ok &= check(exact_comp_var_site(
+                        &private_chunk.candidates[0].key, &keep.key) == 0,
+                    "private whitelist retains the requested normalized key");
+
+        private_chunk.candidates.push_back(drop);
+        ReadVariantProfile profile;
+        profile.read_id = 0;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 1;
+        profile.alleles = {1, 1};
+        profile.alt_qi = {0, 0};
+        private_chunk.read_var_profile.push_back(profile);
+        const std::unordered_set<int> graph_owned = {1};
+        clear_bam_evidence_at_graph_candidates(private_chunk, graph_owned);
+        ok &= check(private_chunk.read_var_profile[0].alleles[0] == 1 &&
+                        private_chunk.read_var_profile[0].alleles[1] == -1,
+                    "private mode clears BAM alleles only at graph-owned sites");
+        ok &= check(private_chunk.candidates[0].counts.total_cov == 10 &&
+                        private_chunk.candidates[1].counts.total_cov == 0,
+                    "private mode clears counts only at graph-owned sites");
+        const VariantCounts& cleared = private_chunk.candidates[1].counts;
+        ok &= check(cleared.low_qual_cov == 0 && cleared.forward_ref == 0 &&
+                        cleared.reverse_ref == 0 && cleared.forward_alt == 0 &&
+                        cleared.reverse_alt == 0,
+                    "authoritative clearing removes all BAM-derived count fields");
+    }
+
     // Chunk with a reference slice long enough for the candidate positions.
     PhasingChunk chunk;
     chunk.ref_beg = 1;
@@ -155,6 +248,25 @@ int main() {
     std::unordered_set<int> empty_set;
     ok &= check(classify_graph_only_candidates(chunk, empty_set, opts) == 0,
                 "empty candidate set promotes nothing");
+
+    // The graph-wide AF gate keeps a real off-centre het call in output while
+    // preventing it from voting in k-means. Hybrid must match graph behavior.
+    {
+        PhasingChunk achunk;
+        achunk.candidates.push_back(make_graph_snp(55, 3, 7));  // AF 0.70
+        std::unordered_set<int> aset = {0};
+        Options aopts;
+        aopts.anchor_af_margin = 0.12;
+        const int apromoted =
+            classify_graph_only_candidates(achunk, aset, aopts);
+        ok &= check(apromoted == 0,
+                    "off-centre graph SNP is not promoted as an anchor");
+        ok &= check(achunk.candidates[0].counts.category ==
+                        VariantCategory::CleanHetSnp,
+                    "off-centre graph SNP remains a clean het call");
+        ok &= check(achunk.candidates[0].lcd_var_i_to_cate == kCandNonAnchorHet,
+                    "off-centre graph SNP receives the non-anchor flag");
+    }
 
     // ── graph het-indel AF-window gate ───────────────────────────────────────
     // Graph het indels become CleanHetIndel anchors only when their allele

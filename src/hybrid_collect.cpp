@@ -53,9 +53,16 @@ static void print_hybrid_help() {
         << "      --stitch-rule INT         Stitch rule: 0=net-margin 1=both-strands 2=literal 3=both+margin [1]\n"
         << "      --graph-indel-af-margin F Max |AF-0.5| for graph het-indel anchor [0.11]\n"
         << "      --graph-indel-min-alt INT Min alt support for graph het-indel anchor [0]\n"
+        << "      --anchor-af-margin F      Max |AF-0.5| for any graph-owned site to vote [0.5]\n"
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
         << "      --no-hybrid-trim          Disable minimal-VCF trimming of graph-only alleles before noise filter (on by default)\n"
         << "      --gap-fill                Additively phase reads the clean core left unphased into a disjoint PS namespace (off by default)\n"
+        << "      --private-sites FILE      Jointly phase graph sites plus only listed BAM candidates\n"
+        << "      --graph-authoritative     Use all non-graph BAM sites; replace graph-site BAM evidence with GAF\n"
+        << "      --bam-authoritative-bed F Use clean BAM sites only inside BED intervals\n"
+        << "      --min-read-margin INT     Min clean-SNP agree-conflict margin for output reads [0]\n"
+        << "      --min-phase-set-reads INT Min phased reads required to emit a phase set [0]\n"
+        << "      --phase-matrix-dump PFX   Debug: dump per-chunk read/variant matrices\n"
         << "  -V, --verbose INT             Verbosity level [0]\n"
         << "\n"
         << "Examples:\n"
@@ -112,9 +119,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kStitchRuleOption,
         kGraphIndelAfMarginOption,
         kGraphIndelMinAltOption,
+        kAnchorAfMarginOption,
         kKeepNoisyKmeansOption,
         kNoHybridTrimOption,
         kGapFillOption,
+        kPrivateSitesOption,
+        kGraphAuthoritativeOption,
+        kBamAuthoritativeBedOption,
+        kMinReadMarginOption,
+        kMinPhaseSetReadsOption,
+        kPhaseMatrixDumpOption,
     };
 
     static struct option long_options[] = {
@@ -145,9 +159,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"stitch-rule", required_argument, nullptr, kStitchRuleOption},
         {"graph-indel-af-margin", required_argument, nullptr, kGraphIndelAfMarginOption},
         {"graph-indel-min-alt", required_argument, nullptr, kGraphIndelMinAltOption},
+        {"anchor-af-margin", required_argument, nullptr, kAnchorAfMarginOption},
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
         {"gap-fill",        no_argument,       nullptr, kGapFillOption},
+        {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
+        {"graph-authoritative", no_argument,    nullptr, kGraphAuthoritativeOption},
+        {"bam-authoritative-bed", required_argument, nullptr, kBamAuthoritativeBedOption},
+        {"min-read-margin",  required_argument, nullptr, kMinReadMarginOption},
+        {"min-phase-set-reads", required_argument, nullptr, kMinPhaseSetReadsOption},
+        {"phase-matrix-dump", required_argument, nullptr, kPhaseMatrixDumpOption},
         {"refine-aln",      no_argument,       nullptr, kRefineAlnOption},
         {"verbose",         required_argument, nullptr, 'V'},
         {"help",            no_argument,       nullptr, 'h'},
@@ -192,9 +213,19 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kStitchRuleOption: opts.stitch_rule = std::atoi(optarg); break;
             case kGraphIndelAfMarginOption: opts.graph_indel_af_margin = std::atof(optarg); break;
             case kGraphIndelMinAltOption: opts.graph_indel_min_alt = std::atoi(optarg); break;
+            case kAnchorAfMarginOption: opts.anchor_af_margin = std::atof(optarg); break;
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
             case kGapFillOption:      opts.gap_fill = true; break;
+            case kPrivateSitesOption:
+                opts.private_sites_vcf = optarg;
+                opts.graph_authoritative = true;
+                break;
+            case kGraphAuthoritativeOption: opts.graph_authoritative = true; break;
+            case kBamAuthoritativeBedOption: opts.bam_authoritative_bed = optarg; break;
+            case kMinReadMarginOption: opts.min_read_hap_margin = std::atoi(optarg); break;
+            case kMinPhaseSetReadsOption: opts.min_phase_set_reads = std::atoi(optarg); break;
+            case kPhaseMatrixDumpOption: opts.phase_matrix_dump_prefix = optarg; break;
             case kRefineAlnOption:    opts.refine_aln = true; break;
             case 'V':                 opts.verbose = std::atoi(optarg); break;
             case 'h':
