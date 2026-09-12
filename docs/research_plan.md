@@ -156,6 +156,44 @@ Untested; expected to benefit more. Natural future work if time is short.
 
 ---
 
+## 2.5 Comparability rules (apples-to-apples)
+
+Every number in a table must differ from its neighbours in **exactly one**
+dimension. The dimensions that silently break this:
+
+| dimension | rule |
+|---|---|
+| reference | never mix CHM13 and GRCh38 rows |
+| truth set | v4.2.1 (GRCh38) and v5.0q (CHM13) are different difficulties; deltas only within one |
+| sample | HG002 and HG003 are not interchangeable |
+| reads / BAM | same alignment for every arm in a table |
+| DV model + version | PACBIO 1.10.0 throughout |
+| **small model** | see below -- the subtle one |
+| region | chr20 throughout |
+
+### The small-model confound
+
+`--disable_small_model` is **forced** on any arm that supplies external HP tags:
+with `phase_reads=false` the small-model feature vector drops 106 -> 70 and the
+shipped checkpoint raises `ValueError`. DeepVariant's published numbers were
+produced with the small model **enabled**.
+
+So "our HP vs the published baseline" confounds two changes at once. The fix is
+three reference points, not two:
+
+| arm | small model | phasing | role |
+|---|---|---|---|
+| A0 | **on** | DV internal | reproduces the published configuration |
+| A1 | **off** | DV internal | the controlled baseline |
+| B | **off** (forced) | **ours** | the treatment |
+
+Report **B vs A1** as the result — one variable — and **A0** separately to show
+the harness reproduces the published number and to state what disabling the
+small model costs on its own. Quoting B against A0 would overstate or understate
+the phasing effect by whatever the small model contributes.
+
+---
+
 ## 3. Methodological findings that must be in the paper
 
 Discovered while building this, and each would silently invalidate a naive
