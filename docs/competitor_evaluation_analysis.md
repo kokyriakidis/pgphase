@@ -93,6 +93,31 @@ accuracy is what matters for haplotagging and for supplying HP tags to a caller;
 variant-level is the field's convention. **We should report both**, and lead
 with whichever the venue expects.
 
+### Their exact methodology (from the supplementary, section 3.2-3.3)
+
+The supplementary publishes the command templates the repo omits:
+
+```
+whatshap compare --tsv-pairwise {tsv} --switch-error-bed {error_bed} {truth} {vcf}
+whatshap stats   --tsv {tsv} --block-list {blocks} {vcf}
+bedtools subtract -a {phase_block_bed} -b {error_bed} > {corrected_bed}   # -> NGC50
+bedtools intersect -a {refseq_gene_bed} -b {phase_block_bed} -f 1.0 -wa -A # -> genes
+```
+
+- **switchflips = switches + flips**, parsed from `all_switchflips` and summed
+  over chromosomes. **Hamming** is `blockwise_hamming`, likewise summed.
+- **NGC50**: phase blocks -> BED, `bedtools subtract` the switch-error BED to
+  split blocks at every error, then recompute NG50 on the surviving sub-blocks.
+- **Genes fully phased**: RefSeq GRCh38 GFF3 (NCBI Annotation Release 110),
+  keeping `gene`/`pseudogene` from BestRefSeq/RefSeq/Gnomon/Curated Genomic on
+  primary chromosomes. Phase blocks are first **extended** in both directions
+  until the next het variant, to absorb homozygous stretches inside genes, then
+  a gene counts as phased if one extended block covers it entirely (`-f 1.0`).
+- They note `whatshap stats` under-reports HiPhase because it mishandles
+  multi-allelic sites, so HiPhase's own `--blocks-file`/`--summary-file` were
+  used for its block metrics. Any comparison must use one block source per tool
+  consistently and say which.
+
 ### Reproducing their metric on our data
 
 `whatshap compare` against the v5.0q CHM13 phased truth, HG002 chr20, all tools
@@ -107,6 +132,40 @@ given the same reads:
 
 7.8x fewer switches, 7.8x lower switchflip rate, 32x lower Hamming than the best
 competitor — on their metric, with their tool.
+
+**But that table is not apples-to-apples**, and correcting it changes the
+picture. Above, each tool phased a different variant set: competitors phased
+DeepVariant's calls, ours phased its own. `scripts/phase_vcf_from_hp.py`
+transfers our read HP tags onto the *same* DeepVariant call set (per-site
+majority vote of tagged reads), so all four phase identical variants:
+
+| method | phased | switchflips | Hamming | N50 kb | NGC50 kb |
+|---|---|---|---|---|---|
+| whatshap 2.8 | 76,567 | 309 | 3,196 | 673 | 338 |
+| LongPhase 2.0.2 | 62,287 | **143** | 605 | 475 | 400 |
+| HiPhase 1.6.0 | 75,060 | 172 | 2,279 | **856** | **644** |
+| graph HP -> DV calls | 71,504 | 145 | **235** | 329 | 312 |
+
+Honest reading of the corrected table:
+
+- **Hamming: we win clearly** — 235 against LongPhase's 605 (2.6x) and
+  HiPhase's 2,279 (10x). Hamming counts variants placed on the wrong haplotype,
+  which is the quantity that matters for haplotagging and for supplying HP tags
+  downstream.
+- **Switchflips: we tie LongPhase** (145 vs 143), both well ahead of HiPhase
+  (172) and whatshap (309).
+- **Contiguity: we lose.** NGC50 312 kb against HiPhase's 644. Transferring onto
+  a larger call set exposes it: 10,108 DV het sites had too little
+  haplotype-tagged support and 2,592 were mixed, and each unphased site can
+  break a block.
+
+So the defensible claim is **accuracy, not contiguity** — and specifically
+Hamming, where the margin is large and consistent. Claiming a contiguity win
+would not survive this table.
+
+(NGC50 here is chr20-denominated, 66 Mb. HiPhase's published ~310 kb is
+genome-denominated over 3.1 Gb of autosomes. The two are not comparable; only
+the within-table ordering is.)
 
 ---
 
