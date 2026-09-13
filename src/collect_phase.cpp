@@ -230,13 +230,20 @@ static void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int 
 // Returns +var_score (match), −var_score (mismatch), or 0 (no info).
 // Side effect: may set hap_to_cons_alle[hap] or [3-hap] when one is -1.
 // Score a read against consensus alleles: +1 for agreement, -1 for conflict.
-static int read_to_cons_allele_score(CandidateVariant& var, int hap, uint32_t var_i_to_cate, int allele_i) {
+static int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i) {
+    const uint32_t var_i_to_cate = var.lcd_var_i_to_cate;
     int var_score = 1;
-    if (var_i_to_cate == kCandCleanHetSnp) var_score = 2;
-    else if (var_i_to_cate == kCandCleanHetIndel) var_score = 2;
+    if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetSnp) var_score = 2;
+    else if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetIndel) var_score = 2;
     if (var.hap_to_cons_alle[hap] == -1 && var.hap_to_cons_alle[3 - hap] == -1) return 0;
     if (var.hap_to_cons_alle[hap] == -1) var.hap_to_cons_alle[hap] = 1 - var.hap_to_cons_alle[3 - hap];
     if (var.hap_to_cons_alle[3 - hap] == -1) var.hap_to_cons_alle[3 - hap] = 1 - var.hap_to_cons_alle[hap];
+    // A non-anchor het still gets a consensus and a phase set -- it is a real
+    // call -- but it must not influence which haplotype a read is assigned to,
+    // which is the decision --anchor-af-margin exists to protect.  The return
+    // must come *after* the consensus fill-in above, or the site never acquires
+    // a genotype and is dropped at output instead of merely not voting.
+    if (var_i_to_cate == kCandNonAnchorHet) return 0;
     if (var.hap_to_cons_alle[hap] == allele_i) return var_score;
     if (var.hap_to_cons_alle[hap] == -1) return 0;
     return -var_score;
@@ -244,9 +251,11 @@ static int read_to_cons_allele_score(CandidateVariant& var, int hap, uint32_t va
 
 // Weight a candidate gets in k-means scoring (mirrors read_to_cons_allele_score):
 // clean het SNP/indel count double, everything else single.
-static int phase_matrix_var_weight(uint32_t var_i_to_cate) {
-    if (var_i_to_cate == kCandCleanHetSnp) return 2;
-    if (var_i_to_cate == kCandCleanHetIndel) return 2;
+static int phase_matrix_var_weight(const CandidateVariant& var) {
+    const uint32_t var_i_to_cate = var.lcd_var_i_to_cate;
+    if (var_i_to_cate == kCandNonAnchorHet) return 0;
+    if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetSnp) return 2;
+    if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetIndel) return 2;
     return 1;
 }
 
@@ -286,7 +295,7 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
         std::fprintf(fp, "VAR\t%d\t%" PRId64 "\t%c\t%u\t%d\n",
                      vidx, static_cast<int64_t>(var.key.pos), t,
                      var.lcd_var_i_to_cate,
-                     phase_matrix_var_weight(var.lcd_var_i_to_cate));
+                     phase_matrix_var_weight(var));
     }
 
     // Observation rows: qname, var_idx, allele (0=ref,1=alt,-1=non-inf,-2=lowqual).
@@ -334,10 +343,10 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
         if (aidx < 0) continue;
 
         for (int hap = 1; hap <= 2; ++hap) {
-            const int score = read_to_cons_allele_score(var, hap, vic, aidx);
+            const int score = read_to_cons_allele_score(var, hap, aidx);
             if (score != 0) {
                 if (vic != kCandCleanHom) n_vars_used[hap]++;
-                if ((vic & kCandGermlineClean) != 0 && var.key.type == VariantType::Snp) {
+                if (vic == kCandCleanHetSnp && var.counts.n_uniq_alles <= 2) {
                     if (score > 0) n_clean_agree[hap]++;
                     else n_clean_conflict[hap]++;
                 }
@@ -429,6 +438,35 @@ static int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int 
     return -1;
 }
 
+// Link two variants by the allele pattern a read carries across them, without
+// requiring the read to have been assigned a haplotype.
+//
+// check_agree_haps() consults chunk.haps[read_i] and so ignores every unassigned
+// read.  That is a real loss: at the junctions where blocks break, most spanning
+// reads are untagged precisely *because* the block broke there, so the evidence
+// that would repair the break is discarded.  A read does not need a haplotype to
+// say "these two variants' alleles travel together on me" -- which is the edge a
+// read-backed phasing graph is built from.  Returns 1 if the read carries the
+// same haplotype's consensus at both variants, 0 if opposite ones, -1 if it does
+// not resolve both.
+static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, int var2) {
+    const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
+    if (var1 < prof.start_var_idx || var2 > prof.end_var_idx) return -1;
+    const int a1 = prof.alleles[var1 - prof.start_var_idx];
+    const int a2 = prof.alleles[var2 - prof.start_var_idx];
+    if (a1 < 0 || a2 < 0) return -1;
+    const CandidateVariant& v1 = chunk.candidates[var1];
+    const CandidateVariant& v2 = chunk.candidates[var2];
+    // Both are het here, so hap_to_cons_alle[1] != [2] and the match is unambiguous.
+    int h1 = 0, h2 = 0;
+    if (v1.hap_to_cons_alle[1] == a1) h1 = 1;
+    else if (v1.hap_to_cons_alle[2] == a1) h1 = 2;
+    if (v2.hap_to_cons_alle[1] == a2) h2 = 1;
+    else if (v2.hap_to_cons_alle[2] == a2) h2 = 2;
+    if (h1 == 0 || h2 == 0) return -1;
+    return (h1 == h2) ? 1 : 0;
+}
+
 // Phase-set assignment + flip for one k-means iteration.
 // Returns 1 if any flip occurred (changed), 0 if converged.
 // Iter_update_var_hap_cons_phase_set.
@@ -449,30 +487,85 @@ static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         }
     }
 
-    std::vector<int> n_agree(n, 0), n_conflict(n, 0);
+    const int n_het = (int)het_var_idx.size();
+    // Strongest link found for each het var: which earlier het it attaches to,
+    // and the agree/conflict counts of that link.
+    std::vector<int> link_h(n_het, -1), link_agree(n_het, 0), link_conflict(n_het, 0);
     int64_t* ovlp_b = nullptr;
     int64_t max_b = 0;
     cgranges_t* cr = chunk.read_var_cr.get();
 
-    // For each adjacent pair of het vars, count spanning read agree/conflict.
-    for (int hi = 1; hi < (int)het_var_idx.size(); ++hi) {
-        const int _vi = het_var_idx[hi];
-        const int vi = valid_var_idx[_vi];
-        const int prev_vi = valid_var_idx[het_var_idx[hi - 1]];
-
-        const int64_t ovlp_n = cr_overlap(cr, "cr", prev_vi, vi + 1, &ovlp_b, &max_b);
-        for (int64_t oi = 0; oi < ovlp_n; ++oi) {
-            const int read_i = (int)cr_label(cr, ovlp_b[oi]);
-            if (chunk.reads[read_i].is_skipped) continue;
-            const int agree = check_agree_haps(chunk, read_i, chunk.haps[read_i], prev_vi, vi);
-            if (agree > 0) n_agree[_vi]++;
-            else if (agree == 0) n_conflict[_vi]++;
+    // Link each het var to a preceding one by spanning-read evidence.
+    //
+    // Considering only the immediately preceding het makes phasing a *chain*:
+    // one weakly covered variant severs a block that reads otherwise span
+    // densely, because reads linking across it are never consulted.  Widening
+    // the search to the previous `block_link_window` hets makes it a
+    // connectivity graph instead -- the same structure whatshap and HiPhase
+    // use.  The nearest link that clears the threshold wins, since fewer
+    // intervening variants means less accumulated orientation error; if none
+    // clears, the best-supported one is kept so the break decision below sees
+    // the strongest evidence available.
+    const int window = std::max(1, opts.block_link_window);
+    for (int hi = 1; hi < n_het; ++hi) {
+        const int vi = valid_var_idx[het_var_idx[hi]];
+        const int lo = std::max(0, hi - window);
+        int best_h = -1, best_support = -1, best_a = 0, best_c = 0;
+        for (int hj = hi - 1; hj >= lo; --hj) {
+            const int vj = valid_var_idx[het_var_idx[hj]];
+            int a = 0, c = 0;
+            const int64_t ovlp_n = cr_overlap(cr, "cr", vj, vi + 1, &ovlp_b, &max_b);
+            for (int64_t oi = 0; oi < ovlp_n; ++oi) {
+                const int read_i = (int)cr_label(cr, ovlp_b[oi]);
+                if (chunk.reads[read_i].is_skipped) continue;
+                const int agree = opts.link_by_alleles
+                        ? check_agree_alleles(chunk, read_i, vj, vi)
+                        : check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
+                if (agree > 0) a++;
+                else if (agree == 0) c++;
+            }
+            const int support = std::max(a, c);
+            if (support > best_support) {
+                best_support = support; best_h = hj; best_a = a; best_c = c;
+            }
+            if (support >= opts.min_block_link_reads) break;  // nearest sufficient link
         }
+        link_h[hi] = best_h;
+        link_agree[hi] = best_a;
+        link_conflict[hi] = best_c;
     }
     free(ovlp_b);
 
+    // Resolve orientation and phase set per het var.  parity[hi] is the
+    // cumulative flip to apply; it is chained through whichever earlier het the
+    // variant actually linked to, not blindly through its predecessor.
+    std::vector<int> parity(n_het, 0);
+    std::vector<hts_pos_t> het_ps(n_het, -1);
+    for (int hi = 0; hi < n_het; ++hi) {
+        const CandidateVariant& var = chunk.candidates[valid_var_idx[het_var_idx[hi]]];
+        if (hi == 0) {
+            het_ps[hi] = var.key.sort_pos();
+            continue;
+        }
+        const int hj = link_h[hi];
+        const int support = std::max(link_agree[hi], link_conflict[hi]);
+        if (hj < 0 || support < opts.min_block_link_reads) {
+            // No sufficiently supported link anywhere in the window -- break.
+            // Carry the running parity unchanged, as orientation within a fresh
+            // phase set is arbitrary anyway.
+            parity[hi] = parity[hi - 1];
+            het_ps[hi] = var.key.sort_pos();
+        } else {
+            parity[hi] = parity[hj] ^ ((link_conflict[hi] > link_agree[hi]) ? 1 : 0);
+            het_ps[hi] = het_ps[hj];
+        }
+    }
+
+    // Map variant index -> het rank, so the emit loop can look up its decision.
+    std::vector<int> het_rank(n, -1);
+    for (int hi = 0; hi < n_het; ++hi) het_rank[het_var_idx[hi]] = hi;
+
     int changed = 0;
-    int flip = 0;
     hts_pos_t phase_set = -1;
     for (int _vi = 0; _vi < n; ++_vi) {
         const int vi = valid_var_idx[_vi];
@@ -482,19 +575,15 @@ static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             var.phase_set = phase_set;
             continue;
         }
-        if (opts.verbose >= 2) {
+        const int hi = het_rank[_vi];
+        if (opts.verbose >= 2 && hi > 0) {
             std::fprintf(stderr, "%" PRIi64 " %d %d\n",
                          static_cast<int64_t>(var.key.pos),
-                         n_agree[_vi], n_conflict[_vi]);
+                         link_agree[hi], link_conflict[hi]);
         }
-        if (is_het[_vi]) {
-            if (n_agree[_vi] < 2 && n_conflict[_vi] < 2) {
-                // Insufficient spanning reads — start a new phase set.
-                phase_set = var.key.sort_pos();
-            } else if (n_conflict[_vi] > n_agree[_vi]) {
-                flip ^= 1;
-            }
-            if (flip == 1) {
+        if (hi >= 0) {
+            phase_set = het_ps[hi];
+            if (parity[hi] == 1) {
                 changed = 1;
                 // Swap consensus alleles between hap 1 and hap 2.
                 // (with ploidy 2 this is two swaps → net identity; matches released assign_hap.c).

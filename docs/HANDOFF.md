@@ -635,3 +635,34 @@ python3 scripts/compute_ngc50.py blocks.txt err.bed ngc.json --genome-size 66210
 
 **Companion docs:** `docs/competitor_evaluation_analysis.md` (full detail, §5–§12),
 `docs/publication_plan.md`, `docs/research_plan.md`, `docs/pantree_catalog_experiment.md`.
+
+---
+
+## 11. Latest development-panel decision (chr12/chr18/chr20)
+
+The symmetric shared-call benchmark is complete and supersedes choosing a
+method from chr20 alone. Exact commands and stable result tables are in
+`evaluations/2026-09-12-chr12-18-20-comparison/`.
+
+| method | pooled read Hamming | phased reads | median chr NGC50 |
+|---|---:|---:|---:|
+| graph | **0.110%** | 811,382 | 251 kb |
+| direct hybrid | 0.461% | 814,172 | 295 kb |
+| graph lock | **0.123%** | 822,021 | 252 kb |
+| HiPhase 1.6 | 4.377% | 1,064,369 | **644 kb** |
+| LongPhase 2.0.2 | 2.339% | 1,027,359 | 454 kb |
+
+Graph lock is the current safe hybrid policy. Direct hybrid is positive on
+chr12/chr20 but fails on chr18, where two large mixed blocks raise read Hamming
+to 1.383%. The next experiment must require a private bridge chain to agree
+independently with both adjacent graph blocks before connecting them.
+
+The gap audit finds 63,337 competitor-covered truth hets outside graph blocks;
+35,529 (56.1%) have no exact catalog record. This verifies that private sites
+are needed, but the current direct hybrid phases only 655 of these sites across
+the panel. Adding more BAM sites indiscriminately is therefore not the answer.
+
+A chr20 contig-alias bug in `extract_private_gap_sites.py` was corrected during
+the run: both catalog and requested contigs are now normalized before matching.
+The corrected strict set has 74 private sites, not 143, and excludes 45,393
+graph-owned positions. All chr20 panel results were regenerated after the fix.

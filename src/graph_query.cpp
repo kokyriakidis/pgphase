@@ -11,11 +11,28 @@
 #include <string>
 #include <string_view>
 
+#include <atomic>
 #include <htslib/hts.h>
 #include <htslib/kstring.h>
 #include <htslib/tbx.h>
 
 namespace pgphase_collect {
+
+// Evidence accounting for the walk matcher.  A read that enters and leaves a
+// snarl but matches none of its enumerated allele walks is dropped without
+// trace today; that is real graph information being discarded, so count it.
+std::atomic<int64_t> g_span_matched{0}, g_span_unmatched{0}, g_not_spanned{0};
+
+void graph_query_report_match_stats() {
+    const int64_t m = g_span_matched.load(), u = g_span_unmatched.load(),
+                  n = g_not_spanned.load();
+    const int64_t sp = m + u;
+    std::fprintf(stderr,
+        "[walk-match] spanned %lld  matched %lld (%.1f%%)  "
+        "spanned-but-no-allele %lld (%.1f%%)  touched-not-spanned %lld\n",
+        (long long)sp, (long long)m, sp ? 100.0 * m / sp : 0.0,
+        (long long)u, sp ? 100.0 * u / sp : 0.0, (long long)n);
+}
 
 namespace {
 
@@ -450,6 +467,17 @@ size_t scan_gaf_line_compact(std::string_view line,
                 count(site.left), count(site.right),
                 count(site.left_rev), count(site.right_rev),
                 site.alleles.n_alleles, site.max_walk_len, allele, rev ? 1 : 0);
+        }
+        {
+            auto cnt = [&](CompactHandle h) {
+                auto [b, e] = boundary_positions.find(h);
+                return b ? static_cast<int>(e - b) : 0;
+            };
+            const bool spanned = (cnt(site.left) > 0 && cnt(site.right) > 0) ||
+                                 (cnt(site.left_rev) > 0 && cnt(site.right_rev) > 0);
+            if (allele >= 0) g_span_matched.fetch_add(1, std::memory_order_relaxed);
+            else if (spanned) g_span_unmatched.fetch_add(1, std::memory_order_relaxed);
+            else g_not_spanned.fetch_add(1, std::memory_order_relaxed);
         }
         if (allele < 0) continue;
         emit(worker_id, GraphReadAllele{

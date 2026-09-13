@@ -54,6 +54,9 @@ scan_indexed_gaf_chunk(IndexedGafHandle& handle,
                        const GraphSiteCatalogView& catalog,
                        int min_mapq);
 
+// Reports how much graph evidence the walk matcher accepted vs discarded.
+void graph_query_report_match_stats();
+
 // Validates that the GAF file is bgzip-compressed and has a .tbi index.
 void require_indexed_gaf(const std::string& indexed_gaf_file);
 

@@ -19,6 +19,9 @@ and derivation commands must be recorded in the experiment README/script.
 
 Current evaluations:
 
+- [`2026-09-12-chr12-18-20-comparison`](2026-09-12-chr12-18-20-comparison/README.md):
+  HiPhase-style shared-call comparison across chr12, chr18, and chr20, with
+  variant truth, read truth, chromosome NGC50, and competitor-gap diagnosis.
 - [`2026-09-12-native-bam-graph-lock`](2026-09-12-native-bam-graph-lock/README.md):
   chr12/chr18 native-BAM and chr20 DeepVariant-private validation of
   graph-locked private-gap recovery.

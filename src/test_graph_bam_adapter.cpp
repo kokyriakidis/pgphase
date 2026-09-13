@@ -13,6 +13,20 @@ static bool check(bool cond, const std::string& msg) {
     return cond;
 }
 
+static const ReadVariantProfile* profile_for_read(const PhasingChunk& chunk,
+                                                  const std::string& qname) {
+    for (const ReadRecord& read : chunk.reads) {
+        if (read.qname != qname) continue;
+        const int read_i = static_cast<int>(&read - chunk.reads.data());
+        for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+            if (profile.read_id == read_i) {
+                return &profile;
+            }
+        }
+    }
+    return nullptr;
+}
+
 static GraphSite make_site(const std::string& id,
                            hts_pos_t pos,
                            const std::string& allele0,
@@ -198,7 +212,8 @@ int main() {
     // A triallelic site (ref + alt1 + alt2) is split into two biallelic (ref vs alt_i)
     // pairs. Each pair gets its own AF/depth filter.
     // Sub-test A: both pairs pass — ref reads fan out to both pairs (allele 0 each);
-    //             alt reads contribute only to their specific pair (allele 1).
+    //             alt reads contribute allele 1 to their own pair and allele 0 to
+    //             the other pair when snarl allele phasing is enabled.
     {
         GraphSite tri_both;
         tri_both.chrom = tri_both.ref_contig = "chr1";
@@ -222,6 +237,7 @@ int main() {
             tb_rows.push_back({"tri_both", "chr1", 100, "a2_" + std::to_string(i), 2});
 
         Options default_opts;
+        default_opts.snarl_allele_phasing = true;
         auto tb = build_graph_chunk(tri_both_cat.view_all(), tb_rows, "chr1", 0, 200, 0, default_opts);
 
         ok &= check(tb.chunk.candidates.size() == 2,
@@ -229,16 +245,70 @@ int main() {
         ok &= check(tb.site_ids.size() == 2 &&
                     tb.site_ids[0] == "tri_both:1" && tb.site_ids[1] == "tri_both:2",
                     "multiallelic decomp: pair IDs carry original alt index");
-        // ref=6 (5 ref + ref_cross), alt=5 for each pair
-        ok &= check(tb.chunk.candidates[0].counts.ref_cov == 6 &&
+        // Under snarl allele phasing, "ref" for each pair means all reads not
+        // carrying that alt: 6 literal-ref reads + 5 reads on the other alt.
+        ok &= check(tb.chunk.candidates[0].counts.ref_cov == 11 &&
                     tb.chunk.candidates[0].counts.alt_cov == 5,
                     "multiallelic decomp: pair 0 counts correct");
-        ok &= check(tb.chunk.candidates[1].counts.ref_cov == 6 &&
+        ok &= check(tb.chunk.candidates[1].counts.ref_cov == 11 &&
                     tb.chunk.candidates[1].counts.alt_cov == 5,
                     "multiallelic decomp: pair 1 counts correct");
         // All 16 reads (6 ref + 5 alt1 + 5 alt2) survive
         ok &= check(tb.chunk.reads.size() == 16,
                     "multiallelic decomp: all reads retained when both pairs pass");
+        const ReadVariantProfile* a1_profile = profile_for_read(tb.chunk, "a1_0");
+        ok &= check(a1_profile != nullptr &&
+                    a1_profile->start_var_idx == 0 &&
+                    a1_profile->end_var_idx == 1 &&
+                    a1_profile->alleles.size() == 2 &&
+                    a1_profile->alleles[0] == 1 &&
+                    a1_profile->alleles[1] == 0,
+                    "multiallelic decomp: alt1 read votes ref for alt2 pair");
+        const ReadVariantProfile* a2_profile = profile_for_read(tb.chunk, "a2_0");
+        ok &= check(a2_profile != nullptr &&
+                    a2_profile->start_var_idx == 0 &&
+                    a2_profile->end_var_idx == 1 &&
+                    a2_profile->alleles.size() == 2 &&
+                    a2_profile->alleles[0] == 0 &&
+                    a2_profile->alleles[1] == 1,
+                    "multiallelic decomp: alt2 read votes ref for alt1 pair");
+    }
+
+    // Sub-test A2: keeping a no-reference alt1/alt2 snarl whole must remain a
+    // heterozygous n-allelic anchor, not collapse to homozygous non-reference.
+    {
+        GraphSite tri_alt_alt;
+        tri_alt_alt.chrom = tri_alt_alt.ref_contig = "chr1";
+        tri_alt_alt.pos = tri_alt_alt.ref_beg = 100; tri_alt_alt.ref_end = 101;
+        tri_alt_alt.id = "tri_alt_alt";
+        tri_alt_alt.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
+        tri_alt_alt.allele_walks = {parse_graph_walk(">1>2>3"),
+                                    parse_graph_walk(">1>4>3"),
+                                    parse_graph_walk(">1>5>3")};
+        tri_alt_alt.skip_reason = graph_site_validation_skip_reason(tri_alt_alt);
+        tri_alt_alt.eligible = tri_alt_alt.skip_reason.empty();
+        GraphSiteCatalog tri_alt_alt_cat; tri_alt_alt_cat.sites.push_back(tri_alt_alt);
+
+        std::vector<GraphReadAllele> aa_rows;
+        for (int i = 0; i < 5; ++i)
+            aa_rows.push_back({"tri_alt_alt", "chr1", 100, "a1_" + std::to_string(i), 1});
+        for (int i = 0; i < 5; ++i)
+            aa_rows.push_back({"tri_alt_alt", "chr1", 100, "a2_" + std::to_string(i), 2});
+
+        Options keep_whole_opts;
+        keep_whole_opts.snarl_keep_whole = true;
+        keep_whole_opts.snarl_allele_phasing = true;
+        auto aa = build_graph_chunk(tri_alt_alt_cat.view_all(), aa_rows, "chr1", 0, 200, 0,
+                                    keep_whole_opts);
+
+        ok &= check(aa.chunk.candidates.size() == 1,
+                    "whole snarl: alt1/alt2 site retained as one candidate");
+        ok &= check(!aa.chunk.candidates.empty() &&
+                    aa.chunk.candidates[0].counts.n_uniq_alles == 3,
+                    "whole snarl: candidate keeps all allele slots");
+        ok &= check(!aa.chunk.candidates.empty() &&
+                    aa.chunk.candidates[0].counts.category == VariantCategory::CleanHetIndel,
+                    "whole snarl: alt1/alt2 site classified as heterozygous");
     }
 
     // Sub-test B: alt2 has AF > max_af (hom-alt), its pair is filtered.

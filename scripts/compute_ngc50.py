@@ -9,23 +9,38 @@ Replicates the HiPhase paper methodology:
 
 Usage:
   python3 compute_ngc50.py <phase_blocks.tsv> <switch_errors.bed> <output.json>
+      [--genome-size BP]
 """
-import csv, json, subprocess, sys, tempfile, os
+import argparse
+import csv
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+
+def parse_args():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("phase_blocks")
+    ap.add_argument("switch_errors")
+    ap.add_argument("output_json")
+    ap.add_argument(
+        "--genome-size", type=int, default=3_100_000_000,
+        help=("Denominator for NG50 in bp. Set this to the evaluated chromosome "
+              "length for chromosome-only benchmarks [3100000000]."),
+    )
+    return ap.parse_args()
 
 def main():
-    if len(sys.argv) < 4:
-        print("Usage: compute_ngc50.py <blocks.tsv> <errors.bed> <output.json>",
-              file=sys.stderr)
-        sys.exit(1)
-
-    blocks_tsv = sys.argv[1]
-    error_bed  = sys.argv[2]
-    output_json = sys.argv[3]
+    args = parse_args()
+    if args.genome_size <= 0:
+        raise ValueError("--genome-size must be positive")
 
     # Convert whatshap phase blocks TSV to BED
     # whatshap stats --block-list columns: sample, chromosome, phase_set, from, to, variants
     block_bed_lines = []
-    with open(blocks_tsv) as f:
+    with open(args.phase_blocks) as f:
         reader = csv.DictReader(f, delimiter="\t")
         for row in reader:
             chrom = row.get("chromosome", row.get("#chromosome", ""))
@@ -35,7 +50,8 @@ def main():
                 block_bed_lines.append(f"{chrom}\t{start}\t{end}")
 
     if not block_bed_lines:
-        json.dump({"ngc50_bp": 0, "corrected_blocks": 0}, open(output_json, "w"))
+        with open(args.output_json, "w") as f:
+            json.dump({"ngc50_bp": 0, "corrected_blocks": 0}, f)
         return
 
     # Write phase block BED
@@ -52,11 +68,12 @@ def main():
         # bedtools subtract: remove switch error regions from phase blocks
         with open(corrected_bed.name, "w") as out:
             subprocess.run(
-                ["bedtools", "subtract", "-a", block_bed.name, "-b", error_bed],
+                ["bedtools", "subtract", "-a", block_bed.name,
+                 "-b", args.switch_errors],
                 stdout=out, check=True
             )
 
-        # Compute NG50 from corrected blocks (genome size = 3.1 Gb)
+        # Compute NG50 from corrected blocks using the requested benchmark span.
         spans = []
         with open(corrected_bed.name) as f:
             for line in f:
@@ -65,8 +82,7 @@ def main():
                     spans.append(int(parts[2]) - int(parts[1]))
 
         spans.sort(reverse=True)
-        genome_size = 3_100_000_000
-        half = genome_size / 2
+        half = args.genome_size / 2
         running = 0
         ngc50 = 0
         for s in spans:
@@ -77,10 +93,11 @@ def main():
 
         result = {
             "ngc50_bp": ngc50,
+            "genome_size_bp": args.genome_size,
             "corrected_blocks": len(spans),
             "total_corrected_span_bp": sum(spans),
         }
-        with open(output_json, "w") as f:
+        with open(args.output_json, "w") as f:
             json.dump(result, f, indent=2)
             f.write("\n")
 

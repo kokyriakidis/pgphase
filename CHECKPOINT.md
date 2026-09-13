@@ -4896,3 +4896,30 @@ remains the selected balance: 179,494 reads, 269 errors, no bad PS, and 991 kb
 N50. It gains 797 reads and 31 kb N50 for three errors. Conclusion: graph lock
 is required for native BAM proposals on chr12/chr18, while a polished external
 callset can still benefit from direct joint phasing plus final abstention.
+
+## Shared-call chr12/chr18/chr20 benchmark (2026-09-12)
+
+The full development panel now uses one DeepVariant 1.10.0 call set per
+chromosome for pgphase, WhatsHap 2.8, HiPhase 1.6, and LongPhase 2.0.2. Variant
+truth, read truth, chromosome-denominated NGC50, resource use, and gap-site
+loss are recorded under
+`evaluations/2026-09-12-chr12-18-20-comparison/`.
+
+Pooled graph read Hamming is 0.110% on 811,382 phased reads. Graph lock phases
+822,021 reads at 0.123% Hamming, but median chromosome NGC50 changes only 251
+to 252 kb. HiPhase reaches 644 kb and LongPhase 454 kb, with read Hamming of
+4.377% and 2.339%, respectively. Direct hybrid reaches 295 kb but is rejected:
+chr18 read Hamming rises to 1.383% because two large hybrid blocks are mixed.
+
+Across the three chromosomes, 63,337 truth hets lie outside graph blocks but
+inside a competitor block. Of these, 35,529 (56.1%) have no exact graph catalog
+record, 11,940 are represented but classified `ref_only`, and 7,409 have no
+reads in their assigned chunk. Clean private gap-site admission recovers only
+655 phased sites, so the next constraint is allele-consistent bridge evidence
+to both adjacent graph blocks, not broader BAM-site admission.
+
+During this benchmark, chr20 graph-position exclusion was found to compare
+`CHM13#0#chr20` against an unnormalized requested contig. After normalizing both
+sides, the valid private set fell from 143 to 74 and 45,393 graph-owned
+positions were correctly excluded. The corrected chr20 hybrid and graph-lock
+measurements are the ones in the evaluation record.

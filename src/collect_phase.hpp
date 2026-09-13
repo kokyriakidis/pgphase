@@ -28,6 +28,11 @@ constexpr uint32_t kCandNoisyCandHet         = 0x100u;  // noisy-region MSA het
 constexpr uint32_t kCandNoisyCandHom         = 0x200u;  // noisy-region MSA hom
 constexpr uint32_t kLongcalldLowAfVar        = 0x400u;  // low allele fraction
 constexpr uint32_t kLongcalldNonVar          = 0x800u;  // non-variant placeholder
+// A het that is real enough to call and phase, but whose allele fraction is far
+// enough from 0.5 that letting it anchor k-means risks separating paralogs
+// instead of haplotypes (see --anchor-af-margin).  Kept out of the anchor mask,
+// kept in the germline mask so it is still emitted and phased.
+constexpr uint32_t kCandNonAnchorHet         = 0x1000u;
 
 // Composite masks:
 // Categories excluded from noisy-region containment checks.
@@ -36,8 +41,13 @@ constexpr uint32_t kLongcalldNotCandVarCate =
 // All het candidate categories.
 constexpr uint32_t kCandHetVarCate =
     kCandCleanHetSnp | kCandCleanHetIndel | kCandNoisyCandHet;
-// Clean germline categories (used for VCF INFO CLEAN flag).
-constexpr uint32_t kCandGermlineClean = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom;
+// Categories allowed to anchor k-means read assignment.  Narrower than the
+// germline mask on purpose: anchoring drives haplotype assignment, so a site
+// that is merely callable must not automatically get a vote.
+constexpr uint32_t kCandAnchorClean = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom;
+// Clean germline categories (used for VCF INFO CLEAN flag and output gating).
+constexpr uint32_t kCandGermlineClean =
+    kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom | kCandNonAnchorHet;
 // All germline categories (clean + noisy-recalled).
 constexpr uint32_t kCandGermlineVarCate =
     kCandGermlineClean | kCandNoisyCandHet | kCandNoisyCandHom;

@@ -21,6 +21,10 @@ def open_text(path):
     return gzip.open(path, "rt") if str(path).endswith(".gz") else open(path)
 
 
+def contig_alias(contig):
+    return contig.split("#")[-1]
+
+
 def read_graph_alleles(path, contig):
     alleles = set()
     with open_text(path) as handle:
@@ -28,7 +32,7 @@ def read_graph_alleles(path, contig):
             if line.startswith("#"):
                 continue
             fields = line.rstrip("\n").split("\t")
-            if len(fields) < 5 or fields[0].split("#")[-1] != contig:
+            if len(fields) < 5 or contig_alias(fields[0]) != contig_alias(contig):
                 continue
             for alt in fields[4].split(","):
                 alleles.add((int(fields[1]), fields[3], alt))

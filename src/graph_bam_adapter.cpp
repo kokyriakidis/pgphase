@@ -258,6 +258,23 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
             }
         }
 
+        if (c.n_uniq_alles > 2) {
+            int max_cov = 0;
+            for (int cov : c.alle_covs) max_cov = std::max(max_cov, cov);
+            const double top_fraction =
+                c.total_cov > 0 ? static_cast<double>(max_cov) / c.total_cov : 0.0;
+            if (top_fraction > opts.max_af) {
+                c.category = VariantCategory::CleanHom;
+                c.candvarcate_initial = VariantCategory::CleanHom;
+                cand.lcd_var_i_to_cate = category_to_flag(VariantCategory::CleanHom);
+                continue;
+            }
+            c.category = VariantCategory::CleanHetIndel;
+            c.candvarcate_initial = VariantCategory::CleanHetIndel;
+            cand.lcd_var_i_to_cate = kCandCleanHetIndel;
+            continue;
+        }
+
         // Low allele fraction → folded to LowCoverage (matches BAM pipeline pass 2).
         if (c.allele_fraction < opts.min_af) {
             c.category = VariantCategory::LowCoverage;
@@ -291,15 +308,22 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
         // it just stops voting.
         const bool af_centred =
             std::abs(c.allele_fraction - 0.5) <= opts.anchor_af_margin;
+        // The comment above says the site "is still emitted as a call, it just
+        // stops voting" -- but kLongcalldLowAfVar is outside kCandGermlineClean,
+        // which is what gates VCF output, so the site was in fact dropped
+        // entirely.  kCandNonAnchorHet expresses the stated intent: outside the
+        // anchor mask, inside the germline mask.
+        const uint32_t non_anchor_cate =
+            opts.emit_nonanchor_hets ? kCandNonAnchorHet : kLongcalldLowAfVar;
         if (cand.key.type == VariantType::Snp) {
             c.category = VariantCategory::CleanHetSnp;
             c.candvarcate_initial = VariantCategory::CleanHetSnp;
             cand.lcd_var_i_to_cate =
-                af_centred ? kCandCleanHetSnp : kLongcalldLowAfVar;
+                af_centred ? kCandCleanHetSnp : non_anchor_cate;
         } else if (!af_centred) {
             c.category = VariantCategory::CleanHetIndel;
             c.candvarcate_initial = VariantCategory::CleanHetIndel;
-            cand.lcd_var_i_to_cate = kLongcalldLowAfVar;
+            cand.lcd_var_i_to_cate = non_anchor_cate;
         } else {
             c.category = VariantCategory::CleanHetIndel;
             c.candvarcate_initial = VariantCategory::CleanHetIndel;
@@ -476,14 +500,23 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     struct RowTriple { uint32_t rid; int site_i; int packed; int mapq; };
     std::vector<RowTriple> row_triples;
     row_triples.reserve(rows.size());
+    // Counted because a row dropped here leaves its site with no evidence at all,
+    // which surfaces much later as a "ref_only" filter that names neither cause.
+    int64_t row_site_missing = 0, row_allele_oob = 0, row_kept = 0;
     for (const GraphReadAllele& row : rows) {
         const uint32_t rid = intern_read(row.read_name);
         auto it = site_to_candidate.find(row.site_id);
-        if (it == site_to_candidate.end()) continue;
+        if (it == site_to_candidate.end()) { ++row_site_missing; continue; }
         const int site_i = it->second;
         CandidateVariant& candidate = out.chunk.candidates[static_cast<size_t>(site_i)];
-        if (row.allele < 0 || row.allele >= candidate.counts.n_uniq_alles) continue;
+        if (row.allele < 0 || row.allele >= candidate.counts.n_uniq_alles) { ++row_allele_oob; continue; }
+        ++row_kept;
         row_triples.push_back({rid, site_i, pack_allele_rev(row.allele, row.reverse), row.mapq});
+    }
+    if (opts.verbose >= 1) {
+        std::fprintf(stderr, "[rows] total %zu kept %" PRId64 " site-unknown %" PRId64
+                             " allele-out-of-range %" PRId64 "\n",
+                     rows.size(), row_kept, row_site_missing, row_allele_oob);
     }
     const uint32_t n_reads = static_cast<uint32_t>(read_id_to_name.size());
 
@@ -515,6 +548,17 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
         }
         entries.resize(out_i + 1);
     }
+    // A read whose walk re-enters the same snarl (tandem repeats do this) yields
+    // several observations for one site; if they disagree the site is marked
+    // conflicted and contributes nothing.  Counted because the result is a site
+    // with zero evidence, reported downstream only as "ref_only".
+    if (opts.verbose >= 1) {
+        int64_t conflicted = 0, kept_obs = 0;
+        for (const auto& entries : allele_by_read_site)
+            for (const auto& e : entries) (e.packed < 0 ? conflicted : kept_obs)++;
+        std::fprintf(stderr, "[dedup] observations kept %" PRId64 " conflicted %" PRId64 "\n",
+                     kept_obs, conflicted);
+    }
 
     // Binary search helper for sorted SiteAlleleEntry vectors.
     auto find_site_entry = [](const std::vector<SiteAlleleEntry>& v, int site_i)
@@ -526,6 +570,10 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     };
 
     // Build per-read observation lists, applying parent gating.
+    // Counted so the cost of the gate is visible: dropping an observation here
+    // leaves the site with no allele evidence at all, which surfaces downstream
+    // as a "ref_only" filter rather than as anything mentioning nesting.
+    int64_t gate_no_parent_cand = 0, gate_no_parent_obs = 0, gate_allele_mismatch = 0, gate_kept = 0;
     std::vector<std::vector<GraphProfileObservation>> read_obs(n_reads);
     for (uint32_t rid = 0; rid < n_reads; ++rid) {
         const auto& by_site = allele_by_read_site[rid];
@@ -538,14 +586,16 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             const std::vector<int>& conditional = conditional_parent_alleles[static_cast<size_t>(site_i)];
             const int parent_i = parent_candidate[static_cast<size_t>(site_i)];
             if (!conditional.empty()) {
-                if (parent_i < 0) continue;
+                if (parent_i < 0) { ++gate_no_parent_cand; continue; }
                 const SiteAlleleEntry* parent_obs = find_site_entry(by_site, parent_i);
-                if (!parent_obs || parent_obs->packed < 0) continue;
+                if (!parent_obs || parent_obs->packed < 0) { ++gate_no_parent_obs; continue; }
                 const int parent_allele = unpack_allele(parent_obs->packed);
                 if (std::find(conditional.begin(), conditional.end(), parent_allele) ==
                     conditional.end()) {
+                    ++gate_allele_mismatch;
                     continue;
                 }
+                ++gate_kept;
             }
             ++allele_counts[static_cast<size_t>(site_i)][static_cast<size_t>(allele)];
             auto& sc = rev ? rev_strand_counts[static_cast<size_t>(site_i)]
@@ -553,6 +603,15 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             ++sc[static_cast<size_t>(allele)];
             read_obs[rid].push_back(GraphProfileObservation{site_i, allele});
         }
+    }
+    if (opts.verbose >= 1) {
+        const int64_t dropped = gate_no_parent_cand + gate_no_parent_obs + gate_allele_mismatch;
+        std::fprintf(stderr,
+                     "[parent-gate] kept %" PRId64 " dropped %" PRId64
+                     " (no parent candidate %" PRId64 ", parent unobserved %" PRId64
+                     ", parent allele mismatch %" PRId64 ")\n",
+                     gate_kept, dropped, gate_no_parent_cand, gate_no_parent_obs,
+                     gate_allele_mismatch);
     }
 
     for (size_t site_i = 0; site_i < out.chunk.candidates.size(); ++site_i) {
@@ -603,6 +662,19 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                 new_rc.push_back(a < rc.size() ? rc[a] : 0);
             }
         }
+        {
+            static const char* dbg = getenv("PGPHASE_DEBUG_SITE");
+            static const long dbg_pos = dbg ? atol(dbg) : -1;
+            if (dbg_pos >= 0 && i < out.site_meta.size() &&
+                std::llabs(static_cast<long long>(out.site_meta[i].pos) - dbg_pos) <= 2) {
+                std::string before, after;
+                for (int x : ac) before += std::to_string(x) + ",";
+                for (int x : new_ac) after += std::to_string(x) + ",";
+                std::fprintf(stderr, "[compact %ld] cate=0x%x min_alt_depth=%d counts before=[%s] after=[%s]\n",
+                             static_cast<long>(out.site_meta[i].pos), cand.lcd_var_i_to_cate,
+                             opts.min_alt_depth, before.c_str(), after.c_str());
+            }
+        }
         allele_counts[i] = new_ac;
         fwd_strand_counts[i] = new_fc;
         rev_strand_counts[i] = new_rc;
@@ -639,9 +711,11 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     // mirroring the BAM path where every candidate is a single ref/alt pair.
     // AF and depth filters are applied per pair; filtered pairs go to out.filtered_sites.
     // A read observing ref contributes allele 0 to every pair from that site;
-    // a read observing alt_i contributes allele 1 to only the pair for alt_i.
+    // with --snarl-allele-phasing, a read observing alt_i contributes allele 1
+    // to its own pair and allele 0 to the other pairs from that site.
     struct NewPairEntry { int new_idx; int old_alt_phase1; };
     std::vector<std::vector<NewPairEntry>> old_site_to_pairs(n_cands);
+    std::vector<bool> source_is_multi(n_cands, false);
 
     // Overlapping/nested snarls can emit the same physical variant from different
     // sites. Keyed by snarl order_pos() these look distinct, but in minimal VCF
@@ -683,9 +757,15 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     for (size_t i = 0; i < n_cands; ++i) {
         const std::vector<int>& ac = allele_counts[i];
         if (ac.size() < 2) {
+            // Chunks overlap, so a site near a boundary is built in two chunks and
+            // sees reads in only one of them.  The empty copy is not a filtered
+            // site -- it is an artifact of chunking -- and labelling it "ref_only"
+            // makes the dump read as though the site had no alt evidence anywhere.
+            // Distinguish the two so the dump can be deduplicated honestly.
+            const char* reason = (ac[0] == 0) ? "no_reads_in_chunk" : "ref_only";
             out.filtered_sites.push_back({out.site_ids[i], out.site_meta[i].chrom,
                                           out.site_meta[i].pos, ac[0], 0, ac[0], 0.0,
-                                          "ref_only"});
+                                          reason});
             continue;
         }
         const std::vector<int>& fc = fwd_strand_counts[i];
@@ -707,9 +787,84 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
         // denominators are equal, so only multi-allele sites change.
         int site_total = 0;
         for (int c : ac) site_total += c;
+        // A multi-allelic snarl is not a set of independent ref/alt questions.
+        // For pair_i the meaningful contrast is "carries alt_i" vs "carries
+        // something else" -- a read on alt_j is direct evidence against alt_i,
+        // not a missing observation.  Scoring it that way makes an alt_1/alt_2
+        // heterozygote read as 0.5/0.5 instead of 1.0/1.0, which is what made it
+        // invisible.  (--af-vs-site-depth changed only the denominator and left
+        // the read profile monomorphic, which is why it degraded phasing.)
+        const bool multi = opts.snarl_allele_phasing && ac.size() > 2;
+        source_is_multi[i] = multi;
+        // Keep a multi-allelic snarl whole rather than splitting it into
+        // independent ref/alt questions.  k-means already works on integer
+        // allele indices -- hap_to_cons_alle[hap] is "which allele this
+        // haplotype carries", and any non-zero index projects as ALT -- so a
+        // snarl with n alleles can be a single anchor where two reads agree iff
+        // they carry the same allele.  That is well defined no matter how the
+        // reads distribute across the alleles, which binary contrasts are not:
+        // in a repeat snarl with 8+ alleles no single alt reaches an
+        // informative allele fraction, and the site is lost either way.
+        if (multi && opts.snarl_keep_whole) {
+            int alt_total = 0;
+            for (size_t a = 1; a < ac.size(); ++a) alt_total += ac[a];
+            // Need two alleles with real support for the locus to say anything.
+            int n_supported = 0;
+            for (int c : ac) if (c >= opts.min_alt_depth) ++n_supported;
+            if (site_total < opts.min_depth || n_supported < 2) {
+                out.filtered_sites.push_back({out.site_ids[i], meta_chrom, meta_pos,
+                                              ac[0], alt_total, site_total, 0.0,
+                                              site_total < opts.min_depth ? "low_depth"
+                                                                          : "multiallelic_unsupported"});
+                continue;
+            }
+            // The sample is diploid: however many alleles the graph offers here,
+            // its reads should concentrate on at most two.  When they spread
+            // wider, the snarl is not resolving two haplotypes -- measured on
+            // HG002 chr20, within-haplotype allele purity falls from 99% at two
+            // alleles to 38% at sixteen -- and using it as an anchor assigns
+            // reads confidently to the wrong haplotype.  Nesting level does not
+            // predict this (LV0/LV1/LV2 purity is flat); allele spread does.
+            std::vector<int> desc(ac);
+            std::sort(desc.begin(), desc.end(), std::greater<int>());
+            const int top2 = desc[0] + (desc.size() > 1 ? desc[1] : 0);
+            const double top2_frac =
+                site_total > 0 ? static_cast<double>(top2) / site_total : 0.0;
+            if (top2_frac < opts.snarl_top2_frac) {
+                // Too spread to trust as a single n-allelic anchor -- but dropping
+                // it outright would discard signal the biallelic decomposition
+                // does extract, so fall through to that instead of skipping the
+                // site.  (Dropping made the gate non-monotonic: tightening it
+                // removed anchors faster than it removed noise.)
+                goto decompose_site;
+            }
+            const int new_idx = static_cast<int>(new_cands.size());
+            CandidateVariant whole = out.chunk.candidates[i];
+            whole.counts.alle_covs       = ac;
+            whole.counts.n_uniq_alles    = static_cast<int>(ac.size());
+            whole.counts.ref_cov         = ac[0];
+            whole.counts.alt_cov         = alt_total;
+            whole.counts.total_cov       = site_total;
+            whole.counts.allele_fraction =
+                site_total > 0 ? static_cast<double>(alt_total) / site_total : 0.0;
+            new_cands.push_back(whole);
+            new_ids.push_back(out.site_ids[i]);
+            new_meta.push_back(out.site_meta[i]);
+            new_allele_counts.push_back(ac);
+            new_fwd_strand.push_back(fc);
+            new_rev_strand.push_back(rc_s);
+            new_orig_idx.push_back(allele_orig_idx[i]);
+            // old_alt_phase1 = -1 marks "identity mapping": observations keep
+            // their allele index instead of collapsing to 0/1.
+            old_site_to_pairs[i].push_back({new_idx, -1});
+            continue;
+        }
+    decompose_site:
         for (size_t a = 1; a < ac.size(); ++a) {
             const int alt_c   = ac[a];
-            const int total_c = opts.af_vs_site_depth ? site_total : ref_c + alt_c;
+            const int pair_ref_c = multi ? (site_total - alt_c) : ref_c;
+            const int total_c = multi ? site_total
+                                      : (opts.af_vs_site_depth ? site_total : ref_c + alt_c);
             const double af   = total_c > 0 ? static_cast<double>(alt_c) / total_c : 0.0;
             const int orig_alt = allele_orig_idx[i][a];
 
@@ -727,13 +882,18 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             }
             if (!drop_reason.empty()) {
                 out.filtered_sites.push_back({pair_id, meta_chrom, meta_pos,
-                                              ref_c, alt_c, total_c, af,
+                                              pair_ref_c, alt_c, total_c, af,
                                               std::move(drop_reason)});
                 continue;
             }
 
-            const int fwd_ref = fc.empty() ? 0 : fc[0];
-            const int rev_ref = rc_s.empty() ? 0 : rc_s[0];
+            int fwd_ref = fc.empty() ? 0 : fc[0];
+            int rev_ref = rc_s.empty() ? 0 : rc_s[0];
+            if (multi) {
+                fwd_ref = 0; rev_ref = 0;
+                for (size_t b = 0; b < fc.size(); ++b) if (b != a) fwd_ref += fc[b];
+                for (size_t b = 0; b < rc_s.size(); ++b) if (b != a) rev_ref += rc_s[b];
+            }
             const int fwd_alt = a < fc.size() ? fc[a] : 0;
             const int rev_alt = a < rc_s.size() ? rc_s[a] : 0;
 
@@ -791,9 +951,9 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             }
 
 
-            pair_cand.counts.alle_covs       = {ref_c, alt_c};
+            pair_cand.counts.alle_covs       = {pair_ref_c, alt_c};
             pair_cand.counts.n_uniq_alles    = 2;
-            pair_cand.counts.ref_cov         = ref_c;
+            pair_cand.counts.ref_cov         = pair_ref_c;
             pair_cand.counts.alt_cov         = alt_c;
             pair_cand.counts.total_cov       = total_c;
             pair_cand.counts.forward_ref     = fwd_ref;
@@ -847,15 +1007,34 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             const size_t old_si = static_cast<size_t>(o.site_index);
             const auto& pairs = old_site_to_pairs[old_si];
             if (pairs.empty()) continue;
+            // Was the *original* snarl multi-allelic?  If so, a read carrying one
+            // alt is evidence against every other alt of that snarl, so it must
+            // appear in those pairs as allele 0 rather than be omitted.  Omitting
+            // it leaves each pair seeing only its own carriers -- monomorphic, and
+            // useless to k-means -- which is how alt-vs-alt heterozygotes became
+            // invisible even after their allele fractions were corrected.
+            const bool multi_src =
+                old_si < source_is_multi.size() && source_is_multi[old_si];
             // Fast path: biallelic site (one surviving pair) — no loop needed.
             if (pairs.size() == 1) {
                 if (cand_pruned[static_cast<size_t>(pairs[0].new_idx)]) continue;
+                if (pairs[0].old_alt_phase1 < 0) {
+                    // Whole multi-allelic snarl: carry the allele index through.
+                    if (o.allele >= 0 &&
+                        static_cast<size_t>(o.allele) < allele_remap[old_si].size()) {
+                        const int mapped = allele_remap[old_si][static_cast<size_t>(o.allele)];
+                        if (mapped >= 0) new_obs.push_back({pairs[0].new_idx, mapped});
+                    }
+                    continue;
+                }
                 if (o.allele == 0) {
                     new_obs.push_back({pairs[0].new_idx, 0});
                 } else if (o.allele > 0 &&
                            static_cast<size_t>(o.allele) < allele_remap[old_si].size()) {
                     if (allele_remap[old_si][static_cast<size_t>(o.allele)] == pairs[0].old_alt_phase1)
                         new_obs.push_back({pairs[0].new_idx, 1});
+                    else if (multi_src)
+                        new_obs.push_back({pairs[0].new_idx, 0});
                 }
                 continue;
             }
@@ -869,11 +1048,9 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                 const int phase1_alt = allele_remap[old_si][static_cast<size_t>(o.allele)];
                 if (phase1_alt >= 0) {
                     for (const NewPairEntry& pe : pairs) {
-                        if (pe.old_alt_phase1 == phase1_alt) {
-                            if (!cand_pruned[static_cast<size_t>(pe.new_idx)])
-                                new_obs.push_back({pe.new_idx, 1});
-                            break;
-                        }
+                        if (cand_pruned[static_cast<size_t>(pe.new_idx)]) continue;
+                        if (pe.old_alt_phase1 == phase1_alt) new_obs.push_back({pe.new_idx, 1});
+                        else if (multi_src) new_obs.push_back({pe.new_idx, 0});
                     }
                 }
             }
