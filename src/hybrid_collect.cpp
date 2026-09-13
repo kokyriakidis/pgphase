@@ -55,6 +55,8 @@ static void print_hybrid_help() {
         << "      --graph-indel-min-alt INT Min alt support for graph het-indel anchor [0]\n"
         << "      --anchor-af-margin F      Max |AF-0.5| for any graph-owned site to vote [0.5]\n"
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
+        << "      --recover-gaps            Recover remaining gaps with clean, MSA SNP, then MSA indel tiers\n"
+        << "      --gap-recovery-report FILE  Per-gap tier and stitching outcomes (TSV)\n"
         << "      --link-by-alleles         Let untagged reads carry phase-block linking evidence\n"
         << "      --block-link-window INT   Preceding het variants searched for a link [1]\n"
         << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
@@ -128,6 +130,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kGraphIndelMinAltOption,
         kAnchorAfMarginOption,
         kKeepNoisyKmeansOption,
+        kRecoverGapsOption,
+        kGapRecoveryReportOption,
         kLinkByAllelesOption,
         kBlockLinkWindowOption,
         kPrivateMsaAdmitAllOption,
@@ -175,6 +179,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"graph-indel-min-alt", required_argument, nullptr, kGraphIndelMinAltOption},
         {"anchor-af-margin", required_argument, nullptr, kAnchorAfMarginOption},
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
+        {"recover-gaps", no_argument, nullptr, kRecoverGapsOption},
+        {"gap-recovery-report", required_argument, nullptr, kGapRecoveryReportOption},
         {"link-by-alleles",   no_argument,     nullptr, kLinkByAllelesOption},
         {"block-link-window", required_argument, nullptr, kBlockLinkWindowOption},
         {"private-msa-admit-all-in-region", no_argument, nullptr, kPrivateMsaAdmitAllOption},
@@ -236,6 +242,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGraphIndelMinAltOption: opts.graph_indel_min_alt = std::atoi(optarg); break;
             case kAnchorAfMarginOption: opts.anchor_af_margin = std::atof(optarg); break;
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
+            case kRecoverGapsOption: opts.recover_gaps = true; break;
+            case kGapRecoveryReportOption: opts.gap_recovery_report = optarg; break;
             case kLinkByAllelesOption: opts.link_by_alleles = true; break;
             case kBlockLinkWindowOption: opts.block_link_window = std::atoi(optarg); break;
             case kPrivateMsaAdmitAllOption: opts.private_msa_admit_all_in_region = true; break;
@@ -268,6 +276,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         opts.graph_sites_vcf.empty() || opts.gaf_file.empty()) {
         std::cerr << "Error: --ref, --bam, --graph-sites, and --gaf are required\n\n";
         print_hybrid_help();
+        return 1;
+    }
+    if (!opts.gap_recovery_report.empty() && !opts.recover_gaps) {
+        std::cerr << "Error: --gap-recovery-report requires --recover-gaps\n";
+        return 1;
+    }
+    if (opts.recover_gaps && (!opts.private_sites_vcf.empty() || opts.gap_fill ||
+                              opts.private_msa_snp_first || opts.private_msa_admit_all_in_region)) {
+        std::cerr << "Error: --recover-gaps manages site admission automatically; "
+                     "do not combine it with --private-sites, --gap-fill or private MSA tier flags\n";
         return 1;
     }
     if (opts.private_msa_margin <= 0 || opts.min_block_link_reads <= 0 ||

@@ -1,0 +1,152 @@
+{
+  "15m/auto24": {
+    "original_reads_preserved": 555,
+    "block_transforms": {
+      "14957075": [
+        [
+          14957075,
+          0
+        ]
+      ],
+      "15039543": [
+        [
+          14957075,
+          1
+        ]
+      ],
+      "15115387": [
+        [
+          14957075,
+          0
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  },
+  "15m/auto1": {
+    "original_reads_preserved": 555,
+    "block_transforms": {
+      "14957075": [
+        [
+          14957075,
+          0
+        ]
+      ],
+      "15039543": [
+        [
+          14957075,
+          1
+        ]
+      ],
+      "15115387": [
+        [
+          14957075,
+          0
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  },
+  "47m/auto24": {
+    "original_reads_preserved": 510,
+    "block_transforms": {
+      "47600981": [
+        [
+          47600981,
+          0
+        ]
+      ],
+      "47713869": [
+        [
+          47600981,
+          1
+        ]
+      ],
+      "47762233": [
+        [
+          47600981,
+          1
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  },
+  "47m/auto1": {
+    "original_reads_preserved": 510,
+    "block_transforms": {
+      "47600981": [
+        [
+          47600981,
+          0
+        ]
+      ],
+      "47713869": [
+        [
+          47600981,
+          1
+        ]
+      ],
+      "47762233": [
+        [
+          47600981,
+          1
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  },
+  "15m_split/auto24": {
+    "original_reads_preserved": 534,
+    "block_transforms": {
+      "14957075": [
+        [
+          14957075,
+          0
+        ]
+      ],
+      "15039543": [
+        [
+          14957075,
+          1
+        ]
+      ],
+      "15115387": [
+        [
+          14957075,
+          0
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  },
+  "15m_split/auto1": {
+    "original_reads_preserved": 534,
+    "block_transforms": {
+      "14957075": [
+        [
+          14957075,
+          0
+        ]
+      ],
+      "15039543": [
+        [
+          14957075,
+          1
+        ]
+      ],
+      "15115387": [
+        [
+          14957075,
+          0
+        ]
+      ]
+    },
+    "gaps_attempted": 2,
+    "gaps_joined": 2
+  }
+}

@@ -149,6 +149,9 @@ int make_vars_from_msa_cons_aln(
  * When `site_whitelist` is set, unlisted calls are discarded and an exact
  * whitelisted collision may replace an existing repeat-indel row.
  *
+ * `replace_sites` explicitly permits replacing untrusted existing rows and
+ * their observations when adopting a recovery proposal.
+ *
  * @return Number of MSA candidates admitted into the merged table.
  */
 int merge_var_profile(PhasingChunk& chunk,
@@ -157,7 +160,8 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist = nullptr,
                       bool admit_all_in_region = false,
-                      bool snp_only_admission = false);
+                      bool snp_only_admission = false,
+                      const VariantKeySet* replace_sites = nullptr);
 
 } // namespace pgphase_collect
 

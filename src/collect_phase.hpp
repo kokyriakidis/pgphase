@@ -70,6 +70,10 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                        const Options* opts = nullptr,
                        const PgbamSidecarData* pgbam_sidecar = nullptr);
 
+/// Apply the normal overlap-read stitching rule to 11/12/21/22 haplotype votes.
+bool select_stitch_orientation(const std::array<int, 4>& votes,
+                               const Options* opts, bool& do_flip);
+
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,

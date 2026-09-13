@@ -824,80 +824,17 @@ static void apply_chunk_flip_and_merge(PhasingChunk& cur,
     }
 }
 
-// Overlap-read voting between adjacent chunks: count reads that agree vs
-// disagree on hap assignment, then flip + merge if disagreement wins.
-static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, const Options* opts) {
-    if (pre.region.tid != cur.region.tid) return false;
-
-    int n_cur_ovlp_reads = 0;
-    int n_pre_ovlp_reads = 0;
-    const size_t n_bams = cur.up_ovlp_read_i.size();
-    for (size_t bi = 0; bi < n_bams; ++bi) {
-        n_cur_ovlp_reads += static_cast<int>(cur.up_ovlp_read_i[bi].size());
-        if (bi < pre.down_ovlp_read_i.size()) {
-            n_pre_ovlp_reads += static_cast<int>(pre.down_ovlp_read_i[bi].size());
-        }
-    }
-    if (n_cur_ovlp_reads != n_pre_ovlp_reads) {
-        throw std::runtime_error("overlap read count mismatch between adjacent chunks");
-    }
-    if (n_cur_ovlp_reads <= 0) return false;
-    if (pre.candidates.empty() || cur.candidates.empty()) return false;
-
-    int flip_hap_score = 0;
-    hts_pos_t max_pre_read_ps = -1;
-    hts_pos_t min_cur_read_ps = INT64_MAX;
-
-    // Per-haplotype-link evidence counts.  Each overlap read maps a phased
-    // upstream hap (1 or 2) to a phased downstream hap (1 or 2).  The four
-    // link types group into two orientations:
-    //   no-flip: pre1->cur1 (n11) and pre2->cur2 (n22)
-    //   flip:    pre1->cur2 (n12) and pre2->cur1 (n21)
-    int n11 = 0, n12 = 0, n21 = 0, n22 = 0;
-
-    for (size_t bi = 0; bi < n_bams; ++bi) {
-        const std::vector<int>& cur_list = cur.up_ovlp_read_i[bi];
-        const std::vector<int>& pre_list = pre.down_ovlp_read_i[bi];
-        for (size_t j = 0; j < cur_list.size(); ++j) {
-            if (j >= pre_list.size()) {
-                throw std::runtime_error("overlap read pairing mismatch between adjacent chunks");
-            }
-            const int cur_read_i = cur_list[j];
-            const int pre_read_i = pre_list[j];
-            if (pre_read_i < 0 || static_cast<size_t>(pre_read_i) >= pre.reads.size() ||
-                cur_read_i < 0 || static_cast<size_t>(cur_read_i) >= cur.reads.size()) {
-                throw std::runtime_error("overlap read index out of bounds during chunk stitching");
-            }
-            if (pre.reads[static_cast<size_t>(pre_read_i)].is_skipped ||
-                pre.haps[static_cast<size_t>(pre_read_i)] == 0 ||
-                cur.reads[static_cast<size_t>(cur_read_i)].is_skipped ||
-                cur.haps[static_cast<size_t>(cur_read_i)] == 0) {
-                continue;
-            }
-            const int pre_read_hap = pre.haps[static_cast<size_t>(pre_read_i)];
-            const hts_pos_t pre_read_ps = pre.phase_sets[static_cast<size_t>(pre_read_i)];
-            const int cur_read_hap = cur.haps[static_cast<size_t>(cur_read_i)];
-            const hts_pos_t cur_read_ps = cur.phase_sets[static_cast<size_t>(cur_read_i)];
-            if (pre_read_hap == cur_read_hap)
-                --flip_hap_score;
-            else
-                ++flip_hap_score;
-            if (pre_read_hap == 1 && cur_read_hap == 1) ++n11;
-            else if (pre_read_hap == 1 && cur_read_hap == 2) ++n12;
-            else if (pre_read_hap == 2 && cur_read_hap == 1) ++n21;
-            else ++n22;
-            if (max_pre_read_ps < pre_read_ps) max_pre_read_ps = pre_read_ps;
-            if (min_cur_read_ps > cur_read_ps) min_cur_read_ps = cur_read_ps;
-        }
-    }
-
+bool select_stitch_orientation(const std::array<int, 4>& votes,
+                               const Options* opts, bool& do_flip) {
+    const int n11 = votes[0], n12 = votes[1], n21 = votes[2], n22 = votes[3];
+    const int flip_hap_score = n12 + n21 - n11 - n22;
     const int margin = (opts != nullptr) ? opts->stitch_min_margin : 0;
     const int rule = (opts != nullptr) ? opts->stitch_rule : kStitchRuleNetMargin;
 
     // Decide which orientation (if any) to merge under the selected rule.
     // do_flip is only meaningful when merge == true.
     bool merge = false;
-    bool do_flip = false;
+    do_flip = false;
     switch (rule) {
         case kStitchRuleBothStrands: {
             // Reading A: merge only when the winning orientation has evidence on
@@ -953,6 +890,74 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, const Options* 
             break;
         }
     }
+
+    return merge;
+}
+
+// Overlap-read voting between adjacent chunks: count reads that agree vs
+// disagree on hap assignment, then flip + merge if disagreement wins.
+static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, const Options* opts) {
+    if (pre.region.tid != cur.region.tid) return false;
+
+    int n_cur_ovlp_reads = 0;
+    int n_pre_ovlp_reads = 0;
+    const size_t n_bams = cur.up_ovlp_read_i.size();
+    for (size_t bi = 0; bi < n_bams; ++bi) {
+        n_cur_ovlp_reads += static_cast<int>(cur.up_ovlp_read_i[bi].size());
+        if (bi < pre.down_ovlp_read_i.size()) {
+            n_pre_ovlp_reads += static_cast<int>(pre.down_ovlp_read_i[bi].size());
+        }
+    }
+    if (n_cur_ovlp_reads != n_pre_ovlp_reads) {
+        throw std::runtime_error("overlap read count mismatch between adjacent chunks");
+    }
+    if (n_cur_ovlp_reads <= 0) return false;
+    if (pre.candidates.empty() || cur.candidates.empty()) return false;
+
+    hts_pos_t max_pre_read_ps = -1;
+    hts_pos_t min_cur_read_ps = INT64_MAX;
+
+    // Per-haplotype-link evidence counts.  Each overlap read maps a phased
+    // upstream hap (1 or 2) to a phased downstream hap (1 or 2).  The four
+    // link types group into two orientations:
+    //   no-flip: pre1->cur1 (n11) and pre2->cur2 (n22)
+    //   flip:    pre1->cur2 (n12) and pre2->cur1 (n21)
+    int n11 = 0, n12 = 0, n21 = 0, n22 = 0;
+
+    for (size_t bi = 0; bi < n_bams; ++bi) {
+        const std::vector<int>& cur_list = cur.up_ovlp_read_i[bi];
+        const std::vector<int>& pre_list = pre.down_ovlp_read_i[bi];
+        for (size_t j = 0; j < cur_list.size(); ++j) {
+            if (j >= pre_list.size()) {
+                throw std::runtime_error("overlap read pairing mismatch between adjacent chunks");
+            }
+            const int cur_read_i = cur_list[j];
+            const int pre_read_i = pre_list[j];
+            if (pre_read_i < 0 || static_cast<size_t>(pre_read_i) >= pre.reads.size() ||
+                cur_read_i < 0 || static_cast<size_t>(cur_read_i) >= cur.reads.size()) {
+                throw std::runtime_error("overlap read index out of bounds during chunk stitching");
+            }
+            if (pre.reads[static_cast<size_t>(pre_read_i)].is_skipped ||
+                pre.haps[static_cast<size_t>(pre_read_i)] == 0 ||
+                cur.reads[static_cast<size_t>(cur_read_i)].is_skipped ||
+                cur.haps[static_cast<size_t>(cur_read_i)] == 0) {
+                continue;
+            }
+            const int pre_read_hap = pre.haps[static_cast<size_t>(pre_read_i)];
+            const hts_pos_t pre_read_ps = pre.phase_sets[static_cast<size_t>(pre_read_i)];
+            const int cur_read_hap = cur.haps[static_cast<size_t>(cur_read_i)];
+            const hts_pos_t cur_read_ps = cur.phase_sets[static_cast<size_t>(cur_read_i)];
+            if (pre_read_hap == 1 && cur_read_hap == 1) ++n11;
+            else if (pre_read_hap == 1 && cur_read_hap == 2) ++n12;
+            else if (pre_read_hap == 2 && cur_read_hap == 1) ++n21;
+            else ++n22;
+            if (max_pre_read_ps < pre_read_ps) max_pre_read_ps = pre_read_ps;
+            if (min_cur_read_ps > cur_read_ps) min_cur_read_ps = cur_read_ps;
+        }
+    }
+
+    bool do_flip = false;
+    const bool merge = select_stitch_orientation({n11, n12, n21, n22}, opts, do_flip);
 
     if (!merge) return false;
 

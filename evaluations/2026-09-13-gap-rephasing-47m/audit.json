@@ -1,0 +1,67 @@
+{
+  "gap_1based": [
+    47671540,
+    47762233
+  ],
+  "catalog_overlapping_records": 1103,
+  "clean_snp_catalog_position_counts": {
+    "47671540": 1,
+    "47689418": 1,
+    "47713869": 1,
+    "47726592": 1,
+    "47738673": 1,
+    "47762233": 1
+  },
+  "candidate_categories": {
+    "graph": {
+      "CLEAN_HET_SNP": 6,
+      "REP_HET_INDEL": 19
+    },
+    "native": {
+      "CLEAN_HET_SNP": 5,
+      "CLEAN_HOM": 53,
+      "NOISY_CAND_HET": 20,
+      "NOISY_CAND_HOM": 25
+    },
+    "clean": {
+      "CLEAN_HET_SNP": 6,
+      "CLEAN_HOM": 69,
+      "NOISY_CAND_HET": 19,
+      "NOISY_CAND_HOM": 21
+    },
+    "msa": {
+      "CLEAN_HET_SNP": 6,
+      "CLEAN_HOM": 69,
+      "NOISY_CAND_HET": 5,
+      "NOISY_CAND_HOM": 5
+    },
+    "msa_margin1": {
+      "CLEAN_HET_SNP": 6,
+      "CLEAN_HOM": 69,
+      "NOISY_CAND_HET": 5,
+      "NOISY_CAND_HOM": 5
+    }
+  },
+  "original_graph_reads_preserved": 462,
+  "graph_block_transforms": {
+    "47121694": [
+      [
+        47121694,
+        0
+      ]
+    ],
+    "47666163": [
+      [
+        47762233,
+        0
+      ]
+    ],
+    "47762233": [
+      [
+        47762233,
+        0
+      ]
+    ]
+  },
+  "target_graph_phase_sets_joined": true
+}

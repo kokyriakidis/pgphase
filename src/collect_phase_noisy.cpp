@@ -902,7 +902,8 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist,
                       bool admit_all_in_region,
-                      bool snp_only_admission) {
+                      bool snp_only_admission,
+                      const VariantKeySet* replace_sites) {
     if (noisy_vars.empty()) return 0;
     // Region-trust mode: collect_noisy_vars1 already restricted which noisy
     // regions ran MSA to those overlapping a whitelisted window (the exact
@@ -981,7 +982,9 @@ int merge_var_profile(PhasingChunk& chunk,
                   site_whitelist->find(new_vars[new_i].key) != site_whitelist->end())) &&
                 old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel &&
                 admissible_type(new_vars[new_i]);
-            if (replace_repeat) {
+            const bool replace_selected = replace_sites != nullptr &&
+                replace_sites->count(new_vars[new_i].key) != 0 && admissible_type(new_vars[new_i]);
+            if (replace_repeat || replace_selected) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
                 new_vars[new_i].counts.candvarcate_initial =
                     old_vars[old_i].counts.candvarcate_initial;

@@ -16,6 +16,7 @@
 #include "collect_phase.hpp"
 #include "collect_phase_pgbam.hpp"
 #include "collect_var.hpp"
+#include "gap_recovery.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -778,7 +779,8 @@ static PhasingChunk process_chunk_hybrid(
         const std::string& graph_query_contig,
         const std::unordered_map<std::string, std::string>& chrom_remap,
         const VariantKeySet* private_keys,
-        const BamAuthorityIntervals* bam_authority) {
+        const BamAuthorityIntervals* bam_authority,
+        bool keep_intermediates = false) {
     PhasingChunk chunk;
     chunk.region = region;
     load_and_prepare_chunk(chunk, opts, context);
@@ -941,16 +943,10 @@ static PhasingChunk process_chunk_hybrid(
         collect_var_run_phasing(chunk, opts);
     }
 
-    // Drop graph-only candidates that failed the gate (LowCoverage /
-    // LowAlleleFraction-folded / NonVariant / StrandBias).  The BAM pipeline
-    // prunes these inside collect_var_classify, but graph-only sites are
-    // appended afterwards, so without this re-prune they would leak into
-    // output.  k-means already ran, so removing them here does not affect
-    // phasing; stitching and output use read-level state, not candidate
-    // indices.  BAM candidates are already real calls and so are unaffected.
-    prune_not_candidate_variants(chunk);
-
-    mid_free_chunk(chunk, opts);
+    // Recovery still consumes the candidate-indexed profiles. Pruning here
+    // would shift candidates without remapping those profiles.
+    if (!opts.recover_gaps) prune_not_candidate_variants(chunk);
+    if (!keep_intermediates) mid_free_chunk(chunk, opts);
     return chunk;
 }
 
@@ -1068,6 +1064,89 @@ static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
     }
 }
 
+static constexpr hts_pos_t kGapRecoveryFlank = 50000;
+static constexpr hts_pos_t kGapRecoveryMsaFlank = 5000;
+
+static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options& opts,
+                                const std::string& contig,
+                                const std::unordered_map<std::string, std::string>& chrom_remap,
+                                const BamAuthorityIntervals* bam_authority,
+                                std::ostream* report) {
+    const auto initial_gaps = find_phase_gaps(chunks);
+    if (initial_gaps.empty()) return;
+    WorkerContext context(opts);
+    SitesVcfHandle sites_handle(opts.graph_sites_vcf);
+    IndexedGafHandle gaf_handle(opts.gaf_file);
+    int joined = 0;
+    for (size_t gi = 0; gi < initial_gaps.size(); ++gi) {
+        PhaseGap gap = initial_gaps[gi];
+        // Earlier accepted extensions may have moved or joined these flanks.
+        const auto remaining = find_phase_gaps(chunks);
+        const auto current = std::find_if(remaining.begin(), remaining.end(), [&](const PhaseGap& g) {
+            return g.tid == gap.tid && g.left_end < gap.right_beg && g.right_beg > gap.left_end;
+        });
+        if (current == remaining.end()) continue;
+        gap = *current;
+        RegionChunk window;
+        window.tid = gap.tid;
+        window.beg = std::max(gap.region_beg, gap.left_end - kGapRecoveryFlank);
+        window.end = std::min(gap.region_end, gap.right_beg + kGapRecoveryFlank);
+        window.chunk_id = static_cast<int>(gi);
+        Options local_opts = opts;
+        if (!opts.phase_matrix_dump_prefix.empty())
+            local_opts.phase_matrix_dump_prefix = opts.phase_matrix_dump_prefix + ".tid" + std::to_string(gap.tid) + ".gap" + std::to_string(gi);
+        std::vector<PhasingChunk> local;
+        local.push_back(process_chunk_hybrid(window, local_opts, context, sites_handle,
+                                             gaf_handle, contig, chrom_remap, nullptr,
+                                             bam_authority, true));
+        auto& proposal = local.front();
+        bool msa_prepared = false;
+        for (int tier = 1; tier <= 3; ++tier) {
+            const size_t previous_sites = proposal.candidates.size();
+            if (tier > 1) {
+                if (!msa_prepared) {
+                    prepare_gap_msa_regions(proposal, gap.left_end - kGapRecoveryMsaFlank,
+                                             gap.right_beg + kGapRecoveryMsaFlank);
+                    msa_prepared = true;
+                }
+                run_gap_msa_tier(proposal, local_opts, gap.left_end - kGapRecoveryMsaFlank,
+                                 gap.right_beg + kGapRecoveryMsaFlank, tier == 2);
+            }
+            filter_hybrid_reads_by_margin(local, opts.min_read_hap_margin, tier > 1);
+            filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
+            const auto result = stitch_gap_proposal(chunks, proposal, gap, opts);
+            if (report) {
+                int msa_snps = 0, msa_indels = 0;
+                for (const auto& v : proposal.candidates) {
+                    if (v.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+                    if (v.key.type == VariantType::Snp) ++msa_snps;
+                    else ++msa_indels;
+                }
+                *report << contig << '\t' << initial_gaps[gi].left_end << '\t'
+                        << initial_gaps[gi].right_beg << '\t' << tier << '\t'
+                        << window.beg << '\t' << window.end << '\t'
+                        << proposal.candidates.size() - previous_sites << '\t'
+                        << msa_snps << '\t' << msa_indels << '\t'
+                        << result.left_linked << '\t' << result.right_linked << '\t'
+                        << result.reads_added << '\t'
+                        << (result.joined ? "joined" : result.left_linked || result.right_linked
+                                                       ? "partial" : "open") << '\n';
+            }
+            if (result.joined) { ++joined; break; }
+            // Preserve one-sided extensions and focus the next tier on the
+            // remaining interval, without throwing away the preceding tier's sites.
+            for (const auto& next : find_phase_gaps(chunks)) {
+                if (next.tid == gap.tid && next.left_ps == gap.left_ps && next.right_ps == gap.right_ps) {
+                    gap = next;
+                    break;
+                }
+            }
+        }
+    }
+    std::cerr << "Gap recovery: " << initial_gaps.size() << " initial gaps, "
+              << joined << " joined on " << contig << '\n';
+}
+
 void run_collect_hybrid_variation(const Options& opts) {
     if (opts.graph_sites_vcf.empty())
         throw std::runtime_error("--graph-sites required for hybrid mode");
@@ -1146,6 +1225,13 @@ void run_collect_hybrid_variation(const Options& opts) {
     if (!opts.output_aln.empty())
         phased_aln_writer = std::make_unique<PhasedAlignmentWriter>(opts, header.get());
 
+    std::ofstream recovery_report;
+    if (!opts.gap_recovery_report.empty()) {
+        recovery_report.open(opts.gap_recovery_report);
+        if (!recovery_report) throw std::runtime_error("failed to open recovery report: " + opts.gap_recovery_report);
+        recovery_report << "CHROM\tGAP_LEFT\tGAP_RIGHT\tTIER\tWINDOW_BEG\tWINDOW_END\tNEW_SITES\tMSA_HET_SNPS\tMSA_HET_INDELS\tLEFT_LINK\tRIGHT_LINK\tREADS_ADDED\tSTATUS\n";
+    }
+
     size_t n_variants = 0;
     size_t n_out_aln_reads = 0;
     size_t batch_begin = 0;
@@ -1171,6 +1257,11 @@ void run_collect_hybrid_variation(const Options& opts) {
         filter_hybrid_reads_by_margin(batch.chunks, opts.min_read_hap_margin,
                                       opts.private_msa_admit_all_in_region);
         filter_hybrid_small_phase_sets(batch.chunks, opts.min_phase_set_reads);
+        if (opts.recover_gaps) {
+            recover_hybrid_gaps(batch.chunks, opts, graph_query_contig, chrom_remap,
+                                bam_authority_ptr, recovery_report.is_open() ? &recovery_report : nullptr);
+            for (auto& chunk : batch.chunks) prune_not_candidate_variants(chunk);
+        }
         CandidateTable variants = merge_chunk_candidates(batch.chunks);
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);

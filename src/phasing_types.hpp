@@ -296,6 +296,9 @@ struct Options {
     // with the read's assigned haplotype, so untagged reads still contribute
     // connectivity.
     bool link_by_alleles = false;
+    /// Automatically rephase unresolved gaps with cumulative BAM/MSA evidence.
+    bool recover_gaps = false;
+    std::string gap_recovery_report;
     // Emit and phase hets that fail the anchor AF margin instead of discarding
     // them.  They still never anchor k-means; this only restores their output.
     bool emit_nonanchor_hets = false;

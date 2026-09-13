@@ -44,6 +44,7 @@ SOURCES_CXX = src/main.cpp \
 	src/noise_filter.cpp \
 	src/collect_var.cpp \
 	src/collect_phase.cpp \
+	src/gap_recovery.cpp \
 	src/collect_phase_pgbam.cpp \
 	src/collect_phase_noisy.cpp \
 	src/align.cpp \
@@ -152,8 +153,8 @@ $(GBZ_FFI_LIB): $(wildcard $(GBZ_FFI_DIR)/lib.rs $(GBZ_FFI_DIR)/Cargo.toml)
 pgphase: $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB) $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
-test_phase_block_stitch: src/test_phase_block_stitch.cpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
-	$(CXX) $(CXXFLAGS) -o $@ $< src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
+test_phase_block_stitch: src/test_phase_block_stitch.cpp src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $< src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)

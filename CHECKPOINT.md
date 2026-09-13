@@ -5063,3 +5063,63 @@ checks graph-block-relative orientation, rather than literal tag equality.
 These are local read-truth results, not NGC50 or chromosome-wide validation.
 All unit binaries pass; the existing `make check` script fails before running
 comparisons because it invokes obsolete CLI syntax.
+
+### Independent second-region check: chr20:47,671,540–47,762,233
+
+After pushing `663b84a`, tested the next-largest HiPhase-bridged chr20 gap
+without further C++ changes or a threshold search. The six clean hybrid SNP
+positions all already exist in the graph catalog; native BAM calling provides
+five clean SNPs and 20 MSA het candidates inside the gap. A fresh GQ10,
+VAF0.30–0.70 native whitelist scopes second-pass MSA.
+
+In the 220 kb flanked window, clean and margin-24 hybrid runs each phase 510
+reads in three blocks with zero errors. Diagnostic margin 1 phases the same
+510 reads in one block with zero errors. Existing graph stitching retains all
+462 graph reads and adds 70, yielding 532 reads, zero errors, and two blocks.
+The target graph endpoints (47,666,163 and 47,762,233) join with 35 winning
+reads under the unchanged 300 kb cap. A third block at PS 47,121,694 is kept
+separate because its 640.5 kb PS-start separation exceeds that cap.
+
+This again exposes missing actual allele observations, not just missing site
+positions. One diagnostic boundary has only five observed reads with a 3:2
+orientation majority; the truth-correct local outcome is insufficient to
+promote margin 1 globally. No default changed. Reproduction, all candidate
+rows, endpoint votes, and preservation assertions are saved under
+`evaluations/2026-09-13-gap-rephasing-47m/`.
+
+### Automatic cumulative gap recovery in the hybrid pipeline
+
+Implemented `collect-hybrid-variation --recover-gaps` with an optional
+`--gap-recovery-report`. After clean BAM+graph phasing and initial chunk
+stitching, read-supported internal gaps are detected across chunk boundaries.
+Each gets a locally reloaded window with 50 kb flanks. Evidence escalates in
+one persistent proposal chunk: clean sites, then MSA SNPs, then MSA indels.
+The normal k-means and overlap stitching vote rule are reused. Each endpoint
+must pass the selected normal stitch rule, and both must connect through one
+proposal PS to close a gap. One-sided additions survive escalation; initial
+blocks are only uniformly flipped/relabelled. There is no external merger or
+PS-start-distance cap in this mode.
+
+MSA is driven by each remaining gap plus 5 kb near its boundaries, preserving
+existing noisy intervals and tiling uncovered clean stretches with bounded,
+overlapping windows. Recovery retains the needed intermediates and delays
+pruning to avoid stale candidate/profile indices. Explicit replacement of
+unsupported exact matches transfers candidate category and observations
+together; raw observations from untagged reads are retained without tagging
+those reads. Excluded intervals between separate requested regions are never
+recovered. The mode is opt-in and preserves its initial hybrid clean scaffold,
+not an externally supplied graph-only BAM.
+
+The two audited regions each move from three phase sets to one with zero
+read-truth errors at the unchanged MSA margin 24: 555/555 retained reads at
+14.95–15.18 Mb and 510/510 at 47.60–47.82 Mb. An 80 kb chunked first-region
+run retains all 534 phased reads and also moves three PS to one without errors.
+Both residual gaps in each window require the indel tier. Margin 1 gives the
+same outcomes. A first-region run with the default adjacent-site linker also
+closes successfully. These are local read metrics, not chromosome NGC50.
+
+Reproduction and assertions are under
+`evaluations/2026-09-13-auto-gap-recovery/`. Build and all unit binaries pass;
+`make check` remains blocked by its pre-existing obsolete CLI invocation.
+Whole-chromosome accuracy and scaling still need validation before this mode
+becomes a default.

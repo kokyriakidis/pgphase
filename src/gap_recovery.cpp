@@ -1,0 +1,298 @@
+#include "gap_recovery.hpp"
+
+#include "collect_phase.hpp"
+#include "collect_phase_noisy.hpp"
+
+#include <algorithm>
+#include <map>
+#include <set>
+#include <tuple>
+
+namespace pgphase_collect {
+
+static constexpr hts_pos_t kGapMsaWindow = 512;
+static constexpr hts_pos_t kGapMsaOverlap = 64;
+
+std::vector<PhaseGap> find_phase_gaps(const std::vector<PhasingChunk>& chunks) {
+    using BlockKey = std::pair<int, hts_pos_t>;
+    std::set<BlockKey> supported;
+    for (const auto& chunk : chunks) {
+        for (size_t i = 0; i < chunk.haps.size(); ++i) {
+            if (chunk.haps[i] != 0 && !chunk.reads[i].is_skipped && chunk.phase_sets[i] >= 0)
+                supported.emplace(chunk.region.tid, chunk.phase_sets[i]);
+        }
+    }
+    std::map<BlockKey, std::pair<hts_pos_t, hts_pos_t>> bounds;
+    for (const auto& chunk : chunks) {
+        for (const auto& v : chunk.candidates) {
+            const BlockKey key{chunk.region.tid, v.phase_set};
+            if (!supported.count(key) || v.hap_to_cons_alle[1] < 0 ||
+                v.hap_to_cons_alle[2] < 0 || v.hap_to_cons_alle[1] == v.hap_to_cons_alle[2]) continue;
+            const hts_pos_t pos = v.key.sort_pos();
+            auto inserted = bounds.emplace(key, std::make_pair(pos, pos));
+            auto& span = inserted.first->second;
+            span.first = std::min(span.first, pos);
+            span.second = std::max(span.second, pos);
+        }
+    }
+    struct Block { int tid; hts_pos_t ps, beg, end; };
+    std::vector<Block> blocks;
+    for (const auto& [key, span] : bounds)
+        blocks.push_back({key.first, key.second, span.first, span.second});
+    std::sort(blocks.begin(), blocks.end(), [](const Block& a, const Block& b) {
+        return std::tie(a.tid, a.beg, a.end, a.ps) < std::tie(b.tid, b.beg, b.end, b.ps);
+    });
+    std::vector<RegionChunk> coverage;
+    for (const auto& chunk : chunks) coverage.push_back(chunk.region);
+    std::sort(coverage.begin(), coverage.end(), [](const RegionChunk& a, const RegionChunk& b) {
+        return std::tie(a.tid, a.beg) < std::tie(b.tid, b.beg);
+    });
+    std::vector<RegionChunk> components;
+    for (const auto& region : coverage) {
+        if (components.empty() || components.back().tid != region.tid ||
+            region.beg > components.back().end + 1) components.push_back(region);
+        else components.back().end = std::max(components.back().end, region.end);
+    }
+    std::vector<PhaseGap> gaps;
+    if (blocks.empty()) return gaps;
+    Block left = blocks.front();
+    for (size_t i = 1; i < blocks.size(); ++i) {
+        const Block& right = blocks[i];
+        if (right.tid == left.tid && right.beg > left.end) {
+            for (const auto& region : components) {
+                if (region.tid == left.tid && region.beg <= left.end && region.end >= right.beg) {
+                    gaps.push_back({left.tid, left.ps, right.ps, left.end, right.beg, region.beg, region.end});
+                    break;
+                }
+            }
+        }
+        // Nested/overlapping blocks do not define an empty genomic gap.
+        if (right.tid != left.tid || right.end > left.end) left = right;
+    }
+    return gaps;
+}
+
+static void orient_candidate(CandidateVariant& v, hts_pos_t ps, bool flip) {
+    v.phase_set = ps;
+    if (!flip) return;
+    std::swap(v.hap_to_cons_alle[1], v.hap_to_cons_alle[2]);
+    std::swap(v.hap_to_alle_profile[1], v.hap_to_alle_profile[2]);
+    if (v.hap_alt == 1 || v.hap_alt == 2) v.hap_alt = 3 - v.hap_alt;
+    if (v.hap_ref == 1 || v.hap_ref == 2) v.hap_ref = 3 - v.hap_ref;
+}
+
+GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
+                                    const PhasingChunk& proposal,
+                                    const PhaseGap& gap, const Options& opts) {
+    using ReadKey = std::pair<int, std::string>;
+    std::map<ReadKey, std::pair<int, hts_pos_t>> original;
+    for (const auto& chunk : chunks) {
+        if (chunk.region.tid != gap.tid) continue;
+        for (size_t i = 0; i < chunk.reads.size(); ++i) {
+            if (chunk.reads[i].is_skipped || chunk.haps[i] == 0 || chunk.phase_sets[i] < 0) continue;
+            original.emplace(ReadKey{chunk.reads[i].input_index, chunk.reads[i].qname},
+                             std::make_pair(chunk.haps[i], chunk.phase_sets[i]));
+        }
+    }
+    std::set<hts_pos_t> supported_phase_sets;
+    for (const auto& entry : original) supported_phase_sets.insert(entry.second.second);
+    std::map<ReadKey, size_t> proposal_reads;
+    std::map<ReadKey, size_t> observation_reads;
+    std::map<hts_pos_t, std::array<std::array<int, 4>, 2>> votes;
+    for (size_t i = 0; i < proposal.reads.size(); ++i) {
+        const auto& read = proposal.reads[i];
+        if (read.is_skipped) continue;
+        const ReadKey key{read.input_index, read.qname};
+        observation_reads.emplace(key, i);
+        if (proposal.haps[i] == 0 || proposal.phase_sets[i] < 0) continue;
+        if (!proposal_reads.emplace(key, i).second) continue;
+        const auto it = original.find(key);
+        if (it == original.end()) continue;
+        const auto [hp, ps] = it->second;
+        const int side = ps == gap.left_ps ? 0 : ps == gap.right_ps ? 1 : -1;
+        if (side < 0) continue;
+        ++votes[proposal.phase_sets[i]][side][(hp - 1) * 2 + proposal.haps[i] - 1];
+    }
+    struct Link { hts_pos_t ps = -1; bool flip = false; int support = -1; };
+    std::array<Link, 2> links;
+    std::array<Link, 2> bridge;
+    int bridge_support = -1;
+    for (const auto& [ps, sides] : votes) {
+        std::array<Link, 2> pair;
+        for (int side = 0; side < 2; ++side) {
+            bool flip = false;
+            if (!select_stitch_orientation(sides[side], &opts, flip)) continue;
+            const int support = flip ? sides[side][1] + sides[side][2]
+                                     : sides[side][0] + sides[side][3];
+            pair[side] = {ps, flip, support};
+            if (support > links[side].support) links[side] = pair[side];
+        }
+        const int support = std::min(pair[0].support, pair[1].support);
+        if (support > bridge_support) {
+            bridge_support = support;
+            bridge = pair;
+        }
+    }
+    // Prefer a proposal block that actually connects both flanks over two
+    // independently stronger, disconnected one-sided proposal blocks.
+    if (bridge_support >= 0) links = bridge;
+    GapStitchResult result;
+    result.left_linked = links[0].ps >= 0;
+    result.right_linked = links[1].ps >= 0;
+    result.joined = result.left_linked && result.right_linked && links[0].ps == links[1].ps;
+    std::map<hts_pos_t, std::pair<hts_pos_t, bool>> accepted;
+    if (result.left_linked) accepted[links[0].ps] = {gap.left_ps, links[0].flip};
+    if (result.right_linked && !result.joined)
+        accepted[links[1].ps] = {gap.right_ps, links[1].flip};
+    if (accepted.empty()) return result;
+
+    const bool right_flip = links[0].flip != links[1].flip;
+    std::set<ReadKey> added;
+    for (auto& chunk : chunks) {
+        if (chunk.region.tid != gap.tid) continue;
+        if (result.joined) {
+            for (size_t i = 0; i < chunk.haps.size(); ++i) {
+                if (chunk.phase_sets[i] != gap.right_ps) continue;
+                chunk.phase_sets[i] = gap.left_ps;
+                if (right_flip && chunk.haps[i] != 0) chunk.haps[i] = 3 - chunk.haps[i];
+            }
+            for (auto& v : chunk.candidates)
+                if (v.phase_set == gap.right_ps) orient_candidate(v, gap.left_ps, right_flip);
+        }
+        for (size_t i = 0; i < chunk.reads.size(); ++i) {
+            auto& read = chunk.reads[i];
+            if (read.is_skipped || (chunk.haps[i] != 0 && chunk.phase_sets[i] >= 0)) continue;
+            const ReadKey key{read.input_index, read.qname};
+            // Another overlapping chunk may already own a trusted assignment.
+            if (original.count(key)) continue;
+            const auto found = proposal_reads.find(key);
+            if (found == proposal_reads.end()) continue;
+            const size_t pi = found->second;
+            const auto link = accepted.find(proposal.phase_sets[pi]);
+            if (link == accepted.end()) continue;
+            chunk.haps[i] = link->second.second ? 3 - proposal.haps[pi] : proposal.haps[pi];
+            chunk.phase_sets[i] = link->second.first;
+            added.insert(key);
+            const auto& src = proposal.reads[pi];
+            read.n_clean_agree_snps = src.n_clean_agree_snps;
+            read.n_clean_conflict_snps = src.n_clean_conflict_snps;
+            read.n_bridge_agree_snps = src.n_bridge_agree_snps;
+            read.n_bridge_conflict_snps = src.n_bridge_conflict_snps;
+            read.hap_score_margin = src.hap_score_margin;
+            read.n_vars_scored = src.n_vars_scored;
+        }
+        std::vector<CandidateVariant> sites;
+        std::vector<VariantCategory> categories;
+        std::vector<size_t> indices;
+        for (size_t pi = 0; pi < proposal.candidates.size(); ++pi) {
+            const auto& v = proposal.candidates[pi];
+            const auto link = accepted.find(v.phase_set);
+            if (link == accepted.end() || v.key.sort_pos() < chunk.region.beg ||
+                v.key.sort_pos() > chunk.region.end ||
+                (v.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            sites.push_back(v);
+            orient_candidate(sites.back(), link->second.first, link->second.second);
+            categories.push_back(v.counts.category);
+            indices.push_back(pi);
+        }
+        if (sites.empty()) continue;
+        std::vector<ReadVariantProfile> profiles(chunk.reads.size());
+        for (size_t i = 0; i < chunk.reads.size(); ++i) {
+            const ReadKey key{chunk.reads[i].input_index, chunk.reads[i].qname};
+            const auto found = observation_reads.find(key);
+            if (found == observation_reads.end()) continue;
+            const auto& source = proposal.read_var_profile[found->second];
+            auto& dest = profiles[i];
+            dest.start_var_idx = 0;
+            dest.end_var_idx = static_cast<int>(sites.size()) - 1;
+            dest.alleles.assign(sites.size(), -1);
+            dest.alt_qi.assign(sites.size(), -1);
+            for (size_t vi = 0; vi < indices.size(); ++vi) {
+                const int pi = static_cast<int>(indices[vi]);
+                if (pi < source.start_var_idx || pi > source.end_var_idx) continue;
+                dest.alleles[vi] = source.alleles[pi - source.start_var_idx];
+                if (!source.alt_qi.empty()) dest.alt_qi[vi] = source.alt_qi[pi - source.start_var_idx];
+            }
+        }
+        // Keep trusted core orientations. Previously unsupported exact matches
+        // may adopt the proposal's phase; validated repeats also need the MSA
+        // category and MSA observations, not their excluded first-pass category.
+        VariantKeySet replace_sites;
+        std::vector<std::pair<VariantKey, uint32_t>> inserted_flags;
+        for (const auto& site : sites) {
+            const auto old = std::lower_bound(chunk.candidates.begin(), chunk.candidates.end(), site.key,
+                [](const CandidateVariant& v, const VariantKey& key) {
+                    return exact_comp_var_site(&v.key, &key) < 0;
+                });
+            if (old == chunk.candidates.end() || exact_comp_var_site(&old->key, &site.key) != 0) {
+                inserted_flags.emplace_back(site.key, site.lcd_var_i_to_cate);
+                continue;
+            }
+            if (supported_phase_sets.count(old->phase_set)) continue;
+            replace_sites.insert(site.key);
+            inserted_flags.emplace_back(site.key, site.lcd_var_i_to_cate);
+        }
+        merge_var_profile(chunk, sites, categories, profiles, nullptr, false, false, &replace_sites);
+        // The generic MSA merger derives flags from categories. Clean proposal
+        // rows may carry a stricter non-anchor mask that must survive insertion.
+        for (const auto& [key, flags] : inserted_flags) {
+            const auto inserted = std::lower_bound(chunk.candidates.begin(), chunk.candidates.end(), key,
+                [](const CandidateVariant& v, const VariantKey& key) {
+                    return exact_comp_var_site(&v.key, &key) < 0;
+                });
+            inserted->lcd_var_i_to_cate = flags;
+        }
+    }
+    result.reads_added = static_cast<int>(added.size());
+    return result;
+}
+
+void prepare_gap_msa_regions(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end) {
+    beg = std::max(beg, chunk.ref_beg);
+    end = std::min(end, chunk.ref_end);
+    std::vector<Interval> regions;
+    for (const auto& region : chunk.noisy_regions)
+        if (region.end >= beg && region.beg <= end) regions.push_back(region);
+    std::sort(regions.begin(), regions.end(), [](const Interval& a, const Interval& b) {
+        return a.beg < b.beg;
+    });
+    // Tile clean stretches too: a phasing break need not trigger noise detection.
+    auto tile = [&](hts_pos_t start, hts_pos_t stop) {
+        for (hts_pos_t pos = start; pos <= stop; pos += kGapMsaWindow - kGapMsaOverlap) {
+            const hts_pos_t last = std::min(stop, pos + kGapMsaWindow - 1);
+            chunk.noisy_regions.push_back({pos, last, 0});
+            if (last == stop) break;
+        }
+    };
+    chunk.noisy_regions = regions;
+    hts_pos_t next = beg;
+    for (const auto& region : regions) {
+        if (region.beg > next) tile(next, region.beg - 1);
+        next = std::max(next, region.end + 1);
+    }
+    if (next <= end) tile(next, end);
+}
+
+void run_gap_msa_tier(PhasingChunk& chunk, const Options& opts,
+                      hts_pos_t beg, hts_pos_t end, bool snp_only) {
+    Options msa_opts = opts;
+    msa_opts.private_msa = true;
+    msa_opts.private_msa_admit_all_in_region = true;
+    msa_opts.skip_noisy_kmeans = false;
+    const auto sorted = sort_noisy_regs(chunk);
+    std::vector<bool> done(chunk.noisy_regions.size(), false);
+    while (true) {
+        bool new_sites = false;
+        for (const int index : sorted) {
+            const auto& reg = chunk.noisy_regions[index];
+            if (done[index] || reg.end < beg || reg.beg > end) continue;
+            const int admitted = collect_noisy_vars1(chunk, msa_opts, index, nullptr, snp_only);
+            if (admitted >= 0) done[index] = true;
+            new_sites |= admitted > 0;
+        }
+        if (!new_sites) break;
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, msa_opts, kCandGermlineVarCate);
+    }
+}
+
+} // namespace pgphase_collect
