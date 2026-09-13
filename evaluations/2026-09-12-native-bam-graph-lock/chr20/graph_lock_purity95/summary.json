@@ -1,0 +1,67 @@
+{
+  "tool": "pgphase",
+  "sample": "HG002",
+  "chroms": "all",
+  "min_mapq": 0,
+  "min_hapq": 0,
+  "min_reads_per_ps": 5,
+  "total_input_reads": 272016,
+  "total_phased_reads": 179350,
+  "unphased_reads": 92666,
+  "fraction_phased": 0.659336,
+  "total_phase_sets": 293,
+  "reads_mapped_to_truth": 179350,
+  "reads_filtered_mapq": 0,
+  "reads_filtered_hapq": 0,
+  "reads_excluded_regions": 0,
+  "phase_sets_evaluated": 279,
+  "phase_sets_perfect": 236,
+  "phase_sets_perfect_pct": 84.59,
+  "total_reads_evaluated": 179323,
+  "concordant_reads": 178996,
+  "discordant_reads": 327,
+  "overall_accuracy": 0.998176,
+  "hamming_error_rate": 0.001824,
+  "switch_errors": 65,
+  "flip_errors": 98,
+  "switchflip_errors": 163,
+  "switch_opportunities": 179044,
+  "switch_error_rate": 0.000363,
+  "switchflip_error_rate": 0.00091,
+  "phase_block_n50_bp": 943722,
+  "phase_block_ng50_bp": 0,
+  "phase_block_aun_bp": 1017863,
+  "phase_block_median_span_bp": 863445,
+  "phase_block_max_span_bp": 2656514,
+  "phase_block_max_span_chrom": "chr20",
+  "genome_covered_bp": 177915039,
+  "fraction_genome_covered": 0.05761,
+  "genome_size_bp": 3088286401,
+  "mean_blocks_per_chrom": 279.0,
+  "blocks_per_chrom": {
+    "chr20": 279
+  },
+  "per_chrom": {
+    "chr20": {
+      "phase_sets": 279,
+      "perfect": 236,
+      "reads": 179323,
+      "accuracy": 0.998176
+    }
+  },
+  "phaseable": {
+    "threshold": 0.6,
+    "phase_sets": 271,
+    "reads": 179158,
+    "concordant": 178904,
+    "discordant": 254,
+    "accuracy": 0.998582
+  },
+  "unphaseable": {
+    "phase_sets": 8,
+    "reads": 165,
+    "concordant": 92,
+    "discordant": 73,
+    "accuracy": 0.557576
+  }
+}

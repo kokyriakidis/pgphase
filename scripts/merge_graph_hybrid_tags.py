@@ -31,10 +31,12 @@ def main():
     ap.add_argument("--min-vote-margin", type=int, default=5)
     ap.add_argument("--min-purity", type=float, default=0.9)
     ap.add_argument("--require-both-haplotypes", action="store_true")
+    ap.add_argument("--min-output-phase-set-reads", type=int, default=0)
     ap.add_argument("--threads", type=int, default=4)
     args = ap.parse_args()
-    if args.min_shared_reads < 1 or args.min_vote_margin < 0:
-        ap.error("read thresholds must be non-negative and support at least one read")
+    if (args.min_shared_reads < 1 or args.min_vote_margin < 0 or
+            args.min_output_phase_set_reads < 0):
+        ap.error("thresholds must be non-negative and shared support at least one read")
     if not 0.5 <= args.min_purity <= 1.0:
         ap.error("--min-purity must be between 0.5 and 1.0")
     if args.threads < 1:
@@ -50,11 +52,15 @@ def main():
 
     votes = defaultdict(Counter)
     shared_haps = defaultdict(lambda: defaultdict(set))
+    hybrid_only_reads = defaultdict(set)
     with pysam.AlignmentFile(args.hybrid_bam, threads=args.threads) as hybrid:
         for record in hybrid.fetch(until_eof=True):
             hybrid_assignment = phase(record)
             graph_assignment = graph_phase.get(record.query_name)
-            if hybrid_assignment is None or graph_assignment is None:
+            if hybrid_assignment is None:
+                continue
+            if graph_assignment is None:
+                hybrid_only_reads[hybrid_assignment[1]].add(record.query_name)
                 continue
             hybrid_hp, hybrid_ps = hybrid_assignment
             graph_hp, graph_ps = graph_assignment
@@ -81,6 +87,14 @@ def main():
         else:
             accepted[hybrid_ps] = (graph_ps, parity)
 
+    phase_set_reads = Counter(ps for _, ps in graph_phase.values())
+    for hybrid_ps, (graph_ps, _) in accepted.items():
+        phase_set_reads[graph_ps] += len(hybrid_only_reads[hybrid_ps])
+
+    def output_phase_set(ps):
+        return (ps if phase_set_reads[ps] >= args.min_output_phase_set_reads
+                else None)
+
     graph_locked = 0
     hybrid_added = 0
     unphased = 0
@@ -91,9 +105,14 @@ def main():
                 graph_assignment = graph_phase.get(record.query_name)
                 if graph_assignment is not None:
                     hp, ps = graph_assignment
-                    record.set_tag("HP", hp, value_type="i")
-                    record.set_tag("PS", ps, value_type="i")
-                    graph_locked += 1
+                    ps = output_phase_set(ps)
+                    if ps is None:
+                        clear_phase(record)
+                        unphased += 1
+                    else:
+                        record.set_tag("HP", hp, value_type="i")
+                        record.set_tag("PS", ps, value_type="i")
+                        graph_locked += 1
                 else:
                     hybrid_assignment = phase(record)
                     anchor = (accepted.get(hybrid_assignment[1])
@@ -104,10 +123,15 @@ def main():
                     else:
                         hp, _ = hybrid_assignment
                         graph_ps, parity = anchor
-                        record.set_tag("HP", 3 - hp if parity else hp,
-                                       value_type="i")
-                        record.set_tag("PS", graph_ps, value_type="i")
-                        hybrid_added += 1
+                        graph_ps = output_phase_set(graph_ps)
+                        if graph_ps is None:
+                            clear_phase(record)
+                            unphased += 1
+                        else:
+                            record.set_tag("HP", 3 - hp if parity else hp,
+                                           value_type="i")
+                            record.set_tag("PS", graph_ps, value_type="i")
+                            hybrid_added += 1
                 out.write(record)
 
     pysam.index(args.output)

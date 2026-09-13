@@ -4879,3 +4879,20 @@ all graph assignments by construction. It modestly extends existing blocks; it
 does not yet merge independent graph PS labels. This is the selected native-BAM
 hybrid policy. Keep direct joint output experimental, and do not promote PS50 as
 a general fix.
+
+### Chr20 graph-lock compatibility check
+
+The same graph lock was tested against the original 958-site DeepVariant GQ10
+chr20 proposal. Graph-only evaluated 175,843 reads with 248 errors. Unfiltered
+graph lock added 3,769 reads but 81 errors (179,612/329); increasing orientation
+purity from 0.90 to 0.95 removed 289 reads and only two errors. The remaining
+error is therefore dominated by small graph phase sets retained by the lock,
+not weak proposal orientation.
+
+A new `--min-output-phase-set-reads` gate applies after graph locking. At 50 it
+evaluated 178,697 reads with 266 errors, one bad PS, and 960 kb N50. This is the
+higher-precision chr20 point, but the original direct joint GQ10+PS50 result
+remains the selected balance: 179,494 reads, 269 errors, no bad PS, and 991 kb
+N50. It gains 797 reads and 31 kb N50 for three errors. Conclusion: graph lock
+is required for native BAM proposals on chr12/chr18, while a polished external
+callset can still benefit from direct joint phasing plus final abstention.

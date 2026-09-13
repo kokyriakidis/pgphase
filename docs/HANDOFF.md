@@ -332,6 +332,16 @@ robust policy.
 It adds reads to existing graph phase sets but deliberately does not merge
 independent graph PS labels yet.
 
+Chr20 was subsequently tested with the original 958-site DeepVariant GQ10
+private proposal. Graph lock at purity 0.90 evaluated 179,612 reads with 329
+errors; purity 0.95 evaluated 179,323/327, so stronger orientation purity did
+not target the residual errors. Applying the new
+`--min-output-phase-set-reads 50` after locking reached 178,697/266 with 960 kb
+N50. The existing direct joint GQ10+PS50 point remains the chr20 balanced winner
+at 179,494/269 and 991 kb N50; locked final-PS50 is the precision alternative.
+Exact commands, the private VCF, and raw outputs are stored under
+`evaluations/2026-09-12-native-bam-graph-lock/chr20/`.
+
 ```bash
 python3 scripts/merge_graph_hybrid_tags.py \
   --graph-bam graph.bam --hybrid-bam hybrid.bam --output locked.bam \
