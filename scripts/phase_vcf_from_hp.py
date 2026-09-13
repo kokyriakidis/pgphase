@@ -350,6 +350,10 @@ def main():
               "builds it with one BAM scan; later threshold sweeps read it."),
     )
     ap.add_argument(
+        "--rebuild-support-cache", action="store_true",
+        help="Recompute --support-cache even when the TSV already exists.",
+    )
+    ap.add_argument(
         "--merge-phase-sets", action="store_true",
         help="Merge PS blocks whose overlapping site calls agree in orientation.",
     )
@@ -427,7 +431,7 @@ def main():
     support_cache = None
     if args.support_cache:
         cache_path = Path(args.support_cache)
-        if cache_path.exists():
+        if cache_path.exists() and not args.rebuild_support_cache:
             support_cache = read_support_cache(cache_path)
         else:
             support_cache = collect_support_by_alignment_scan(

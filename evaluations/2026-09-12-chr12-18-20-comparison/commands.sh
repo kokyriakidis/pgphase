@@ -9,6 +9,8 @@ readonly OUT_ROOT="${OUT_ROOT:-${DATA_ROOT}/results/chr12-18-20-comparison}"
 readonly PHASER_BIN="${PHASER_BIN:-${HOME}/micromamba/envs/bench-phasers/bin}"
 readonly THREADS="${THREADS:-20}"
 readonly CHROMS="${CHROMS:-chr12 chr18 chr20}"
+readonly RUN_COMPETITORS="${RUN_COMPETITORS:-0}"
+readonly FORCE_PGPHASE="${FORCE_PGPHASE:-0}"
 
 die() {
     echo "error: $*" >&2
@@ -26,6 +28,8 @@ Run the chr12/chr18/chr20 shared-call phasing comparison. Environment:
   OUT_ROOT          result root [$DATA_ROOT/results/chr12-18-20-comparison]
   PHASER_BIN        directory containing whatshap/hiphase/longphase/bcftools
   THREADS           worker threads [20]
+  RUN_COMPETITORS   explicitly allow missing competitor artifacts to run [0]
+  FORCE_PGPHASE     bypass pgphase stage signatures [0]
 EOF
 }
 
@@ -42,9 +46,14 @@ readonly WHATSHAP="${PHASER_BIN}/whatshap"
 readonly HIPHASE="${PHASER_BIN}/hiphase"
 readonly LONGPHASE="${PHASER_BIN}/longphase"
 
-for tool in "${BCFTOOLS}" "${BGZIP}" "${TABIX}" "${WHATSHAP}" "${HIPHASE}" "${LONGPHASE}"; do
+for tool in "${BCFTOOLS}" "${BGZIP}" "${TABIX}" "${WHATSHAP}"; do
     [[ -x "${tool}" ]] || die "missing executable: ${tool}"
 done
+if [[ "${RUN_COMPETITORS}" == "1" ]]; then
+    for tool in "${HIPHASE}" "${LONGPHASE}"; do
+        [[ -x "${tool}" ]] || die "missing competitor executable: ${tool}"
+    done
+fi
 [[ -x "${REPO_ROOT}/pgphase" ]] || die "missing pgphase binary; run make all"
 [[ -f "${TRUTH_VCF}" ]] || die "missing truth VCF: ${TRUTH_VCF}"
 
@@ -52,6 +61,20 @@ run_timed() {
     local -r resource_file="$1"
     shift
     /usr/bin/time -v -o "${resource_file}" "$@"
+}
+
+cached_step() {
+    local force_args=()
+    if [[ "${FORCE_PGPHASE}" == "1" ]]; then
+        force_args+=(--force)
+    fi
+    python3 "${REPO_ROOT}/scripts/run_cached_step.py" "${force_args[@]}" "$@"
+}
+
+allow_competitor_run() {
+    local -r artifact="$1"
+    [[ "${RUN_COMPETITORS}" == "1" ]] || die \
+        "frozen competitor artifact missing: ${artifact}; restore it or explicitly set RUN_COMPETITORS=1"
 }
 
 compress_vcf() {
@@ -66,7 +89,11 @@ evaluate_reads() {
     local -r truth="$2"
     local -r out="$3"
     mkdir -p "${out}"
-    python3 "${REPO_ROOT}/scripts/evaluate_phase_accuracy.py" \
+    cached_step --state "${out}/step.json" \
+        --input "${REPO_ROOT}/scripts/evaluate_phase_accuracy.py" \
+        --input "${bam}" --input "${truth}" \
+        --output "${out}/summary.json" --output "${out}/per_phase_set.tsv" -- \
+        python3 "${REPO_ROOT}/scripts/evaluate_phase_accuracy.py" \
         "${bam}" "${truth}" 0 0 5 "" "${out}" samtools "" "" "" ""
 }
 
@@ -122,11 +149,18 @@ run_chromosome() {
     mkdir -p "${out}"/{graph,bam,hybrid,graph_lock,whatshap,whatshap_opt,hiphase,longphase,eval}
     : > "${out}/evaluated_vcfs.tsv"
 
-    "${BCFTOOLS}" view -r "${chrom}" -Oz -o "${out}/truth.vcf.gz" "${TRUTH_VCF}"
-    "${TABIX}" -f -p vcf "${out}/truth.vcf.gz"
+    if [[ ! -s "${out}/truth.vcf.gz" ]]; then
+        "${BCFTOOLS}" view -r "${chrom}" -Oz -o "${out}/truth.vcf.gz" "${TRUTH_VCF}"
+        "${TABIX}" -f -p vcf "${out}/truth.vcf.gz"
+    fi
 
-    if [[ ! -s "${out}/graph/phased.bam" ]]; then
-        run_timed "${out}/graph/resources.txt" "${REPO_ROOT}/pgphase" collect-graph-variation \
+    cached_step --state "${out}/graph/step.json" \
+        --input "${REPO_ROOT}/pgphase" --input "${ref}" --input "${sites}" --input "${gaf}" \
+        --output "${out}/graph/phased.bam" --output "${out}/graph/native.vcf" \
+        --output "${out}/graph/candidates.tsv" --output "${out}/graph/filtered_sites.tsv" \
+        --output "${out}/graph/phase_sites.tsv" -- \
+        /usr/bin/time -v -o "${out}/graph/resources.txt" \
+        "${REPO_ROOT}/pgphase" collect-graph-variation \
             --ref "${ref}" --sites "${sites}" --gaf "${gaf}" -r "${chrom}" \
             --min-read-margin 2 --anchor-af-margin 0.12 -t "${THREADS}" \
             -o "${out}/graph/candidates.tsv" \
@@ -134,19 +168,27 @@ run_chromosome() {
             --phase-sites-out "${out}/graph/phase_sites.tsv" \
             --phased-vcf-out "${out}/graph/native.vcf" \
             --phased-bam-out "${out}/graph/phased.bam"
-    fi
     samtools index -@ "${THREADS}" "${out}/graph/phased.bam" 2>/dev/null || true
     compress_vcf "${out}/graph/native.vcf" "${out}/graph/native.vcf.gz"
 
-    if [[ ! -s "${out}/bam/native.vcf" ]]; then
-        run_timed "${out}/bam/resources.txt" "${REPO_ROOT}/pgphase" collect-bam-variation \
+    cached_step --state "${out}/bam/step.json" \
+        --input "${REPO_ROOT}/pgphase" --input "${ref}" --input "${bam}" \
+        --output "${out}/bam/phased.bam" --output "${out}/bam/native.vcf" \
+        --output "${out}/bam/candidates.tsv" -- \
+        /usr/bin/time -v -o "${out}/bam/resources.txt" \
+        "${REPO_ROOT}/pgphase" collect-bam-variation \
             --hifi --ref "${ref}" --bam "${bam}" -r "${bam_region}" -t "${THREADS}" \
             -o "${out}/bam/candidates.tsv" --phased-vcf-out "${out}/bam/native.vcf" \
             -b "${out}/bam/phased.bam"
-    fi
+    samtools index -@ "${THREADS}" "${out}/bam/phased.bam" 2>/dev/null || true
     compress_vcf "${out}/bam/native.vcf" "${out}/bam/native.vcf.gz"
 
-    python3 "${REPO_ROOT}/scripts/extract_private_gap_sites.py" \
+    cached_step --state "${out}/private_gap_sites.step.json" \
+        --input "${REPO_ROOT}/scripts/extract_private_gap_sites.py" \
+        --input "${out}/graph/native.vcf.gz" --input "${sites}" \
+        --input "${out}/bam/native.vcf.gz" --input "${bam}" \
+        --output "${out}/private_gap_sites.vcf" --output "${out}/graph_gaps.bed" -- \
+        python3 "${REPO_ROOT}/scripts/extract_private_gap_sites.py" \
         --graph-phased-vcf "${out}/graph/native.vcf.gz" --graph-sites "${sites}" \
         --linear-vcf "${out}/bam/native.vcf.gz" --contig "${graph_contig}" \
         --output "${out}/private_gap_sites.vcf" --gaps-bed "${out}/graph_gaps.bed" \
@@ -154,93 +196,100 @@ run_chromosome() {
         --min-vaf 0.30 --max-vaf 0.70 --bam "${bam}" \
         --min-bridge-reads 2 --min-mapq 20
 
-    local private_sites_hash
-    private_sites_hash="$(sha256sum "${out}/private_gap_sites.vcf" | cut -d' ' -f1)"
-    local previous_private_sites_hash=""
-    if [[ -s "${out}/hybrid/private_sites.sha256" ]]; then
-        previous_private_sites_hash="$(<"${out}/hybrid/private_sites.sha256")"
-    fi
-    if [[ ! -s "${out}/hybrid/phased.bam" || \
-          "${private_sites_hash}" != "${previous_private_sites_hash}" ]]; then
-        run_timed "${out}/hybrid/resources.txt" "${REPO_ROOT}/pgphase" collect-hybrid-variation \
+    cached_step --state "${out}/hybrid/step.json" \
+        --input "${REPO_ROOT}/pgphase" --input "${ref}" --input "${bam}" \
+        --input "${sites}" --input "${gaf}" --input "${out}/private_gap_sites.vcf" \
+        --output "${out}/hybrid/phased.bam" --output "${out}/hybrid/native.vcf" \
+        --output "${out}/hybrid/candidates.tsv" -- \
+        /usr/bin/time -v -o "${out}/hybrid/resources.txt" \
+        "${REPO_ROOT}/pgphase" collect-hybrid-variation \
             --ref "${ref}" --bam "${bam}" --graph-sites "${sites}" --gaf "${gaf}" \
             --private-sites "${out}/private_gap_sites.vcf" -r "${bam_region}" \
             --min-read-margin 2 --min-phase-set-reads 50 -t "${THREADS}" \
             -o "${out}/hybrid/candidates.tsv" --phased-vcf-out "${out}/hybrid/native.vcf" \
             -b "${out}/hybrid/phased.bam"
-        printf '%s\n' "${private_sites_hash}" > "${out}/hybrid/private_sites.sha256"
-    fi
     samtools index -@ "${THREADS}" "${out}/hybrid/phased.bam" 2>/dev/null || true
 
-    python3 "${REPO_ROOT}/scripts/merge_graph_hybrid_tags.py" \
+    cached_step --state "${out}/graph_lock/step.json" \
+        --input "${REPO_ROOT}/scripts/merge_graph_hybrid_tags.py" \
+        --input "${out}/graph/phased.bam" --input "${out}/hybrid/phased.bam" \
+        --output "${out}/graph_lock/phased.bam" -- \
+        python3 "${REPO_ROOT}/scripts/merge_graph_hybrid_tags.py" \
         --graph-bam "${out}/graph/phased.bam" --hybrid-bam "${out}/hybrid/phased.bam" \
         --output "${out}/graph_lock/phased.bam" --min-shared-reads 10 \
         --min-vote-margin 5 --min-purity 0.90 --require-both-haplotypes --threads 8
     samtools index -@ "${THREADS}" "${out}/graph_lock/phased.bam" 2>/dev/null || true
 
-    if [[ ! -s "${out}/graph/tagged_surjected.bam" ]]; then
+    cached_step --state "${out}/graph/inject_tags.step.json" \
+        --input "${REPO_ROOT}/scripts/inject_hp_tags.py" \
+        --input "${out}/graph/phased.bam" --input "${bam}" \
+        --output "${out}/graph/tagged_surjected.bam" -- \
         python3 "${REPO_ROOT}/scripts/inject_hp_tags.py" \
             "${out}/graph/phased.bam" "${bam}" "${out}/graph/tagged_surjected.bam" samtools
-    fi
-    [[ -s "${out}/graph/tagged_surjected.bam.bai" ]] || \
-        samtools index -@ "${THREADS}" "${out}/graph/tagged_surjected.bam"
-    python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
-        "${out}/graph/tagged_surjected.bam" "${shared_vcf}" "${out}/graph/shared.vcf" \
-        --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
-        --support-cache "${out}/graph/shared.support.tsv"
-    compress_vcf "${out}/graph/shared.vcf" "${out}/graph/shared.vcf.gz"
-    samtools index -@ "${THREADS}" "${out}/bam/phased.bam" 2>/dev/null || true
-    python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
-        "${out}/bam/phased.bam" "${shared_vcf}" "${out}/bam/shared.vcf" \
-        --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
-        --support-cache "${out}/bam/shared.support.tsv"
-    compress_vcf "${out}/bam/shared.vcf" "${out}/bam/shared.vcf.gz"
-    python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
-        "${out}/hybrid/phased.bam" "${shared_vcf}" "${out}/hybrid/shared.vcf" \
-        --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
-        --support-cache "${out}/hybrid/shared.support.tsv"
-    compress_vcf "${out}/hybrid/shared.vcf" "${out}/hybrid/shared.vcf.gz"
-    python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
-        "${out}/graph_lock/phased.bam" "${shared_vcf}" "${out}/graph_lock/shared.vcf" \
-        --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
-        --support-cache "${out}/graph_lock/shared.support.tsv"
-    compress_vcf "${out}/graph_lock/shared.vcf" "${out}/graph_lock/shared.vcf.gz"
+    samtools index -@ "${THREADS}" "${out}/graph/tagged_surjected.bam"
+    for label in graph bam hybrid graph_lock; do
+        local phased_bam="${out}/${label}/phased.bam"
+        if [[ "${label}" == "graph" ]]; then
+            phased_bam="${out}/graph/tagged_surjected.bam"
+        fi
+        cached_step --state "${out}/${label}/shared_transfer.step.json" \
+            --input "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
+            --input "${phased_bam}" --input "${shared_vcf}" \
+            --output "${out}/${label}/shared.vcf" \
+            --output "${out}/${label}/shared.support.tsv" -- \
+            python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
+            "${phased_bam}" "${shared_vcf}" "${out}/${label}/shared.vcf" \
+            --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
+            --support-cache "${out}/${label}/shared.support.tsv" \
+            --rebuild-support-cache
+        compress_vcf "${out}/${label}/shared.vcf" "${out}/${label}/shared.vcf.gz"
+    done
 
     if [[ ! -s "${out}/whatshap/phased.vcf.gz" ]]; then
+        allow_competitor_run "${out}/whatshap/phased.vcf.gz"
         run_timed "${out}/whatshap/resources.txt" "${WHATSHAP}" phase --reference "${linear_ref}" \
             --ignore-read-groups --indels -o "${out}/whatshap/phased.vcf.gz" "${shared_vcf}" "${linear_bam}"
+        "${TABIX}" -f -p vcf "${out}/whatshap/phased.vcf.gz"
     fi
-    "${TABIX}" -f -p vcf "${out}/whatshap/phased.vcf.gz"
     if [[ ! -s "${out}/whatshap_opt/phased.vcf.gz" ]]; then
+        allow_competitor_run "${out}/whatshap_opt/phased.vcf.gz"
         run_timed "${out}/whatshap_opt/resources.txt" "${WHATSHAP}" phase --reference "${linear_ref}" \
             --ignore-read-groups --indels --distrust-genotypes \
             -o "${out}/whatshap_opt/phased.vcf.gz" "${shared_vcf}" "${linear_bam}"
+        "${TABIX}" -f -p vcf "${out}/whatshap_opt/phased.vcf.gz"
     fi
-    "${TABIX}" -f -p vcf "${out}/whatshap_opt/phased.vcf.gz"
     if [[ ! -s "${out}/hiphase/phased.vcf.gz" || ! -s "${out}/hiphase/phased.bam" ]]; then
+        allow_competitor_run "${out}/hiphase/phased.vcf.gz and phased.bam"
         run_timed "${out}/hiphase/resources.txt" "${HIPHASE}" --reference "${linear_ref}" \
             --bam "${linear_bam}" --vcf "${shared_vcf}" --threads "${THREADS}" \
             --output-bam "${out}/hiphase/phased.bam" --output-vcf "${out}/hiphase/phased.vcf.gz" \
             --stats-file "${out}/hiphase/stats.native.tsv" \
             --blocks-file "${out}/hiphase/blocks.native.tsv" \
             --summary-file "${out}/hiphase/summary.native.tsv"
+        "${TABIX}" -f -p vcf "${out}/hiphase/phased.vcf.gz"
     fi
-    "${TABIX}" -f -p vcf "${out}/hiphase/phased.vcf.gz"
-    if [[ ! -s "${out}/longphase/phased.vcf" ]]; then
-        run_timed "${out}/longphase/resources.txt" "${LONGPHASE}" phase -s "${shared_vcf}" \
-            -b "${linear_bam}" -r "${linear_ref}" -t "${THREADS}" --pb -o "${out}/longphase/phased"
+    if [[ ! -s "${out}/longphase/phased.vcf.gz" ]]; then
+        allow_competitor_run "${out}/longphase/phased.vcf.gz"
+        if [[ ! -s "${out}/longphase/phased.vcf" ]]; then
+            run_timed "${out}/longphase/resources.txt" "${LONGPHASE}" phase -s "${shared_vcf}" \
+                -b "${linear_bam}" -r "${linear_ref}" -t "${THREADS}" --pb \
+                -o "${out}/longphase/phased"
+        fi
+        compress_vcf "${out}/longphase/phased.vcf" "${out}/longphase/phased.vcf.gz"
     fi
-    compress_vcf "${out}/longphase/phased.vcf" "${out}/longphase/phased.vcf.gz"
 
     if [[ ! -s "${out}/whatshap/phased.bam" ]]; then
+        allow_competitor_run "${out}/whatshap/phased.bam"
         "${WHATSHAP}" haplotag --reference "${linear_ref}" --output-threads "${THREADS}" \
             -o "${out}/whatshap/phased.bam" "${out}/whatshap/phased.vcf.gz" "${linear_bam}"
     fi
     if [[ ! -s "${out}/whatshap_opt/phased.bam" ]]; then
+        allow_competitor_run "${out}/whatshap_opt/phased.bam"
         "${WHATSHAP}" haplotag --reference "${linear_ref}" --output-threads "${THREADS}" \
             -o "${out}/whatshap_opt/phased.bam" "${out}/whatshap_opt/phased.vcf.gz" "${linear_bam}"
     fi
     if [[ ! -s "${out}/longphase/phased.bam" ]]; then
+        allow_competitor_run "${out}/longphase/phased.bam"
         "${LONGPHASE}" haplotag -s "${out}/longphase/phased.vcf.gz" -b "${linear_bam}" \
             -r "${linear_ref}" -t "${THREADS}" -o "${out}/longphase/phased"
     fi
@@ -249,19 +298,35 @@ run_chromosome() {
     evaluate_reads "${out}/bam/phased.bam" "${truth_bam}" "${out}/eval/bam_reads"
     evaluate_reads "${out}/hybrid/phased.bam" "${truth_bam}" "${out}/eval/hybrid_reads"
     evaluate_reads "${out}/graph_lock/phased.bam" "${truth_bam}" "${out}/eval/graph_lock_reads"
-    evaluate_reads "${out}/whatshap/phased.bam" "${truth_bam}" "${out}/eval/whatshap_reads"
-    evaluate_reads "${out}/whatshap_opt/phased.bam" "${truth_bam}" "${out}/eval/whatshap_opt_reads"
-    evaluate_reads "${out}/hiphase/phased.bam" "${truth_bam}" "${out}/eval/hiphase_reads"
-    evaluate_reads "${out}/longphase/phased.bam" "${truth_bam}" "${out}/eval/longphase_reads"
+    if [[ "${RUN_COMPETITORS}" == "1" ]]; then
+        evaluate_reads "${out}/whatshap/phased.bam" "${truth_bam}" "${out}/eval/whatshap_reads"
+        evaluate_reads "${out}/whatshap_opt/phased.bam" "${truth_bam}" "${out}/eval/whatshap_opt_reads"
+        evaluate_reads "${out}/hiphase/phased.bam" "${truth_bam}" "${out}/eval/hiphase_reads"
+        evaluate_reads "${out}/longphase/phased.bam" "${truth_bam}" "${out}/eval/longphase_reads"
+    else
+        for label in whatshap whatshap_opt hiphase longphase; do
+            [[ -s "${out}/eval/${label}_reads/summary.json" ]] || \
+                die "missing frozen read evaluation: ${out}/eval/${label}_reads/summary.json"
+        done
+    fi
 
     evaluate_vcf "${chrom}" "${length}" graph "${out}/graph/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" bam "${out}/bam/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" hybrid "${out}/hybrid/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" graph_lock "${out}/graph_lock/shared.vcf.gz" "${out}"
-    evaluate_vcf "${chrom}" "${length}" whatshap "${out}/whatshap/phased.vcf.gz" "${out}"
-    evaluate_vcf "${chrom}" "${length}" whatshap_opt "${out}/whatshap_opt/phased.vcf.gz" "${out}"
-    evaluate_vcf "${chrom}" "${length}" hiphase "${out}/hiphase/phased.vcf.gz" "${out}"
-    evaluate_vcf "${chrom}" "${length}" longphase "${out}/longphase/phased.vcf.gz" "${out}"
+    if [[ "${RUN_COMPETITORS}" == "1" ]]; then
+        evaluate_vcf "${chrom}" "${length}" whatshap "${out}/whatshap/phased.vcf.gz" "${out}"
+        evaluate_vcf "${chrom}" "${length}" whatshap_opt "${out}/whatshap_opt/phased.vcf.gz" "${out}"
+        evaluate_vcf "${chrom}" "${length}" hiphase "${out}/hiphase/phased.vcf.gz" "${out}"
+        evaluate_vcf "${chrom}" "${length}" longphase "${out}/longphase/phased.vcf.gz" "${out}"
+    else
+        for label in whatshap whatshap_opt hiphase longphase; do
+            for suffix in compare.txt stats.tsv ngc50.json; do
+                [[ -s "${out}/${label}.${suffix}" ]] || \
+                    die "missing frozen VCF evaluation: ${out}/${label}.${suffix}"
+            done
+        done
+    fi
 
     python3 "${REPO_ROOT}/scripts/analyze_graph_gap_site_loss.py" \
         --truth-vcf "${out}/truth.vcf.gz" --phased-vcf "${out}/graph/shared.vcf.gz" \

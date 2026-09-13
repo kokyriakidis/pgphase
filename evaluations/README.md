@@ -14,6 +14,12 @@ Every evaluation directory should contain:
   `scripts/evaluate_phase_accuracy.py`;
 - `worst_phase_sets.tsv` and `bad_phase_regions.bed` when read truth is used.
 
+The maintained chr12/18/20 panel is controlled by
+`scripts/benchmark_panel.py`. Competitor results are immutable artifacts in a
+checked lockfile; normal development runs execute pgphase only. Use
+`make benchmark-tests` for framework tests and `make benchmark-report` to
+rebuild presentation tables from the frozen baseline.
+
 Large BAM, GAF, VCF, matrix, and per-read files stay outside git. Their paths
 and derivation commands must be recorded in the experiment README/script.
 

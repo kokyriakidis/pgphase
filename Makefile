@@ -60,7 +60,7 @@ LDFLAGS ?= -lhts -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
@@ -73,6 +73,14 @@ unit-tests: test_phase_block_stitch test_graph_sites test_graph_bam_adapter test
 	./test_graph_bam_adapter
 	./test_hybrid_inject
 	./test_noise_filter
+
+benchmark-tests:
+	PYTHONPATH=scripts python3 scripts/test_benchmark_framework.py
+	python3 -m py_compile scripts/benchmark_panel.py scripts/run_cached_step.py scripts/analyze_correct_competitor_bridges.py
+	bash -n evaluations/2026-09-12-chr12-18-20-comparison/commands.sh
+
+benchmark-report:
+	python3 scripts/benchmark_panel.py report
 
 portable-bundle: pgphase
 	bash scripts/make_portable_bundle.sh

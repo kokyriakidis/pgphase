@@ -1,0 +1,1008 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-13T06:30:55.909110+00:00",
+  "host": "XAROS",
+  "competitor_spec_sha256": "96647bf88fba101df40b9daf7d6be5a3ca8458e86bc714a1185664eef5fc426c",
+  "deep_checksums": false,
+  "entries": [
+    {
+      "chromosome": "chr12",
+      "tool": "whatshap",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa --ignore-read-groups --indels -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/whatshap_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+          "size": 134991112,
+          "sampled_sha256": "8bc93c32e1b114f5b56152336e7be0cbe54c232b79ded1a4d355efbaa7efb0fe"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+          "size": 3189764815,
+          "sampled_sha256": "0dec762dc25090d9a87a859c2fd9490516fd735bbc94220f58039500a6bbea1a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+          "size": 6780740,
+          "sampled_sha256": "63d04eb2efa7815a4a8c3cc11aa2fb04e8da6bca21041a4f95c3c9e600c41552"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+          "size": 3292726228,
+          "sampled_sha256": "b611cf325ac34ee2fdf0e851d5970e6efad0fdcf1904c5cdd44e2c558ac52e8f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz",
+          "size": 1674648,
+          "sampled_sha256": "3cb45bdf3a296e6eea66bb28284f5f5d4eac8e396ccc3438f167810bf0b65f23"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.vcf.gz",
+          "size": 6807687,
+          "sampled_sha256": "2b613f89e4392b4433f8878b3e620b3cc7d90def08026a0a023d9cff52c2a22f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap/phased.bam",
+          "size": 3505245017,
+          "sampled_sha256": "de3b324d70f4e3dbfa1ba7602ee11015732716fe12c6dc91e03a63384a725d53"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.compare.txt",
+          "size": 1940,
+          "sampled_sha256": "08882cc87442bb3a05fb291fb3c5926ee0eeebb04dd2eeab9dd9331974b01fe5"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.stats.tsv",
+          "size": 665,
+          "sampled_sha256": "8a0922a2e7b20c69ee5ab12447c0b3e865a93dd179e421a574095bbdb8e69315"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap.ngc50.json",
+          "size": 123,
+          "sampled_sha256": "4560c80079c52977c5e11bf812c3766904a58397d98fee3ba63cfd92f7627701"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/whatshap_reads/summary.json",
+          "size": 1666,
+          "sampled_sha256": "4320819c3603bcbb22b1e8e7a063910b5d83fcd8c39e27b628034f5ff4ef6f5d"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr12",
+      "tool": "whatshap_opt",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa --ignore-read-groups --indels --distrust-genotypes -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/whatshap_opt_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+          "size": 134991112,
+          "sampled_sha256": "8bc93c32e1b114f5b56152336e7be0cbe54c232b79ded1a4d355efbaa7efb0fe"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+          "size": 3189764815,
+          "sampled_sha256": "0dec762dc25090d9a87a859c2fd9490516fd735bbc94220f58039500a6bbea1a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+          "size": 6780740,
+          "sampled_sha256": "63d04eb2efa7815a4a8c3cc11aa2fb04e8da6bca21041a4f95c3c9e600c41552"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+          "size": 3292726228,
+          "sampled_sha256": "b611cf325ac34ee2fdf0e851d5970e6efad0fdcf1904c5cdd44e2c558ac52e8f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz",
+          "size": 1674648,
+          "sampled_sha256": "3cb45bdf3a296e6eea66bb28284f5f5d4eac8e396ccc3438f167810bf0b65f23"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.vcf.gz",
+          "size": 6812608,
+          "sampled_sha256": "44a1787129e006f2fb06b19d7400b44a95e5dabfd84656ddb5002fb9c1f53f5d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt/phased.bam",
+          "size": 3505214012,
+          "sampled_sha256": "408249ea61576b6bf16cc42634b2e60b83321c65cb92c3845933699eb2a3d3b4"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.compare.txt",
+          "size": 1956,
+          "sampled_sha256": "d65565434c1f931bb70f0f33144b3c225feb7a828ea0013041109b15c4c7f9ac"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.stats.tsv",
+          "size": 666,
+          "sampled_sha256": "db2abea52bdd99e2b860cfbf4bb3070be050753ff40efc6acad1dd18b9298339"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt.ngc50.json",
+          "size": 123,
+          "sampled_sha256": "3c39a92a6fceb9e3077d5d7c3396397d7b2ebe5c6c87bdaa6496676df77a585f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/whatshap_opt_reads/summary.json",
+          "size": 1663,
+          "sampled_sha256": "b350285f9a826d125308e7b7734418b2d4eb8e2068819f267ab716ba16782ebe"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr12",
+      "tool": "hiphase",
+      "version": "1.6.0-ac3f399",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/hiphase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa --bam /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam --vcf /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz --threads 20 --output-bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.bam --output-vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.vcf.gz --stats-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/stats.native.tsv --blocks-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/blocks.native.tsv --summary-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/summary.native.tsv"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/hiphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+          "size": 134991112,
+          "sampled_sha256": "8bc93c32e1b114f5b56152336e7be0cbe54c232b79ded1a4d355efbaa7efb0fe"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+          "size": 3189764815,
+          "sampled_sha256": "0dec762dc25090d9a87a859c2fd9490516fd735bbc94220f58039500a6bbea1a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+          "size": 6780740,
+          "sampled_sha256": "63d04eb2efa7815a4a8c3cc11aa2fb04e8da6bca21041a4f95c3c9e600c41552"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+          "size": 3292726228,
+          "sampled_sha256": "b611cf325ac34ee2fdf0e851d5970e6efad0fdcf1904c5cdd44e2c558ac52e8f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz",
+          "size": 1674648,
+          "sampled_sha256": "3cb45bdf3a296e6eea66bb28284f5f5d4eac8e396ccc3438f167810bf0b65f23"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.vcf.gz",
+          "size": 6925209,
+          "sampled_sha256": "00ae17edc8341f6781b2aa68f0e7d11df55ac7ba6d28c7073e373f61cea546d6"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase/phased.bam",
+          "size": 3379264702,
+          "sampled_sha256": "e0f7e333a6c86b0cc9ce071a9925b524d549fb04c81bff5881bef3353fd554b5"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.compare.txt",
+          "size": 1936,
+          "sampled_sha256": "8250fdca295b66fa1e71f71e09caf4c407b4e084e223bbaf752b76ec5ff3ce10"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.stats.tsv",
+          "size": 668,
+          "sampled_sha256": "ac2fb1599cfb0398d60cd6dbf76db501a2b0e5cd513fee7225eb8e89a1163287"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase.ngc50.json",
+          "size": 123,
+          "sampled_sha256": "b1bb4ed5e5e50a8fcceaf0af61019b853d2ae7ccfb07fa0262559d354736de40"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/hiphase_reads/summary.json",
+          "size": 1665,
+          "sampled_sha256": "a71501313781e88a1109047d4b6c8751ada16be4584040898b263081d11d99ef"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr12",
+      "tool": "longphase",
+      "version": "2.0.2",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase phase -s /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz -b /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam -r /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa -t 20 --pb -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/bgzip -f -c /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf > /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/tabix -f -p vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase haplotag -s /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf.gz -b /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam -r /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa -t 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/longphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr12.renamed.fa",
+          "size": 134991112,
+          "sampled_sha256": "8bc93c32e1b114f5b56152336e7be0cbe54c232b79ded1a4d355efbaa7efb0fe"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+          "size": 3189764815,
+          "sampled_sha256": "0dec762dc25090d9a87a859c2fd9490516fd735bbc94220f58039500a6bbea1a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr12/deepvariant.vcf.gz",
+          "size": 6780740,
+          "sampled_sha256": "63d04eb2efa7815a4a8c3cc11aa2fb04e8da6bca21041a4f95c3c9e600c41552"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+          "size": 3292726228,
+          "sampled_sha256": "b611cf325ac34ee2fdf0e851d5970e6efad0fdcf1904c5cdd44e2c558ac52e8f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/truth.vcf.gz",
+          "size": 1674648,
+          "sampled_sha256": "3cb45bdf3a296e6eea66bb28284f5f5d4eac8e396ccc3438f167810bf0b65f23"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.vcf.gz",
+          "size": 6518817,
+          "sampled_sha256": "2fd9dffebd063e8dc6e8902b45539dcdb8859b8fea4cc265e7bdee2f4ba5d134"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase/phased.bam",
+          "size": 3504436827,
+          "sampled_sha256": "6a57018313d034b5f838603ed54b00a1ff446800a76292f02183adab09ec8441"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.compare.txt",
+          "size": 1944,
+          "sampled_sha256": "9fe92adf6b63f3b011d3fa60d41a7621285ffde37214fd3a957bc48e99abd6fa"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.stats.tsv",
+          "size": 665,
+          "sampled_sha256": "0b530fd8ca1fedc6087eef4f251048e6278afa52e720cf9900e30c2784f34bc4"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase.ngc50.json",
+          "size": 123,
+          "sampled_sha256": "c2eb5b084ce1894cf4445425d6cd799c1bf8a08ea55d47b0ec6aa687c1f10eab"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/eval/longphase_reads/summary.json",
+          "size": 1666,
+          "sampled_sha256": "253e81de8ea1752a26fb73cc773ebf41e75c674bd595b9a52685d7d16395a3ee"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr18",
+      "tool": "whatshap",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa --ignore-read-groups --indels -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/whatshap_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+          "size": 81549327,
+          "sampled_sha256": "831311aed6372e299b6a546b54608223af286af636c311c90adc12a8d5404a21"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+          "size": 1864735627,
+          "sampled_sha256": "e4940a6b5f3994ac55bace0128450ea9ea29f7a0e49741f4c0e5f598d632ad22"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+          "size": 4662271,
+          "sampled_sha256": "5b4a432d7fbc632d5b10cafee25b2849d5bcae3af796078d9473f03106a37cbd"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+          "size": 1926093101,
+          "sampled_sha256": "8b829914bfdfcaed47150f7efa3505a7d8152cf1f791fbd7afc85404664821e2"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz",
+          "size": 1021745,
+          "sampled_sha256": "2145f240af552dadd1ff647f232c3934add85f3fe495e3e0f2a8be12a6d88033"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.vcf.gz",
+          "size": 4685618,
+          "sampled_sha256": "37ad971a31cc5ce6e09efc34ba66da4ab1d336c18b1f6b7b4263ab0f3e9cc4df"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap/phased.bam",
+          "size": 2050386966,
+          "sampled_sha256": "891ea7c93ecd7da766585551040584342a0f7cd7f9765a51e86008a0d64640cc"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.compare.txt",
+          "size": 1940,
+          "sampled_sha256": "d9fd47016c84c61b7c50d60e15f8e1d41a36aaa36cf4791e17637187bd82c127"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.stats.tsv",
+          "size": 658,
+          "sampled_sha256": "dd36bcae8b3c5f606ffd030e8b1dcb945d5b7ebd5cfb7062dbfeb5e2acc45f9b"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "55a3ec341e9c11475331c32595f7533470411761860a818b79317ef746325044"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/whatshap_reads/summary.json",
+          "size": 1663,
+          "sampled_sha256": "399649668e80ef6dbf1e3581c38067b5c11627b17a2aa9fc6a1e33cf2d048b24"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr18",
+      "tool": "whatshap_opt",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa --ignore-read-groups --indels --distrust-genotypes -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/whatshap_opt_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+          "size": 81549327,
+          "sampled_sha256": "831311aed6372e299b6a546b54608223af286af636c311c90adc12a8d5404a21"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+          "size": 1864735627,
+          "sampled_sha256": "e4940a6b5f3994ac55bace0128450ea9ea29f7a0e49741f4c0e5f598d632ad22"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+          "size": 4662271,
+          "sampled_sha256": "5b4a432d7fbc632d5b10cafee25b2849d5bcae3af796078d9473f03106a37cbd"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+          "size": 1926093101,
+          "sampled_sha256": "8b829914bfdfcaed47150f7efa3505a7d8152cf1f791fbd7afc85404664821e2"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz",
+          "size": 1021745,
+          "sampled_sha256": "2145f240af552dadd1ff647f232c3934add85f3fe495e3e0f2a8be12a6d88033"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.vcf.gz",
+          "size": 4690895,
+          "sampled_sha256": "0697ecffd2149f618e07c76286823f0176ed5c8d2f1daa6c30b5ed2b9f6a610e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt/phased.bam",
+          "size": 2050369127,
+          "sampled_sha256": "2e2fa22dfab56bdbebac3539bfd1c12028f629939719e3969bc5fe33ca3cf586"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.compare.txt",
+          "size": 1956,
+          "sampled_sha256": "068e8014e6b97160683068cebfb62f919dbf3d735af9cd4bd265ddcd622fe0a8"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.stats.tsv",
+          "size": 669,
+          "sampled_sha256": "f971b30f038520c0f0ce162f1a767d0d6b9ebff3cdcf5f3750dbc9e82bbc293c"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "3632e97861b769792180a5280fb580eb19b698186de6db7d075192b83f411b4b"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/whatshap_opt_reads/summary.json",
+          "size": 1664,
+          "sampled_sha256": "669f398150e836e8e3b158bcda16ee9fb2610149d44d66bb1fbd6b782cb5b7d2"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr18",
+      "tool": "hiphase",
+      "version": "1.6.0-ac3f399",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/hiphase --reference /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa --bam /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam --vcf /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz --threads 20 --output-bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.bam --output-vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.vcf.gz --stats-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/stats.native.tsv --blocks-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/blocks.native.tsv --summary-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/summary.native.tsv"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/hiphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+          "size": 81549327,
+          "sampled_sha256": "831311aed6372e299b6a546b54608223af286af636c311c90adc12a8d5404a21"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+          "size": 1864735627,
+          "sampled_sha256": "e4940a6b5f3994ac55bace0128450ea9ea29f7a0e49741f4c0e5f598d632ad22"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+          "size": 4662271,
+          "sampled_sha256": "5b4a432d7fbc632d5b10cafee25b2849d5bcae3af796078d9473f03106a37cbd"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+          "size": 1926093101,
+          "sampled_sha256": "8b829914bfdfcaed47150f7efa3505a7d8152cf1f791fbd7afc85404664821e2"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz",
+          "size": 1021745,
+          "sampled_sha256": "2145f240af552dadd1ff647f232c3934add85f3fe495e3e0f2a8be12a6d88033"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.vcf.gz",
+          "size": 4771002,
+          "sampled_sha256": "8b60f8aee8dd51ecb9dd6697f941297ab94c64116fb18657930b9874504f3cc2"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase/phased.bam",
+          "size": 1976022162,
+          "sampled_sha256": "fe920b94faefdfd5c8b134905c12968fcf3a000c9062c05b7d9424ffb7b62994"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.compare.txt",
+          "size": 1936,
+          "sampled_sha256": "3aa440a872bdd5fe3745bfed990dd94ffca1198e143c97d2f747b98155d6f035"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.stats.tsv",
+          "size": 663,
+          "sampled_sha256": "70c60e577e51487ad07309ee387ec12a7597e37bd5e798ae413dc6d54144f991"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "c71ad9286d106a0df73344ba962e0f70285776b6e6036f812cb372da21fe79b9"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/hiphase_reads/summary.json",
+          "size": 1666,
+          "sampled_sha256": "2544f75db6324be22e7e111aedf9b0ef02f561907df1555bf60855bae82b49a5"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr18",
+      "tool": "longphase",
+      "version": "2.0.2",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase phase -s /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz -b /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam -r /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa -t 20 --pb -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/bgzip -f -c /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf > /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/tabix -f -p vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase haplotag -s /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf.gz -b /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam -r /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa -t 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/longphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr18.renamed.fa",
+          "size": 81549327,
+          "sampled_sha256": "831311aed6372e299b6a546b54608223af286af636c311c90adc12a8d5404a21"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+          "size": 1864735627,
+          "sampled_sha256": "e4940a6b5f3994ac55bace0128450ea9ea29f7a0e49741f4c0e5f598d632ad22"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr18/deepvariant.vcf.gz",
+          "size": 4662271,
+          "sampled_sha256": "5b4a432d7fbc632d5b10cafee25b2849d5bcae3af796078d9473f03106a37cbd"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+          "size": 1926093101,
+          "sampled_sha256": "8b829914bfdfcaed47150f7efa3505a7d8152cf1f791fbd7afc85404664821e2"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/truth.vcf.gz",
+          "size": 1021745,
+          "sampled_sha256": "2145f240af552dadd1ff647f232c3934add85f3fe495e3e0f2a8be12a6d88033"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.vcf.gz",
+          "size": 4492404,
+          "sampled_sha256": "87192f8fd35a85661791c7a87f31eb756c09d41f68801353aafb6b9d6e6ff7f4"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase/phased.bam",
+          "size": 2049937391,
+          "sampled_sha256": "50b5d934761104fd47c36b67a92779f57f19da0be68ffd0871f81a732e516a52"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.compare.txt",
+          "size": 1944,
+          "sampled_sha256": "992dadcef521b551d0e2fab6e45abee7fab0e0aec2b7e552a6f217fc87b9e951"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.stats.tsv",
+          "size": 661,
+          "sampled_sha256": "66a284362929535af55e416891ae3db75ff92b7908d788021f3b79215150e9d0"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "a639d5cf426cfb5cd0ad7e71f1aedd673d22e181a93a47d1f9ea2a782f308d93"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/eval/longphase_reads/summary.json",
+          "size": 1667,
+          "sampled_sha256": "e2bb8322a62a9d89a610bad53ca0ada5c0e366ff721406ce5ce5bd434532e432"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr20",
+      "tool": "whatshap",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa --ignore-read-groups --indels -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/whatshap_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+          "size": 67037891,
+          "sampled_sha256": "d5d250ccee25d001767055c7be2f67e2c11aa0c57770d376e4960d9b7fed488d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+          "size": 1628148146,
+          "sampled_sha256": "ab355c88004b4fd89ae37d13d6a39658fa5ce6e11e87fc9824011334020f3845"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+          "size": 4179323,
+          "sampled_sha256": "278217151e964d90e09a1eb3a98afb1f32fc2d806fbc20bc0b8e70909e15cf23"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+          "size": 1636632543,
+          "sampled_sha256": "b029264ae9846e1b880b7711b9e01db4862bdd80842f983381716a888b0b2f5e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz",
+          "size": 1171484,
+          "sampled_sha256": "bbe625e8d89e34275e24d70411fb8bec73d00385a3ae1496a171e1f4d3b62c41"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.vcf.gz",
+          "size": 4195028,
+          "sampled_sha256": "65d8ae8f5e75401e2f4d1556f73e28697fdd1da3300d86dd49992e68b923ce8c"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap/phased.bam",
+          "size": 1632070397,
+          "sampled_sha256": "f2490370525a4871dbaf3c93361af9d0ea1927f675d62b2d2bf2ef8c23d23c55"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.compare.txt",
+          "size": 1940,
+          "sampled_sha256": "ed45f175527b504fc46af19678c9a3c78da1ee4bc1d1a714822e6d9275048ef1"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.stats.tsv",
+          "size": 661,
+          "sampled_sha256": "522b0d14bd5bc6006e53baf0a641296d0bed79db2ab7f913db2e0297d36b49a6"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "eaa76a66c8cec7aa4b85092d0f30e7ef73b967e951c413d426c7d18ac8591065"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/whatshap_reads/summary.json",
+          "size": 1664,
+          "sampled_sha256": "74cdb029d3673fc4c25340ef4f973287bcc1c68fc44f86948eee6934ed0e93bd"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr20",
+      "tool": "whatshap_opt",
+      "version": "2.8",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap phase --reference /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa --ignore-read-groups --indels --distrust-genotypes -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap haplotag --reference /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa --output-threads 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/whatshap_opt_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+          "size": 67037891,
+          "sampled_sha256": "d5d250ccee25d001767055c7be2f67e2c11aa0c57770d376e4960d9b7fed488d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+          "size": 1628148146,
+          "sampled_sha256": "ab355c88004b4fd89ae37d13d6a39658fa5ce6e11e87fc9824011334020f3845"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+          "size": 4179323,
+          "sampled_sha256": "278217151e964d90e09a1eb3a98afb1f32fc2d806fbc20bc0b8e70909e15cf23"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+          "size": 1636632543,
+          "sampled_sha256": "b029264ae9846e1b880b7711b9e01db4862bdd80842f983381716a888b0b2f5e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz",
+          "size": 1171484,
+          "sampled_sha256": "bbe625e8d89e34275e24d70411fb8bec73d00385a3ae1496a171e1f4d3b62c41"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.vcf.gz",
+          "size": 4201258,
+          "sampled_sha256": "ac6cd75f74f5f43f766db64ac060005b5bc89363f6f3c362be7aa9f0d72bb39f"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt/phased.bam",
+          "size": 1632058641,
+          "sampled_sha256": "5a904238a26625738f6d7d1cfb30d5b679d932cb5cb52315f8fa6c4fd6a16b69"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.compare.txt",
+          "size": 1956,
+          "sampled_sha256": "b9ab5fe132d3a6d97350d217c34b78cf50b60c80c933e39701e552cfe1214d2b"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.stats.tsv",
+          "size": 666,
+          "sampled_sha256": "4a53f9ca815221323fe556aecd96639b3ee8addb709655bd0386a5165caefc3e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "6cff8763420b6115de378cc0df18f075c2008cdb2f9a01340619ee0d6f61b81a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/whatshap_opt_reads/summary.json",
+          "size": 1661,
+          "sampled_sha256": "bf3bf4a9e02437c39b72ac3298cdbf46b5be7351017b8a7e3086fb3459eddcb3"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr20",
+      "tool": "hiphase",
+      "version": "1.6.0-ac3f399",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/hiphase --reference /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa --bam /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam --vcf /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz --threads 20 --output-bam /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.bam --output-vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.vcf.gz --stats-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/stats.native.tsv --blocks-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/blocks.native.tsv --summary-file /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/summary.native.tsv"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/hiphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+          "size": 67037891,
+          "sampled_sha256": "d5d250ccee25d001767055c7be2f67e2c11aa0c57770d376e4960d9b7fed488d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+          "size": 1628148146,
+          "sampled_sha256": "ab355c88004b4fd89ae37d13d6a39658fa5ce6e11e87fc9824011334020f3845"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+          "size": 4179323,
+          "sampled_sha256": "278217151e964d90e09a1eb3a98afb1f32fc2d806fbc20bc0b8e70909e15cf23"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+          "size": 1636632543,
+          "sampled_sha256": "b029264ae9846e1b880b7711b9e01db4862bdd80842f983381716a888b0b2f5e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz",
+          "size": 1171484,
+          "sampled_sha256": "bbe625e8d89e34275e24d70411fb8bec73d00385a3ae1496a171e1f4d3b62c41"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.vcf.gz",
+          "size": 4271562,
+          "sampled_sha256": "63bf3342c2c3391fbb271b16c3d733daeb5961a6870237d1609d3b598c446c82"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase/phased.bam",
+          "size": 1577464407,
+          "sampled_sha256": "893f18436ac03d2110455e1fb43935317567f777c296377ee2fc5f52a322726a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.compare.txt",
+          "size": 1936,
+          "sampled_sha256": "df95757b5e3cd90e296c114754d44970dbcc86281e4dab6a8aecc91be2c08f69"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.stats.tsv",
+          "size": 663,
+          "sampled_sha256": "5ce0a1230b3f80f3927a05f7c9c2cf4e62950802abb7712d969101ce5bcc23e1"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "a0bfce2e1b0b4959f22503481fc070c2d406471a022c0474a913ff63129d546a"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/hiphase_reads/summary.json",
+          "size": 1663,
+          "sampled_sha256": "f5f6537a4fed50de3921658c273933e99c5491419871c846d770e20072f68798"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr20",
+      "tool": "longphase",
+      "version": "2.0.2",
+      "commands": [
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase phase -s /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz -b /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam -r /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa -t 20 --pb -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/bgzip -f -c /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf > /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/tabix -f -p vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/longphase haplotag -s /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf.gz -b /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam -r /home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa -t 20 -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/longphase_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa",
+          "size": 67037891,
+          "sampled_sha256": "d5d250ccee25d001767055c7be2f67e2c11aa0c57770d376e4960d9b7fed488d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam",
+          "size": 1628148146,
+          "sampled_sha256": "ab355c88004b4fd89ae37d13d6a39658fa5ce6e11e87fc9824011334020f3845"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz",
+          "size": 4179323,
+          "sampled_sha256": "278217151e964d90e09a1eb3a98afb1f32fc2d806fbc20bc0b8e70909e15cf23"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+          "size": 1636632543,
+          "sampled_sha256": "b029264ae9846e1b880b7711b9e01db4862bdd80842f983381716a888b0b2f5e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz",
+          "size": 1171484,
+          "sampled_sha256": "bbe625e8d89e34275e24d70411fb8bec73d00385a3ae1496a171e1f4d3b62c41"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.vcf.gz",
+          "size": 4026094,
+          "sampled_sha256": "2b294f57681b9e449da00d18d363c06d5232065c104c862e0cb427b8e62e8ede"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase/phased.bam",
+          "size": 1631603573,
+          "sampled_sha256": "55821ff04837cf3a9d2e01e343c0c87a1e3894f856bdae5bcf765d32059243de"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.compare.txt",
+          "size": 1944,
+          "sampled_sha256": "c1195711fdae0a129556f4e2481250a10fbea7906632601507b3a16a0bc6608e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.stats.tsv",
+          "size": 665,
+          "sampled_sha256": "f51dd62f7f5e7a574add4b733202240048b4872a1d610cfd1887fb1c5ecbebe0"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "6f604d04cffb1f7cd2100a8169be5c0e1c028698eb6e3259e5df7d510b280300"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/longphase_reads/summary.json",
+          "size": 1663,
+          "sampled_sha256": "0321d52012ae75c887316b7b66afd19b8997d0b01f53b182bc323131c2fe53ba"
+        }
+      ]
+    }
+  ]
+}

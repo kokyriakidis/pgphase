@@ -70,13 +70,35 @@ but is not numerically comparable to the HiPhase paper's whole-GRCh38 NGC50.
 ## Running
 
 ```bash
-./evaluations/2026-09-12-chr12-18-20-comparison/prepare_shared_calls.sh
-./evaluations/2026-09-12-chr12-18-20-comparison/commands.sh
+# Normal development loop: competitors are verified, never executed.
+python3 scripts/benchmark_panel.py run
+python3 scripts/benchmark_panel.py report
+
+# Inspect the frozen baseline or every exact competitor command.
+python3 scripts/benchmark_panel.py status
+python3 scripts/benchmark_panel.py show-competitor-commands
 ```
 
-Set `CHROMS="chr20"` for a smoke run. Both scripts are resumable: completed
-outputs are retained and reused. The phaser executables default to the pinned
-`bench-phasers` micromamba environment.
+The controller reads `panel.json`. `competitor_lock.json` freezes all 12
+chromosome/tool runs against their exact commands, versions, inputs, VCF/BAM
+outputs, and evaluation artifacts. Normal `run` mode verifies this lock and
+sets `RUN_COMPETITORS=0`; a missing competitor file is a hard error and cannot
+silently trigger a rerun. Verification uses file size plus SHA-256 over three
+1 MiB samples for speed; `--deep` creates or verifies full-file SHA-256 values.
+
+pgphase stages use `scripts/run_cached_step.py`. Each state JSON records the
+exact argv, pgphase executable fingerprint, input fingerprints, output
+fingerprints, completion time, and wall time. A code, input, or threshold
+change reruns the affected stage; an identical stage is a cache hit. Restrict a
+development run with repeated `--chromosome`, for example
+`python3 scripts/benchmark_panel.py run --chromosome chr20`.
+
+`make benchmark-tests` checks the framework without genomic data.
+`make benchmark-report` verifies the frozen baseline and regenerates all TSVs,
+the correct-bridge analysis, and `REPORT.md`. The one-time shared call creation
+command remains `prepare_shared_calls.sh`. Rebuilding competitors is an
+explicit maintenance operation through the lower-level driver with
+`RUN_COMPETITORS=1`, followed immediately by `freeze-competitors`.
 
 ## Decision Rule
 
@@ -128,6 +150,47 @@ must not merge blocks based on agreement with only one side; the chr18 failure
 is the counterexample this rule must reject. Centromeric regions should be
 reported separately and may use a BAM-favored fallback only when graph coverage
 or anchor support is absent, not from the region label alone.
+
+## Correct Competitor Bridges
+
+`correct_bridges.tsv` identifies competitor blocks that cross a graph break,
+have at least 99% read-truth accuracy and 50 evaluated reads, and have no VCF
+switch-error interval across that break. HiPhase has 434 such bridges:
+
+| primary pgphase limitation | correct HiPhase bridges | fraction |
+|---|---:|---:|
+| repeat heterozygous indels excluded from k-means | 250 | 57.6% |
+| graph sites phased but blocks not stitched | 86 | 19.8% |
+| clean graph candidate remains unphased | 34 | 7.8% |
+| catalog records never become candidates | 64 | 14.7% |
+
+The median correct HiPhase bridge is 22 kb. Across them HiPhase phases 1,043
+linking shared-call sites while graph pgphase phases only 125. This explains
+the NGC50 gap more directly than missing private SNPs alone: HiPhase is
+variant-first and uses sparse indel/SNP chains transitively across read-length
+scale gaps, while pgphase excludes repeat indels and then preserves more local
+chunk boundaries. The highest-value next ablations are therefore a
+high-confidence repeat-indel bridge channel and evidence-based stitching of
+already-correct graph blocks. Both must be graph-locked and evaluated by the
+same correct-bridge report because unrestricted repeat anchors previously hurt
+accuracy.
+
+This agrees with the tools' published mechanisms. HiPhase documents explicit
+gap-spanning phase-block generation, multi-allelic support, no read
+downsampling, dual local/global allele assignment, and an A* phasing core:
+<https://github.com/PacificBiosciences/HiPhase/blob/main/docs/methods.md>.
+LongPhase builds a phasing graph that connects up to 35 adjacent variants and
+allows edges up to 300 kb by default:
+<https://github.com/twolinin/LongPhase#the-complete-list-of-phase-parameters>.
+Those global/transitive graph designs can preserve a block through a sparse
+22 kb interval without one read spanning the entire gap. pgphase's chunk-local
+k-means plus conservative stitching cannot currently do that.
+
+The frozen LongPhase command is the measured `--pb` SNP mode and does not use
+the optional `--indels` switch. Its row must not be described as LongPhase's
+best SNP+indel mode. Changing that protocol would be a deliberate new baseline,
+requiring one explicit refresh and a new lock; it must not happen during normal
+pgphase iteration.
 
 ## Provenance
 

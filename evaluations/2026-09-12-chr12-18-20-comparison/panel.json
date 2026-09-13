@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "panel": "HG002 CHM13 chr12/chr18/chr20",
+  "roots": {
+    "repo": "${REPO}",
+    "data": "${DATA_ROOT}",
+    "results": "${OUT_ROOT}",
+    "shared_calls": "${SHARED_VCF_ROOT}",
+    "phaser_bin": "${PHASER_BIN}"
+  },
+  "chromosomes": {
+    "chr12": {
+      "reference": "${REPO}/test_data/chm13v2.0.chr12.renamed.fa",
+      "catalog_vcf": "${REPO}/test_data/chr12.sites.vcf.gz",
+      "linear_reference": "${REPO}/test_data/chm13v2.0.chr12.renamed.fa",
+      "linear_bam": "${REPO}/test_data/HG002_chr12_hifi_mapped_to_CHM13_chr12_annotated.bam",
+      "truth_bam": "${DATA_ROOT}/truth/chr12/diplinator_merged.bam",
+      "shared_vcf": "${SHARED_VCF_ROOT}/chr12/deepvariant.vcf.gz"
+    },
+    "chr18": {
+      "reference": "${REPO}/test_data/chm13v2.0.chr18.renamed.fa",
+      "catalog_vcf": "${REPO}/test_data/chr18.sites.vcf.gz",
+      "linear_reference": "${REPO}/test_data/chm13v2.0.chr18.renamed.fa",
+      "linear_bam": "${REPO}/test_data/HG002_chr18_hifi_mapped_to_CHM13_chr18_annotated.bam",
+      "truth_bam": "${DATA_ROOT}/truth/chr18/diplinator_merged.bam",
+      "shared_vcf": "${SHARED_VCF_ROOT}/chr18/deepvariant.vcf.gz"
+    },
+    "chr20": {
+      "reference": "${REPO}/test_data/chm13v2.0.chr20.renamed.fa",
+      "catalog_vcf": "${REPO}/test_data/chr20.sites.striped.vcf.gz",
+      "linear_reference": "${SHARED_VCF_ROOT}/chr20/chm13v2.0.chr20.normalized.fa",
+      "linear_bam": "${SHARED_VCF_ROOT}/chr20/HG002.chr20.normalized.bam",
+      "truth_bam": "${DATA_ROOT}/truth/chr20/diplinator_merged.bam",
+      "shared_vcf": "${SHARED_VCF_ROOT}/chr20/deepvariant.vcf.gz"
+    }
+  },
+  "competitors": {
+    "whatshap": {
+      "version": "2.8",
+      "commands": [
+        "${PHASER_BIN}/whatshap phase --reference ${linear_reference} --ignore-read-groups --indels -o ${tool_dir}/phased.vcf.gz ${shared_vcf} ${linear_bam}",
+        "${PHASER_BIN}/whatshap haplotag --reference ${linear_reference} --output-threads 20 -o ${tool_dir}/phased.bam ${tool_dir}/phased.vcf.gz ${linear_bam}"
+      ]
+    },
+    "whatshap_opt": {
+      "version": "2.8",
+      "commands": [
+        "${PHASER_BIN}/whatshap phase --reference ${linear_reference} --ignore-read-groups --indels --distrust-genotypes -o ${tool_dir}/phased.vcf.gz ${shared_vcf} ${linear_bam}",
+        "${PHASER_BIN}/whatshap haplotag --reference ${linear_reference} --output-threads 20 -o ${tool_dir}/phased.bam ${tool_dir}/phased.vcf.gz ${linear_bam}"
+      ]
+    },
+    "hiphase": {
+      "version": "1.6.0-ac3f399",
+      "commands": [
+        "${PHASER_BIN}/hiphase --reference ${linear_reference} --bam ${linear_bam} --vcf ${shared_vcf} --threads 20 --output-bam ${tool_dir}/phased.bam --output-vcf ${tool_dir}/phased.vcf.gz --stats-file ${tool_dir}/stats.native.tsv --blocks-file ${tool_dir}/blocks.native.tsv --summary-file ${tool_dir}/summary.native.tsv"
+      ]
+    },
+    "longphase": {
+      "version": "2.0.2",
+      "commands": [
+        "${PHASER_BIN}/longphase phase -s ${shared_vcf} -b ${linear_bam} -r ${linear_reference} -t 20 --pb -o ${tool_dir}/phased",
+        "${PHASER_BIN}/bgzip -f -c ${tool_dir}/phased.vcf > ${tool_dir}/phased.vcf.gz",
+        "${PHASER_BIN}/tabix -f -p vcf ${tool_dir}/phased.vcf.gz",
+        "${PHASER_BIN}/longphase haplotag -s ${tool_dir}/phased.vcf.gz -b ${linear_bam} -r ${linear_reference} -t 20 -o ${tool_dir}/phased"
+      ]
+    }
+  },
+  "competitor_artifacts": [
+    "${tool_dir}/phased.vcf.gz",
+    "${tool_dir}/phased.bam",
+    "${chrom_dir}/${tool}.compare.txt",
+    "${chrom_dir}/${tool}.stats.tsv",
+    "${chrom_dir}/${tool}.ngc50.json",
+    "${chrom_dir}/eval/${tool}_reads/summary.json"
+  ]
+}

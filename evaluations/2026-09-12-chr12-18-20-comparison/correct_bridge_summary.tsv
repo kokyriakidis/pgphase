@@ -1,0 +1,17 @@
+tool	primary_reason	bridges	gap_bp	truth_hets	shared_hets	competitor_phased_sites	graph_phased_sites	private_sites
+hiphase	block_stitching	86	4116394	467	462	424	125	22
+hiphase	catalog_site_not_candidate	64	873582	107	38	37	0	3
+hiphase	clean_candidate_unphased	34	829988	1627	189	177	0	6
+hiphase	repeat_indels_excluded	250	5692132	753	439	405	0	15
+longphase	block_stitching	44	1650334	199	195	99	49	18
+longphase	catalog_site_not_candidate	72	994019	110	42	25	0	3
+longphase	clean_candidate_unphased	30	654985	1601	185	101	0	6
+longphase	repeat_indels_excluded	164	3049996	272	247	85	0	20
+whatshap	block_stitching	58	2738765	344	333	289	84	17
+whatshap	catalog_site_not_candidate	52	691350	75	11	8	0	1
+whatshap	clean_candidate_unphased	23	551461	85	64	54	0	5
+whatshap	repeat_indels_excluded	167	3452221	247	216	157	0	12
+whatshap_opt	block_stitching	67	3207822	397	390	317	102	19
+whatshap_opt	catalog_site_not_candidate	61	855457	81	15	6	0	2
+whatshap_opt	clean_candidate_unphased	29	676174	112	90	69	0	5
+whatshap_opt	repeat_indels_excluded	195	4021848	292	265	161	0	15

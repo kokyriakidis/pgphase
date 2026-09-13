@@ -666,3 +666,25 @@ A chr20 contig-alias bug in `extract_private_gap_sites.py` was corrected during
 the run: both catalog and requested contigs are now normalized before matching.
 The corrected strict set has 74 private sites, not 143, and excludes 45,393
 graph-owned positions. All chr20 panel results were regenerated after the fix.
+
+### Reproducible iteration
+
+Use only the controller for routine comparisons:
+
+```bash
+python3 scripts/benchmark_panel.py run
+python3 scripts/benchmark_panel.py report
+```
+
+It verifies the frozen 12-run competitor lock and runs only pgphase-dependent
+stages. Exact competitor commands are available through
+`show-competitor-commands`; stage signatures record exact pgphase argv and
+invalidate on binary, input, or threshold changes. `make benchmark-tests`
+tests this machinery without genomic data.
+
+The generated correct-bridge analysis finds 434 high-confidence HiPhase
+bridges over graph breaks. Repeat indels excluded from k-means explain 250;
+failure to stitch already-phased graph sites explains 86. The median gap is
+22,575 bp, and HiPhase has 1,043 linking shared-call sites in these gaps versus
+125 for graph pgphase. This is now the primary contiguity target. See
+`evaluations/2026-09-12-chr12-18-20-comparison/REPORT.md` for ranked regions.

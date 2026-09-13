@@ -4923,3 +4923,26 @@ During this benchmark, chr20 graph-position exclusion was found to compare
 sides, the valid private set fell from 143 to 74 and 45,393 graph-owned
 positions were correctly excluded. The corrected chr20 hybrid and graph-lock
 measurements are the ones in the evaluation record.
+
+### Frozen benchmark framework and correct-bridge diagnosis
+
+`scripts/benchmark_panel.py` now controls this panel from `panel.json`.
+`competitor_lock.json` freezes 12 chromosome/tool runs with exact commands,
+versions, inputs, outputs, and evaluation artifacts. Normal `run` mode verifies
+the lock and sets `RUN_COMPETITORS=0`; missing fixed artifacts are fatal.
+pgphase stages use `scripts/run_cached_step.py`, whose state includes exact
+argv plus executable/input/output fingerprints. `report` deterministically
+regenerates all aggregate tables and `REPORT.md` from frozen artifacts.
+
+The correct-bridge analysis requires a competitor block to have >=99% read
+accuracy, >=50 reads, and no variant switch interval across a graph break.
+HiPhase correctly crosses 434 such breaks (median 22,575 bp): 250 (57.6%) are
+dominated by repeat het indels excluded from graph k-means, 86 (19.8%) already
+contain graph-phased sites but are not stitched, 34 (7.8%) contain clean
+candidates that remain unphased, and 64 (14.7%) have catalog records but no
+candidate. HiPhase phases 1,043 shared-call sites across these gaps; pgphase
+phases 125. Prioritize a separately gated repeat-indel bridge channel and
+global evidence-based stitching, both with immutable graph assignments.
+
+The frozen LongPhase baseline is the measured `--pb` SNP mode, not its optional
+`--indels` mode. Do not present it as LongPhase's best SNP+indel configuration.
