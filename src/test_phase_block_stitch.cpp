@@ -2,8 +2,7 @@
  * @file test_phase_block_stitch.cpp
  * Unit tests for chunk stitching (stitch_chunk_haps / flip logic).
  *
- * Only boundary overlap read pairing is exercised — stitch_chunk_haps does
- * not run pangenome-graph or within-chunk merges.
+ * Exercises boundary stitching, within-chunk allele links, and MSA profile admission.
  *
  * Build (from repo root):
  *   make collect_phase.o && g++ -O0 -g -std=c++17 -Wall -Wextra \
@@ -12,6 +11,7 @@
  */
 
 #include "collect_phase.hpp"
+#include "collect_phase_noisy.hpp"
 #include "collect_types.hpp"
 
 #include <cstdio>
@@ -199,13 +199,154 @@ static bool test_margin_one_abstains_single_vote() {
     return ok;
 }
 
+static CandidateVariant noisy_merge_cand(hts_pos_t pos, VariantCategory category,
+                                         int alt_cov) {
+    CandidateVariant cand;
+    cand.key.tid = 0;
+    cand.key.pos = pos;
+    cand.key.type = VariantType::Deletion;
+    cand.key.ref_len = 1;
+    cand.counts.category = category;
+    cand.counts.candvarcate_initial = category;
+    cand.counts.alt_cov = alt_cov;
+    cand.lcd_var_i_to_cate = category_to_flag(category);
+    return cand;
+}
+
+static bool test_private_msa_merge_admits_only_whitelist() {
+    std::printf("--- test_private_msa_merge_admits_only_whitelist ---\n");
+    PhasingChunk chunk;
+    chunk.region.tid = 0;
+    chunk.reads.push_back(min_read());
+    chunk.candidates.push_back(
+        noisy_merge_cand(100, VariantCategory::RepeatHetIndel, 3));
+
+    std::vector<CandidateVariant> msa_vars = {
+        noisy_merge_cand(100, VariantCategory::NoisyCandHet, 8),
+        noisy_merge_cand(200, VariantCategory::NoisyCandHet, 9),
+        noisy_merge_cand(300, VariantCategory::NoisyCandHet, 10),
+    };
+    std::vector<VariantCategory> msa_cats(
+        msa_vars.size(), VariantCategory::NoisyCandHet);
+    std::vector<ReadVariantProfile> msa_profiles(1);
+    msa_profiles[0].start_var_idx = 0;
+    msa_profiles[0].end_var_idx = 2;
+    msa_profiles[0].alleles = {1, 1, 0};
+    msa_profiles[0].alt_qi = {-1, -1, -1};
+
+    VariantKeySet whitelist;
+    whitelist.insert(msa_vars[0].key);
+    whitelist.insert(msa_vars[2].key);
+    const int admitted = merge_var_profile(
+        chunk, msa_vars, msa_cats, msa_profiles, &whitelist);
+
+    bool ok = true;
+    ok &= check(admitted == 2, "two whitelisted MSA sites admitted");
+    ok &= check(chunk.candidates.size() == 2, "unlisted MSA site excluded");
+    ok &= check(chunk.candidates[0].counts.category == VariantCategory::NoisyCandHet,
+                "whitelisted repeat collision replaced by MSA call");
+    ok &= check(chunk.candidates[0].counts.alt_cov == 8,
+                "MSA counts replace repeat candidate counts");
+    ok &= check(chunk.candidates[0].counts.candvarcate_initial ==
+                    VariantCategory::RepeatHetIndel,
+                "repeat candidate provenance preserved");
+    ok &= check(chunk.read_var_profile[0].start_var_idx == 0 &&
+                    chunk.read_var_profile[0].end_var_idx == 1 &&
+                    chunk.read_var_profile[0].alleles == std::vector<int>({1, 0}),
+                "MSA profile compacted onto admitted sites");
+    std::printf("%s\n", ok ? "PASS" : "FAIL");
+    return ok;
+}
+
+static bool test_allele_link_orientation_and_tie() {
+    PhasingChunk chunk;
+    chunk.region.tid = 0;
+    for (int i = 0; i < 2; ++i) {
+        auto cand = dummy_cand(100 + 100 * i);
+        cand.key.pos = 100 + 100 * i;
+        chunk.candidates.push_back(cand);
+    }
+    chunk.read_var_cr.reset(cr_init());
+    for (int i = 0; i < 4; ++i) {
+        chunk.reads.push_back(min_read());
+        chunk.haps.push_back(0);
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 1;
+        profile.alleles = std::vector<int>{i % 2, 1 - i % 2};
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 2, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts;
+    opts.link_by_alleles = true;
+    opts.min_block_link_reads = 2;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1}, opts);
+    bool ok = check(chunk.candidates[0].phase_set == chunk.candidates[1].phase_set,
+                    "untagged opposite-allele reads join blocks");
+    ok &= check(chunk.candidates[1].hap_to_cons_alle[1] == 0,
+                "opposite link flips consensus exactly once");
+    chunk.candidates[1].hap_to_cons_alle = chunk.candidates[0].hap_to_cons_alle;
+    for (int i = 0; i < 2; ++i)
+        chunk.read_var_profile[i].alleles[1] = chunk.read_var_profile[i].alleles[0];
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1}, opts);
+    ok &= check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set,
+                "two agree and two conflict abstain");
+    return ok;
+}
+
+static bool test_region_msa_repeat_collision() {
+    PhasingChunk chunk;
+    chunk.reads.push_back(min_read());
+    chunk.candidates.push_back(noisy_merge_cand(100, VariantCategory::RepeatHetIndel, 3));
+    const auto msa = noisy_merge_cand(100, VariantCategory::NoisyCandHet, 8);
+    ReadVariantProfile profile;
+    profile.start_var_idx = profile.end_var_idx = 0;
+    profile.alleles = std::vector<int>{1};
+    profile.alt_qi = std::vector<int>{-1};
+    VariantKeySet whitelist{msa.key};
+    bool ok = check(merge_var_profile(chunk, {msa}, {VariantCategory::NoisyCandHet},
+                                      {profile}, &whitelist, true, true) == 0,
+                    "SNP tier excludes repeat indel");
+    ok &= check(merge_var_profile(chunk, {msa}, {VariantCategory::NoisyCandHet},
+                                  {profile}, &whitelist, true, false) == 1,
+                "indel escalation replaces existing repeat in region mode");
+    ok &= check(chunk.candidates[0].counts.category == VariantCategory::NoisyCandHet &&
+                chunk.read_var_profile[0].alleles == std::vector<int>{1},
+                "MSA category and observations enter second phasing pass together");
+    return ok;
+}
+
+static bool test_msa_unsorted_profile_indices() {
+    PhasingChunk chunk;
+    chunk.reads.push_back(min_read());
+    ReadVariantProfile profile;
+    profile.start_var_idx = 0;
+    profile.end_var_idx = 1;
+    profile.alleles = std::vector<int>{1, 0};
+    profile.alt_qi = std::vector<int>{17, -1};
+    merge_var_profile(chunk,
+                      {noisy_merge_cand(200, VariantCategory::NoisyCandHet, 8),
+                       noisy_merge_cand(100, VariantCategory::NoisyCandHet, 8)},
+                      {VariantCategory::NoisyCandHet, VariantCategory::NoisyCandHet},
+                      {profile});
+    return check(chunk.candidates[0].key.pos == 100 &&
+                 chunk.read_var_profile[0].alleles == std::vector<int>({0, 1}) &&
+                 chunk.read_var_profile[0].alt_qi == std::vector<int>({-1, 17}),
+                 "sorting MSA calls preserves allele and query-position ownership");
+}
+
 int main() {
     int failures = 0;
+    failures += test_msa_unsorted_profile_indices() ? 0 : 1;
+    failures += test_allele_link_orientation_and_tie() ? 0 : 1;
+    failures += test_region_msa_repeat_collision() ? 0 : 1;
     failures += test_cross_chunk_flip_when_haps_disagree() ? 0 : 1;
     failures += test_flip_score_zero_no_merge() ? 0 : 1;
     failures += test_skipped_overlap_read_ignored() ? 0 : 1;
     failures += test_margin_zero_merges_single_vote() ? 0 : 1;
     failures += test_margin_one_abstains_single_vote() ? 0 : 1;
+    failures += test_private_msa_merge_admits_only_whitelist() ? 0 : 1;
     if (failures == 0)
         std::printf("ALL PASS\n");
     else

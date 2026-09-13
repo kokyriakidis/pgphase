@@ -21,9 +21,6 @@ extern "C" {
 
 namespace pgphase_collect {
 
-// Default ploidy (diploid).
-constexpr int kLongcalldDefPloid = 2;
-
 // Read visit count / index (one slot per read).
 static inline int read_visit_count(const PhasingChunk& chunk) {
     return chunk.ordered_read_ids.empty() ? static_cast<int>(chunk.reads.size())
@@ -323,6 +320,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
     ReadRecord& read = chunk.reads[read_i];
     read.n_clean_agree_snps = 0;
     read.n_clean_conflict_snps = 0;
+    read.n_bridge_agree_snps = 0;
+    read.n_bridge_conflict_snps = 0;
 
     const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
     if (prof.start_var_idx < 0) return -1;
@@ -331,6 +330,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
     int n_vars_used[3] = {0, 0, 0};
     int n_clean_agree[3] = {0, 0, 0};
     int n_clean_conflict[3] = {0, 0, 0};
+    int n_bridge_agree[3] = {0, 0, 0};
+    int n_bridge_conflict[3] = {0, 0, 0};
 
     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
         CandidateVariant& var = chunk.candidates[vi];
@@ -349,6 +350,10 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
                 if (vic == kCandCleanHetSnp && var.counts.n_uniq_alles <= 2) {
                     if (score > 0) n_clean_agree[hap]++;
                     else n_clean_conflict[hap]++;
+                } else if (vic == kCandNoisyCandHet && var.key.type == VariantType::Snp &&
+                          var.counts.n_uniq_alles <= 2) {
+                    if (score > 0) n_bridge_agree[hap]++;
+                    else n_bridge_conflict[hap]++;
                 }
             }
             if (vic != kCandCleanHom) hap_scores[hap] += score;
@@ -368,6 +373,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
     if (max_score > 0) {
         read.n_clean_agree_snps = n_clean_agree[max_hap];
         read.n_clean_conflict_snps = n_clean_conflict[max_hap];
+        read.n_bridge_agree_snps = n_bridge_agree[max_hap];
+        read.n_bridge_conflict_snps = n_bridge_conflict[max_hap];
         read.n_vars_scored = n_vars_used[max_hap];
         return max_hap;
     }
@@ -470,7 +477,7 @@ static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, 
 // Phase-set assignment + flip for one k-means iteration.
 // Returns 1 if any flip occurred (changed), 0 if converged.
 // Iter_update_var_hap_cons_phase_set.
-static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
+int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                                const std::vector<int>& valid_var_idx,
                                                const Options& opts) {
     const int n = (int)valid_var_idx.size();
@@ -524,7 +531,7 @@ static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 if (agree > 0) a++;
                 else if (agree == 0) c++;
             }
-            const int support = std::max(a, c);
+            const int support = a == c ? 0 : std::max(a, c);
             if (support > best_support) {
                 best_support = support; best_h = hj; best_a = a; best_c = c;
             }
@@ -548,7 +555,8 @@ static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             continue;
         }
         const int hj = link_h[hi];
-        const int support = std::max(link_agree[hi], link_conflict[hi]);
+        const int support = link_agree[hi] == link_conflict[hi]
+                                ? 0 : std::max(link_agree[hi], link_conflict[hi]);
         if (hj < 0 || support < opts.min_block_link_reads) {
             // No sufficiently supported link anywhere in the window -- break.
             // Carry the running parity unchanged, as orientation within a fresh
@@ -585,13 +593,7 @@ static int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             phase_set = het_ps[hi];
             if (parity[hi] == 1) {
                 changed = 1;
-                // Swap consensus alleles between hap 1 and hap 2.
-                // (with ploidy 2 this is two swaps → net identity; matches released assign_hap.c).
-                for (int hap = 1; hap <= kLongcalldDefPloid; ++hap) {
-                    const int tmp = var.hap_to_cons_alle[hap];
-                    var.hap_to_cons_alle[hap] = var.hap_to_cons_alle[3 - hap];
-                    var.hap_to_cons_alle[3 - hap] = tmp;
-                }
+                std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
             }
         }
         var.phase_set = phase_set;

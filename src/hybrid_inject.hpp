@@ -10,15 +10,12 @@
 #include "graph_sites.hpp"
 #include "phasing_types.hpp"
 
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 namespace pgphase_collect {
-
-using VariantKeySet = std::set<VariantKey, VariantKeyLess>;
 
 VariantKeySet load_private_variant_keys(const std::string& path,
                                         const bam_hdr_t* bam_header);

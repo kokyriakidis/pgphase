@@ -12,8 +12,8 @@
  * This file covers the outer loop, MSA variant extraction, and merge into the chunk.
  */
 
-#include "collect_types.hpp"
 #include "align.hpp"
+#include "collect_var.hpp"
 
 #include <array>
 #include <cstdint>
@@ -40,7 +40,8 @@ namespace pgphase_collect {
  *
  * @note No-ops when `chunk.noisy_regions` is empty.
  */
-void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts);
+void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
+                              const VariantKeySet* site_whitelist = nullptr);
 
 /**
  * @brief Process one noisy region: collect reads → extract reference → MSA →
@@ -56,7 +57,9 @@ void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts);
  *
  * @param noisy_reg_i  Index into `chunk.noisy_regions`.
  */
-int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i);
+int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                        const VariantKeySet* site_whitelist = nullptr,
+                        bool snp_only_admission = false);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Sorting
@@ -143,11 +146,18 @@ int make_vars_from_msa_cons_aln(
  * merges `noisy_rvp` allele observations into the affected reads' profiles, and
  * rebuilds the `chunk.read_var_cr` interval tree so that the subsequent
  * k-means call (`kCandGermlineVarCate`) sees the complete, merged profile.
+ * When `site_whitelist` is set, unlisted calls are discarded and an exact
+ * whitelisted collision may replace an existing repeat-indel row.
+ *
+ * @return Number of MSA candidates admitted into the merged table.
  */
-void merge_var_profile(PhasingChunk& chunk,
-                       const std::vector<CandidateVariant>& noisy_vars,
-                       const std::vector<VariantCategory>& noisy_var_cate,
-                       const std::vector<ReadVariantProfile>& noisy_rvp);
+int merge_var_profile(PhasingChunk& chunk,
+                      const std::vector<CandidateVariant>& noisy_vars,
+                      const std::vector<VariantCategory>& noisy_var_cate,
+                      const std::vector<ReadVariantProfile>& noisy_rvp,
+                      const VariantKeySet* site_whitelist = nullptr,
+                      bool admit_all_in_region = false,
+                      bool snp_only_admission = false);
 
 } // namespace pgphase_collect
 

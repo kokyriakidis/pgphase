@@ -1,0 +1,65 @@
+{
+  "gap_1based": [
+    15019294,
+    15130077
+  ],
+  "catalog_overlapping_records": 1450,
+  "catalog_exact_positions_at_private_snps": {
+    "15039543": 0,
+    "15039634": 0,
+    "15048452": 0,
+    "15055707": 0
+  },
+  "candidate_categories": {
+    "graph": {
+      "REP_HET_INDEL": 18,
+      "CLEAN_HET_SNP": 3,
+      "CLEAN_HET_INDEL": 1
+    },
+    "native": {
+      "NOISY_CAND_HET": 21,
+      "CLEAN_HOM": 9,
+      "NOISY_CAND_HOM": 3,
+      "CLEAN_HET_SNP": 6
+    },
+    "clean": {
+      "REP_HET_INDEL": 2,
+      "NOISY_CAND_HET": 20,
+      "CLEAN_HOM": 15,
+      "NOISY_CAND_HOM": 3,
+      "CLEAN_HET_SNP": 6,
+      "CLEAN_HET_INDEL": 2
+    },
+    "msa": {
+      "REP_HET_INDEL": 2,
+      "CLEAN_HOM": 15,
+      "CLEAN_HET_SNP": 6,
+      "NOISY_CAND_HET": 10,
+      "CLEAN_HET_INDEL": 2
+    },
+    "msa_margin1": {
+      "REP_HET_INDEL": 2,
+      "CLEAN_HOM": 15,
+      "CLEAN_HET_SNP": 6,
+      "NOISY_CAND_HET": 10,
+      "CLEAN_HET_INDEL": 2
+    }
+  },
+  "graph_reads": 495,
+  "graph_reads_missing_after_stitch": 0,
+  "graph_blocks_preserved_up_to_uniform_orientation": true,
+  "graph_block_transforms": {
+    "14729749": [
+      [
+        15115387,
+        1
+      ]
+    ],
+    "15115387": [
+      [
+        15115387,
+        0
+      ]
+    ]
+  }
+}

@@ -9,6 +9,7 @@
 
 #include "collect_types.hpp"
 
+#include <set>
 #include <vector>
 
 extern "C" {
@@ -48,6 +49,8 @@ int exact_comp_var_site_ins(const VariantKey* var1, const VariantKey* var2, int 
 struct VariantKeyLess {
     bool operator()(const VariantKey& lhs, const VariantKey& rhs) const;
 };
+
+using VariantKeySet = std::set<VariantKey, VariantKeyLess>;
 
 // Maps one DigarOp (SNP/indel alignment event) to a VariantKey.
 VariantKey variant_key_from_digar(int tid, const DigarOp& op);
@@ -144,7 +147,8 @@ void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts);
 // Steps 3.2-4: k-means phasing and noisy-region MSA recall.
 // Expects read profiles to be populated (by collect_var_build_profiles
 // and/or manual injection for hybrid reads).
-void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts);
+void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
+                             const VariantKeySet* noisy_site_whitelist = nullptr);
 
 // Steps 3-4 combined: build profiles + run phasing.
 void collect_var_phase(PhasingChunk& chunk,

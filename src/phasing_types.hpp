@@ -206,6 +206,27 @@ struct Options {
     // Defaults true for hybrid (set in collect_hybrid_variation), false for the
     // BAM pipeline. See CHECKPOINT.md "Hybrid step-4 re-orientation".
     bool skip_noisy_kmeans = false;
+    // Experimental graph+private mode: run noisy-region MSA only around
+    // whitelisted private sites, admit exact-key MSA calls, and re-phase with
+    // those calls plus the clean graph core. Off by default pending a stronger
+    // bridge-support gate; the first chr20 test preserved N50 but added errors.
+    bool private_msa = false;
+    // Minimum WFA score gap between the two haplotype consensuses before an
+    // excluded read is admitted as bridge evidence.  1 is "strictly better
+    // wins", which measured +139 discordant reads on chr20; 24 (4x the
+    // mismatch cost) was the only setting that beat the baseline on both
+    // accuracy and contiguity.  See evaluations/.../chr20_15019294_15130077.md.
+    int private_msa_margin = 24;
+    // Trust the whole noisy region once it overlaps a whitelisted window,
+    // instead of requiring the MSA call to land on an exact whitelist key.
+    // Use this when the whitelist marks WHERE to look (e.g. a phase-block
+    // junction) rather than WHAT to expect -- the point of running MSA there
+    // is to discover a position no one already knows.
+    bool private_msa_admit_all_in_region = false;
+    // Try phasing a junction with MSA SNP calls alone before admitting MSA
+    // indel calls in the same region. Only meaningful together with
+    // private_msa_admit_all_in_region.
+    bool private_msa_snp_first = false;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
@@ -467,6 +488,17 @@ struct ReadRecord {
     bool is_ont_palindrome = false;
     int n_clean_agree_snps = 0;    // populated during phasing (Step 2)
     int n_clean_conflict_snps = 0; // populated during phasing (Step 2)
+    // Same agree/conflict counting, but restricted to admitted MSA SNP calls
+    // (NOISY_CAND_HET, biallelic, key.type==Snp) rather than pre-existing
+    // clean candidates. A read whose only informative sites in a stretch are
+    // MSA-recovered bridge SNPs has zero clean-SNP margin and would otherwise
+    // be silently stripped of its HP tag at output even when its haplotype
+    // assignment (which already uses this evidence via hap_scores) is correct.
+    // Kept separate from the clean counters so the output-margin gate can
+    // require this evidence to come specifically from admitted bridge SNPs,
+    // not from ordinary noisy-region recall run without --private-msa.
+    int n_bridge_agree_snps = 0;
+    int n_bridge_conflict_snps = 0;
     // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap call,
     // and the number of informative variants behind the winning haplotype.
     // The clean-SNP agree/conflict counts above see only germline clean SNPs;

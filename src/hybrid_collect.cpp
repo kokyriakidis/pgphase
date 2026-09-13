@@ -55,9 +55,16 @@ static void print_hybrid_help() {
         << "      --graph-indel-min-alt INT Min alt support for graph het-indel anchor [0]\n"
         << "      --anchor-af-margin F      Max |AF-0.5| for any graph-owned site to vote [0.5]\n"
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
+        << "      --link-by-alleles         Let untagged reads carry phase-block linking evidence\n"
+        << "      --block-link-window INT   Preceding het variants searched for a link [1]\n"
+        << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
+        << "      --private-msa-snp-first   Try MSA SNPs alone before admitting MSA indels per junction\n"
+        << "      --min-block-link-reads INT  Spanning reads needed to carry a phase block [2]\n"
         << "      --no-hybrid-trim          Disable minimal-VCF trimming of graph-only alleles before noise filter (on by default)\n"
         << "      --gap-fill                Additively phase reads the clean core left unphased into a disjoint PS namespace (off by default)\n"
         << "      --private-sites FILE      Jointly phase graph sites plus only listed BAM candidates\n"
+        << "      --private-msa             Experiment: MSA-validate whitelisted noisy private sites\n"
+        << "      --private-msa-margin INT  Min consensus score gap to admit a bridge read [24]\n"
         << "      --graph-authoritative     Use all non-graph BAM sites; replace graph-site BAM evidence with GAF\n"
         << "      --bam-authoritative-bed F Use clean BAM sites only inside BED intervals\n"
         << "      --min-read-margin INT     Min clean-SNP agree-conflict margin for output reads [0]\n"
@@ -121,9 +128,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kGraphIndelMinAltOption,
         kAnchorAfMarginOption,
         kKeepNoisyKmeansOption,
+        kLinkByAllelesOption,
+        kBlockLinkWindowOption,
+        kPrivateMsaAdmitAllOption,
+        kPrivateMsaSnpFirstOption,
+        kMinBlockLinkReadsOption,
         kNoHybridTrimOption,
         kGapFillOption,
         kPrivateSitesOption,
+        kPrivateMsaOption,
+        kPrivateMsaMarginOption,
         kGraphAuthoritativeOption,
         kBamAuthoritativeBedOption,
         kMinReadMarginOption,
@@ -161,9 +175,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"graph-indel-min-alt", required_argument, nullptr, kGraphIndelMinAltOption},
         {"anchor-af-margin", required_argument, nullptr, kAnchorAfMarginOption},
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
+        {"link-by-alleles",   no_argument,     nullptr, kLinkByAllelesOption},
+        {"block-link-window", required_argument, nullptr, kBlockLinkWindowOption},
+        {"private-msa-admit-all-in-region", no_argument, nullptr, kPrivateMsaAdmitAllOption},
+        {"private-msa-snp-first", no_argument, nullptr, kPrivateMsaSnpFirstOption},
+        {"min-block-link-reads", required_argument, nullptr, kMinBlockLinkReadsOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
         {"gap-fill",        no_argument,       nullptr, kGapFillOption},
         {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
+        {"private-msa",      no_argument,       nullptr, kPrivateMsaOption},
+        {"private-msa-margin", required_argument, nullptr, kPrivateMsaMarginOption},
         {"graph-authoritative", no_argument,    nullptr, kGraphAuthoritativeOption},
         {"bam-authoritative-bed", required_argument, nullptr, kBamAuthoritativeBedOption},
         {"min-read-margin",  required_argument, nullptr, kMinReadMarginOption},
@@ -215,12 +236,18 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGraphIndelMinAltOption: opts.graph_indel_min_alt = std::atoi(optarg); break;
             case kAnchorAfMarginOption: opts.anchor_af_margin = std::atof(optarg); break;
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
+            case kLinkByAllelesOption: opts.link_by_alleles = true; break;
+            case kBlockLinkWindowOption: opts.block_link_window = std::atoi(optarg); break;
+            case kPrivateMsaAdmitAllOption: opts.private_msa_admit_all_in_region = true; break;
+            case kPrivateMsaSnpFirstOption: opts.private_msa_snp_first = true; break;
+            case kMinBlockLinkReadsOption: opts.min_block_link_reads = std::atoi(optarg); break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
             case kGapFillOption:      opts.gap_fill = true; break;
             case kPrivateSitesOption:
                 opts.private_sites_vcf = optarg;
-                opts.graph_authoritative = true;
                 break;
+            case kPrivateMsaOption: opts.private_msa = true; break;
+            case kPrivateMsaMarginOption: opts.private_msa_margin = std::atoi(optarg); break;
             case kGraphAuthoritativeOption: opts.graph_authoritative = true; break;
             case kBamAuthoritativeBedOption: opts.bam_authoritative_bed = optarg; break;
             case kMinReadMarginOption: opts.min_read_hap_margin = std::atoi(optarg); break;
@@ -241,6 +268,22 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         opts.graph_sites_vcf.empty() || opts.gaf_file.empty()) {
         std::cerr << "Error: --ref, --bam, --graph-sites, and --gaf are required\n\n";
         print_hybrid_help();
+        return 1;
+    }
+    if (opts.private_msa_margin <= 0 || opts.min_block_link_reads <= 0 ||
+        opts.block_link_window <= 0) {
+        std::cerr << "Error: --private-msa-margin, --min-block-link-reads and "
+                     "--block-link-window must be positive\n";
+        return 1;
+    }
+    if ((opts.private_msa_admit_all_in_region || opts.private_msa_snp_first) &&
+        !opts.private_msa) {
+        std::cerr << "Error: private MSA admission options require --private-msa\n";
+        return 1;
+    }
+    if (opts.private_msa_snp_first && !opts.private_msa_admit_all_in_region) {
+        std::cerr << "Error: --private-msa-snp-first requires "
+                     "--private-msa-admit-all-in-region\n";
         return 1;
     }
 

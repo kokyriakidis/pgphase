@@ -896,11 +896,29 @@ int make_vars_from_msa_cons_aln(
 // merge_var_profile
 // ════════════════════════════════════════════════════════════════════════════
 
-void merge_var_profile(PhasingChunk& chunk,
-                       const std::vector<CandidateVariant>& noisy_vars,
-                       const std::vector<VariantCategory>& noisy_var_cate,
-                       const std::vector<ReadVariantProfile>& noisy_rvp) {
-    if (noisy_vars.empty()) return;
+int merge_var_profile(PhasingChunk& chunk,
+                      const std::vector<CandidateVariant>& noisy_vars,
+                      const std::vector<VariantCategory>& noisy_var_cate,
+                      const std::vector<ReadVariantProfile>& noisy_rvp,
+                      const VariantKeySet* site_whitelist,
+                      bool admit_all_in_region,
+                      bool snp_only_admission) {
+    if (noisy_vars.empty()) return 0;
+    // Region-trust mode: collect_noisy_vars1 already restricted which noisy
+    // regions ran MSA to those overlapping a whitelisted window (the exact
+    // position inside the window is not knowable in advance -- that is the
+    // whole reason MSA is being asked to find it). Requiring calls to also
+    // land on an exact whitelist key defeats that purpose; here the containment
+    // gate already did the trust decision, so admit every call.
+    if (admit_all_in_region) site_whitelist = nullptr;
+    // SNP-first escalation: MSA indels can be placed ambiguously inside a
+    // repeat run (the same base can be "deleted" from several equivalent
+    // positions), while an MSA SNP call is unambiguous. Try phasing a junction
+    // with SNPs alone before trusting an indel call; the caller decides when
+    // to retry with this off.
+    auto admissible_type = [&](const CandidateVariant& v) {
+        return !snp_only_admission || v.key.type == VariantType::Snp;
+    };
 
     std::vector<CandidateVariant> new_vars = noisy_vars;
     std::vector<VariantCategory> new_cats = noisy_var_cate;
@@ -938,20 +956,43 @@ void merge_var_profile(PhasingChunk& chunk,
 
     size_t old_i = 0;
     size_t new_i = 0;
+    int admitted = 0;
     while (old_i < old_vars.size() && new_i < new_vars.size()) {
         const int ret = exact_comp_var_site(&old_vars[old_i].key, &new_vars[new_i].key);
         if (ret < 0) {
             old_to_merged[old_i] = static_cast<int>(merged_vars.size());
             merged_vars.push_back(old_vars[old_i++]);
         } else if (ret > 0) {
+            if ((site_whitelist != nullptr &&
+                 site_whitelist->find(new_vars[new_i].key) == site_whitelist->end()) ||
+                !admissible_type(new_vars[new_i])) {
+                ++new_i;
+                continue;
+            }
             set_noisy_category(new_vars[new_i], new_cats[new_i]);
             restore_stashed_initial_if_any(chunk, new_vars[new_i]);
-            new_to_merged[new_i] = static_cast<int>(merged_vars.size());
+            new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
             merged_vars.push_back(new_vars[new_i++]);
+            ++admitted;
         } else {
-            // Exact-key collision: always keep the existing variant.
-            old_to_merged[old_i] = static_cast<int>(merged_vars.size());
-            merged_vars.push_back(old_vars[old_i++]);
+            const bool replace_repeat =
+                (admit_all_in_region ||
+                 (site_whitelist != nullptr &&
+                  site_whitelist->find(new_vars[new_i].key) != site_whitelist->end())) &&
+                old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel &&
+                admissible_type(new_vars[new_i]);
+            if (replace_repeat) {
+                set_noisy_category(new_vars[new_i], new_cats[new_i]);
+                new_vars[new_i].counts.candvarcate_initial =
+                    old_vars[old_i].counts.candvarcate_initial;
+                new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
+                merged_vars.push_back(new_vars[new_i]);
+                ++admitted;
+            } else {
+                old_to_merged[old_i] = static_cast<int>(merged_vars.size());
+                merged_vars.push_back(old_vars[old_i]);
+            }
+            ++old_i;
             ++new_i;
         }
     }
@@ -960,10 +1001,17 @@ void merge_var_profile(PhasingChunk& chunk,
         merged_vars.push_back(old_vars[old_i++]);
     }
     while (new_i < new_vars.size()) {
+        if ((site_whitelist != nullptr &&
+             site_whitelist->find(new_vars[new_i].key) == site_whitelist->end()) ||
+            !admissible_type(new_vars[new_i])) {
+            ++new_i;
+            continue;
+        }
         set_noisy_category(new_vars[new_i], new_cats[new_i]);
         restore_stashed_initial_if_any(chunk, new_vars[new_i]);
-        new_to_merged[new_i] = static_cast<int>(merged_vars.size());
+        new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
         merged_vars.push_back(new_vars[new_i++]);
+        ++admitted;
     }
 
     std::vector<ReadVariantProfile> merged_profiles = init_read_profiles(chunk.reads.size());
@@ -1007,17 +1055,31 @@ void merge_var_profile(PhasingChunk& chunk,
     chunk.candidates = std::move(merged_vars);
     chunk.read_var_profile = std::move(merged_profiles);
     chunk.read_var_cr.reset(merged_cr);
+    return admitted;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // collect_noisy_vars1
 // ════════════════════════════════════════════════════════════════════════════
 
-int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i) {
+int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                        const VariantKeySet* site_whitelist, bool snp_only_admission) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
     // Enter with noisy_reg_beg/end from the interval tree.
     hts_pos_t noisy_reg_beg = reg.beg;
     hts_pos_t noisy_reg_end = reg.end;
+
+    if (site_whitelist != nullptr) {
+        bool contains_whitelisted_site = false;
+        for (const VariantKey& key : *site_whitelist) {
+            if (key.tid == chunk.region.tid &&
+                key.pos >= noisy_reg_beg && key.pos <= noisy_reg_end) {
+                contains_whitelisted_site = true;
+                break;
+            }
+        }
+        if (!contains_whitelisted_site) return 0;
+    }
 
     // Skip regions longer than max_noisy_reg_len (return 0 = done, no vars).
     if (noisy_reg_end - noisy_reg_beg + 1 > static_cast<hts_pos_t>(opts.max_noisy_reg_len))
@@ -1056,50 +1118,118 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     std::vector<VariantCategory>     noisy_var_cate;
     std::vector<ReadVariantProfile>  noisy_rvp;
 
-    const int n_noisy_vars = make_vars_from_msa_cons_aln(
+    make_vars_from_msa_cons_aln(
         opts, chunk,
         n_noisy_reads, read_ids, noisy_reg_beg,
         n_cons, clu_n_seqs, clu_read_ids, aln_strs,
         noisy_vars, noisy_var_cate, noisy_rvp);
 
-    merge_var_profile(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
-
-    return n_noisy_vars;
+    return merge_var_profile(
+        chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,
+        opts.private_msa_admit_all_in_region, snp_only_admission);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // collect_noisy_vars_step4
 // ════════════════════════════════════════════════════════════════════════════
 
-void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts) {
-    if (chunk.noisy_regions.empty()) return;
+// Is the het variant immediately before `reg_beg` in the same phase set as the
+// het variant immediately after `reg_end`?  Used to decide whether a noisy
+// region still needs to supply bridging evidence, or whether phasing already
+// connects across it (from a clean anchor elsewhere, or a previous, more
+// conservative admission pass). Linear scan: called only between escalation
+// tiers, not per-read.
+static bool noisy_region_still_broken(const PhasingChunk& chunk,
+                                      hts_pos_t reg_beg, hts_pos_t reg_end) {
+    hts_pos_t left_pos = -1, right_pos = -1;
+    hts_pos_t left_ps = 0, right_ps = 0;
+    for (const CandidateVariant& v : chunk.candidates) {
+        const bool is_het = v.hap_to_cons_alle[1] != -1 && v.hap_to_cons_alle[2] != -1 &&
+                            v.hap_to_cons_alle[1] != v.hap_to_cons_alle[2];
+        if (!is_het || v.phase_set < 0) continue;
+        if (v.key.pos < reg_beg) {
+            if (v.key.pos > left_pos) { left_pos = v.key.pos; left_ps = v.phase_set; }
+        } else if (v.key.pos > reg_end) {
+            if (right_pos < 0 || v.key.pos < right_pos) { right_pos = v.key.pos; right_ps = v.phase_set; }
+        }
+    }
+    // No flanking anchor on one side: nothing to bridge to, so there is no
+    // junction here for this region to close. Not "broken" in the sense the
+    // escalation is trying to fix.
+    if (left_pos < 0 || right_pos < 0) return false;
+    return left_ps != right_ps;
+}
 
-    // Step 4: iterate noisy regions, recall variants via MSA, re-phase.
-    const std::vector<int> sorted = sort_noisy_regs(chunk);
-    const int n_regs = static_cast<int>(chunk.noisy_regions.size());
-    std::vector<bool> done(static_cast<size_t>(n_regs), false);
-
+// Runs the standard fixed-point loop over `regions`, admitting MSA calls with
+// `snp_only_admission` applied uniformly.  Shared by both escalation tiers.
+static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
+                           const VariantKeySet* site_whitelist,
+                           const std::vector<int>& regions,
+                           bool snp_only_admission,
+                           std::vector<bool>& done) {
     while (true) {
         bool any_done = false, any_new_var = false;
-        for (int reg_idx : sorted) {
+        for (int reg_idx : regions) {
             if (done[static_cast<size_t>(reg_idx)]) continue;
-            const int ret = collect_noisy_vars1(chunk, opts, reg_idx);
-            // ret >= 0: region attempted (done regardless of whether new vars found).
-            // ret < 0:  MSA failed; leave undone so it can be retried if another region
-            //           makes progress and changes the phasing context.
+            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist,
+                                                snp_only_admission);
             if (ret >= 0) {
                 done[static_cast<size_t>(reg_idx)] = true;
                 any_done = true;
                 if (ret > 0) any_new_var = true;
             }
         }
-        // Re-run k-means with kCandGermlineVarCate whenever new
-        // noisy variants were merged, incorporating NOISY_CAND_HET / NOISY_CAND_HOM.
         if (any_new_var && !opts.skip_noisy_kmeans)
             assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-        // stop when no region made progress in this pass.
         if (!any_done) break;
     }
+}
+
+void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
+                              const VariantKeySet* site_whitelist) {
+    if (chunk.noisy_regions.empty()) return;
+
+    // Step 4: iterate noisy regions, recall variants via MSA, re-phase.
+    const std::vector<int> sorted = sort_noisy_regs(chunk);
+    const int n_regs = static_cast<int>(chunk.noisy_regions.size());
+
+    // Escalation is only meaningful in region-trust mode: without it, admission
+    // already requires an exact whitelist-key match, which is a stronger gate
+    // than "SNP only" and makes the tiering moot.
+    const bool escalate =
+        opts.private_msa_admit_all_in_region && opts.private_msa_snp_first;
+
+    std::vector<bool> done(static_cast<size_t>(n_regs), false);
+    run_noisy_pass(chunk, opts, site_whitelist, sorted, escalate, done);
+    if (!escalate) return;
+
+    // Tier 2 -> Tier 3: for whitelist-triggered regions whose flanking phase
+    // sets still differ after the SNP-only pass, retry allowing indels too.
+    // MSA indels are the least trustworthy source here -- the same deleted
+    // base can be placed at several equivalent positions inside a repeat run
+    // -- so they are admitted only where an unambiguous SNP call was not
+    // enough to close the junction.
+    std::vector<int> retry;
+    for (int reg_idx : sorted) {
+        const Interval& reg = chunk.noisy_regions[static_cast<size_t>(reg_idx)];
+        if (site_whitelist != nullptr) {
+            bool in_whitelist_window = false;
+            for (const VariantKey& key : *site_whitelist) {
+                if (key.tid == chunk.region.tid &&
+                    key.pos >= reg.beg && key.pos <= reg.end) {
+                    in_whitelist_window = true;
+                    break;
+                }
+            }
+            if (!in_whitelist_window) continue;
+        }
+        if (noisy_region_still_broken(chunk, reg.beg, reg.end)) retry.push_back(reg_idx);
+    }
+    if (retry.empty()) return;
+
+    std::vector<bool> done2(static_cast<size_t>(n_regs), true);
+    for (int reg_idx : retry) done2[static_cast<size_t>(reg_idx)] = false;
+    run_noisy_pass(chunk, opts, site_whitelist, retry, /*snp_only_admission=*/false, done2);
 }
 
 } // namespace pgphase_collect

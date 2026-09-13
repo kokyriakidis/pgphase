@@ -5006,3 +5006,60 @@ well-supported repeat indels and resolves their orientation transitively while
 keeping graph assignments immutable. The full evidence chain and failed
 ablations are recorded in
 `evaluations/2026-09-12-chr12-18-20-comparison/regions/chr20_15019294_15130077.md`.
+
+### Private-site MSA validation experiment (2026-09-13)
+
+The BAM step-4 implementation does not promote first-pass noisy indels to clean
+candidates. MSA reconstruction emits `NoisyCandHet/Hom`, and the BAM pipeline
+uses those calls only through a second `kCandGermlineVarCate` k-means. In
+graph+private mode that stage was disabled entirely to enforce the whitelist.
+
+`collect-hybrid-variation --private-msa` now provides a safe experimental
+variant: run MSA only around whitelisted private keys, admit exact-key MSA calls
+only, and replace a whitelisted `RepeatHetIndel` exact collision with its MSA
+call/profile. A unit test verifies whitelist exclusion, collision replacement,
+and profile reindexing.
+
+The target chr20 window gained a larger, 100%-accurate central block and a
+complete candidate chain phased 554/1,034 reads with zero discordance. It did
+not close both boundaries because MSA and DeepVariant represent the two repeat
+alleles at different positions, leaving zero shared profile observations for
+the MSA-normalized keys. The hybrid and competitor BAMs have identical
+qname/flag/position/MAPQ/CIGAR records in this interval after contig aliasing,
+so this is a representation/profile issue rather than missing alignments. The
+full chr20 GQ10/PS50 run was negative: N50 stayed
+991,274 bp and switchflips stayed 139, while phased reads changed
+179,494 -> 179,452 and discordant reads changed 269 -> 285. Keep this mode
+opt-in. Equivalent-allele reconciliation plus a transitive bridge-edge gate is
+required before enabling it by default.
+
+### Reproducible second-pass gap repair (2026-09-13)
+
+The chr20:15,019,294–15,130,077 gap can be joined using the existing hybrid
+MSA/k-means and graph-block merger. See
+`evaluations/2026-09-13-gap-rephasing/README.md` and run
+`scripts/test_chr20_gap_rephasing.sh` for the fixed regional regression.
+
+Fixed a diploid double-swap no-op, tied-link acceptance, additive CLI graph
+ownership override, region-mode MSA repeat collision admission, and sorted MSA
+read-profile index mapping. Removed the read-only pre-MSA HP/PS restoration:
+restoring reads without candidate orientations mixes independent solves and
+undoes joins. Existing complete-block stitching preserves internal graph
+orientation instead. Also corrected invalid-PS checking and ensured plain
+`make` rebuilds the executable rather than a dependency-file default object.
+
+In the 230 kb flanked window, clean hybrid phases 555 reads in three blocks
+with zero errors. Scoped MSA at its unchanged margin-24 default phases 653
+reads, still in three blocks with zero errors. A diagnostic margin-1 run phases
+the same 653 reads in one block with zero read-truth errors/switchflips. It
+recovers four unanimous observations across the left boundary, versus zero at
+margin 24. Graph-block stitching then retains all 495 original graph reads and
+adds 211: 706 reads, one block, zero errors. This uses an explicit regional
+400 kb PS-start-distance cap because the 110.8 kb physical gap's endpoint IDs
+are 385.6 kb apart. Neither margin nor merger-distance defaults were changed.
+
+A uniform HP1/HP2 swap within a block is not a phasing error. The regression
+checks graph-block-relative orientation, rather than literal tag equality.
+These are local read-truth results, not NGC50 or chromosome-wide validation.
+All unit binaries pass; the existing `make check` script fails before running
+comparisons because it invokes obsolete CLI syntax.

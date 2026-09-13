@@ -70,6 +70,11 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                        const Options* opts = nullptr,
                        const PgbamSidecarData* pgbam_sidecar = nullptr);
 
+/// Update block links and orient candidate alleles for one k-means iteration.
+int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
+                                      const std::vector<int>& valid_var_idx,
+                                      const Options& opts);
+
 // Assign haplotypes and phase sets to reads via iterative k-means clustering.
 //
 // Phase 1: initial sweep from the highest-confidence pivot variant outward,

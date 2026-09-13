@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 CXX ?= g++
 CC ?= gcc
 THIRD_PARTY ?= $(abspath third_party)

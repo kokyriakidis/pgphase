@@ -785,7 +785,15 @@ static PhasingChunk process_chunk_hybrid(
 
     // Steps 1-2: BAM candidate discovery + classification.
     collect_var_classify(chunk, opts, context.primary_header());
-    if (private_keys != nullptr) {
+    // In additive mode the whitelist exists only to scope WHERE noisy-region
+    // MSA runs (collect_noisy_vars_step4's containment check) and which MSA
+    // calls escalate through the SNP/indel tiers; it is not an ownership
+    // boundary, so every real BAM candidate is kept exactly as when no
+    // --private-sites is given at all. Restricting retention to whitelist
+    // keys here was silently dropping every non-whitelisted clean BAM
+    // candidate inside the region -- including ones already trustworthy on
+    // their own -- which is the opposite of "add extra sites".
+    if (private_keys != nullptr && !opts.private_msa_admit_all_in_region) {
         CandidateTable retained;
         retained.reserve(chunk.candidates.size());
         for (CandidateVariant& candidate : chunk.candidates) {
@@ -842,10 +850,19 @@ static PhasingChunk process_chunk_hybrid(
     }
 
     // In authoritative mode, graph observations own every catalog-matched
-    // candidate, including exact BAM/graph matches. Non-graph BAM candidates
-    // remain untouched and are phased jointly with that graph-owned core.
+    // candidate, including exact BAM/graph matches, and BAM's OWN read
+    // evidence at those matches is discarded in favor of the graph's
+    // (clear_bam_evidence_at_graph_candidates below). That is a real,
+    // chromosome-wide change to how every graph/BAM match is resolved, not
+    // something implied by merely supplying a whitelist -- in additive mode
+    // (private_msa_admit_all_in_region) the whitelist exists only to scope
+    // MSA and must not silently switch every other candidate's evidence
+    // source too. Confirmed by measurement: enabling it unconditionally here
+    // was clearing BAM evidence chromosome-wide and cost +720 discordant
+    // reads on chr20 for a change that was supposed to be purely additive.
     const bool graph_authoritative =
-        opts.graph_authoritative || private_keys != nullptr;
+        opts.graph_authoritative ||
+        (private_keys != nullptr && !opts.private_msa_admit_all_in_region);
     const std::unordered_set<int>& graph_owned_cands =
         graph_authoritative ? all_graph_cands : graph_only_cands;
 
@@ -900,13 +917,26 @@ static PhasingChunk process_chunk_hybrid(
             reads_injected, reads_extended);
     }
 
-    // Steps 3.2-4: k-means + noisy-region MSA. In graph+private mode the VCF
-    // whitelist is a hard ownership boundary, so prevent BAM MSA recall from
-    // adding unlisted candidates after the graph and private tables are joined.
+    // Steps 3.2-4: k-means + noisy-region MSA. Private-site MSA is experimental:
+    // when enabled, admit only exact-whitelist calls and phase them with the
+    // clean graph core. The default preserves the private ownership boundary
+    // without running MSA recall.
     if (private_keys != nullptr) {
         Options private_phase_opts = opts;
-        private_phase_opts.max_noisy_reg_len = 0;
-        collect_var_run_phasing(chunk, private_phase_opts);
+        if (opts.private_msa) {
+            private_phase_opts.skip_noisy_kmeans = false;
+            collect_var_run_phasing(chunk, private_phase_opts, private_keys);
+        } else {
+            private_phase_opts.max_noisy_reg_len = 0;
+            collect_var_run_phasing(chunk, private_phase_opts);
+        }
+    } else if (opts.private_msa) {
+        // No whitelist: private_msa's consensus-rescoring bridge-read admission
+        // (align.cpp) still applies to every noisy MSA region, and there is no
+        // ownership boundary to enforce, so run noisy MSA + k-means unrestricted.
+        Options global_msa_opts = opts;
+        global_msa_opts.skip_noisy_kmeans = false;
+        collect_var_run_phasing(chunk, global_msa_opts);
     } else {
         collect_var_run_phasing(chunk, opts);
     }
@@ -976,13 +1006,30 @@ static ChunkBatchResult collect_hybrid_chunk_batch_parallel(
 }
 
 static void filter_hybrid_reads_by_margin(std::vector<PhasingChunk>& chunks,
-                                          int min_margin) {
+                                          int min_margin,
+                                          bool credit_bridge_snps) {
     if (min_margin <= 0) return;
     for (PhasingChunk& chunk : chunks) {
         for (size_t i = 0; i < chunk.reads.size(); ++i) {
             const ReadRecord& read = chunk.reads[i];
             if (read.n_clean_agree_snps - read.n_clean_conflict_snps >= min_margin)
                 continue;
+            // A read whose only informative sites in a stretch are
+            // MSA-admitted bridge SNPs (see --private-msa-admit-all-in-region)
+            // has zero clean-SNP margin by construction -- CleanHetSnp is a
+            // different category -- and would be silently stripped here even
+            // when its haplotype assignment already used that evidence via
+            // hap_scores.  Credit it only when the admission mode that
+            // produced it is active, and only using the bridge SNP counters
+            // (never indels: an MSA indel can be placed at several equivalent
+            // positions inside a repeat run and is not trustworthy enough to
+            // rescue an otherwise-thin read).
+            if (credit_bridge_snps && read.n_bridge_agree_snps > 0) {
+                const int bridge_margin =
+                    (read.n_clean_agree_snps + read.n_bridge_agree_snps) -
+                    (read.n_clean_conflict_snps + read.n_bridge_conflict_snps);
+                if (bridge_margin >= min_margin) continue;
+            }
             if (i < chunk.haps.size()) chunk.haps[i] = 0;
             if (i < chunk.phase_sets.size()) chunk.phase_sets[i] = -1;
         }
@@ -1121,7 +1168,8 @@ void run_collect_hybrid_variation(const Options& opts) {
             graph_query_contig, chrom_remap, private_keys_ptr,
             bam_authority_ptr);
         stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
-        filter_hybrid_reads_by_margin(batch.chunks, opts.min_read_hap_margin);
+        filter_hybrid_reads_by_margin(batch.chunks, opts.min_read_hap_margin,
+                                      opts.private_msa_admit_all_in_region);
         filter_hybrid_small_phase_sets(batch.chunks, opts.min_phase_set_reads);
         CandidateTable variants = merge_chunk_candidates(batch.chunks);
         n_variants += variants.size();

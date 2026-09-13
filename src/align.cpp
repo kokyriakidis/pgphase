@@ -1061,6 +1061,36 @@ int wfa_collect_aln_str(const Options& opts, const uint8_t* target, int tlen,
     return 0;
 }
 
+static int score_consensus_read_alignment(const Options& opts, const AlnStr& aln) {
+    int score = 0;
+    int i = 0;
+    while (i < aln.aln_len) {
+        const uint8_t target = aln.target_aln[static_cast<size_t>(i)];
+        const uint8_t query = aln.query_aln[static_cast<size_t>(i)];
+        if (target == 5 && query == 5) {
+            ++i;
+            continue;
+        }
+        if (target != 5 && query != 5) {
+            if (target != query) score += opts.mismatch;
+            ++i;
+            continue;
+        }
+
+        const bool target_gap = target == 5;
+        int gap_len = 0;
+        while (i < aln.aln_len &&
+               (aln.target_aln[static_cast<size_t>(i)] == 5) == target_gap &&
+               (aln.query_aln[static_cast<size_t>(i)] == 5) != target_gap) {
+            ++gap_len;
+            ++i;
+        }
+        score += std::min(opts.gap_open1 + gap_len * opts.gap_ext1,
+                          opts.gap_open2 + gap_len * opts.gap_ext2);
+    }
+    return score;
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // Build consensus-vs-read alignment string from WFA2 output.
 // ════════════════════════════════════════════════════════════════════════════
@@ -1757,6 +1787,55 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                 std::fprintf(stderr, "\n");
             }
             ++k_out;
+        }
+    }
+
+    if (opts.private_msa) {
+        for (int i = 0; i < n; ++i) {
+            if (info.lens[static_cast<size_t>(i)] <= 0 ||
+                !noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)])) {
+                continue;
+            }
+            if (info.phase_sets[static_cast<size_t>(i)] == ps &&
+                (info.haps[static_cast<size_t>(i)] == 1 ||
+                 info.haps[static_cast<size_t>(i)] == 2)) {
+                continue;
+            }
+
+            std::array<AlnStr, 2> cons_read_alns;
+            std::array<int, 2> scores;
+            for (int ci = 0; ci < 2; ++ci) {
+                wfa_collect_aln_str(
+                    opts,
+                    cons_seqs[static_cast<size_t>(ci)].data(),
+                    cons_lens[static_cast<size_t>(ci)],
+                    info.seqs[static_cast<size_t>(i)].data(),
+                    info.lens[static_cast<size_t>(i)],
+                    kNoisyBothCover, kWfaNoHeuristic, kWfaAffine2p,
+                    cons_read_alns[static_cast<size_t>(ci)]);
+                scores[static_cast<size_t>(ci)] = score_consensus_read_alignment(
+                    opts, cons_read_alns[static_cast<size_t>(ci)]);
+            }
+            // A one-point difference is noise, not evidence: these reads are
+            // being admitted into a trusted graph-phased block, so require the
+            // winning consensus to win by a real margin.  Committing on any
+            // non-zero score is the same failure mode --min-read-margin exists
+            // to fix in the k-means path.
+            if (std::abs(scores[0] - scores[1]) < opts.private_msa_margin) continue;
+
+            const int ci = scores[0] < scores[1] ? 0 : 1;
+            clu_read_ids[static_cast<size_t>(ci)].push_back(
+                info.noisy_read_ids[static_cast<size_t>(i)]);
+            aln_strs[static_cast<size_t>(ci)].push_back(
+                std::move(cons_read_alns[static_cast<size_t>(ci)]));
+            aln_strs[static_cast<size_t>(ci)].emplace_back();
+            if (collect_ref_read_aln_str) {
+                make_ref_read_aln_str(
+                    opts, aln_strs[static_cast<size_t>(ci)][0],
+                    aln_strs[static_cast<size_t>(ci)][aln_strs[static_cast<size_t>(ci)].size() - 2],
+                    aln_strs[static_cast<size_t>(ci)].back());
+            }
+            ++clu_n_seqs[static_cast<size_t>(ci)];
         }
     }
     return 2;

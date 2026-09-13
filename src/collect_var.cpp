@@ -2090,7 +2090,8 @@ static void gap_fill_unphased_reads(PhasingChunk& chunk, const Options& opts) {
     }
 }
 
-void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts) {
+void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
+                             const VariantKeySet* noisy_site_whitelist) {
     if (chunk.candidates.empty() && chunk.noisy_regions.empty()) return;
 
     if (!chunk.candidates.empty()) {
@@ -2098,8 +2099,11 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts) {
         assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
     }
 
-    // iteratively call variants in noisy regions via MSA and re-run k-means.
-    collect_noisy_vars_step4(chunk, opts);
+    // Keep reads and candidate orientations from the same solve. Restoring only
+    // first-pass read labels would mix independent PS orientations and undo
+    // newly established bridges. Graph preservation is handled by the existing
+    // graph/hybrid block merger, which aligns complete phase sets by shared reads.
+    collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
 
     // Additive gap-fill: recover the reads skip_noisy_kmeans left unphased.
     if (opts.gap_fill && opts.skip_noisy_kmeans && !chunk.candidates.empty()) {

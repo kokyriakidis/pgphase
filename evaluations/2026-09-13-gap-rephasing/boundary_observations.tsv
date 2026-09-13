@@ -1,0 +1,5 @@
+arm	left_pos	right_pos	shared_observed_reads	00	01	10	11
+msa	15019256	15039543	0	0	0	0	0
+msa	15095642	15109301	0	0	0	0	0
+msa_margin1	15019256	15039543	4	2	0	0	2
+msa_margin1	15095642	15109301	15	2	4	6	3

@@ -1,0 +1,9 @@
+arm	evaluated_reads	discordant_reads	phase_sets	read_switchflips
+graph	495	0	2	0
+hiphase	970	8	1	8
+native	788	6	6	6
+clean	555	0	3	0
+msa	653	0	3	0
+msa_margin1	653	0	1	0
+stitched_msa	528	0	2	0
+stitched_msa_margin1	706	0	1	0
