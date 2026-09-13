@@ -4982,3 +4982,27 @@ candidates, 6 by graph block stitching, and 4 by clean candidates left
 unphased. This independently points to the same repeat-indel and candidate
 admission gaps found with the shared-call competitors, while its absolute
 counts remain native-call-set dependent.
+
+### Region audit: chr20:15,019,294-15,130,077
+
+HiPhase and both WhatsHap modes correctly cross this 110,783 bp graph gap.
+A WhatsHap `ReadSetReader` reconstruction found the actual 15-site path. It
+starts with the repeat deletion at 15,019,294, traverses four BAM-clean private
+SNPs at 15,039,543-15,055,707, and continues through sparse indels to graph
+SNPs at 15,087,221 and 15,115,387. The boundary-to-first-SNP link has four
+unanimous reads; all later long links have 12-47 raw reads with a clear
+orientation majority. The graph catalog contains no sites in the private-SNP
+segment or around 15,109 kb, but the BAM caller already has all required
+evidence.
+
+The clean-private selector drops the SNP chain because its left native-graph
+anchor is 25.8 kb away and the necessary repeat deletion is excluded. A
+GQ10/VAF0.30-0.70 complete-path selector recovers seven appropriate BAM sites,
+but hybrid clean-core k-means still excludes the noisy indel anchors. Graph
+locking to completed BAM phase sets also fails because BAM phasing splits the
+chain into three blocks. The required mechanism is therefore a bridge-only
+allele graph that combines clean private SNPs with only necessary,
+well-supported repeat indels and resolves their orientation transitively while
+keeping graph assignments immutable. The full evidence chain and failed
+ablations are recorded in
+`evaluations/2026-09-12-chr12-18-20-comparison/regions/chr20_15019294_15130077.md`.
