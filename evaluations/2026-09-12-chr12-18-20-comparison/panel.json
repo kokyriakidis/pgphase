@@ -30,6 +30,7 @@
       "catalog_vcf": "${REPO}/test_data/chr20.sites.striped.vcf.gz",
       "linear_reference": "${SHARED_VCF_ROOT}/chr20/chm13v2.0.chr20.normalized.fa",
       "linear_bam": "${SHARED_VCF_ROOT}/chr20/HG002.chr20.normalized.bam",
+      "graph_bam": "${REPO}/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
       "truth_bam": "${DATA_ROOT}/truth/chr20/diplinator_merged.bam",
       "shared_vcf": "${SHARED_VCF_ROOT}/chr20/deepvariant.vcf.gz"
     }
@@ -62,6 +63,30 @@
         "${PHASER_BIN}/bgzip -f -c ${tool_dir}/phased.vcf > ${tool_dir}/phased.vcf.gz",
         "${PHASER_BIN}/tabix -f -p vcf ${tool_dir}/phased.vcf.gz",
         "${PHASER_BIN}/longphase haplotag -s ${tool_dir}/phased.vcf.gz -b ${linear_bam} -r ${linear_reference} -t 20 -o ${tool_dir}/phased"
+      ]
+    },
+    "longcalld": {
+      "version": "0.0.11-23e369d",
+      "chromosomes": ["chr20"],
+      "commands": [
+        "${HOME}/Downloads/longcallD/bin/longcallD call --hifi -o ${tool_dir}/native.vcf -b ${tool_dir}/phased.bam -t 20 ${reference} ${graph_bam} CHM13#0#chr20",
+        "${PHASER_BIN}/bcftools annotate --rename-chrs ${REPO}/evaluations/2026-09-12-chr12-18-20-comparison/longcalld_chr20_contigs.tsv -Oz -o ${tool_dir}/phased.vcf.gz ${tool_dir}/native.vcf",
+        "${PHASER_BIN}/tabix -f -p vcf ${tool_dir}/phased.vcf.gz"
+      ],
+      "inputs": [
+        "${reference}",
+        "${graph_bam}",
+        "${truth_bam}",
+        "${chrom_dir}/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "${tool_dir}/native.vcf",
+        "${tool_dir}/phased.vcf.gz",
+        "${tool_dir}/phased.bam",
+        "${chrom_dir}/longcalld.compare.txt",
+        "${chrom_dir}/longcalld.stats.tsv",
+        "${chrom_dir}/longcalld.ngc50.json",
+        "${chrom_dir}/eval/longcalld_reads/summary.json"
       ]
     }
   },

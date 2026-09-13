@@ -55,6 +55,7 @@ graph and hybrid runs continue to use the original graph-path names.
 - graph, BAM, hybrid, and graph-locked hybrid pgphase modes;
 - WhatsHap default and `--distrust-genotypes`, HiPhase small-variant mode, and
   LongPhase on one shared VCF;
+- LongcallD's native caller+phaser as a separately labelled chr20 control;
 - variant switch, flip, switchflip, Hamming, phased-site, N50, and chromosome
   NGC50 metrics;
 - read-level discordance, Hamming, switch/flip, phased-read fraction, and block
@@ -79,8 +80,9 @@ python3 scripts/benchmark_panel.py status
 python3 scripts/benchmark_panel.py show-competitor-commands
 ```
 
-The controller reads `panel.json`. `competitor_lock.json` freezes all 12
-chromosome/tool runs against their exact commands, versions, inputs, VCF/BAM
+The controller reads `panel.json`. `competitor_lock.json` freezes all 13
+chromosome/tool runs (12 shared-call plus chr20 LongcallD) against their exact
+commands, versions, inputs, VCF/BAM
 outputs, and evaluation artifacts. Normal `run` mode verifies this lock and
 sets `RUN_COMPETITORS=0`; a missing competitor file is a hard error and cannot
 silently trigger a rerun. Verification uses file size plus SHA-256 over three
@@ -114,16 +116,30 @@ sums counts across chromosomes and calculates read error from pooled read
 counts. NGC50 cannot be summed, so the pooled table reports the median of the
 three chromosome-denominated NGC50 values.
 
-| method | assessed pairs | variant Hamming | read Hamming | phased reads | median chr NGC50 |
-|---|---:|---:|---:|---:|---:|
-| graph | 251,641 | **0.034%** | **0.110%** | 811,382 | 251 kb |
-| BAM | 253,738 | 0.515% | 1.890% | 998,736 | 278 kb |
-| hybrid | 251,686 | 0.290% | 0.461% | 814,172 | 295 kb |
-| graph lock | 251,889 | **0.035%** | **0.123%** | 822,021 | 252 kb |
-| WhatsHap | 261,464 | 4.230% | 5.412% | 1,028,246 | 359 kb |
-| WhatsHap optimized | 259,356 | 2.945% | 3.694% | 1,026,344 | 502 kb |
-| HiPhase 1.6 | 260,676 | 3.514% | 4.377% | 1,064,369 | **644 kb** |
-| LongPhase 2.0.2 | 225,783 | 0.805% | 2.339% | 1,027,359 | 454 kb |
+| method | callset | chromosomes | assessed pairs | variant Hamming | read Hamming | phased reads | median chr NGC50 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| graph | shared | 3 | 251,641 | **0.034%** | **0.110%** | 811,382 | 251 kb |
+| BAM | shared | 3 | 253,738 | 0.515% | 1.890% | 998,736 | 278 kb |
+| hybrid | shared | 3 | 251,679 | 0.290% | 0.461% | 814,172 | 295 kb |
+| graph lock | shared | 3 | 251,886 | **0.035%** | **0.123%** | 822,021 | 252 kb |
+| graph bridge | shared | 1 | 124,323 | 0.032% | 0.100% | 419,928 | 397 kb |
+| WhatsHap | shared | 3 | 261,464 | 4.230% | 5.412% | 1,028,246 | 359 kb |
+| WhatsHap optimized | shared | 3 | 259,356 | 2.945% | 3.694% | 1,026,344 | 502 kb |
+| HiPhase 1.6 | shared | 3 | 260,676 | 3.514% | 4.377% | 1,064,369 | **644 kb** |
+| LongPhase 2.0.2 | shared | 3 | 225,783 | 0.805% | 2.339% | 1,027,359 | 454 kb |
+| LongcallD 0.0.11 | native | 1 (chr20) | 65,749 | 1.345% | 2.970% | 219,090 | 273 kb |
+
+LongcallD jointly calls and phases its own variants, so its row is not a direct
+shared-call comparison. It is retained because pgphase inherited substantial
+logic from LongcallD and therefore provides a useful native-pipeline control.
+Its chr20 VCF has 117 switches, 49 switches plus 34 flips, and 884 block-wise
+Hamming differences. Read truth has 6,506 discordant reads and 3,132
+switch/flip events. The explicit rerun took 42.79 seconds and peaked at
+11,940,320 KiB RSS with 20 threads.
+
+Graph bridge currently has a completed durable result only for chr12. Its
+three-chromosome promotion decision remains pending chr18 and chr20 validation;
+the table exposes the chromosome count to prevent treating it as pooled.
 
 Graph lock is the current accuracy-preserving operating point: it adds 10,639
 phased reads over graph-only while changing pooled read Hamming from 0.110% to
@@ -194,7 +210,22 @@ pgphase iteration.
 
 ## Provenance
 
-Competitors: WhatsHap 2.8, HiPhase 1.6.0-ac3f399, LongPhase 2.0.2. Shared calls:
+Competitors: WhatsHap 2.8, HiPhase 1.6.0-ac3f399, LongPhase 2.0.2. The chr20
+native control is LongcallD 0.0.11-23e369d. It was rerun on 2026-09-13 with:
+
+```bash
+/home/kokyriakidis/Downloads/longcallD/bin/longcallD call --hifi \
+  -o ~/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/native.vcf \
+  -b ~/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.bam \
+  -t 20 \
+  test_data/chm13v2.0.chr20.renamed.fa \
+  test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam \
+  'CHM13#0#chr20'
+```
+
+`commands.sh` fingerprints those frozen outputs, renames only
+`CHM13#0#chr20` to `chr20` in the evaluation copy, and reruns both truth layers.
+Shared calls:
 DeepVariant 1.10.0 PACBIO. The pgphase executable was built from commit
 `ae45c73` plus the uncommitted graph-lock/hybrid working-tree changes. The
 SHA-256 over the ordered per-file content hashes of the relevant `src/` and

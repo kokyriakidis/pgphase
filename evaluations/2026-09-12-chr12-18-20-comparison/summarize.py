@@ -10,7 +10,10 @@ from statistics import median
 from pathlib import Path
 
 
-TOOLS = ("graph", "bam", "hybrid", "graph_lock", "whatshap", "whatshap_opt", "hiphase", "longphase")
+TOOLS = ("graph", "bam", "hybrid", "graph_lock", "graph_bridge",
+         "whatshap", "whatshap_opt", "hiphase", "longphase")
+NATIVE_TOOLS = ("longcalld",)
+OPTIONAL_TOOLS = ("graph_bridge", *NATIVE_TOOLS)
 
 
 def parse_elapsed(value):
@@ -106,8 +109,19 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     for chrom in sys.argv[2:]:
-        for tool in TOOLS:
+        tools = list(TOOLS)
+        if chrom == "chr20":
+            tools.extend(NATIVE_TOOLS)
+        for tool in tools:
             prefix = root / chrom / tool
+            required = (
+                root / chrom / f"{tool}.compare.txt",
+                root / chrom / f"{tool}.stats.tsv",
+                root / chrom / f"{tool}.ngc50.json",
+                root / chrom / "eval" / f"{tool}_reads" / "summary.json",
+            )
+            if tool in OPTIONAL_TOOLS and not all(path.exists() for path in required):
+                continue
             compare = parse_compare(root / chrom / f"{tool}.compare.txt")
             stats = parse_stats(root / chrom / f"{tool}.stats.tsv")
             ngc = json.loads((root / chrom / f"{tool}.ngc50.json").read_text())
@@ -115,6 +129,7 @@ def main():
             rows.append({
                 "chromosome": chrom,
                 "tool": tool,
+                "callset": "native" if tool in NATIVE_TOOLS else "shared",
                 **compare,
                 **stats,
                 "chromosome_ngc50_bp": ngc.get("ngc50_bp", "NA"),
@@ -125,7 +140,9 @@ def main():
                 "read_switchflips": read.get("switchflip_errors", "NA"),
                 "read_block_n50_bp": read.get("phase_block_n50_bp", "NA"),
                 **parse_resources(prefix / "resources.txt"),
-                "vcf": str(prefix / ("shared.vcf.gz" if tool in {"graph", "bam", "hybrid", "graph_lock"} else "phased.vcf.gz")),
+                "vcf": str(prefix / ("shared.vcf.gz" if tool in {
+                    "graph", "bam", "hybrid", "graph_lock", "graph_bridge"
+                } else "phased.vcf.gz")),
             })
     fields = list(rows[0]) if rows else []
     with (output_dir / "results.tsv").open("w", newline="") as fh:
@@ -138,9 +155,15 @@ def main():
     summed = ("assessed_pairs", "switches", "flips", "switchflips", "hamming",
               "phased_variants", "blocks", "phased_reads", "evaluated_reads",
               "discordant_reads", "read_switchflips")
-    for tool in TOOLS:
+    for tool in (*TOOLS, *NATIVE_TOOLS):
         tool_rows = [row for row in rows if row["tool"] == tool]
-        aggregate = {"tool": tool, "chromosomes": len(tool_rows)}
+        if not tool_rows:
+            continue
+        aggregate = {
+            "tool": tool,
+            "callset": tool_rows[0]["callset"],
+            "chromosomes": len(tool_rows),
+        }
         for field in summed:
             aggregate[field] = sum(int(row[field]) for row in tool_rows)
         aggregate["variant_hamming_rate"] = (
@@ -186,8 +209,10 @@ def main():
             "catalog_retained_unphased": reasons.get("catalog_site_retained_unphased", 0),
             "hybrid_recovered_phased_sites": recovered_sites.get("hybrid", 0),
             "graph_lock_recovered_phased_sites": recovered_sites.get("graph_lock", 0),
+            "graph_bridge_recovered_phased_sites": recovered_sites.get("graph_bridge", 0),
             "hybrid_recovered_inside_blocks": recovered_blocks.get("hybrid", 0),
             "graph_lock_recovered_inside_blocks": recovered_blocks.get("graph_lock", 0),
+            "graph_bridge_recovered_inside_blocks": recovered_blocks.get("graph_bridge", 0),
         })
     gap_fields = list(gap_rows[0]) if gap_rows else []
     with (output_dir / "gap_summary.tsv").open("w", newline="") as fh:

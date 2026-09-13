@@ -1,24 +1,28 @@
 # Generated Phasing Benchmark Report
 
-Baseline frozen: `2026-09-13T06:30:55.909110+00:00`  
-Panel: `HG002 CHM13 chr12/chr18/chr20`  
-Competitor lock: `96647bf88fba101df40b9daf7d6be5a3ca8458e86bc714a1185664eef5fc426c`
+Baseline frozen: `2026-09-13T16:11:09.597437+00:00`
+Panel: `HG002 CHM13 chr12/chr18/chr20`
+Competitor lock: `7734db779110d909a250484ce659e83e2b60d5f23e39d13d9141b5112c70e8bb`
 
 ## Pooled Results
 
-| method | assessed pairs | variant Hamming | phased reads | read Hamming | median chr NGC50 (kb) |
-|---|---|---|---|---|---|
-| graph | 251641 | 0.034% | 811382 | 0.110% | 251 |
-| bam | 253738 | 0.515% | 998736 | 1.890% | 278 |
-| hybrid | 251679 | 0.290% | 814172 | 0.461% | 295 |
-| graph_lock | 251886 | 0.035% | 822021 | 0.123% | 252 |
-| whatshap | 261464 | 4.230% | 1028246 | 5.412% | 359 |
-| whatshap_opt | 259356 | 2.945% | 1026344 | 3.694% | 502 |
-| hiphase | 260676 | 3.514% | 1064369 | 4.377% | 644 |
-| longphase | 225783 | 0.805% | 1027359 | 2.339% | 454 |
+| method | callset | chromosomes | assessed pairs | variant Hamming | phased reads | read Hamming | median chr NGC50 (kb) |
+|---|---|---|---|---|---|---|---|
+| graph | shared | 3 | 251641 | 0.034% | 811382 | 0.110% | 251 |
+| bam | shared | 3 | 253738 | 0.515% | 998736 | 1.890% | 278 |
+| hybrid | shared | 3 | 251679 | 0.290% | 814172 | 0.461% | 295 |
+| graph_lock | shared | 3 | 251886 | 0.035% | 822021 | 0.123% | 252 |
+| graph_bridge | shared | 1 | 124323 | 0.032% | 419928 | 0.100% | 397 |
+| whatshap | shared | 3 | 261464 | 4.230% | 1028246 | 5.412% | 359 |
+| whatshap_opt | shared | 3 | 259356 | 2.945% | 1026344 | 3.694% | 502 |
+| hiphase | shared | 3 | 260676 | 3.514% | 1064369 | 4.377% | 644 |
+| longphase | shared | 3 | 225783 | 0.805% | 1027359 | 2.339% | 454 |
+| longcalld | native | 1 | 65749 | 1.345% | 219090 | 2.970% | 273 |
 
 The frozen LongPhase baseline is the measured `--pb` SNP mode; it does
 not include LongPhase's optional `--indels` mode.
+LongcallD is a chr20-only native-caller control. Its contiguity is not
+directly comparable to methods evaluated on the shared DeepVariant VCF.
 
 ## Correct Competitor Bridges
 
@@ -31,6 +35,10 @@ variant switch-error interval across the pgphase gap.
 | hiphase | catalog_site_not_candidate | 64 | 873582 | 37 | 0 | 3 |
 | hiphase | clean_candidate_unphased | 34 | 829988 | 177 | 0 | 6 |
 | hiphase | repeat_indels_excluded | 250 | 5692132 | 405 | 0 | 15 |
+| longcalld | block_stitching | 6 | 226705 | 41 | 6 | 2 |
+| longcalld | catalog_site_not_candidate | 12 | 119378 | 4 | 0 | 0 |
+| longcalld | clean_candidate_unphased | 4 | 125877 | 35 | 0 | 1 |
+| longcalld | repeat_indels_excluded | 25 | 432743 | 40 | 0 | 6 |
 | longphase | block_stitching | 44 | 1650334 | 99 | 49 | 18 |
 | longphase | catalog_site_not_candidate | 72 | 994019 | 25 | 0 | 3 |
 | longphase | clean_candidate_unphased | 30 | 654985 | 101 | 0 | 6 |

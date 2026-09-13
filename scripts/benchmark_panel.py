@@ -89,14 +89,17 @@ def resolved_competitors(manifest):
                               for key, value in chrom_values.items()})
         chrom_dir = f"{base['OUT_ROOT']}/{chrom}"
         for tool, spec in manifest["competitors"].items():
+            if chrom not in spec.get("chromosomes", manifest["chromosomes"]):
+                continue
             context = dict(chrom_context, tool=tool, chrom_dir=chrom_dir,
                            tool_dir=f"{chrom_dir}/{tool}")
             commands = [expand(command, context) for command in spec["commands"]]
-            artifacts = [expand(path, context)
-                         for path in manifest["competitor_artifacts"]]
-            inputs = [context["linear_reference"], context["linear_bam"],
-                      context["shared_vcf"], context["truth_bam"],
-                      f"{chrom_dir}/truth.vcf.gz"]
+            artifacts = [expand(path, context) for path in spec.get(
+                "artifacts", manifest["competitor_artifacts"])]
+            inputs = [expand(path, context) for path in spec.get("inputs", (
+                "${linear_reference}", "${linear_bam}", "${shared_vcf}",
+                "${truth_bam}", "${chrom_dir}/truth.vcf.gz",
+            ))]
             resolved.append({
                 "chromosome": chrom,
                 "tool": tool,
@@ -116,6 +119,11 @@ def resolved_chromosomes(manifest):
         context.update({key: expand(value, context) for key, value in spec.items()})
         values[chrom] = context
     return values
+
+
+def competitors_for_chromosome(manifest, chrom):
+    return [tool for tool, spec in manifest["competitors"].items()
+            if chrom in spec.get("chromosomes", manifest["chromosomes"])]
 
 
 def competitor_spec_hash(entries):
@@ -230,7 +238,7 @@ def analyze_bridges(args, manifest):
             "--catalog-vcf", context["catalog_vcf"],
             "--output", str(output),
         ]
-        for tool in manifest["competitors"]:
+        for tool in competitors_for_chromosome(manifest, chrom):
             command.extend(("--competitor", f"{tool}={root / tool}"))
         subprocess.run(command, cwd=repo, check=True)
         with output.open() as fh:
@@ -320,21 +328,25 @@ def report(args, manifest):
     content = [
         "# Generated Phasing Benchmark Report",
         "",
-        f"Baseline frozen: `{lock['created_at']}`  ",
-        f"Panel: `{manifest['panel']}`  ",
+        f"Baseline frozen: `{lock['created_at']}`",
+        f"Panel: `{manifest['panel']}`",
         f"Competitor lock: `{lock['competitor_spec_sha256']}`",
         "",
         "## Pooled Results",
         "",
         markdown_table(
             pooled,
-            ["tool", "assessed_pairs", "variant_hamming_pct", "phased_reads",
-             "read_hamming_pct", "median_ngc50_kb"],
-            ["method", "assessed pairs", "variant Hamming", "phased reads",
-             "read Hamming", "median chr NGC50 (kb)"]),
+            ["tool", "callset", "chromosomes", "assessed_pairs",
+             "variant_hamming_pct", "phased_reads", "read_hamming_pct",
+             "median_ngc50_kb"],
+            ["method", "callset", "chromosomes", "assessed pairs",
+             "variant Hamming", "phased reads", "read Hamming",
+             "median chr NGC50 (kb)"]),
         "",
         "The frozen LongPhase baseline is the measured `--pb` SNP mode; it does",
         "not include LongPhase's optional `--indels` mode.",
+        "LongcallD is a chr20-only native-caller control. Its contiguity is not",
+        "directly comparable to methods evaluated on the shared DeepVariant VCF.",
         "",
         "## Correct Competitor Bridges",
         "",

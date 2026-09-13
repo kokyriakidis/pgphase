@@ -4946,3 +4946,39 @@ global evidence-based stitching, both with immutable graph assignments.
 
 The frozen LongPhase baseline is the measured `--pb` SNP mode, not its optional
 `--indels` mode. Do not present it as LongPhase's best SNP+indel configuration.
+
+### Graph-locked private-site bridges and LongcallD control (2026-09-13)
+
+The initial graph lock could add hybrid-only reads but could not merge two
+graph phase sets: each hybrid phase set selected one graph phase set as its
+anchor and treated the other endpoint as a competing vote. The bridge mode in
+`scripts/merge_graph_hybrid_tags.py` now validates each hybrid-to-graph
+endpoint independently, then parity-unions graph phase sets when one accepted
+hybrid block links both. A 300 kb maximum bridge distance rejects unsupported
+long-range joins while preserving LongPhase-scale local evidence.
+
+On chr20, 40 accepted local graph bridges plus strict shared-VCF transfer
+increased chromosome NGC50 from 203,547 to 296,028 bp (+45.4%) with the same
+24 variant switches, 6 switches plus 9 flips, and 16 Hamming differences as
+the graph baseline. Read evaluation added 1,548 reads, changed discordance from
+321 to 323, and reduced switch/flip events from 159 to 158. An unbounded bridge
+introduced one extra switch near 65.994 Mb through an 816 kb merge, motivating
+the explicit distance gate. Chr12/chr18 panel validation remains required
+before this becomes the selected operating point.
+
+LongcallD 0.0.11-23e369d was rerun as a chr20 native caller+phaser control on
+the same annotated BAM and reference, using the explicit `CHM13#0#chr20`
+region. It emitted 118,270 variants and 272,016 BAM records in 42.79 seconds
+with 11,940,320 KiB peak RSS. Against GIAB variant truth, it assessed 65,749
+pairs with NGC50 273,058 bp, 117 switches, 49 switches plus 34 flips, and 884
+Hamming differences. Against assembly read truth, it phased 219,090 reads with
+6,506 discordant (2.970%) and 3,132 switch/flip events. This row is labelled
+`native` in `results.tsv` and `pooled.tsv`; unlike all other competitor rows,
+it did not receive the shared DeepVariant callset and must not be used for a
+direct callset-controlled superiority claim. Under the strict correct-bridge
+screen, LongcallD crosses 47 chr20 graph breaks: 25 are dominated by excluded
+repeat heterozygous indels, 12 by catalog records that never became graph
+candidates, 6 by graph block stitching, and 4 by clean candidates left
+unphased. This independently points to the same repeat-indel and candidate
+admission gaps found with the shared-call competitors, while its absolute
+counts remain native-call-set dependent.

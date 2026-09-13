@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "created_at": "2026-09-13T06:30:55.909110+00:00",
+  "created_at": "2026-09-13T16:11:09.597437+00:00",
   "host": "XAROS",
-  "competitor_spec_sha256": "96647bf88fba101df40b9daf7d6be5a3ca8458e86bc714a1185664eef5fc426c",
+  "competitor_spec_sha256": "7734db779110d909a250484ce659e83e2b60d5f23e39d13d9141b5112c70e8bb",
   "deep_checksums": false,
   "entries": [
     {
@@ -1001,6 +1001,90 @@
           "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/longphase_reads/summary.json",
           "size": 1663,
           "sampled_sha256": "0321d52012ae75c887316b7b66afd19b8997d0b01f53b182bc323131c2fe53ba"
+        }
+      ]
+    },
+    {
+      "chromosome": "chr20",
+      "tool": "longcalld",
+      "version": "0.0.11-23e369d",
+      "commands": [
+        "/home/kokyriakidis/Downloads/longcallD/bin/longcallD call --hifi -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/native.vcf -b /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.bam -t 20 /home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr20.renamed.fa /home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam CHM13#0#chr20",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/bcftools annotate --rename-chrs /home/kokyriakidis/Downloads/pgphase/evaluations/2026-09-12-chr12-18-20-comparison/longcalld_chr20_contigs.tsv -Oz -o /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.vcf.gz /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/native.vcf",
+        "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/tabix -f -p vcf /home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.vcf.gz"
+      ],
+      "inputs": [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr20.renamed.fa",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz"
+      ],
+      "artifacts": [
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/native.vcf",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.vcf.gz",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.bam",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.compare.txt",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.stats.tsv",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.ngc50.json",
+        "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/longcalld_reads/summary.json"
+      ],
+      "input_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr20.renamed.fa",
+          "size": 67037899,
+          "sampled_sha256": "9c210e5f1d58eabb8c39d449a57e44d6cec02bbc6a115a3bb2c9d3ed9968d5a3"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+          "size": 1628148107,
+          "sampled_sha256": "22159d771177fe6192f5b4b761b3de656b0c1d2f4a50217201f4308fdfdd76d4"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+          "size": 1636632543,
+          "sampled_sha256": "b029264ae9846e1b880b7711b9e01db4862bdd80842f983381716a888b0b2f5e"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/truth.vcf.gz",
+          "size": 1171484,
+          "sampled_sha256": "bbe625e8d89e34275e24d70411fb8bec73d00385a3ae1496a171e1f4d3b62c41"
+        }
+      ],
+      "artifact_fingerprints": [
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/native.vcf",
+          "size": 12314175,
+          "sampled_sha256": "9e83aede90e9d53f9f57ca46863661057c0b0756e0e2989093493f187e4c8a77"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.vcf.gz",
+          "size": 1602118,
+          "sampled_sha256": "facdea79c6fefa5c30e0fb485fc17bd7786f631c8bd7518882adcce6eb928762"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld/phased.bam",
+          "size": 1494011640,
+          "sampled_sha256": "1c2f81f23f92810d04aa21299d977b8951b2ffd2f77ab90c44f5f4c9fc0f2ae5"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.compare.txt",
+          "size": 1944,
+          "sampled_sha256": "62c7be661ec1abbf6596975036508ad632edd01294033351e78c5b78db66bb5d"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.stats.tsv",
+          "size": 658,
+          "sampled_sha256": "5b08e730caa294ec345a804647a64b0095b5c740bbaf7a8e131472f8fc0372f7"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld.ngc50.json",
+          "size": 121,
+          "sampled_sha256": "28734a641dc7f07dfd576e44d9e26adf57d48d8751099b2827102351e5f4c3ea"
+        },
+        {
+          "path": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/eval/longcalld_reads/summary.json",
+          "size": 1666,
+          "sampled_sha256": "21f628cd006f3bd206af54e6b5a69bbabe8db2a19520b5a52ea957bd08fe90c7"
         }
       ]
     }

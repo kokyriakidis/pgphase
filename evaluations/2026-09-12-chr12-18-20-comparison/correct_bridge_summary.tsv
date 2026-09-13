@@ -3,6 +3,10 @@ hiphase	block_stitching	86	4116394	467	462	424	125	22
 hiphase	catalog_site_not_candidate	64	873582	107	38	37	0	3
 hiphase	clean_candidate_unphased	34	829988	1627	189	177	0	6
 hiphase	repeat_indels_excluded	250	5692132	753	439	405	0	15
+longcalld	block_stitching	6	226705	42	43	41	6	2
+longcalld	catalog_site_not_candidate	12	119378	3	1	4	0	0
+longcalld	clean_candidate_unphased	4	125877	54	33	35	0	1
+longcalld	repeat_indels_excluded	25	432743	33	31	40	0	6
 longphase	block_stitching	44	1650334	199	195	99	49	18
 longphase	catalog_site_not_candidate	72	994019	110	42	25	0	3
 longphase	clean_candidate_unphased	30	654985	1601	185	101	0	6

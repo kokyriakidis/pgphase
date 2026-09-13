@@ -11,6 +11,7 @@ readonly THREADS="${THREADS:-20}"
 readonly CHROMS="${CHROMS:-chr12 chr18 chr20}"
 readonly RUN_COMPETITORS="${RUN_COMPETITORS:-0}"
 readonly FORCE_PGPHASE="${FORCE_PGPHASE:-0}"
+readonly LONGCALLD="${LONGCALLD:-${HOME}/Downloads/longcallD/bin/longcallD}"
 
 die() {
     echo "error: $*" >&2
@@ -30,6 +31,7 @@ Run the chr12/chr18/chr20 shared-call phasing comparison. Environment:
   THREADS           worker threads [20]
   RUN_COMPETITORS   explicitly allow missing competitor artifacts to run [0]
   FORCE_PGPHASE     bypass pgphase stage signatures [0]
+  LONGCALLD         LongcallD executable [~/Downloads/longcallD/bin/longcallD]
 EOF
 }
 
@@ -146,7 +148,7 @@ run_chromosome() {
         "${truth_bam}" "${shared_vcf}"; do
         [[ -f "${input}" ]] || die "[${chrom}] missing input: ${input}"
     done
-    mkdir -p "${out}"/{graph,bam,hybrid,graph_lock,whatshap,whatshap_opt,hiphase,longphase,eval}
+    mkdir -p "${out}"/{graph,bam,hybrid,graph_lock,graph_bridge,whatshap,whatshap_opt,hiphase,longphase,longcalld,eval}
     : > "${out}/evaluated_vcfs.tsv"
 
     if [[ ! -s "${out}/truth.vcf.gz" ]]; then
@@ -220,6 +222,20 @@ run_chromosome() {
         --min-vote-margin 5 --min-purity 0.90 --require-both-haplotypes --threads 8
     samtools index -@ "${THREADS}" "${out}/graph_lock/phased.bam" 2>/dev/null || true
 
+    cached_step --state "${out}/graph_bridge/step.json" \
+        --input "${REPO_ROOT}/scripts/merge_graph_hybrid_tags.py" \
+        --input "${out}/graph/phased.bam" --input "${out}/hybrid/phased.bam" \
+        --output "${out}/graph_bridge/phased.bam" \
+        --output "${out}/graph_bridge/phased.bam.bai" \
+        --output "${out}/graph_bridge/bridge_edges.tsv" -- \
+        /usr/bin/time -v -o "${out}/graph_bridge/resources.txt" \
+        python3 "${REPO_ROOT}/scripts/merge_graph_hybrid_tags.py" \
+        --graph-bam "${out}/graph/phased.bam" --hybrid-bam "${out}/hybrid/phased.bam" \
+        --output "${out}/graph_bridge/phased.bam" --min-shared-reads 10 \
+        --min-vote-margin 5 --min-purity 0.90 --require-both-haplotypes \
+        --merge-graph-phase-sets --max-graph-bridge-distance 300000 \
+        --graph-bridge-report "${out}/graph_bridge/bridge_edges.tsv" --threads 8
+
     cached_step --state "${out}/graph/inject_tags.step.json" \
         --input "${REPO_ROOT}/scripts/inject_hp_tags.py" \
         --input "${out}/graph/phased.bam" --input "${bam}" \
@@ -227,21 +243,38 @@ run_chromosome() {
         python3 "${REPO_ROOT}/scripts/inject_hp_tags.py" \
             "${out}/graph/phased.bam" "${bam}" "${out}/graph/tagged_surjected.bam" samtools
     samtools index -@ "${THREADS}" "${out}/graph/tagged_surjected.bam"
-    for label in graph bam hybrid graph_lock; do
+    for label in graph bam hybrid graph_lock graph_bridge; do
         local phased_bam="${out}/${label}/phased.bam"
+        local transfer_args=(
+            --region "${chrom}" --min-reads 2 --min-ratio 0.70
+            --support-cache "${out}/${label}/shared.support.tsv"
+            --rebuild-support-cache
+        )
+        local transfer_outputs=(
+            --output "${out}/${label}/shared.vcf"
+            --output "${out}/${label}/shared.support.tsv"
+        )
         if [[ "${label}" == "graph" ]]; then
             phased_bam="${out}/graph/tagged_surjected.bam"
+        fi
+        if [[ "${label}" == "graph_bridge" ]]; then
+            transfer_args+=(
+                --merge-phase-sets --merge-single-hap --merge-require-full-side
+                --merge-min-sites 3 --merge-min-margin 2
+                --merge-min-read-support 10 --merge-edge-order reads
+                --merge-edge-report "${out}/graph_bridge/shared_merge_edges.tsv"
+            )
+            transfer_outputs+=(
+                --output "${out}/graph_bridge/shared_merge_edges.tsv"
+            )
         fi
         cached_step --state "${out}/${label}/shared_transfer.step.json" \
             --input "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
             --input "${phased_bam}" --input "${shared_vcf}" \
-            --output "${out}/${label}/shared.vcf" \
-            --output "${out}/${label}/shared.support.tsv" -- \
+            "${transfer_outputs[@]}" -- \
             python3 "${REPO_ROOT}/scripts/phase_vcf_from_hp.py" \
             "${phased_bam}" "${shared_vcf}" "${out}/${label}/shared.vcf" \
-            --region "${chrom}" --min-reads 2 --min-ratio 0.70 \
-            --support-cache "${out}/${label}/shared.support.tsv" \
-            --rebuild-support-cache
+            "${transfer_args[@]}"
         compress_vcf "${out}/${label}/shared.vcf" "${out}/${label}/shared.vcf.gz"
     done
 
@@ -278,6 +311,27 @@ run_chromosome() {
         compress_vcf "${out}/longphase/phased.vcf" "${out}/longphase/phased.vcf.gz"
     fi
 
+    if [[ "${chrom}" == "chr20" ]]; then
+        if [[ ! -s "${out}/longcalld/native.vcf" || \
+              ! -s "${out}/longcalld/phased.bam" ]]; then
+            allow_competitor_run "${out}/longcalld/native.vcf and phased.bam"
+            [[ -x "${LONGCALLD}" ]] || die "missing LongcallD executable: ${LONGCALLD}"
+            run_timed "${out}/longcalld/resources.txt" "${LONGCALLD}" call \
+                --hifi -o "${out}/longcalld/native.vcf" \
+                -b "${out}/longcalld/phased.bam" -t "${THREADS}" \
+                "${ref}" "${bam}" "${graph_contig}"
+        fi
+        cached_step --state "${out}/longcalld/import.step.json" \
+            --input "${out}/longcalld/native.vcf" \
+            --input "$(dirname "${BASH_SOURCE[0]}")/longcalld_chr20_contigs.tsv" \
+            --output "${out}/longcalld/phased.vcf.gz" -- \
+            "${BCFTOOLS}" annotate \
+                --rename-chrs "$(dirname "${BASH_SOURCE[0]}")/longcalld_chr20_contigs.tsv" \
+                -Oz -o "${out}/longcalld/phased.vcf.gz" \
+                "${out}/longcalld/native.vcf"
+        "${TABIX}" -f -p vcf "${out}/longcalld/phased.vcf.gz"
+    fi
+
     if [[ ! -s "${out}/whatshap/phased.bam" ]]; then
         allow_competitor_run "${out}/whatshap/phased.bam"
         "${WHATSHAP}" haplotag --reference "${linear_ref}" --output-threads "${THREADS}" \
@@ -298,6 +352,7 @@ run_chromosome() {
     evaluate_reads "${out}/bam/phased.bam" "${truth_bam}" "${out}/eval/bam_reads"
     evaluate_reads "${out}/hybrid/phased.bam" "${truth_bam}" "${out}/eval/hybrid_reads"
     evaluate_reads "${out}/graph_lock/phased.bam" "${truth_bam}" "${out}/eval/graph_lock_reads"
+    evaluate_reads "${out}/graph_bridge/phased.bam" "${truth_bam}" "${out}/eval/graph_bridge_reads"
     if [[ "${RUN_COMPETITORS}" == "1" ]]; then
         evaluate_reads "${out}/whatshap/phased.bam" "${truth_bam}" "${out}/eval/whatshap_reads"
         evaluate_reads "${out}/whatshap_opt/phased.bam" "${truth_bam}" "${out}/eval/whatshap_opt_reads"
@@ -309,11 +364,16 @@ run_chromosome() {
                 die "missing frozen read evaluation: ${out}/eval/${label}_reads/summary.json"
         done
     fi
+    if [[ "${chrom}" == "chr20" ]]; then
+        evaluate_reads "${out}/longcalld/phased.bam" "${truth_bam}" \
+            "${out}/eval/longcalld_reads"
+    fi
 
     evaluate_vcf "${chrom}" "${length}" graph "${out}/graph/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" bam "${out}/bam/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" hybrid "${out}/hybrid/shared.vcf.gz" "${out}"
     evaluate_vcf "${chrom}" "${length}" graph_lock "${out}/graph_lock/shared.vcf.gz" "${out}"
+    evaluate_vcf "${chrom}" "${length}" graph_bridge "${out}/graph_bridge/shared.vcf.gz" "${out}"
     if [[ "${RUN_COMPETITORS}" == "1" ]]; then
         evaluate_vcf "${chrom}" "${length}" whatshap "${out}/whatshap/phased.vcf.gz" "${out}"
         evaluate_vcf "${chrom}" "${length}" whatshap_opt "${out}/whatshap_opt/phased.vcf.gz" "${out}"
@@ -327,6 +387,10 @@ run_chromosome() {
             done
         done
     fi
+    if [[ "${chrom}" == "chr20" ]]; then
+        evaluate_vcf "${chrom}" "${length}" longcalld \
+            "${out}/longcalld/phased.vcf.gz" "${out}"
+    fi
 
     python3 "${REPO_ROOT}/scripts/analyze_graph_gap_site_loss.py" \
         --truth-vcf "${out}/truth.vcf.gz" --phased-vcf "${out}/graph/shared.vcf.gz" \
@@ -338,6 +402,7 @@ run_chromosome() {
         --competitor-vcf "whatshap=${out}/whatshap/phased.vcf.gz" \
         --recovery-vcf "hybrid=${out}/hybrid/shared.vcf.gz" \
         --recovery-vcf "graph_lock=${out}/graph_lock/shared.vcf.gz" \
+        --recovery-vcf "graph_bridge=${out}/graph_bridge/shared.vcf.gz" \
         --out "${out}/gap_site_loss.tsv" > "${out}/gap_site_loss.summary.txt"
 }
 

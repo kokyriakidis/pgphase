@@ -1,4 +1,4 @@
-chromosome	truth_hets	truth_hets_outside_graph_blocks	competitor_covered_gap_hets	no_catalog_record	ref_only	no_reads_in_chunk	catalog_retained_unphased	hybrid_recovered_phased_sites	graph_lock_recovered_phased_sites	hybrid_recovered_inside_blocks	graph_lock_recovered_inside_blocks
-chr12	170447	18881	15493	8632	1886	2573	904	239	150	442	135
-chr18	98278	12914	12596	10889	435	56	542	164	82	429	81
-chr20	123758	46837	35248	16008	9619	4780	1055	247	159	849	262
+chromosome	truth_hets	truth_hets_outside_graph_blocks	competitor_covered_gap_hets	no_catalog_record	ref_only	no_reads_in_chunk	catalog_retained_unphased	hybrid_recovered_phased_sites	graph_lock_recovered_phased_sites	graph_bridge_recovered_phased_sites	hybrid_recovered_inside_blocks	graph_lock_recovered_inside_blocks	graph_bridge_recovered_inside_blocks
+chr12	170447	18881	15493	8632	1886	2573	904	239	150	240	442	135	415
+chr18	98278	12914	12596	10889	435	56	542	164	82	0	429	81	0
+chr20	123758	46837	35248	16008	9619	4780	1055	247	159	0	849	262	0
