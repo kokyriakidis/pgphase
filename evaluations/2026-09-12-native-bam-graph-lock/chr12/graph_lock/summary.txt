@@ -1,0 +1,45 @@
+================================================================
+  pgphase — Phase Accuracy Evaluation (diplinator)
+================================================================
+
+  Chromosomes:              all
+  Min MAPQ:                 0
+  Min HapQ:                 0
+  Min reads/phase set:      5
+
+  ── Completeness ──
+  Total input reads:        579,483
+  Phased reads:             415,472 (71.7%)
+  Unphased reads:           164,011
+  Total phase sets:         557
+
+  ── Contiguity ──
+  Phase sets evaluated:     535
+  Phase sets perfect:       467 (87.3%)
+  Phase block N50:          425,298 bp
+  Phase block NG50:         0 bp
+  Phase block auN:          627,363 bp
+  Largest block:            4,317,621 bp (chr12)
+  Median block span:        126,381 bp
+  Genome covered:           122,178,090 bp (4.0%)
+  Mean blocks/chrom:        535.0
+
+  ── Accuracy ──
+  Total reads evaluated:    415,431
+  Concordant:               415,145
+  Discordant:               286
+  MAPQ-filtered:            0
+  HapQ-filtered:            0
+  Excluded (difficult):     0
+
+  Overall accuracy:         99.93%
+  Hamming error rate:       0.07%  (286 discordant reads / 415,431)
+  Switch error rate:        0.01%  (32 switches + 108 flips = 140 switchflips / 414,896 pairs)
+
+  Phaseable (>60%):     533 PS, 415,195 reads, 99.96%
+  Unphaseable (≤60%):    2 PS, 236 reads, 52.54%
+
+  Per-chromosome:
+    chr12                  535 PS   415431 reads  99.93%
+
+================================================================

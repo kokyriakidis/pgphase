@@ -4839,3 +4839,43 @@ HP blocks without sample-aware graph-thread or copy-number evidence. A
 principled future fix is to group nested sites by graph parent/read partition so
 correlated observations contribute one evidence unit, then require independent
 flanking or private-site support before emitting a diploid PS.
+
+## Graph-locked native-BAM gap fill on chr12 and chr18 (2026-09-12)
+
+The chr20 GQ10 result did not generalize directly when the private VCF came from
+`collect-bam-variation` instead of DeepVariant. On chr18, exact-private GQ10
+selection admitted 12,007 sites and joint phasing produced 3,527 discordant
+reads (1.53%). Read-overlap bridge filtering reduced this to 565 sites but still
+produced 3,141 discordant reads (1.39%). Restricting to 114 CLEAN, balanced SNPs
+did not fix it. Two large phase sets contained 2,830 of those errors, so the
+`--min-phase-set-reads 50` chr20 policy cannot protect this chromosome.
+
+The cause is architectural: a mapped read spanning two coordinates proves
+physical connectivity, not allele-consistent phase orientation. Joint k-means
+can therefore reorient trusted graph reads around a small private proposal.
+`scripts/merge_graph_hybrid_tags.py` now implements a graph lock:
+
+1. every graph HP/PS assignment is copied unchanged onto the full surjected BAM;
+2. each hybrid PS votes for a graph PS and orientation using shared reads;
+3. hybrid-only reads are admitted only with 10 shared reads, vote margin 5,
+   90% purity, and support from both haplotypes;
+4. ambiguous hybrid blocks are left unphased.
+
+Native private-site extraction also gained `--clean-snps-only`,
+`--exclude-graph-positions`, and VAF bounds. The validation recipe used GQ10,
+CLEAN SNPs, graph-position absence, VAF 0.30-0.70, and a two-read MAPQ20 bridge.
+
+| chromosome | config | private sites | evaluated reads | discordant | Hamming | read N50 | bad PS |
+|---|---|---:|---:|---:|---:|---:|---:|
+| chr18 | graph | 0 | 224,746 | 388 | 0.17% | 1,746,048 | 6 |
+| chr18 | joint private | 111 | 226,016 | 3,148 | 1.39% | 1,766,679 | 4 |
+| chr18 | **graph lock** | **111** | **228,020** | **405** | **0.18%** | **1,748,648** | **6** |
+| chr12 | graph | 0 | 410,699 | 257 | 0.06% | 422,422 | 2 |
+| chr12 | **graph lock** | **131** | **415,431** | **286** | **0.07%** | **425,298** | **2** |
+
+Across chr12 and chr18, graph lock adds 8,006 truth-evaluable reads for 46
+additional errors (99.43% accuracy among the net additions) while preserving
+all graph assignments by construction. It modestly extends existing blocks; it
+does not yet merge independent graph PS labels. This is the selected native-BAM
+hybrid policy. Keep direct joint output experimental, and do not promote PS50 as
+a general fix.

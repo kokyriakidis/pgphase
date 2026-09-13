@@ -150,16 +150,27 @@ def main():
     ap.add_argument("--min-bridge-reads", type=int, default=2)
     ap.add_argument("--min-mapq", type=int, default=20)
     ap.add_argument("--min-gq", type=int, default=10)
+    ap.add_argument("--clean-snps-only", action="store_true",
+                    help="accept only CLEAN single-nucleotide records")
+    ap.add_argument("--exclude-graph-positions", action="store_true",
+                    help="reject records at any position present in the graph catalog")
+    ap.add_argument("--min-vaf", type=float, default=0.0,
+                    help="minimum alternate allele fraction")
+    ap.add_argument("--max-vaf", type=float, default=1.0,
+                    help="maximum alternate allele fraction")
     ap.add_argument("--min-gap", type=int, default=1)
     args = ap.parse_args()
     if args.min_bridge_reads < 1:
         ap.error("--min-bridge-reads must be at least 1")
     if args.min_mapq < 0:
         ap.error("--min-mapq must be non-negative")
+    if not 0.0 <= args.min_vaf <= args.max_vaf <= 1.0:
+        ap.error("require 0 <= --min-vaf <= --max-vaf <= 1")
 
     blocks = graph_phase_blocks(args.graph_phased_vcf, args.contig)
     gaps = block_gaps(blocks, args.min_gap)
     graph_alleles = read_graph_alleles(args.graph_sites, args.contig)
+    graph_positions = {key[0] for key in graph_alleles}
 
     if args.gaps_bed:
         with Path(args.gaps_bed).open("w") as out:
@@ -188,8 +199,22 @@ def main():
             gq = sample.get("GQ")
             if gq is None or gq < args.min_gq:
                 continue
+            if args.clean_snps_only and (len(rec.ref) != 1
+                                         or len(rec.alts[0]) != 1
+                                         or "CLEAN" not in rec.info):
+                continue
+            if args.min_vaf > 0.0 or args.max_vaf < 1.0:
+                ad = sample.get("AD")
+                if ad is None or len(ad) < 2 or ad[0] + ad[1] == 0:
+                    continue
+                vaf = ad[1] / (ad[0] + ad[1])
+                if vaf < args.min_vaf or vaf > args.max_vaf:
+                    continue
             key = (rec.pos, rec.ref, rec.alts[0])
             if key in graph_alleles:
+                rejected_graph += 1
+                continue
+            if args.exclude_graph_positions and rec.pos in graph_positions:
                 rejected_graph += 1
                 continue
             inside, gap_i = in_gap(rec.start, gaps, gap_i)

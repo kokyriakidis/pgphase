@@ -301,6 +301,44 @@ near the truth variant.
 
 ---
 
+## Graph-locked native-BAM validation on chr12 and chr18
+
+The direct chr20 recipe was tested on the available chr18 and chr12 graph GAFs,
+surjected BAMs, catalogs, references, and diplinator truth. Native pgphase BAM
+calls are much less selective than the chr20 DeepVariant source: chr18 yielded
+12,007 exact-private GQ10 gap sites versus 958 on chr20. Direct joint phasing was
+unsafe even after read-overlap filtering (565 sites, 3,141/226,453 discordant)
+and after restricting to 114 clean balanced SNPs (3,149/226,080 discordant).
+The errors were concentrated in two 3,000-plus-read blocks, so PS50 could not
+remove them.
+
+The selected fix is `scripts/merge_graph_hybrid_tags.py`. It treats joint
+hybrid phasing as a proposal: graph-tagged reads retain their graph HP/PS
+exactly, and graph-unphased reads are added only when at least ten shared reads
+orient the hybrid block to one graph block with margin five, 90% purity, and
+both haplotypes represented. This is truth-free and rejects the chr18 mixed
+blocks.
+
+| chromosome | graph reads/errors | graph-lock reads/errors | net reads/errors | Hamming |
+|---|---:|---:|---:|---:|
+| chr18 | 224,746 / 388 | 228,020 / 405 | +3,274 / +17 | 0.18% |
+| chr12 | 410,699 / 257 | 415,431 / 286 | +4,732 / +29 | 0.07% |
+
+For native BAM VCFs, extract with `--clean-snps-only`,
+`--exclude-graph-positions`, `--min-vaf 0.30`, and `--max-vaf 0.70` plus the
+existing BAM bridge options. This retained 111 sites on chr18 and 131 on chr12.
+Direct joint output remains experimental; graph-lock output is the current
+robust policy.
+It adds reads to existing graph phase sets but deliberately does not merge
+independent graph PS labels yet.
+
+```bash
+python3 scripts/merge_graph_hybrid_tags.py \
+  --graph-bam graph.bam --hybrid-bam hybrid.bam --output locked.bam \
+  --min-shared-reads 10 --min-vote-margin 5 --min-purity 0.90 \
+  --require-both-haplotypes --threads 8
+```
+
 ## 9. Ranked next steps
 
 ### Surjected-BAM private sites: measured opportunity
