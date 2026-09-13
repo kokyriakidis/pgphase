@@ -5123,3 +5123,20 @@ Reproduction and assertions are under
 `make check` remains blocked by its pre-existing obsolete CLI invocation.
 Whole-chromosome accuracy and scaling still need validation before this mode
 becomes a default.
+
+### 2026-09-13: Independent automatic recovery validation after 5316f9c
+
+Pushed automatic tiered recovery, then tested six previously untested regions
+selected from the frozen HiPhase bridge audit (two each on chr12, chr18, chr20),
+with fixed settings and 50 kb flanks. Recovery joined 3/11 residual hybrid gaps:
+chr20 61.8 Mb at tier 2 and the other two joins at tier 3. chr12 63.8 Mb and chr20 61.8 Mb went from two blocks to one,
+adding 40 and 36 tagged reads respectively. chr18 33.3 Mb improved from four
+blocks to three. chr12 46.8 Mb, chr18 46.2 Mb, and chr20 17.6 Mb did not improve.
+All 2,293 original tagged reads retained uniform block orientation transforms.
+No read-truth discordance/switchflip increase occurred; chr18 46.2 Mb retained
+one pre-existing error, other cases had zero. Build/unit tests passed.
+Unresolved proposals can match both endpoints in separate phase sets, so both
+link flags alone must not be interpreted as a successful join. These targeted
+read-truth checks do not establish chromosome-wide NGC50 or variant-truth accuracy.
+Manifest, exact commands, tier reports and summaries:
+`evaluations/2026-09-13-auto-gap-validation/`.
