@@ -5826,3 +5826,28 @@ previous joins and adding only 37.98 Mb. The WhatsHap audit reports no Hamming
 count increase in any window. Results are archived under
 `evaluations/2026-09-13-panel-gap-audit/chr20_msa_indel_scoped/`. These are
 overlapping local-window results, not a whole-chromosome NGC50 measurement.
+
+### Normalize equivalent MSA insertion placements inside short repeats
+
+The chr20 863,640-890,261 target contained one MAPQ60 read connecting clean
+left SNP 863,406 (Q40) to the MSA insertion at key 882,278, which was already
+attached to the right block. The MSA represents its observed allele as `TC` at
+882,278; the BAM CIGAR represents `CT` at 882,283. The intervening reference
+is `TCTCT`, so both placements produce the identical `TCTCTCT` haplotype.
+Exact-coordinate matching incorrectly discarded this otherwise clear edge.
+
+For MSA-verified insertions used by the recovery block graph, placement is now
+normalized by comparing the complete alternate haplotype sequence across a
+maximum 20 bp shift. The read must still be primary MAPQ30 evidence, all
+inserted and flanking bases must be Q30, the MSA allele must already be
+associated with an established block, and an opposing crossing read still
+vetoes a single-read bridge. This handles alignment-equivalent placement; it
+does not admit arbitrary repeat indels.
+
+The target becomes one 140,786 bp local block with 433/433 truth-labelled
+reads concordant and zero read switches. The complete replay is **93 joined /
+21 split**: all 92 prior joins remain, no original block majority reverses, no
+case increases read discordance or switch/flips relative to the prior panel,
+and the 114-window WhatsHap audit has no Hamming-count increase. Results are
+archived under
+`evaluations/2026-09-13-panel-gap-audit/chr20_shifted_insertion/`.

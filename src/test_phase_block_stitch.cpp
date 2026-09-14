@@ -1246,8 +1246,12 @@ static bool test_msa_snp_backfills_all_bam_reads() {
                  "MSA SNP and exact indel observations are backfilled from BAM reads");
 }
 
-static bool test_gap_bridge_uses_bam_confirmed_msa_insertion() {
+static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
     PhasingChunk chunk;
+    chunk.ref_beg = 1;
+    chunk.ref_end = 400;
+    chunk.ref_seq.assign(400, 'A');
+    chunk.ref_seq.replace(199, 5, "TCTCT");
     for (int vi = 0; vi < 3; ++vi) {
         CandidateVariant var;
         var.key.pos = 100 + vi * 100;
@@ -1262,23 +1266,30 @@ static bool test_gap_bridge_uses_bam_confirmed_msa_insertion() {
     auto& insertion = chunk.candidates[1];
     insertion.key.type = VariantType::Insertion;
     insertion.key.ref_len = 0;
-    insertion.key.alt = "G";
+    insertion.key.alt = "TC";
+    insertion.msa_insertion_alts = {"TC", "TCTC"};
     insertion.lcd_var_i_to_cate = kCandNoisyCandHet;
     insertion.msa_verified = true;
     insertion.gap_link_supported = true;
+    insertion.hap_to_cons_alle = {-1, 1, 2};
 
     const std::vector<std::vector<int>> alleles = {
-        {0, 0, -1}, {1, 1, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 0, 1}};
+        {0, 1, -1}, {1, 2, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 1, 1}};
     chunk.read_var_cr.reset(cr_init());
     for (size_t ri = 0; ri < alleles.size(); ++ri) {
         auto read = min_read();
         read.mapq = 60;
         if (ri == alleles.size() - 1) {
             read.alignment.reset(bam_init1());
-            std::string sequence(102, 'A');
+            std::string sequence(104, 'A');
+            sequence[6] = 'C';
+            sequence[7] = 'T';
             sequence.back() = 'T';
-            const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
-            bam_set1(read.alignment.get(), 7, "msaedge", 0, 0, 198, 60, 1, &cigar,
+            const std::array<uint32_t, 3> cigar = {
+                bam_cigar_gen(6, BAM_CMATCH), bam_cigar_gen(2, BAM_CINS),
+                bam_cigar_gen(96, BAM_CMATCH)};
+            bam_set1(read.alignment.get(), 7, "msaedge", 0, 0, 198, 60,
+                     cigar.size(), cigar.data(),
                      -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
             std::fill(bam_get_qual(read.alignment.get()),
                       bam_get_qual(read.alignment.get()) + sequence.size(), 40);
@@ -1299,7 +1310,7 @@ static bool test_gap_bridge_uses_bam_confirmed_msa_insertion() {
     opts.block_link_window = 8;
     iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
     return check(chunk.candidates[0].phase_set == chunk.candidates[2].phase_set,
-                 "a BAM-confirmed MSA insertion can bridge established phase components");
+                 "a shifted but sequence-equivalent MSA insertion can bridge phase components");
 }
 
 static bool test_gap_clean_block_bridge() {
@@ -1399,7 +1410,7 @@ static bool test_read_hp_matches_reported_phase_set() {
 int main() {
     int failures = 0;
     failures += test_msa_snp_backfills_all_bam_reads() ? 0 : 1;
-    failures += test_gap_bridge_uses_bam_confirmed_msa_insertion() ? 0 : 1;
+    failures += test_gap_bridge_uses_equivalent_shifted_msa_insertion() ? 0 : 1;
     failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
     failures += test_gap_clean_block_bridge() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;

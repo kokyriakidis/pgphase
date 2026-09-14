@@ -510,45 +510,100 @@ static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
     return false;
 }
 
-static bool msa_indel_has_confident_bam_observation(const ReadRecord& read,
+static bool bam_base_quality_at(const bam1_t* bam, hts_pos_t target, int min_quality) {
+    const auto* cigar = bam_get_cigar(bam);
+    hts_pos_t ref_pos = bam->core.pos + 1;
+    int query_pos = 0;
+    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+        const int len = bam_cigar_oplen(cigar[ci]);
+        const int consumption = bam_cigar_type(bam_cigar_op(cigar[ci]));
+        if ((consumption & 3) == 3 && target >= ref_pos && target < ref_pos + len) {
+            const int quality = bam_get_qual(bam)[query_pos + target - ref_pos];
+            return quality != 255 && quality >= min_quality;
+        }
+        if (consumption & 1) query_pos += len;
+        if (consumption & 2) ref_pos += len;
+    }
+    return false;
+}
+
+static bool equivalent_shifted_insertion(const PhasingChunk& chunk, const bam1_t* bam,
+                                          int query_pos, int length, hts_pos_t observed_pos,
+                                          hts_pos_t candidate_pos, const std::string& candidate_alt) {
+    constexpr hts_pos_t kGapBridgeMaxInsertionShift = 20;
+    if (length != static_cast<int>(candidate_alt.size()) ||
+        std::abs(observed_pos - candidate_pos) > kGapBridgeMaxInsertionShift) return false;
+    std::vector<int> candidate_haplotype, observed_haplotype;
+    const hts_pos_t beg = std::min(observed_pos, candidate_pos);
+    const hts_pos_t end = std::max(observed_pos, candidate_pos);
+    const auto append_alt = [&](std::vector<int>& sequence) {
+        for (const char base : candidate_alt)
+            sequence.push_back(seq_nt16_table[static_cast<unsigned char>(base)]);
+    };
+    const auto append_observed = [&](std::vector<int>& sequence) {
+        for (int j = 0; j < length; ++j)
+            sequence.push_back(bam_seqi(bam_get_seq(bam), query_pos + j));
+    };
+    const auto append_reference = [&](std::vector<int>& sequence) {
+        for (hts_pos_t pos = beg; pos < end; ++pos) {
+            if (pos < chunk.ref_beg || pos > chunk.ref_end) return false;
+            const int base = seq_nt16_table[static_cast<unsigned char>(chunk.ref_seq[
+                static_cast<size_t>(pos - chunk.ref_beg)])];
+            if (base != 1 && base != 2 && base != 4 && base != 8) return false;
+            sequence.push_back(base);
+        }
+        return true;
+    };
+    if (candidate_pos <= observed_pos) {
+        append_alt(candidate_haplotype);
+        if (!append_reference(candidate_haplotype) || !append_reference(observed_haplotype)) return false;
+        append_observed(observed_haplotype);
+    } else {
+        if (!append_reference(candidate_haplotype)) return false;
+        append_alt(candidate_haplotype);
+        append_observed(observed_haplotype);
+        if (!append_reference(observed_haplotype)) return false;
+    }
+    return candidate_haplotype == observed_haplotype;
+}
+
+static bool msa_indel_has_confident_bam_observation(const PhasingChunk& chunk,
+                                                     const ReadRecord& read,
                                                      const CandidateVariant& var, int allele) {
     constexpr int kGapBridgeMinBaseQuality = 30;
+    const int max_allele = var.msa_insertion_alts.empty()
+        ? 1 : static_cast<int>(var.msa_insertion_alts.size());
     if (!read.alignment || !var.msa_verified || var.is_homopolymer_indel ||
-        var.key.type != VariantType::Insertion || var.key.alt.empty() ||
-        (allele != 0 && allele != 1)) return false;
+        var.key.type != VariantType::Insertion || allele < 0 ||
+        allele > max_allele) return false;
+    const std::string alt = allele == 0 ? std::string() :
+        (var.msa_insertion_alts.empty() ? var.key.alt :
+         var.msa_insertion_alts[static_cast<size_t>(allele - 1)]);
+    if (allele > 0 && alt.empty()) return false;
     const bam1_t* bam = read.alignment.get();
     const auto* cigar = bam_get_cigar(bam);
     hts_pos_t ref_pos = bam->core.pos + 1;
     int query_pos = 0;
-    bool left_anchor = false, right_anchor = false;
     for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
         const int op = bam_cigar_op(cigar[ci]), len = bam_cigar_oplen(cigar[ci]);
         const int consumption = bam_cigar_type(op);
-        if ((consumption & 3) == 3) {
-            const hts_pos_t end = ref_pos + len;
-            const auto confident_at = [&](hts_pos_t pos) {
-                if (pos < ref_pos || pos >= end) return false;
-                const int quality = bam_get_qual(bam)[query_pos + pos - ref_pos];
-                return quality != 255 && quality >= kGapBridgeMinBaseQuality;
-            };
-            left_anchor |= confident_at(var.key.pos - 1);
-            right_anchor |= confident_at(var.key.pos);
-        }
-        if (op == BAM_CINS && ref_pos == var.key.pos) {
-            if (allele != 1 || len != static_cast<int>(var.key.alt.size())) return false;
+        if (op == BAM_CINS && std::abs(ref_pos - var.key.pos) <= 20) {
+            if (allele == 0 || len != static_cast<int>(alt.size())) return false;
             for (int j = 0; j < len; ++j) {
                 const int quality = bam_get_qual(bam)[query_pos + j];
-                const int expected = seq_nt16_table[static_cast<unsigned char>(var.key.alt[j])];
-                if (quality == 255 || quality < kGapBridgeMinBaseQuality ||
-                    bam_seqi(bam_get_seq(bam), query_pos + j) != expected) return false;
+                if (quality == 255 || quality < kGapBridgeMinBaseQuality) return false;
             }
-            return left_anchor;
+            return bam_base_quality_at(bam, ref_pos - 1, kGapBridgeMinBaseQuality) &&
+                   bam_base_quality_at(bam, ref_pos, kGapBridgeMinBaseQuality) &&
+                   equivalent_shifted_insertion(chunk, bam, query_pos, len, ref_pos,
+                                                var.key.pos, alt);
         }
-        if (op == BAM_CINS && ref_pos == var.key.pos) return false;
         if (consumption & 1) query_pos += len;
         if (consumption & 2) ref_pos += len;
     }
-    return allele == 0 && left_anchor && right_anchor;
+    return allele == 0 &&
+           bam_base_quality_at(bam, var.key.pos - 1, kGapBridgeMinBaseQuality) &&
+           bam_base_quality_at(bam, var.key.pos, kGapBridgeMinBaseQuality);
 }
 
 // Phase-set assignment + flip for one k-means iteration.
@@ -747,12 +802,12 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                              !var.is_homopolymer_indel &&
                                              var.key.type != VariantType::Snp;
                 if (vi < profile.start_var_idx || vi > profile.end_var_idx ||
-                    (!clean_snp && !recovered_indel) || variant_allele_slots(var) != 2) continue;
+                    (!clean_snp && !recovered_indel) || variant_allele_slots(var) < 2) continue;
                 const int allele = profile.alleles[vi - profile.start_var_idx];
                 if (allele < 0) continue;
                 const bool confident = clean_snp
                     ? clean_snp_has_confident_bam_observation(read, var, allele)
-                    : msa_indel_has_confident_bam_observation(read, var, allele);
+                    : msa_indel_has_confident_bam_observation(chunk, read, var, allele);
                 if (recovered_indel && !confident) continue;
                 const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
                                 allele == var.hap_to_cons_alle[2] ? 1 : -1;
