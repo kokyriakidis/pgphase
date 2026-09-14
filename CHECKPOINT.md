@@ -5918,3 +5918,42 @@ report, but the unchanged local solves still took 137.52 s (170.32 s total).
 This isolates the next performance target: replace per-gap dense proposal
 construction and repeated k-means with sparse phase-edge scoring over the
 cached observations.
+
+### Enable clean block bridges in recovery, with singleton evidence gating
+
+The cached recovery proposal set `gap_recovery_beg/end` for every evidence
+tier, but enabled `private_msa_admit_all_in_region` only for the final
+homopolymer tier. The recovery block graph is gated on that option, so clean
+block bridges were computed while the evidence cache was populated but were
+disabled when the tier proposal actually decided whether to join the original
+phase sets. Enabling the additive recovery graph for the whole local proposal
+fixes this orchestration bug. The chr20 18,194,808-18,218,259 reproduction now
+joins at tier 1 from its existing clean BAM evidence.
+
+A blanket enable exposed why the earlier overlapping-window checks were not a
+sufficient acceptance test. It joined 129/283 gaps and raised raw block NG50
+to 739,887 bp, but whole-chromosome blockwise Hamming increased from 770/59,990
+(1.2835%) to 1,236/59,992 (2.0603%). Two singleton bridges caused the increase:
+the 0.864 Mb edge depended on one MSA indel observation, while the 23.46 Mb
+edge used the moderate-Q three-SNP exception and had Q22 at its left projected
+endpoint. Both appeared correct in isolated windows but assigned the adjacent
+whole-chromosome blocks in the wrong relative orientation.
+
+Singleton component bridges now require a Q30 clean SNP observation on both
+components, or at least two clean SNP observations on each component. MSA
+indels and Q20 clean observations can still contribute when at least two
+independent reads support the same orientation. The existing MAPQ30 gate and
+opposing-read veto remain. This supersedes the singleton acceptance claims in
+the earlier sections about shifted insertion placement and the moderate-quality
+three-SNP bridge; those mechanisms remain available as
+multi-read evidence but are unsafe by themselves.
+
+With the singleton gate, the complete cached chr20 run joins 125/283 gaps.
+Relative to the previous 117-join run, raw block N50 increases from 604,849 to
+683,391 bp and switch-corrected NGC50 increases from 451,323 to 479,016 bp.
+Corrected covered span increases from 52,379,757 to 52,734,498 bp (79.65% of
+chr20). On the shared DeepVariant assessment positions, 59,992 variants are
+assessed with 77 switches and blockwise Hamming 665/59,992 (1.1085%). Read
+truth evaluation improves from 4,005 to 3,872 discordant reads and from 97.88%
+to 97.95% accuracy. Thus the additional clean joins improve contiguity while
+reducing both variant- and read-level errors.

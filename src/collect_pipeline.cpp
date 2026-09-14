@@ -1721,6 +1721,11 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
     Options local_opts = opts;
     local_opts.gap_recovery_beg = gap.left_end;
     local_opts.gap_recovery_end = gap.right_beg;
+    // The recovery proposal is additive and confined to this gap window.
+    // Enable its graph solver for every tier, including the clean-only first
+    // pass; otherwise the clean block-bridge evidence is calculated only while
+    // populating the cache and is never used to decide the recovered edge.
+    local_opts.private_msa_admit_all_in_region = true;
     if (!opts.phase_matrix_dump_prefix.empty()) {
         local_opts.phase_matrix_dump_prefix =
             opts.phase_matrix_dump_prefix + ".tid" + std::to_string(gap.tid) +
@@ -1758,7 +1763,6 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
             if (!has_hp || !opts.link_by_alleles) break;
             local_opts.gap_hp_link_beg = gap.left_end;
             local_opts.gap_hp_link_end = gap.right_beg;
-            local_opts.private_msa_admit_all_in_region = true;
             assign_hap_based_on_germline_het_vars_kmeans(
                 proposal, local_opts, kCandGermlineVarCate);
         } else if (tier > 1) {

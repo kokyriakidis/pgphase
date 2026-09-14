@@ -786,7 +786,9 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             component[hi] = root(root, hi);
             orientation[hi] = flip[hi];
         }
-        struct BlockVotes { std::array<int, 2> all{}, strong{}; };
+        struct BlockVotes {
+            std::array<int, 2> all{}, strong{}, clean_strong{};
+        };
         std::map<std::pair<int, int>, BlockVotes> block_votes;
         for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
             const auto& read = chunk.reads[ri];
@@ -795,6 +797,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             const auto& profile = chunk.read_var_profile[ri];
             std::map<int, std::array<int, 2>> observations;
             std::map<int, bool> confident_base;
+            std::map<int, bool> confident_clean_snp;
             std::map<int, int> clean_snp_observations, moderate_clean_snp_observations;
             for (int hi = 0; hi < n_het; ++hi) {
                 const int vi = valid_var_idx[het_var_idx[hi]];
@@ -818,6 +821,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                     ++observations[component[hi]][hap ^ orientation[hi]];
                     confident_base[component[hi]] |= confident;
                     if (clean_snp) {
+                        confident_clean_snp[component[hi]] |= confident;
                         ++clean_snp_observations[component[hi]];
                         if (clean_snp_has_bam_observation(
                                 read, var, allele, kGapBridgeModerateBaseQuality))
@@ -827,14 +831,16 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             }
             struct Anchor {
                 int block, hap, clean_snps, moderate_clean_snps;
-                bool strong;
+                bool strong, clean_strong;
             };
             std::vector<Anchor> anchors;
             for (const auto& [block, counts] : observations) {
                 if (std::min(counts[0], counts[1]) != 0) continue;
                 anchors.push_back({block, counts[1] > counts[0],
                     clean_snp_observations[block], moderate_clean_snp_observations[block],
-                    std::max(counts[0], counts[1]) >= kGapBridgeMinAnchorSnps || confident_base[block]});
+                    std::max(counts[0], counts[1]) >= kGapBridgeMinAnchorSnps || confident_base[block],
+                    confident_clean_snp[block] ||
+                        clean_snp_observations[block] >= kGapBridgeMinAnchorSnps});
             }
             for (size_t i = 0; i < anchors.size(); ++i) {
                 for (size_t j = i + 1; j < anchors.size(); ++j) {
@@ -848,6 +854,8 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                         anchors[j].moderate_clean_snps == anchors[j].clean_snps;
                     if ((anchors[i].strong && anchors[j].strong) || moderate_three_snp_bridge)
                         ++votes.strong[direction];
+                    if (anchors[i].clean_strong && anchors[j].clean_strong)
+                        ++votes.clean_strong[direction];
                 }
             }
         }
@@ -855,6 +863,8 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         for (const auto& [blocks, votes] : block_votes) {
             // Even a sparse opposing read vetoes a single-read bridge.
             if ((votes.all[0] && votes.all[1]) || !(votes.strong[0] || votes.strong[1])) continue;
+            const int direction = votes.all[1] > votes.all[0];
+            if (votes.all[direction] == 1 && votes.clean_strong[direction] == 0) continue;
             block_edges.push_back({blocks.first, blocks.second, votes.all[0], votes.all[1]});
         }
         std::stable_sort(block_edges.begin(), block_edges.end(), [](const Edge& a, const Edge& b) {

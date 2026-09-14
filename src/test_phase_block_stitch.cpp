@@ -1303,12 +1303,13 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
     insertion.hap_to_cons_alle = {-1, 1, 2};
 
     const std::vector<std::vector<int>> alleles = {
-        {0, 1, -1}, {1, 2, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 1, 1}};
+        {0, 1, -1}, {1, 2, -1}, {-1, -1, 0}, {-1, -1, 1},
+        {-1, 1, 1}, {-1, 1, 1}};
     chunk.read_var_cr.reset(cr_init());
     for (size_t ri = 0; ri < alleles.size(); ++ri) {
         auto read = min_read();
         read.mapq = 60;
-        if (ri == alleles.size() - 1) {
+        if (ri >= alleles.size() - 2) {
             read.alignment.reset(bam_init1());
             std::string sequence(104, 'A');
             sequence[6] = 'C';
@@ -1339,7 +1340,7 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
     opts.block_link_window = 8;
     iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
     return check(chunk.candidates[0].phase_set == chunk.candidates[2].phase_set,
-                 "a shifted but sequence-equivalent MSA insertion can bridge phase components");
+                 "two shifted but sequence-equivalent MSA insertion reads can bridge phase components");
 }
 
 static bool test_gap_clean_block_bridge() {
@@ -1390,8 +1391,8 @@ static bool test_gap_clean_block_bridge() {
         opts.min_block_link_reads = 2; opts.block_link_window = 8;
         iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts);
         const bool joined = chunk.candidates[0].phase_set == chunk.candidates[3].phase_set;
-        ok &= check(joined == (mode == 0 || mode == 4 || mode == 6),
-                    "block bridge requires reliable flank observations, mapping confidence, and no opposing read");
+        ok &= check(joined == (mode == 0 || mode == 4),
+                    "singleton block bridge requires Q30 clean SNPs on both flanks, mapping confidence, and no opposing read");
         if (joined) {
             ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],
                         "block bridge composes the supported opposite orientation");
