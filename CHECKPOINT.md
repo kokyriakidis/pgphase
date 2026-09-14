@@ -5540,3 +5540,64 @@ newly tagged reads; two existing reads near 1.9 Mb become discordant (duplicated
 in two overlapping test windows); switch/flip counts increase in two overlapping
 26.6 Mb cases despite fewer discordant reads. No additional original-block
 majority reversals. All results are recorded, not claimed regression-free.
+
+### chr20 60.1 Mb: preserve two alternate insertion alleles through recovery
+
+The verified six-T/seven-T insertion at internal position 60093417 (VCF
+60093416 C -> CTTTTTT,CTTTTTTT) was represented as two biallelic candidates,
+with only alternate observations. Both collapsed to homozygous. Recovery now
+merges two same-position MSA insertion calls into one site with explicit
+reference/ALT1/ALT2 indices, recomputes observations against both consensuses,
+and retains a supported ALT1/ALT2 genotype while optimizing its orientation
+jointly through the existing k-means. Complementing an allele with `1 - allele`
+is now restricted to biallelic sites. The bounded one-edit local comparison also
+handles these pairs: five-T/eight-T reads can support six-T/seven-T when the
+fixed consensus flanks agree and both composed paths select the same allele;
+ties and more distant sequences abstain. Native VCF preserves both ALT strings,
+GT 1|2 or 2|1, per-allele AD/AF/VAF, and PS. GQ is zero because the existing
+biallelic model cannot assess this genotype.
+
+Unrestricted pair admission regressed 35.9 Mb: a true homozygous 323-base
+insertion was split into 322/323-base MSA consensuses, causing 48 discordant
+reads. Reuse the per-site best-covered clean anchor to assess separation of
+those two sequences. Its contingency table is [6,10;8,8], which supplies no
+consistent separation. The real 60.1 Mb pair has [9,8;7,15]: both anchor alleles
+favor opposite insertion lengths, with combined margin nine. For MSA pairs,
+require both row margins to have the same nonzero sign and combined margin to
+clear the existing block-link threshold; keep the prior repeat-site rule for
+biallelic HP candidates. The best-covered informative anchor overrides sparse
+favorable subsets. With no informative anchor the pair remains eligible for
+the normal link solver; this is not a universal guarantee of heterozygosity.
+
+The 18-case multi_anchor panel retains all baseline target outcomes, introduces
+no discordance/switch-flip increases or original-block majority reversals, and
+fixes 60.1 Mb: one block, 206 assessed reads, 39 -> 0 discordance and 3 -> 0
+switch/flip errors. 35.9 Mb retains its correct one-block 293-read result.
+Unit tests cover alternate identity, reference observations, bounded length
+errors, path conflicts, full k-means genotype preservation, clean-anchor
+selection, and native multiallelic VCF output. A first-pass test also caught
+an empty preexisting HP/PS-vector access in the broadened selector; provisional
+read votes are now optional while direct site observations remain usable.
+Build and all unit tests pass, with no new warnings. The final revision limits
+pair creation to the MSA gap pass and uses standards-compliant Number=A INFO AF;
+the two root-cause cases pass again. Full 114-case results follow below. These are overlapping local windows, not whole-chromosome
+validation. Superseded multi_insertion/genotype/joint/local trial artifacts are
+retained with explicit failure notes.
+
+
+Completed multi_anchor expansion: 79 joins, 31 splits, four endpoint-unphased.
+Five newly joined test cases cover four locations (9.0, 11.6, 55.5, 58.7 Mb;
+two overlapping 55.5 Mb windows). All 74 baseline joins are retained. There are
+no discordance or switch/flip increases versus graph_deletion_guard and no
+detected original-block majority reversals. 60.1 Mb improves 39 -> 0 errors;
+the newly joined 58.7 Mb case retains one preexisting discordant read. Recovery
+still adds some individual errors versus clean-only at 7.2 and 61.7 Mb, already
+present in the baseline. All 228 final-binary clean/recovery BAMs have identical
+read names, flags, alignment starts, HP and PS to multi_anchor. This removes the
+last detected wrong original-block orientation in this selected local panel;
+it does not establish whole-chromosome recovery accuracy or resolve every gap.
+
+Final multi_final independent 114-case truth evaluation completed with the same
+79/31/4 outcomes, five added joins, no baseline error increases, and no detected
+original-block reversals. See its results, baseline comparison and orientation
+reports for the complete accounting.

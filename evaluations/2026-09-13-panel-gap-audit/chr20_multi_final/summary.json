@@ -1,0 +1,37 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 79,
+    "split -> split": 31,
+    "split -> endpoint_unphased": 2,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37333,
+  "added_tagged_reads": 832,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_61732321_61782778"
+  ],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "joined -> joined": 74,
+    "split -> split": 31,
+    "endpoint_unphased -> endpoint_unphased": 4,
+    "split -> joined": 5
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": [
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 206,
+      "after_reads": 206,
+      "before_discordant": 39,
+      "after_discordant": 0,
+      "before_switchflips": 3,
+      "after_switchflips": 0
+    }
+  ]
+}

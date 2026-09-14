@@ -90,7 +90,7 @@ void update_variant_depth_fields(CandidateVariant& var) {
         var.counts.alle_covs.assign(static_cast<size_t>(std::max(2, var.counts.n_uniq_alles)), 0);
     var.counts.n_uniq_alles = static_cast<int>(var.counts.alle_covs.size());
     var.counts.ref_cov = var.counts.alle_covs.empty() ? 0 : var.counts.alle_covs[0];
-    var.counts.alt_cov = var.counts.alle_covs.size() > 1 ? var.counts.alle_covs[1] : 0;
+    var.counts.alt_cov = std::accumulate(var.counts.alle_covs.begin() + 1, var.counts.alle_covs.end(), 0);
     int alle_cov_sum = 0;
     for (int cov : var.counts.alle_covs) alle_cov_sum += cov;
     if (var.counts.total_cov <= 0) var.counts.total_cov = alle_cov_sum;
@@ -863,6 +863,48 @@ static void split_nested_msa_deletions(const Options& opts, const PhasingChunk& 
     std::stable_sort(second.begin(), second.end(), less);
 }
 
+static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
+    std::vector<VariantCategory>& categories, std::vector<ReadVariantProfile>& profiles) {
+    for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        auto& first = vars[i];
+        const auto& second = vars[i + 1];
+        if (first.key.type != VariantType::Insertion || second.key.type != VariantType::Insertion ||
+            first.key.pos != second.key.pos || first.key.alt == second.key.alt ||
+            first.counts.category != VariantCategory::NoisyCandHet ||
+            second.counts.category != VariantCategory::NoisyCandHet) continue;
+        first.msa_insertion_alts = {first.key.alt, second.key.alt};
+        first.counts.alle_covs.assign(3, 0);
+        first.counts.total_cov = 0;
+        for (auto& profile : profiles) {
+            if (profile.start_var_idx < 0) continue;
+            const auto allele_at = [&](int index) {
+                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
+                       profile.alleles[index - profile.start_var_idx];
+            };
+            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
+            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 :
+                               a == 0 && b == 0 ? 0 : -1;
+            ReadVariantProfile merged;
+            merged.read_id = profile.read_id;
+            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
+                if (vi == static_cast<int>(i + 1)) {
+                    if (profile.start_var_idx == vi)
+                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+                    continue;
+                }
+                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
+                    vi == static_cast<int>(i) ? allele : allele_at(vi),
+                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
+            }
+            profile = std::move(merged);
+            if (allele >= 0) ++first.counts.alle_covs[allele];
+        }
+        update_variant_depth_fields(first);
+        vars.erase(vars.begin() + i + 1);
+        categories.erase(categories.begin() + i + 1);
+    }
+}
+
 static void refresh_assigned_msa_observations(const Options& opts,
     const std::array<int, 2>& clu_n_seqs,
     const std::array<std::vector<int>, 2>& clu_read_ids,
@@ -928,13 +970,15 @@ int make_vars_from_msa_cons_aln(
                                             false);
     }
     if (opts.recover_gaps) split_nested_msa_deletions(opts, chunk, hap1_vars, hap2_vars);
-    const int count = update_cand_var_profile_from_cons_aln_str2(
+    update_cand_var_profile_from_cons_aln_str2(
         opts, chunk, clu_n_seqs, clu_read_ids, aln_strs, noisy_reg_beg,
         hap1_vars, hap2_vars, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.recover_gaps && opts.private_msa_admit_all_in_region)
+        merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.recover_gaps && !aln_strs[0].empty() && !aln_strs[1].empty())
         refresh_assigned_msa_observations(opts, clu_n_seqs, clu_read_ids, aln_strs,
                                            noisy_reg_beg, noisy_vars, noisy_rvp);
-    return count;
+    return static_cast<int>(noisy_vars.size());
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1145,7 +1189,14 @@ static MsaSiteSlice slice_msa_site(const AlnStr& aln, const VariantKey& key,
 }
 
 static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key,
-                                 const std::array<MsaSiteSlice, 2>& context) {
+                                 const std::array<MsaSiteSlice, 2>& context,
+                                 const std::vector<std::string>* insertion_alts = nullptr) {
+    if (insertion_alts != nullptr && !insertion_alts->empty()) {
+        if (site.query.empty()) return 0;
+        for (size_t ai = 0; ai < insertion_alts->size(); ++ai)
+            if (site.query == (*insertion_alts)[ai]) return static_cast<int>(ai + 1);
+        return -1;
+    }
     const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
     if (site.query == site.ref) return 0;
     if (site.query == alt) return 1;
@@ -1160,7 +1211,8 @@ static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key
 
 static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,
                                       const VariantKey& key, hts_pos_t ref_beg,
-                                      const std::array<MsaSiteSlice, 2>& context) {
+                                      const std::array<MsaSiteSlice, 2>& context,
+                                      const std::vector<std::string>* insertion_alts = nullptr) {
     int first = -1;
     for (int ci = 0; ci < 2; ++ci) {
         const auto site = slice_msa_site(alignments[ci], key, ref_beg);
@@ -1173,7 +1225,7 @@ static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,
                     site.flank_query[side] == consensus.flank_query[side];
             if (!supported) return -1;
         }
-        const int allele = msa_site_event_allele(site, key, context);
+        const int allele = msa_site_event_allele(site, key, context, insertion_alts);
         if (allele < 0 || (ci == 1 && allele != first)) return -1;
         first = allele;
     }
@@ -1205,18 +1257,19 @@ static int local_allele_distance(const std::string& first, const std::string& se
 }
 
 static int call_local_msa_allele(const AlnStr& read, const VariantKey& key,
-                                     hts_pos_t ref_beg, const std::array<AlnStr, 2>& consensuses) {
-    const int exact = call_msa_site_allele({read, read}, key, ref_beg, &consensuses);
-    if (exact >= 0) return exact;
-    const auto observed = slice_msa_site(read, key, ref_beg);
+                                     hts_pos_t ref_beg, const std::array<AlnStr, 2>& consensuses,
+                                     const std::vector<std::string>* insertion_alts = nullptr) {
     const std::array<MsaSiteSlice, 2> context = {
         slice_msa_site(consensuses[0], key, ref_beg), slice_msa_site(consensuses[1], key, ref_beg)};
+    const int exact = call_msa_site_with_context({read, read}, key, ref_beg, context, insertion_alts);
+    if (exact >= 0) return exact;
+    const auto observed = slice_msa_site(read, key, ref_beg);
     if (!observed.covered || !context[0].covered || !context[1].covered ||
         context[0].flank_query != context[1].flank_query) return -1;
     std::array<int, 2> alleles, distances;
     const std::string query = observed.flank_query[0] + observed.query + observed.flank_query[1];
     for (int ci = 0; ci < 2; ++ci) {
-        alleles[ci] = msa_site_event_allele(context[ci], key, context);
+        alleles[ci] = msa_site_event_allele(context[ci], key, context, insertion_alts);
         const std::string expected = context[ci].flank_query[0] + context[ci].query + context[ci].flank_query[1];
         distances[ci] = local_allele_distance(query, expected);
     }
@@ -1254,7 +1307,7 @@ static void refresh_assigned_msa_observations(const Options& opts,
             auto& profile = profiles[clu_read_ids[ci][ri]];
             for (size_t vi = 0; vi < vars.size(); ++vi) {
                 if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
-                const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses);
+                const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses, &vars[vi].msa_insertion_alts);
                 update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1, profile);
             }
         }
@@ -1262,13 +1315,14 @@ static void refresh_assigned_msa_observations(const Options& opts,
     for (size_t vi = 0; vi < vars.size(); ++vi) {
         auto& var = vars[vi];
         if (var.counts.category != VariantCategory::NoisyCandHet) continue;
-        var.counts.alle_covs.assign(2, 0);
+        var.counts.alle_covs.assign(var.msa_insertion_alts.empty() ? 2 : var.msa_insertion_alts.size() + 1, 0);
         for (const auto& profile : profiles) {
             if (static_cast<int>(vi) < profile.start_var_idx || static_cast<int>(vi) > profile.end_var_idx) continue;
             const int allele = profile.alleles[vi - profile.start_var_idx];
-            if (allele == 0 || allele == 1) ++var.counts.alle_covs[allele];
+            if (allele >= 0 && static_cast<size_t>(allele) < var.counts.alle_covs.size())
+                ++var.counts.alle_covs[allele];
         }
-        var.counts.total_cov = var.counts.alle_covs[0] + var.counts.alle_covs[1];
+        var.counts.total_cov = std::accumulate(var.counts.alle_covs.begin(), var.counts.alle_covs.end(), 0);
         update_variant_depth_fields(var);
     }
 }
@@ -1290,10 +1344,10 @@ void add_msa_site_observations(const Options& opts,
             for (int ci = 0; ci < 2; ++ci)
                 context[ci] = slice_msa_site((*consensuses)[ci], var.key, ref_beg);
         for (const auto& read : reads) {
-            int allele = call_msa_site_with_context(read.ref_read, var.key, ref_beg, context);
+            int allele = call_msa_site_with_context(read.ref_read, var.key, ref_beg, context, &var.msa_insertion_alts);
             if (allele < 0 && consensuses != nullptr) {
-                const int first = call_local_msa_allele(read.ref_read[0], var.key, ref_beg, *consensuses);
-                const int second = call_local_msa_allele(read.ref_read[1], var.key, ref_beg, *consensuses);
+                const int first = call_local_msa_allele(read.ref_read[0], var.key, ref_beg, *consensuses, &var.msa_insertion_alts);
+                const int second = call_local_msa_allele(read.ref_read[1], var.key, ref_beg, *consensuses, &var.msa_insertion_alts);
                 // Whole-window assignment is unnecessary, but both independently
                 // composed paths must favor the same local allele.
                 if (first >= 0 && first == second) allele = first;
@@ -1305,8 +1359,13 @@ void add_msa_site_observations(const Options& opts,
         if (observations.empty()) continue;
         // Two different consensuses alone do not establish heterozygosity.
         // Do not extend a site whose expanded evidence fails the existing AF gate.
-        const double af = static_cast<double>(counts[1]) / (counts[0] + counts[1]);
+        const int total = std::accumulate(counts.begin(), counts.end(), 0);
+        const double af = static_cast<double>(counts[1]) / total;
         if (af < opts.min_af || af > opts.max_af) continue;
+        if (!var.msa_insertion_alts.empty()) {
+            const double second_af = static_cast<double>(counts[2]) / total;
+            if (second_af < opts.min_af || second_af > opts.max_af) continue;
+        }
         for (const auto& [read_id, allele] : observations)
             update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1,
                                                 profiles[read_id]);

@@ -114,6 +114,13 @@ void write_variants_tsv_records(std::ostream& out,
         const std::string chrom = header->target_name[key.tid];
         std::string ref_seq = ".";
         std::string alt_seq = key.alt.empty() ? "." : key.alt;
+        if (!candidate.msa_insertion_alts.empty()) {
+            alt_seq.clear();
+            for (const auto& allele : candidate.msa_insertion_alts) {
+                if (!alt_seq.empty()) alt_seq += ',';
+                alt_seq += allele;
+            }
+        }
 
         if (key.type == VariantType::Snp) {
             // ref_len=1 for true SNP; ref_len>1 for MNP/complex equal-length substitution.
@@ -202,7 +209,7 @@ void write_variants_vcf_header(std::ostream& out, const Options& opts, const bam
     out << "##INFO=<ID=REFC,Number=1,Type=Integer,Description=\"Reference allele count\">\n";
     out << "##INFO=<ID=ALTC,Number=1,Type=Integer,Description=\"Alternate allele count\">\n";
     out << "##INFO=<ID=LQC,Number=1,Type=Integer,Description=\"Low-quality observation count\">\n";
-    out << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Alternate allele fraction\">\n";
+    out << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Alternate allele fraction\">\n";
     out << "##INFO=<ID=CAT,Number=1,Type=String,Description=\"pgPhase candidate category\">\n";
     for (int32_t tid = 0; tid < header->n_targets; ++tid) {
         out << "##contig=<ID=" << header->target_name[tid] << ",length=" << header->target_len[tid] << ">\n";
@@ -234,7 +241,7 @@ void write_phased_variants_vcf_header(std::ostream& out, const Options& opts, co
     out << "##INFO=<ID=REFC,Number=1,Type=Integer,Description=\"Reference allele count\">\n";
     out << "##INFO=<ID=ALTC,Number=1,Type=Integer,Description=\"Alternate allele count\">\n";
     out << "##INFO=<ID=LQC,Number=1,Type=Integer,Description=\"Low-quality observation count\">\n";
-    out << "##INFO=<ID=AF,Number=1,Type=Float,Description=\"Alternate allele fraction\">\n";
+    out << "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Alternate allele fraction\">\n";
     out << "##INFO=<ID=CAT,Number=1,Type=String,Description=\"pgPhase candidate category\">\n";
     out << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n";
     out << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth\">\n";
@@ -297,9 +304,10 @@ struct VcfRecordCore {
 };
 
 // Skip VCF rows with non-ACGT bases when out_amb_base is false.
-static bool lcd_vcf_seq_has_non_acgt(const std::string& s) {
+static bool lcd_vcf_seq_has_non_acgt(const std::string& s, bool allow_comma = false) {
     for (unsigned char uc : s) {
         const char c = static_cast<char>(uc);
+        if (allow_comma && c == ',') continue;
         if (c != 'A' && c != 'C' && c != 'G' && c != 'T') return true;
     }
     return false;
@@ -322,7 +330,7 @@ static bool passes_lcd_write_var_alt_ref_base_gate(const CandidateVariant& candi
 static bool passes_vcf_amb_base_gate(const Options& opts, const VcfRecordCore& core) {
     if (opts.output_ambiguous_bases) return true;
     if (lcd_vcf_seq_has_non_acgt(core.ref_seq)) return false;
-    if (lcd_vcf_seq_has_non_acgt(core.alt_seq)) return false;
+    if (lcd_vcf_seq_has_non_acgt(core.alt_seq, true)) return false;
     return true;
 }
 
@@ -417,6 +425,13 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
                                          : anchor_base;
         core.ref_seq = std::string(1, anchor_base);
         core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
+        if (!candidate.msa_insertion_alts.empty()) {
+            core.alt_seq.clear();
+            for (const auto& allele : candidate.msa_insertion_alts) {
+                if (!core.alt_seq.empty()) core.alt_seq += ',';
+                core.alt_seq += std::string(1, alt_anchor_base) + allele;
+            }
+        }
     } else { // Deletion
         const hts_pos_t anchor_pos = std::max<hts_pos_t>(1, key.pos - 1);
         core.pos = anchor_pos;
@@ -450,21 +465,36 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
     }
     if (key.type == VariantType::Insertion || key.type == VariantType::Deletion) {
         const int svlen = (key.type == VariantType::Insertion) ? static_cast<int>(key.alt.size()) : -key.ref_len;
-        if (std::abs(svlen) >= opts.min_sv_len) {
+        const bool large_alt = std::any_of(candidate.msa_insertion_alts.begin(),
+            candidate.msa_insertion_alts.end(), [&](const std::string& allele) {
+                return allele.size() >= static_cast<size_t>(opts.min_sv_len);
+            });
+        if (std::abs(svlen) >= opts.min_sv_len || large_alt) {
             info << ";SVTYPE=" << (svlen > 0 ? "INS" : "DEL");
             info << ";SVLEN=" << svlen;
+            for (size_t ai = 1; ai < candidate.msa_insertion_alts.size(); ++ai)
+                info << ',' << candidate.msa_insertion_alts[ai].size();
         }
     }
     info << ";DP=" << counts.total_cov << ";REFC=" << counts.ref_cov << ";ALTC=" << counts.alt_cov
-         << ";LQC=" << counts.low_qual_cov << ";AF=" << counts.allele_fraction
-         << ";CAT=" << category_name(counts.category);
+         << ";LQC=" << counts.low_qual_cov << ";AF=";
+    if (candidate.msa_insertion_alts.empty()) {
+        info << counts.allele_fraction;
+    } else {
+        for (size_t ai = 1; ai < counts.alle_covs.size(); ++ai) {
+            if (ai > 1) info << ',';
+            info << (counts.total_cov > 0 ? static_cast<double>(counts.alle_covs[ai]) / counts.total_cov : 0.0);
+        }
+    }
+    info << ";CAT=" << category_name(counts.category);
     core.info = info.str();
 
     core.dp = counts.total_cov;
     core.ad_ref = counts.ref_cov;
     core.ad_alt = counts.alt_cov;
     core.qual = cal_var_QUAL1(core.ad_ref, core.ad_alt);
-    core.gq = cal_sample_GQ(core.ad_ref, core.ad_alt);
+    // The existing biallelic GQ model does not assess a two-ALT genotype.
+    core.gq = candidate.msa_insertion_alts.empty() ? cal_sample_GQ(core.ad_ref, core.ad_alt) : 0;
     return core;
 }
 } // namespace
@@ -529,6 +559,12 @@ void write_phased_variants_vcf_records(std::ostream& out,
         else if (hap_alt == 2 && hap_ref == 1) { gt1 = 0; gt2 = 1; }
         else if (hap_alt == 3) { gt1 = 1; gt2 = 1; is_hom = true; }
         // else: gt1=0, gt2=0 (ref/ref or no-call)
+        const bool multiallelic = !candidate.msa_insertion_alts.empty();
+        if (multiallelic) {
+            gt1 = candidate.hap_to_cons_alle[1];
+            gt2 = candidate.hap_to_cons_alle[2];
+            is_hom = gt1 >= 0 && gt1 == gt2;
+        }
 
         const hts_pos_t ps_val = candidate.phase_set;
         char gt_sep = '|';
@@ -543,16 +579,31 @@ void write_phased_variants_vcf_records(std::ostream& out,
                               : 0.0f;
 
         // FORMAT: GT:DP:AD:VAF:GQ[:PS]  (PS only for phased hets)
-        const bool emit_ps = (!is_hom && ps_val != 0);
+        const bool emit_ps = (!is_hom && ps_val != 0 &&
+                              (!multiallelic || (gt1 >= 0 && gt2 >= 0)));
         out << chrom << '\t' << core.pos << "\t.\t" << core.ref_seq << '\t' << core.alt_seq
             << '\t' << core.qual << '\t' << core.filter << '\t' << core.info;
         out << "\tGT:DP:AD:VAF:GQ";
         if (emit_ps) out << ":PS";
-        out << '\t' << gt1 << gt_sep << gt2 << ':' << core.dp
-            << ':' << core.ad_ref << ',' << core.ad_alt;
-        char vaf_buf[16];
-        std::snprintf(vaf_buf, sizeof(vaf_buf), "%.3f", static_cast<double>(vaf));
-        out << ':' << vaf_buf << ':' << core.gq;
+        out << '\t' << (gt1 < 0 ? "." : std::to_string(gt1)) << gt_sep
+            << (gt2 < 0 ? "." : std::to_string(gt2)) << ':' << core.dp << ':';
+        if (multiallelic) {
+            for (size_t ai = 0; ai < candidate.counts.alle_covs.size(); ++ai) {
+                if (ai) out << ',';
+                out << candidate.counts.alle_covs[ai];
+            }
+            out << ':';
+            for (size_t ai = 1; ai < candidate.counts.alle_covs.size(); ++ai) {
+                if (ai > 1) out << ',';
+                out << (core.dp > 0 ? static_cast<double>(candidate.counts.alle_covs[ai]) / core.dp : 0.0);
+            }
+        } else {
+            out << core.ad_ref << ',' << core.ad_alt;
+            char vaf_buf[16];
+            std::snprintf(vaf_buf, sizeof(vaf_buf), "%.3f", static_cast<double>(vaf));
+            out << ':' << vaf_buf;
+        }
+        out << ':' << core.gq;
         if (emit_ps) out << ':' << ps_val;
         out << '\n';
     }

@@ -230,12 +230,17 @@ static void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int 
 // Score a read against consensus alleles: +1 for agreement, -1 for conflict.
 static int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i) {
     const uint32_t var_i_to_cate = var.lcd_var_i_to_cate;
+    if (!var.msa_insertion_alts.empty() && !var.gap_link_supported) return 0;
     int var_score = 1;
     if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetSnp) var_score = 2;
     else if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetIndel) var_score = 2;
     if (var.hap_to_cons_alle[hap] == -1 && var.hap_to_cons_alle[3 - hap] == -1) return 0;
-    if (var.hap_to_cons_alle[hap] == -1) var.hap_to_cons_alle[hap] = 1 - var.hap_to_cons_alle[3 - hap];
-    if (var.hap_to_cons_alle[3 - hap] == -1) var.hap_to_cons_alle[3 - hap] = 1 - var.hap_to_cons_alle[hap];
+    // A multiallelic site has no unique complementary allele. Infer it only
+    // for a biallelic site; otherwise let actual read observations resolve it.
+    if (variant_allele_slots(var) == 2) {
+        if (var.hap_to_cons_alle[hap] == -1) var.hap_to_cons_alle[hap] = 1 - var.hap_to_cons_alle[3 - hap];
+        if (var.hap_to_cons_alle[3 - hap] == -1) var.hap_to_cons_alle[3 - hap] = 1 - var.hap_to_cons_alle[hap];
+    }
     // A non-anchor het still gets a consensus and a phase set -- it is a real
     // call -- but it must not influence which haplotype a read is assigned to,
     // which is the decision --anchor-af-margin exists to protect.  The return
@@ -491,10 +496,24 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
     int seeded_het = 0;
     for (int _vi = 0; _vi < n; ++_vi) {
         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
+        if (recovery_graph && var.gap_link_supported && var.msa_insertion_alts.size() == 2 &&
+            var.counts.alle_covs.size() == 3 && var.counts.total_cov > 0 &&
+            var.counts.alle_covs[1] >= opts.min_alt_depth &&
+            var.counts.alle_covs[2] >= opts.min_alt_depth &&
+            static_cast<double>(var.counts.alle_covs[1]) / var.counts.total_cov >= opts.min_af &&
+            static_cast<double>(var.counts.alle_covs[2]) / var.counts.total_cov >= opts.min_af &&
+            (var.hap_to_cons_alle[1] < 0 || var.hap_to_cons_alle[2] < 0 ||
+             var.hap_to_cons_alle[1] == var.hap_to_cons_alle[2])) {
+            // Provisional read labels cannot turn two verified alternate
+            // sequences into a homozygous site before their links are solved.
+            var.hap_to_cons_alle[1] = 1;
+            var.hap_to_cons_alle[2] = 2;
+            seeded_het = 1;
+        }
         const bool gap_hp_link = recovery_graph && opts.gap_hp_link_beg >= 0 &&
                 var.key.sort_pos() >= opts.gap_hp_link_beg &&
                 var.key.sort_pos() <= opts.gap_hp_link_end &&
-                var.lcd_var_i_to_cate == kCandNoisyCandHet && var.gap_hp_link_supported;
+                var.lcd_var_i_to_cate == kCandNoisyCandHet && var.gap_link_supported;
         if (gap_hp_link && var.is_homopolymer_indel &&
             var.counts.ref_cov >= opts.min_alt_depth && var.counts.alt_cov >= opts.min_alt_depth &&
             var.counts.allele_fraction >= opts.min_af && var.counts.allele_fraction <= opts.max_af &&
@@ -509,6 +528,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         }
         if (var.hap_to_cons_alle[1] != -1 && var.hap_to_cons_alle[2] != -1 &&
             var.hap_to_cons_alle[1] != var.hap_to_cons_alle[2] &&
+            (var.msa_insertion_alts.empty() || var.gap_link_supported) &&
             (!var.is_homopolymer_indel || gap_hp_link)) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
@@ -693,8 +713,20 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
 
     for (int _vi = 0; _vi < n; ++_vi) {
         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
-        for (int hap = 1; hap <= 2; ++hap)
-            update_var_hap_to_cons_alle(is_ont, var, hap);
+        if (var.gap_link_supported && var.msa_insertion_alts.size() == 2 && saved[_vi][1] > 0 &&
+            saved[_vi][2] > 0 && saved[_vi][1] != saved[_vi][2]) {
+            const int same = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][2];
+            const int flip = var.hap_to_alle_profile[1][2] + var.hap_to_alle_profile[2][1];
+            // Optimize the orientation of the verified allele pair jointly.
+            // Independent haplotype majorities can select the same allele twice.
+            if (same != flip) {
+                var.hap_to_cons_alle[1] = same > flip ? 1 : 2;
+                var.hap_to_cons_alle[2] = same > flip ? 2 : 1;
+            }
+        } else {
+            for (int hap = 1; hap <= 2; ++hap)
+                update_var_hap_to_cons_alle(is_ont, var, hap);
+        }
     }
 
     int changed = 0;
@@ -721,7 +753,8 @@ static void update_read_phase_set(PhasingChunk& chunk, const std::vector<bool>& 
             const CandidateVariant& var = chunk.candidates[vi];
             // Use the same eligible evidence as init_assign_read_hap. An
             // excluded repeat can inherit a preceding PS without a link.
-            if (var.is_homopolymer_indel || var.lcd_var_i_to_cate == kCandNoisyCandHom) continue;
+            if (var.is_homopolymer_indel || var.lcd_var_i_to_cate == kCandNoisyCandHom ||
+                (!var.msa_insertion_alts.empty() && !var.gap_link_supported)) continue;
             const int allele = prof.alleles[vi - prof.start_var_idx];
             if (allele < 0 || (allele != var.hap_to_cons_alle[1] &&
                                allele != var.hap_to_cons_alle[2])) continue;
@@ -739,23 +772,26 @@ static void update_read_phase_set(PhasingChunk& chunk, const std::vector<bool>& 
 // Public entry point
 // ════════════════════════════════════════════════════════════════════════════
 
-static void select_gap_hp_link_sites(PhasingChunk& chunk, const Options& opts,
+static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
                                       const std::vector<int>& valid_var_idx) {
     int64_t* overlaps = nullptr;
     int64_t capacity = 0;
     for (const int vi : valid_var_idx) {
         auto& var = chunk.candidates[vi];
-        var.gap_hp_link_supported = false;
-        if (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet ||
-            var.key.sort_pos() < opts.gap_hp_link_beg || var.key.sort_pos() > opts.gap_hp_link_end) continue;
+        const bool multi = !var.msa_insertion_alts.empty();
+        var.gap_link_supported = multi;
+        if (!multi && (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet ||
+            opts.gap_hp_link_beg < 0 || var.key.sort_pos() < opts.gap_hp_link_beg ||
+            var.key.sort_pos() > opts.gap_hp_link_end)) continue;
         std::map<hts_pos_t, std::array<int, 4>> votes;
         const int64_t n = cr_overlap(chunk.read_var_cr.get(), "cr", vi, vi + 1, &overlaps, &capacity);
         for (int64_t oi = 0; oi < n; ++oi) {
             const int ri = static_cast<int>(cr_label(chunk.read_var_cr.get(), overlaps[oi]));
-            if (chunk.reads[ri].is_skipped || chunk.haps[ri] < 1 || chunk.haps[ri] > 2 ||
-                chunk.phase_sets[ri] < 0) continue;
+            if (chunk.reads[ri].is_skipped || static_cast<size_t>(ri) >= chunk.haps.size() ||
+                static_cast<size_t>(ri) >= chunk.phase_sets.size() ||
+                chunk.haps[ri] < 1 || chunk.haps[ri] > 2 || chunk.phase_sets[ri] < 0) continue;
             const auto& profile = chunk.read_var_profile[ri];
-            const int allele = profile.alleles[vi - profile.start_var_idx];
+            const int allele = profile.alleles[vi - profile.start_var_idx] - (multi ? 1 : 0);
             if (allele != 0 && allele != 1) continue;
             ++votes[chunk.phase_sets[ri]][2 * (chunk.haps[ri] - 1) + allele];
         }
@@ -775,15 +811,17 @@ static void select_gap_hp_link_sites(PhasingChunk& chunk, const Options& opts,
                 if (chunk.reads[ri].is_skipped) continue;
                 const auto& profile = chunk.read_var_profile[ri];
                 if (anchor_i < profile.start_var_idx || anchor_i > profile.end_var_idx) continue;
-                const int allele = profile.alleles[vi - profile.start_var_idx];
+                const int allele = profile.alleles[vi - profile.start_var_idx] - (multi ? 1 : 0);
                 const int anchor_allele = profile.alleles[anchor_i - profile.start_var_idx];
                 if ((allele != 0 && allele != 1) || (anchor_allele != 0 && anchor_allele != 1)) continue;
                 ++v[2 * anchor_allele + allele];
             }
             const int first = v[0] - v[1], second = v[3] - v[2];
             const int margin = opts.min_block_link_reads;
-            const bool supported = (first >= margin && second >= margin) ||
-                                   (first <= -margin && second <= -margin);
+            const bool supported = multi ?
+                ((first > 0 && second > 0) || (first < 0 && second < 0)) &&
+                    std::abs(first + second) >= margin :
+                (first >= margin && second >= margin) || (first <= -margin && second <= -margin);
             const int depth = std::min(v[0] + v[1], v[2] + v[3]);
             const int total = v[0] + v[1] + v[2] + v[3];
             if (depth > best_anchor_depth || (depth == best_anchor_depth && total > best_anchor_total)) {
@@ -803,7 +841,7 @@ static void select_gap_hp_link_sites(PhasingChunk& chunk, const Options& opts,
             const int margin = opts.min_block_link_reads;
             const bool supported = (first >= margin && second >= margin) ||
                                    (first <= -margin && second <= -margin);
-            var.gap_hp_link_supported |= supported;
+            var.gap_link_supported |= supported;
             if (opts.verbose >= 2)
                 std::fprintf(stderr, "GapHetAnchor\t%lld\t%lld\t%d\t%d\t%d\t%d\t%d\n",
                     static_cast<long long>(var.key.sort_pos()), static_cast<long long>(ps),
@@ -812,7 +850,7 @@ static void select_gap_hp_link_sites(PhasingChunk& chunk, const Options& opts,
         // A sparse distant subset must not establish heterozygosity when a
         // better-covered clean anchor shows the same allele on both haplotypes.
         if (best_anchor_depth >= opts.min_block_link_reads)
-            var.gap_hp_link_supported = direct_supported;
+            var.gap_link_supported = direct_supported;
     }
     free(overlaps);
 }
@@ -837,7 +875,9 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     const bool is_ont = opts.is_ont();
     const size_t n_reads = chunk.reads.size();
 
-    if (opts.gap_hp_link_beg >= 0) select_gap_hp_link_sites(chunk, opts, valid_var_idx);
+    if (opts.gap_hp_link_beg >= 0 ||
+        (opts.recover_gaps && opts.private_msa_admit_all_in_region))
+        select_gap_link_sites(chunk, opts, valid_var_idx);
     chunk.haps.assign(n_reads, 0);
     chunk.phase_sets.assign(n_reads, -1);
     read_init_hap_phase_set(chunk);

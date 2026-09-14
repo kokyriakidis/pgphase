@@ -11,12 +11,16 @@
  */
 
 #include "collect_phase.hpp"
+#include "collect_output.hpp"
 #include "collect_phase_noisy.hpp"
 #include "collect_types.hpp"
 #include "gap_recovery.hpp"
 
 #include <cstdio>
+#include <numeric>
 #include <vector>
+#include <sstream>
+#include <unistd.h>
 
 using namespace pgphase_collect;
 
@@ -356,7 +360,7 @@ static bool test_recovery_links_join_earlier_components() {
     ok &= check(iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts) == 0,
                 "recovery component orientations converge");
     chunk.candidates[2].is_homopolymer_indel = true;
-    chunk.candidates[2].gap_hp_link_supported = true;
+    chunk.candidates[2].gap_link_supported = true;
     chunk.candidates[2].lcd_var_i_to_cate = kCandNoisyCandHet;
     iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
     ok &= check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set,
@@ -408,7 +412,7 @@ static bool test_recovery_links_join_earlier_components() {
                 "recovery preserves the existing majority-support threshold");
     auto& repeat = chunk.candidates[1];
     repeat.is_homopolymer_indel = true;
-    repeat.gap_hp_link_supported = true;
+    repeat.gap_link_supported = true;
     repeat.lcd_var_i_to_cate = kCandNoisyCandHet;
     opts.gap_hp_link_beg = 100; opts.gap_hp_link_end = 300;
     iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
@@ -502,16 +506,16 @@ static bool test_read_phase_set_ignores_non_scoring_repeat() {
     opts.gap_hp_link_beg = opts.gap_hp_link_end = 199;
     opts.min_block_link_reads = 1;
     assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-    ok &= check(chunk.candidates[1].gap_hp_link_supported,
+    ok &= check(chunk.candidates[1].gap_link_supported,
                 "a repeat separating both haplotypes within a local block is eligible");
     chunk.haps.assign(chunk.reads.size(), 0);
     chunk.phase_sets.assign(chunk.reads.size(), -1);
     assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-    ok &= check(chunk.candidates[1].gap_hp_link_supported,
+    ok &= check(chunk.candidates[1].gap_link_supported,
                 "direct clean-site allele association does not require prior read HP tags");
     chunk.read_var_profile[3].alleles[1] = 0;
     assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-    ok &= check(!chunk.candidates[1].gap_hp_link_supported,
+    ok &= check(!chunk.candidates[1].gap_link_supported,
                 "a repeat without within-block haplotype association is not an anchor");
     return ok;
 }
@@ -547,7 +551,7 @@ static bool test_repeat_anchor_prefers_complete_evidence() {
     opts.gap_hp_link_beg = opts.gap_hp_link_end = 199;
     opts.min_block_link_reads = 2;
     assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-    return check(!chunk.candidates[1].gap_hp_link_supported,
+    return check(!chunk.candidates[1].gap_link_supported,
                  "a favorable sparse subset cannot override the fuller clean-site evidence");
 }
 
@@ -1027,6 +1031,139 @@ static bool test_msa_observation_heterozygosity_gate() {
     return ok;
 }
 
+static bool test_msa_two_alternate_insertions() {
+    PhasingChunk chunk;
+    chunk.region.tid = 0; chunk.ref_beg = 100; chunk.ref_seq = "ACGGTA";
+    chunk.reads.resize(6);
+    const auto six = site_alignment("ACG-------GTA", "ACGTTTTTT-GTA");
+    const auto seven = site_alignment("ACG-------GTA", "ACGTTTTTTTGTA");
+    const auto ref = site_alignment("ACG-------GTA", "ACG-------GTA");
+    const auto eight = site_alignment("ACG--------GTA", "ACGTTTTTTTTGTA");
+    const auto nine = site_alignment("ACG---------GTA", "ACGTTTTTTTTTGTA");
+    const std::array<std::vector<AlnStr>, 2> alignments = {{{six}, {seven}}};
+    std::vector<CandidateVariant> vars;
+    std::vector<VariantCategory> categories;
+    std::vector<ReadVariantProfile> profiles;
+    Options opts; opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
+    make_vars_from_msa_cons_aln(opts, chunk, 6, {}, 100, 2, {0, 0}, {},
+                               alignments, vars, categories, profiles);
+    bool ok = check(vars.size() == 1 && vars[0].msa_insertion_alts ==
+                    std::vector<std::string>({"TTTTTT", "TTTTTTT"}),
+                    "two alternate insertions form one three-allele site");
+    if (!ok) return false;
+    const std::array<AlnStr, 2> consensuses = {six, seven};
+    add_msa_site_observations(opts,
+        {{0, {six, six}}, {1, {seven, seven}}, {2, {ref, ref}},
+         {3, {nine, nine}}, {4, {six, seven}}, {5, {eight, eight}}},
+        100, false, vars, profiles, &consensuses);
+    ok &= check(vars[0].counts.alle_covs == std::vector<int>({1, 1, 2}) &&
+                vars[0].counts.ref_cov == 1 && vars[0].counts.alt_cov == 3 &&
+                profiles[0].alleles == std::vector<int>({1}) &&
+                profiles[1].alleles == std::vector<int>({2}) &&
+                profiles[2].alleles == std::vector<int>({0}) &&
+                profiles[3].start_var_idx == -1 && profiles[4].start_var_idx == -1 &&
+                profiles[5].alleles == std::vector<int>({2}),
+                "insertion lengths retain distinct indices and unsupported lengths abstain");
+    chunk.candidates = vars;
+    auto& candidate = chunk.candidates[0];
+    candidate.gap_link_supported = true;
+    candidate.counts.alle_covs = {0, 3, 3};
+    candidate.counts.total_cov = 6;
+    candidate.hap_to_cons_alle = {-1, 2, 2};
+    opts.link_by_alleles = opts.private_msa_admit_all_in_region = true;
+    iter_update_var_hap_cons_phase_set(chunk, {0}, opts);
+    ok &= check(candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2] &&
+                candidate.hap_to_cons_alle[1] > 0 && candidate.hap_to_cons_alle[2] > 0,
+                "provisional labels cannot collapse a supported two-ALT genotype");
+    PhasingChunk phased;
+    phased.candidates = chunk.candidates;
+    phased.reads.resize(6); phased.read_var_profile.resize(6);
+    phased.read_var_cr.reset(cr_init());
+    for (int ri = 0; ri < 6; ++ri) {
+        auto& profile = phased.read_var_profile[ri];
+        profile.start_var_idx = profile.end_var_idx = 0;
+        profile.alleles = {ri < 3 ? 1 : 2}; profile.alt_qi = {-1};
+        cr_add(phased.read_var_cr.get(), "cr", 0, 1, ri);
+    }
+    cr_index(phased.read_var_cr.get());
+    assign_hap_based_on_germline_het_vars_kmeans(phased, opts, kCandGermlineVarCate);
+    ok &= check(phased.candidates[0].hap_to_cons_alle[1] != phased.candidates[0].hap_to_cons_alle[2] &&
+                phased.haps[0] != 0 && phased.haps[3] != 0 && phased.haps[0] != phased.haps[3],
+                "the full k-means pass keeps the two insertion lengths on opposite haplotypes");
+    char path[] = "/tmp/pgphase-multi-vcf-XXXXXX";
+    const int fd = mkstemp(path);
+    if (fd < 0) return check(false, "create multiallelic VCF reference fixture");
+    FILE* fasta = fdopen(fd, "w");
+    std::fputs(">chr1\nACGGTA\n", fasta);
+    std::fclose(fasta);
+    if (fai_build(path) != 0) return check(false, "index multiallelic VCF reference fixture");
+    {
+        std::unique_ptr<faidx_t, decltype(&fai_destroy)> fai(fai_load(path), fai_destroy);
+        const std::string header_text = "@SQ\tSN:chr1\tLN:6\n";
+        std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+            sam_hdr_parse(header_text.size(), header_text.c_str()), bam_hdr_destroy);
+        ReferenceCache reference(fai.get());
+        candidate.key.pos = 4;
+        candidate.phase_set = 3;
+        candidate.counts.ref_cov = 0; candidate.counts.alt_cov = 6;
+        opts.min_depth = opts.min_alt_depth = 1;
+        std::ostringstream output;
+        write_phased_variants_vcf_records(output, opts, header.get(), reference, chunk.candidates);
+        ok &= check(output.str().find("\tG\tGTTTTTT,GTTTTTTT\t") != std::string::npos &&
+                    output.str().find("\t1|2:6:0,3,3:0.5,0.5:0:3") != std::string::npos &&
+                    output.str().find(";AF=0.5,0.5;") != std::string::npos,
+                    "VCF preserves both ALT alleles, 1|2 genotype, allele depths and PS");
+    }
+    std::remove(path);
+    std::remove((std::string(path) + ".fai").c_str());
+    return ok;
+}
+
+static bool test_msa_insertion_pair_clean_anchor() {
+    bool ok = true;
+    // The first pattern separates the two alleles despite one weak row.
+    // The second is a homozygous insertion split by MSA length errors.
+    for (const auto& votes : {std::array<int, 4>{9, 8, 7, 15},
+                              std::array<int, 4>{6, 10, 8, 8}}) {
+        PhasingChunk chunk;
+        CandidateVariant anchor;
+        anchor.key.pos = 100; anchor.key.type = VariantType::Snp;
+        anchor.key.alt = "T"; anchor.key.ref_len = 1;
+        anchor.lcd_var_i_to_cate = kCandCleanHetSnp;
+        anchor.hap_to_cons_alle = {-1, 0, 1};
+        anchor.counts.alle_covs = {votes[0] + votes[1], votes[2] + votes[3]};
+        anchor.counts.total_cov = std::accumulate(votes.begin(), votes.end(), 0);
+        CandidateVariant insertion;
+        insertion.key.pos = 200; insertion.key.type = VariantType::Insertion;
+        insertion.key.alt = "TTTTTT";
+        insertion.msa_insertion_alts = {"TTTTTT", "TTTTTTT"};
+        insertion.lcd_var_i_to_cate = kCandNoisyCandHet;
+        insertion.counts.alle_covs = {0, votes[0] + votes[2], votes[1] + votes[3]};
+        insertion.counts.total_cov = anchor.counts.total_cov;
+        chunk.candidates = {anchor, insertion};
+        chunk.read_var_cr.reset(cr_init());
+        for (int cell = 0; cell < 4; ++cell) {
+            for (int n = 0; n < votes[cell]; ++n) {
+                const int ri = chunk.reads.size();
+                chunk.reads.emplace_back();
+                ReadVariantProfile profile;
+                profile.start_var_idx = 0; profile.end_var_idx = 1;
+                profile.alleles = {cell / 2, 1 + cell % 2};
+                profile.alt_qi = {-1, -1};
+                chunk.read_var_profile.push_back(profile);
+                cr_add(chunk.read_var_cr.get(), "cr", 0, 2, ri);
+            }
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.recover_gaps = opts.link_by_alleles = opts.private_msa_admit_all_in_region = true;
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+        ok &= check(chunk.candidates[1].gap_link_supported == (votes[0] == 9),
+                    "clean anchor separates a real insertion pair from MSA length noise");
+    }
+    return ok;
+}
+
 static bool test_deletion_reference_with_overlapping_snp() {
     VariantKey key;
     key.pos = 103; key.type = VariantType::Deletion; key.ref_len = 4;
@@ -1063,6 +1200,8 @@ static bool test_msa_supported_flank_variant() {
 
 int main() {
     int failures = 0;
+    failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
+    failures += test_msa_two_alternate_insertions() ? 0 : 1;
     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;
     failures += test_repeat_anchor_prefers_complete_evidence() ? 0 : 1;
     failures += test_unassigned_msa_local_allele_evidence() ? 0 : 1;

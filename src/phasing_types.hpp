@@ -565,6 +565,8 @@ struct VariantCounts {
 struct CandidateVariant {
     VariantKey key;
     VariantCounts counts;
+    // Alternate insertion sequences for one MSA site; index 0 remains genomic reference.
+    std::vector<std::string> msa_insertion_alts = {};
     uint8_t ref_base = 4;     // 0-3=ACGT, 4=unknown; SNPs only
     uint8_t alt_ref_base = 4; // INS/DEL anchor base: 0-3=ACGT consensus, 4=use ref, >3=gap (skip VCF)
     hts_pos_t phase_set = 0;
@@ -572,8 +574,8 @@ struct CandidateVariant {
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).
     bool is_homopolymer_indel = false;
-    // Recomputed before a gap fallback from allele/HP association within local blocks.
-    bool gap_hp_link_supported = false;
+    // Recomputed from clean-site evidence for gap repeat links and MSA allele pairs.
+    bool gap_link_supported = false;
     // True when the variant's VCF POS falls inside the chunk's active region.
     // Used during tiling-overlap dedup: prefer the copy that passes this gate.
     bool lcd_make_variants_region_pass = true;
