@@ -231,6 +231,9 @@ struct Options {
     // unresolved gap. Negative bounds disable the trial in ordinary rounds.
     hts_pos_t gap_hp_link_beg = -1;
     hts_pos_t gap_hp_link_end = -1;
+    // Internal bounds for non-repeat MSA sites admitted for one gap retry.
+    hts_pos_t gap_recovery_beg = -1;
+    hts_pos_t gap_recovery_end = -1;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
@@ -576,6 +579,8 @@ struct CandidateVariant {
     bool is_homopolymer_indel = false;
     // Recomputed from clean-site evidence for gap repeat links and MSA allele pairs.
     bool gap_link_supported = false;
+    // True when the site was independently recovered from an MSA consensus.
+    bool msa_verified = false;
     // True when the variant's VCF POS falls inside the chunk's active region.
     // Used during tiling-overlap dedup: prefer the copy that passes this gate.
     bool lcd_make_variants_region_pass = true;

@@ -1210,7 +1210,14 @@ static bool test_msa_snp_backfills_all_bam_reads() {
     CandidateVariant recovered = clean;
     recovered.key.pos = 200;
     recovered.lcd_var_i_to_cate = kCandNoisyCandHet;
-    chunk.candidates = {clean, recovered};
+    recovered.msa_verified = true;
+    CandidateVariant insertion;
+    insertion.key.pos = 150;
+    insertion.key.type = VariantType::Insertion;
+    insertion.key.alt = "G";
+    insertion.lcd_var_i_to_cate = kCandNoisyCandHet;
+    insertion.msa_verified = true;
+    chunk.candidates = {clean, insertion, recovered};
 
     auto read = min_read();
     read.mapq = 60;
@@ -1232,10 +1239,67 @@ static bool test_msa_snp_backfills_all_bam_reads() {
 
     Options opts;
     opts.min_bq = 10;
-    const int added = backfill_msa_snp_observations(chunk, opts, 150, 250);
-    return check(added == 1 && chunk.read_var_profile[0].end_var_idx == 1 &&
-                     chunk.read_var_profile[0].alleles[1] == 1,
-                 "MSA SNP observations are backfilled from overlapping BAM reads");
+    const int added = backfill_msa_observations(chunk, opts, 150, 250);
+    return check(added == 2 && chunk.read_var_profile[0].end_var_idx == 2 &&
+                     chunk.read_var_profile[0].alleles[1] == 0 &&
+                     chunk.read_var_profile[0].alleles[2] == 1,
+                 "MSA SNP and exact indel observations are backfilled from BAM reads");
+}
+
+static bool test_gap_bridge_uses_bam_confirmed_msa_insertion() {
+    PhasingChunk chunk;
+    for (int vi = 0; vi < 3; ++vi) {
+        CandidateVariant var;
+        var.key.pos = 100 + vi * 100;
+        var.key.type = VariantType::Snp;
+        var.key.ref_len = 1;
+        var.key.alt = "T";
+        var.ref_base = 0;
+        var.lcd_var_i_to_cate = kCandCleanHetSnp;
+        var.hap_to_cons_alle = {-1, 0, 1};
+        chunk.candidates.push_back(var);
+    }
+    auto& insertion = chunk.candidates[1];
+    insertion.key.type = VariantType::Insertion;
+    insertion.key.ref_len = 0;
+    insertion.key.alt = "G";
+    insertion.lcd_var_i_to_cate = kCandNoisyCandHet;
+    insertion.msa_verified = true;
+    insertion.gap_link_supported = true;
+
+    const std::vector<std::vector<int>> alleles = {
+        {0, 0, -1}, {1, 1, -1}, {-1, -1, 0}, {-1, -1, 1}, {-1, 0, 1}};
+    chunk.read_var_cr.reset(cr_init());
+    for (size_t ri = 0; ri < alleles.size(); ++ri) {
+        auto read = min_read();
+        read.mapq = 60;
+        if (ri == alleles.size() - 1) {
+            read.alignment.reset(bam_init1());
+            std::string sequence(102, 'A');
+            sequence.back() = 'T';
+            const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
+            bam_set1(read.alignment.get(), 7, "msaedge", 0, 0, 198, 60, 1, &cigar,
+                     -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
+            std::fill(bam_get_qual(read.alignment.get()),
+                      bam_get_qual(read.alignment.get()) + sequence.size(), 40);
+        }
+        chunk.reads.push_back(std::move(read));
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 2;
+        profile.alleles = alleles[ri];
+        profile.alt_qi.assign(3, -1);
+        chunk.read_var_profile.push_back(std::move(profile));
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 3, ri);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts;
+    opts.link_by_alleles = opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
+    opts.min_block_link_reads = 2;
+    opts.block_link_window = 8;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    return check(chunk.candidates[0].phase_set == chunk.candidates[2].phase_set,
+                 "a BAM-confirmed MSA insertion can bridge established phase components");
 }
 
 static bool test_gap_clean_block_bridge() {
@@ -1335,6 +1399,7 @@ static bool test_read_hp_matches_reported_phase_set() {
 int main() {
     int failures = 0;
     failures += test_msa_snp_backfills_all_bam_reads() ? 0 : 1;
+    failures += test_gap_bridge_uses_bam_confirmed_msa_insertion() ? 0 : 1;
     failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
     failures += test_gap_clean_block_bridge() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;

@@ -1094,6 +1094,8 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
         window.end = std::min(gap.region_end, gap.right_beg + kGapRecoveryFlank);
         window.chunk_id = static_cast<int>(gi);
         Options local_opts = opts;
+        local_opts.gap_recovery_beg = gap.left_end;
+        local_opts.gap_recovery_end = gap.right_beg;
         if (!opts.phase_matrix_dump_prefix.empty())
             local_opts.phase_matrix_dump_prefix = opts.phase_matrix_dump_prefix + ".tid" + std::to_string(gap.tid) + ".gap" + std::to_string(gi);
         std::vector<PhasingChunk> local;

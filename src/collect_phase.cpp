@@ -510,6 +510,47 @@ static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
     return false;
 }
 
+static bool msa_indel_has_confident_bam_observation(const ReadRecord& read,
+                                                     const CandidateVariant& var, int allele) {
+    constexpr int kGapBridgeMinBaseQuality = 30;
+    if (!read.alignment || !var.msa_verified || var.is_homopolymer_indel ||
+        var.key.type != VariantType::Insertion || var.key.alt.empty() ||
+        (allele != 0 && allele != 1)) return false;
+    const bam1_t* bam = read.alignment.get();
+    const auto* cigar = bam_get_cigar(bam);
+    hts_pos_t ref_pos = bam->core.pos + 1;
+    int query_pos = 0;
+    bool left_anchor = false, right_anchor = false;
+    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+        const int op = bam_cigar_op(cigar[ci]), len = bam_cigar_oplen(cigar[ci]);
+        const int consumption = bam_cigar_type(op);
+        if ((consumption & 3) == 3) {
+            const hts_pos_t end = ref_pos + len;
+            const auto confident_at = [&](hts_pos_t pos) {
+                if (pos < ref_pos || pos >= end) return false;
+                const int quality = bam_get_qual(bam)[query_pos + pos - ref_pos];
+                return quality != 255 && quality >= kGapBridgeMinBaseQuality;
+            };
+            left_anchor |= confident_at(var.key.pos - 1);
+            right_anchor |= confident_at(var.key.pos);
+        }
+        if (op == BAM_CINS && ref_pos == var.key.pos) {
+            if (allele != 1 || len != static_cast<int>(var.key.alt.size())) return false;
+            for (int j = 0; j < len; ++j) {
+                const int quality = bam_get_qual(bam)[query_pos + j];
+                const int expected = seq_nt16_table[static_cast<unsigned char>(var.key.alt[j])];
+                if (quality == 255 || quality < kGapBridgeMinBaseQuality ||
+                    bam_seqi(bam_get_seq(bam), query_pos + j) != expected) return false;
+            }
+            return left_anchor;
+        }
+        if (op == BAM_CINS && ref_pos == var.key.pos) return false;
+        if (consumption & 1) query_pos += len;
+        if (consumption & 2) ref_pos += len;
+    }
+    return allele == 0 && left_anchor && right_anchor;
+}
+
 // Phase-set assignment + flip for one k-means iteration.
 // Returns 1 if any flip occurred (changed), 0 if converged.
 // Iter_update_var_hap_cons_phase_set.
@@ -700,16 +741,24 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             for (int hi = 0; hi < n_het; ++hi) {
                 const int vi = valid_var_idx[het_var_idx[hi]];
                 const auto& var = chunk.candidates[vi];
+                const bool clean_snp = var.key.type == VariantType::Snp &&
+                                       var.lcd_var_i_to_cate == kCandCleanHetSnp;
+                const bool recovered_indel = var.gap_link_supported && var.msa_verified &&
+                                             !var.is_homopolymer_indel &&
+                                             var.key.type != VariantType::Snp;
                 if (vi < profile.start_var_idx || vi > profile.end_var_idx ||
-                    var.key.type != VariantType::Snp || var.lcd_var_i_to_cate != kCandCleanHetSnp ||
-                    variant_allele_slots(var) != 2) continue;
+                    (!clean_snp && !recovered_indel) || variant_allele_slots(var) != 2) continue;
                 const int allele = profile.alleles[vi - profile.start_var_idx];
                 if (allele < 0) continue;
+                const bool confident = clean_snp
+                    ? clean_snp_has_confident_bam_observation(read, var, allele)
+                    : msa_indel_has_confident_bam_observation(read, var, allele);
+                if (recovered_indel && !confident) continue;
                 const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
                                 allele == var.hap_to_cons_alle[2] ? 1 : -1;
                 if (hap >= 0) {
                     ++observations[component[hi]][hap ^ orientation[hi]];
-                    confident_base[component[hi]] |= clean_snp_has_confident_bam_observation(read, var, allele);
+                    confident_base[component[hi]] |= confident;
                 }
             }
             struct Anchor { int block, hap; bool strong; };
@@ -906,9 +955,18 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
         auto& var = chunk.candidates[vi];
         const bool multi = !var.msa_insertion_alts.empty();
         var.gap_link_supported = multi;
-        if (!multi && (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet ||
-            opts.gap_hp_link_beg < 0 || var.key.sort_pos() < opts.gap_hp_link_beg ||
-            var.key.sort_pos() > opts.gap_hp_link_end)) continue;
+        const bool in_gap = opts.gap_recovery_beg >= 0 &&
+                            var.key.sort_pos() >= opts.gap_recovery_beg &&
+                            var.key.sort_pos() <= opts.gap_recovery_end;
+        const bool in_hp_gap = opts.gap_hp_link_beg >= 0 &&
+                               var.key.sort_pos() >= opts.gap_hp_link_beg &&
+                               var.key.sort_pos() <= opts.gap_hp_link_end;
+        const bool verified_indel = var.msa_verified && !var.is_homopolymer_indel &&
+                                    var.key.type != VariantType::Snp &&
+                                    var.lcd_var_i_to_cate == kCandNoisyCandHet && in_gap;
+        if (!multi && !verified_indel &&
+            (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet || !in_hp_gap))
+            continue;
         std::map<hts_pos_t, std::array<int, 4>> votes;
         const int64_t n = cr_overlap(chunk.read_var_cr.get(), "cr", vi, vi + 1, &overlaps, &capacity);
         for (int64_t oi = 0; oi < n; ++oi) {

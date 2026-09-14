@@ -5793,3 +5793,36 @@ count increase. Additional previously untagged reads expose a few isolated
 read-level discordances in other windows, without a block-orientation error.
 Results are archived under
 `evaluations/2026-09-13-panel-gap-audit/chr20_msa_snp_backfill/`.
+
+### Backfill exact MSA indels only inside the active gap
+
+The chr20 37,984,529-38,008,026 target had a complete but previously unusable
+evidence chain. MSA insertion 37,984,530 was attached to the left block, MSA
+SNP 38,005,401 was attached to the right block, and one MAPQ60 read crossed
+the insertion and the right clean endpoint with Q35-Q40 bases. Its insertion
+allele remained missing because BAM backfill handled only SNPs. Consequently
+the ordinary recovery component graph never saw the crossing edge.
+
+MSA candidates now retain explicit provenance. Missing observations for
+biallelic, non-homopolymer MSA insertions and deletions are filled only when an
+alignment's CIGAR exactly matches the candidate allele and the relevant bases
+or indel anchors pass the configured quality floor. A recovered insertion can
+act as a single-read block anchor only after multi-read evidence has associated
+it with an established clean block, and the crossing read's CIGAR observation
+is independently rechecked at Q30. Homopolymer indels keep their existing
+tier-4 path.
+
+The first whole-panel trial also backfilled MSA sites in the 10 kb flanks. An
+insertion beyond the 62,432,427 right endpoint changed the later homopolymer
+retry and lost that accepted join. Backfill and recovered-indel anchors are
+therefore restricted to the actual unresolved phase gap, while MSA discovery
+still uses the flanks for context. This preserves the 62.4 Mb join and closes
+37.98 Mb as one local block. Read truth changes from 456 reads / one discordant
+to 474 / four discordant, with no original-block majority reversal and no
+variant Hamming-count increase.
+
+The complete 114-window replay is **92 joined / 22 split**, retaining all 91
+previous joins and adding only 37.98 Mb. The WhatsHap audit reports no Hamming
+count increase in any window. Results are archived under
+`evaluations/2026-09-13-panel-gap-audit/chr20_msa_indel_scoped/`. These are
+overlapping local-window results, not a whole-chromosome NGC50 measurement.

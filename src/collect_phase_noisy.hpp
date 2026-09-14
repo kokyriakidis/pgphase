@@ -35,9 +35,9 @@ void add_msa_site_observations(const Options& opts,
                                 std::vector<ReadVariantProfile>& profiles,
                                 const std::array<AlnStr, 2>* consensuses = nullptr);
 
-/// Fill missing observations at admitted MSA SNPs from every overlapping BAM read.
-int backfill_msa_snp_observations(PhasingChunk& chunk, const Options& opts,
-                                  hts_pos_t beg, hts_pos_t end);
+/// Fill missing observations at admitted MSA sites from every overlapping BAM read.
+int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
+                              hts_pos_t beg, hts_pos_t end);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Step 4 top-level entry

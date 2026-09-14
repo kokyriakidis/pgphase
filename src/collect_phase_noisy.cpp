@@ -202,6 +202,7 @@ CandidateVariant make_noisy_candidate(const PhasingChunk& chunk,
     // SNP path does not use alt_ref_base (filled separately).
     var.alt_ref_base = type == VariantType::Snp ? static_cast<uint8_t>(4) : alt_ref_base;
     var.is_homopolymer_indel = is_homopolymer_indel;
+    var.msa_verified = true;
     var.counts.n_uniq_alles = 2;
     var.counts.alle_covs.assign(2, 0);
     var.counts.category = VariantCategory::NoisyCandHom;
@@ -727,13 +728,88 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
 
 } // namespace
 
-int backfill_msa_snp_observations(PhasingChunk& chunk, const Options& opts,
-                                  hts_pos_t beg, hts_pos_t end) {
+static bool bam_aligned_base_quality(const bam1_t* bam, hts_pos_t target, int min_bq,
+                                     int* query_index = nullptr) {
+    const auto* cigar = bam_get_cigar(bam);
+    hts_pos_t ref_pos = bam->core.pos + 1;
+    int query_pos = 0;
+    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+        const int len = bam_cigar_oplen(cigar[ci]);
+        const int consumption = bam_cigar_type(bam_cigar_op(cigar[ci]));
+        if ((consumption & 3) == 3 && target >= ref_pos && target < ref_pos + len) {
+            const int qi = query_pos + static_cast<int>(target - ref_pos);
+            const int quality = bam_get_qual(bam)[qi];
+            if (quality == 255 || quality < min_bq) return false;
+            if (query_index != nullptr) *query_index = qi;
+            return true;
+        }
+        if (consumption & 1) query_pos += len;
+        if (consumption & 2) ref_pos += len;
+    }
+    return false;
+}
+
+static int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
+                                  int min_bq, int* alt_qi) {
+    const auto* cigar = bam_get_cigar(bam);
+    hts_pos_t ref_pos = bam->core.pos + 1;
+    int query_pos = 0;
+    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+        const int op = bam_cigar_op(cigar[ci]);
+        const int len = bam_cigar_oplen(cigar[ci]);
+        if (var.key.type == VariantType::Insertion && op == BAM_CINS && ref_pos == var.key.pos) {
+            if (len != static_cast<int>(var.key.alt.size())) return -1;
+            for (int j = 0; j < len; ++j) {
+                const int quality = bam_get_qual(bam)[query_pos + j];
+                const int expected = seq_nt16_table[static_cast<unsigned char>(var.key.alt[j])];
+                if (quality == 255 || quality < min_bq ||
+                    bam_seqi(bam_get_seq(bam), query_pos + j) != expected) return -1;
+            }
+            *alt_qi = query_pos;
+            return 1;
+        }
+        if (var.key.type == VariantType::Deletion && op == BAM_CDEL && ref_pos == var.key.pos) {
+            if (len != var.key.ref_len ||
+                !bam_aligned_base_quality(bam, var.key.pos - 1, min_bq) ||
+                !bam_aligned_base_quality(bam, var.key.pos + var.key.ref_len, min_bq)) return -1;
+            *alt_qi = query_pos;
+            return 1;
+        }
+        if (op == BAM_CINS && ref_pos == var.key.pos) return -1;
+        if (op == BAM_CDEL && ref_pos < var.key.pos + std::max(1, var.key.ref_len) &&
+            ref_pos + len > var.key.pos) return -1;
+        const int consumption = bam_cigar_type(op);
+        if (consumption & 1) query_pos += len;
+        if (consumption & 2) ref_pos += len;
+    }
+    if (var.key.type == VariantType::Insertion) {
+        int qi = -1;
+        if (!bam_aligned_base_quality(bam, var.key.pos - 1, min_bq) ||
+            !bam_aligned_base_quality(bam, var.key.pos, min_bq, &qi)) return -1;
+        *alt_qi = qi;
+        return 0;
+    }
+    int qi = -1;
+    for (hts_pos_t pos = var.key.pos; pos < var.key.pos + var.key.ref_len; ++pos)
+        if (!bam_aligned_base_quality(bam, pos, min_bq, &qi)) return -1;
+    if (!bam_aligned_base_quality(bam, var.key.pos - 1, min_bq) ||
+        !bam_aligned_base_quality(bam, var.key.pos + var.key.ref_len, min_bq)) return -1;
+    *alt_qi = qi;
+    return 0;
+}
+
+int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
+                              hts_pos_t beg, hts_pos_t end) {
     std::vector<int> sites;
     for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
         const auto& var = chunk.candidates[vi];
-        if (var.key.pos >= beg && var.key.pos <= end && var.key.type == VariantType::Snp &&
-            var.key.ref_len == 1 && var.key.alt.size() == 1 && var.ref_base <= 3 &&
+        const bool supported_snp = var.key.type == VariantType::Snp && var.key.ref_len == 1 &&
+                                   var.key.alt.size() == 1 && var.ref_base <= 3;
+        const bool supported_indel = var.key.type != VariantType::Snp &&
+                                     var.msa_insertion_alts.empty() &&
+                                     !var.is_homopolymer_indel;
+        if (var.key.pos >= beg && var.key.pos <= end && var.msa_verified &&
+            (supported_snp || supported_indel) &&
             var.lcd_var_i_to_cate == kCandNoisyCandHet)
             sites.push_back(static_cast<int>(vi));
     }
@@ -757,6 +833,7 @@ int backfill_msa_snp_observations(PhasingChunk& chunk, const Options& opts,
                     auto& profile = chunk.read_var_profile[read_i];
                     if (vi >= profile.start_var_idx && vi <= profile.end_var_idx &&
                         profile.alleles[static_cast<size_t>(vi - profile.start_var_idx)] != -1) continue;
+                    if (var.key.type != VariantType::Snp) continue;
                     const int qi = query_pos + static_cast<int>(var.key.pos - ref_pos);
                     const int quality = bam_get_qual(bam)[qi];
                     if (quality == 255 || quality < opts.min_bq) continue;
@@ -771,6 +848,18 @@ int backfill_msa_snp_observations(PhasingChunk& chunk, const Options& opts,
             }
             if (consumption & 1) query_pos += len;
             if (consumption & 2) ref_pos += len;
+        }
+        for (const int vi : sites) {
+            const auto& var = chunk.candidates[static_cast<size_t>(vi)];
+            if (var.key.type == VariantType::Snp) continue;
+            auto& profile = chunk.read_var_profile[read_i];
+            if (vi >= profile.start_var_idx && vi <= profile.end_var_idx &&
+                profile.alleles[static_cast<size_t>(vi - profile.start_var_idx)] != -1) continue;
+            int qi = -1;
+            const int allele = bam_exact_indel_allele(bam, var, opts.min_bq, &qi);
+            if (allele < 0) continue;
+            update_read_var_profile_with_allele(vi, allele, qi, profile);
+            ++added;
         }
     }
     if (added == 0) return 0;

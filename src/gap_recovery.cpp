@@ -334,8 +334,14 @@ void run_gap_msa_tier(PhasingChunk& chunk, const Options& opts,
             const auto& reg = chunk.noisy_regions[index];
             if (done[index] || reg.end < beg || reg.beg > end) continue;
             const int admitted = collect_noisy_vars1(chunk, msa_opts, index, nullptr, snp_only);
-            if (admitted > 0)
-                backfill_msa_snp_observations(chunk, msa_opts, reg.beg, reg.end);
+            if (admitted > 0) {
+                const hts_pos_t backfill_beg = msa_opts.gap_recovery_beg >= 0
+                    ? std::max(reg.beg, msa_opts.gap_recovery_beg) : reg.beg;
+                const hts_pos_t backfill_end = msa_opts.gap_recovery_end >= 0
+                    ? std::min(reg.end, msa_opts.gap_recovery_end) : reg.end;
+                if (backfill_beg <= backfill_end)
+                    backfill_msa_observations(chunk, msa_opts, backfill_beg, backfill_end);
+            }
             if (admitted >= 0) done[index] = true;
             new_sites |= admitted > 0;
         }
