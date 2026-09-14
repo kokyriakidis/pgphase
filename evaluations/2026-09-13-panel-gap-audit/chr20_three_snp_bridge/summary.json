@@ -1,0 +1,23 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 94,
+    "split -> split": 20
+  },
+  "original_reads_preserved": 37278,
+  "added_tagged_reads": 1576,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_37984529_38008026",
+    "chr20_46727050_46747637",
+    "chr20_47019175_47026671",
+    "chr20_54675445_54702072",
+    "chr20_54976339_54988434",
+    "chr20_57087239_57119478",
+    "chr20_36032227_36056601",
+    "chr20_47002481_47026671",
+    "chr20_54976282_54993445",
+    "chr20_61732321_61782778"
+  ],
+  "majority_reversed_original_blocks": []
+}

@@ -483,9 +483,9 @@ static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, 
     return (h1 == h2) ? 1 : 0;
 }
 
-static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
-                                                    const CandidateVariant& var, int allele) {
-    constexpr int kGapBridgeMinBaseQuality = 30;
+static bool clean_snp_has_bam_observation(const ReadRecord& read,
+                                          const CandidateVariant& var, int allele,
+                                          int min_base_quality) {
     if (!read.alignment || var.key.ref_len != 1 || var.key.alt.size() != 1 ||
         var.ref_base > 3 || (allele != 0 && allele != 1)) return false;
     const bam1_t* bam = read.alignment.get();
@@ -501,7 +501,7 @@ static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
             const int quality = bam_get_qual(bam)[qi];
             const int expected = allele == 0 ? 1 << var.ref_base :
                 seq_nt16_table[static_cast<unsigned char>(var.key.alt[0])];
-            return quality != 255 && quality >= kGapBridgeMinBaseQuality &&
+            return quality != 255 && quality >= min_base_quality &&
                    bam_seqi(bam_get_seq(bam), qi) == expected;
         }
         if (consumption & 1) query_pos += len;
@@ -778,6 +778,8 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         // clean SNPs even when no individual SNP pair has two spanning reads.
         // Evaluate those observations in the components' resolved orientations.
         constexpr int kGapBridgeMinMapq = 30;
+        constexpr int kGapBridgeMinBaseQuality = 30;
+        constexpr int kGapBridgeModerateBaseQuality = 20;
         constexpr int kGapBridgeMinAnchorSnps = 2;
         std::vector<int> component(n_het), orientation(n_het);
         for (int hi = 0; hi < n_het; ++hi) {
@@ -793,6 +795,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             const auto& profile = chunk.read_var_profile[ri];
             std::map<int, std::array<int, 2>> observations;
             std::map<int, bool> confident_base;
+            std::map<int, int> clean_snp_observations, moderate_clean_snp_observations;
             for (int hi = 0; hi < n_het; ++hi) {
                 const int vi = valid_var_idx[het_var_idx[hi]];
                 const auto& var = chunk.candidates[vi];
@@ -806,7 +809,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 const int allele = profile.alleles[vi - profile.start_var_idx];
                 if (allele < 0) continue;
                 const bool confident = clean_snp
-                    ? clean_snp_has_confident_bam_observation(read, var, allele)
+                    ? clean_snp_has_bam_observation(read, var, allele, kGapBridgeMinBaseQuality)
                     : msa_indel_has_confident_bam_observation(chunk, read, var, allele);
                 if (recovered_indel && !confident) continue;
                 const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
@@ -814,13 +817,23 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 if (hap >= 0) {
                     ++observations[component[hi]][hap ^ orientation[hi]];
                     confident_base[component[hi]] |= confident;
+                    if (clean_snp) {
+                        ++clean_snp_observations[component[hi]];
+                        if (clean_snp_has_bam_observation(
+                                read, var, allele, kGapBridgeModerateBaseQuality))
+                            ++moderate_clean_snp_observations[component[hi]];
+                    }
                 }
             }
-            struct Anchor { int block, hap; bool strong; };
+            struct Anchor {
+                int block, hap, clean_snps, moderate_clean_snps;
+                bool strong;
+            };
             std::vector<Anchor> anchors;
             for (const auto& [block, counts] : observations) {
                 if (std::min(counts[0], counts[1]) != 0) continue;
                 anchors.push_back({block, counts[1] > counts[0],
+                    clean_snp_observations[block], moderate_clean_snp_observations[block],
                     std::max(counts[0], counts[1]) >= kGapBridgeMinAnchorSnps || confident_base[block]});
             }
             for (size_t i = 0; i < anchors.size(); ++i) {
@@ -828,7 +841,13 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                     auto& votes = block_votes[{anchors[i].block, anchors[j].block}];
                     const int direction = anchors[i].hap ^ anchors[j].hap;
                     ++votes.all[direction];
-                    if (anchors[i].strong && anchors[j].strong) ++votes.strong[direction];
+                    const int clean_snps = anchors[i].clean_snps + anchors[j].clean_snps;
+                    const bool moderate_three_snp_bridge = clean_snps >= 3 &&
+                        anchors[i].clean_snps > 0 && anchors[j].clean_snps > 0 &&
+                        anchors[i].moderate_clean_snps == anchors[i].clean_snps &&
+                        anchors[j].moderate_clean_snps == anchors[j].clean_snps;
+                    if ((anchors[i].strong && anchors[j].strong) || moderate_three_snp_bridge)
+                        ++votes.strong[direction];
                 }
             }
         }

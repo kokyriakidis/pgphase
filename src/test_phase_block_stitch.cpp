@@ -1315,7 +1315,7 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
 
 static bool test_gap_clean_block_bridge() {
     bool ok = true;
-    for (int mode = 0; mode < 6; ++mode) {
+    for (int mode = 0; mode < 8; ++mode) {
         PhasingChunk chunk;
         for (int vi = 0; vi < 4; ++vi) {
             CandidateVariant var;
@@ -1331,6 +1331,7 @@ static bool test_gap_clean_block_bridge() {
             {0, 0, -1, -1}, {1, 1, -1, -1},
             {-1, -1, 0, 0}, {-1, -1, 1, 1}, {0, 0, 1, 1}};
         if (mode == 1 || mode >= 4) alleles.back() = {0, -1, 1, -1};
+        if (mode == 6 || mode == 7) alleles.back() = {0, -1, 1, 1};
         if (mode == 2) alleles.push_back({0, -1, 0, -1});
         chunk.read_var_cr.reset(cr_init());
         for (size_t ri = 0; ri < alleles.size(); ++ri) {
@@ -1343,8 +1344,9 @@ static bool test_gap_clean_block_bridge() {
                 const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
                 bam_set1(read.alignment.get(), 6, "bridge", 0, 0, 99, 60, 1, &cigar,
                          -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
+                const int quality = mode == 4 ? 40 : mode == 6 ? 22 : 10;
                 std::fill(bam_get_qual(read.alignment.get()),
-                          bam_get_qual(read.alignment.get()) + sequence.size(), mode == 4 ? 40 : 10);
+                          bam_get_qual(read.alignment.get()) + sequence.size(), quality);
             }
             chunk.reads.push_back(std::move(read));
             ReadVariantProfile profile;
@@ -1359,7 +1361,7 @@ static bool test_gap_clean_block_bridge() {
         opts.min_block_link_reads = 2; opts.block_link_window = 8;
         iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts);
         const bool joined = chunk.candidates[0].phase_set == chunk.candidates[3].phase_set;
-        ok &= check(joined == (mode == 0 || mode == 4),
+        ok &= check(joined == (mode == 0 || mode == 4 || mode == 6),
                     "block bridge requires reliable flank observations, mapping confidence, and no opposing read");
         if (joined) {
             ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],

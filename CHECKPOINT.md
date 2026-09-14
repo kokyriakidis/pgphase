@@ -5851,3 +5851,30 @@ case increases read discordance or switch/flips relative to the prior panel,
 and the 114-window WhatsHap audit has no Hamming-count increase. Results are
 archived under
 `evaluations/2026-09-13-panel-gap-audit/chr20_shifted_insertion/`.
+
+### Admit coherent moderate-quality three-SNP block bridges
+
+The chr20 23,460,963-23,481,134 target remained split because its only
+crossing primary MAPQ60 read had a Q22 clean SNP on the left and two clean
+SNPs on the right. All three observations support the same block orientation,
+but the recovery graph required each single-read clean-SNP anchor to pass
+base Q30. This discarded the complete multi-site signal because one component
+had only the Q22 observation.
+
+A single recovery read may now link two established components when it carries
+at least three clean SNP observations in total, has at least one observation
+in each component, and every observation is independently confirmed from its
+primary BAM alignment at base Q20 or higher. MAPQ30 remains required. The
+existing opposing-read veto remains in force, while the ordinary two-SNP
+single-read bridge continues to require base Q30 on both sides. A unit test
+checks that the three-SNP Q22 pattern joins and the same pattern at Q10 does
+not.
+
+The target becomes one local block with 206/206 truth-labelled reads
+concordant and no switch/flip errors. The complete 114-window chr20 replay is
+**94 joined / 20 split**: 23.46 Mb is the only target changed from the prior
+accepted panel, no original block majority reverses, and the WhatsHap audit
+reports no Hamming-count increase in any window. Results are archived under
+`evaluations/2026-09-13-panel-gap-audit/chr20_three_snp_bridge/`. These remain
+overlapping local-window results rather than a whole-chromosome NGC50
+measurement.
