@@ -1072,7 +1072,7 @@ static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
 static constexpr hts_pos_t kGapRecoveryFlank = 50000;
 static constexpr hts_pos_t kGapRecoveryMsaFlank = 5000;
 static constexpr hts_pos_t kGapRecoveryMaxMsaSpan = 250000;
-static constexpr uint32_t kGapEvidenceCacheVersion = 2;
+static constexpr uint32_t kGapEvidenceCacheVersion = 4;
 static constexpr char kGapEvidenceCacheMagic[] = "PGGAPEV";
 
 static void gap_cache_hash_bytes(uint64_t& hash, const void* data, size_t size) {

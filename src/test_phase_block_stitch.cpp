@@ -1345,7 +1345,7 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
 
 static bool test_gap_clean_block_bridge() {
     bool ok = true;
-    for (int mode = 0; mode < 8; ++mode) {
+    for (int mode = 0; mode < 10; ++mode) {
         PhasingChunk chunk;
         for (int vi = 0; vi < 4; ++vi) {
             CandidateVariant var;
@@ -1382,6 +1382,11 @@ static bool test_gap_clean_block_bridge() {
             ReadVariantProfile profile;
             profile.start_var_idx = 0; profile.end_var_idx = 3;
             profile.alleles = alleles[ri];
+            profile.alt_qi.assign(4, -1);
+            if (ri == 4 && (mode == 8 || mode == 9)) {
+                profile.alt_qi[0] = kGraphConfirmedAltQi;
+                if (mode == 8) profile.alt_qi[2] = kGraphConfirmedAltQi;
+            }
             chunk.read_var_profile.push_back(profile);
             cr_add(chunk.read_var_cr.get(), "cr", 0, 4, ri);
         }
@@ -1391,8 +1396,11 @@ static bool test_gap_clean_block_bridge() {
         opts.min_block_link_reads = 2; opts.block_link_window = 8;
         iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts);
         const bool joined = chunk.candidates[0].phase_set == chunk.candidates[3].phase_set;
-        ok &= check(joined == (mode == 0 || mode == 4),
-                    "singleton block bridge requires Q30 clean SNPs on both flanks, mapping confidence, and no opposing read");
+        const std::string bridge_message =
+            "singleton block bridge requires strong clean SNPs or graph confirmation on both flanks (mode " +
+            std::to_string(mode) + ")";
+        ok &= check(joined == (mode == 0 || mode == 4 || mode == 8),
+                    bridge_message.c_str());
         if (joined) {
             ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],
                         "block bridge composes the supported opposite orientation");

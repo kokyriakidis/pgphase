@@ -605,6 +605,9 @@ using CandidateTable = std::vector<CandidateVariant>;
 // Per-read allele observations across a contiguous range of candidates.
 // alleles[i] corresponds to candidate start_var_idx + i.
 // Values: 0=reference, 1=alternate, -1=non-informative, -2=low-quality alt.
+// alt_qi normally stores a nonnegative BAM query index.  This sentinel records
+// an allele independently confirmed by the same read's graph walk.
+constexpr int kGraphConfirmedAltQi = -2;
 struct ReadVariantProfile {
     int read_id = -1;
     int start_var_idx = -1;

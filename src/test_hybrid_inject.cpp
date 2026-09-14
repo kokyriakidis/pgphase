@@ -69,6 +69,45 @@ int main() {
                     "graph SNPs cannot fill explicit BAM deletions or reference skips");
     }
 
+    {
+        PhasingChunk c;
+        c.region.tid = 0;
+        c.candidates.push_back(make_graph_snp(100, 5, 5));
+        c.reads.resize(3);
+        c.read_var_profile.resize(3);
+        for (int i = 0; i < 3; ++i) {
+            c.reads[i].qname = "shared_" + std::to_string(i);
+            c.reads[i].beg = 90;
+            c.reads[i].end = 110;
+            c.read_var_profile[i].read_id = i;
+            c.read_var_profile[i].start_var_idx = 0;
+            c.read_var_profile[i].end_var_idx = 0;
+            c.read_var_profile[i].alleles = {i == 1 ? 0 : -2};
+            c.read_var_profile[i].alt_qi = {i == 1 ? 8 : 12};
+        }
+        std::vector<GraphReadAllele> rows(3);
+        for (int i = 0; i < 3; ++i) {
+            rows[i].site_id = "shared";
+            rows[i].read_name = c.reads[i].qname;
+            rows[i].allele = i == 2 ? 2 : 1;
+            rows[i].mapq = 60;
+        }
+        Options opts;
+        int extended = 0;
+        inject_graph_reads(c, rows, {{"shared", 0}}, {}, opts, &extended);
+        ok &= check(extended == 1 && c.read_var_profile[0].alleles[0] == 1 &&
+                        c.read_var_profile[0].alt_qi[0] == kGraphConfirmedAltQi,
+                    "an exact GAF allele confirms a low-quality BAM observation");
+        ok &= check(c.read_var_profile[1].alleles[0] == 0 &&
+                        c.read_var_profile[1].alt_qi[0] == 8,
+                    "a disagreeing GAF allele does not overwrite an informative BAM observation");
+        ok &= check(c.read_var_profile[2].alleles[0] == -2 &&
+                        c.read_var_profile[2].alt_qi[0] == 12,
+                    "a different graph ALT does not confirm the first ALT candidate");
+        ok &= check(c.candidates[0].counts.total_cov == 10,
+                    "shared-site confirmation does not double-count read depth");
+    }
+
     // ── vcf_to_variant_key: deletion / insertion normalization ───────────────
     // Deletions must strip the full shared prefix to match the BAM convention
     // (variant_key_from_digar): alt = "", ref_len = deleted span, pos = first
@@ -82,6 +121,16 @@ int main() {
         ok &= check(snp.type == VariantType::Snp && snp.pos == 100 &&
                         snp.ref_len == 1 && snp.alt == "T",
                     "SNP G->T maps to pos=100 ref_len=1 alt=T");
+
+        VariantKey padded_snp = vcf_to_variant_key(0, 100, "CG", "TG");
+        ok &= check(padded_snp.type == VariantType::Snp && padded_snp.pos == 100 &&
+                        padded_snp.ref_len == 1 && padded_snp.alt == "T",
+                    "padded SNP CG->TG trims its common suffix");
+
+        VariantKey flanked_snp = vcf_to_variant_key(0, 100, "ACG", "ATG");
+        ok &= check(flanked_snp.type == VariantType::Snp && flanked_snp.pos == 101 &&
+                        flanked_snp.ref_len == 1 && flanked_snp.alt == "T",
+                    "flanked SNP ACG->ATG trims its common prefix and suffix");
 
         // Single-base-anchor deletion: TA->T at pos 100 is a 1 bp deletion.
         VariantKey del1 = vcf_to_variant_key(0, 100, "TA", "T");

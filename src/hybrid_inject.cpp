@@ -123,11 +123,24 @@ VariantKey vcf_to_variant_key(int tid, hts_pos_t vcf_pos,
                               const std::string& vcf_alt) {
     VariantKey key;
     key.tid = tid;
-    if (vcf_ref.size() == 1 && vcf_alt.size() == 1) {
+    size_t substitution_prefix = 0;
+    size_t substitution_suffix = 0;
+    if (vcf_ref.size() == vcf_alt.size()) {
+        while (substitution_prefix < vcf_ref.size() &&
+               vcf_ref[substitution_prefix] == vcf_alt[substitution_prefix])
+            ++substitution_prefix;
+        while (substitution_suffix + substitution_prefix < vcf_ref.size() &&
+               vcf_ref[vcf_ref.size() - substitution_suffix - 1] ==
+                   vcf_alt[vcf_alt.size() - substitution_suffix - 1])
+            ++substitution_suffix;
+    }
+    const size_t substitution_size =
+        vcf_ref.size() - substitution_prefix - substitution_suffix;
+    if (vcf_ref.size() == vcf_alt.size() && substitution_size == 1) {
         key.type = VariantType::Snp;
-        key.pos = vcf_pos;
+        key.pos = vcf_pos + static_cast<hts_pos_t>(substitution_prefix);
         key.ref_len = 1;
-        key.alt = vcf_alt;
+        key.alt = vcf_alt.substr(substitution_prefix, 1);
     } else if (vcf_alt.size() > vcf_ref.size()) {
         // Strip the full shared prefix, mirroring the deletion branch and the
         // BAM convention (variant_key_from_digar: ref_len=0, alt=inserted
@@ -223,8 +236,9 @@ static int add_graph_only_candidate(PhasingChunk& chunk,
     const int idx = static_cast<int>(chunk.candidates.size());
     CandidateVariant cand;
     cand.key = vcf_to_variant_key(tid, site.pos, site.ref, vcf_alt);
-    if (cand.key.type == VariantType::Snp && site.ref.size() == 1) {
-        switch (site.ref[0]) {
+    if (cand.key.type == VariantType::Snp && cand.key.pos >= site.pos &&
+        static_cast<size_t>(cand.key.pos - site.pos) < site.ref.size()) {
+        switch (site.ref[static_cast<size_t>(cand.key.pos - site.pos)]) {
             case 'A': case 'a': cand.ref_base = 0; break;
             case 'C': case 'c': cand.ref_base = 1; break;
             case 'G': case 'g': cand.ref_base = 2; break;
@@ -389,10 +403,8 @@ SiteToCandidateMap inject_graph_sites(
 // Phase B: graph read injection (after BAM profiles are built)
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Extend an existing BAM read's profile with graph observations at
-/// graph-only candidate sites.  Only fills positions where the BAM
-/// profile has no informative call (allele == -1 or outside the current
-/// profile span).  Returns true if any slot was filled.
+/// Extend an existing BAM read's profile at graph-only sites and record when
+/// its GAF walk confirms the same allele at an existing BAM candidate.
 static bool extend_bam_profile_with_graph_obs(
         PhasingChunk& chunk,
         int read_i,
@@ -402,10 +414,11 @@ static bool extend_bam_profile_with_graph_obs(
 
     // Track which observations are actually applied so we only update
     // allele counts for slots that were filled (not already occupied).
-    std::vector<std::pair<int,int>> applied;  // (candidate_idx, allele)
+    std::vector<std::pair<int,int>> applied;  // graph-only (candidate_idx, allele)
+    bool confirmed = false;
 
     for (const auto& [cand_idx, allele] : graph_obs) {
-        if (!graph_only_candidates.count(cand_idx)) continue;
+        const bool graph_only = graph_only_candidates.count(cand_idx) != 0;
         const auto& key = chunk.candidates[static_cast<size_t>(cand_idx)].key;
         if (key.type == VariantType::Snp) {
             bool deleted = false;
@@ -423,28 +436,37 @@ static bool extend_bam_profile_with_graph_obs(
         }
 
         if (prof.start_var_idx < 0) {
+            if (!graph_only) continue;
             // Empty profile — initialize with this single observation.
             prof.start_var_idx = cand_idx;
             prof.end_var_idx = cand_idx;
             prof.alleles = {allele};
-            prof.alt_qi = {0};
+            prof.alt_qi = {kGraphConfirmedAltQi};
             applied.emplace_back(cand_idx, allele);
             continue;
         }
 
         if (cand_idx >= prof.start_var_idx && cand_idx <= prof.end_var_idx) {
-            // Within existing span — fill only if uninformative.
             const size_t offset = static_cast<size_t>(cand_idx - prof.start_var_idx);
-            if (offset < prof.alleles.size() && prof.alleles[offset] == -1) {
+            if (offset >= prof.alleles.size()) continue;
+            const int previous_allele = prof.alleles[offset];
+            if (previous_allele == allele || previous_allele < 0) {
+                if (prof.alt_qi.size() < prof.alleles.size())
+                    prof.alt_qi.resize(prof.alleles.size(), -1);
                 prof.alleles[offset] = allele;
-                applied.emplace_back(cand_idx, allele);
+                prof.alt_qi[offset] = kGraphConfirmedAltQi;
+                confirmed = true;
+                if (!graph_only) continue;
+                if (previous_allele < 0) applied.emplace_back(cand_idx, allele);
             }
         } else if (cand_idx < prof.start_var_idx) {
+            if (!graph_only) continue;
             // Extend left: prepend slots.
             const int gap = prof.start_var_idx - cand_idx;
             std::vector<int> new_alleles(static_cast<size_t>(gap), -1);
-            std::vector<int> new_qi(static_cast<size_t>(gap), 0);
+            std::vector<int> new_qi(static_cast<size_t>(gap), -1);
             new_alleles[0] = allele;
+            new_qi[0] = kGraphConfirmedAltQi;
             new_alleles.insert(new_alleles.end(),
                                prof.alleles.begin(), prof.alleles.end());
             new_qi.insert(new_qi.end(),
@@ -454,11 +476,13 @@ static bool extend_bam_profile_with_graph_obs(
             prof.start_var_idx = cand_idx;
             applied.emplace_back(cand_idx, allele);
         } else {
+            if (!graph_only) continue;
             // Extend right: append slots.
             const size_t new_span = static_cast<size_t>(cand_idx - prof.start_var_idx + 1);
             prof.alleles.resize(new_span, -1);
-            prof.alt_qi.resize(new_span, 0);
+            prof.alt_qi.resize(new_span, -1);
             prof.alleles[new_span - 1] = allele;
+            prof.alt_qi[new_span - 1] = kGraphConfirmedAltQi;
             prof.end_var_idx = cand_idx;
             applied.emplace_back(cand_idx, allele);
         }
@@ -477,7 +501,7 @@ static bool extend_bam_profile_with_graph_obs(
         }
     }
 
-    return !applied.empty();
+    return !applied.empty() || confirmed;
 }
 
 int inject_graph_reads(
@@ -509,14 +533,16 @@ int inject_graph_reads(
     std::unordered_map<std::string, std::vector<ReadObs>> read_observations;
 
     for (const GraphReadAllele& row : graph_rows) {
-        if (row.allele < 0) continue;
+        // site_to_candidate represents REF and the first ALT.  A different ALT
+        // is not evidence for that binary candidate.
+        if (row.allele < 0 || row.allele > 1) continue;
         if (row.mapq < opts.min_mapq) continue;
 
         auto it = site_to_candidate.find(row.site_id);
         if (it == site_to_candidate.end()) continue;
 
         const int cand_idx = it->second;
-        const int allele = (row.allele == 0) ? 0 : 1;
+        const int allele = row.allele;
         read_observations[row.read_name].push_back(
             ReadObs{cand_idx, allele, row.mapq});
     }
@@ -529,8 +555,8 @@ int inject_graph_reads(
 
         auto existing_it = existing_read_idx.find(read_name);
         if (existing_it != existing_read_idx.end()) {
-            // Doubly-mapped read: extend BAM profile at graph-only sites.
-            if (graph_only_candidates.empty()) continue;
+            // Doubly-mapped read: extend graph-only sites and retain exact
+            // graph confirmation at shared BAM/graph sites.
             std::vector<std::pair<int,int>> graph_obs;
             graph_obs.reserve(obs_vec.size());
             for (const ReadObs& obs : obs_vec)
@@ -574,7 +600,7 @@ int inject_graph_reads(
         profile.end_var_idx = last_idx;
         const size_t span = static_cast<size_t>(last_idx - first_idx + 1);
         profile.alleles.assign(span, -1);
-        profile.alt_qi.assign(span, 0);
+        profile.alt_qi.assign(span, kGraphConfirmedAltQi);
 
         for (const ReadObs& obs : obs_vec) {
             const int offset = obs.candidate_idx - first_idx;

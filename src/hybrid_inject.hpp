@@ -94,9 +94,10 @@ SiteToCandidateMap inject_graph_sites(
 /// mapped candidate sites.  Appends to chunk.reads, chunk.read_var_profile,
 /// and rebuilds chunk.read_var_cr.
 ///
-/// For reads present in both BAM and GAF, extend their existing BAM
-/// profiles with graph observations at graph-only candidate sites
-/// (positions where the BAM profile has no informative call).
+/// For reads present in both BAM and GAF, extend their existing BAM profiles
+/// at graph-only candidate sites and retain exact matching GAF observations at
+/// shared candidates.  Recovery uses that provenance to distinguish a weak BAM
+/// base confirmed by the graph walk from unsupported sequencing noise.
 ///
 /// Call AFTER collect_var_build_profiles (so BAM profiles are already built).
 int inject_graph_reads(

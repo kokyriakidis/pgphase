@@ -5957,3 +5957,30 @@ assessed with 77 switches and blockwise Hamming 665/59,992 (1.1085%). Read
 truth evaluation improves from 4,005 to 3,872 discordant reads and from 97.88%
 to 97.95% accuracy. Thus the additional clean joins improve contiguity while
 reducing both variant- and read-level errors.
+
+### Retain exact graph confirmation at shared BAM candidates
+
+The remaining all-four-competitor links at chr20 34.79 Mb and 61.66 Mb each
+had one crossing read whose BAM endpoint quality was too weak for a singleton
+bridge, but the same read traversed exact graph snarls at both endpoints. The
+hybrid injector previously discarded GAF observations whenever the graph site
+already matched a BAM candidate, so recovery could not distinguish this
+independent confirmation from an unsupported low-quality base.
+
+Read profiles now retain a graph-confirmation marker when BAM and GAF alleles
+agree at a shared candidate. A singleton recovery edge may use that evidence
+only when the same read has a graph-confirmed clean SNP on both components;
+one-sided confirmation remains insufficient. The graph-to-candidate bridge
+also fixes two related multiallelic bugs: padded substitutions such as
+`CG->TG` are reduced to their clean SNP instead of being encoded as deletions,
+and graph allele 2 is no longer collapsed into the binary first-ALT allele.
+
+Focused chr20 tests join 34,791,342-34,811,747 and
+61,664,136-61,690,751 at the clean tier. The known harmful
+23,460,963-23,481,134 singleton and the one-sided
+1,086,625-1,110,921 case remain split. On the complete chr20 run, corrected
+NGC50 remains 479,016 bp. The shared-callset comparison improves from 77
+switches and Hamming 665/59,992 (1.1085%) to 74 switches and Hamming
+256/59,878 (0.4275%). Read-truth discordance falls from 3,872/188,819 (2.05%)
+to 2,731/189,001 (1.44%). The evidence cache format is version 4 because the
+new provenance marker is serialized with each read profile.
