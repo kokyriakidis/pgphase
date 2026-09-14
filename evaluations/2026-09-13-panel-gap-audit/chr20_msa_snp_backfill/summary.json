@@ -1,0 +1,380 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 91,
+    "split -> split": 23
+  },
+  "original_reads_preserved": 37278,
+  "added_tagged_reads": 1811,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_36247421_36268291",
+    "chr20_36268558_36299817",
+    "chr20_46727050_46747637",
+    "chr20_47019175_47026671",
+    "chr20_54675445_54702072",
+    "chr20_54976339_54988434",
+    "chr20_57087239_57119478",
+    "chr20_60033052_60056028",
+    "chr20_60063142_60114911",
+    "chr20_26602087_26651086",
+    "chr20_26626247_26651086",
+    "chr20_36032227_36056601",
+    "chr20_47002481_47026671",
+    "chr20_54547514_54590762",
+    "chr20_54976282_54993445"
+  ],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "joined -> joined": 89,
+    "split -> split": 23,
+    "split -> joined": 2
+  },
+  "baseline_discordance_increases": [
+    {
+      "region": "chr20_7218910_7250571",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 179,
+      "after_reads": 201,
+      "before_discordant": 1,
+      "after_discordant": 2,
+      "before_switchflips": 1,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_36247421_36268291",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 160,
+      "after_reads": 203,
+      "before_discordant": 1,
+      "after_discordant": 3,
+      "before_switchflips": 1,
+      "after_switchflips": 3
+    },
+    {
+      "region": "chr20_36268558_36299817",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 103,
+      "after_reads": 146,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 415,
+      "after_reads": 425,
+      "before_discordant": 1,
+      "after_discordant": 5,
+      "before_switchflips": 1,
+      "after_switchflips": 5
+    },
+    {
+      "region": "chr20_47019175_47026671",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 322,
+      "after_reads": 359,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54675445_54702072",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 444,
+      "after_reads": 496,
+      "before_discordant": 0,
+      "after_discordant": 4,
+      "before_switchflips": 0,
+      "after_switchflips": 4
+    },
+    {
+      "region": "chr20_54976339_54988434",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 488,
+      "after_reads": 495,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_57087239_57119478",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 391,
+      "after_reads": 416,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_60033052_60056028",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 144,
+      "after_reads": 196,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 206,
+      "after_reads": 262,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_26602087_26651086",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 99,
+      "after_reads": 100,
+      "before_discordant": 35,
+      "after_discordant": 36,
+      "before_switchflips": 16,
+      "after_switchflips": 16
+    },
+    {
+      "region": "chr20_26626247_26651086",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 91,
+      "after_reads": 92,
+      "before_discordant": 31,
+      "after_discordant": 32,
+      "before_switchflips": 12,
+      "after_switchflips": 12
+    },
+    {
+      "region": "chr20_36032227_36056601",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 117,
+      "after_reads": 144,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_47002481_47026671",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 322,
+      "after_reads": 359,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54547514_54590762",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 541,
+      "after_reads": 601,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54976282_54993445",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 514,
+      "after_reads": 521,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    }
+  ],
+  "baseline_switchflip_increases": [
+    {
+      "region": "chr20_7218910_7250571",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 179,
+      "after_reads": 201,
+      "before_discordant": 1,
+      "after_discordant": 2,
+      "before_switchflips": 1,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_36247421_36268291",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 160,
+      "after_reads": 203,
+      "before_discordant": 1,
+      "after_discordant": 3,
+      "before_switchflips": 1,
+      "after_switchflips": 3
+    },
+    {
+      "region": "chr20_36268558_36299817",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 103,
+      "after_reads": 146,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 415,
+      "after_reads": 425,
+      "before_discordant": 1,
+      "after_discordant": 5,
+      "before_switchflips": 1,
+      "after_switchflips": 5
+    },
+    {
+      "region": "chr20_47019175_47026671",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 322,
+      "after_reads": 359,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54675445_54702072",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 444,
+      "after_reads": 496,
+      "before_discordant": 0,
+      "after_discordant": 4,
+      "before_switchflips": 0,
+      "after_switchflips": 4
+    },
+    {
+      "region": "chr20_54976339_54988434",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 488,
+      "after_reads": 495,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_57087239_57119478",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 391,
+      "after_reads": 416,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_60033052_60056028",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 144,
+      "after_reads": 196,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 206,
+      "after_reads": 262,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_36032227_36056601",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 117,
+      "after_reads": 144,
+      "before_discordant": 0,
+      "after_discordant": 1,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_47002481_47026671",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 322,
+      "after_reads": 359,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54547514_54590762",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 541,
+      "after_reads": 601,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_54976282_54993445",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 514,
+      "after_reads": 521,
+      "before_discordant": 0,
+      "after_discordant": 2,
+      "before_switchflips": 0,
+      "after_switchflips": 2
+    }
+  ],
+  "baseline_discordance_decreases": [
+    {
+      "region": "chr20_61732321_61782778",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 331,
+      "after_reads": 333,
+      "before_discordant": 3,
+      "after_discordant": 0,
+      "before_switchflips": 3,
+      "after_switchflips": 0
+    }
+  ]
+}

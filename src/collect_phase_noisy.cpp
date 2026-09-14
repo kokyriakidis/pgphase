@@ -727,6 +727,65 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
 
 } // namespace
 
+int backfill_msa_snp_observations(PhasingChunk& chunk, const Options& opts,
+                                  hts_pos_t beg, hts_pos_t end) {
+    std::vector<int> sites;
+    for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
+        const auto& var = chunk.candidates[vi];
+        if (var.key.pos >= beg && var.key.pos <= end && var.key.type == VariantType::Snp &&
+            var.key.ref_len == 1 && var.key.alt.size() == 1 && var.ref_base <= 3 &&
+            var.lcd_var_i_to_cate == kCandNoisyCandHet)
+            sites.push_back(static_cast<int>(vi));
+    }
+    if (sites.empty()) return 0;
+    int added = 0;
+    for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+        const auto& read = chunk.reads[read_i];
+        if (read.is_skipped || !read.alignment || read.mapq < opts.min_mapq) continue;
+        const bam1_t* bam = read.alignment.get();
+        const auto* cigar = bam_get_cigar(bam);
+        hts_pos_t ref_pos = bam->core.pos + 1;
+        int query_pos = 0;
+        for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+            const int len = bam_cigar_oplen(cigar[ci]);
+            const int consumption = bam_cigar_type(bam_cigar_op(cigar[ci]));
+            if ((consumption & 3) == 3) {
+                const hts_pos_t match_end = ref_pos + len;
+                for (const int vi : sites) {
+                    const auto& var = chunk.candidates[static_cast<size_t>(vi)];
+                    if (var.key.pos < ref_pos || var.key.pos >= match_end) continue;
+                    auto& profile = chunk.read_var_profile[read_i];
+                    if (vi >= profile.start_var_idx && vi <= profile.end_var_idx &&
+                        profile.alleles[static_cast<size_t>(vi - profile.start_var_idx)] != -1) continue;
+                    const int qi = query_pos + static_cast<int>(var.key.pos - ref_pos);
+                    const int quality = bam_get_qual(bam)[qi];
+                    if (quality == 255 || quality < opts.min_bq) continue;
+                    const int base = bam_seqi(bam_get_seq(bam), qi);
+                    const int ref_base = 1 << var.ref_base;
+                    const int alt_base = seq_nt16_table[static_cast<unsigned char>(var.key.alt[0])];
+                    const int allele = base == ref_base ? 0 : base == alt_base ? 1 : -1;
+                    if (allele < 0) continue;
+                    update_read_var_profile_with_allele(vi, allele, qi, profile);
+                    ++added;
+                }
+            }
+            if (consumption & 1) query_pos += len;
+            if (consumption & 2) ref_pos += len;
+        }
+    }
+    if (added == 0) return 0;
+    cgranges_t* cr = cr_init();
+    for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+        const auto& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0 || profile.end_var_idx < profile.start_var_idx) continue;
+        cr_add(cr, "cr", profile.start_var_idx, profile.end_var_idx + 1,
+               static_cast<int32_t>(read_i));
+    }
+    cr_index(cr);
+    chunk.read_var_cr.reset(cr);
+    return added;
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // sort_noisy_regs
 // ════════════════════════════════════════════════════════════════════════════

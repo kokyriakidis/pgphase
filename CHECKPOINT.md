@@ -5764,3 +5764,32 @@ original block has its truth majority reversed. Results are archived under
 `evaluations/2026-09-13-panel-gap-audit/chr20_graph_refbase/`. Build and all
 unit tests pass. These remain overlapping local-window results rather than a
 whole-chromosome NGC50 measurement.
+
+### Backfill admitted MSA SNPs from the complete BAM read set
+
+At chr20 22,721,581, the MSA found a real A>T phasing marker between blocks:
+assembly-labelled BAM reads are maternal 26 ALT / 1 REF and paternal 19 REF /
+6 ALT. The recovery candidate nevertheless contained only 25 observations
+(23 ALT / 2 REF), because MSA merging retained calls only for reads selected
+into the local consensus branches. Reads overlapping the new site from the
+other flank were never rescored, so the site could extend the right block but
+could not connect it to the left.
+
+After each successful gap-MSA merge, missing observations at admitted SNPs are
+now filled from every overlapping primary BAM alignment using the candidate's
+exact REF/ALT, the configured MAPQ and base-quality floors, and the existing
+read-profile representation. Existing MSA observations are preserved. The
+read/variant interval index is rebuilt before the normal k-means rerun, so the
+ordinary recovery graph and stitcher consume the complete evidence without a
+new phasing path.
+
+The chr20 replay moves from 89 joined / 25 split to **91 joined / 23 split**.
+The new joins are 22,702,346-22,729,320 and 61,732,321-61,782,778. The first
+has 318/320 concordant labelled reads, unchanged from its two-block baseline,
+and zero variant switches/Hamming errors. The second improves from three
+discordant reads to zero. All 89 existing joins remain, no original block's
+truth majority reverses, and the 114-window WhatsHap audit reports no Hamming
+count increase. Additional previously untagged reads expose a few isolated
+read-level discordances in other windows, without a block-orientation error.
+Results are archived under
+`evaluations/2026-09-13-panel-gap-audit/chr20_msa_snp_backfill/`.
