@@ -300,6 +300,8 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
                      vidx, static_cast<int64_t>(var.key.pos), t,
                      var.lcd_var_i_to_cate,
                      phase_matrix_var_weight(var));
+        std::fprintf(fp, "#META\t%d\tmsa_verified=%d\thomopolymer=%d\tgap_link_supported=%d\n",
+                     vidx, var.msa_verified, var.is_homopolymer_indel, var.gap_link_supported);
     }
 
     // Observation rows: qname, var_idx, allele (0=ref,1=alt,-1=non-inf,-2=lowqual).
@@ -574,8 +576,32 @@ static bool msa_indel_has_confident_bam_observation(const PhasingChunk& chunk,
     const int max_allele = var.msa_insertion_alts.empty()
         ? 1 : static_cast<int>(var.msa_insertion_alts.size());
     if (!read.alignment || !var.msa_verified || var.is_homopolymer_indel ||
-        var.key.type != VariantType::Insertion || allele < 0 ||
+        var.key.type == VariantType::Snp || allele < 0 ||
         allele > max_allele) return false;
+    if (var.key.type == VariantType::Deletion) {
+        if (allele > 1 || var.key.ref_len <= 0) return false;
+        const bam1_t* bam = read.alignment.get();
+        const hts_pos_t end = var.key.pos + var.key.ref_len;
+        if (!bam_base_quality_at(bam, var.key.pos - 1, kGapBridgeMinBaseQuality) ||
+            !bam_base_quality_at(bam, end, kGapBridgeMinBaseQuality)) return false;
+        hts_pos_t pos = bam->core.pos + 1;
+        const uint32_t* cigar = bam_get_cigar(bam);
+        for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+            const int op = bam_cigar_op(cigar[ci]), len = bam_cigar_oplen(cigar[ci]);
+            if (!(bam_cigar_type(op) & 2)) continue;
+            if (pos <= var.key.pos && pos + len >= end) {
+                if (allele == 1) return op == BAM_CDEL && pos == var.key.pos && pos + len == end;
+                // A complete aligned reference allele is required; a skipped
+                // interval or a differently represented deletion is not REF.
+                if (!(bam_cigar_type(op) & 1)) return false;
+                for (hts_pos_t bp = var.key.pos; bp < end; ++bp)
+                    if (!bam_base_quality_at(bam, bp, kGapBridgeMinBaseQuality)) return false;
+                return true;
+            }
+            pos += len;
+        }
+        return false;
+    }
     const std::string alt = allele == 0 ? std::string() :
         (var.msa_insertion_alts.empty() ? var.key.alt :
          var.msa_insertion_alts[static_cast<size_t>(allele - 1)]);
@@ -787,7 +813,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             orientation[hi] = flip[hi];
         }
         struct BlockVotes {
-            std::array<int, 2> all{}, strong{}, clean_strong{}, graph_strong{};
+            std::array<int, 2> all{}, strong{}, clean_strong{}, graph_strong{}, deletion_strong{};
         };
         std::map<std::pair<int, int>, BlockVotes> block_votes;
         for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
@@ -799,6 +825,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             std::map<int, bool> confident_base;
             std::map<int, bool> confident_clean_snp;
             std::map<int, bool> graph_confirmed_clean_snp;
+            std::map<int, bool> confident_deletion;
             std::map<int, int> clean_snp_observations, moderate_clean_snp_observations;
             for (int hi = 0; hi < n_het; ++hi) {
                 const int vi = valid_var_idx[het_var_idx[hi]];
@@ -818,12 +845,18 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 const bool confident = clean_snp
                     ? clean_snp_has_bam_observation(read, var, allele, kGapBridgeMinBaseQuality)
                     : msa_indel_has_confident_bam_observation(chunk, read, var, allele);
+                if (opts.verbose >= 3)
+                    std::fprintf(stderr, "GapAnchorObservation\t%s\t%lld\t%d\t%d\t%d\t%d\n",
+                        read.qname.c_str(), static_cast<long long>(var.key.sort_pos()), allele,
+                        var.hap_to_cons_alle[1], var.hap_to_cons_alle[2], confident ? 1 : 0);
                 if (recovered_indel && !confident) continue;
                 const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
                                 allele == var.hap_to_cons_alle[2] ? 1 : -1;
                 if (hap >= 0) {
                     ++observations[component[hi]][hap ^ orientation[hi]];
                     confident_base[component[hi]] |= confident;
+                    confident_deletion[component[hi]] |= confident && recovered_indel &&
+                        var.key.type == VariantType::Deletion;
                     if (clean_snp) {
                         confident_clean_snp[component[hi]] |= confident;
                         graph_confirmed_clean_snp[component[hi]] |= graph_confirmed;
@@ -836,7 +869,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             }
             struct Anchor {
                 int block, hap, clean_snps, moderate_clean_snps;
-                bool strong, clean_strong, graph_strong;
+                bool strong, clean_strong, graph_strong, deletion_strong;
             };
             std::vector<Anchor> anchors;
             for (const auto& [block, counts] : observations) {
@@ -847,7 +880,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                         confident_base[block] || graph_confirmed_clean_snp[block],
                     confident_clean_snp[block] ||
                         clean_snp_observations[block] >= kGapBridgeMinAnchorSnps,
-                    graph_confirmed_clean_snp[block]});
+                    graph_confirmed_clean_snp[block], confident_deletion[block]});
             }
             for (size_t i = 0; i < anchors.size(); ++i) {
                 for (size_t j = i + 1; j < anchors.size(); ++j) {
@@ -865,16 +898,28 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                         ++votes.clean_strong[direction];
                     if (anchors[i].graph_strong && anchors[j].graph_strong)
                         ++votes.graph_strong[direction];
+                    // An exact BAM deletion allele with Q30 boundaries can
+                    // anchor a singleton to a clean SNP component. MSA-only
+                    // repeat insertion observations retain the stricter gate.
+                    if ((anchors[i].deletion_strong && anchors[j].clean_strong) ||
+                        (anchors[j].deletion_strong && anchors[i].clean_strong))
+                        ++votes.deletion_strong[direction];
                 }
             }
         }
         std::vector<Edge> block_edges;
         for (const auto& [blocks, votes] : block_votes) {
+            if (opts.verbose >= 2)
+                std::fprintf(stderr, "GapBlockVotes\t%lld\t%lld\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[blocks.first]]].key.sort_pos()),
+                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[blocks.second]]].key.sort_pos()),
+                    votes.all[0], votes.all[1], votes.strong[0], votes.strong[1],
+                    votes.clean_strong[0], votes.clean_strong[1]);
             // Even a sparse opposing read vetoes a single-read bridge.
             if ((votes.all[0] && votes.all[1]) || !(votes.strong[0] || votes.strong[1])) continue;
             const int direction = votes.all[1] > votes.all[0];
             if (votes.all[direction] == 1 && votes.clean_strong[direction] == 0 &&
-                votes.graph_strong[direction] == 0) continue;
+                votes.graph_strong[direction] == 0 && votes.deletion_strong[direction] == 0) continue;
             block_edges.push_back({blocks.first, blocks.second, votes.all[0], votes.all[1]});
         }
         std::stable_sort(block_edges.begin(), block_edges.end(), [](const Edge& a, const Edge& b) {

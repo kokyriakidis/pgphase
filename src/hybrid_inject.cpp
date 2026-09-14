@@ -442,6 +442,7 @@ static bool extend_bam_profile_with_graph_obs(
             prof.end_var_idx = cand_idx;
             prof.alleles = {allele};
             prof.alt_qi = {kGraphConfirmedAltQi};
+            prof.graph_alleles = {allele};
             applied.emplace_back(cand_idx, allele);
             continue;
         }
@@ -450,6 +451,9 @@ static bool extend_bam_profile_with_graph_obs(
             const size_t offset = static_cast<size_t>(cand_idx - prof.start_var_idx);
             if (offset >= prof.alleles.size()) continue;
             const int previous_allele = prof.alleles[offset];
+            if (prof.graph_alleles.size() < prof.alleles.size())
+                prof.graph_alleles.resize(prof.alleles.size(), -1);
+            prof.graph_alleles[offset] = allele;
             if (previous_allele == allele || previous_allele < 0) {
                 if (prof.alt_qi.size() < prof.alleles.size())
                     prof.alt_qi.resize(prof.alleles.size(), -1);
@@ -465,14 +469,21 @@ static bool extend_bam_profile_with_graph_obs(
             const int gap = prof.start_var_idx - cand_idx;
             std::vector<int> new_alleles(static_cast<size_t>(gap), -1);
             std::vector<int> new_qi(static_cast<size_t>(gap), -1);
+            std::vector<int> new_graph(static_cast<size_t>(gap), -1);
             new_alleles[0] = allele;
             new_qi[0] = kGraphConfirmedAltQi;
+            new_graph[0] = allele;
             new_alleles.insert(new_alleles.end(),
                                prof.alleles.begin(), prof.alleles.end());
             new_qi.insert(new_qi.end(),
                           prof.alt_qi.begin(), prof.alt_qi.end());
+            if (prof.graph_alleles.size() < prof.alleles.size())
+                prof.graph_alleles.resize(prof.alleles.size(), -1);
+            new_graph.insert(new_graph.end(), prof.graph_alleles.begin(),
+                             prof.graph_alleles.end());
             prof.alleles = std::move(new_alleles);
             prof.alt_qi = std::move(new_qi);
+            prof.graph_alleles = std::move(new_graph);
             prof.start_var_idx = cand_idx;
             applied.emplace_back(cand_idx, allele);
         } else {
@@ -481,8 +492,10 @@ static bool extend_bam_profile_with_graph_obs(
             const size_t new_span = static_cast<size_t>(cand_idx - prof.start_var_idx + 1);
             prof.alleles.resize(new_span, -1);
             prof.alt_qi.resize(new_span, -1);
+            prof.graph_alleles.resize(new_span, -1);
             prof.alleles[new_span - 1] = allele;
             prof.alt_qi[new_span - 1] = kGraphConfirmedAltQi;
+            prof.graph_alleles[new_span - 1] = allele;
             prof.end_var_idx = cand_idx;
             applied.emplace_back(cand_idx, allele);
         }
@@ -601,11 +614,14 @@ int inject_graph_reads(
         const size_t span = static_cast<size_t>(last_idx - first_idx + 1);
         profile.alleles.assign(span, -1);
         profile.alt_qi.assign(span, kGraphConfirmedAltQi);
+        profile.graph_alleles.assign(span, -1);
 
         for (const ReadObs& obs : obs_vec) {
             const int offset = obs.candidate_idx - first_idx;
-            if (offset >= 0 && static_cast<size_t>(offset) < span)
+            if (offset >= 0 && static_cast<size_t>(offset) < span) {
                 profile.alleles[static_cast<size_t>(offset)] = obs.allele;
+                profile.graph_alleles[static_cast<size_t>(offset)] = obs.allele;
+            }
         }
 
         chunk.reads.push_back(std::move(read));

@@ -1,0 +1,12 @@
+chrom	left	right	baseline_cache_reused	baseline_seconds	baseline_status	baseline_selected_reads	baseline_discordant_reads	baseline_total_reads_evaluated	baseline_hamming_error_rate	baseline_switchflip_errors	graph_bam_cache_reused	graph_bam_seconds	graph_bam_status	graph_bam_selected_reads	graph_bam_discordant_reads	graph_bam_total_reads_evaluated	graph_bam_hamming_error_rate	graph_bam_switchflip_errors	discordant_delta
+chr20	863640	890261	True	0.919	split	0	0	435	0.0	0	True	1.014	split	99	0	435	0.0	0	0
+chr20	1086625	1110921	True	0.808	split	0	0	352	0.0	0	True	0.92	split	180	0	352	0.0	0	0
+chr20	12721112	12752291	True	1.087	unresolved_endpoint	0	0	474	0.0	0	True	1.246	unresolved_endpoint	211	0	474	0.0	0	0
+chr20	17607780	17667022	True	0.905	split	0	0	302	0.0	0	True	1.015	split	294	0	302	0.0	0	0
+chr20	19358995	19395544	False	3.687	split	0	1	260	0.003846	1	True	0.825	split	202	1	260	0.003846	1	0
+chr20	23460963	23480815	False	2.436	unresolved_endpoint	0	0	205	0.0	0	True	0.822	unresolved_endpoint	142	0	205	0.0	0	0
+chr20	23460963	23481134	False	2.478	split	0	0	205	0.0	0	True	0.795	split	142	0	205	0.0	0	0
+chr20	37984529	38008026	False	1.825	unresolved_endpoint	0	1	459	0.002179	1	True	0.78	unresolved_endpoint	129	1	459	0.002179	1	0
+chr20	47671540	47713869	False	3.528	split	0	0	192	0.0	0	True	0.782	split	147	0	192	0.0	0	0
+chr20	53926537	53962801	False	2.765	split	0	0	486	0.0	0	True	0.94	split	205	0	486	0.0	0	0
+chr20	55999561	56040612	False	3.855	split	0	0	308	0.0	0	True	1.088	split	235	0	308	0.0	0	0

@@ -16,6 +16,76 @@ namespace pgphase_collect {
 static constexpr hts_pos_t kGapMsaWindow = 512;
 static constexpr hts_pos_t kGapMsaOverlap = 64;
 
+int select_graph_gap_bam_reads(PhasingChunk& proposal, const PhaseGap& gap,
+                               const Options& opts) {
+    int selected = 0;
+    for (size_t ri = 0; ri < proposal.reads.size(); ++ri) {
+        auto& read = proposal.reads[ri];
+        auto& profile = proposal.read_var_profile[ri];
+        hts_pos_t graph_beg = -1, graph_end = -1;
+        for (size_t pi = 0; pi < profile.graph_alleles.size(); ++pi) {
+            const int vi = profile.start_var_idx + static_cast<int>(pi);
+            if (profile.graph_alleles[pi] < 0 || vi < 0 ||
+                static_cast<size_t>(vi) >= proposal.candidates.size()) continue;
+            const auto pos = proposal.candidates[vi].key.sort_pos();
+            if (graph_beg < 0) graph_beg = pos;
+            graph_end = pos;
+        }
+        if (read.is_skipped || !read.alignment || read.mapq < opts.min_mapq ||
+            (read.alignment->core.flag & (BAM_FUNMAP | BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) ||
+            graph_beg < 0 || graph_beg > gap.right_beg || graph_end < gap.left_end ||
+            read.end < gap.left_end || read.beg > gap.right_beg) {
+            read.is_skipped = true;
+            continue;
+        }
+        ++selected;
+        const bam1_t* bam = read.alignment.get();
+        for (size_t pi = 0; pi < profile.alleles.size(); ++pi) {
+            const int vi = profile.start_var_idx + static_cast<int>(pi);
+            if (vi < 0 || static_cast<size_t>(vi) >= proposal.candidates.size()) continue;
+            const auto& candidate = proposal.candidates[vi];
+            if (candidate.key.sort_pos() < read.beg || candidate.key.sort_pos() > read.end) {
+                profile.alleles[pi] = -1;
+                continue;
+            }
+            if (candidate.key.type != VariantType::Snp || candidate.msa_verified) {
+                if (pi < profile.alt_qi.size() &&
+                    profile.alt_qi[pi] == kGraphConfirmedAltQi && !candidate.msa_verified)
+                    profile.alleles[pi] = -1;
+                continue;
+            }
+            // Read the nucleotide at this reference position from the BAM,
+            // including when hybrid injection previously filled a missing allele.
+            profile.alleles[pi] = -1;
+            hts_pos_t ref = bam->core.pos + 1;
+            int query = 0;
+            const uint32_t* cigar = bam_get_cigar(bam);
+            for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+                const int op = bam_cigar_op(cigar[ci]);
+                const int len = bam_cigar_oplen(cigar[ci]);
+                const int consumes = bam_cigar_type(op);
+                if ((consumes & 2) && candidate.key.pos >= ref && candidate.key.pos < ref + len) {
+                    if (consumes & 1) {
+                        const int qi = query + static_cast<int>(candidate.key.pos - ref);
+                        if (bam_get_qual(bam)[qi] != 255 && bam_get_qual(bam)[qi] >= opts.min_bq) {
+                            const char base = seq_nt16_str[bam_seqi(bam_get_seq(bam), qi)];
+                            const char ref_base = candidate.ref_base < 4 ? "ACGT"[candidate.ref_base] : 'N';
+                            if (base == ref_base) profile.alleles[pi] = 0;
+                            else if (candidate.key.alt.size() == 1 && base == candidate.key.alt[0])
+                                profile.alleles[pi] = 1;
+                            if (pi < profile.alt_qi.size()) profile.alt_qi[pi] = qi;
+                        }
+                    }
+                    break;
+                }
+                if (consumes & 1) query += len;
+                if (consumes & 2) ref += len;
+            }
+        }
+    }
+    return selected;
+}
+
 std::vector<PhaseGap> find_phase_gaps(const std::vector<PhasingChunk>& chunks) {
     using BlockKey = std::pair<int, hts_pos_t>;
     std::set<BlockKey> supported;
@@ -107,7 +177,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
                                     const PhasingChunk& proposal,
                                     const PhaseGap& gap, const Options& opts,
                                     const GapReadIndex* read_index,
-                                    bool defer_phase_set_merge) {
+                                    bool defer_phase_set_merge,
+                                    bool orientation_only) {
     using ReadKey = GapReadIndex::Key;
     const auto local_index = read_index == nullptr ? std::make_unique<GapReadIndex>(chunks) : nullptr;
     const auto& index = read_index == nullptr ? *local_index : *read_index;
@@ -199,6 +270,7 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     result.right_linked = links[1].ps >= 0;
     result.joined = result.left_linked && result.right_linked && links[0].ps == links[1].ps;
     result.right_flip = result.joined && links[0].flip != links[1].flip;
+    if (orientation_only) return result;
     // Failed last-resort trials must not extend or modify either trusted flank.
     if (opts.gap_hp_link_beg >= 0 && !result.joined) return result;
     std::map<hts_pos_t, std::pair<hts_pos_t, bool>> accepted;
@@ -268,11 +340,16 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
             dest.end_var_idx = static_cast<int>(sites.size()) - 1;
             dest.alleles.assign(sites.size(), -1);
             dest.alt_qi.assign(sites.size(), -1);
+            dest.graph_alleles.assign(sites.size(), -1);
             for (size_t vi = 0; vi < indices.size(); ++vi) {
                 const int pi = static_cast<int>(indices[vi]);
                 if (pi < source.start_var_idx || pi > source.end_var_idx) continue;
                 dest.alleles[vi] = source.alleles[pi - source.start_var_idx];
                 if (!source.alt_qi.empty()) dest.alt_qi[vi] = source.alt_qi[pi - source.start_var_idx];
+                if (static_cast<size_t>(pi - source.start_var_idx) <
+                    source.graph_alleles.size())
+                    dest.graph_alleles[vi] = source.graph_alleles[
+                        static_cast<size_t>(pi - source.start_var_idx)];
             }
         }
         // Keep trusted core orientations. Previously unsupported exact matches

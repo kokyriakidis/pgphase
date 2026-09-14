@@ -121,21 +121,29 @@ void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi, Re
         profile.end_var_idx = var_idx;
         profile.alleles.assign(1, allele);
         profile.alt_qi.assign(1, alt_qi);
+        if (!profile.graph_alleles.empty()) profile.graph_alleles.assign(1, -1);
         return;
     }
     if (var_idx < profile.start_var_idx) {
         const int prefix = profile.start_var_idx - var_idx;
         profile.alleles.insert(profile.alleles.begin(), static_cast<size_t>(prefix), -1);
         profile.alt_qi.insert(profile.alt_qi.begin(), static_cast<size_t>(prefix), -1);
+        if (!profile.graph_alleles.empty())
+            profile.graph_alleles.insert(
+                profile.graph_alleles.begin(), static_cast<size_t>(prefix), -1);
         profile.start_var_idx = var_idx;
     }
     if (var_idx > profile.end_var_idx) {
         const int gap = var_idx - profile.end_var_idx - 1;
         profile.alleles.insert(profile.alleles.end(), static_cast<size_t>(gap), -1);
         profile.alt_qi.insert(profile.alt_qi.end(), static_cast<size_t>(gap), -1);
+        if (!profile.graph_alleles.empty())
+            profile.graph_alleles.insert(
+                profile.graph_alleles.end(), static_cast<size_t>(gap), -1);
         profile.end_var_idx = var_idx;
         profile.alleles.push_back(allele);
         profile.alt_qi.push_back(alt_qi);
+        if (!profile.graph_alleles.empty()) profile.graph_alleles.push_back(-1);
         return;
     }
     const int offset = var_idx - profile.start_var_idx;
@@ -713,6 +721,17 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
                 old_profile->alleles[static_cast<size_t>(old_profile_i)],
                 old_profile->alt_qi[static_cast<size_t>(old_profile_i)],
                 merged_profile);
+            if (static_cast<size_t>(old_profile_i) <
+                old_profile->graph_alleles.size()) {
+                if (merged_profile.graph_alleles.size() <
+                    merged_profile.alleles.size())
+                    merged_profile.graph_alleles.resize(
+                        merged_profile.alleles.size(), -1);
+                merged_profile.graph_alleles[static_cast<size_t>(
+                    old_merged_i - merged_profile.start_var_idx)] =
+                        old_profile->graph_alleles[
+                            static_cast<size_t>(old_profile_i)];
+            }
             ++old_var_i;
         } else {
             const int new_profile_i = new_var_i - new_profile->start_var_idx;
@@ -721,6 +740,12 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
                 new_profile->alleles[static_cast<size_t>(new_profile_i)],
                 new_profile->alt_qi[static_cast<size_t>(new_profile_i)],
                 merged_profile);
+            if (static_cast<size_t>(new_profile_i) < new_profile->graph_alleles.size()) {
+                merged_profile.graph_alleles.resize(merged_profile.alleles.size(), -1);
+                merged_profile.graph_alleles[static_cast<size_t>(
+                    new_merged_i - merged_profile.start_var_idx)] =
+                    new_profile->graph_alleles[static_cast<size_t>(new_profile_i)];
+            }
             ++new_var_i;
         }
     }

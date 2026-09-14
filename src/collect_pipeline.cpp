@@ -1072,7 +1072,7 @@ static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
 static constexpr hts_pos_t kGapRecoveryFlank = 50000;
 static constexpr hts_pos_t kGapRecoveryMsaFlank = 5000;
 static constexpr hts_pos_t kGapRecoveryMaxMsaSpan = 250000;
-static constexpr uint32_t kGapEvidenceCacheVersion = 4;
+static constexpr uint32_t kGapEvidenceCacheVersion = 5;
 static constexpr char kGapEvidenceCacheMagic[] = "PGGAPEV";
 
 static void gap_cache_hash_bytes(uint64_t& hash, const void* data, size_t size) {
@@ -1321,6 +1321,7 @@ static void write_gap_evidence_cache(const std::string& path,
             write_gap_cache_value(out, profile.end_var_idx);
             write_gap_cache_vector(out, profile.alleles);
             write_gap_cache_vector(out, profile.alt_qi);
+            write_gap_cache_vector(out, profile.graph_alleles);
         }
     }
     out.close();
@@ -1400,6 +1401,7 @@ static void read_gap_evidence_cache(const std::string& path,
             read_gap_cache_value(in, profile.end_var_idx);
             read_gap_cache_vector(in, profile.alleles);
             read_gap_cache_vector(in, profile.alt_qi);
+            read_gap_cache_vector(in, profile.graph_alleles);
         }
         chunk.candidates = std::move(candidates);
         chunk.read_var_profile = std::move(profiles);
@@ -1626,6 +1628,7 @@ static PhasingChunk build_cached_gap_proposal(
                 profile.end_var_idx = static_cast<int>(proposal.candidates.size()) - 1;
                 profile.alleles.assign(proposal.candidates.size(), -1);
                 profile.alt_qi.assign(proposal.candidates.size(), -1);
+                profile.graph_alleles.assign(proposal.candidates.size(), -1);
                 proposal.read_var_profile.push_back(std::move(profile));
             }
             if (source_i >= source.read_var_profile.size()) continue;
@@ -1653,6 +1656,9 @@ static PhasingChunk build_cached_gap_proposal(
                     found - proposal.candidates.begin());
                 const size_t allele_i = static_cast<size_t>(
                     source_vi - source_profile.start_var_idx);
+                if (allele_i < source_profile.graph_alleles.size() &&
+                    source_profile.graph_alleles[allele_i] >= 0)
+                    dest.graph_alleles[dest_vi] = source_profile.graph_alleles[allele_i];
                 if (allele_i >= source_profile.alleles.size() ||
                     source_profile.alleles[allele_i] == -1)
                     continue;
@@ -1739,87 +1745,119 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
         local.push_back(build_cached_gap_proposal(chunks, window));
     }
     auto& proposal = local.front();
-    assign_hap_based_on_germline_het_vars_kmeans(
-        proposal, local_opts, kCandGermlineClean);
-    std::vector<uint32_t> original_flags;
-    original_flags.reserve(proposal.candidates.size());
-    for (const CandidateVariant& candidate : proposal.candidates)
-        original_flags.push_back(candidate.lcd_var_i_to_cate);
-    constexpr int kGapHomopolymerTier = 4;
+    int graph_observations = 0;
+    int graph_conflicts = 0;
+    for (const ReadVariantProfile& profile : proposal.read_var_profile) {
+        const size_t count = std::min(profile.alleles.size(),
+                                      profile.graph_alleles.size());
+        for (size_t i = 0; i < count; ++i) {
+            if (profile.graph_alleles[i] < 0) continue;
+            ++graph_observations;
+            if (profile.alleles[i] >= 0 &&
+                profile.alleles[i] != profile.graph_alleles[i])
+                ++graph_conflicts;
+        }
+    }
     std::ostringstream report_rows;
-    for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
-        const size_t previous_sites = proposal.candidates.size();
-        if (tier == kGapHomopolymerTier) {
-            for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
-                proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
-            const bool has_hp = std::any_of(
-                proposal.candidates.begin(), proposal.candidates.end(),
-                [&](const CandidateVariant& v) {
-                    return v.is_homopolymer_indel &&
-                           v.lcd_var_i_to_cate == kCandNoisyCandHet &&
-                           v.key.sort_pos() >= gap.left_end &&
-                           v.key.sort_pos() <= gap.right_beg;
-                });
-            if (!has_hp || !opts.link_by_alleles) break;
-            local_opts.gap_hp_link_beg = gap.left_end;
-            local_opts.gap_hp_link_end = gap.right_beg;
-            assign_hap_based_on_germline_het_vars_kmeans(
-                proposal, local_opts, kCandGermlineVarCate);
-        } else if (tier > 1) {
-            // The chromosome pass has already discovered and MSA-verified
-            // these sites. Select the requested evidence tier from the cache
-            // instead of rerunning consensus alignment for every gap.
-            for (size_t vi = 0; vi < proposal.candidates.size(); ++vi) {
-                CandidateVariant& candidate = proposal.candidates[vi];
-                candidate.lcd_var_i_to_cate = original_flags[vi];
-                if (candidate.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
-                const bool allowed = candidate.msa_verified &&
-                    !candidate.is_homopolymer_indel &&
-                    (tier == 3 || candidate.key.type == VariantType::Snp);
-                if (!allowed)
-                    candidate.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+    const int recovery_passes = opts.graph_gap_bam ? 2 : 1;
+    for (int recovery_pass = 0; recovery_pass < recovery_passes; ++recovery_pass) {
+        int selected_graph_reads = 0;
+        if (recovery_pass == 1) {
+            {
+                std::lock_guard<std::mutex> lock(chunks_mutex);
+                proposal = build_cached_gap_proposal(chunks, window);
             }
-            assign_hap_based_on_germline_het_vars_kmeans(
-                proposal, local_opts, kCandGermlineVarCate);
+            selected_graph_reads = select_graph_gap_bam_reads(proposal, gap, local_opts);
+            if (selected_graph_reads == 0) break;
         }
-        filter_hybrid_reads_by_margin(
-            local, opts.min_read_hap_margin, tier > 1);
-        filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
+        assign_hap_based_on_germline_het_vars_kmeans(
+            proposal, local_opts, kCandGermlineClean);
+        std::vector<uint32_t> original_flags;
+        original_flags.reserve(proposal.candidates.size());
+        for (const CandidateVariant& candidate : proposal.candidates)
+            original_flags.push_back(candidate.lcd_var_i_to_cate);
+        constexpr int kGapHomopolymerTier = 4;
+        for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
+            const size_t previous_sites = proposal.candidates.size();
+            if (tier == kGapHomopolymerTier) {
+                if (recovery_pass == 1) break;
+                for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
+                    proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
+                const bool has_hp = std::any_of(
+                    proposal.candidates.begin(), proposal.candidates.end(),
+                    [&](const CandidateVariant& v) {
+                        return v.is_homopolymer_indel &&
+                               v.lcd_var_i_to_cate == kCandNoisyCandHet &&
+                               v.key.sort_pos() >= gap.left_end &&
+                               v.key.sort_pos() <= gap.right_beg;
+                    });
+                if (!has_hp || !opts.link_by_alleles) break;
+                local_opts.gap_hp_link_beg = gap.left_end;
+                local_opts.gap_hp_link_end = gap.right_beg;
+                assign_hap_based_on_germline_het_vars_kmeans(
+                    proposal, local_opts, kCandGermlineVarCate);
+            } else if (tier > 1) {
+                // The chromosome pass has already discovered and MSA-verified
+                // these sites. Select the requested evidence tier from the cache
+                // instead of rerunning consensus alignment for every gap.
+                for (size_t vi = 0; vi < proposal.candidates.size(); ++vi) {
+                    CandidateVariant& candidate = proposal.candidates[vi];
+                    candidate.lcd_var_i_to_cate = original_flags[vi];
+                    if (candidate.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+                    const bool allowed = candidate.msa_verified &&
+                        !candidate.is_homopolymer_indel &&
+                        (tier == 3 || candidate.key.type == VariantType::Snp);
+                    if (!allowed)
+                        candidate.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+                }
+                assign_hap_based_on_germline_het_vars_kmeans(
+                    proposal, local_opts, kCandGermlineVarCate);
+            }
+            filter_hybrid_reads_by_margin(
+                local, opts.min_read_hap_margin, tier > 1);
+            filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
 
-        GapStitchResult result;
-        {
-            std::lock_guard<std::mutex> lock(chunks_mutex);
-            result = stitch_gap_proposal(
-                chunks, proposal, gap, local_opts, &read_index, true);
+            GapStitchResult result;
+            {
+                std::lock_guard<std::mutex> lock(chunks_mutex);
+                result = stitch_gap_proposal(
+                    chunks, proposal, gap, local_opts, &read_index, true,
+                    recovery_pass == 1);
+            }
+            int msa_snps = 0;
+            int msa_indels = 0;
+            for (const auto& v : proposal.candidates) {
+                if (v.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+                if (v.key.type == VariantType::Snp) ++msa_snps;
+                else ++msa_indels;
+            }
+            report_rows << contig << '\t' << initial_gap.left_end << '\t'
+                        << initial_gap.right_beg << '\t' << tier << '\t'
+                        << window.beg << '\t' << window.end << '\t'
+                        << proposal.candidates.size() - previous_sites << '\t'
+                        << msa_snps << '\t' << msa_indels << '\t'
+                        << result.left_linked << '\t' << result.right_linked << '\t'
+                        << result.reads_added << '\t' << result.right_flip << '\t'
+                        << graph_observations << '\t' << graph_conflicts << '\t'
+                        << recovery_pass << '\t' << selected_graph_reads << '\t'
+                        << (tier == kGapHomopolymerTier && !result.joined
+                                ? "rejected"
+                                : result.joined
+                                      ? "joined"
+                                      : result.left_linked || result.right_linked
+                                            ? "partial"
+                                            : "open");
+            report_rows << '\n';
+            if (result.joined) {
+                job_result.joined = true;
+                job_result.has_edge = true;
+                job_result.edge = {gap.left_ps, gap.right_ps, result.right_flip};
+                break;
+            }
         }
-        int msa_snps = 0;
-        int msa_indels = 0;
-        for (const auto& v : proposal.candidates) {
-            if (v.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
-            if (v.key.type == VariantType::Snp) ++msa_snps;
-            else ++msa_indels;
-        }
-        report_rows << contig << '\t' << initial_gap.left_end << '\t'
-                    << initial_gap.right_beg << '\t' << tier << '\t'
-                    << window.beg << '\t' << window.end << '\t'
-                    << proposal.candidates.size() - previous_sites << '\t'
-                    << msa_snps << '\t' << msa_indels << '\t'
-                    << result.left_linked << '\t' << result.right_linked << '\t'
-                    << result.reads_added << '\t'
-                    << (tier == kGapHomopolymerTier && !result.joined
-                            ? "rejected"
-                            : result.joined
-                                  ? "joined"
-                                  : result.left_linked || result.right_linked
-                                        ? "partial"
-                                        : "open")
-                    << '\n';
-        if (result.joined) {
-            job_result.joined = true;
-            job_result.has_edge = true;
-            job_result.edge = {gap.left_ps, gap.right_ps, result.right_flip};
-            break;
-        }
+        if (job_result.joined) break;
+        local_opts.gap_hp_link_beg = -1;
+        local_opts.gap_hp_link_end = -1;
     }
     job_result.report_rows = report_rows.str();
     return job_result;
@@ -2000,7 +2038,7 @@ void run_collect_hybrid_variation(const Options& opts) {
     if (!opts.gap_recovery_report.empty()) {
         recovery_report.open(opts.gap_recovery_report);
         if (!recovery_report) throw std::runtime_error("failed to open recovery report: " + opts.gap_recovery_report);
-        recovery_report << "CHROM\tGAP_LEFT\tGAP_RIGHT\tTIER\tWINDOW_BEG\tWINDOW_END\tNEW_SITES\tMSA_HET_SNPS\tMSA_HET_INDELS\tLEFT_LINK\tRIGHT_LINK\tREADS_ADDED\tSTATUS\n";
+        recovery_report << "CHROM\tGAP_LEFT\tGAP_RIGHT\tTIER\tWINDOW_BEG\tWINDOW_END\tNEW_SITES\tMSA_HET_SNPS\tMSA_HET_INDELS\tLEFT_LINK\tRIGHT_LINK\tREADS_ADDED\tRECOVERY_FLIP\tGRAPH_OBSERVATIONS\tGRAPH_CONFLICTS\tGRAPH_BAM_PASS\tSELECTED_GRAPH_READS\tSTATUS\n";
     }
 
     size_t n_variants = 0;

@@ -56,6 +56,7 @@ static void print_hybrid_help() {
         << "      --anchor-af-margin F      Max |AF-0.5| for any graph-owned site to vote [0.5]\n"
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
         << "      --recover-gaps            Recover remaining gaps with clean, MSA SNP, then MSA indel tiers\n"
+        << "      --no-graph-gap-bam        Disable graph-selected BAM recovery (comparison baseline)\n"
         << "      --gap-recovery-report FILE  Per-gap tier and stitching outcomes (TSV)\n"
         << "      --gap-evidence-cache FILE Reuse gap MSA sites/read alleles across runs\n"
         << "      --link-by-alleles         Let untagged reads carry phase-block linking evidence\n"
@@ -132,6 +133,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kAnchorAfMarginOption,
         kKeepNoisyKmeansOption,
         kRecoverGapsOption,
+        kNoGraphGapBamOption,
         kGapRecoveryReportOption,
         kGapEvidenceCacheOption,
         kLinkByAllelesOption,
@@ -182,6 +184,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"anchor-af-margin", required_argument, nullptr, kAnchorAfMarginOption},
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
         {"recover-gaps", no_argument, nullptr, kRecoverGapsOption},
+        {"no-graph-gap-bam", no_argument, nullptr, kNoGraphGapBamOption},
         {"gap-recovery-report", required_argument, nullptr, kGapRecoveryReportOption},
         {"gap-evidence-cache", required_argument, nullptr, kGapEvidenceCacheOption},
         {"link-by-alleles",   no_argument,     nullptr, kLinkByAllelesOption},
@@ -246,6 +249,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kAnchorAfMarginOption: opts.anchor_af_margin = std::atof(optarg); break;
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
             case kRecoverGapsOption: opts.recover_gaps = true; break;
+            case kNoGraphGapBamOption: opts.graph_gap_bam = false; break;
             case kGapRecoveryReportOption: opts.gap_recovery_report = optarg; break;
             case kGapEvidenceCacheOption: opts.gap_evidence_cache = optarg; break;
             case kLinkByAllelesOption: opts.link_by_alleles = true; break;

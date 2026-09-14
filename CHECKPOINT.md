@@ -5984,3 +5984,82 @@ switches and Hamming 665/59,992 (1.1085%) to 74 switches and Hamming
 256/59,878 (0.4275%). Read-truth discordance falls from 3,872/188,819 (2.05%)
 to 2,731/189,001 (1.44%). The evidence cache format is version 4 because the
 new provenance marker is serialized with each read profile.
+
+## Graph-selected BAM recovery and repeatable gap trials (2026-09-14)
+
+Unresolved hybrid gaps now get a second recovery attempt using reads selected
+by graph-site observation spans overlapping the gap. This is a selection from
+the available graph catalog observations, not a claim that every GAF path has
+been independently reconstructed. Selected reads must have a primary BAM
+alignment overlapping the gap. Clean SNP observations are read from its BAM
+sequence/CIGAR with the configured base-quality threshold. Cached MSA observations
+and non-graph-only indel observations are retained. The existing clean, MSA SNP,
+and MSA indel phasing tiers run on this proposal. Unverified graph-marked indels
+are excluded because their original BAM observation is not recoverable from
+the confirmation sentinel alone.
+
+The fallback returns only the relative orientation of existing phase blocks;
+it does not copy its local read assignments or candidate orientations back.
+Existing deferred edge composition applies the relationship uniformly. A trial
+that copied partial assignments introduced three additional discordant reads;
+the orientation-only path removed that regression. `--no-graph-gap-bam` provides
+the comparison baseline.
+
+GAF alleles, including disagreements with BAM, are now preserved in a parallel
+read-profile channel. MSA profile merging, proposal construction and evidence
+serialization preserve it; the cache format is version 5. A global GAF-over-BAM
+override was tested and rejected: clean chr20 discordance rose from 586 to 1,512.
+The accepted implementation leaves normal phasing observations unchanged.
+
+Whole-chromosome results: 280 initial gaps, 122 joined versus 121 previously.
+The additional 13,894,047–13,941,253 join has the correct unflipped orientation
+against the original blocks' parental read truth. Final read discordance remains
+2,731 / 189,001 (98.56% accuracy). Cache loading took 1.65 s; cached solves took
+195.14 s versus approximately 124 s before the extra fallback. No new shared-VCF
+NGC50 result is claimed. Outputs: `/tmp/pgphase-graph-gap-edges`.
+
+`scripts/trial_graph_gap_bam.py` runs paired baseline/fallback trials on fixed
+competitor gap panels with persistent per-region caches, bounded parallelism,
+binary hashes, exact commands, logs and optional parental read evaluation.
+The frozen 11-gap panel and usage are under
+`evaluations/2026-09-14-graph-gap-bam/`. Tests cover graph/BAM disagreement,
+MSA reordering of the new channel, selecting reads while using BAM nucleotides,
+and returning a stitching orientation without mutating existing assignments.
+`make unit-tests` passes. Local-window results must be confirmed on the full
+chromosome because changing the window can change the baseline phase blocks.
+
+The complete paired 11-region panel finished with zero execution failures and
+zero added discordant reads in every region. Both arms report eight splits and
+three unresolved endpoints; their exact native candidate rows are missing at
+12,721,112, 23,480,815 and 37,984,529. Warm graph-selected BAM phasing takes
+0.78–1.25 s per local region (truth evaluation excluded). Results are preserved
+under `evaluations/2026-09-14-graph-gap-bam/results.tsv`; detailed logs and
+cached evidence are in `/tmp/pgphase-gap-trials/runs/graph_bam_v2`.
+# Verified deletion bridge and corrected gap endpoint audit (2026-09-14)
+
+The regional trial compared audited VCF anchors directly with native indel
+event positions. Corrected using VariantKey::sort_pos semantics (indel POS-1),
+with a regression test. Two allegedly missing endpoints at 12,721,112 and
+37,984,529 are present and phased. The insertion at 23,480,815 is present but
+unphased. The corrected previous panel is 10 splits and 1 unphased endpoint.
+
+Found that msa_indel_has_confident_bam_observation rejected every deletion.
+Added exact BAM deletion/REF validation, Q30 boundaries (and Q30 throughout
+the REF allele), and permitted validated deletion-to-clean-SNP singleton
+bridges with the existing conflict veto. Existing phasing and deferred
+stitching close chr20:53,926,537–53,962,801 with the correct opposite parity.
+The local 486 evaluated reads remain fully concordant. Full chr20 improves
+122 to 123 joins of 280 gaps, loses no old join, and retains 2,731 discordant
+reads / 189,001 evaluated, 353 switches, and 413 flips. Cached recovery takes
+197.722 s versus 195.14 s. These are parental read metrics, not VCF truth metrics.
+
+The 11-region panel now has 1 joined target, 9 splits and 1 unphased endpoint,
+without increased read errors. A 64-site link window, biallelic-insertion
+singleton acceptance, and supported-indel reseeding failed to close additional
+targets and were not retained. The 1.08 Mb singleton has Q10 at its only
+right-block SNP; the 37.98 Mb singleton has conflicting high-quality
+right-block observations. Neither is fixed. Added verbose block/allele
+diagnostics and matrix provenance metadata for further investigation.
+
+Results and reproduction context:
+evaluations/2026-09-14-gap-deletion-bridge/README.md.

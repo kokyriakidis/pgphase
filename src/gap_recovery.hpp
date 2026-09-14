@@ -41,6 +41,10 @@ struct GapPhaseEdge {
     bool right_flip;
 };
 
+/// Select graph-observed reads intersecting a gap and retain BAM/MSA evidence.
+int select_graph_gap_bam_reads(PhasingChunk& proposal, const PhaseGap& gap,
+                               const Options& opts);
+
 /// Find internal gaps between non-overlapping, read-supported phase blocks.
 std::vector<PhaseGap> find_phase_gaps(const std::vector<PhasingChunk>& chunks);
 
@@ -50,7 +54,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
                                     const PhasingChunk& proposal,
                                     const PhaseGap& gap, const Options& opts,
                                     const GapReadIndex* read_index = nullptr,
-                                    bool defer_phase_set_merge = false);
+                                    bool defer_phase_set_merge = false,
+                                    bool orientation_only = false);
 
 /// Resolve accepted gap relationships and relabel all blocks in one pass.
 /// Returns the number of parity-conflicting relationships that were rejected.

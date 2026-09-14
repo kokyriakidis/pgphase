@@ -99,8 +99,9 @@ int main() {
                         c.read_var_profile[0].alt_qi[0] == kGraphConfirmedAltQi,
                     "an exact GAF allele confirms a low-quality BAM observation");
         ok &= check(c.read_var_profile[1].alleles[0] == 0 &&
-                        c.read_var_profile[1].alt_qi[0] == 8,
-                    "a disagreeing GAF allele does not overwrite an informative BAM observation");
+                        c.read_var_profile[1].alt_qi[0] == 8 &&
+                        c.read_var_profile[1].graph_alleles[0] == 1,
+                    "a disagreeing GAF allele is preserved beside the BAM observation");
         ok &= check(c.read_var_profile[2].alleles[0] == -2 &&
                         c.read_var_profile[2].alt_qi[0] == 12,
                     "a different graph ALT does not confirm the first ALT candidate");

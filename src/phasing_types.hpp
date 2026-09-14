@@ -305,6 +305,7 @@ struct Options {
     bool link_by_alleles = false;
     /// Automatically rephase unresolved gaps with cumulative BAM/MSA evidence.
     bool recover_gaps = false;
+    bool graph_gap_bam = true;
     std::string gap_recovery_report;
     /// Optional persistent cache for gap-targeted MSA sites and read alleles.
     std::string gap_evidence_cache;
@@ -614,6 +615,9 @@ struct ReadVariantProfile {
     int end_var_idx = -1;
     std::vector<int> alleles;
     std::vector<int> alt_qi;
+    // Parallel GAF observation channel. It preserves graph/BAM conflicts for
+    // recovery without changing the BAM allele used by the normal phaser.
+    std::vector<int> graph_alleles;
 };
 
 // ════════════════════════════════════════════════════════════════════════════
