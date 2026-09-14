@@ -5601,3 +5601,42 @@ Final multi_final independent 114-case truth evaluation completed with the same
 79/31/4 outcomes, five added joins, no baseline error increases, and no detected
 original-block reversals. See its results, baseline comparison and orientation
 reports for the complete accounting.
+
+### Remaining chr20 targets: clean-block evidence across sparse junctions
+
+The 35 targets left by multi_final comprise 17 without a directly spanning
+MAPQ30 primary read, 12 with exactly one, two with multiple spanning reads but
+unresolved observations/linkage, and four endpoint-projection failures. The
+reproducible inventory is audit_remaining_gaps.py and chr20.remaining.multi_final.tsv.
+Competitor/DV records are used for diagnosis only, never as recovery input.
+
+A SNP-pair threshold discarded reliable sparse bridges even when one read
+identified both existing blocks. Recovery now evaluates clean-SNP observations
+in the components already resolved by stronger site edges. A primary MAPQ30
+read must support one orientation consistently within each component. Each
+flank needs two clean SNPs or an exact Q30 BAM base matching a clean SNP allele;
+missing qualities and explicit BAM deletions/skips cannot provide the latter.
+A consistent opposing read vetoes the bridge even if its evidence is sparse.
+Process eligible component links by read support and compose their parity with
+existing components, then use ordinary read assignment and gap stitching.
+
+The isolated confident_clean_bridge full 114-case panel has 86 joined targets,
+24 splits, four endpoint-unphased. All 79 multi_final joins remain. Seven newly
+joined cases are 11426743_11447789, 18194808_18218259, 20874447_20895876,
+24357615_24379633, 38259286_38303247, 54894127_54912022, and 57667169_57688923.
+All seven have zero discordant assessed reads. There are no increased read
+errors or switch/flips versus multi_final and no original-block majority
+reversals. Build and unit tests pass; fixtures cover base/mapping quality,
+sparse conflicting reads, multiple clean SNPs, parity, and convergence.
+These are overlapping local-window results, not whole-chromosome validation.
+
+Several separately archived experiments are NOT included in this fix. Scoring
+reads only within their output PS exposed an existing cross-block-label bug,
+but did not repair the four endpoint cases. Reassessing provisional homozygous
+MSA indels and keeping the reference allele as a local hypothesis recovered
+12.74 Mb deletion evidence (26 reference / 48 alternate), but the cumulative
+trial caused a wrong second-gap join in the 34.1 Mb window (2 -> 63 discordant
+reads). It remains rejected. Full experimental patches and explicitly labeled
+trial reports preserve those findings for further diagnosis; they are not
+accepted production implementations. The four endpoint cases and 24 split
+cases remain outstanding.

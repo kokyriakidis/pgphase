@@ -480,6 +480,33 @@ static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, 
     return (h1 == h2) ? 1 : 0;
 }
 
+static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
+                                                    const CandidateVariant& var, int allele) {
+    constexpr int kGapBridgeMinBaseQuality = 30;
+    if (!read.alignment || var.key.ref_len != 1 || var.key.alt.size() != 1 ||
+        var.ref_base > 3 || (allele != 0 && allele != 1)) return false;
+    const bam1_t* bam = read.alignment.get();
+    const auto* cigar = bam_get_cigar(bam);
+    hts_pos_t ref_pos = bam->core.pos + 1;
+    int query_pos = 0;
+    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
+        const int op = bam_cigar_op(cigar[ci]), len = bam_cigar_oplen(cigar[ci]);
+        const int consumption = bam_cigar_type(op);
+        if ((consumption & 2) && var.key.pos >= ref_pos && var.key.pos < ref_pos + len) {
+            if (!(consumption & 1)) return false;
+            const int qi = query_pos + static_cast<int>(var.key.pos - ref_pos);
+            const int quality = bam_get_qual(bam)[qi];
+            const int expected = allele == 0 ? 1 << var.ref_base :
+                seq_nt16_table[static_cast<unsigned char>(var.key.alt[0])];
+            return quality != 255 && quality >= kGapBridgeMinBaseQuality &&
+                   bam_seqi(bam_get_seq(bam), qi) == expected;
+        }
+        if (consumption & 1) query_pos += len;
+        if (consumption & 2) ref_pos += len;
+    }
+    return false;
+}
+
 // Phase-set assignment + flip for one k-means iteration.
 // Returns 1 if any flip occurred (changed), 0 if converged.
 // Iter_update_var_hap_cons_phase_set.
@@ -647,6 +674,77 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             const int child = std::max(left, right);
             parent[child] = std::min(left, right);
             flip[child] = flip[edge.left] ^ flip[edge.right] ^ (edge.conflict > edge.agree);
+        }
+        // A long read can identify both established blocks through several
+        // clean SNPs even when no individual SNP pair has two spanning reads.
+        // Evaluate those observations in the components' resolved orientations.
+        constexpr int kGapBridgeMinMapq = 30;
+        constexpr int kGapBridgeMinAnchorSnps = 2;
+        std::vector<int> component(n_het), orientation(n_het);
+        for (int hi = 0; hi < n_het; ++hi) {
+            component[hi] = root(root, hi);
+            orientation[hi] = flip[hi];
+        }
+        struct BlockVotes { std::array<int, 2> all{}, strong{}; };
+        std::map<std::pair<int, int>, BlockVotes> block_votes;
+        for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+            const auto& read = chunk.reads[ri];
+            if (read.is_skipped || read.mapq < std::max(opts.min_mapq, kGapBridgeMinMapq) ||
+                (read.alignment && (read.alignment->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)))) continue;
+            const auto& profile = chunk.read_var_profile[ri];
+            std::map<int, std::array<int, 2>> observations;
+            std::map<int, bool> confident_base;
+            for (int hi = 0; hi < n_het; ++hi) {
+                const int vi = valid_var_idx[het_var_idx[hi]];
+                const auto& var = chunk.candidates[vi];
+                if (vi < profile.start_var_idx || vi > profile.end_var_idx ||
+                    var.key.type != VariantType::Snp || var.lcd_var_i_to_cate != kCandCleanHetSnp ||
+                    variant_allele_slots(var) != 2) continue;
+                const int allele = profile.alleles[vi - profile.start_var_idx];
+                if (allele < 0) continue;
+                const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
+                                allele == var.hap_to_cons_alle[2] ? 1 : -1;
+                if (hap >= 0) {
+                    ++observations[component[hi]][hap ^ orientation[hi]];
+                    confident_base[component[hi]] |= clean_snp_has_confident_bam_observation(read, var, allele);
+                }
+            }
+            struct Anchor { int block, hap; bool strong; };
+            std::vector<Anchor> anchors;
+            for (const auto& [block, counts] : observations) {
+                if (std::min(counts[0], counts[1]) != 0) continue;
+                anchors.push_back({block, counts[1] > counts[0],
+                    std::max(counts[0], counts[1]) >= kGapBridgeMinAnchorSnps || confident_base[block]});
+            }
+            for (size_t i = 0; i < anchors.size(); ++i) {
+                for (size_t j = i + 1; j < anchors.size(); ++j) {
+                    auto& votes = block_votes[{anchors[i].block, anchors[j].block}];
+                    const int direction = anchors[i].hap ^ anchors[j].hap;
+                    ++votes.all[direction];
+                    if (anchors[i].strong && anchors[j].strong) ++votes.strong[direction];
+                }
+            }
+        }
+        std::vector<Edge> block_edges;
+        for (const auto& [blocks, votes] : block_votes) {
+            // Even a sparse opposing read vetoes a single-read bridge.
+            if ((votes.all[0] && votes.all[1]) || !(votes.strong[0] || votes.strong[1])) continue;
+            block_edges.push_back({blocks.first, blocks.second, votes.all[0], votes.all[1]});
+        }
+        std::stable_sort(block_edges.begin(), block_edges.end(), [](const Edge& a, const Edge& b) {
+            return a.agree + a.conflict > b.agree + b.conflict;
+        });
+        for (const auto& edge : block_edges) {
+            const int left = root(root, edge.left), right = root(root, edge.right);
+            if (left == right) continue;
+            const int child = std::max(left, right);
+            parent[child] = std::min(left, right);
+            flip[child] = flip[edge.left] ^ flip[edge.right] ^ (edge.conflict > edge.agree);
+            if (opts.verbose >= 2)
+                std::fprintf(stderr, "GapCleanBlockLink\t%lld\t%lld\t%d\t%d\n",
+                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[edge.left]]].key.sort_pos()),
+                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[edge.right]]].key.sort_pos()),
+                    edge.agree, edge.conflict);
         }
         for (int hi = 0; hi < n_het; ++hi) {
             const int anchor = root(root, hi);

@@ -1198,8 +1198,67 @@ static bool test_msa_supported_flank_variant() {
     return ok;
 }
 
+static bool test_gap_clean_block_bridge() {
+    bool ok = true;
+    for (int mode = 0; mode < 6; ++mode) {
+        PhasingChunk chunk;
+        for (int vi = 0; vi < 4; ++vi) {
+            CandidateVariant var;
+            var.key.pos = 100 + vi * 100;
+            var.key.type = VariantType::Snp;
+            var.key.ref_len = 1; var.key.alt = "T"; var.ref_base = 0;
+            var.lcd_var_i_to_cate = kCandCleanHetSnp;
+            var.counts.alle_covs = {3, 3};
+            var.hap_to_cons_alle = {-1, 0, 1};
+            chunk.candidates.push_back(var);
+        }
+        std::vector<std::vector<int>> alleles = {
+            {0, 0, -1, -1}, {1, 1, -1, -1},
+            {-1, -1, 0, 0}, {-1, -1, 1, 1}, {0, 0, 1, 1}};
+        if (mode == 1 || mode >= 4) alleles.back() = {0, -1, 1, -1};
+        if (mode == 2) alleles.push_back({0, -1, 0, -1});
+        chunk.read_var_cr.reset(cr_init());
+        for (size_t ri = 0; ri < alleles.size(); ++ri) {
+            auto read = min_read();
+            read.mapq = mode == 3 && ri == 4 ? 0 : 60;
+            if (mode >= 4 && ri == 4) {
+                read.alignment.reset(bam_init1());
+                std::string sequence(301, 'A');
+                sequence[200] = sequence[300] = 'T';
+                const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
+                bam_set1(read.alignment.get(), 6, "bridge", 0, 0, 99, 60, 1, &cigar,
+                         -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
+                std::fill(bam_get_qual(read.alignment.get()),
+                          bam_get_qual(read.alignment.get()) + sequence.size(), mode == 4 ? 40 : 10);
+            }
+            chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0; profile.end_var_idx = 3;
+            profile.alleles = alleles[ri];
+            chunk.read_var_profile.push_back(profile);
+            cr_add(chunk.read_var_cr.get(), "cr", 0, 4, ri);
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.link_by_alleles = opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
+        opts.min_block_link_reads = 2; opts.block_link_window = 8;
+        iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts);
+        const bool joined = chunk.candidates[0].phase_set == chunk.candidates[3].phase_set;
+        ok &= check(joined == (mode == 0 || mode == 4),
+                    "block bridge requires reliable flank observations, mapping confidence, and no opposing read");
+        if (joined) {
+            ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],
+                        "block bridge composes the supported opposite orientation");
+            ok &= check(iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts) == 0,
+                        "block bridge orientation converges");
+        }
+    }
+    return ok;
+}
+
 int main() {
     int failures = 0;
+    failures += test_gap_clean_block_bridge() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;
     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;

@@ -1,0 +1,464 @@
+diff --git a/src/collect_phase.cpp b/src/collect_phase.cpp
+index 4494580..493f882 100644
+--- a/src/collect_phase.cpp
++++ b/src/collect_phase.cpp
+@@ -322,7 +322,8 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
+ // Updates n_clean_agree_snps / n_clean_conflict_snps on the read (for max_hap only).
+ // CleanHom variants contribute to agree/conflict stats but not to hap_scores.
+ // Init_assign_read_hap_based_on_cons_alle.
+-static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags) {
++static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
++                                hts_pos_t phase_set = -1) {
+     ReadRecord& read = chunk.reads[read_i];
+     read.n_clean_agree_snps = 0;
+     read.n_clean_conflict_snps = 0;
+@@ -342,7 +343,7 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
+     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
+         CandidateVariant& var = chunk.candidates[vi];
+         const uint32_t vic = var.lcd_var_i_to_cate;
+-        if ((vic & flags) == 0) continue;
++        if ((vic & flags) == 0 || (phase_set >= 0 && var.phase_set != phase_set)) continue;
+         // HP-indel or noisy-hom candidates: score only, do not use as pivot.
+         if (var.is_homopolymer_indel || vic == kCandNoisyCandHom) continue;
+ 
+@@ -480,6 +481,33 @@ static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1,
+     return (h1 == h2) ? 1 : 0;
+ }
+ 
++static bool clean_snp_has_confident_bam_observation(const ReadRecord& read,
++                                                    const CandidateVariant& var, int allele) {
++    constexpr int kGapBridgeMinBaseQuality = 30;
++    if (!read.alignment || var.key.ref_len != 1 || var.key.alt.size() != 1 ||
++        var.ref_base > 3 || (allele != 0 && allele != 1)) return false;
++    const bam1_t* bam = read.alignment.get();
++    const auto* cigar = bam_get_cigar(bam);
++    hts_pos_t ref_pos = bam->core.pos + 1;
++    int query_pos = 0;
++    for (uint32_t ci = 0; ci < bam->core.n_cigar; ++ci) {
++        const int op = bam_cigar_op(cigar[ci]), len = bam_cigar_oplen(cigar[ci]);
++        const int consumption = bam_cigar_type(op);
++        if ((consumption & 2) && var.key.pos >= ref_pos && var.key.pos < ref_pos + len) {
++            if (!(consumption & 1)) return false;
++            const int qi = query_pos + static_cast<int>(var.key.pos - ref_pos);
++            const int quality = bam_get_qual(bam)[qi];
++            const int expected = allele == 0 ? 1 << var.ref_base :
++                seq_nt16_table[static_cast<unsigned char>(var.key.alt[0])];
++            return quality != 255 && quality >= kGapBridgeMinBaseQuality &&
++                   bam_seqi(bam_get_seq(bam), qi) == expected;
++        }
++        if (consumption & 1) query_pos += len;
++        if (consumption & 2) ref_pos += len;
++    }
++    return false;
++}
++
+ // Phase-set assignment + flip for one k-means iteration.
+ // Returns 1 if any flip occurred (changed), 0 if converged.
+ // Iter_update_var_hap_cons_phase_set.
+@@ -514,7 +542,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
+                 var.key.sort_pos() >= opts.gap_hp_link_beg &&
+                 var.key.sort_pos() <= opts.gap_hp_link_end &&
+                 var.lcd_var_i_to_cate == kCandNoisyCandHet && var.gap_link_supported;
+-        if (gap_hp_link && var.is_homopolymer_indel &&
++        const bool gap_msa_indel_link = recovery_graph && var.gap_link_supported &&
++            !var.is_homopolymer_indel && var.key.type != VariantType::Snp &&
++            var.lcd_var_i_to_cate == kCandNoisyCandHet && var.msa_insertion_alts.empty();
++        if (((gap_hp_link && var.is_homopolymer_indel) || gap_msa_indel_link) &&
+             var.counts.ref_cov >= opts.min_alt_depth && var.counts.alt_cov >= opts.min_alt_depth &&
+             var.counts.allele_fraction >= opts.min_af && var.counts.allele_fraction <= opts.max_af &&
+             (var.hap_to_cons_alle[1] < 0 || var.hap_to_cons_alle[2] < 0 ||
+@@ -648,6 +679,77 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
+             parent[child] = std::min(left, right);
+             flip[child] = flip[edge.left] ^ flip[edge.right] ^ (edge.conflict > edge.agree);
+         }
++        // A long read can identify both established blocks through several
++        // clean SNPs even when no individual SNP pair has two spanning reads.
++        // Evaluate those observations in the components' resolved orientations.
++        constexpr int kGapBridgeMinMapq = 30;
++        constexpr int kGapBridgeMinAnchorSnps = 2;
++        std::vector<int> component(n_het), orientation(n_het);
++        for (int hi = 0; hi < n_het; ++hi) {
++            component[hi] = root(root, hi);
++            orientation[hi] = flip[hi];
++        }
++        struct BlockVotes { std::array<int, 2> all{}, strong{}; };
++        std::map<std::pair<int, int>, BlockVotes> block_votes;
++        for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
++            const auto& read = chunk.reads[ri];
++            if (read.is_skipped || read.mapq < std::max(opts.min_mapq, kGapBridgeMinMapq) ||
++                (read.alignment && (read.alignment->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)))) continue;
++            const auto& profile = chunk.read_var_profile[ri];
++            std::map<int, std::array<int, 2>> observations;
++            std::map<int, bool> confident_base;
++            for (int hi = 0; hi < n_het; ++hi) {
++                const int vi = valid_var_idx[het_var_idx[hi]];
++                const auto& var = chunk.candidates[vi];
++                if (vi < profile.start_var_idx || vi > profile.end_var_idx ||
++                    var.key.type != VariantType::Snp || var.lcd_var_i_to_cate != kCandCleanHetSnp ||
++                    variant_allele_slots(var) != 2) continue;
++                const int allele = profile.alleles[vi - profile.start_var_idx];
++                if (allele < 0) continue;
++                const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
++                                allele == var.hap_to_cons_alle[2] ? 1 : -1;
++                if (hap >= 0) {
++                    ++observations[component[hi]][hap ^ orientation[hi]];
++                    confident_base[component[hi]] |= clean_snp_has_confident_bam_observation(read, var, allele);
++                }
++            }
++            struct Anchor { int block, hap; bool strong; };
++            std::vector<Anchor> anchors;
++            for (const auto& [block, counts] : observations) {
++                if (std::min(counts[0], counts[1]) != 0) continue;
++                anchors.push_back({block, counts[1] > counts[0],
++                    std::max(counts[0], counts[1]) >= kGapBridgeMinAnchorSnps || confident_base[block]});
++            }
++            for (size_t i = 0; i < anchors.size(); ++i) {
++                for (size_t j = i + 1; j < anchors.size(); ++j) {
++                    auto& votes = block_votes[{anchors[i].block, anchors[j].block}];
++                    const int direction = anchors[i].hap ^ anchors[j].hap;
++                    ++votes.all[direction];
++                    if (anchors[i].strong && anchors[j].strong) ++votes.strong[direction];
++                }
++            }
++        }
++        std::vector<Edge> block_edges;
++        for (const auto& [blocks, votes] : block_votes) {
++            // Even a sparse opposing read vetoes a single-read bridge.
++            if ((votes.all[0] && votes.all[1]) || !(votes.strong[0] || votes.strong[1])) continue;
++            block_edges.push_back({blocks.first, blocks.second, votes.all[0], votes.all[1]});
++        }
++        std::stable_sort(block_edges.begin(), block_edges.end(), [](const Edge& a, const Edge& b) {
++            return a.agree + a.conflict > b.agree + b.conflict;
++        });
++        for (const auto& edge : block_edges) {
++            const int left = root(root, edge.left), right = root(root, edge.right);
++            if (left == right) continue;
++            const int child = std::max(left, right);
++            parent[child] = std::min(left, right);
++            flip[child] = flip[edge.left] ^ flip[edge.right] ^ (edge.conflict > edge.agree);
++            if (opts.verbose >= 2)
++                std::fprintf(stderr, "GapCleanBlockLink\t%lld\t%lld\t%d\t%d\n",
++                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[edge.left]]].key.sort_pos()),
++                    static_cast<long long>(chunk.candidates[valid_var_idx[het_var_idx[edge.right]]].key.sort_pos()),
++                    edge.agree, edge.conflict);
++        }
+         for (int hi = 0; hi < n_het; ++hi) {
+             const int anchor = root(root, hi);
+             parity[hi] = flip[hi];
+@@ -713,15 +815,18 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
+ 
+     for (int _vi = 0; _vi < n; ++_vi) {
+         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
+-        if (var.gap_link_supported && var.msa_insertion_alts.size() == 2 && saved[_vi][1] > 0 &&
+-            saved[_vi][2] > 0 && saved[_vi][1] != saved[_vi][2]) {
+-            const int same = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][2];
+-            const int flip = var.hap_to_alle_profile[1][2] + var.hap_to_alle_profile[2][1];
++        const int first_allele = var.msa_insertion_alts.empty() ? 0 : 1;
++        const int second_allele = first_allele + 1;
++        if (var.gap_link_supported && var.key.type != VariantType::Snp &&
++            saved[_vi][1] >= first_allele && saved[_vi][2] >= first_allele &&
++            saved[_vi][1] != saved[_vi][2]) {
++            const int same = var.hap_to_alle_profile[1][first_allele] + var.hap_to_alle_profile[2][second_allele];
++            const int flip = var.hap_to_alle_profile[1][second_allele] + var.hap_to_alle_profile[2][first_allele];
+             // Optimize the orientation of the verified allele pair jointly.
+             // Independent haplotype majorities can select the same allele twice.
+             if (same != flip) {
+-                var.hap_to_cons_alle[1] = same > flip ? 1 : 2;
+-                var.hap_to_cons_alle[2] = same > flip ? 2 : 1;
++                var.hap_to_cons_alle[1] = same > flip ? first_allele : second_allele;
++                var.hap_to_cons_alle[2] = same > flip ? second_allele : first_allele;
+             }
+         } else {
+             for (int hap = 1; hap <= 2; ++hap)
+@@ -780,7 +885,9 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
+         auto& var = chunk.candidates[vi];
+         const bool multi = !var.msa_insertion_alts.empty();
+         var.gap_link_supported = multi;
+-        if (!multi && (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet ||
++        const bool msa_indel = opts.private_msa_admit_all_in_region && !var.is_homopolymer_indel &&
++            var.key.type != VariantType::Snp && var.lcd_var_i_to_cate == kCandNoisyCandHet;
++        if (!multi && !msa_indel && (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet ||
+             opts.gap_hp_link_beg < 0 || var.key.sort_pos() < opts.gap_hp_link_beg ||
+             var.key.sort_pos() > opts.gap_hp_link_end)) continue;
+         std::map<hts_pos_t, std::array<int, 4>> votes;
+@@ -926,6 +1033,13 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
+ 
+     // Phase 3: finalize per-read phase_sets.
+     update_read_phase_set(chunk, var_is_valid);
++    // An HP tag is meaningful only within its reported PS. Independent blocks
++    // may use opposite integer labels; their scores must not be pooled here.
++    for (size_t ri = 0; ri < n_reads; ++ri) {
++        if (chunk.reads[ri].is_skipped || chunk.phase_sets[ri] < 0) continue;
++        const int hap = init_assign_read_hap(chunk, static_cast<int>(ri), flags, chunk.phase_sets[ri]);
++        chunk.haps[ri] = std::max(0, hap);
++    }
+ 
+     // Phase 4: fill hap_alt / hap_ref from finalized hap_to_cons_alle.
+     // Resolve hap_alt/hap_ref from finalized consensus alleles:
+diff --git a/src/collect_phase_noisy.cpp b/src/collect_phase_noisy.cpp
+index c06d5d6..8ae26f5 100644
+--- a/src/collect_phase_noisy.cpp
++++ b/src/collect_phase_noisy.cpp
+@@ -1293,20 +1293,24 @@ static void refresh_assigned_msa_observations(const Options& opts,
+     for (int ci = 0; ci < 2; ++ci) {
+         for (int ri = 0; ri < clu_n_seqs[ci]; ++ri) {
+             const auto& cons_read = alignments[ci][2 * ri + 1];
+-            // Preserve existing partial-read coverage handling. Full reads can
+-            // be checked directly against reference without guessing an allele
+-            // from their whole-consensus cluster membership.
+-            if (cons_read.target_beg != 0 || cons_read.query_beg != 0 ||
+-                cons_read.target_end != cons_read.aln_len - 1 ||
+-                cons_read.query_end != cons_read.aln_len - 1) continue;
+             AlnStr ref_read;
+             make_ref_read_aln_str(opts, consensuses[ci], cons_read, ref_read);
+             ref_read.target_beg = ref_read.query_beg = 0;
+             ref_read.target_end = ref_read.query_end = ref_read.aln_len - 1;
+             if (opts.gap_aln == kLeftGapAlignment) left_normalize_msa_alignment(ref_read);
++            // Partial reads can observe an internal site without covering the
++            // entire MSA window. Terminal alignment gaps are absent coverage,
++            // not deletion evidence or evidence for the cluster's allele.
++            while (ref_read.query_beg < ref_read.aln_len &&
++                   ref_read.query_aln[ref_read.query_beg] == kGapBase) ++ref_read.query_beg;
++            while (ref_read.query_end >= ref_read.query_beg &&
++                   ref_read.query_aln[ref_read.query_end] == kGapBase) --ref_read.query_end;
+             auto& profile = profiles[clu_read_ids[ci][ri]];
+             for (size_t vi = 0; vi < vars.size(); ++vi) {
+-                if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
++                if (vars[vi].counts.category != VariantCategory::NoisyCandHet &&
++                    !(opts.private_msa_admit_all_in_region &&
++                      vars[vi].counts.category == VariantCategory::NoisyCandHom &&
++                      vars[vi].key.type != VariantType::Snp)) continue;
+                 const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses, &vars[vi].msa_insertion_alts);
+                 update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1, profile);
+             }
+@@ -1314,7 +1318,9 @@ static void refresh_assigned_msa_observations(const Options& opts,
+     }
+     for (size_t vi = 0; vi < vars.size(); ++vi) {
+         auto& var = vars[vi];
+-        if (var.counts.category != VariantCategory::NoisyCandHet) continue;
++        if (var.counts.category != VariantCategory::NoisyCandHet &&
++            !(opts.private_msa_admit_all_in_region && var.counts.category == VariantCategory::NoisyCandHom &&
++              var.key.type != VariantType::Snp)) continue;
+         var.counts.alle_covs.assign(var.msa_insertion_alts.empty() ? 2 : var.msa_insertion_alts.size() + 1, 0);
+         for (const auto& profile : profiles) {
+             if (static_cast<int>(vi) < profile.start_var_idx || static_cast<int>(vi) > profile.end_var_idx) continue;
+@@ -1335,7 +1341,9 @@ void add_msa_site_observations(const Options& opts,
+                                 const std::array<AlnStr, 2>* consensuses) {
+     for (size_t vi = 0; vi < vars.size(); ++vi) {
+         auto& var = vars[vi];
+-        if (var.counts.category != VariantCategory::NoisyCandHet ||
++        const bool reassess_hom = opts.recover_gaps && opts.private_msa_admit_all_in_region &&
++            var.counts.category == VariantCategory::NoisyCandHom && var.key.type != VariantType::Snp;
++        if ((var.counts.category != VariantCategory::NoisyCandHet && !reassess_hom) ||
+             (snp_only && var.key.type != VariantType::Snp)) continue;
+         std::vector<std::pair<int, int>> observations;
+         auto counts = var.counts.alle_covs;
+@@ -1445,6 +1453,22 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
+     add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
+                               noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
+ 
++    if (opts.recover_gaps && opts.private_msa_admit_all_in_region && !snp_only_admission) {
++        for (size_t vi = 0; vi < noisy_vars.size(); ++vi) {
++            auto& var = noisy_vars[vi];
++            if (var.counts.category != VariantCategory::NoisyCandHom || var.key.type == VariantType::Snp ||
++                var.counts.ref_cov < opts.min_alt_depth || var.counts.alt_cov < opts.min_alt_depth ||
++                var.counts.allele_fraction < opts.min_af || var.counts.allele_fraction > opts.max_af) continue;
++            // Agreement of two provisional consensuses is not proof of a
++            // homozygous genotype when individual reads support both alleles.
++            set_noisy_category(var, VariantCategory::NoisyCandHet);
++            noisy_var_cate[vi] = VariantCategory::NoisyCandHet;
++            if (opts.verbose >= 2)
++                std::fprintf(stderr, "GapReassessedIndel\t%lld\t%d\t%d\t%d\n",
++                    static_cast<long long>(var.key.sort_pos()), var.counts.ref_cov,
++                    var.counts.alt_cov, var.is_homopolymer_indel ? 1 : 0);
++        }
++    }
+     return merge_var_profile(
+         chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,
+         opts.private_msa_admit_all_in_region, snp_only_admission);
+diff --git a/src/collect_pipeline.cpp b/src/collect_pipeline.cpp
+index e5ed956..aae8cba 100644
+--- a/src/collect_pipeline.cpp
++++ b/src/collect_pipeline.cpp
+@@ -1103,8 +1103,9 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
+         auto& proposal = local.front();
+         // A SNP-only extension must not remove previously examined indels
+         // from the later tier: those sites can still bridge the remaining gap.
+-        const hts_pos_t msa_beg = gap.left_end - kGapRecoveryMsaFlank;
+-        const hts_pos_t msa_end = gap.right_beg + kGapRecoveryMsaFlank;
++        const hts_pos_t link_beg = gap.left_end, link_end = gap.right_beg;
++        const hts_pos_t msa_beg = link_beg - kGapRecoveryMsaFlank;
++        const hts_pos_t msa_end = link_end + kGapRecoveryMsaFlank;
+         bool msa_prepared = false;
+         constexpr int kGapHomopolymerTier = 4;
+         for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
+@@ -1113,11 +1114,11 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
+                 const bool has_hp = std::any_of(proposal.candidates.begin(), proposal.candidates.end(),
+                     [&](const CandidateVariant& v) {
+                         return v.is_homopolymer_indel && v.lcd_var_i_to_cate == kCandNoisyCandHet &&
+-                               v.key.sort_pos() >= gap.left_end && v.key.sort_pos() <= gap.right_beg;
++                               v.key.sort_pos() >= link_beg && v.key.sort_pos() <= link_end;
+                     });
+                 if (!has_hp || !opts.link_by_alleles) break;
+-                local_opts.gap_hp_link_beg = gap.left_end;
+-                local_opts.gap_hp_link_end = gap.right_beg;
++                local_opts.gap_hp_link_beg = link_beg;
++                local_opts.gap_hp_link_end = link_end;
+                 local_opts.private_msa_admit_all_in_region = true;
+                 assign_hap_based_on_germline_het_vars_kmeans(proposal, local_opts, kCandGermlineVarCate);
+             } else if (tier > 1) {
+diff --git a/src/test_phase_block_stitch.cpp b/src/test_phase_block_stitch.cpp
+index 334bed0..70ba88c 100644
+--- a/src/test_phase_block_stitch.cpp
++++ b/src/test_phase_block_stitch.cpp
+@@ -1198,8 +1198,150 @@ static bool test_msa_supported_flank_variant() {
+     return ok;
+ }
+ 
++static bool test_gap_clean_block_bridge() {
++    bool ok = true;
++    for (int mode = 0; mode < 6; ++mode) {
++        PhasingChunk chunk;
++        for (int vi = 0; vi < 4; ++vi) {
++            CandidateVariant var;
++            var.key.pos = 100 + vi * 100;
++            var.key.type = VariantType::Snp;
++            var.key.ref_len = 1; var.key.alt = "T"; var.ref_base = 0;
++            var.lcd_var_i_to_cate = kCandCleanHetSnp;
++            var.counts.alle_covs = {3, 3};
++            var.hap_to_cons_alle = {-1, 0, 1};
++            chunk.candidates.push_back(var);
++        }
++        std::vector<std::vector<int>> alleles = {
++            {0, 0, -1, -1}, {1, 1, -1, -1},
++            {-1, -1, 0, 0}, {-1, -1, 1, 1}, {0, 0, 1, 1}};
++        if (mode == 1 || mode >= 4) alleles.back() = {0, -1, 1, -1};
++        if (mode == 2) alleles.push_back({0, -1, 0, -1});
++        chunk.read_var_cr.reset(cr_init());
++        for (size_t ri = 0; ri < alleles.size(); ++ri) {
++            auto read = min_read();
++            read.mapq = mode == 3 && ri == 4 ? 0 : 60;
++            if (mode >= 4 && ri == 4) {
++                read.alignment.reset(bam_init1());
++                std::string sequence(301, 'A');
++                sequence[200] = sequence[300] = 'T';
++                const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
++                bam_set1(read.alignment.get(), 6, "bridge", 0, 0, 99, 60, 1, &cigar,
++                         -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
++                std::fill(bam_get_qual(read.alignment.get()),
++                          bam_get_qual(read.alignment.get()) + sequence.size(), mode == 4 ? 40 : 10);
++            }
++            chunk.reads.push_back(std::move(read));
++            ReadVariantProfile profile;
++            profile.start_var_idx = 0; profile.end_var_idx = 3;
++            profile.alleles = alleles[ri];
++            chunk.read_var_profile.push_back(profile);
++            cr_add(chunk.read_var_cr.get(), "cr", 0, 4, ri);
++        }
++        cr_index(chunk.read_var_cr.get());
++        Options opts;
++        opts.link_by_alleles = opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
++        opts.min_block_link_reads = 2; opts.block_link_window = 8;
++        iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts);
++        const bool joined = chunk.candidates[0].phase_set == chunk.candidates[3].phase_set;
++        ok &= check(joined == (mode == 0 || mode == 4),
++                    "block bridge requires reliable flank observations, mapping confidence, and no opposing read");
++        if (joined) {
++            ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],
++                        "block bridge composes the supported opposite orientation");
++            ok &= check(iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3}, opts) == 0,
++                        "block bridge orientation converges");
++        }
++    }
++    return ok;
++}
++
++static bool test_read_hp_matches_reported_phase_set() {
++    PhasingChunk chunk;
++    for (int vi = 0; vi < 4; ++vi) {
++        CandidateVariant var;
++        var.key.pos = 100 + vi * 100;
++        var.key.type = VariantType::Snp; var.key.ref_len = 1; var.key.alt = "T";
++        var.lcd_var_i_to_cate = kCandCleanHetSnp;
++        var.counts.alle_covs = {4, 4}; var.counts.total_cov = 8;
++        chunk.candidates.push_back(var);
++    }
++    const std::vector<std::vector<int>> alleles = {
++        {0, 0, -1, -1}, {0, 0, -1, -1}, {1, 1, -1, -1}, {1, 1, -1, -1},
++        {-1, -1, 0, 0}, {-1, -1, 0, 0}, {-1, -1, 1, 1}, {-1, -1, 1, 1},
++        {0, 0, 0, 0}, {0, 0, 1, 1}};
++    chunk.read_var_cr.reset(cr_init());
++    for (size_t ri = 0; ri < alleles.size(); ++ri) {
++        chunk.reads.push_back(min_read());
++        ReadVariantProfile profile;
++        profile.start_var_idx = 0; profile.end_var_idx = 3;
++        profile.alleles = alleles[ri];
++        chunk.read_var_profile.push_back(profile);
++        cr_add(chunk.read_var_cr.get(), "cr", 0, 4, ri);
++    }
++    cr_index(chunk.read_var_cr.get());
++    Options opts; opts.link_by_alleles = true; opts.min_block_link_reads = 2;
++    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
++    return check(chunk.candidates[0].phase_set != chunk.candidates[3].phase_set &&
++                 chunk.phase_sets[8] == chunk.candidates[0].phase_set &&
++                 chunk.phase_sets[9] == chunk.candidates[0].phase_set &&
++                 chunk.haps[8] != 0 && chunk.haps[8] == chunk.haps[9] &&
++                 chunk.candidates[0].hap_to_cons_alle[chunk.haps[8]] == 0,
++                 "reads with the same left-block allele get the same HP in that PS despite different right-block alleles");
++}
++
++static bool test_msa_homozygous_consensus_keeps_reference_evidence() {
++    CandidateVariant var;
++    var.key.pos = 103; var.key.type = VariantType::Deletion; var.key.ref_len = 1;
++    var.counts.category = VariantCategory::NoisyCandHom;
++    var.counts.alle_covs = {0, 2}; var.counts.total_cov = 2;
++    var.counts.alt_cov = 2;
++    const auto reference = site_alignment("ACGATGC", "ACGATGC");
++    const auto deletion = site_alignment("ACGATGC", "ACG-TGC");
++    const std::array<AlnStr, 2> consensuses = {deletion, deletion};
++    std::vector<CandidateVariant> vars{var};
++    std::vector<ReadVariantProfile> profiles(4);
++    Options opts; opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
++    add_msa_site_observations(opts, {{2, {reference, reference}}, {3, {reference, reference}}},
++                             100, false, vars, profiles, &consensuses);
++    return check(vars[0].counts.alle_covs == std::vector<int>({2, 2}) &&
++                 profiles[2].alleles == std::vector<int>({0}) &&
++                 profiles[3].alleles == std::vector<int>({0}),
++                 "matching provisional deletion consensuses cannot erase exact reference-supporting reads");
++}
++
++static bool test_partial_msa_read_uses_observed_allele() {
++    PhasingChunk chunk;
++    chunk.region.tid = 0; chunk.ref_beg = 100; chunk.ref_seq = "TACGATGCCG";
++    chunk.reads.resize(2);
++    const auto consensus = site_alignment("TACGATGCCG", "TACG-TGCCG");
++    auto partial = site_alignment("TACG-TGCCG", "-ACGATGC--");
++    partial.query_beg = 1; partial.query_end = 7;
++    const auto alternate = site_alignment("TACGTGCCG", "TACGTGCCG");
++    Options opts; opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
++    AlnStr partial_ref, alternate_ref;
++    make_ref_read_aln_str(opts, consensus, partial, partial_ref);
++    make_ref_read_aln_str(opts, consensus, alternate, alternate_ref);
++    const std::array<std::vector<AlnStr>, 2> alignments = {
++        std::vector<AlnStr>{consensus, partial, partial_ref},
++        std::vector<AlnStr>{consensus, alternate, alternate_ref}};
++    std::vector<CandidateVariant> vars;
++    std::vector<VariantCategory> categories;
++    std::vector<ReadVariantProfile> profiles;
++    make_vars_from_msa_cons_aln(opts, chunk, 2, {0, 1}, 100, 2,
++                               {1, 1}, {{{0}, {1}}}, alignments, vars, categories, profiles);
++    return check(vars.size() == 1 && vars[0].counts.alle_covs == std::vector<int>({1, 1}) &&
++                 profiles[0].alleles == std::vector<int>({0}) &&
++                 profiles[1].alleles == std::vector<int>({1}),
++                 "a partial MSA read covering the site and flanks votes its reference allele, not its ALT cluster");
++}
++
+ int main() {
+     int failures = 0;
++    failures += test_partial_msa_read_uses_observed_allele() ? 0 : 1;
++    failures += test_msa_homozygous_consensus_keeps_reference_evidence() ? 0 : 1;
++    failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
++    failures += test_gap_clean_block_bridge() ? 0 : 1;
+     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
+     failures += test_msa_two_alternate_insertions() ? 0 : 1;
+     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;

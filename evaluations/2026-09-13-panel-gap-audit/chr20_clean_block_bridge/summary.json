@@ -1,0 +1,25 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 80,
+    "split -> split": 30,
+    "split -> endpoint_unphased": 2,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37333,
+  "added_tagged_reads": 832,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_61732321_61782778"
+  ],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "joined -> joined": 79,
+    "split -> split": 30,
+    "endpoint_unphased -> endpoint_unphased": 4,
+    "split -> joined": 1
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}
