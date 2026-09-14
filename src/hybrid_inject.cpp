@@ -223,6 +223,15 @@ static int add_graph_only_candidate(PhasingChunk& chunk,
     const int idx = static_cast<int>(chunk.candidates.size());
     CandidateVariant cand;
     cand.key = vcf_to_variant_key(tid, site.pos, site.ref, vcf_alt);
+    if (cand.key.type == VariantType::Snp && site.ref.size() == 1) {
+        switch (site.ref[0]) {
+            case 'A': case 'a': cand.ref_base = 0; break;
+            case 'C': case 'c': cand.ref_base = 1; break;
+            case 'G': case 'g': cand.ref_base = 2; break;
+            case 'T': case 't': cand.ref_base = 3; break;
+            default: break;
+        }
+    }
     cand.counts.n_uniq_alles = 2;
     cand.counts.category = VariantCategory::LowCoverage;
     cand.counts.candvarcate_initial = VariantCategory::LowCoverage;

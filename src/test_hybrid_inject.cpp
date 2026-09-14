@@ -7,6 +7,7 @@
 #include "collect_var.hpp"
 #include "phasing_types.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <string>
 #include <unordered_set>
@@ -166,6 +167,12 @@ int main() {
                     "authoritative ownership includes shared and graph-only sites");
         ok &= check(graph_alleles.size() == 2,
                     "catalog alleles are retained for every graph-owned site");
+        const auto added_candidate = std::find_if(
+            ownership_chunk.candidates.begin(), ownership_chunk.candidates.end(),
+            [](const CandidateVariant& candidate) { return candidate.key.pos == 200; });
+        ok &= check(added_candidate != ownership_chunk.candidates.end() &&
+                        added_candidate->ref_base == 1,
+                    "graph-only SNP retains its reference-base encoding");
     }
 
     // --private-sites must remove every BAM candidate not explicitly listed

@@ -5739,3 +5739,28 @@ Candidate heterozygosity, a single reliable site, and a reliable orientation
 between existing blocks are separate decisions. Accepting the first two does
 not by itself validate every weak downstream stitch. Competitor and truth
 records remain evaluation-only inputs throughout these experiments.
+
+### Graph-only SNP reference metadata repairs the 46.7 Mb clean bridge
+
+The chr20 46,727,050-46,747,637 target remained split even though a MAPQ60
+paternal read observes the left clean SNP at Q35 and the right clean SNP at
+Q40. The recovery graph already permits one spanning read when both clean SNP
+observations can be checked directly in the BAM. The right observation passed,
+but the left graph-only SNP retained the default unknown `ref_base=4`, so the
+same check incorrectly rejected its otherwise exact BAM base.
+
+Graph-only SNP injection now copies the catalog REF nucleotide into the
+candidate's nt4 `ref_base`. This preserves the existing MAPQ30/base-Q30 gate
+and does not lower link support thresholds. The target joins in the
+clean-plus-MSA-SNP tier, before MSA indels or the homopolymer fallback. Its
+single 972,856 bp block has 414/415 concordant truth-labelled reads; local
+WhatsHap comparison assesses 32 variant pairs with zero switches and zero
+Hamming errors.
+
+The complete 114-case chr20 replay has 89 joined and 25 split targets. Relative
+to clean_scoped_iterations, all 88 earlier joins remain joined and 46.7 Mb is
+the only new join. No case increases read discordance or switch/flips, and no
+original block has its truth majority reversed. Results are archived under
+`evaluations/2026-09-13-panel-gap-audit/chr20_graph_refbase/`. Build and all
+unit tests pass. These remain overlapping local-window results rather than a
+whole-chromosome NGC50 measurement.
