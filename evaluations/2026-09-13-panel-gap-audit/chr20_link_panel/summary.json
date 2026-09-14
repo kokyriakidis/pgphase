@@ -1,0 +1,25 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 81,
+    "split -> split": 30,
+    "split -> endpoint_unphased": 1,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37479,
+  "added_tagged_reads": 851,
+  "discordance_increases": [
+    "chr20_1912570_1913054",
+    "chr20_7218910_7250571",
+    "chr20_18983414_19005497",
+    "chr20_19358995_19395544",
+    "chr20_34030463_34072055",
+    "chr20_34079290_34134418",
+    "chr20_36332599_36381019",
+    "chr20_46727050_46747637",
+    "chr20_50540995_50562066",
+    "chr20_57764235_57785772",
+    "chr20_58392336_58419975",
+    "chr20_1912570_1913912"
+  ]
+}

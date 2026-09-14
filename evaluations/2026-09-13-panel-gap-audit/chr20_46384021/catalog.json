@@ -1,0 +1,42 @@
+[
+  {
+    "target": 46384021,
+    "overlapping_catalog_sites": [
+      {
+        "start": 46382229,
+        "end": 46385442,
+        "ref_length": 3214,
+        "alt_count": 45
+      },
+      {
+        "start": 46383998,
+        "end": 46383998,
+        "ref_length": 1,
+        "alt_count": 1
+      },
+      {
+        "start": 46384018,
+        "end": 46384018,
+        "ref_length": 1,
+        "alt_count": 1
+      }
+    ]
+  },
+  {
+    "target": 46405048,
+    "overlapping_catalog_sites": [
+      {
+        "start": 46403611,
+        "end": 46405024,
+        "ref_length": 1414,
+        "alt_count": 23
+      },
+      {
+        "start": 46405052,
+        "end": 46405053,
+        "ref_length": 2,
+        "alt_count": 2
+      }
+    ]
+  }
+]

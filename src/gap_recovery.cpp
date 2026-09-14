@@ -4,9 +4,12 @@
 #include "collect_phase_noisy.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <map>
 #include <set>
 #include <tuple>
+#include <string_view>
+#include <unordered_map>
 
 namespace pgphase_collect {
 
@@ -81,21 +84,49 @@ static void orient_candidate(CandidateVariant& v, hts_pos_t ps, bool flip) {
     if (v.hap_ref == 1 || v.hap_ref == 2) v.hap_ref = 3 - v.hap_ref;
 }
 
+size_t GapReadIndex::Hash::operator()(const Key& key) const {
+    return std::hash<std::string_view>{}(key.second) ^ std::hash<int>{}(key.first);
+}
+
+GapReadIndex::GapReadIndex(const std::vector<PhasingChunk>& chunks) {
+    for (size_t ci = 0; ci < chunks.size(); ++ci)
+        for (size_t ri = 0; ri < chunks[ci].reads.size(); ++ri) {
+            const auto& read = chunks[ci].reads[ri];
+            reads[{read.input_index, read.qname}].emplace_back(ci, ri);
+        }
+}
+
 GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
                                     const PhasingChunk& proposal,
-                                    const PhaseGap& gap, const Options& opts) {
-    using ReadKey = std::pair<int, std::string>;
-    std::map<ReadKey, std::pair<int, hts_pos_t>> original;
-    for (const auto& chunk : chunks) {
-        if (chunk.region.tid != gap.tid) continue;
-        for (size_t i = 0; i < chunk.reads.size(); ++i) {
-            if (chunk.reads[i].is_skipped || chunk.haps[i] == 0 || chunk.phase_sets[i] < 0) continue;
-            original.emplace(ReadKey{chunk.reads[i].input_index, chunk.reads[i].qname},
-                             std::make_pair(chunk.haps[i], chunk.phase_sets[i]));
+                                    const PhaseGap& gap, const Options& opts,
+                                    const GapReadIndex* read_index) {
+    using ReadKey = GapReadIndex::Key;
+    const auto local_index = read_index == nullptr ? std::make_unique<GapReadIndex>(chunks) : nullptr;
+    const auto& index = read_index == nullptr ? *local_index : *read_index;
+    auto first_assignment = [&](const auto& locations) {
+        for (const auto& [ci, ri] : locations) {
+            const auto& chunk = chunks[ci];
+            if (chunk.region.tid != gap.tid || chunk.reads[ri].is_skipped ||
+                chunk.haps[ri] == 0 || chunk.phase_sets[ri] < 0) continue;
+            return std::make_pair(chunk.haps[ri], chunk.phase_sets[ri]);
         }
-    }
+        return std::make_pair(0, static_cast<hts_pos_t>(-1));
+    };
     std::set<hts_pos_t> supported_phase_sets;
-    for (const auto& entry : original) supported_phase_sets.insert(entry.second.second);
+    for (const auto& [key, locations] : index.reads) {
+        const auto assignment = first_assignment(locations);
+        if (assignment.first != 0) supported_phase_sets.insert(assignment.second);
+    }
+    // Only proposal reads are queried below. Retain the same first valid
+    // assignment in chunk order without rebuilding a chromosome-sized name map.
+    std::unordered_map<ReadKey, std::pair<int, hts_pos_t>, GapReadIndex::Hash> original;
+    for (const auto& read : proposal.reads) {
+        const ReadKey key{read.input_index, read.qname};
+        const auto found = index.reads.find(key);
+        if (found == index.reads.end()) continue;
+        const auto assignment = first_assignment(found->second);
+        if (assignment.first != 0) original.emplace(key, assignment);
+    }
     std::map<ReadKey, size_t> proposal_reads;
     std::map<ReadKey, size_t> observation_reads;
     std::map<hts_pos_t, std::array<std::array<int, 4>, 2>> votes;
@@ -121,7 +152,21 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
         std::array<Link, 2> pair;
         for (int side = 0; side < 2; ++side) {
             bool flip = false;
+            if (opts.verbose >= 2) {
+                std::cerr << "GapLinkVotes\t" << gap.left_end << '\t' << gap.right_beg
+                          << '\t' << ps << '\t' << side;
+                for (const int count : sides[side]) std::cerr << '\t' << count;
+                std::cerr << '\n';
+            }
             if (!select_stitch_orientation(sides[side], &opts, flip)) continue;
+            if (opts.gap_hp_link_beg >= 0) {
+                // Each original haplotype must independently favor the same
+                // orientation before committing a homopolymer rescue.
+                const auto& v = sides[side];
+                const int first = flip ? v[1] - v[0] : v[0] - v[1];
+                const int second = flip ? v[2] - v[3] : v[3] - v[2];
+                if (std::min(first, second) < opts.min_block_link_reads) continue;
+            }
             const int support = flip ? sides[side][1] + sides[side][2]
                                      : sides[side][0] + sides[side][3];
             pair[side] = {ps, flip, support};
@@ -140,6 +185,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     result.left_linked = links[0].ps >= 0;
     result.right_linked = links[1].ps >= 0;
     result.joined = result.left_linked && result.right_linked && links[0].ps == links[1].ps;
+    // Failed last-resort trials must not extend or modify either trusted flank.
+    if (opts.gap_hp_link_beg >= 0 && !result.joined) return result;
     std::map<hts_pos_t, std::pair<hts_pos_t, bool>> accepted;
     if (result.left_linked) accepted[links[0].ps] = {gap.left_ps, links[0].flip};
     if (result.right_linked && !result.joined)

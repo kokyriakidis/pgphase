@@ -1118,6 +1118,28 @@ int make_cons_read_aln_str(const uint8_t* cons_row, const uint8_t* read_row,
 // Build reference-vs-read alignment string from WFA2 output.
 // ════════════════════════════════════════════════════════════════════════════
 
+void left_normalize_msa_alignment(AlnStr& aln) {
+    constexpr uint8_t kAlignmentGap = 5;
+    constexpr uint8_t kAmbiguousBase = 4;
+    const int beg = std::max(0, std::max(aln.target_beg, aln.query_beg));
+    const int end = std::min(aln.aln_len - 1, std::min(aln.target_end, aln.query_end));
+    for (int i = beg; i <= end; ++i) {
+        if ((aln.target_aln[i] == kAlignmentGap) == (aln.query_aln[i] == kAlignmentGap)) continue;
+        auto& gap_row = aln.target_aln[i] == kAlignmentGap ? aln.target_aln : aln.query_aln;
+        const auto& other = aln.target_aln[i] == kAlignmentGap ? aln.query_aln : aln.target_aln;
+        int j = i;
+        while (j <= end && gap_row[j] == kAlignmentGap && other[j] < kAmbiguousBase) ++j;
+        if (j == i) continue;
+        while (i > beg && gap_row[i - 1] < kAmbiguousBase && gap_row[i - 1] == other[i - 1] &&
+               other[j - 1] == other[i - 1]) {
+            std::swap(gap_row[i - 1], gap_row[j - 1]);
+            --i;
+            --j;
+        }
+        i = j - 1;
+    }
+}
+
 int make_ref_read_aln_str(const Options& opts, const AlnStr& ref_cons,
                           const AlnStr& cons_read, AlnStr& ref_read) {
     const int max_len = ref_cons.aln_len + cons_read.aln_len;
@@ -1669,7 +1691,8 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                                            bool collect_ref_read_aln_str,
                                            std::array<int, 2>& clu_n_seqs,
                                            std::array<std::vector<int>, 2>& clu_read_ids,
-                                           std::array<std::vector<AlnStr>, 2>& aln_strs) {
+                                           std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                           std::vector<UnassignedMsaRead>* unassigned) {
     const int n = info.n_reads;
     // Check if region is a homopolymer — if so, require full-cover reads only.
     int hp_start, hp_end, hp_len;
@@ -1821,7 +1844,25 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             // winning consensus to win by a real margin.  Committing on any
             // non-zero score is the same failure mode --min-read-margin exists
             // to fix in the k-means path.
-            if (std::abs(scores[0] - scores[1]) < opts.private_msa_margin) continue;
+            if (std::abs(scores[0] - scores[1]) < opts.private_msa_margin) {
+                if (unassigned != nullptr) {
+                    UnassignedMsaRead read;
+                    read.read_id = info.noisy_read_ids[static_cast<size_t>(i)];
+                    for (int ci = 0; ci < 2; ++ci) {
+                        auto& aln = read.ref_read[ci];
+                        make_ref_read_aln_str(opts, aln_strs[ci][0], cons_read_alns[ci], aln);
+                        // Composition leaves bounds unset; these are full-cover reads.
+                        aln.target_beg = aln.query_beg = 0;
+                        aln.target_end = aln.query_end = aln.aln_len - 1;
+                        // Composing two left-aligned paths can move an indel
+                        // within a repeat. Restore reference coordinates before
+                        // comparing the two paths at a verified MSA site.
+                        if (opts.gap_aln == kGapLeftAln) left_normalize_msa_alignment(aln);
+                    }
+                    unassigned->push_back(std::move(read));
+                }
+                continue;
+            }
 
             const int ci = scores[0] < scores[1] ? 0 : 1;
             clu_read_ids[static_cast<size_t>(ci)].push_back(
@@ -1851,7 +1892,8 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                                 const std::vector<uint8_t>& ref_seq_vec,
                                 std::array<int, 2>& clu_n_seqs,
                                 std::array<std::vector<int>, 2>& clu_read_ids,
-                                std::array<std::vector<AlnStr>, 2>& aln_strs) {
+                                std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                std::vector<UnassignedMsaRead>* unassigned) {
     if (noisy_read_ids.empty()) return 0;
     const int ref_seq_len = static_cast<int>(ref_seq_vec.size());
 
@@ -1888,7 +1930,7 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
             opts, sampling, info, ps,
             opts.min_hap_full_reads, opts.min_hap_reads,
             ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,
-            clu_n_seqs, clu_read_ids, aln_strs);
+            clu_n_seqs, clu_read_ids, aln_strs, unassigned);
     } else if (n_full_reads >= opts.min_depth) {
         n_cons = wfa_collect_noisy_aln_str_no_ps_hap(
             opts, info, ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,

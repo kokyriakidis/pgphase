@@ -829,6 +829,46 @@ std::vector<uint8_t> collect_reg_ref_bseq(const PhasingChunk& chunk,
 // make_vars_from_msa_cons_aln
 // ════════════════════════════════════════════════════════════════════════════
 
+static void split_nested_msa_deletions(const Options& opts, const PhasingChunk& chunk,
+                                       std::vector<CandidateVariant>& first,
+                                       std::vector<CandidateVariant>& second) {
+    const size_t first_size = first.size(), second_size = second.size();
+    for (size_t i = 0; i < first_size; ++i) {
+        for (size_t j = 0; j < second_size; ++j) {
+            const auto a = first[i], b = second[j];
+            if (a.key.type != VariantType::Deletion || b.key.type != VariantType::Deletion ||
+                a.key.pos != b.key.pos || a.key.ref_len == b.key.ref_len) continue;
+            // Both haplotypes delete the common prefix. Treating each full
+            // deletion as an independent het lets a longer-deletion read
+            // support both ALT rows, manufacturing a false phase bridge.
+            const bool first_longer = a.key.ref_len > b.key.ref_len;
+            const auto& common = first_longer ? b : a;
+            auto residual = first_longer ? a : b;
+            residual.key.pos += common.key.ref_len;
+            residual.key.ref_len -= common.key.ref_len;
+            residual.alt_ref_base = base_to_nt4(chunk.ref_seq[
+                static_cast<size_t>(residual.key.pos - 1 - chunk.ref_beg)]);
+            residual.is_homopolymer_indel = residual.key.ref_len < opts.min_sv_len &&
+                var_is_homopolymer_indel(chunk, residual.key.pos, VariantType::Deletion,
+                                          residual.key.ref_len, {});
+            auto& longer = first_longer ? first : second;
+            longer[first_longer ? i : j] = common;
+            longer.push_back(std::move(residual));
+        }
+    }
+    const auto less = [](const CandidateVariant& a, const CandidateVariant& b) {
+        return exact_comp_cand_var(&a, &b) < 0;
+    };
+    std::stable_sort(first.begin(), first.end(), less);
+    std::stable_sort(second.begin(), second.end(), less);
+}
+
+static void refresh_assigned_msa_observations(const Options& opts,
+    const std::array<int, 2>& clu_n_seqs,
+    const std::array<std::vector<int>, 2>& clu_read_ids,
+    const std::array<std::vector<AlnStr>, 2>& alignments, hts_pos_t ref_beg,
+    std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles);
+
 int make_vars_from_msa_cons_aln(
     const Options& opts, PhasingChunk& chunk,
     int /*n_noisy_reads*/, const std::vector<int>& /*read_ids*/,
@@ -887,9 +927,14 @@ int make_vars_from_msa_cons_aln(
                                             ref_cons_aln_str.aln_len,
                                             false);
     }
-    return update_cand_var_profile_from_cons_aln_str2(
+    if (opts.recover_gaps) split_nested_msa_deletions(opts, chunk, hap1_vars, hap2_vars);
+    const int count = update_cand_var_profile_from_cons_aln_str2(
         opts, chunk, clu_n_seqs, clu_read_ids, aln_strs, noisy_reg_beg,
         hap1_vars, hap2_vars, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.recover_gaps && !aln_strs[0].empty() && !aln_strs[1].empty())
+        refresh_assigned_msa_observations(opts, clu_n_seqs, clu_read_ids, aln_strs,
+                                           noisy_reg_beg, noisy_vars, noisy_rvp);
+    return count;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1065,6 +1110,200 @@ int merge_var_profile(PhasingChunk& chunk,
 // collect_noisy_vars1
 // ════════════════════════════════════════════════════════════════════════════
 
+struct MsaSiteSlice {
+    std::string ref, query;
+    std::array<std::string, 2> flank_ref, flank_query;
+    bool covered = false;
+};
+
+static MsaSiteSlice slice_msa_site(const AlnStr& aln, const VariantKey& key,
+                                   hts_pos_t ref_beg) {
+    constexpr int kSiteFlankBases = 3;
+    const int beg = static_cast<int>(key.pos - ref_beg);
+    const int end = beg + (key.type == VariantType::Insertion ? 0 : key.ref_len);
+    int ref_pos = -1;
+    MsaSiteSlice result;
+    for (int i = 0; i < aln.aln_len; ++i) {
+        const auto t = aln.target_aln[i], q = aln.query_aln[i];
+        if (t != kGapBase) ++ref_pos;
+        const int pos = ref_pos + (t == kGapBase ? 1 : 0);
+        if (pos < beg - kSiteFlankBases || pos >= end + kSiteFlankBases) continue;
+        if (i < aln.target_beg || i > aln.target_end ||
+            i < aln.query_beg || i > aln.query_end ||
+            (t > 3 && t != kGapBase) || (q > 3 && q != kGapBase)) return result;
+        const bool at_site = (pos >= beg && pos < end) ||
+            (key.type == VariantType::Insertion && pos == beg && t == kGapBase);
+        const int side = pos < beg ? 0 : 1;
+        auto& ref = at_site ? result.ref : result.flank_ref[side];
+        auto& query = at_site ? result.query : result.flank_query[side];
+        if (t != kGapBase) ref.push_back(nt4_to_base(t));
+        if (q != kGapBase) query.push_back(nt4_to_base(q));
+    }
+    result.covered = result.flank_ref[0].size() == kSiteFlankBases &&
+                     result.flank_ref[1].size() == kSiteFlankBases;
+    return result;
+}
+
+static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,
+                                      const VariantKey& key, hts_pos_t ref_beg,
+                                      const std::array<MsaSiteSlice, 2>& context) {
+    int first = -1;
+    for (int ci = 0; ci < 2; ++ci) {
+        const auto site = slice_msa_site(alignments[ci], key, ref_beg);
+        if (!site.covered) return -1;
+        for (int side = 0; side < 2; ++side) {
+            bool supported = site.flank_query[side] == site.flank_ref[side];
+            for (const auto& consensus : context)
+                supported |= consensus.covered &&
+                    site.flank_ref[side] == consensus.flank_ref[side] &&
+                    site.flank_query[side] == consensus.flank_query[side];
+            if (!supported) return -1;
+        }
+        const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
+        const int allele = site.query == site.ref ? 0 : site.query == alt ? 1 : -1;
+        if (allele < 0 || (ci == 1 && allele != first)) return -1;
+        first = allele;
+    }
+    return first;
+}
+
+int call_msa_site_allele(const std::array<AlnStr, 2>& alignments,
+                         const VariantKey& key, hts_pos_t ref_beg,
+                         const std::array<AlnStr, 2>* consensuses) {
+    std::array<MsaSiteSlice, 2> context;
+    if (consensuses != nullptr)
+        for (int ci = 0; ci < 2; ++ci) context[ci] = slice_msa_site((*consensuses)[ci], key, ref_beg);
+    return call_msa_site_with_context(alignments, key, ref_beg, context);
+}
+
+static int local_allele_distance(const std::string& first, const std::string& second) {
+    constexpr int kBeyondOneEdit = 2;
+    if (first == second) return 0;
+    if (first.size() + 1 < second.size() || second.size() + 1 < first.size()) return kBeyondOneEdit;
+    size_t i = 0, j = 0;
+    int edits = 0;
+    while (i < first.size() && j < second.size()) {
+        if (first[i] == second[j]) { ++i; ++j; continue; }
+        if (++edits > 1) return kBeyondOneEdit;
+        if (first.size() >= second.size()) ++i;
+        if (second.size() >= first.size()) ++j;
+    }
+    return edits + (i < first.size() || j < second.size());
+}
+
+static int call_local_msa_allele(const AlnStr& read, const VariantKey& key,
+                                     hts_pos_t ref_beg, const std::array<AlnStr, 2>& consensuses) {
+    const int exact = call_msa_site_allele({read, read}, key, ref_beg, &consensuses);
+    if (exact >= 0) return exact;
+    const auto observed = slice_msa_site(read, key, ref_beg);
+    const std::array<MsaSiteSlice, 2> context = {
+        slice_msa_site(consensuses[0], key, ref_beg), slice_msa_site(consensuses[1], key, ref_beg)};
+    if (!observed.covered || !context[0].covered || !context[1].covered ||
+        context[0].flank_query != context[1].flank_query) return -1;
+    const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
+    std::array<int, 2> alleles, distances;
+    const std::string query = observed.flank_query[0] + observed.query + observed.flank_query[1];
+    for (int ci = 0; ci < 2; ++ci) {
+        alleles[ci] = context[ci].query == context[ci].ref ? 0 : context[ci].query == alt ? 1 : -1;
+        const std::string expected = context[ci].flank_query[0] + context[ci].query + context[ci].flank_query[1];
+        distances[ci] = local_allele_distance(query, expected);
+    }
+    if (alleles[0] < 0 || alleles[1] < 0 || alleles[0] == alleles[1] ||
+        distances[0] == distances[1]) return -1;
+    const int best = distances[0] < distances[1] ? 0 : 1;
+    // Permit one local sequencing error only when the two fixed haplotypes
+    // differ solely at this site and one allele is strictly closer. Cluster
+    // membership itself never supplies the answer.
+    constexpr int kMaxLocalAlleleEdits = 1;
+    return distances[best] <= kMaxLocalAlleleEdits ? alleles[best] : -1;
+}
+
+static void refresh_assigned_msa_observations(const Options& opts,
+    const std::array<int, 2>& clu_n_seqs,
+    const std::array<std::vector<int>, 2>& clu_read_ids,
+    const std::array<std::vector<AlnStr>, 2>& alignments, hts_pos_t ref_beg,
+    std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles) {
+    constexpr int kLeftGapAlignment = 1;
+    const std::array<AlnStr, 2> consensuses = {alignments[0][0], alignments[1][0]};
+    for (int ci = 0; ci < 2; ++ci) {
+        for (int ri = 0; ri < clu_n_seqs[ci]; ++ri) {
+            const auto& cons_read = alignments[ci][2 * ri + 1];
+            // Preserve existing partial-read coverage handling. Full reads can
+            // be checked directly against reference without guessing an allele
+            // from their whole-consensus cluster membership.
+            if (cons_read.target_beg != 0 || cons_read.query_beg != 0 ||
+                cons_read.target_end != cons_read.aln_len - 1 ||
+                cons_read.query_end != cons_read.aln_len - 1) continue;
+            AlnStr ref_read;
+            make_ref_read_aln_str(opts, consensuses[ci], cons_read, ref_read);
+            ref_read.target_beg = ref_read.query_beg = 0;
+            ref_read.target_end = ref_read.query_end = ref_read.aln_len - 1;
+            if (opts.gap_aln == kLeftGapAlignment) left_normalize_msa_alignment(ref_read);
+            auto& profile = profiles[clu_read_ids[ci][ri]];
+            for (size_t vi = 0; vi < vars.size(); ++vi) {
+                if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
+                const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses);
+                update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1, profile);
+            }
+        }
+    }
+    for (size_t vi = 0; vi < vars.size(); ++vi) {
+        auto& var = vars[vi];
+        if (var.counts.category != VariantCategory::NoisyCandHet) continue;
+        var.counts.alle_covs.assign(2, 0);
+        for (const auto& profile : profiles) {
+            if (static_cast<int>(vi) < profile.start_var_idx || static_cast<int>(vi) > profile.end_var_idx) continue;
+            const int allele = profile.alleles[vi - profile.start_var_idx];
+            if (allele == 0 || allele == 1) ++var.counts.alle_covs[allele];
+        }
+        var.counts.total_cov = var.counts.alle_covs[0] + var.counts.alle_covs[1];
+        update_variant_depth_fields(var);
+    }
+}
+
+void add_msa_site_observations(const Options& opts,
+                                const std::vector<UnassignedMsaRead>& reads,
+                                hts_pos_t ref_beg, bool snp_only,
+                                std::vector<CandidateVariant>& vars,
+                                std::vector<ReadVariantProfile>& profiles,
+                                const std::array<AlnStr, 2>* consensuses) {
+    for (size_t vi = 0; vi < vars.size(); ++vi) {
+        auto& var = vars[vi];
+        if (var.counts.category != VariantCategory::NoisyCandHet ||
+            (snp_only && var.key.type != VariantType::Snp)) continue;
+        std::vector<std::pair<int, int>> observations;
+        auto counts = var.counts.alle_covs;
+        std::array<MsaSiteSlice, 2> context;
+        if (consensuses != nullptr)
+            for (int ci = 0; ci < 2; ++ci)
+                context[ci] = slice_msa_site((*consensuses)[ci], var.key, ref_beg);
+        for (const auto& read : reads) {
+            int allele = call_msa_site_with_context(read.ref_read, var.key, ref_beg, context);
+            if (allele < 0 && consensuses != nullptr) {
+                const int first = call_local_msa_allele(read.ref_read[0], var.key, ref_beg, *consensuses);
+                const int second = call_local_msa_allele(read.ref_read[1], var.key, ref_beg, *consensuses);
+                // Whole-window assignment is unnecessary, but both independently
+                // composed paths must favor the same local allele.
+                if (first >= 0 && first == second) allele = first;
+            }
+            if (allele < 0) continue;
+            observations.emplace_back(read.read_id, allele);
+            ++counts[allele];
+        }
+        if (observations.empty()) continue;
+        // Two different consensuses alone do not establish heterozygosity.
+        // Do not extend a site whose expanded evidence fails the existing AF gate.
+        const double af = static_cast<double>(counts[1]) / (counts[0] + counts[1]);
+        if (af < opts.min_af || af > opts.max_af) continue;
+        for (const auto& [read_id, allele] : observations)
+            update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1,
+                                                profiles[read_id]);
+        var.counts.total_cov += static_cast<int>(observations.size());
+        var.counts.alle_covs = std::move(counts);
+        update_variant_depth_fields(var);
+    }
+}
+
 int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
                         const VariantKeySet* site_whitelist, bool snp_only_admission) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
@@ -1107,10 +1346,12 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     std::array<int, 2> clu_n_seqs{};
     std::array<std::vector<int>, 2> clu_read_ids{};
     std::array<std::vector<AlnStr>, 2> aln_strs{};
+    std::vector<UnassignedMsaRead> unassigned;
     const int n_cons = collect_noisy_reg_aln_strs(
         opts, chunk, noisy_reg_beg, noisy_reg_end,
         read_ids, ref_seq,
-        clu_n_seqs, clu_read_ids, aln_strs);
+        clu_n_seqs, clu_read_ids, aln_strs,
+        opts.recover_gaps ? &unassigned : nullptr);
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
@@ -1126,6 +1367,12 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         n_noisy_reads, read_ids, noisy_reg_beg,
         n_cons, clu_n_seqs, clu_read_ids, aln_strs,
         noisy_vars, noisy_var_cate, noisy_rvp);
+
+    // A real neighboring variant is valid flank sequence, not alignment noise.
+    std::array<AlnStr, 2> consensuses;
+    if (n_cons == 2) consensuses = {aln_strs[0][0], aln_strs[1][0]};
+    add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
+                              noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
 
     return merge_var_profile(
         chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,

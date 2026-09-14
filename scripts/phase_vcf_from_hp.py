@@ -45,6 +45,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import pysam
+from allele_observations import observe_allele
 
 
 def read_allele(pileupread, ref_allele, alt_allele):
@@ -83,7 +84,7 @@ def resolve_bam_contig(vcf_contig, bam_references):
 
 
 def variant_key(rec):
-    return rec.chrom, rec.start, rec.ref, rec.alts[0]
+    return rec.chrom, rec.start, rec.ref, ",".join(rec.alts)
 
 
 def vcf_fetch_args(region):
@@ -148,15 +149,19 @@ def alignment_allele(aln, ref_pos, ref_allele, alt_allele):
 
 def collect_support_by_alignment_scan(bam, vin, region, min_mapq):
     targets = defaultdict(lambda: defaultdict(list))
+    # Cache votes use slots in the sorted diploid GT, preserving the original
+    # allele indices on output (including 1/2 genotypes).
+    genotype_indices = {}
     fetch_region = vcf_fetch_args(region)
     for rec in vin.fetch(*fetch_region):
         if len(rec.samples) == 0:
             continue
         gt = rec.samples[0].get("GT")
         if gt is None or len(gt) != 2 or gt[0] is None or gt[1] is None \
-           or gt[0] == gt[1] or len(rec.alts or ()) != 1:
+           or gt[0] == gt[1]:
             continue
         key = variant_key(rec)
+        genotype_indices[key] = tuple(sorted(gt))
         targets[rec.chrom][rec.start].append(key)
 
     support = defaultdict(lambda: defaultdict(lambda: defaultdict(Counter)))
@@ -178,13 +183,19 @@ def collect_support_by_alignment_scan(bam, vin, region, min_mapq):
             right = bisect.bisect_left(positions, aln.reference_end)
             for pos in positions[left:right]:
                 for key in by_pos[pos]:
-                    allele = alignment_allele(aln, pos, key[2], key[3])
+                    if "," in key[3]:
+                        observed = observe_allele(aln, pos, key[2], (key[2], *key[3].split(",")))
+                        allele = genotype_indices[key].index(observed) if observed in genotype_indices[key] else None
+                    else:
+                        allele = alignment_allele(aln, pos, key[2], key[3])
                     if allele is not None:
                         support[key][ps][hp][allele] += 1
     return support
 
 
 def write_support_cache(path, support):
+    # Legacy REF_COUNT/ALT_COUNT columns are GT-slot 0/1 counts for multiallelic
+    # records. Rebuild older caches to include their previously omitted records.
     with Path(path).open("w", newline="") as fh:
         writer = csv.writer(fh, delimiter="\t")
         writer.writerow(("CHROM", "POS0", "REF", "ALT", "PS", "HP", "REF_COUNT", "ALT_COUNT"))
@@ -487,8 +498,9 @@ def main():
         sample.phased = False
         if "PS" in hdr.formats:
             sample["PS"] = None
-        if len(rec.alts or ()) != 1:
-            stats["unphased_multiallelic"] += 1
+        genotype_indices = tuple(sorted(gt))
+        if any(not set(rec.alleles[i].upper()) <= set("ACGT") for i in genotype_indices):
+            stats["unphased_unsupported_allele"] += 1
             vout.write(rec); continue
         stats["eligible_het"] += 1
 
@@ -516,7 +528,11 @@ def main():
                     hp = aln.get_tag("HP")
                     if hp not in (1, 2):
                         continue
-                    a = read_allele(pr, ref, alt)
+                    if len(rec.alts) > 1:
+                        observed = observe_allele(aln, rec.start, rec.ref, rec.alleles)
+                        a = genotype_indices.index(observed) if observed in genotype_indices else None
+                    else:
+                        a = read_allele(pr, ref, alt)
                     if a is None:
                         continue
                     ps = int(aln.get_tag("PS")) if aln.has_tag("PS") else 0
@@ -554,7 +570,7 @@ def main():
             if parity:
                 a1, a2 = a2, a1
 
-        sample["GT"] = (a1, a2)
+        sample["GT"] = (genotype_indices[a1], genotype_indices[a2])
         sample.phased = True
         if phase_set:
             sample["PS"] = phase_set
@@ -564,12 +580,12 @@ def main():
     vout.close()
     het = max(stats["het"], 1)
     print(f"  records={stats['records']:,}  het={stats['het']:,}  "
-          f"eligible-biallelic={stats['eligible_het']:,}  phased={stats['phased']:,} "
+          f"eligible-het={stats['eligible_het']:,}  phased={stats['phased']:,} "
           f"({stats['phased']/het*100:.1f}% of het)",
           file=sys.stderr)
     print(f"  left unphased: support={stats['unphased_support']:,} "
           f"mixed={stats['unphased_mixed']:,} same-allele={stats['unphased_same']:,} "
-          f"multiallelic={stats['unphased_multiallelic']:,}",
+          f"unsupported-allele={stats['unphased_unsupported_allele']:,}",
           file=sys.stderr)
     if stats["unphased_contig"]:
         print(f"  left unphased: unresolved-contig={stats['unphased_contig']:,}",

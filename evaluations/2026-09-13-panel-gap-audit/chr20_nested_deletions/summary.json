@@ -1,0 +1,33 @@
+{
+  "cases": 6,
+  "target_transitions": {
+    "split -> endpoint_unphased": 1,
+    "split -> joined": 3,
+    "split -> split": 2
+  },
+  "original_reads_preserved": 2500,
+  "added_tagged_reads": 32,
+  "discordance_increases": [
+    "chr20_18983414_19005497"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_18983414_19005497",
+      "original_ps": 18933942,
+      "final_ps": 18933942,
+      "truth_reads": 208,
+      "before_discordant": 0,
+      "after_discordant": 208,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "endpoint_unphased -> endpoint_unphased": 1,
+    "joined -> joined": 3,
+    "split -> split": 2
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}

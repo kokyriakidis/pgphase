@@ -1,0 +1,7 @@
+region	previous_blocks	new_blocks	previous_reads	new_reads	previous_discordant	new_discordant
+chr12_46725702	4	4	288	291	0	0
+chr12_63758735	1	1	537	537	0	0
+chr18_46185393	3	1	458	470	1	1
+chr18_33319321	3	2	339	339	0	0
+chr20_61737962	1	1	438	438	0	0
+chr20_17607780	2	2	309	311	0	0

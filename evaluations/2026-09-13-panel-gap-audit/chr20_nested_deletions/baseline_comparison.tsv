@@ -1,0 +1,7 @@
+region	before_target	after_target	before_reads	after_reads	before_discordant	after_discordant	before_switchflips	after_switchflips
+chr20_18983414_19005497	endpoint_unphased	endpoint_unphased	489	489	208	208	1	1
+chr20_46384021_46405048	joined	joined	420	420	0	0	0	0
+chr20_55999561_56040612	split	split	308	308	0	0	0	0
+chr20_57087239_57119478	joined	joined	389	389	0	0	0	0
+chr20_62410496_62432427	joined	joined	385	385	0	0	0	0
+chr20_54547514_54590762	split	split	541	541	0	0	0	0

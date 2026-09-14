@@ -227,6 +227,10 @@ struct Options {
     // indel calls in the same region. Only meaningful together with
     // private_msa_admit_all_in_region.
     bool private_msa_snp_first = false;
+    // Internal last-resort trial: verified homopolymer links only inside this
+    // unresolved gap. Negative bounds disable the trial in ordinary rounds.
+    hts_pos_t gap_hp_link_beg = -1;
+    hts_pos_t gap_hp_link_end = -1;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
@@ -568,6 +572,8 @@ struct CandidateVariant {
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).
     bool is_homopolymer_indel = false;
+    // Recomputed before a gap fallback from allele/HP association within local blocks.
+    bool gap_hp_link_supported = false;
     // True when the variant's VCF POS falls inside the chunk's active region.
     // Used during tiling-overlap dedup: prefer the copy that passes this gate.
     bool lcd_make_variants_region_pass = true;

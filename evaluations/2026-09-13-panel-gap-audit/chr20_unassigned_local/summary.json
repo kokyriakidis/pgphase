@@ -1,0 +1,228 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 73,
+    "split -> split": 37,
+    "split -> endpoint_unphased": 2,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37479,
+  "added_tagged_reads": 813,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_35919404_35939110",
+    "chr20_46727050_46747637",
+    "chr20_60063142_60114911"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_35919404_35939110",
+      "original_ps": 35939110,
+      "final_ps": 35873360,
+      "truth_reads": 48,
+      "before_discordant": 0,
+      "after_discordant": 48,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "original_ps": 46748667,
+      "final_ps": 46677273,
+      "truth_reads": 172,
+      "before_discordant": 0,
+      "after_discordant": 172,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "original_ps": 60058235,
+      "final_ps": 60058235,
+      "truth_reads": 39,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "joined -> joined": 68,
+    "split -> split": 20,
+    "endpoint_unphased -> endpoint_unphased": 4,
+    "joined -> split": 17,
+    "split -> joined": 4,
+    "endpoint_unphased -> joined": 1
+  },
+  "baseline_discordance_increases": [
+    {
+      "region": "chr20_35919404_35939110",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 293,
+      "after_reads": 293,
+      "before_discordant": 0,
+      "after_discordant": 48,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 246,
+      "after_reads": 246,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    }
+  ],
+  "baseline_switchflip_increases": [
+    {
+      "region": "chr20_1912570_1913054",
+      "before_target": "endpoint_unphased",
+      "after_target": "endpoint_unphased",
+      "before_reads": 354,
+      "after_reads": 354,
+      "before_discordant": 29,
+      "after_discordant": 28,
+      "before_switchflips": 9,
+      "after_switchflips": 10
+    },
+    {
+      "region": "chr20_35919404_35939110",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 293,
+      "after_reads": 293,
+      "before_discordant": 0,
+      "after_discordant": 48,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 246,
+      "after_reads": 246,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    },
+    {
+      "region": "chr20_1912570_1913912",
+      "before_target": "endpoint_unphased",
+      "after_target": "endpoint_unphased",
+      "before_reads": 354,
+      "after_reads": 354,
+      "before_discordant": 29,
+      "after_discordant": 28,
+      "before_switchflips": 9,
+      "after_switchflips": 10
+    }
+  ],
+  "baseline_discordance_decreases": [
+    {
+      "region": "chr20_1912570_1913054",
+      "before_target": "endpoint_unphased",
+      "after_target": "endpoint_unphased",
+      "before_reads": 354,
+      "after_reads": 354,
+      "before_discordant": 29,
+      "after_discordant": 28,
+      "before_switchflips": 9,
+      "after_switchflips": 10
+    },
+    {
+      "region": "chr20_18983414_19005497",
+      "before_target": "endpoint_unphased",
+      "after_target": "joined",
+      "before_reads": 489,
+      "after_reads": 489,
+      "before_discordant": 208,
+      "after_discordant": 0,
+      "before_switchflips": 1,
+      "after_switchflips": 0
+    },
+    {
+      "region": "chr20_19358995_19395544",
+      "before_target": "joined",
+      "after_target": "split",
+      "before_reads": 259,
+      "after_reads": 259,
+      "before_discordant": 94,
+      "after_discordant": 1,
+      "before_switchflips": 2,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_34079290_34134418",
+      "before_target": "split",
+      "after_target": "split",
+      "before_reads": 188,
+      "after_reads": 188,
+      "before_discordant": 63,
+      "after_discordant": 2,
+      "before_switchflips": 5,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_36332599_36381019",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 324,
+      "after_reads": 304,
+      "before_discordant": 1,
+      "after_discordant": 0,
+      "before_switchflips": 1,
+      "after_switchflips": 0
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 415,
+      "after_reads": 414,
+      "before_discordant": 188,
+      "after_discordant": 187,
+      "before_switchflips": 4,
+      "after_switchflips": 4
+    },
+    {
+      "region": "chr20_50540995_50562066",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 437,
+      "after_reads": 437,
+      "before_discordant": 175,
+      "after_discordant": 2,
+      "before_switchflips": 5,
+      "after_switchflips": 2
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 291,
+      "after_reads": 291,
+      "before_discordant": 52,
+      "after_discordant": 1,
+      "before_switchflips": 4,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_1912570_1913912",
+      "before_target": "endpoint_unphased",
+      "after_target": "endpoint_unphased",
+      "before_reads": 354,
+      "after_reads": 354,
+      "before_discordant": 29,
+      "after_discordant": 28,
+      "before_switchflips": 9,
+      "after_switchflips": 10
+    }
+  ]
+}

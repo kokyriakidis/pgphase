@@ -1,0 +1,5 @@
+arm	evaluated_reads	discordant_reads	phase_sets	read_switchflips
+default	288	0	4	0
+margin1	336	0	3	0
+link1	288	0	2	0
+both	336	0	2	0

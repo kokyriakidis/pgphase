@@ -1,0 +1,92 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 87,
+    "split -> split": 22,
+    "split -> endpoint_unphased": 3,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37479,
+  "added_tagged_reads": 851,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_18983414_19005497",
+    "chr20_19358995_19395544",
+    "chr20_34079290_34134418",
+    "chr20_36332599_36381019",
+    "chr20_46727050_46747637",
+    "chr20_50540995_50562066",
+    "chr20_58392336_58419975"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_18983414_19005497",
+      "original_ps": 18933942,
+      "final_ps": 18933942,
+      "truth_reads": 208,
+      "before_discordant": 0,
+      "after_discordant": 208,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_19358995_19395544",
+      "original_ps": 19310196,
+      "final_ps": 19310196,
+      "truth_reads": 93,
+      "before_discordant": 0,
+      "after_discordant": 93,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_34079290_34134418",
+      "original_ps": 34134418,
+      "final_ps": 34134418,
+      "truth_reads": 65,
+      "before_discordant": 2,
+      "after_discordant": 63,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "original_ps": 46748667,
+      "final_ps": 46677273,
+      "truth_reads": 172,
+      "before_discordant": 0,
+      "after_discordant": 172,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_50540995_50562066",
+      "original_ps": 50491033,
+      "final_ps": 50491033,
+      "truth_reads": 177,
+      "before_discordant": 2,
+      "after_discordant": 175,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "original_ps": 58419975,
+      "final_ps": 58391091,
+      "truth_reads": 51,
+      "before_discordant": 0,
+      "after_discordant": 51,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "joined -> joined": 85,
+    "split -> split": 22,
+    "endpoint_unphased -> endpoint_unphased": 5,
+    "split -> joined": 2
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}

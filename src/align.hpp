@@ -79,6 +79,12 @@ struct AlnStr {
     int query_beg  = 0, query_end  = 0;
 };
 
+/// Reference/read alignments through both fixed consensuses, without a hap assignment.
+struct UnassignedMsaRead {
+    int read_id;
+    std::array<AlnStr, 2> ref_read;
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 // Per-region read information
 // ════════════════════════════════════════════════════════════════════════════
@@ -185,6 +191,9 @@ int make_cons_read_aln_str(const uint8_t* cons_msa_row, const uint8_t* read_msa_
  * @brief Build ref-vs-read AlnStr by merging ref-cons and cons-read AlnStrs.
  * Build reference-vs-read alignment string from WFA2 output.
  */
+/// Canonicalize equivalent indel placements within covered exact-match runs.
+void left_normalize_msa_alignment(AlnStr& aln);
+
 int make_ref_read_aln_str(const Options& opts, const AlnStr& ref_cons,
                           const AlnStr& cons_read, AlnStr& ref_read);
 
@@ -256,7 +265,8 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                                            bool collect_ref_read_aln_str,
                                            std::array<int, 2>& clu_n_seqs,
                                            std::array<std::vector<int>, 2>& clu_read_ids,
-                                           std::array<std::vector<AlnStr>, 2>& aln_strs);
+                                           std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                           std::vector<UnassignedMsaRead>* unassigned = nullptr);
 
 /**
  * @brief Top-level entry: collect reads → sort → find phase set → MSA → fill aln_strs.
@@ -270,7 +280,8 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                                 const std::vector<uint8_t>& ref_seq,
                                 std::array<int, 2>& clu_n_seqs,
                                 std::array<std::vector<int>, 2>& clu_read_ids,
-                                std::array<std::vector<AlnStr>, 2>& aln_strs);
+                                std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                std::vector<UnassignedMsaRead>* unassigned = nullptr);
 
 } // namespace pgphase_collect
 

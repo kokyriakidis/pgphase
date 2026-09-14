@@ -21,6 +21,20 @@
 
 namespace pgphase_collect {
 
+/// Call a site only when both consensus alignment paths agree with exact local flanks.
+int call_msa_site_allele(const std::array<AlnStr, 2>& alignments,
+                         const VariantKey& key, hts_pos_t ref_beg,
+                         const std::array<AlnStr, 2>* consensuses = nullptr);
+
+
+/// Extend MSA het profiles only if the expanded observations pass the existing AF gate.
+void add_msa_site_observations(const Options& opts,
+                                const std::vector<UnassignedMsaRead>& reads,
+                                hts_pos_t ref_beg, bool snp_only,
+                                std::vector<CandidateVariant>& vars,
+                                std::vector<ReadVariantProfile>& profiles,
+                                const std::array<AlnStr, 2>* consensuses = nullptr);
+
 // ════════════════════════════════════════════════════════════════════════════
 // Step 4 top-level entry
 // ════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,13 @@
+region	arm	evaluated_reads	discordant_reads	phase_sets	read_switchflips
+chr12_46725702	clean	288	0	4	0
+chr12_46725702	auto	291	0	4	0
+chr12_63758735	clean	497	0	2	0
+chr12_63758735	auto	537	0	1	0
+chr18_46185393	clean	458	1	3	1
+chr18_46185393	auto	505	1	1	1
+chr18_33319321	clean	339	0	4	0
+chr18_33319321	auto	339	0	2	0
+chr20_61737962	clean	402	0	2	0
+chr20_61737962	auto	438	0	1	0
+chr20_17607780	clean	309	0	2	0
+chr20_17607780	auto	311	0	2	0

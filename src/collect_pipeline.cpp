@@ -1078,6 +1078,7 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
     SitesVcfHandle sites_handle(opts.graph_sites_vcf);
     IndexedGafHandle gaf_handle(opts.gaf_file);
     int joined = 0;
+    const GapReadIndex read_index(chunks);
     for (size_t gi = 0; gi < initial_gaps.size(); ++gi) {
         PhaseGap gap = initial_gaps[gi];
         // Earlier accepted extensions may have moved or joined these flanks.
@@ -1101,9 +1102,21 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                                              bam_authority, true));
         auto& proposal = local.front();
         bool msa_prepared = false;
-        for (int tier = 1; tier <= 3; ++tier) {
+        constexpr int kGapHomopolymerTier = 4;
+        for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
             const size_t previous_sites = proposal.candidates.size();
-            if (tier > 1) {
+            if (tier == kGapHomopolymerTier) {
+                const bool has_hp = std::any_of(proposal.candidates.begin(), proposal.candidates.end(),
+                    [&](const CandidateVariant& v) {
+                        return v.is_homopolymer_indel && v.lcd_var_i_to_cate == kCandNoisyCandHet &&
+                               v.key.sort_pos() >= gap.left_end && v.key.sort_pos() <= gap.right_beg;
+                    });
+                if (!has_hp || !opts.link_by_alleles) break;
+                local_opts.gap_hp_link_beg = gap.left_end;
+                local_opts.gap_hp_link_end = gap.right_beg;
+                local_opts.private_msa_admit_all_in_region = true;
+                assign_hap_based_on_germline_het_vars_kmeans(proposal, local_opts, kCandGermlineVarCate);
+            } else if (tier > 1) {
                 if (!msa_prepared) {
                     prepare_gap_msa_regions(proposal, gap.left_end - kGapRecoveryMsaFlank,
                                              gap.right_beg + kGapRecoveryMsaFlank);
@@ -1114,7 +1127,7 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
             }
             filter_hybrid_reads_by_margin(local, opts.min_read_hap_margin, tier > 1);
             filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
-            const auto result = stitch_gap_proposal(chunks, proposal, gap, opts);
+            const auto result = stitch_gap_proposal(chunks, proposal, gap, local_opts, &read_index);
             if (report) {
                 int msa_snps = 0, msa_indels = 0;
                 for (const auto& v : proposal.candidates) {
@@ -1129,7 +1142,8 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                         << msa_snps << '\t' << msa_indels << '\t'
                         << result.left_linked << '\t' << result.right_linked << '\t'
                         << result.reads_added << '\t'
-                        << (result.joined ? "joined" : result.left_linked || result.right_linked
+                        << (tier == kGapHomopolymerTier && !result.joined ? "rejected" :
+                            result.joined ? "joined" : result.left_linked || result.right_linked
                                                        ? "partial" : "open") << '\n';
             }
             if (result.joined) { ++joined; break; }

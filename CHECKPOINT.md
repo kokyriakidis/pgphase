@@ -5140,3 +5140,357 @@ link flags alone must not be interpreted as a successful join. These targeted
 read-truth checks do not establish chromosome-wide NGC50 or variant-truth accuracy.
 Manifest, exact commands, tier reports and summaries:
 `evaluations/2026-09-13-auto-gap-validation/`.
+
+### 2026-09-13: Why chr12 46.8 Mb remains disconnected
+
+Diagnosed first residual hybrid gap 46769497–46810372 in the independent
+validation case. Recovery retrieves the repeat/SNP/insertion positions used
+by HiPhase, but default MSA admission leaves just 7 usable observations at
+46774503; margin1 gives 83. Eighteen primary MAPQ60 reads span that SNP to
+46788671, but none have observations at both in the default final matrix.
+The later insertion-to-SNP link (46788671–46810372) has only one spanning
+primary MAPQ60 read, also tagged by HiPhase in PS46709288. Changing only
+min-block-link-reads from 2 to 1 lets recovery join the target at tier3;
+regional blocks 4→2, 288 evaluated reads, zero read-truth errors. Margin1
+alone gives 4→3 blocks, 336 reads, but does not close the first gap. Both
+changes give 2 blocks/336 reads/zero errors. The remaining block boundary is
+in the right solve-window flank. No production defaults changed. This is
+not the old HP-only linking circularity: allele linking was already enabled.
+Detailed evidence and commands: `evaluations/2026-09-13-chr12-gap-diagnosis/`.
+
+### 2026-09-13: Site-level observations for automatic recovery
+
+Added a recovery-only path for full-cover reads rejected by the MSA consensus
+score margin: compose their alignments through both fixed consensuses and admit
+only exact site alleles with three matching flank bases and agreement between
+both paths. This supplies observations without choosing a consensus/HP.
+Expanded counts must pass existing min_af/max_af before profile/count updates;
+SNP-first tiering, margin24, min-block-link-reads2, and stitching are unchanged.
+The AF gate fixes a regression found during validation: consensus-difference
+MSA het labels can persist despite overwhelmingly reference expanded support.
+Without this gate the chr20 17.6 Mb trial added two erroneous reads; with it,
+two correct reads are added and no erroneous reads. Prototype results retained.
+
+On the same six fixed windows, joins improve from 3/11 to 6/11 internal gaps.
+chr18 46.2 Mb improves from 3 blocks to 1 (+12 reads); chr18 33.3 Mb from 3 to 2.
+chr12 46.8 Mb adds 3 reads, chr20 17.6 Mb adds 2, both retaining their gap counts.
+Other cases remain unchanged. Total gain over previous recovery: 17 reads,
+no increased read-truth discordance/switchflips; 2,293 original tagged reads
+preserve uniform block transformations. Original 15 Mb/47 Mb/split-chunk fixtures
+still pass. Build/all unit tests pass, including exact SNP/indel site calls,
+ambiguous/path-disagreeing observations and atomic AF-gate rejection.
+These are local read-truth tests, not chromosome-wide or singleton-bridge validation.
+Reports and commands: `evaluations/2026-09-13-site-observation-recovery/`.
+
+### 2026-09-13: Resolve chr18 33.3 Mb's remaining singleton boundary
+
+The remaining boundary is 33284672–33308109, in the upstream flank of the
+original audited target. Both endpoint SNPs already have observations; HiPhase
+has no intervening het. Exactly one primary MAPQ60 read spans both, with
+endpoint base qualities 35/40 (and another left SNP at quality 40). HiPhase tags
+that read in PS33179887. Existing min-block-link-reads 1 resolves the entire
+window to one block with 339 reads and zero read-truth errors. Minimum 2 cannot
+accept that bridge; two site pairs on this read are not independent molecules.
+
+Validated the existing minimum 1 setting on all six fixed windows: chr12 46.8 Mb
+4→2 blocks, chr18 33.3 Mb 2→1, chr20 17.6 Mb 2→1; other cases unchanged. All 2,386
+previously tagged reads retained uniform block transformations and no increased
+read-truth discordance/switchflips. No source/default change: solved outputs use
+an explicit --min-block-link-reads 1 setting.
+Commands/reports: `evaluations/2026-09-13-singleton-link-validation/`.
+This targeted validation does not establish chromosome-wide singleton accuracy.
+
+### 2026-09-13: Correct the chr12 target-versus-window comparison
+
+The min-link1 chr12 4→2 regional result already phases the original audited
+46725702–46838918 target in PS46709288, matching HiPhase. Its remaining boundary
+46842224–46874196 lies in the downstream solve-window flank. HiPhase also breaks
+there (46709288→46874196), as do WhatsHap, WhatsHap-opt and LongPhase
+(46810372→46874196). Zero primary nonsupplementary BAM reads span these endpoints.
+Do not describe this regional two-block output as a remaining competitor-bridged
+gap, or force a merge to satisfy the misleading comparison. Reporting clarified;
+no phasing code changed. Reproducible endpoint audit:
+`evaluations/2026-09-13-chr12-remaining-boundary/`.
+
+### 2026-09-13: Systematic competitor-gap audit and supported MSA flanks
+
+Expanded the audit to full available chr12/chr18/chr20 chromosomes, using current
+hybrid clean/recovery outputs projected onto the same DeepVariant records as
+HiPhase, WhatsHap, WhatsHap-opt and LongPhase. Inventory distinguishes unphased
+sites from exact endpoint PS breaks, MAPQ-qualified spanning molecules, native
+PS membership, and competitor endpoint parity against assembly-based truth.
+The truth VCF has chromosome-wide paternal/maternal GT and no PS field; absence
+of PS there must not be mistaken for absence of truth phasing. A competitor's
+whole-block read accuracy alone does not validate every individual join.
+
+Found a real recovery bug at chr12:24106886–24129119: a SNP at 24124230 lies
+next to an MSA-supported insertion. Requiring reference-identical flanks rejects
+otherwise useful site observations. Site-level recovery now accepts exact flank
+sequence supported by either fixed MSA consensus, while retaining agreement of
+both read alignment paths, complete site/flank coverage, and the existing AF
+gate. Unexplained flank changes remain rejected. Under default min-link2 the
+SNP tier joins 2 blocks to 1, increasing evaluated reads 383→427, with zero
+read discordance/switchflips. Six previous regression regions preserve all
+2,293 original tagged reads and their uniform block transformations; chr18
+46.2 Mb gains another 35 reads (470→505) without increasing its one prior error.
+Other six-case results are unchanged. Full chromosome evaluation is ongoing;
+these local results do not establish genome-wide accuracy or completeness.
+
+The chr12:8235470–8248466 failure instead has 14 spanning primary reads, all
+below MAPQ30 (13 at MAPQ3, one at MAPQ19). HiPhase defaults to MAPQ5. An explicit
+MAPQ5/min-link1 local experiment phases 286 reads in one block with zero
+read-truth errors. A prototype extending duplicate clean-site MSA observations
+did not fix this region and was removed. No default MAPQ change was made.
+Whole-chromosome chr12 clean control with min-link1 increases discordant reads
+3209→3276 (+67), despite encouraging earlier six-window singleton tests. Do not
+promote minimum-one linking globally based on those selected windows.
+
+Full recovery also exposed repeated rebuilding of a chromosome-wide read-name
+map per gap/tier. GapReadIndex now indexes stable read locations once and reads
+current HP/PS values after every join. Only proposal assignments are materialized
+for each stitch. A repeated-tier unit test checks newly accepted reads are
+protected on reuse. Build/unit tests pass. Audit and regional evidence:
+`evaluations/2026-09-13-panel-gap-audit/`.
+
+### 2026-09-13: Focus the complete audit on chr20
+
+At the user's request, paused incomplete chr12/chr18 whole-chromosome recovery
+runs and moved the iteration loop to chr20. Completed clean hybrid projection
+finds 167 competitor-bridged endpoint pairs representing 138 distinct pgphase
+block pairs, plus 12,996 unphased genomic positions that a competitor phases.
+114 endpoint pairs (101 block pairs) have concordant orientation against the
+assembly-based truth and are tested in local 50 kb-flank windows. These windows
+can overlap; sums of regional reads/errors are not chromosome-wide metrics.
+Pairs lacking exact truth representation or disagreeing with truth remain in
+the inventory but are not treated as correct bridges to reproduce blindly.
+
+The 63-window chr12/chr18 regression completed before the focus change. It
+exposed five incorrect joins already present before the consensus-flank fix;
+that fix additionally introduces two discordant newly phased reads in one
+chr18 window. The earlier six-window no-regression result does not generalize
+to every region. Chr20 likewise exposes existing incorrect joins. Full-panel
+and targeted truth checks are therefore required alongside block counts.
+
+### 2026-09-13: Genotype-aware multiallelic HP projection
+
+`phase_vcf_from_hp.py` previously omitted every multiallelic heterozygous record.
+It now observes exact CIGAR-derived allele sequence and votes within the two
+alleles of the original diploid genotype. GT 1/2 remains 1/2 (or 2/1), rather
+than being recoded as reference/alternate. Both cached and pileup paths are
+covered by integration tests; same-length inserted alleles are distinguished
+by sequence. Legacy cache REF_COUNT/ALT_COUNT columns mean sorted-GT slot 0/1
+for multiallelic records; older caches must be rebuilt to gain omitted sites.
+
+On chr20 clean tags, phased shared calls increase 66,723→68,306 (+1,583).
+Original biallelic truth comparison is unchanged. After splitting, normalizing
+and sorting both truth and predictions, assessed variants increase
+60,189→61,105; hamming errors 138→142 and switches 63→65. On chr12 the gain is
+3,345 projected calls; normalized truth adds 1,934 assessed variants, 12 hamming
+errors and 2 switches. This restores output coverage; it does not join BAM
+phase sets or improve NGC50 by itself. Normalization can move records more than
+bcftools' default sort window, so an explicit sort is needed before indexing.
+
+### 2026-09-13: Recovery sites must be allowed to connect earlier components
+
+chr20:46384021–46407462 remains split after all three retrieval tiers, despite
+three MAPQ60 molecules giving consistent SNP→insertion observations. The
+insertion is present in the graph catalog (46405052 AA→AAA left-normalizes to
+46405048 T→TA) and in the MSA matrix with 65 observations (42/23). The core
+chooses only one nearest sufficient preceding edge per site. A later site
+therefore cannot connect two earlier components even when both links pass.
+
+Recovery MSA rounds now retain all qualifying allele links in the existing
+het window, prioritize net evidence, and join components with composed parity.
+Weaker contradictory cycles do not overturn stronger paths. Initial phasing
+and normal block-stitching remain unchanged. A trial that additionally required
+net support 2 lost four previously correct local joins; the final candidate
+retains the existing majority-support threshold instead. The change is gated
+by recover_gaps + region MSA admission + allele linking. Unit tests cover the
+missed two-component bridge, orientation convergence, conflicting cycles, and
+preservation of the original support threshold.
+
+The concrete chr20 46.4 Mb reproduction improves two blocks→one with the same
+420 truth-evaluated reads and zero discordance/switchflips. Reports distinguish
+that local result from the ongoing whole-chromosome comparison. Source and
+reproduction evidence: `evaluations/2026-09-13-panel-gap-audit/chr20_46384021/`.
+
+### 2026-09-13: Trial homopolymer evidence per unresolved gap
+
+Unrestricted admission of MSA homopolymer link nodes fixed chr20 62.4 Mb but
+introduced 53 discordant reads at 24.1 Mb and 5 at 36.0 Mb in local tests.
+Those two target gaps already joined without homopolymer links. The correction
+is to trial additional evidence only after the ordinary three tiers fail,
+not to enable or reject homopolymers chromosome-wide.
+
+Tier 4 reuses the existing clean + MSA SNP + MSA indel observations and k-means.
+Only MSA-verified homopolymer sites inside the current unresolved gap can become
+extra link nodes. Such edges require at least min_block_link_reads and no opposing votes.
+A proposal must connect both flanks with the normal stitch rule and with each
+original haplotype independently favoring its orientation by that same margin.
+Failure is transactional: no one-sided extension or original-block change is
+committed. Reports mark failed tier-4 proposals as rejected. Successful earlier
+tiers are not retried. These are evidence-based safeguards, not a proof of phase
+correctness; truth is used only for evaluation, never for site selection.
+
+Initial four-case validation: 62.4 Mb joins 2→1 blocks, 385 truth-evaluated reads,
+zero discordance. The 24.1 Mb and 36.0 Mb cases retain zero discordance (352 and
+117 reads respectively). The pre-existing incorrect 19 Mb ordinary-tier join
+remains 208/489 discordant and is not fixed by this fallback. The first full 114-case local comparison retained all 85 prior joins and
+added four, but introduced 39 discordant reads at 55.9 Mb. The net-margin
+version is superseded: 55.9 Mb had conflicting 4:1 and 18:3 HP bridge edges
+despite pure anchor votes, while 62.4 Mb has an alternate unambiguous 2:0
+right-side link. The revised edge-unanimity version is under validation. Build and unit tests pass; the only build warning
+is the existing unused SIMDMalloc function in the abPOA header.
+
+Crucially, the full-chromosome graph-support2 arm (before adaptive homopolymers)
+has 12,848/187,387 discordant reads versus 9,150/187,345 for nearest-link recovery2,
+despite improved local-window results. Full-chromosome shared-DV NGC50 is 451,323 bp versus 442,852 bp, while
+variant hamming rises 2,336→3,537 with the same 87 switches. There are 47
+remaining competitor-bridged native PS pairs (54 endpoint pairs), versus 53
+(62 endpoint pairs) for nearest-link recovery. Adaptive whole-chromosome
+validation is still pending; local results do not establish safety of the
+combined recovery changes.
+
+
+The acceptance objective is correct *relative block orientation*, not zero
+read-level discordance. The 55.9 Mb failure is confirmed as a bad stitch:
+all 39 reads from original PS 56040612 change from concordant to discordant,
+while all 269 reads from PS 55949998 remain concordant; no new reads are tagged.
+Shared SNPs 55999561 C/T and 56040612 C/T are both 0|1 in assembly truth,
+but the trial puts 1|0 and 0|1 in the same PS. This independently confirms the
+wrong endpoint parity. The local summary now writes block_orientations.tsv,
+separating reversed original-block majorities from isolated read errors and
+recording uniform HP-label transforms. Absolute HP1/HP2 labels are arbitrary.
+The edge-unanimity rule remains a conservative fallback experiment; read
+assignment noise is not itself grounds to reject a correctly oriented stitch.
+
+`make check` currently cannot execute its golden comparisons: the existing
+validate_collect_gates.sh uses obsolete --phased-vcf-output and positional
+reference/BAM arguments. The current CLI uses --phased-vcf-out, --ref, --bam.
+This unrelated gate-script issue is not fixed by changing golden results.
+
+
+Full-chromosome original-block audit (`compare_full_block_orientations.py`)
+finds 27 original blocks with reversed truth-majority orientation after
+nearest-link recovery2 and 34 after graph_support2. These counts separate
+coherent block orientation failures from isolated read disagreements and
+explain why larger blocks alone are not sufficient evidence of improvement.
+They are relative to the clean run and the majority truth orientation of the
+final merged block; consult the per-block counts rather than treating every
+small/noisy block as equally certain.
+
+
+Final 114-case local result for chr20_adaptive_unanimous: all 85 previous
+endpoint joins retained, two additional joins (57.1 Mb and 62.4 Mb), 22 targets
+still split, five with an unphased endpoint. No case adds discordant reads or
+switch/flip errors relative to graph_support2. All 37,479 original tagged-read
+occurrences retain uniform original-block transforms; the 851 previously
+added tagged-read occurrences are unchanged. Windows overlap, so these sums
+are not independent chromosome-wide counts. The 55.9 Mb bad stitch is rejected;
+the correctly oriented 54.5 Mb trial join is also withheld, documenting the
+conservative rule's sensitivity cost. Existing ordinary-tier orientation
+failures, including 19 Mb and the full-chromosome graph regression, remain.
+Build/unit tests and projection tests pass. Full-chromosome validation of this
+fallback is not yet complete; make check is blocked by the stale gate CLI
+invocation documented above.
+
+
+### 2026-09-13: Root causes of false gap stitching
+
+Two regression tests reproduced false phase-set ownership in the shared core:
+(1) a read was assigned the first phased het in its sparse profile interval
+even when its allele there was -1; (2) an HP repeat excluded from read-haplotype
+scoring could still assign its inherited preceding PS to the read. Ownership
+now requires an observed phased allele and uses the same eligible evidence as
+read-haplotype scoring. These defects can supply confident-looking overlap
+votes for a connection that has no actual allele bridge. The first fix removes
+the incorrect 19 Mb join (208 discordant reads→0), retaining all 489 assessed
+reads but initially leaving the region split.
+
+Composing two left-aligned consensus paths does not guarantee a left-aligned
+read/reference path. Within the 19 Mb repeat this hid valid observations or
+made insertions look reference. Canonicalizing covered exact-match indel runs
+restores a 3:1 informative insertion→right-SNP link where only one 0:0 pair
+was previously recorded. The region then joins correctly with 489 assessed
+reads and zero discordance; this is not an error-free-edge acceptance rule.
+
+At 55.9 Mb, independent biallelic treatment of nested 4/6-base and 1/2-base
+deletions allowed a longer-deletion read to support both ALT rows. Decomposing
+shared deletion sequence from the length difference fixes that representation.
+A balanced verified repeat can also collapse to the same allele in both
+provisional haplotype profiles when independent blocks have opposite HP labels.
+Preserving the verified genotype during the local solve recovered the correct
+55.9 Mb join (308 reads, 39→0 discordant), but broad preservation introduced
+bad joins elsewhere. The subsequent candidate trial therefore requires a
+within-local-block association between both haplotypes and the repeat alleles,
+computed BEFORE read HP/PS state is reset. The repeat is excluded from read-hap
+scoring, so it cannot directly create its own validating HP association.
+
+Assigned MSA reads also need site-level observations: the legacy updater can
+impute REF simply from membership in the other whole-consensus cluster. New
+unit tests cover an ALT read in that cluster and a third allele that must stay
+unknown. Full-cover assigned reads are checked against composed, normalized
+reference alignments. An exact-only trial lost valid signal and is superseded
+by a bounded local comparison: at most one edit, strictly closer to one allele,
+and fixed-consensus flanks identical between haplotypes. Thus only the target
+site distinguishes the hypotheses; a tied third allele remains unknown.
+Partial-read handling is retained. These changes remain under panel validation;
+no complete fixed-pipeline chromosome benchmark is claimed yet.
+
+Completed owner_clean (observed-allele owner fix only) full chr20 check: NGC50
+290,115 bp and 65 variant switches unchanged; variant hamming 138→134 and read
+discordance 499→498. Full nested_seed and observed_owner recovery arms were
+stopped as superseded after local regressions; their INCOMPLETE.txt files
+prevent treating them as complete benchmark results. Detailed causal evidence
+is in evaluations/2026-09-13-panel-gap-audit/chr20_55999561/ and chr20_18983414/.
+
+
+### Direct site evidence breaks the repeat-eligibility circularity
+
+The within-proposal HP association gate discarded untagged spanning reads,
+reintroducing the read-tag circularity in tier 4. At chr20 55.9 Mb it saw only
+one tagged observation for the true residual deletion at 56027380, despite
+18 agreeing versus 3 conflicting direct observations against clean SNP
+56040612. Eligibility now additionally evaluates each verified repeat site's
+allele contingency table against each phased clean heterozygous candidate.
+Both anchor alleles must independently support the same orientation with the
+existing net margin. No read HP tag is required; competing candidate sites are
+not pooled into this eligibility vote. The normal recovery allele graph and
+normal flank stitching still determine the final relative block orientation.
+
+Unassigned full-cover MSA reads also now receive the same bounded local allele
+comparison as assigned reads, with the extra requirement that both composed
+alignment paths uniquely favor the same allele. A third-allele tie or disagreement
+between paths remains unknown. Both changes have failing-before/passing-after
+unit regressions; build and all unit tests pass without new compiler warnings.
+
+The initial 11-case chr20_direct_site_anchor panel preserves all 3,940 original
+truth-assessed reads, reverses no original block, and adds the correct 55.9 Mb
+join (308 reads, zero discordant) relative to chr20_local_alleles. All five
+previously joined targets remain joined; no discordance or switch/flip increase.
+The full 114-case expansion is pending. This does not establish chromosome-wide
+recovery accuracy or eliminate the remaining unjoined competitor gaps.
+
+
+Completed direct_site_anchor 114-case validation: 77 joins, 33 splits, four
+endpoint-unphased. The direct-site change adds three correct target joins but
+also a wrong 54.89 Mb join (199 reversed original-block reads) and a five-read
+block reversal near 36.03 Mb, so the any-favorable-anchor trial is superseded.
+Its failure is candidate selection bias: a 5-read distant subset passes while
+a 50-read near-anchor comparison shows no allele separation. The subsequent
+best_site_anchor trial ranks clean anchors by minimum allele coverage, then
+total coverage, and uses that comparison's eligibility; equally covered ties
+must agree. This changes evidence selection without raising a noise threshold.
+Known broader recovery errors at 35.9, 46.7, and 60.1 Mb remain under diagnosis.
+
+
+best_site_anchor completed 18 targeted regression cases: 12 joins, six splits,
+5,922 original truth-assessed reads preserved. It removes the two newly introduced
+errors: 54.89 Mb 199→0 discordance by leaving the ambiguous gap split; 36.03 Mb
+5→0 while retaining the join. Correct 4.85, 55.9, and 57.84 Mb joins remain,
+including 308/308 concordant reads in the one-block 55.9 Mb result. No added
+discordance/switch-flip errors versus direct_site_anchor in these cases. The
+sparse-subset unit regression fails on the previous selector and passes now;
+all unit tests/build pass. This revision has not completed the full 114-case or
+whole-chromosome recovery validation. Existing wrong joins at 35.9, 46.7, and
+60.1 Mb remain unresolved; do not treat this as a fully validated recovery core.

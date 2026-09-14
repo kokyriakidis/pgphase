@@ -1,0 +1,236 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 97,
+    "split -> split": 12,
+    "split -> endpoint_unphased": 3,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37479,
+  "added_tagged_reads": 851,
+  "discordance_increases": [
+    "chr20_3956345_3981464",
+    "chr20_7218910_7250571",
+    "chr20_11426743_11447789",
+    "chr20_18983414_19005497",
+    "chr20_19358995_19395544",
+    "chr20_23403554_23445252",
+    "chr20_36332599_36381019",
+    "chr20_46727050_46747637",
+    "chr20_50540995_50562066",
+    "chr20_58392336_58419975"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_3956345_3981464",
+      "original_ps": 3981464,
+      "final_ps": 3907852,
+      "truth_reads": 119,
+      "before_discordant": 0,
+      "after_discordant": 119,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_11426743_11447789",
+      "original_ps": 11447789,
+      "final_ps": 11386626,
+      "truth_reads": 50,
+      "before_discordant": 0,
+      "after_discordant": 50,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_18983414_19005497",
+      "original_ps": 18933942,
+      "final_ps": 18933942,
+      "truth_reads": 208,
+      "before_discordant": 0,
+      "after_discordant": 208,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_19358995_19395544",
+      "original_ps": 19310196,
+      "final_ps": 19310196,
+      "truth_reads": 93,
+      "before_discordant": 0,
+      "after_discordant": 93,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_23403554_23445252",
+      "original_ps": 23449834,
+      "final_ps": 23360562,
+      "truth_reads": 33,
+      "before_discordant": 0,
+      "after_discordant": 33,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_23403554_23445252",
+      "original_ps": 23481134,
+      "final_ps": 23360562,
+      "truth_reads": 60,
+      "before_discordant": 0,
+      "after_discordant": 60,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "original_ps": 46748667,
+      "final_ps": 46677273,
+      "truth_reads": 172,
+      "before_discordant": 0,
+      "after_discordant": 172,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_50540995_50562066",
+      "original_ps": 50491033,
+      "final_ps": 50491033,
+      "truth_reads": 177,
+      "before_discordant": 2,
+      "after_discordant": 175,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "original_ps": 58391091,
+      "final_ps": 58347188,
+      "truth_reads": 61,
+      "before_discordant": 1,
+      "after_discordant": 60,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "original_ps": 58419975,
+      "final_ps": 58347188,
+      "truth_reads": 51,
+      "before_discordant": 0,
+      "after_discordant": 51,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "joined -> joined": 85,
+    "split -> split": 12,
+    "endpoint_unphased -> endpoint_unphased": 5,
+    "split -> joined": 12
+  },
+  "baseline_discordance_increases": [
+    {
+      "region": "chr20_3956345_3981464",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 294,
+      "after_reads": 294,
+      "before_discordant": 0,
+      "after_discordant": 119,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_11426743_11447789",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 266,
+      "after_reads": 266,
+      "before_discordant": 0,
+      "after_discordant": 50,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_23403554_23445252",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 237,
+      "after_reads": 237,
+      "before_discordant": 0,
+      "after_discordant": 93,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 291,
+      "after_reads": 291,
+      "before_discordant": 52,
+      "after_discordant": 111,
+      "before_switchflips": 4,
+      "after_switchflips": 5
+    }
+  ],
+  "baseline_switchflip_increases": [
+    {
+      "region": "chr20_3956345_3981464",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 294,
+      "after_reads": 294,
+      "before_discordant": 0,
+      "after_discordant": 119,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_11426743_11447789",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 266,
+      "after_reads": 266,
+      "before_discordant": 0,
+      "after_discordant": 50,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_23403554_23445252",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 237,
+      "after_reads": 237,
+      "before_discordant": 0,
+      "after_discordant": 93,
+      "before_switchflips": 0,
+      "after_switchflips": 1
+    },
+    {
+      "region": "chr20_58392336_58419975",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 291,
+      "after_reads": 291,
+      "before_discordant": 52,
+      "after_discordant": 111,
+      "before_switchflips": 4,
+      "after_switchflips": 5
+    }
+  ],
+  "baseline_discordance_decreases": [
+    {
+      "region": "chr20_34079290_34134418",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 188,
+      "after_reads": 188,
+      "before_discordant": 63,
+      "after_discordant": 2,
+      "before_switchflips": 5,
+      "after_switchflips": 2
+    }
+  ]
+}

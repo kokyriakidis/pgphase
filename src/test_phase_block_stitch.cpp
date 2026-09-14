@@ -318,6 +318,239 @@ static bool test_region_msa_repeat_collision() {
     return ok;
 }
 
+static bool test_recovery_links_join_earlier_components() {
+    PhasingChunk chunk;
+    for (int i = 0; i < 3; ++i) {
+        auto candidate = dummy_cand(100 + 100 * i);
+        candidate.key.pos = 100 + 100 * i;
+        chunk.candidates.push_back(candidate);
+    }
+    chunk.read_var_cr.reset(cr_init());
+    for (int i = 0; i < 4; ++i) {
+        chunk.reads.push_back(min_read());
+        chunk.haps.push_back(0);
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 2;
+        profile.alleles = i < 2 ? std::vector<int>({0, -1, 0}) : std::vector<int>({-1, 0, 1});
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 3, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts;
+    opts.link_by_alleles = true;
+    opts.block_link_window = 8;
+    opts.min_block_link_reads = 2;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    bool ok = check(chunk.candidates[0].phase_set != chunk.candidates[2].phase_set,
+                    "nearest-only linking reproduces the missed two-component bridge");
+    opts.recover_gaps = true;
+    opts.private_msa_admit_all_in_region = true;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set == chunk.candidates[1].phase_set &&
+                chunk.candidates[0].phase_set == chunk.candidates[2].phase_set,
+                "a later verified site joins both earlier components");
+    ok &= check(chunk.candidates[0].hap_to_cons_alle[1] == chunk.candidates[2].hap_to_cons_alle[1] &&
+                chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[1].hap_to_cons_alle[1],
+                "component union composes both edge orientations");
+    ok &= check(iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts) == 0,
+                "recovery component orientations converge");
+    chunk.candidates[2].is_homopolymer_indel = true;
+    chunk.candidates[2].gap_hp_link_supported = true;
+    chunk.candidates[2].lcd_var_i_to_cate = kCandNoisyCandHet;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set,
+                "ordinary MSA round excludes homopolymer links");
+    opts.gap_hp_link_beg = 100; opts.gap_hp_link_end = 250;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set,
+                "homopolymer outside the unresolved gap stays excluded");
+    opts.gap_hp_link_end = 300;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set == chunk.candidates[1].phase_set,
+                "verified in-gap homopolymer can bridge both components");
+    chunk.candidates[2].lcd_var_i_to_cate = kLongcalldRepHetVar;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set,
+                "unverified repeat cannot enter the fallback");
+    chunk.candidates[2].is_homopolymer_indel = false;
+    opts.gap_hp_link_beg = opts.gap_hp_link_end = -1;
+    chunk.reads.clear();
+    chunk.haps.clear();
+    chunk.read_var_profile.clear();
+    chunk.read_var_cr.reset(cr_init());
+    for (auto& candidate : chunk.candidates)
+        candidate.hap_to_cons_alle = dummy_cand(100).hap_to_cons_alle;
+    for (int i = 0; i < 10; ++i) {
+        chunk.reads.push_back(min_read());
+        chunk.haps.push_back(0);
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 2;
+        const int allele = i % 2;
+        profile.alleles = i < 4 ? std::vector<int>({allele, allele, -1}) :
+                         i < 8 ? std::vector<int>({-1, allele, allele}) :
+                                 std::vector<int>({allele, -1, 1 - allele});
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 3, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].hap_to_cons_alle[1] == chunk.candidates[1].hap_to_cons_alle[1] &&
+                chunk.candidates[0].hap_to_cons_alle[1] == chunk.candidates[2].hap_to_cons_alle[1],
+                "a weaker conflicting cycle does not overturn two stronger links");
+    for (auto& profile : chunk.read_var_profile) profile.alleles = {-1, -1, -1};
+    chunk.read_var_profile[0].alleles = {0, 0, -1};
+    chunk.read_var_profile[1].alleles = {1, 1, -1};
+    chunk.read_var_profile[2].alleles = {0, 1, -1};
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set == chunk.candidates[1].phase_set,
+                "recovery preserves the existing majority-support threshold");
+    auto& repeat = chunk.candidates[1];
+    repeat.is_homopolymer_indel = true;
+    repeat.gap_hp_link_supported = true;
+    repeat.lcd_var_i_to_cate = kCandNoisyCandHet;
+    opts.gap_hp_link_beg = 100; opts.gap_hp_link_end = 300;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set != repeat.phase_set,
+                "a 2-to-1 repeat edge fails the existing net margin");
+    chunk.read_var_profile[3].alleles = {0, 0, -1};
+    chunk.read_var_profile[4].alleles = {1, 1, -1};
+    repeat.hap_to_cons_alle[1] = repeat.hap_to_cons_alle[2] = 1;
+    repeat.counts.ref_cov = repeat.counts.alt_cov = 5;
+    repeat.counts.allele_fraction = 0.5;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(chunk.candidates[0].phase_set == repeat.phase_set &&
+                repeat.hap_to_cons_alle[1] != repeat.hap_to_cons_alle[2],
+                "verified repeat genotype survives provisional labels and a 4-to-1 edge can join");
+    repeat.hap_to_cons_alle[1] = repeat.hap_to_cons_alle[2] = 1;
+    repeat.counts.ref_cov = 1;
+    repeat.counts.allele_fraction = 0.9;
+    iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+    ok &= check(repeat.hap_to_cons_alle[1] == repeat.hap_to_cons_alle[2],
+                "an unsupported repeat genotype is not forced heterozygous");
+    return ok;
+}
+
+static bool test_read_phase_set_requires_observed_allele() {
+    PhasingChunk chunk;
+    for (int i = 0; i < 2; ++i) {
+        auto v = dummy_cand(100 + 200 * i);
+        v.key.pos = 100 + 200 * i;
+        v.key.type = VariantType::Snp;
+        v.lcd_var_i_to_cate = kCandCleanHetSnp;
+        v.counts.category = VariantCategory::CleanHetSnp;
+        v.counts.n_uniq_alles = 2;
+        v.counts.alle_covs = {1, 1};
+        v.counts.total_cov = 2;
+        chunk.candidates.push_back(v);
+    }
+    chunk.read_var_cr.reset(cr_init());
+    for (int i = 0; i < 4; ++i) {
+        chunk.reads.push_back(min_read());
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0; profile.end_var_idx = 1;
+        profile.alleles = i < 2 ? std::vector<int>({i, -1}) : std::vector<int>({-1, i - 2});
+        profile.alt_qi = {-1, -1};
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 2, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts;
+    opts.link_by_alleles = true;
+    opts.min_block_link_reads = 2;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
+    return check(chunk.candidates[0].phase_set != chunk.candidates[1].phase_set &&
+                 chunk.phase_sets[2] == chunk.candidates[1].phase_set &&
+                 chunk.phase_sets[3] == chunk.candidates[1].phase_set,
+                 "missing allele at a spanned variant cannot assign the read to its phase block");
+}
+
+static bool test_read_phase_set_ignores_non_scoring_repeat() {
+    PhasingChunk chunk;
+    for (int i = 0; i < 3; ++i) {
+        auto v = dummy_cand(100 + 100 * i);
+        v.key.pos = 100 + 100 * i;
+        v.key.type = i == 1 ? VariantType::Deletion : VariantType::Snp;
+        v.is_homopolymer_indel = i == 1;
+        v.lcd_var_i_to_cate = i == 1 ? kCandNoisyCandHet : kCandCleanHetSnp;
+        v.counts.n_uniq_alles = 2;
+        v.counts.alle_covs = {1, 1};
+        v.counts.total_cov = 2;
+        chunk.candidates.push_back(v);
+    }
+    chunk.read_var_cr.reset(cr_init());
+    for (int i = 0; i < 4; ++i) {
+        chunk.reads.push_back(min_read());
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0; profile.end_var_idx = 2;
+        profile.alleles = i < 2 ? std::vector<int>({i, -1, -1}) :
+                                 std::vector<int>({-1, i - 2, i - 2});
+        profile.alt_qi = {-1, -1, -1};
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 3, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts;
+    opts.link_by_alleles = true;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+    bool ok = check(chunk.candidates[0].phase_set != chunk.candidates[2].phase_set &&
+                    chunk.phase_sets[2] == chunk.candidates[2].phase_set &&
+                    chunk.phase_sets[3] == chunk.candidates[2].phase_set,
+                    "a repeat excluded from read hap scoring cannot steal phase-set ownership");
+    opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
+    opts.gap_hp_link_beg = opts.gap_hp_link_end = 199;
+    opts.min_block_link_reads = 1;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+    ok &= check(chunk.candidates[1].gap_hp_link_supported,
+                "a repeat separating both haplotypes within a local block is eligible");
+    chunk.haps.assign(chunk.reads.size(), 0);
+    chunk.phase_sets.assign(chunk.reads.size(), -1);
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+    ok &= check(chunk.candidates[1].gap_hp_link_supported,
+                "direct clean-site allele association does not require prior read HP tags");
+    chunk.read_var_profile[3].alleles[1] = 0;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+    ok &= check(!chunk.candidates[1].gap_hp_link_supported,
+                "a repeat without within-block haplotype association is not an anchor");
+    return ok;
+}
+
+static bool test_repeat_anchor_prefers_complete_evidence() {
+    PhasingChunk chunk;
+    for (int i = 0; i < 3; ++i) {
+        auto v = dummy_cand(100 + 100 * i);
+        v.key.pos = 100 + 100 * i;
+        v.key.type = i == 1 ? VariantType::Deletion : VariantType::Snp;
+        v.is_homopolymer_indel = i == 1;
+        v.lcd_var_i_to_cate = i == 1 ? kCandNoisyCandHet : kCandCleanHetSnp;
+        v.hap_to_cons_alle[1] = 0; v.hap_to_cons_alle[2] = 1;
+        chunk.candidates.push_back(v);
+    }
+    chunk.read_var_cr.reset(cr_init());
+    for (int i = 0; i < 12; ++i) {
+        chunk.reads.push_back(min_read());
+        ReadVariantProfile p;
+        p.start_var_idx = 0; p.end_var_idx = 2;
+        // The full anchor has equal repeat-allele ratios on both haplotypes.
+        // A sparse subset happens to separate the repeat perfectly.
+        const int repeat_allele = i % 6 < 2 ? 1 : 0;
+        p.alleles = {i < 6 ? 0 : 1, repeat_allele, i < 4 ? repeat_allele : -1};
+        p.alt_qi = {-1, -1, -1};
+        chunk.read_var_profile.push_back(p);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 3, i);
+    }
+    cr_index(chunk.read_var_cr.get());
+    chunk.haps.assign(12, 0); chunk.phase_sets.assign(12, -1);
+    Options opts;
+    opts.recover_gaps = opts.private_msa_admit_all_in_region = opts.link_by_alleles = true;
+    opts.gap_hp_link_beg = opts.gap_hp_link_end = 199;
+    opts.min_block_link_reads = 2;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+    return check(!chunk.candidates[1].gap_hp_link_supported,
+                 "a favorable sparse subset cannot override the fuller clean-site evidence");
+}
+
 static bool test_msa_unsorted_profile_indices() {
     PhasingChunk chunk;
     chunk.reads.push_back(min_read());
@@ -428,6 +661,27 @@ static bool test_gap_recovery_partial_extension() {
     return check(result.left_linked && !result.right_linked && !result.joined && result.reads_added == 1 &&
                  chunks[1].phase_sets[0] == 300 && chunks[1].haps[0] == 1,
                  "one-sided evidence preserves an extension but cannot close the gap");
+}
+
+static bool test_gap_read_index_uses_updated_assignments() {
+    std::vector<PhasingChunk> chunks;
+    PhasingChunk proposal;
+    make_gap_fixture(chunks, proposal);
+    const GapReadIndex index(chunks);
+    Options opts;
+    opts.stitch_rule = kStitchRuleBothStrands;
+    proposal.haps[3] = 0;
+    const auto first = stitch_gap_proposal(chunks, proposal, find_phase_gaps(chunks)[0], opts, &index);
+    bool ok = check(first.reads_added == 1 && !first.joined,
+                    "cached index permits an initial partial extension");
+    // The next proposal disagrees on the newly tagged read. Its accepted
+    // assignment must now be protected just like the original anchor reads.
+    proposal.haps[4] = 2;
+    proposal.haps[3] = 1;
+    const auto second = stitch_gap_proposal(chunks, proposal, find_phase_gaps(chunks)[0], opts, &index);
+    ok &= check(second.joined && second.reads_added == 0 && chunks[0].haps[2] == 1,
+                "reused index sees tags assigned by an earlier recovery tier");
+    return ok;
 }
 
 static bool test_gap_msa_covers_clean_stretches() {
@@ -555,8 +809,256 @@ static bool test_gap_recovery_keeps_unphased_observations() {
                  "untagged reads retain raw observations without receiving an unsupported HP tag");
 }
 
+static bool test_gap_hp_trial_is_transactional() {
+    std::vector<PhasingChunk> chunks;
+    PhasingChunk proposal;
+    make_gap_fixture(chunks, proposal);
+    const auto gap = find_phase_gaps(chunks)[0];
+    Options opts;
+    opts.gap_hp_link_beg = gap.left_end;
+    opts.gap_hp_link_end = gap.right_beg;
+    opts.min_block_link_reads = 2;
+    const auto rejected = stitch_gap_proposal(chunks, proposal, gap, opts);
+    bool ok = check(!rejected.joined && rejected.reads_added == 0 &&
+                    chunks[0].haps.back() == 0 && chunks[1].phase_sets[0] == gap.right_ps,
+                    "weak homopolymer trial leaves original blocks and untagged reads untouched");
+    opts.min_block_link_reads = 1;
+    proposal.phase_sets[2] = proposal.phase_sets[3] = 400;
+    const auto partial = stitch_gap_proposal(chunks, proposal, gap, opts);
+    ok &= check(!partial.joined && partial.reads_added == 0 && chunks[0].haps.back() == 0,
+                "two disconnected anchors cannot commit a homopolymer extension");
+    proposal.phase_sets[2] = proposal.phase_sets[3] = 200;
+    const auto joined = stitch_gap_proposal(chunks, proposal, gap, opts);
+    ok &= check(joined.joined && joined.reads_added == 1 &&
+                chunks[1].phase_sets[0] == gap.left_ps,
+                "supported complete homopolymer proposal uses the existing stitch path");
+    return ok;
+}
+
+static AlnStr site_alignment(const std::string& target, const std::string& query) {
+    AlnStr aln;
+    for (char c : target) aln.target_aln.push_back(c == '-' ? 5 : std::string("ACGTN").find(c));
+    for (char c : query) aln.query_aln.push_back(c == '-' ? 5 : std::string("ACGTN").find(c));
+    aln.aln_len = static_cast<int>(target.size());
+    aln.target_end = aln.query_end = aln.aln_len - 1;
+    return aln;
+}
+
+static bool test_msa_site_observations() {
+    VariantKey key;
+    key.pos = 103;
+    key.type = VariantType::Snp;
+    key.ref_len = 1;
+    key.alt = "T";
+    auto alt = site_alignment("ACGACGT", "ACGTCGT");
+    auto ref = site_alignment("ACGACGT", "ACGACGT");
+    bool ok = check(call_msa_site_allele({alt, alt}, key, 100) == 1,
+                    "SNP observation does not require choosing a whole consensus");
+    ok &= check(call_msa_site_allele({ref, ref}, key, 100) == 0, "direct reference observation");
+    ok &= check(call_msa_site_allele({alt, ref}, key, 100) == -1, "alignment disagreement abstains");
+    auto noisy = site_alignment("ACGACGT", "ATGTCGT");
+    ok &= check(call_msa_site_allele({noisy, noisy}, key, 100) == -1, "nonmatching flank abstains");
+    alt.query_end = 5;
+    ok &= check(call_msa_site_allele({alt, alt}, key, 100) == -1, "partial flank abstains");
+    key.type = VariantType::Insertion;
+    key.ref_len = 0;
+    key.alt = "TT";
+    alt = site_alignment("ACG--CGT", "ACGTTCGT");
+    ref = site_alignment("ACGCGT", "ACGCGT");
+    ok &= check(call_msa_site_allele({alt, alt}, key, 100) == 1, "exact insertion observation");
+    ok &= check(call_msa_site_allele({ref, ref}, key, 100) == 0, "insertion reference observation");
+    auto other = site_alignment("ACG---CGT", "ACGTTTCGT");
+    ok &= check(call_msa_site_allele({other, other}, key, 100) == -1, "third insertion allele abstains");
+    key.type = VariantType::Deletion;
+    key.ref_len = 2;
+    key.alt.clear();
+    alt = site_alignment("ACGTTCGT", "ACG--CGT");
+    ok &= check(call_msa_site_allele({alt, alt}, key, 100) == 1, "exact deletion observation");
+    return ok;
+}
+
+static bool test_composed_msa_repeat_placement() {
+    VariantKey key;
+    key.pos = 103; key.type = VariantType::Insertion; key.alt = "GT";
+    auto left = site_alignment("ACG--GTGTGTCGA", "ACGGTGTGTGTCGA");
+    auto right = site_alignment("ACGGTGT--GTCGA", "ACGGTGTGTGTCGA");
+    bool ok = check(call_msa_site_allele({left, right}, key, 100) == -1,
+                    "equivalent repeat placements reproduce the missing observation");
+    left_normalize_msa_alignment(right);
+    ok &= check(right.target_aln == left.target_aln && right.query_aln == left.query_aln &&
+                call_msa_site_allele({left, right}, key, 100) == 1,
+                "canonical indel placement restores the exact insertion observation");
+    left = site_alignment("ACGATATATCGA", "ACG--ATATCGA");
+    right = site_alignment("ACGATATATCGA", "ACGATAT--CGA");
+    left_normalize_msa_alignment(right);
+    ok &= check(right.query_aln == left.query_aln && right.target_aln == left.target_aln,
+                "deletion normalization preserves both ungapped sequences");
+    return ok;
+}
+
+static bool test_msa_cluster_membership_is_not_an_allele() {
+    PhasingChunk chunk;
+    chunk.region.tid = 0; chunk.ref_beg = 100; chunk.ref_seq = "ACGACGT";
+    chunk.reads.resize(1);
+    const auto ref = site_alignment("ACGACGT", "ACGACGT");
+    const auto alt = site_alignment("ACGACGT", "ACGTCGT");
+    std::array<std::vector<AlnStr>, 2> alignments = {{{alt}, {ref, alt, {}}}};
+    std::vector<CandidateVariant> vars;
+    std::vector<VariantCategory> categories;
+    std::vector<ReadVariantProfile> profiles;
+    Options opts;
+    opts.recover_gaps = true;
+    make_vars_from_msa_cons_aln(opts, chunk, 1, {}, 100, 2, {0, 1}, {{{}, {0}}},
+                               alignments, vars, categories, profiles);
+    bool ok = check(vars.size() == 1 && profiles[0].alleles == std::vector<int>({1}) &&
+                    vars[0].counts.ref_cov == 0 && vars[0].counts.alt_cov == 1,
+                    "a reference-cluster read carrying ALT is not imputed as reference");
+    alignments[1][1] = site_alignment("ACGACGT", "ACTTCGT");
+    make_vars_from_msa_cons_aln(opts, chunk, 1, {}, 100, 2, {0, 1}, {{{}, {0}}},
+                               alignments, vars, categories, profiles);
+    ok &= check(profiles[0].alleles == std::vector<int>({1}),
+                "one flank error does not erase a strictly better local allele");
+    alignments[1][1] = site_alignment("ACGACGT", "ACGGCGT");
+    make_vars_from_msa_cons_aln(opts, chunk, 1, {}, 100, 2, {0, 1}, {{{}, {0}}},
+                               alignments, vars, categories, profiles);
+    ok &= check(profiles[0].alleles == std::vector<int>({-1}) && vars[0].counts.total_cov == 0,
+                "a third allele is unknown rather than an invented reference vote");
+    return ok;
+}
+
+static bool test_assigned_repeat_allows_one_local_error() {
+    PhasingChunk chunk;
+    chunk.region.tid = 0; chunk.ref_beg = 100; chunk.ref_seq = "ACGAAACGT";
+    chunk.reads.resize(1);
+    const auto short_del = site_alignment(chunk.ref_seq, "ACG-AACGT");
+    const auto long_del = site_alignment(chunk.ref_seq, "ACG--ACGT");
+    const auto read = site_alignment("ACGACGT", "ACG-CGT");
+    const std::array<std::vector<AlnStr>, 2> alignments = {{{short_del}, {long_del, read, {}}}};
+    std::vector<CandidateVariant> vars;
+    std::vector<VariantCategory> categories;
+    std::vector<ReadVariantProfile> profiles;
+    Options opts;
+    opts.recover_gaps = true;
+    make_vars_from_msa_cons_aln(opts, chunk, 1, {}, 100, 2, {0, 1}, {{{}, {0}}},
+                               alignments, vars, categories, profiles);
+    return check(vars.size() == 2 && vars[1].key.pos == 104 &&
+                 profiles[0].alleles[1] == 1 && vars[1].counts.alt_cov == 1,
+                 "a one-base repeat error supports the strictly closer length allele");
+}
+
+static bool test_unassigned_msa_local_allele_evidence() {
+    CandidateVariant var;
+    var.key.pos = 103; var.key.type = VariantType::Snp;
+    var.key.ref_len = 1; var.key.alt = "T";
+    var.counts.category = VariantCategory::NoisyCandHet;
+    var.counts.alle_covs = {2, 2}; var.counts.total_cov = 4;
+    const auto ref = site_alignment("ACGACGT", "ACGACGT");
+    const auto alt = site_alignment("ACGACGT", "ACGTCGT");
+    const auto noisy_alt = site_alignment("ACGACGT", "ACTTCGT");
+    const auto third = site_alignment("ACGACGT", "ACGGCGT");
+    const std::array<AlnStr, 2> consensuses = {ref, alt};
+    std::vector<CandidateVariant> vars{var};
+    std::vector<ReadVariantProfile> profiles(3);
+    Options opts;
+    add_msa_site_observations(opts,
+        {{0, {noisy_alt, noisy_alt}}, {1, {noisy_alt, ref}}, {2, {third, third}}},
+        100, false, vars, profiles, &consensuses);
+    return check(profiles[0].alleles == std::vector<int>({1}) &&
+                 profiles[1].start_var_idx == -1 && profiles[2].start_var_idx == -1 &&
+                 vars[0].counts.total_cov == 5,
+                 "unassigned reads retain local evidence only when both paths uniquely agree");
+}
+
+static bool test_nested_msa_deletions_share_common_event() {
+    PhasingChunk chunk;
+    chunk.region.tid = 0;
+    chunk.ref_beg = 100;
+    chunk.ref_seq = "ACGTATATACGT";
+    chunk.reads.resize(2);
+    const auto short_del = site_alignment(chunk.ref_seq, "ACG----TACGT");
+    const auto long_del = site_alignment(chunk.ref_seq, "ACG------CGT");
+    const std::array<std::vector<AlnStr>, 2> alignments = {{{short_del}, {long_del}}};
+    std::vector<CandidateVariant> vars;
+    std::vector<VariantCategory> categories;
+    std::vector<ReadVariantProfile> profiles;
+    Options opts;
+    opts.recover_gaps = true;
+    make_vars_from_msa_cons_aln(opts, chunk, 2, {}, 100, 2, {0, 0}, {},
+                               alignments, vars, categories, profiles);
+    bool ok = check(vars.size() == 2 && vars[0].key.pos == 103 &&
+                    vars[0].key.ref_len == 4 && categories[0] == VariantCategory::NoisyCandHom &&
+                    vars[1].key.pos == 107 && vars[1].key.ref_len == 2 &&
+                    categories[1] == VariantCategory::NoisyCandHet,
+                    "4/6 deletion genotype becomes common 4-base deletion plus 2-base difference");
+    if (!ok) return false;
+    const std::array<AlnStr, 2> consensuses = {short_del, long_del};
+    add_msa_site_observations(opts, {{0, {short_del, short_del}}, {1, {long_del, long_del}}},
+                              100, false, vars, profiles, &consensuses);
+    ok &= check(profiles[0].alleles == std::vector<int>({0}) &&
+                profiles[1].alleles == std::vector<int>({1}) &&
+                vars[1].counts.ref_cov == 1 && vars[1].counts.alt_cov == 1,
+                "the two repeat lengths give opposite observations at the heterozygous difference");
+    return ok;
+}
+
+static bool test_msa_observation_heterozygosity_gate() {
+    CandidateVariant var;
+    var.key.pos = 103;
+    var.key.type = VariantType::Snp;
+    var.key.ref_len = 1;
+    var.key.alt = "T";
+    var.counts.category = VariantCategory::NoisyCandHet;
+    var.counts.alle_covs = {1, 1};
+    var.counts.total_cov = 2;
+    std::vector<CandidateVariant> vars{var};
+    std::vector<ReadVariantProfile> profiles(10);
+    std::vector<UnassignedMsaRead> reads;
+    const auto ref = site_alignment("ACGACGT", "ACGACGT");
+    for (int i = 0; i < 10; ++i) reads.push_back({i, {ref, ref}});
+    Options opts;
+    add_msa_site_observations(opts, reads, 100, true, vars, profiles);
+    bool ok = check(vars[0].counts.total_cov == 2 && profiles[0].start_var_idx == -1,
+                    "reference-dominated evidence does not extend a false MSA het");
+    reads.resize(1);
+    add_msa_site_observations(opts, reads, 100, true, vars, profiles);
+    ok &= check(vars[0].counts.total_cov == 3 && vars[0].counts.alle_covs[0] == 2 &&
+                profiles[0].alleles == std::vector<int>({0}),
+                "balanced site observation updates counts and profile exactly once");
+    return ok;
+}
+
+static bool test_msa_supported_flank_variant() {
+    VariantKey key;
+    key.pos = 103; key.type = VariantType::Snp; key.ref_len = 1; key.alt = "T";
+    const auto read = site_alignment("ACGAC-GT", "ACGTCAGT");
+    const std::array<AlnStr, 2> consensuses = {
+        site_alignment("ACGAC-GT", "ACGACAGT"), read};
+    bool ok = check(call_msa_site_allele({read, read}, key, 100) == -1,
+                    "an unexplained flank insertion is rejected");
+    ok &= check(call_msa_site_allele({read, read}, key, 100, &consensuses) == 1,
+                "an insertion supported by fixed consensuses does not hide the nearby SNP");
+    const auto error = site_alignment("ACGAC-GT", "ACGTCTGT");
+    ok &= check(call_msa_site_allele({error, error}, key, 100, &consensuses) == -1,
+                "an insertion sequence absent from both consensuses remains rejected");
+    return ok;
+}
+
 int main() {
     int failures = 0;
+    failures += test_repeat_anchor_prefers_complete_evidence() ? 0 : 1;
+    failures += test_unassigned_msa_local_allele_evidence() ? 0 : 1;
+    failures += test_assigned_repeat_allows_one_local_error() ? 0 : 1;
+    failures += test_msa_cluster_membership_is_not_an_allele() ? 0 : 1;
+    failures += test_read_phase_set_ignores_non_scoring_repeat() ? 0 : 1;
+    failures += test_composed_msa_repeat_placement() ? 0 : 1;
+    failures += test_read_phase_set_requires_observed_allele() ? 0 : 1;
+    failures += test_nested_msa_deletions_share_common_event() ? 0 : 1;
+    failures += test_gap_hp_trial_is_transactional() ? 0 : 1;
+    failures += test_recovery_links_join_earlier_components() ? 0 : 1;
+    failures += test_gap_read_index_uses_updated_assignments() ? 0 : 1;
+    failures += test_msa_supported_flank_variant() ? 0 : 1;
+    failures += test_msa_observation_heterozygosity_gate() ? 0 : 1;
+    failures += test_msa_site_observations() ? 0 : 1;
     failures += test_gap_recovery_keeps_unphased_observations() ? 0 : 1;
     failures += test_gap_recovery_adopts_unresolved_site_and_read() ? 0 : 1;
     failures += test_gap_recovery_respects_requested_regions() ? 0 : 1;

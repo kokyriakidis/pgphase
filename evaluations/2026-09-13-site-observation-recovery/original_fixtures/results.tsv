@@ -1,0 +1,10 @@
+region	arm	evaluated_reads	discordant_reads	phase_sets	read_switchflips
+15m	clean	555	0	3	0
+15m	auto24	555	0	1	0
+15m	auto1	555	0	1	0
+47m	clean	510	0	3	0
+47m	auto24	510	0	1	0
+47m	auto1	510	0	1	0
+15m_split	clean	534	0	3	0
+15m_split	auto24	534	0	1	0
+15m_split	auto1	534	0	1	0

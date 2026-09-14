@@ -1,0 +1,16 @@
+{
+  "rows": 33866,
+  "unique_sites": 11440,
+  "unique_links": 179,
+  "counts": {
+    "unphased_site/no_tagged_allele_support": 9402,
+    "unphased_site/mixed_alleles_within_haplotype": 8919,
+    "unphased_site/fewer_than_two_tagged_reads_on_one_haplotype": 13420,
+    "unphased_site/both_haplotypes_favor_same_allele": 1703,
+    "split_block/multiple_mapq30_spanning_reads_need_link_audit": 109,
+    "split_block/singleton_mapq30_between_projected_endpoints": 104,
+    "split_block/no_spanning_read_between_projected_endpoints": 200,
+    "split_block/read_tag_projection_break_inside_native_block": 5,
+    "split_block/all_spanning_reads_below_mapq30": 4
+  }
+}
