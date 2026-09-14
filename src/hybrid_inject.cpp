@@ -397,6 +397,21 @@ static bool extend_bam_profile_with_graph_obs(
 
     for (const auto& [cand_idx, allele] : graph_obs) {
         if (!graph_only_candidates.count(cand_idx)) continue;
+        const auto& key = chunk.candidates[static_cast<size_t>(cand_idx)].key;
+        if (key.type == VariantType::Snp) {
+            bool deleted = false;
+            for (const auto& op : chunk.reads[static_cast<size_t>(read_i)].digars) {
+                if (op.pos > key.pos) break;
+                if ((op.type == DigarType::Deletion || op.type == DigarType::RefSkip) &&
+                    key.pos < op.pos + op.len) {
+                    deleted = true;
+                    break;
+                }
+            }
+            // A graph traversal cannot resolve the nucleotide of a SNP that
+            // the BAM alignment explicitly deletes or skips.
+            if (deleted) continue;
+        }
 
         if (prof.start_var_idx < 0) {
             // Empty profile — initialize with this single observation.

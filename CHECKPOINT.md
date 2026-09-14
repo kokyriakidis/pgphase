@@ -5494,3 +5494,49 @@ sparse-subset unit regression fails on the previous selector and passes now;
 all unit tests/build pass. This revision has not completed the full 114-case or
 whole-chromosome recovery validation. Existing wrong joins at 35.9, 46.7, and
 60.1 Mb remain unresolved; do not treat this as a fully validated recovery core.
+
+
+### chr20 35.9 Mb: indel tier lost previously verified evidence
+
+Commit f92018d was pushed before this investigation. Two further bugs were
+reproduced. (1) A verified SNP in the non-deleted allele of a residual deletion
+was treated as an unknown third allele; exact fixed-consensus matching restores
+19 reference / 7 alternate observations instead of 1 / 6 at 35927394. Unit
+regression fails before and passes after. (2) SNP-only flank extension narrowed
+the next tier's MSA interval, excluding the already examined insertion at
+35920914. Keep the original MSA interval across all tiers. The indel now enters
+tier 3 (37 reference / 22 alternate), producing a correct one-block 35.9 Mb
+result: 293 truth-assessed reads, 48→0 discordance, 3→0 switch/flip errors.
+
+fixed_tier_window completed all 114 local cases: 75 joins, 35 splits, four
+endpoint-unphased; no discordance increases versus the prior direct_site_anchor
+full trial. Two original-block reversals remain (46.7 and 60.1 Mb). This is not
+a whole-chromosome recovery validation. Build and all unit tests pass.
+
+
+### chr20 46.7 Mb: graph evidence filled a deleted SNP
+
+Read m84031_231217_062403_s3/184948613/ccs has a primary MAPQ60 BAM deletion
+at SNP 46727050, but graph-only profile augmentation filled its unknown slot
+with SNP ALT. This manufactured one of two links driving the wrong join.
+Graph SNP extension now skips explicit BAM deletions/reference skips while
+retaining ordinary missing-slot filling. Unit regression fails before and
+passes after. In the initial 18-case graph_deletion_guard panel, 46.7 Mb stays
+split and improves 187→1 discordance (415 assessed reads); no new discordance
+or switch/flip increases. All 35.9/55.9 rescues remain. Full expansion pending.
+
+60.1 Mb diagnosis: true six-T/seven-T insertion alleles at 60093417 are separate
+MSA candidates with only ALT observations, collapsing to homozygous and losing
+the allele-length distinction. Proper multi-allelic representation remains to
+be implemented; 39 reversed original-block reads are unresolved there.
+
+
+Completed graph_deletion_guard 114-case expansion: 74 joins, 36 splits, four
+endpoint-unphased. The only detected original-block majority reversal is the
+unresolved 60.1 Mb case. The 35.9 Mb (293/293 concordant) and 55.9 Mb (308/308)
+correct joins remain. 46.7 Mb stays split, 187→1 discordance. Tradeoffs versus
+fixed_tier_window: 61.7 Mb loses a correct target join and adds three discordant
+newly tagged reads; two existing reads near 1.9 Mb become discordant (duplicated
+in two overlapping test windows); switch/flip counts increase in two overlapping
+26.6 Mb cases despite fewer discordant reads. No additional original-block
+majority reversals. All results are recorded, not claimed regression-free.

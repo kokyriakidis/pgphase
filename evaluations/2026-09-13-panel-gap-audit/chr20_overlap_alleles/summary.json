@@ -1,0 +1,53 @@
+{
+  "cases": 18,
+  "target_transitions": {
+    "split -> split": 6,
+    "split -> joined": 12
+  },
+  "original_reads_preserved": 5922,
+  "added_tagged_reads": 52,
+  "discordance_increases": [
+    "chr20_35919404_35939110",
+    "chr20_46727050_46747637",
+    "chr20_60063142_60114911"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_35919404_35939110",
+      "original_ps": 35939110,
+      "final_ps": 35873360,
+      "truth_reads": 48,
+      "before_discordant": 0,
+      "after_discordant": 48,
+      "uniform_label_flip": 1,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_46727050_46747637",
+      "original_ps": 46748667,
+      "final_ps": 46677273,
+      "truth_reads": 172,
+      "before_discordant": 0,
+      "after_discordant": 172,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "original_ps": 60058235,
+      "final_ps": 60058235,
+      "truth_reads": 39,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "split -> split": 6,
+    "joined -> joined": 12
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}

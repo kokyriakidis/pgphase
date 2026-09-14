@@ -1027,6 +1027,24 @@ static bool test_msa_observation_heterozygosity_gate() {
     return ok;
 }
 
+static bool test_deletion_reference_with_overlapping_snp() {
+    VariantKey key;
+    key.pos = 103; key.type = VariantType::Deletion; key.ref_len = 4;
+    const auto present = site_alignment("ACGTTCCGTA", "ACGTTCTGTA");
+    const auto deleted = site_alignment("ACGTTCCGTA", "ACG----GTA");
+    const auto third = site_alignment("ACGTTCCGTA", "ACGTTATGTA");
+    const auto partial = site_alignment("ACGTTCCGTA", "ACG--CTGTA");
+    const std::array<AlnStr, 2> consensuses = {present, deleted};
+    bool ok = check(call_msa_site_allele({present, present}, key, 100, &consensuses) == 0,
+                    "a verified SNP inside a deletion footprint does not erase the non-deletion allele");
+    ok &= check(call_msa_site_allele({deleted, deleted}, key, 100, &consensuses) == 1 &&
+                call_msa_site_allele({third, third}, key, 100, &consensuses) == -1 &&
+                call_msa_site_allele({partial, partial}, key, 100, &consensuses) == -1 &&
+                call_msa_site_allele({present, deleted}, key, 100, &consensuses) == -1,
+                "unsupported substitutions, intermediate deletions and path conflicts remain unknown");
+    return ok;
+}
+
 static bool test_msa_supported_flank_variant() {
     VariantKey key;
     key.pos = 103; key.type = VariantType::Snp; key.ref_len = 1; key.alt = "T";
@@ -1045,6 +1063,7 @@ static bool test_msa_supported_flank_variant() {
 
 int main() {
     int failures = 0;
+    failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;
     failures += test_repeat_anchor_prefers_complete_evidence() ? 0 : 1;
     failures += test_unassigned_msa_local_allele_evidence() ? 0 : 1;
     failures += test_assigned_repeat_allows_one_local_error() ? 0 : 1;

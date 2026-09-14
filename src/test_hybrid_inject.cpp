@@ -41,6 +41,33 @@ static CandidateVariant make_graph_snp(hts_pos_t pos, int ref_cov, int alt_cov) 
 int main() {
     bool ok = true;
 
+    {
+        PhasingChunk c;
+        c.region.tid = 0;
+        c.candidates.push_back(make_graph_snp(100, 0, 0));
+        c.reads.resize(3); c.read_var_profile.resize(3);
+        std::vector<GraphReadAllele> rows;
+        for (int i = 0; i < 3; ++i) {
+            auto& read = c.reads[i];
+            read.qname = "overlap_" + std::to_string(i);
+            read.beg = 90; read.end = 110;
+            read.digars.push_back({100, i == 0 ? DigarType::Deletion :
+                i == 1 ? DigarType::RefSkip : DigarType::Equal, 1, 0, false, {}});
+            GraphReadAllele row;
+            row.site_id = "site"; row.read_name = read.qname;
+            row.allele = 1; row.mapq = 60;
+            rows.push_back(row);
+        }
+        Options opts;
+        int extended = 0;
+        inject_graph_reads(c, rows, {{"site", 0}}, {0}, opts, &extended);
+        ok &= check(extended == 1 && c.candidates[0].counts.alt_cov == 1 &&
+                    c.read_var_profile[0].start_var_idx == -1 &&
+                    c.read_var_profile[1].start_var_idx == -1 &&
+                    c.read_var_profile[2].alleles == std::vector<int>({1}),
+                    "graph SNPs cannot fill explicit BAM deletions or reference skips");
+    }
+
     // ── vcf_to_variant_key: deletion / insertion normalization ───────────────
     // Deletions must strip the full shared prefix to match the BAM convention
     // (variant_key_from_digar): alt = "", ref_len = deleted span, pos = first

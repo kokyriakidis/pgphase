@@ -1101,6 +1101,10 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                                              gaf_handle, contig, chrom_remap, nullptr,
                                              bam_authority, true));
         auto& proposal = local.front();
+        // A SNP-only extension must not remove previously examined indels
+        // from the later tier: those sites can still bridge the remaining gap.
+        const hts_pos_t msa_beg = gap.left_end - kGapRecoveryMsaFlank;
+        const hts_pos_t msa_end = gap.right_beg + kGapRecoveryMsaFlank;
         bool msa_prepared = false;
         constexpr int kGapHomopolymerTier = 4;
         for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
@@ -1118,12 +1122,10 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                 assign_hap_based_on_germline_het_vars_kmeans(proposal, local_opts, kCandGermlineVarCate);
             } else if (tier > 1) {
                 if (!msa_prepared) {
-                    prepare_gap_msa_regions(proposal, gap.left_end - kGapRecoveryMsaFlank,
-                                             gap.right_beg + kGapRecoveryMsaFlank);
+                    prepare_gap_msa_regions(proposal, msa_beg, msa_end);
                     msa_prepared = true;
                 }
-                run_gap_msa_tier(proposal, local_opts, gap.left_end - kGapRecoveryMsaFlank,
-                                 gap.right_beg + kGapRecoveryMsaFlank, tier == 2);
+                run_gap_msa_tier(proposal, local_opts, msa_beg, msa_end, tier == 2);
             }
             filter_hybrid_reads_by_margin(local, opts.min_read_hap_margin, tier > 1);
             filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);

@@ -1144,6 +1144,20 @@ static MsaSiteSlice slice_msa_site(const AlnStr& aln, const VariantKey& key,
     return result;
 }
 
+static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key,
+                                 const std::array<MsaSiteSlice, 2>& context) {
+    const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
+    if (site.query == site.ref) return 0;
+    if (site.query == alt) return 1;
+    // The non-deleted haplotype may carry a verified substitution within the
+    // deletion footprint. Require its exact consensus sequence, not just length.
+    if (key.type == VariantType::Deletion && site.query.size() == site.ref.size())
+        for (const auto& consensus : context)
+            if (consensus.covered && consensus.ref == site.ref &&
+                consensus.query == site.query) return 0;
+    return -1;
+}
+
 static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,
                                       const VariantKey& key, hts_pos_t ref_beg,
                                       const std::array<MsaSiteSlice, 2>& context) {
@@ -1159,8 +1173,7 @@ static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,
                     site.flank_query[side] == consensus.flank_query[side];
             if (!supported) return -1;
         }
-        const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
-        const int allele = site.query == site.ref ? 0 : site.query == alt ? 1 : -1;
+        const int allele = msa_site_event_allele(site, key, context);
         if (allele < 0 || (ci == 1 && allele != first)) return -1;
         first = allele;
     }
@@ -1200,11 +1213,10 @@ static int call_local_msa_allele(const AlnStr& read, const VariantKey& key,
         slice_msa_site(consensuses[0], key, ref_beg), slice_msa_site(consensuses[1], key, ref_beg)};
     if (!observed.covered || !context[0].covered || !context[1].covered ||
         context[0].flank_query != context[1].flank_query) return -1;
-    const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
     std::array<int, 2> alleles, distances;
     const std::string query = observed.flank_query[0] + observed.query + observed.flank_query[1];
     for (int ci = 0; ci < 2; ++ci) {
-        alleles[ci] = context[ci].query == context[ci].ref ? 0 : context[ci].query == alt ? 1 : -1;
+        alleles[ci] = msa_site_event_allele(context[ci], key, context);
         const std::string expected = context[ci].flank_query[0] + context[ci].query + context[ci].flank_query[1];
         distances[ci] = local_allele_distance(query, expected);
     }

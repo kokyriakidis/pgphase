@@ -1,0 +1,81 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 75,
+    "split -> split": 35,
+    "split -> endpoint_unphased": 2,
+    "endpoint_unphased -> endpoint_unphased": 2
+  },
+  "original_reads_preserved": 37479,
+  "added_tagged_reads": 813,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_46727050_46747637",
+    "chr20_60063142_60114911"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_46727050_46747637",
+      "original_ps": 46748667,
+      "final_ps": 46677273,
+      "truth_reads": 172,
+      "before_discordant": 0,
+      "after_discordant": 172,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    },
+    {
+      "region": "chr20_60063142_60114911",
+      "original_ps": 60058235,
+      "final_ps": 60058235,
+      "truth_reads": 39,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "joined -> joined": 75,
+    "split -> split": 33,
+    "endpoint_unphased -> endpoint_unphased": 4,
+    "joined -> split": 2
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": [
+    {
+      "region": "chr20_35919404_35939110",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 293,
+      "after_reads": 293,
+      "before_discordant": 48,
+      "after_discordant": 0,
+      "before_switchflips": 3,
+      "after_switchflips": 0
+    },
+    {
+      "region": "chr20_54894127_54912022",
+      "before_target": "joined",
+      "after_target": "split",
+      "before_reads": 419,
+      "after_reads": 419,
+      "before_discordant": 199,
+      "after_discordant": 0,
+      "before_switchflips": 3,
+      "after_switchflips": 0
+    },
+    {
+      "region": "chr20_36032227_36056601",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 117,
+      "after_reads": 117,
+      "before_discordant": 5,
+      "after_discordant": 0,
+      "before_switchflips": 3,
+      "after_switchflips": 0
+    }
+  ]
+}
