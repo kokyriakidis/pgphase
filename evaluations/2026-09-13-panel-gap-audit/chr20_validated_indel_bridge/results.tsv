@@ -1,0 +1,7 @@
+region	left	right	clean_target	clean_total_reads_evaluated	clean_discordant_reads	clean_total_phase_sets	clean_switchflip_errors	recovery2_target	recovery2_total_reads_evaluated	recovery2_discordant_reads	recovery2_total_phase_sets	recovery2_switchflip_errors	original_reads_preserved	added_tagged_reads
+chr20_12256072_12277078	12256072	12277078	split	434	0	3	0	joined	434	0	1	0	434	0
+chr20_12721112_12752291	12721112	12752291	split	474	0	2	0	split	474	0	2	0	474	0
+chr20_34079290_34134418	34079290	34134418	split	188	2	3	2	split	188	2	2	2	188	0
+chr20_35919404_35939110	35919404	35939110	split	293	0	2	0	joined	293	0	1	0	293	0
+chr20_60063142_60114911	60063142	60114911	split	206	0	3	0	joined	206	39	2	3	210	0
+chr20_34864445_34893642	34864445	34893642	split	317	0	2	0	split	317	0	2	0	317	0

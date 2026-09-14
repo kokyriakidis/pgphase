@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -322,7 +323,8 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
 // Updates n_clean_agree_snps / n_clean_conflict_snps on the read (for max_hap only).
 // CleanHom variants contribute to agree/conflict stats but not to hap_scores.
 // Init_assign_read_hap_based_on_cons_alle.
-static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags) {
+static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
+                                std::optional<hts_pos_t> phase_set = std::nullopt) {
     ReadRecord& read = chunk.reads[read_i];
     read.n_clean_agree_snps = 0;
     read.n_clean_conflict_snps = 0;
@@ -342,8 +344,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags)
     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
         CandidateVariant& var = chunk.candidates[vi];
         const uint32_t vic = var.lcd_var_i_to_cate;
-        if ((vic & flags) == 0) continue;
-        // HP-indel or noisy-hom candidates: score only, do not use as pivot.
+        if ((vic & flags) == 0 || (phase_set && var.phase_set != *phase_set)) continue;
+        // Homopolymer indels and noisy homozygous sites do not contribute read scores.
         if (var.is_homopolymer_indel || vic == kCandNoisyCandHom) continue;
 
         const int aidx = prof.alleles[vi - prof.start_var_idx];
@@ -415,12 +417,13 @@ static void update_var_hap_profile_cons_alle(PhasingChunk& chunk, bool is_ont,
 
 // Update allele profile only for all vars a read covers (used in Phase 2).
 // Update_var_hap_profile_based_on_read_hap.
-static void update_var_hap_profile(PhasingChunk& chunk, int read_i, int hap, uint32_t flags) {
+static void update_var_hap_profile(PhasingChunk& chunk, int read_i, int hap, uint32_t flags,
+                                   std::optional<hts_pos_t> phase_set = std::nullopt) {
     const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
     if (prof.start_var_idx < 0) return;
     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
         const uint32_t vic = chunk.candidates[vi].lcd_var_i_to_cate;
-        if ((vic & flags) == 0) continue;
+        if ((vic & flags) == 0 || (phase_set && chunk.candidates[vi].phase_set != *phase_set)) continue;
         const int aidx = prof.alleles[vi - prof.start_var_idx];
         if (aidx < 0) continue;
         CandidateVariant& cand = chunk.candidates[vi];
@@ -803,10 +806,35 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         const int read_i = read_at_visit_ord(chunk, oi);
         if (read_i < 0 || static_cast<size_t>(read_i) >= chunk.reads.size()) continue;
         if (chunk.reads[read_i].is_skipped) continue;
-        int hap = init_assign_read_hap(chunk, read_i, flags);
-        if (hap == -1) hap = 0;
-        chunk.haps[read_i] = hap;
-        update_var_hap_profile(chunk, read_i, hap, flags);
+        // Apply phase-set-local updates to clean-candidate rounds first.
+        // MSA-round scoping exposes unresolved repeat-link regressions;
+        // retain its existing update path (see CHECKPOINT.md).
+        if (flags & kCandNoisyCandHet) {
+            int hap = init_assign_read_hap(chunk, read_i, flags);
+            if (hap == -1) hap = 0;
+            chunk.haps[read_i] = hap;
+            update_var_hap_profile(chunk, read_i, hap, flags);
+            continue;
+        }
+        const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
+        if (prof.start_var_idx < 0) continue;
+        std::vector<hts_pos_t> phase_sets;
+        for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
+            const CandidateVariant& var = chunk.candidates[vi];
+            if ((var.lcd_var_i_to_cate & flags) == 0 ||
+                prof.alleles[vi - prof.start_var_idx] < 0) continue;
+            phase_sets.push_back(var.phase_set);
+        }
+        std::sort(phase_sets.begin(), phase_sets.end());
+        phase_sets.erase(std::unique(phase_sets.begin(), phase_sets.end()), phase_sets.end());
+        // HP integers in disconnected blocks have independent orientations.
+        // A spanning read must update each block using that block's evidence.
+        for (const hts_pos_t phase_set : phase_sets) {
+            const int hap = std::max(0, init_assign_read_hap(chunk, read_i, flags, phase_set));
+            update_var_hap_profile(chunk, read_i, hap, flags, phase_set);
+        }
+        chunk.haps[read_i] = std::max(0, init_assign_read_hap(chunk, read_i, flags,
+            phase_sets.empty() ? std::nullopt : std::optional<hts_pos_t>(phase_sets.front())));
     }
 
     for (int _vi = 0; _vi < n; ++_vi) {
@@ -1022,8 +1050,13 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
         if (c1 == 0 && c2 == 0) break;
     }
 
-    // Phase 3: finalize per-read phase_sets.
+    // Phase 3: report HP in its own phase set, using the final consensus.
     update_read_phase_set(chunk, var_is_valid);
+    for (size_t ri = 0; ri < n_reads; ++ri) {
+        if (chunk.reads[ri].is_skipped) continue;
+        chunk.haps[ri] = chunk.phase_sets[ri] < 0 ? 0 :
+            std::max(0, init_assign_read_hap(chunk, static_cast<int>(ri), flags, chunk.phase_sets[ri]));
+    }
 
     // Phase 4: fill hap_alt / hap_ref from finalized hap_to_cons_alle.
     // Resolve hap_alt/hap_ref from finalized consensus alleles:

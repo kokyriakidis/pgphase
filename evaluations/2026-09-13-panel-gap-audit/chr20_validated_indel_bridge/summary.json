@@ -1,0 +1,55 @@
+{
+  "cases": 6,
+  "target_transitions": {
+    "split -> joined": 3,
+    "split -> split": 3
+  },
+  "original_reads_preserved": 1916,
+  "added_tagged_reads": 0,
+  "discordance_increases": [
+    "chr20_60063142_60114911"
+  ],
+  "majority_reversed_original_blocks": [
+    {
+      "region": "chr20_60063142_60114911",
+      "original_ps": 60058235,
+      "final_ps": 60058235,
+      "truth_reads": 39,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "uniform_label_flip": 0,
+      "majority_reversed": true
+    }
+  ],
+  "baseline_target_transitions": {
+    "joined -> joined": 3,
+    "split -> split": 3
+  },
+  "baseline_discordance_increases": [
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 206,
+      "after_reads": 206,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    }
+  ],
+  "baseline_switchflip_increases": [
+    {
+      "region": "chr20_60063142_60114911",
+      "before_target": "joined",
+      "after_target": "joined",
+      "before_reads": 206,
+      "after_reads": 206,
+      "before_discordant": 0,
+      "after_discordant": 39,
+      "before_switchflips": 0,
+      "after_switchflips": 3
+    }
+  ],
+  "baseline_discordance_decreases": []
+}

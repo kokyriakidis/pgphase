@@ -1256,8 +1256,45 @@ static bool test_gap_clean_block_bridge() {
     return ok;
 }
 
+static bool test_read_hp_matches_reported_phase_set() {
+    PhasingChunk chunk;
+    for (int vi = 0; vi < 4; ++vi) {
+        CandidateVariant var;
+        var.key.pos = 100 + vi * 100;
+        var.key.type = VariantType::Snp; var.key.ref_len = 1; var.key.alt = "T";
+        var.lcd_var_i_to_cate = kCandCleanHetSnp;
+        var.counts.alle_covs = {4, 4}; var.counts.total_cov = 8;
+        chunk.candidates.push_back(var);
+    }
+    const std::vector<std::vector<int>> alleles = {
+        {0, 0, -1, -1}, {0, 0, -1, -1}, {1, 1, -1, -1}, {1, 1, -1, -1},
+        {-1, -1, 0, 0}, {-1, -1, 0, 0}, {-1, -1, 1, 1}, {-1, -1, 1, 1},
+        {0, 0, 0, 0}, {0, 0, 1, 1}};
+    chunk.read_var_cr.reset(cr_init());
+    for (size_t ri = 0; ri < alleles.size(); ++ri) {
+        chunk.reads.push_back(min_read());
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0; profile.end_var_idx = 3;
+        profile.alleles = alleles[ri];
+        chunk.read_var_profile.push_back(profile);
+        cr_add(chunk.read_var_cr.get(), "cr", 0, 4, ri);
+    }
+    cr_index(chunk.read_var_cr.get());
+    Options opts; opts.link_by_alleles = true; opts.min_block_link_reads = 2;
+    assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
+    return check(chunk.candidates[0].phase_set != chunk.candidates[3].phase_set &&
+                 chunk.phase_sets[8] == chunk.candidates[0].phase_set &&
+                 chunk.phase_sets[9] == chunk.candidates[0].phase_set &&
+                 chunk.haps[8] != 0 && chunk.haps[8] == chunk.haps[9] &&
+                 chunk.candidates[0].hap_to_cons_alle[chunk.haps[8]] == 0 &&
+                 chunk.candidates[0].hap_to_alle_profile[chunk.haps[8]][0] == 4 &&
+                 chunk.candidates[0].hap_to_alle_profile[3 - chunk.haps[8]][0] == 0,
+                 "spanning reads update and report the left-block hap independently of right-block alleles");
+}
+
 int main() {
     int failures = 0;
+    failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
     failures += test_gap_clean_block_bridge() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;

@@ -5640,3 +5640,75 @@ reads). It remains rejected. Full experimental patches and explicitly labeled
 trial reports preserve those findings for further diagnosis; they are not
 accepted production implementations. The four endpoint cases and 24 split
 cases remain outstanding.
+
+### Clean-round phase-set scoping fixes the chr20 1.9 Mb endpoints
+
+The two overlapping targets 1912570_1913054 and 1912570_1913912 have clear
+BAM SNP evidence. At 1912570 the observed truth groups are PAT C22 / MAT T25;
+at 1913912 they are PAT G24 / MAT T25. The collected allele profiles match
+these bases. Site retrieval is not the failure: a read crossing independent
+phase sets was scored once against their arbitrary HP integers, then updated
+all their allele profiles with that same integer. Final HP could also describe
+a different phase set from the read's reported PS.
+
+Clean-candidate k-means iterations now score and update a spanning read
+separately in every observed phase set. Final output HP is recomputed from the
+final consensus within the reported PS. MSA-round iterative updates deliberately
+retain their existing path: applying the change there too exposed repeat-link
+regressions described below. This is a scoped clean-round fix, not a claim that
+all MSA-round cross-component behavior has been repaired.
+
+The clean_scoped_iterations panel has 88 joined targets, 24 split and two
+unphased-endpoint cases. All 86 confident_clean_bridge joins remain. Both
+1.9 Mb endpoints join; each overlapping window has 354 assessed reads, with
+read discordance reduced from 30 to 3 and switch/flips from 10 to 3.
+WhatsHap 2.8 compare against local variant truth assesses 203 rather than 171
+variants in the first window (204 rather than 172 in the second), reducing
+blockwise hamming from five to one in each. All 114 local variant comparisons
+complete with no hamming-count increases. The completed read audit detects no
+original-block majority reversals. The ambiguous 26.6 Mb endpoint case has one
+additional discordant read (34 -> 35) and one additional read switch/flip
+(15 -> 16), with unchanged variant-truth metrics and no wrong block stitch.
+The 24 split targets and two endpoint cases remain unresolved. These overlapping
+windows do not establish whole-chromosome NGC50 or hamming performance.
+
+The unit fixture checks both output HP/PS consistency and internal allele
+profile partitioning for reads spanning two disconnected blocks. It fails
+against the original phase core and passes with the correction. Build and
+unit tests pass. compare_panel_variant_truth.py provides reproducible local
+WhatsHap comparisons alongside the existing read and block-orientation audit.
+
+### Rejected MSA experiments and remaining root causes
+
+All trials below are diagnostic, excluded from the production fix above:
+
+- Provisional-homozygous indel reassessment plus reference hypotheses recovers
+  the 12.74 Mb deletion; independently clean-supported MSA anchors can join
+  that target correctly. Full msa_site_anchors evaluation nevertheless loses
+  four existing joins (7.0, 20.5, 21.1 and 38.2 Mb): 85 joined / 25 split / four
+  unphased endpoints. See remaining_msa_site_anchors_experiment.patch.
+- Scoping iterative updates in all rounds fixes 1.9 Mb but creates a wrong
+  3.95 Mb stitch: 119 original right-block reads reverse, with 11/35 assessed
+  variant hamming errors. It also loses 4.85 Mb because partial extension
+  narrows later homopolymer eligibility despite evidence in the original gap.
+- MSA homopolymer insertion detection compares raw FASTA ASCII to nt4 ALT
+  codes. Correcting that real encoding bug stops the false 3.95 Mb bridge
+  through the weak A-run insertion at key 3971337. It also moves previously
+  usable insertions into stricter repeat validation, which needs further work
+  before this classification fix can be integrated without losing joins.
+- At 7.0 Mb, SNP 7027161 supplies a pure 2/2 allele table for insertion key
+  7047081, using MAPQ60 and Q35-40 bases. The deeper clean anchor is noisier.
+  A per-site pure-anchor exception admits the site, but a 3-versus-2 repeat
+  edge then fails the extra net-margin rule. Using ordinary link scoring for
+  validated repeats restores it and joins 3.95 Mb correctly, but the full
+  validated_normal_links panel reverses a five-read block in the 36.0 Mb
+  window (two variant hamming errors). This trial remains rejected.
+- Coherent allele-group margins restore 20.5 Mb; pure allele separation with
+  Q30 support on each side restores 38.2 Mb. The combined coherent_validated_links
+  trial, however, reverses a 32-read original block at 23.4 Mb. Its exact source
+  is archived in remaining_coherent_validated_experiment.patch.
+
+Candidate heterozygosity, a single reliable site, and a reliable orientation
+between existing blocks are separate decisions. Accepting the first two does
+not by itself validate every weak downstream stitch. Competitor and truth
+records remain evaluation-only inputs throughout these experiments.

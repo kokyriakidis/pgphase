@@ -1,0 +1,1 @@
+/home/kokyriakidis/micromamba/envs/bench-phasers/bin/whatshap compare --ignore-sample-name --tsv-pairwise evaluations/2026-09-13-panel-gap-audit/chr20_phase_scoped_core/chr20_confident_clean_bridge.1.9Mb.variant_truth.tsv /tmp/pgphase-chr20_phase_scoped_core/chr20_1.9Mb.truth.vcf /tmp/pgphase-chr20_confident_clean_bridge/chr20_1912570_1913054/recovery2/shared.vcf
