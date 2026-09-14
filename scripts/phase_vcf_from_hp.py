@@ -23,9 +23,15 @@ Usage:
       --min-ratio F     fraction of a haplotype's reads that must agree [0.7]
       --sample NAME     sample to phase (input must be single-sample)
       --region REG      restrict to a region (e.g. chr20)
+      --fallback-site N allow native/caller fallback at one gap endpoint
 
 Sites without enough support are emitted unphased, exactly as a phaser would
 leave them, so the comparison is not silently inflated by dropping hard sites.
+
+When requested, two conservative fallbacks preserve evidence that predates the
+HP projection: an exact phased call from pgphase's native VCF, or a phased input
+caller block containing several heterozygous sites. Caller blocks are assigned
+a separate PS namespace and are never used to merge pgphase blocks.
 
 One subtlety drives the implementation.  An HP tag is only meaningful *within*
 a phase set: HP=1 in one phase set and HP=1 in the next are unrelated, since
@@ -46,6 +52,9 @@ from pathlib import Path
 
 import pysam
 from allele_observations import observe_allele
+
+
+CALLER_PHASE_SET_OFFSET = 1_000_000_000
 
 
 def read_allele(pileupread, ref_allele, alt_allele):
@@ -85,6 +94,43 @@ def resolve_bam_contig(vcf_contig, bam_references):
 
 def variant_key(rec):
     return rec.chrom, rec.start, rec.ref, ",".join(rec.alts)
+
+
+def cross_vcf_key(rec):
+    return rec.chrom.split("#")[-1], rec.start, rec.ref, tuple(rec.alts or ())
+
+
+def load_native_phases(path, region):
+    phases = {}
+    if not path:
+        return phases
+    with pysam.VariantFile(path) as native:
+        for rec in native:
+            if len(rec.samples) == 0:
+                continue
+            sample = rec.samples[0]
+            gt = sample.get("GT")
+            ps = sample.get("PS")
+            if sample.phased and gt is not None and ps is not None:
+                phases[cross_vcf_key(rec)] = (tuple(gt), int(ps))
+    return phases
+
+
+def load_caller_phase_blocks(vcf, region):
+    calls = {}
+    block_sizes = Counter()
+    for rec in vcf.fetch(*vcf_fetch_args(region)):
+        if len(rec.samples) == 0:
+            continue
+        sample = rec.samples[0]
+        gt = sample.get("GT")
+        ps = sample.get("PS")
+        if not sample.phased or gt is None or len(gt) != 2 or gt[0] == gt[1] or ps is None:
+            continue
+        block = (rec.chrom.split("#")[-1], int(ps))
+        calls[cross_vcf_key(rec)] = (tuple(gt), block)
+        block_sizes[block] += 1
+    return calls, block_sizes
 
 
 def vcf_fetch_args(region):
@@ -356,6 +402,22 @@ def main():
     ap.add_argument("--region")
     ap.add_argument("--min-mapq", type=int, default=0)
     ap.add_argument(
+        "--native-vcf",
+        help="Use exact phased pgphase-native calls when HP projection is undercovered.",
+    )
+    ap.add_argument(
+        "--retain-caller-phase-blocks", action="store_true",
+        help="Retain undercovered records from multi-site phased input-caller blocks.",
+    )
+    ap.add_argument(
+        "--caller-min-sites", type=int, default=3,
+        help="Minimum phased heterozygous records in a retained caller block [3].",
+    )
+    ap.add_argument(
+        "--fallback-site", type=int, action="append", default=[], metavar="POS",
+        help="Allow native/caller fallback at this one-based gap-endpoint position.",
+    )
+    ap.add_argument(
         "--support-cache",
         help=("Reusable TSV of per-site (PS,HP,allele) counts. The first run "
               "builds it with one BAM scan; later threshold sweeps read it."),
@@ -435,6 +497,11 @@ def main():
     vout = pysam.VariantFile(args.out, "w", header=hdr)
 
     stats = Counter()
+    fallback_sites = set(args.fallback_site)
+    native_phases = load_native_phases(args.native_vcf, args.region)
+    caller_calls, caller_block_sizes = ({}, Counter())
+    if args.retain_caller_phase_blocks:
+        caller_calls, caller_block_sizes = load_caller_phase_blocks(vin, args.region)
     bam_contigs = {
         contig: resolve_bam_contig(contig, bam.references)
         for contig in vin.header.contigs
@@ -538,39 +605,50 @@ def main():
                     ps = int(aln.get_tag("PS")) if aln.has_tag("PS") else 0
                     by_ps[ps][hp][a] += 1
 
-        if not by_ps:
-            stats["unphased_support"] += 1
-            vout.write(rec); continue
-        # Decide the site within one phase set: the one with the most
-        # haplotype-informative reads here.  Reads from other phase sets carry
-        # an unrelated HP polarity and must not vote.
-        phase_set, counts = max(
-            by_ps.items(), key=lambda kv: sum(sum(c.values()) for c in kv[1].values()))
-        if len(by_ps) > 1:
-            stats["boundary_sites"] += 1
+        failure = "support"
+        phase_set = None
+        call = None
+        if by_ps:
+            # Decide the site within one phase set: the one with the most
+            # haplotype-informative reads here. Reads from other phase sets
+            # carry an unrelated HP polarity and must not vote.
+            phase_set, counts = max(
+                by_ps.items(), key=lambda kv: sum(sum(c.values()) for c in kv[1].values()))
+            if len(by_ps) > 1:
+                stats["boundary_sites"] += 1
+            call = phase_call(counts, args.min_reads, args.min_ratio)
+            if call is None:
+                n1, n2 = sum(counts[1].values()), sum(counts[2].values())
+                if n1 >= args.min_reads and n2 >= args.min_reads:
+                    a1 = counts[1].most_common(1)[0][0]
+                    a2 = counts[2].most_common(1)[0][0]
+                    failure = "same" if a1 == a2 else "mixed"
 
-        n1, n2 = sum(counts[1].values()), sum(counts[2].values())
-        if n1 < args.min_reads or n2 < args.min_reads:
-            stats["unphased_support"] += 1
-            vout.write(rec); continue
-
-        # Which allele does each haplotype favour, and how cleanly?
-        a1, c1 = counts[1].most_common(1)[0]
-        a2, c2 = counts[2].most_common(1)[0]
-        if c1 / n1 < args.min_ratio or c2 / n2 < args.min_ratio:
-            stats["unphased_mixed"] += 1
-            vout.write(rec); continue
-        if a1 == a2:
-            # both haplotypes favour the same allele -- not a het by these reads
-            stats["unphased_same"] += 1
-            vout.write(rec); continue
+        if call is not None:
+            a1, a2, _ = call
+            output_gt = (genotype_indices[a1], genotype_indices[a2])
+        else:
+            output_gt = None
+            native = native_phases.get(cross_vcf_key(rec)) if rec.pos in fallback_sites else None
+            if native is not None and tuple(sorted(native[0])) == genotype_indices:
+                output_gt, phase_set = native
+                stats["phased_native_fallback"] += 1
+            else:
+                caller = caller_calls.get(cross_vcf_key(rec)) if rec.pos in fallback_sites else None
+                if caller is not None and caller_block_sizes[caller[1]] >= args.caller_min_sites:
+                    output_gt = caller[0]
+                    phase_set = CALLER_PHASE_SET_OFFSET + caller[1][1]
+                    stats["phased_caller_fallback"] += 1
+            if output_gt is None:
+                stats["unphased_" + failure] += 1
+                vout.write(rec); continue
 
         if phase_set_merges is not None and phase_set:
             phase_set, parity = phase_set_merges.find(phase_set)
             if parity:
-                a1, a2 = a2, a1
+                output_gt = output_gt[::-1]
 
-        sample["GT"] = (genotype_indices[a1], genotype_indices[a2])
+        sample["GT"] = output_gt
         sample.phased = True
         if phase_set:
             sample["PS"] = phase_set
@@ -587,6 +665,9 @@ def main():
           f"mixed={stats['unphased_mixed']:,} same-allele={stats['unphased_same']:,} "
           f"unsupported-allele={stats['unphased_unsupported_allele']:,}",
           file=sys.stderr)
+    if stats["phased_native_fallback"] or stats["phased_caller_fallback"]:
+        print(f"  fallback phases: native={stats['phased_native_fallback']:,} "
+              f"caller-block={stats['phased_caller_fallback']:,}", file=sys.stderr)
     if stats["unphased_contig"]:
         print(f"  left unphased: unresolved-contig={stats['unphased_contig']:,}",
               file=sys.stderr)

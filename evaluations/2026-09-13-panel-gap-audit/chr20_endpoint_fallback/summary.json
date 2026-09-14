@@ -1,0 +1,17 @@
+{
+  "cases": 114,
+  "target_counts": {
+    "joined": 88,
+    "split": 26,
+    "endpoint_unphased": 0
+  },
+  "baseline_transitions": {
+    "joined -> joined": 88,
+    "split -> split": 24,
+    "endpoint_unphased -> split": 2
+  },
+  "records_changed": 2,
+  "native_fallbacks": 1,
+  "caller_block_fallbacks": 1,
+  "new_block_orientation_disagreements": 0
+}

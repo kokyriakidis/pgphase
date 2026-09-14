@@ -5672,6 +5672,33 @@ additional discordant read (34 -> 35) and one additional read switch/flip
 The 24 split targets and two endpoint cases remain unresolved. These overlapping
 windows do not establish whole-chromosome NGC50 or hamming performance.
 
+### Gap-endpoint projection preserves validated upstream phase evidence
+
+The final two chr20 endpoint failures overlap at 26.6 Mb. They are projection
+failures rather than successful block joins. At 26,602,087, pgphase's native
+VCF already has `1|0` in PS 26,552,098, but HP projection rejects the site
+because one haplotype has a 2:1 allele split, just below the uniform 0.70 purity
+threshold. At 26,626,247, pgphase has no native call and the local HP majority
+points in the wrong direction. DeepVariant supplies that record in a six-site
+phased block, however, with the truth-concordant `1|0` orientation.
+
+`phase_vcf_from_hp.py` now supports endpoint-scoped fallback signals. An exact
+phased native pgphase record may fill a requested `--fallback-site`; if none
+exists, `--retain-caller-phase-blocks` may preserve the input call only when its
+caller PS contains at least three phased heterozygous records. Retained caller
+blocks use a separate PS namespace and cannot merge pgphase blocks. The panel
+runner supplies only each audited pair's two endpoints, so this does not relax
+projection across its surrounding window.
+
+Across all 114 chr20 targets, exactly two records change. The native addition
+at 26,602,087 agrees with the assembly-truth orientation of its existing
+pgphase block. The caller addition at 26,626,247 remains an isolated block, so
+it cannot introduce a switch or stitch cascade. Results move from 88 joined,
+24 split, and two endpoint-unphased cases to **88 joined and 26 split**. The
+19 kb junction at 26,624,953-26,644,453 remains genuinely unjoined: neither
+clean, MSA, graph, nor relaxed nested-site trials produced a read-supported
+two-sided proposal.
+
 The unit fixture checks both output HP/PS consistency and internal allele
 profile partitioning for reads spanning two disconnected blocks. It fails
 against the original phase core and passes with the correction. Build and

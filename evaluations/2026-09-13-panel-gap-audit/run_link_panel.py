@@ -50,7 +50,7 @@ def phase(row):
         run(cmd,d/'phase.log');run(['samtools','index',d/'phased.bam'],d/'index.log')
         # Restrict to the same caller records in the solve window.
         region=row['region'].replace('CHM13#0#','')
-        run(['python3',ROOT/'scripts/phase_vcf_from_hp.py',d/'phased.bam',DATA/f'shared_calls/{chrom}/deepvariant.vcf.gz',d/'shared.vcf','--region',region,'--support-cache',d/'support.tsv','--rebuild-support-cache'],d/'projection.log')
+        run(['python3',ROOT/'scripts/phase_vcf_from_hp.py',d/'phased.bam',DATA/f'shared_calls/{chrom}/deepvariant.vcf.gz',d/'shared.vcf','--region',region,'--support-cache',d/'support.tsv','--rebuild-support-cache','--native-vcf',d/'native.vcf','--retain-caller-phase-blocks','--fallback-site',row['left'],'--fallback-site',row['right']],d/'projection.log')
         (d/'done').touch()
     print('phased '+row['name'],flush=True)
 with ThreadPoolExecutor(max_workers=a.workers) as pool:list(pool.map(phase,manifest))

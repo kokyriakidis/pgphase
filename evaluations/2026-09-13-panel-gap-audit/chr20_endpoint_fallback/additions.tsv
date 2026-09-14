@@ -1,0 +1,3 @@
+region	position	source	phase_set	truth_assessment
+chr20_26602087_26651086	26602087	native_pgphase	26552098	agrees_with_existing_block
+chr20_26626247_26651086	26626247	caller_block	1026619918	isolated_block
