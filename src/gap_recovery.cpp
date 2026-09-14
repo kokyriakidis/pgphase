@@ -92,18 +92,31 @@ GapReadIndex::GapReadIndex(const std::vector<PhasingChunk>& chunks) {
     for (size_t ci = 0; ci < chunks.size(); ++ci)
         for (size_t ri = 0; ri < chunks[ci].reads.size(); ++ri) {
             const auto& read = chunks[ci].reads[ri];
-            reads[{read.input_index, read.qname}].emplace_back(ci, ri);
+            const Key key{read.input_index, read.qname};
+            reads[key].emplace_back(ci, ri);
+            if (!read.is_skipped && chunks[ci].haps[ri] != 0 &&
+                chunks[ci].phase_sets[ri] >= 0) {
+                assignments.emplace(
+                    key, std::make_pair(chunks[ci].haps[ri],
+                                        chunks[ci].phase_sets[ri]));
+            }
         }
 }
 
 GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
                                     const PhasingChunk& proposal,
                                     const PhaseGap& gap, const Options& opts,
-                                    const GapReadIndex* read_index) {
+                                    const GapReadIndex* read_index,
+                                    bool defer_phase_set_merge) {
     using ReadKey = GapReadIndex::Key;
     const auto local_index = read_index == nullptr ? std::make_unique<GapReadIndex>(chunks) : nullptr;
     const auto& index = read_index == nullptr ? *local_index : *read_index;
-    auto first_assignment = [&](const auto& locations) {
+    auto first_assignment = [&](const ReadKey& key, const auto& locations) {
+        if (read_index != nullptr) {
+            const auto frozen = read_index->assignments.find(key);
+            if (frozen != read_index->assignments.end()) return frozen->second;
+            return std::make_pair(0, static_cast<hts_pos_t>(-1));
+        }
         for (const auto& [ci, ri] : locations) {
             const auto& chunk = chunks[ci];
             if (chunk.region.tid != gap.tid || chunk.reads[ri].is_skipped ||
@@ -114,7 +127,7 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     };
     std::set<hts_pos_t> supported_phase_sets;
     for (const auto& [key, locations] : index.reads) {
-        const auto assignment = first_assignment(locations);
+        const auto assignment = first_assignment(key, locations);
         if (assignment.first != 0) supported_phase_sets.insert(assignment.second);
     }
     // Only proposal reads are queried below. Retain the same first valid
@@ -124,7 +137,7 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
         const ReadKey key{read.input_index, read.qname};
         const auto found = index.reads.find(key);
         if (found == index.reads.end()) continue;
-        const auto assignment = first_assignment(found->second);
+        const auto assignment = first_assignment(key, found->second);
         if (assignment.first != 0) original.emplace(key, assignment);
     }
     std::map<ReadKey, size_t> proposal_reads;
@@ -185,6 +198,7 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     result.left_linked = links[0].ps >= 0;
     result.right_linked = links[1].ps >= 0;
     result.joined = result.left_linked && result.right_linked && links[0].ps == links[1].ps;
+    result.right_flip = result.joined && links[0].flip != links[1].flip;
     // Failed last-resort trials must not extend or modify either trusted flank.
     if (opts.gap_hp_link_beg >= 0 && !result.joined) return result;
     std::map<hts_pos_t, std::pair<hts_pos_t, bool>> accepted;
@@ -193,11 +207,11 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
         accepted[links[1].ps] = {gap.right_ps, links[1].flip};
     if (accepted.empty()) return result;
 
-    const bool right_flip = links[0].flip != links[1].flip;
+    const bool right_flip = result.right_flip;
     std::set<ReadKey> added;
     for (auto& chunk : chunks) {
         if (chunk.region.tid != gap.tid) continue;
-        if (result.joined) {
+        if (result.joined && !defer_phase_set_merge) {
             for (size_t i = 0; i < chunk.haps.size(); ++i) {
                 if (chunk.phase_sets[i] != gap.right_ps) continue;
                 chunk.phase_sets[i] = gap.left_ps;
@@ -292,6 +306,66 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     }
     result.reads_added = static_cast<int>(added.size());
     return result;
+}
+
+int apply_gap_phase_edges(std::vector<PhasingChunk>& chunks,
+                          const std::vector<GapPhaseEdge>& edges) {
+    std::unordered_map<hts_pos_t, hts_pos_t> parent;
+    std::unordered_map<hts_pos_t, bool> parity;
+    auto ensure = [&](hts_pos_t ps) {
+        parent.emplace(ps, ps);
+        parity.emplace(ps, false);
+    };
+    auto find = [&](hts_pos_t ps) {
+        hts_pos_t root = ps;
+        bool flip = false;
+        while (parent[root] != root) {
+            flip ^= parity[root];
+            root = parent[root];
+        }
+        hts_pos_t node = ps;
+        bool prefix = false;
+        while (parent[node] != node) {
+            const hts_pos_t next = parent[node];
+            const bool edge_flip = parity[node];
+            parent[node] = root;
+            parity[node] = flip ^ prefix;
+            prefix ^= edge_flip;
+            node = next;
+        }
+        return std::make_pair(root, flip);
+    };
+
+    int conflicts = 0;
+    for (const GapPhaseEdge& edge : edges) {
+        ensure(edge.left_ps);
+        ensure(edge.right_ps);
+        const auto left = find(edge.left_ps);
+        const auto right = find(edge.right_ps);
+        if (left.first == right.first) {
+            if ((left.second ^ right.second) != edge.right_flip) ++conflicts;
+            continue;
+        }
+        parent[right.first] = left.first;
+        parity[right.first] = left.second ^ right.second ^ edge.right_flip;
+    }
+
+    for (PhasingChunk& chunk : chunks) {
+        for (CandidateVariant& candidate : chunk.candidates) {
+            if (candidate.phase_set < 0 || !parent.count(candidate.phase_set)) continue;
+            const auto resolved = find(candidate.phase_set);
+            orient_candidate(candidate, resolved.first, resolved.second);
+        }
+        for (size_t i = 0; i < chunk.phase_sets.size(); ++i) {
+            const hts_pos_t ps = chunk.phase_sets[i];
+            if (ps < 0 || !parent.count(ps)) continue;
+            const auto resolved = find(ps);
+            chunk.phase_sets[i] = resolved.first;
+            if (resolved.second && chunk.haps[i] != 0)
+                chunk.haps[i] = 3 - chunk.haps[i];
+        }
+    }
+    return conflicts;
 }
 
 void prepare_gap_msa_regions(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end) {

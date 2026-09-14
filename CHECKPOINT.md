@@ -5878,3 +5878,43 @@ reports no Hamming-count increase in any window. Results are archived under
 `evaluations/2026-09-13-panel-gap-audit/chr20_three_snp_bridge/`. These remain
 overlapping local-window results rather than a whole-chromosome NGC50
 measurement.
+
+### Cache gap-targeted MSA evidence and apply phase edges once
+
+Gap recovery previously reopened the alignment inputs and reran candidate
+collection/MSA independently for every unresolved junction. Besides being
+slow, each accepted retry immediately relabelled the right phase block, so a
+later retry could consume assignments created by an earlier one. Recovery now
+freezes the initial read assignments, builds MSA evidence once over merged gap
+intervals in the original 500 kb chunks, and constructs each tier proposal
+from retained candidates and per-read allele profiles. Accepted relationships
+are collected as phase-set parity edges. Contradictory cycles are rejected,
+then all accepted edges are applied in one pass before the ordinary final
+left-to-right chunk stitch.
+
+The gap-targeted evidence can be persisted with `--gap-evidence-cache FILE`.
+On the first run pgphase writes the MSA-verified candidates and complete
+candidate-indexed read profiles. A later run validates a signature covering
+the initial gaps, chunks, read identities, initial candidates/phases, and MSA
+settings before loading it. A mismatch fails with an instruction to rebuild,
+so evidence from a different region or parameter set cannot be silently used.
+The file is written through a temporary path and renamed only after a complete
+write.
+
+On chr20:1-10,000,000 with 20 chunks and eight threads, building the cache took
+22.68 s and the 45 gap solves took 6.14 s (32.91 s total). Reusing the 99 MB
+cache took 0.22 s, with 6.16 s for the same solves and 10.45 s total. Both runs
+joined 21/45 gaps; their candidate TSV, phased VCF, and tier report were
+byte-identical. The standard initial noisy-region MSA alone was also tested as
+a substitute. It completed quickly but joined only 3/45 gaps, confirming that
+the clean-looking gap windows supply real additional sites and must be
+computed once rather than discarded.
+
+For the complete 66,210,255 bp chr20 run (133 chunks, 283 initial gaps), the
+first run spent 133.32 s building a 634 MB evidence cache and 137.34 s in the
+existing local gap solves (301.98 s total, 117 joins). Reuse loaded the cache
+in 1.34 s and produced byte-identical candidate TSV, phased VCF, and tier
+report, but the unchanged local solves still took 137.52 s (170.32 s total).
+This isolates the next performance target: replace per-gap dense proposal
+construction and repeated k-means with sparse phase-edge scoring over the
+cached observations.

@@ -18,11 +18,12 @@ struct PhaseGap {
     hts_pos_t region_end;
 };
 
-/// Index stable read locations once; haplotype/PS values are read live after each join.
+/// Index read locations and freeze the pre-recovery haplotype/PS assignments.
 struct GapReadIndex {
     using Key = std::pair<int, std::string_view>;
     struct Hash { size_t operator()(const Key& key) const; };
     std::unordered_map<Key, std::vector<std::pair<size_t, size_t>>, Hash> reads;
+    std::unordered_map<Key, std::pair<int, hts_pos_t>, Hash> assignments;
     explicit GapReadIndex(const std::vector<PhasingChunk>& chunks);
 };
 
@@ -30,7 +31,14 @@ struct GapStitchResult {
     bool left_linked = false;
     bool right_linked = false;
     bool joined = false;
+    bool right_flip = false;
     int reads_added = 0;
+};
+
+struct GapPhaseEdge {
+    hts_pos_t left_ps;
+    hts_pos_t right_ps;
+    bool right_flip;
 };
 
 /// Find internal gaps between non-overlapping, read-supported phase blocks.
@@ -41,7 +49,13 @@ std::vector<PhaseGap> find_phase_gaps(const std::vector<PhasingChunk>& chunks);
 GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
                                     const PhasingChunk& proposal,
                                     const PhaseGap& gap, const Options& opts,
-                                    const GapReadIndex* read_index = nullptr);
+                                    const GapReadIndex* read_index = nullptr,
+                                    bool defer_phase_set_merge = false);
+
+/// Resolve accepted gap relationships and relabel all blocks in one pass.
+/// Returns the number of parity-conflicting relationships that were rejected.
+int apply_gap_phase_edges(std::vector<PhasingChunk>& chunks,
+                          const std::vector<GapPhaseEdge>& edges);
 
 /// Add gap-driven MSA windows, preserving detected noisy intervals intact.
 void prepare_gap_msa_regions(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end);

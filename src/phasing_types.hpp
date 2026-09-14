@@ -306,6 +306,8 @@ struct Options {
     /// Automatically rephase unresolved gaps with cumulative BAM/MSA evidence.
     bool recover_gaps = false;
     std::string gap_recovery_report;
+    /// Optional persistent cache for gap-targeted MSA sites and read alleles.
+    std::string gap_evidence_cache;
     // Emit and phase hets that fail the anchor AF margin instead of discarding
     // them.  They still never anchor k-means; this only restores their output.
     bool emit_nonanchor_hets = false;

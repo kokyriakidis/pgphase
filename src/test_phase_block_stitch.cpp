@@ -45,6 +45,34 @@ static CandidateVariant dummy_cand(hts_pos_t ps) {
     return v;
 }
 
+static bool test_gap_edges_compose_before_relabelling() {
+    PhasingChunk chunk;
+    for (const hts_pos_t ps : {100, 200, 300}) {
+        chunk.reads.push_back(min_read());
+        chunk.haps.push_back(ps == 300 ? 2 : 1);
+        chunk.phase_sets.push_back(ps);
+        chunk.candidates.push_back(dummy_cand(ps));
+    }
+    std::vector<PhasingChunk> chunks;
+    chunks.push_back(std::move(chunk));
+    const std::vector<GapPhaseEdge> edges = {
+        {100, 200, true},
+        {200, 300, true},
+        {100, 300, true},
+    };
+    const int conflicts = apply_gap_phase_edges(chunks, edges);
+    bool ok = true;
+    ok &= check(conflicts == 1, "inconsistent composed gap edge is rejected");
+    ok &= check(chunks[0].phase_sets == std::vector<hts_pos_t>({100, 100, 100}),
+                "gap edge chain receives one canonical phase set");
+    ok &= check(chunks[0].haps == std::vector<int>({1, 2, 2}),
+                "gap edge orientations compose before read relabelling");
+    ok &= check(chunks[0].candidates[1].hap_to_cons_alle[1] == 0 &&
+                    chunks[0].candidates[2].hap_to_cons_alle[1] == 1,
+                "candidate orientations follow the composed parity");
+    return ok;
+}
+
 // Two chunks, one overlapping pair: pre down index 0, cur up index 0.
 static bool test_cross_chunk_flip_when_haps_disagree() {
     std::printf("--- test_cross_chunk_flip_when_haps_disagree ---\n");
@@ -667,7 +695,7 @@ static bool test_gap_recovery_partial_extension() {
                  "one-sided evidence preserves an extension but cannot close the gap");
 }
 
-static bool test_gap_read_index_uses_updated_assignments() {
+static bool test_gap_read_index_freezes_initial_assignments() {
     std::vector<PhasingChunk> chunks;
     PhasingChunk proposal;
     make_gap_fixture(chunks, proposal);
@@ -678,13 +706,14 @@ static bool test_gap_read_index_uses_updated_assignments() {
     const auto first = stitch_gap_proposal(chunks, proposal, find_phase_gaps(chunks)[0], opts, &index);
     bool ok = check(first.reads_added == 1 && !first.joined,
                     "cached index permits an initial partial extension");
-    // The next proposal disagrees on the newly tagged read. Its accepted
-    // assignment must now be protected just like the original anchor reads.
+    // The next proposal disagrees on the newly tagged read. It must not turn
+    // into anchor evidence merely because an earlier recovery touched it.
     proposal.haps[4] = 2;
     proposal.haps[3] = 1;
     const auto second = stitch_gap_proposal(chunks, proposal, find_phase_gaps(chunks)[0], opts, &index);
-    ok &= check(second.joined && second.reads_added == 0 && chunks[0].haps[2] == 1,
-                "reused index sees tags assigned by an earlier recovery tier");
+    ok &= check(second.joined && second.reads_added == 0 && chunks[0].haps[2] == 1 &&
+                    index.assignments.size() == 5,
+                "reused index keeps only pre-recovery anchor assignments");
     return ok;
 }
 
@@ -1411,6 +1440,7 @@ static bool test_read_hp_matches_reported_phase_set() {
 
 int main() {
     int failures = 0;
+    failures += test_gap_edges_compose_before_relabelling() ? 0 : 1;
     failures += test_msa_snp_backfills_all_bam_reads() ? 0 : 1;
     failures += test_gap_bridge_uses_equivalent_shifted_msa_insertion() ? 0 : 1;
     failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
@@ -1428,7 +1458,7 @@ int main() {
     failures += test_nested_msa_deletions_share_common_event() ? 0 : 1;
     failures += test_gap_hp_trial_is_transactional() ? 0 : 1;
     failures += test_recovery_links_join_earlier_components() ? 0 : 1;
-    failures += test_gap_read_index_uses_updated_assignments() ? 0 : 1;
+    failures += test_gap_read_index_freezes_initial_assignments() ? 0 : 1;
     failures += test_msa_supported_flank_variant() ? 0 : 1;
     failures += test_msa_observation_heterozygosity_gate() ? 0 : 1;
     failures += test_msa_site_observations() ? 0 : 1;

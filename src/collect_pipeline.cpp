@@ -20,14 +20,19 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <getopt.h>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -988,7 +993,7 @@ static ChunkBatchResult collect_hybrid_chunk_batch_parallel(
                         chunks[batch_begin + offset], opts, context,
                         sites_handle, gaf_handle,
                         graph_query_contig, chrom_remap, private_keys,
-                        bam_authority);
+                        bam_authority, opts.recover_gaps);
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -1066,6 +1071,755 @@ static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
 
 static constexpr hts_pos_t kGapRecoveryFlank = 50000;
 static constexpr hts_pos_t kGapRecoveryMsaFlank = 5000;
+static constexpr hts_pos_t kGapRecoveryMaxMsaSpan = 250000;
+static constexpr uint32_t kGapEvidenceCacheVersion = 2;
+static constexpr char kGapEvidenceCacheMagic[] = "PGGAPEV";
+
+static void gap_cache_hash_bytes(uint64_t& hash, const void* data, size_t size) {
+    constexpr uint64_t kFnvPrime = 1099511628211ULL;
+    const auto* bytes = static_cast<const unsigned char*>(data);
+    for (size_t i = 0; i < size; ++i) {
+        hash ^= bytes[i];
+        hash *= kFnvPrime;
+    }
+}
+
+template <typename T>
+static void gap_cache_hash_value(uint64_t& hash, const T& value) {
+    gap_cache_hash_bytes(hash, &value, sizeof(value));
+}
+
+static void gap_cache_hash_string(uint64_t& hash, const std::string& value) {
+    gap_cache_hash_value(hash, value.size());
+    gap_cache_hash_bytes(hash, value.data(), value.size());
+}
+
+static uint64_t gap_evidence_input_signature(
+        const std::vector<PhasingChunk>& chunks,
+        const std::vector<PhaseGap>& gaps, const Options& opts) {
+    uint64_t hash = 14695981039346656037ULL;
+    for (const auto value : {
+             opts.min_mapq, opts.min_bq, opts.min_depth, opts.min_alt_depth,
+             opts.max_noisy_reg_len, opts.max_noisy_reg_cov,
+             opts.min_hap_full_reads, opts.min_hap_reads,
+             opts.min_noisy_reg_size_to_sample_reads, opts.noisy_reg_flank_len,
+             opts.match, opts.mismatch, opts.gap_open1, opts.gap_ext1,
+             opts.gap_open2, opts.gap_ext2, opts.gap_aln,
+             opts.private_msa_margin}) {
+        gap_cache_hash_value(hash, value);
+    }
+    gap_cache_hash_value(hash, opts.partial_aln_ratio);
+    gap_cache_hash_value(hash, opts.read_technology);
+    for (const PhaseGap& gap : gaps) {
+        gap_cache_hash_value(hash, gap.tid);
+        gap_cache_hash_value(hash, gap.left_ps);
+        gap_cache_hash_value(hash, gap.right_ps);
+        gap_cache_hash_value(hash, gap.left_end);
+        gap_cache_hash_value(hash, gap.right_beg);
+    }
+    for (const PhasingChunk& chunk : chunks) {
+        gap_cache_hash_value(hash, chunk.region.tid);
+        gap_cache_hash_value(hash, chunk.region.beg);
+        gap_cache_hash_value(hash, chunk.region.end);
+        for (const ReadRecord& read : chunk.reads) {
+            gap_cache_hash_value(hash, read.input_index);
+            gap_cache_hash_value(hash, read.beg);
+            gap_cache_hash_value(hash, read.end);
+            gap_cache_hash_string(hash, read.qname);
+        }
+        for (const int hap : chunk.haps) gap_cache_hash_value(hash, hap);
+        for (const hts_pos_t phase_set : chunk.phase_sets)
+            gap_cache_hash_value(hash, phase_set);
+        for (const CandidateVariant& candidate : chunk.candidates) {
+            gap_cache_hash_value(hash, candidate.key.tid);
+            gap_cache_hash_value(hash, candidate.key.pos);
+            gap_cache_hash_value(hash, candidate.key.type);
+            gap_cache_hash_value(hash, candidate.key.ref_len);
+            gap_cache_hash_string(hash, candidate.key.alt);
+            gap_cache_hash_value(hash, candidate.counts.total_cov);
+            gap_cache_hash_value(hash, candidate.counts.ref_cov);
+            gap_cache_hash_value(hash, candidate.counts.alt_cov);
+            gap_cache_hash_value(hash, candidate.counts.category);
+            gap_cache_hash_value(hash, candidate.lcd_var_i_to_cate);
+            gap_cache_hash_value(hash, candidate.phase_set);
+            gap_cache_hash_value(hash, candidate.hap_alt);
+            gap_cache_hash_value(hash, candidate.hap_ref);
+            for (const int allele : candidate.hap_to_cons_alle)
+                gap_cache_hash_value(hash, allele);
+        }
+    }
+    return hash;
+}
+
+template <typename T>
+static void write_gap_cache_value(std::ostream& out, const T& value) {
+    out.write(reinterpret_cast<const char*>(&value), sizeof(value));
+}
+
+template <typename T>
+static void read_gap_cache_value(std::istream& in, T& value) {
+    in.read(reinterpret_cast<char*>(&value), sizeof(value));
+}
+
+static void write_gap_cache_string(std::ostream& out, const std::string& value) {
+    const uint64_t size = value.size();
+    write_gap_cache_value(out, size);
+    out.write(value.data(), static_cast<std::streamsize>(size));
+}
+
+static void read_gap_cache_string(std::istream& in, std::string& value) {
+    uint64_t size = 0;
+    read_gap_cache_value(in, size);
+    constexpr uint64_t kMaxCacheStringSize = 1ULL << 30;
+    if (size > kMaxCacheStringSize)
+        throw std::runtime_error("invalid gap evidence cache string length");
+    value.resize(static_cast<size_t>(size));
+    in.read(value.data(), static_cast<std::streamsize>(size));
+}
+
+template <typename T>
+static void write_gap_cache_vector(std::ostream& out,
+                                   const std::vector<T>& values) {
+    const uint64_t size = values.size();
+    write_gap_cache_value(out, size);
+    if (size > 0) {
+        out.write(reinterpret_cast<const char*>(values.data()),
+                  static_cast<std::streamsize>(size * sizeof(T)));
+    }
+}
+
+template <typename T>
+static void read_gap_cache_vector(std::istream& in, std::vector<T>& values) {
+    uint64_t size = 0;
+    read_gap_cache_value(in, size);
+    constexpr uint64_t kMaxCacheVectorElements = 1ULL << 32;
+    if (size > kMaxCacheVectorElements)
+        throw std::runtime_error("invalid gap evidence cache vector length");
+    values.resize(static_cast<size_t>(size));
+    if (size > 0) {
+        in.read(reinterpret_cast<char*>(values.data()),
+                static_cast<std::streamsize>(size * sizeof(T)));
+    }
+}
+
+static void write_gap_cache_candidate(std::ostream& out,
+                                      const CandidateVariant& candidate) {
+    write_gap_cache_value(out, candidate.key.tid);
+    write_gap_cache_value(out, candidate.key.pos);
+    write_gap_cache_value(out, candidate.key.type);
+    write_gap_cache_value(out, candidate.key.ref_len);
+    write_gap_cache_string(out, candidate.key.alt);
+    write_gap_cache_value(out, candidate.counts.total_cov);
+    write_gap_cache_value(out, candidate.counts.ref_cov);
+    write_gap_cache_value(out, candidate.counts.alt_cov);
+    write_gap_cache_value(out, candidate.counts.low_qual_cov);
+    write_gap_cache_value(out, candidate.counts.forward_ref);
+    write_gap_cache_value(out, candidate.counts.reverse_ref);
+    write_gap_cache_value(out, candidate.counts.forward_alt);
+    write_gap_cache_value(out, candidate.counts.reverse_alt);
+    write_gap_cache_value(out, candidate.counts.n_uniq_alles);
+    write_gap_cache_vector(out, candidate.counts.alle_covs);
+    write_gap_cache_value(out, candidate.counts.category);
+    write_gap_cache_value(out, candidate.counts.candvarcate_initial);
+    write_gap_cache_value(out, candidate.counts.allele_fraction);
+    const uint64_t n_alts = candidate.msa_insertion_alts.size();
+    write_gap_cache_value(out, n_alts);
+    for (const std::string& alt : candidate.msa_insertion_alts)
+        write_gap_cache_string(out, alt);
+    write_gap_cache_value(out, candidate.ref_base);
+    write_gap_cache_value(out, candidate.alt_ref_base);
+    write_gap_cache_value(out, candidate.phase_set);
+    write_gap_cache_value(out, candidate.hap_alt);
+    write_gap_cache_value(out, candidate.hap_ref);
+    write_gap_cache_value(out, candidate.is_homopolymer_indel);
+    write_gap_cache_value(out, candidate.gap_link_supported);
+    write_gap_cache_value(out, candidate.msa_verified);
+    write_gap_cache_value(out, candidate.lcd_make_variants_region_pass);
+    write_gap_cache_value(out, candidate.lcd_var_i_to_cate);
+    for (const auto& profile : candidate.hap_to_alle_profile)
+        write_gap_cache_vector(out, profile);
+    for (const int allele : candidate.hap_to_cons_alle)
+        write_gap_cache_value(out, allele);
+}
+
+static CandidateVariant read_gap_cache_candidate(std::istream& in) {
+    CandidateVariant candidate;
+    read_gap_cache_value(in, candidate.key.tid);
+    read_gap_cache_value(in, candidate.key.pos);
+    read_gap_cache_value(in, candidate.key.type);
+    read_gap_cache_value(in, candidate.key.ref_len);
+    read_gap_cache_string(in, candidate.key.alt);
+    read_gap_cache_value(in, candidate.counts.total_cov);
+    read_gap_cache_value(in, candidate.counts.ref_cov);
+    read_gap_cache_value(in, candidate.counts.alt_cov);
+    read_gap_cache_value(in, candidate.counts.low_qual_cov);
+    read_gap_cache_value(in, candidate.counts.forward_ref);
+    read_gap_cache_value(in, candidate.counts.reverse_ref);
+    read_gap_cache_value(in, candidate.counts.forward_alt);
+    read_gap_cache_value(in, candidate.counts.reverse_alt);
+    read_gap_cache_value(in, candidate.counts.n_uniq_alles);
+    read_gap_cache_vector(in, candidate.counts.alle_covs);
+    read_gap_cache_value(in, candidate.counts.category);
+    read_gap_cache_value(in, candidate.counts.candvarcate_initial);
+    read_gap_cache_value(in, candidate.counts.allele_fraction);
+    uint64_t n_alts = 0;
+    read_gap_cache_value(in, n_alts);
+    if (n_alts > 1000000)
+        throw std::runtime_error("invalid gap evidence cache alternate count");
+    candidate.msa_insertion_alts.resize(static_cast<size_t>(n_alts));
+    for (std::string& alt : candidate.msa_insertion_alts)
+        read_gap_cache_string(in, alt);
+    read_gap_cache_value(in, candidate.ref_base);
+    read_gap_cache_value(in, candidate.alt_ref_base);
+    read_gap_cache_value(in, candidate.phase_set);
+    read_gap_cache_value(in, candidate.hap_alt);
+    read_gap_cache_value(in, candidate.hap_ref);
+    read_gap_cache_value(in, candidate.is_homopolymer_indel);
+    read_gap_cache_value(in, candidate.gap_link_supported);
+    read_gap_cache_value(in, candidate.msa_verified);
+    read_gap_cache_value(in, candidate.lcd_make_variants_region_pass);
+    read_gap_cache_value(in, candidate.lcd_var_i_to_cate);
+    for (auto& profile : candidate.hap_to_alle_profile)
+        read_gap_cache_vector(in, profile);
+    for (int& allele : candidate.hap_to_cons_alle)
+        read_gap_cache_value(in, allele);
+    return candidate;
+}
+
+static void write_gap_evidence_cache(const std::string& path,
+                                     const std::vector<PhasingChunk>& chunks,
+                                     uint64_t input_signature) {
+    const std::string temporary = path + ".tmp";
+    std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
+    if (!out) throw std::runtime_error("failed to create gap evidence cache: " + path);
+    out.write(kGapEvidenceCacheMagic, sizeof(kGapEvidenceCacheMagic));
+    write_gap_cache_value(out, kGapEvidenceCacheVersion);
+    write_gap_cache_value(out, input_signature);
+    const uint64_t n_chunks = chunks.size();
+    write_gap_cache_value(out, n_chunks);
+    for (const PhasingChunk& chunk : chunks) {
+        write_gap_cache_value(out, chunk.region.tid);
+        write_gap_cache_value(out, chunk.region.beg);
+        write_gap_cache_value(out, chunk.region.end);
+        const uint64_t n_reads = chunk.reads.size();
+        write_gap_cache_value(out, n_reads);
+        for (const ReadRecord& read : chunk.reads) {
+            write_gap_cache_value(out, read.input_index);
+            write_gap_cache_value(out, read.beg);
+            write_gap_cache_value(out, read.end);
+            write_gap_cache_string(out, read.qname);
+        }
+        const uint64_t n_candidates = chunk.candidates.size();
+        write_gap_cache_value(out, n_candidates);
+        for (const CandidateVariant& candidate : chunk.candidates)
+            write_gap_cache_candidate(out, candidate);
+        const uint64_t n_profiles = chunk.read_var_profile.size();
+        write_gap_cache_value(out, n_profiles);
+        for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+            write_gap_cache_value(out, profile.read_id);
+            write_gap_cache_value(out, profile.start_var_idx);
+            write_gap_cache_value(out, profile.end_var_idx);
+            write_gap_cache_vector(out, profile.alleles);
+            write_gap_cache_vector(out, profile.alt_qi);
+        }
+    }
+    out.close();
+    if (!out) throw std::runtime_error("failed to write gap evidence cache: " + path);
+    std::error_code error;
+    std::filesystem::rename(temporary, path, error);
+    if (error)
+        throw std::runtime_error("failed to finalize gap evidence cache " + path +
+                                 ": " + error.message());
+}
+
+static void read_gap_evidence_cache(const std::string& path,
+                                    std::vector<PhasingChunk>& chunks,
+                                    uint64_t expected_signature) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) throw std::runtime_error("failed to open gap evidence cache: " + path);
+    char magic[sizeof(kGapEvidenceCacheMagic)]{};
+    in.read(magic, sizeof(magic));
+    uint32_t version = 0;
+    read_gap_cache_value(in, version);
+    if (std::memcmp(magic, kGapEvidenceCacheMagic, sizeof(magic)) != 0 ||
+        version != kGapEvidenceCacheVersion) {
+        throw std::runtime_error("incompatible gap evidence cache: " + path);
+    }
+    uint64_t input_signature = 0;
+    read_gap_cache_value(in, input_signature);
+    if (input_signature != expected_signature) {
+        throw std::runtime_error(
+            "gap evidence cache inputs or MSA settings do not match this run; "
+            "remove and rebuild: " + path);
+    }
+    uint64_t n_chunks = 0;
+    read_gap_cache_value(in, n_chunks);
+    if (n_chunks != chunks.size())
+        throw std::runtime_error("gap evidence cache chunk count does not match this run: " + path);
+    for (PhasingChunk& chunk : chunks) {
+        int tid = -1;
+        hts_pos_t beg = 0, end = 0;
+        read_gap_cache_value(in, tid);
+        read_gap_cache_value(in, beg);
+        read_gap_cache_value(in, end);
+        if (tid != chunk.region.tid || beg != chunk.region.beg || end != chunk.region.end)
+            throw std::runtime_error("gap evidence cache regions do not match this run: " + path);
+        uint64_t n_reads = 0;
+        read_gap_cache_value(in, n_reads);
+        if (n_reads != chunk.reads.size())
+            throw std::runtime_error("gap evidence cache reads do not match this run: " + path);
+        for (const ReadRecord& read : chunk.reads) {
+            int input_index = -1;
+            hts_pos_t read_beg = 0, read_end = 0;
+            std::string qname;
+            read_gap_cache_value(in, input_index);
+            read_gap_cache_value(in, read_beg);
+            read_gap_cache_value(in, read_end);
+            read_gap_cache_string(in, qname);
+            if (input_index != read.input_index || read_beg != read.beg ||
+                read_end != read.end || qname != read.qname) {
+                throw std::runtime_error("gap evidence cache read order does not match this run: " + path);
+            }
+        }
+        uint64_t n_candidates = 0;
+        read_gap_cache_value(in, n_candidates);
+        if (n_candidates > (1ULL << 32))
+            throw std::runtime_error("invalid gap evidence cache candidate count: " + path);
+        CandidateTable candidates;
+        candidates.reserve(static_cast<size_t>(n_candidates));
+        for (uint64_t i = 0; i < n_candidates; ++i)
+            candidates.push_back(read_gap_cache_candidate(in));
+        uint64_t n_profiles = 0;
+        read_gap_cache_value(in, n_profiles);
+        if (n_profiles != chunk.reads.size())
+            throw std::runtime_error("gap evidence cache profiles do not match this run: " + path);
+        std::vector<ReadVariantProfile> profiles(static_cast<size_t>(n_profiles));
+        for (ReadVariantProfile& profile : profiles) {
+            read_gap_cache_value(in, profile.read_id);
+            read_gap_cache_value(in, profile.start_var_idx);
+            read_gap_cache_value(in, profile.end_var_idx);
+            read_gap_cache_vector(in, profile.alleles);
+            read_gap_cache_vector(in, profile.alt_qi);
+        }
+        chunk.candidates = std::move(candidates);
+        chunk.read_var_profile = std::move(profiles);
+    }
+    if (!in) throw std::runtime_error("truncated gap evidence cache: " + path);
+}
+
+static void populate_gap_msa_cache(std::vector<PhasingChunk>& chunks,
+                                   const std::vector<PhaseGap>& gaps,
+                                   const Options& opts) {
+    std::atomic<size_t> next_chunk{0};
+    std::exception_ptr first_error;
+    std::mutex error_mutex;
+    const size_t worker_count = std::min<size_t>(
+        static_cast<size_t>(opts.threads), chunks.size());
+    std::vector<std::thread> workers;
+    workers.reserve(worker_count);
+    for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
+        workers.emplace_back([&]() {
+            try {
+                while (true) {
+                    const size_t chunk_i = next_chunk.fetch_add(1);
+                    if (chunk_i >= chunks.size()) break;
+                    PhasingChunk& chunk = chunks[chunk_i];
+                    std::vector<Interval> intervals;
+                    for (const PhaseGap& gap : gaps) {
+                        if (gap.tid != chunk.region.tid ||
+                            gap.right_beg - gap.left_end > kGapRecoveryMaxMsaSpan)
+                            continue;
+                        const hts_pos_t beg = std::max(
+                            chunk.region.beg,
+                            gap.left_end - kGapRecoveryMsaFlank);
+                        const hts_pos_t end = std::min(
+                            chunk.region.end,
+                            gap.right_beg + kGapRecoveryMsaFlank);
+                        if (beg <= end) intervals.push_back({beg, end, 0});
+                    }
+                    if (intervals.empty()) continue;
+                    std::sort(intervals.begin(), intervals.end(),
+                              [](const Interval& first, const Interval& second) {
+                                  return first.beg < second.beg;
+                              });
+                    std::vector<Interval> merged;
+                    for (const Interval& interval : intervals) {
+                        if (merged.empty() || interval.beg > merged.back().end + 1)
+                            merged.push_back(interval);
+                        else
+                            merged.back().end =
+                                std::max(merged.back().end, interval.end);
+                    }
+
+                    const std::vector<int> saved_haps = chunk.haps;
+                    const std::vector<hts_pos_t> saved_phase_sets = chunk.phase_sets;
+                    struct ReadPhaseState {
+                        int clean_agree;
+                        int clean_conflict;
+                        int bridge_agree;
+                        int bridge_conflict;
+                        int margin;
+                        int scored;
+                    };
+                    std::vector<ReadPhaseState> read_states;
+                    read_states.reserve(chunk.reads.size());
+                    for (const ReadRecord& read : chunk.reads) {
+                        read_states.push_back({
+                            read.n_clean_agree_snps, read.n_clean_conflict_snps,
+                            read.n_bridge_agree_snps, read.n_bridge_conflict_snps,
+                            read.hap_score_margin, read.n_vars_scored});
+                    }
+                    struct CandidatePhaseState {
+                        VariantKey key;
+                        hts_pos_t phase_set;
+                        int hap_alt;
+                        int hap_ref;
+                        std::array<std::vector<int>, 3> profiles;
+                        std::array<int, 3> consensus;
+                    };
+                    std::vector<CandidatePhaseState> candidate_states;
+                    candidate_states.reserve(chunk.candidates.size());
+                    for (const CandidateVariant& candidate : chunk.candidates) {
+                        candidate_states.push_back({
+                            candidate.key, candidate.phase_set, candidate.hap_alt,
+                            candidate.hap_ref, candidate.hap_to_alle_profile,
+                            candidate.hap_to_cons_alle});
+                    }
+                    const std::vector<Interval> saved_noisy_regions =
+                        chunk.noisy_regions;
+                    for (const Interval& interval : merged) {
+                        prepare_gap_msa_regions(chunk, interval.beg, interval.end);
+                        run_gap_msa_tier(
+                            chunk, opts, interval.beg, interval.end, true);
+                        run_gap_msa_tier(
+                            chunk, opts, interval.beg, interval.end, false);
+                    }
+                    chunk.haps = saved_haps;
+                    chunk.phase_sets = saved_phase_sets;
+                    for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+                        ReadRecord& read = chunk.reads[read_i];
+                        const ReadPhaseState& state = read_states[read_i];
+                        read.n_clean_agree_snps = state.clean_agree;
+                        read.n_clean_conflict_snps = state.clean_conflict;
+                        read.n_bridge_agree_snps = state.bridge_agree;
+                        read.n_bridge_conflict_snps = state.bridge_conflict;
+                        read.hap_score_margin = state.margin;
+                        read.n_vars_scored = state.scored;
+                    }
+                    for (const CandidatePhaseState& state : candidate_states) {
+                        const auto candidate = std::lower_bound(
+                            chunk.candidates.begin(), chunk.candidates.end(), state.key,
+                            [](const CandidateVariant& value, const VariantKey& key) {
+                                return exact_comp_var_site(&value.key, &key) < 0;
+                            });
+                        if (candidate == chunk.candidates.end() ||
+                            exact_comp_var_site(&candidate->key, &state.key) != 0)
+                            continue;
+                        candidate->phase_set = state.phase_set;
+                        candidate->hap_alt = state.hap_alt;
+                        candidate->hap_ref = state.hap_ref;
+                        candidate->hap_to_alle_profile = state.profiles;
+                        candidate->hap_to_cons_alle = state.consensus;
+                    }
+                    chunk.noisy_regions = saved_noisy_regions;
+                }
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(error_mutex);
+                if (!first_error) first_error = std::current_exception();
+            }
+        });
+    }
+    for (std::thread& worker : workers) worker.join();
+    if (first_error) std::rethrow_exception(first_error);
+}
+
+static ReadRecord clone_cached_read(const ReadRecord& source) {
+    ReadRecord read;
+    read.tid = source.tid;
+    read.input_index = source.input_index;
+    read.beg = source.beg;
+    read.end = source.end;
+    read.reverse = source.reverse;
+    read.nm = source.nm;
+    read.mapq = source.mapq;
+    read.qname = source.qname;
+    if (source.alignment) read.alignment.reset(bam_dup1(source.alignment.get()));
+    read.qual = source.qual;
+    read.digars = source.digars;
+    read.noisy_regions = source.noisy_regions;
+    read.is_skipped = source.is_skipped;
+    read.is_ont_palindrome = source.is_ont_palindrome;
+    read.total_cand_events = source.total_cand_events;
+    return read;
+}
+
+static PhasingChunk build_cached_gap_proposal(
+        const std::vector<PhasingChunk>& chunks, const RegionChunk& window) {
+    PhasingChunk proposal;
+    proposal.region = window;
+    proposal.ref_beg = window.beg;
+    proposal.ref_end = window.end;
+    proposal.ref_seq.assign(
+        static_cast<size_t>(window.end - window.beg + 1), 'N');
+
+    std::vector<CandidateVariant> candidates;
+    for (const PhasingChunk& source : chunks) {
+        if (source.region.tid != window.tid || source.region.end < window.beg ||
+            source.region.beg > window.end) {
+            continue;
+        }
+        const hts_pos_t copy_beg = std::max(window.beg, source.ref_beg);
+        const hts_pos_t copy_end = std::min(window.end, source.ref_end);
+        if (copy_beg <= copy_end && !source.ref_seq.empty()) {
+            proposal.ref_seq.replace(
+                static_cast<size_t>(copy_beg - window.beg),
+                static_cast<size_t>(copy_end - copy_beg + 1), source.ref_seq,
+                static_cast<size_t>(copy_beg - source.ref_beg),
+                static_cast<size_t>(copy_end - copy_beg + 1));
+        }
+        for (const Interval& region : source.low_complexity_regions)
+            if (region.end >= window.beg && region.beg <= window.end)
+                proposal.low_complexity_regions.push_back(region);
+        for (const Interval& region : source.noisy_regions)
+            if (region.end >= window.beg && region.beg <= window.end)
+                proposal.noisy_regions.push_back(region);
+        for (const CandidateVariant& candidate : source.candidates)
+            if (candidate.key.sort_pos() >= window.beg &&
+                candidate.key.sort_pos() <= window.end)
+                candidates.push_back(candidate);
+    }
+    std::sort(candidates.begin(), candidates.end(),
+              [](const CandidateVariant& first, const CandidateVariant& second) {
+                  return exact_comp_var_site(&first.key, &second.key) < 0;
+              });
+    for (const CandidateVariant& candidate : candidates) {
+        if (!proposal.candidates.empty() &&
+            exact_comp_var_site(&proposal.candidates.back().key, &candidate.key) == 0) {
+            if (!proposal.candidates.back().lcd_make_variants_region_pass &&
+                candidate.lcd_make_variants_region_pass)
+                proposal.candidates.back() = candidate;
+        } else {
+            proposal.candidates.push_back(candidate);
+        }
+    }
+
+    using ReadKey = std::pair<int, std::string>;
+    std::map<ReadKey, size_t> read_indices;
+    for (const PhasingChunk& source : chunks) {
+        if (source.region.tid != window.tid || source.region.end < window.beg ||
+            source.region.beg > window.end) {
+            continue;
+        }
+        for (size_t source_i = 0; source_i < source.reads.size(); ++source_i) {
+            const ReadRecord& read = source.reads[source_i];
+            if (read.tid != window.tid || read.end < window.beg ||
+                read.beg > window.end) {
+                continue;
+            }
+            const ReadKey key{read.input_index, read.qname};
+            auto inserted = read_indices.emplace(key, proposal.reads.size());
+            if (inserted.second) {
+                proposal.reads.push_back(clone_cached_read(read));
+                ReadVariantProfile profile;
+                profile.read_id = static_cast<int>(proposal.reads.size() - 1);
+                profile.start_var_idx = proposal.candidates.empty() ? -1 : 0;
+                profile.end_var_idx = static_cast<int>(proposal.candidates.size()) - 1;
+                profile.alleles.assign(proposal.candidates.size(), -1);
+                profile.alt_qi.assign(proposal.candidates.size(), -1);
+                proposal.read_var_profile.push_back(std::move(profile));
+            }
+            if (source_i >= source.read_var_profile.size()) continue;
+            const ReadVariantProfile& source_profile =
+                source.read_var_profile[source_i];
+            ReadVariantProfile& dest =
+                proposal.read_var_profile[inserted.first->second];
+            for (int source_vi = source_profile.start_var_idx;
+                 source_vi <= source_profile.end_var_idx; ++source_vi) {
+                if (source_vi < 0 ||
+                    static_cast<size_t>(source_vi) >= source.candidates.size())
+                    continue;
+                const CandidateVariant& source_candidate =
+                    source.candidates[static_cast<size_t>(source_vi)];
+                const auto found = std::lower_bound(
+                    proposal.candidates.begin(), proposal.candidates.end(),
+                    source_candidate.key,
+                    [](const CandidateVariant& candidate, const VariantKey& key) {
+                        return exact_comp_var_site(&candidate.key, &key) < 0;
+                    });
+                if (found == proposal.candidates.end() ||
+                    exact_comp_var_site(&found->key, &source_candidate.key) != 0)
+                    continue;
+                const size_t dest_vi = static_cast<size_t>(
+                    found - proposal.candidates.begin());
+                const size_t allele_i = static_cast<size_t>(
+                    source_vi - source_profile.start_var_idx);
+                if (allele_i >= source_profile.alleles.size() ||
+                    source_profile.alleles[allele_i] == -1)
+                    continue;
+                dest.alleles[dest_vi] = source_profile.alleles[allele_i];
+                if (allele_i < source_profile.alt_qi.size())
+                    dest.alt_qi[dest_vi] = source_profile.alt_qi[allele_i];
+            }
+        }
+    }
+    proposal.haps.assign(proposal.reads.size(), 0);
+    proposal.phase_sets.assign(proposal.reads.size(), -1);
+    proposal.ordered_read_ids.resize(proposal.reads.size());
+    std::iota(proposal.ordered_read_ids.begin(), proposal.ordered_read_ids.end(), 0);
+    std::sort(proposal.ordered_read_ids.begin(), proposal.ordered_read_ids.end(),
+              [&](int first, int second) {
+                  return proposal.reads[static_cast<size_t>(first)].beg <
+                         proposal.reads[static_cast<size_t>(second)].beg;
+              });
+    cgranges_t* cr = cr_init();
+    for (size_t read_i = 0; read_i < proposal.read_var_profile.size(); ++read_i) {
+        const ReadVariantProfile& profile = proposal.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        cr_add(cr, "cr", profile.start_var_idx, profile.end_var_idx + 1,
+               static_cast<int32_t>(read_i));
+    }
+    cr_index(cr);
+    proposal.read_var_cr.reset(cr);
+    return proposal;
+}
+
+static bool gap_recovery_jobs_conflict(const PhaseGap& first,
+                                       const PhaseGap& second) {
+    if (first.tid != second.tid) return false;
+    const hts_pos_t first_beg =
+        std::max(first.region_beg, first.left_end - kGapRecoveryFlank);
+    const hts_pos_t first_end =
+        std::min(first.region_end, first.right_beg + kGapRecoveryFlank);
+    const hts_pos_t second_beg =
+        std::max(second.region_beg, second.left_end - kGapRecoveryFlank);
+    const hts_pos_t second_end =
+        std::min(second.region_end, second.right_beg + kGapRecoveryFlank);
+    return first_beg <= second_end && second_beg <= first_end;
+}
+
+struct GapRecoveryJobResult {
+    bool joined = false;
+    bool has_edge = false;
+    GapPhaseEdge edge{};
+    std::string report_rows;
+};
+
+static GapRecoveryJobResult recover_one_hybrid_gap(
+        std::vector<PhasingChunk>& chunks, const Options& opts,
+        const std::string& contig,
+        const std::unordered_map<std::string, std::string>& chrom_remap,
+        const BamAuthorityIntervals* bam_authority,
+        const GapReadIndex& read_index, const PhaseGap& initial_gap,
+        size_t gap_index, std::mutex& chunks_mutex) {
+    GapRecoveryJobResult job_result;
+    PhaseGap gap = initial_gap;
+    RegionChunk window;
+    window.tid = gap.tid;
+    window.beg = std::max(gap.region_beg, gap.left_end - kGapRecoveryFlank);
+    window.end = std::min(gap.region_end, gap.right_beg + kGapRecoveryFlank);
+    window.chunk_id = static_cast<int>(gap_index);
+    Options local_opts = opts;
+    local_opts.gap_recovery_beg = gap.left_end;
+    local_opts.gap_recovery_end = gap.right_beg;
+    if (!opts.phase_matrix_dump_prefix.empty()) {
+        local_opts.phase_matrix_dump_prefix =
+            opts.phase_matrix_dump_prefix + ".tid" + std::to_string(gap.tid) +
+            ".gap" + std::to_string(gap_index);
+    }
+    (void)chrom_remap;
+    (void)bam_authority;
+    std::vector<PhasingChunk> local;
+    {
+        std::lock_guard<std::mutex> lock(chunks_mutex);
+        local.push_back(build_cached_gap_proposal(chunks, window));
+    }
+    auto& proposal = local.front();
+    assign_hap_based_on_germline_het_vars_kmeans(
+        proposal, local_opts, kCandGermlineClean);
+    std::vector<uint32_t> original_flags;
+    original_flags.reserve(proposal.candidates.size());
+    for (const CandidateVariant& candidate : proposal.candidates)
+        original_flags.push_back(candidate.lcd_var_i_to_cate);
+    constexpr int kGapHomopolymerTier = 4;
+    std::ostringstream report_rows;
+    for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
+        const size_t previous_sites = proposal.candidates.size();
+        if (tier == kGapHomopolymerTier) {
+            for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
+                proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
+            const bool has_hp = std::any_of(
+                proposal.candidates.begin(), proposal.candidates.end(),
+                [&](const CandidateVariant& v) {
+                    return v.is_homopolymer_indel &&
+                           v.lcd_var_i_to_cate == kCandNoisyCandHet &&
+                           v.key.sort_pos() >= gap.left_end &&
+                           v.key.sort_pos() <= gap.right_beg;
+                });
+            if (!has_hp || !opts.link_by_alleles) break;
+            local_opts.gap_hp_link_beg = gap.left_end;
+            local_opts.gap_hp_link_end = gap.right_beg;
+            local_opts.private_msa_admit_all_in_region = true;
+            assign_hap_based_on_germline_het_vars_kmeans(
+                proposal, local_opts, kCandGermlineVarCate);
+        } else if (tier > 1) {
+            // The chromosome pass has already discovered and MSA-verified
+            // these sites. Select the requested evidence tier from the cache
+            // instead of rerunning consensus alignment for every gap.
+            for (size_t vi = 0; vi < proposal.candidates.size(); ++vi) {
+                CandidateVariant& candidate = proposal.candidates[vi];
+                candidate.lcd_var_i_to_cate = original_flags[vi];
+                if (candidate.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+                const bool allowed = candidate.msa_verified &&
+                    !candidate.is_homopolymer_indel &&
+                    (tier == 3 || candidate.key.type == VariantType::Snp);
+                if (!allowed)
+                    candidate.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+            }
+            assign_hap_based_on_germline_het_vars_kmeans(
+                proposal, local_opts, kCandGermlineVarCate);
+        }
+        filter_hybrid_reads_by_margin(
+            local, opts.min_read_hap_margin, tier > 1);
+        filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
+
+        GapStitchResult result;
+        {
+            std::lock_guard<std::mutex> lock(chunks_mutex);
+            result = stitch_gap_proposal(
+                chunks, proposal, gap, local_opts, &read_index, true);
+        }
+        int msa_snps = 0;
+        int msa_indels = 0;
+        for (const auto& v : proposal.candidates) {
+            if (v.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+            if (v.key.type == VariantType::Snp) ++msa_snps;
+            else ++msa_indels;
+        }
+        report_rows << contig << '\t' << initial_gap.left_end << '\t'
+                    << initial_gap.right_beg << '\t' << tier << '\t'
+                    << window.beg << '\t' << window.end << '\t'
+                    << proposal.candidates.size() - previous_sites << '\t'
+                    << msa_snps << '\t' << msa_indels << '\t'
+                    << result.left_linked << '\t' << result.right_linked << '\t'
+                    << result.reads_added << '\t'
+                    << (tier == kGapHomopolymerTier && !result.joined
+                            ? "rejected"
+                            : result.joined
+                                  ? "joined"
+                                  : result.left_linked || result.right_linked
+                                        ? "partial"
+                                        : "open")
+                    << '\n';
+        if (result.joined) {
+            job_result.joined = true;
+            job_result.has_edge = true;
+            job_result.edge = {gap.left_ps, gap.right_ps, result.right_flip};
+            break;
+        }
+    }
+    job_result.report_rows = report_rows.str();
+    return job_result;
+}
 
 static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options& opts,
                                 const std::string& contig,
@@ -1074,95 +1828,90 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                                 std::ostream* report) {
     const auto initial_gaps = find_phase_gaps(chunks);
     if (initial_gaps.empty()) return;
-    WorkerContext context(opts);
-    SitesVcfHandle sites_handle(opts.graph_sites_vcf);
-    IndexedGafHandle gaf_handle(opts.gaf_file);
-    int joined = 0;
-    const GapReadIndex read_index(chunks);
-    for (size_t gi = 0; gi < initial_gaps.size(); ++gi) {
-        PhaseGap gap = initial_gaps[gi];
-        // Earlier accepted extensions may have moved or joined these flanks.
-        const auto remaining = find_phase_gaps(chunks);
-        const auto current = std::find_if(remaining.begin(), remaining.end(), [&](const PhaseGap& g) {
-            return g.tid == gap.tid && g.left_end < gap.right_beg && g.right_beg > gap.left_end;
-        });
-        if (current == remaining.end()) continue;
-        gap = *current;
-        RegionChunk window;
-        window.tid = gap.tid;
-        window.beg = std::max(gap.region_beg, gap.left_end - kGapRecoveryFlank);
-        window.end = std::min(gap.region_end, gap.right_beg + kGapRecoveryFlank);
-        window.chunk_id = static_cast<int>(gi);
-        Options local_opts = opts;
-        local_opts.gap_recovery_beg = gap.left_end;
-        local_opts.gap_recovery_end = gap.right_beg;
-        if (!opts.phase_matrix_dump_prefix.empty())
-            local_opts.phase_matrix_dump_prefix = opts.phase_matrix_dump_prefix + ".tid" + std::to_string(gap.tid) + ".gap" + std::to_string(gi);
-        std::vector<PhasingChunk> local;
-        local.push_back(process_chunk_hybrid(window, local_opts, context, sites_handle,
-                                             gaf_handle, contig, chrom_remap, nullptr,
-                                             bam_authority, true));
-        auto& proposal = local.front();
-        // A SNP-only extension must not remove previously examined indels
-        // from the later tier: those sites can still bridge the remaining gap.
-        const hts_pos_t msa_beg = gap.left_end - kGapRecoveryMsaFlank;
-        const hts_pos_t msa_end = gap.right_beg + kGapRecoveryMsaFlank;
-        bool msa_prepared = false;
-        constexpr int kGapHomopolymerTier = 4;
-        for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
-            const size_t previous_sites = proposal.candidates.size();
-            if (tier == kGapHomopolymerTier) {
-                const bool has_hp = std::any_of(proposal.candidates.begin(), proposal.candidates.end(),
-                    [&](const CandidateVariant& v) {
-                        return v.is_homopolymer_indel && v.lcd_var_i_to_cate == kCandNoisyCandHet &&
-                               v.key.sort_pos() >= gap.left_end && v.key.sort_pos() <= gap.right_beg;
-                    });
-                if (!has_hp || !opts.link_by_alleles) break;
-                local_opts.gap_hp_link_beg = gap.left_end;
-                local_opts.gap_hp_link_end = gap.right_beg;
-                local_opts.private_msa_admit_all_in_region = true;
-                assign_hap_based_on_germline_het_vars_kmeans(proposal, local_opts, kCandGermlineVarCate);
-            } else if (tier > 1) {
-                if (!msa_prepared) {
-                    prepare_gap_msa_regions(proposal, msa_beg, msa_end);
-                    msa_prepared = true;
-                }
-                run_gap_msa_tier(proposal, local_opts, msa_beg, msa_end, tier == 2);
-            }
-            filter_hybrid_reads_by_margin(local, opts.min_read_hap_margin, tier > 1);
-            filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
-            const auto result = stitch_gap_proposal(chunks, proposal, gap, local_opts, &read_index);
-            if (report) {
-                int msa_snps = 0, msa_indels = 0;
-                for (const auto& v : proposal.candidates) {
-                    if (v.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
-                    if (v.key.type == VariantType::Snp) ++msa_snps;
-                    else ++msa_indels;
-                }
-                *report << contig << '\t' << initial_gaps[gi].left_end << '\t'
-                        << initial_gaps[gi].right_beg << '\t' << tier << '\t'
-                        << window.beg << '\t' << window.end << '\t'
-                        << proposal.candidates.size() - previous_sites << '\t'
-                        << msa_snps << '\t' << msa_indels << '\t'
-                        << result.left_linked << '\t' << result.right_linked << '\t'
-                        << result.reads_added << '\t'
-                        << (tier == kGapHomopolymerTier && !result.joined ? "rejected" :
-                            result.joined ? "joined" : result.left_linked || result.right_linked
-                                                       ? "partial" : "open") << '\n';
-            }
-            if (result.joined) { ++joined; break; }
-            // Preserve one-sided extensions and focus the next tier on the
-            // remaining interval, without throwing away the preceding tier's sites.
-            for (const auto& next : find_phase_gaps(chunks)) {
-                if (next.tid == gap.tid && next.left_ps == gap.left_ps && next.right_ps == gap.right_ps) {
-                    gap = next;
-                    break;
-                }
-            }
-        }
+    const auto cache_begin = std::chrono::steady_clock::now();
+    const uint64_t cache_signature =
+        gap_evidence_input_signature(chunks, initial_gaps, opts);
+    bool loaded_cache = false;
+    if (!opts.gap_evidence_cache.empty() &&
+        std::filesystem::exists(opts.gap_evidence_cache)) {
+        read_gap_evidence_cache(
+            opts.gap_evidence_cache, chunks, cache_signature);
+        loaded_cache = true;
+    } else {
+        populate_gap_msa_cache(chunks, initial_gaps, opts);
+        if (!opts.gap_evidence_cache.empty())
+            write_gap_evidence_cache(
+                opts.gap_evidence_cache, chunks, cache_signature);
     }
+    const auto cache_end = std::chrono::steady_clock::now();
+    const GapReadIndex read_index(chunks);
+    std::vector<size_t> pending(initial_gaps.size());
+    std::iota(pending.begin(), pending.end(), 0);
+    std::vector<GapRecoveryJobResult> results(initial_gaps.size());
+    std::mutex chunks_mutex;
+    size_t wave_count = 0;
+    while (!pending.empty()) {
+        std::vector<size_t> wave;
+        std::vector<size_t> deferred;
+        for (const size_t gap_index : pending) {
+            const bool conflicts = std::any_of(
+                wave.begin(), wave.end(), [&](const size_t selected_index) {
+                    return gap_recovery_jobs_conflict(
+                        initial_gaps[gap_index], initial_gaps[selected_index]);
+                });
+            if (conflicts) deferred.push_back(gap_index);
+            else wave.push_back(gap_index);
+        }
+        pending = std::move(deferred);
+        ++wave_count;
+
+        const size_t worker_count = std::min<size_t>(
+            static_cast<size_t>(opts.threads), wave.size());
+        std::atomic<size_t> next_job{0};
+        std::exception_ptr first_error;
+        std::mutex error_mutex;
+        std::vector<std::thread> workers;
+        workers.reserve(worker_count);
+        for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
+            workers.emplace_back([&]() {
+                try {
+                    while (true) {
+                        const size_t job = next_job.fetch_add(1);
+                        if (job >= wave.size()) break;
+                        const size_t gap_index = wave[job];
+                        results[gap_index] = recover_one_hybrid_gap(
+                            chunks, opts, contig, chrom_remap, bam_authority,
+                            read_index, initial_gaps[gap_index], gap_index,
+                            chunks_mutex);
+                    }
+                } catch (...) {
+                    std::lock_guard<std::mutex> lock(error_mutex);
+                    if (!first_error) first_error = std::current_exception();
+                }
+            });
+        }
+        for (std::thread& worker : workers) worker.join();
+        if (first_error) std::rethrow_exception(first_error);
+    }
+    const auto recovery_end = std::chrono::steady_clock::now();
+    int joined = 0;
+    std::vector<GapPhaseEdge> edges;
+    for (const auto& result : results) {
+        joined += result.joined;
+        if (result.has_edge) edges.push_back(result.edge);
+        if (report) *report << result.report_rows;
+    }
+    const int edge_conflicts = apply_gap_phase_edges(chunks, edges);
     std::cerr << "Gap recovery: " << initial_gaps.size() << " initial gaps, "
-              << joined << " joined on " << contig << '\n';
+              << joined << " joined in " << wave_count << " wave(s) on "
+              << contig << ", " << edge_conflicts
+              << " conflicting edge(s) rejected\n";
+    std::cerr << "Gap recovery timing: evidence cache "
+              << (loaded_cache ? "load " : "build ")
+              << std::chrono::duration<double>(cache_end - cache_begin).count()
+              << " s, cached gap solves "
+              << std::chrono::duration<double>(recovery_end - cache_end).count()
+              << " s\n";
 }
 
 void run_collect_hybrid_variation(const Options& opts) {
@@ -1278,6 +2027,7 @@ void run_collect_hybrid_variation(const Options& opts) {
         if (opts.recover_gaps) {
             recover_hybrid_gaps(batch.chunks, opts, graph_query_contig, chrom_remap,
                                 bam_authority_ptr, recovery_report.is_open() ? &recovery_report : nullptr);
+            stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
             for (auto& chunk : batch.chunks) prune_not_candidate_variants(chunk);
         }
         CandidateTable variants = merge_chunk_candidates(batch.chunks);

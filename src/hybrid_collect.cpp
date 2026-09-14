@@ -57,6 +57,7 @@ static void print_hybrid_help() {
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
         << "      --recover-gaps            Recover remaining gaps with clean, MSA SNP, then MSA indel tiers\n"
         << "      --gap-recovery-report FILE  Per-gap tier and stitching outcomes (TSV)\n"
+        << "      --gap-evidence-cache FILE Reuse gap MSA sites/read alleles across runs\n"
         << "      --link-by-alleles         Let untagged reads carry phase-block linking evidence\n"
         << "      --block-link-window INT   Preceding het variants searched for a link [1]\n"
         << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
@@ -132,6 +133,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kKeepNoisyKmeansOption,
         kRecoverGapsOption,
         kGapRecoveryReportOption,
+        kGapEvidenceCacheOption,
         kLinkByAllelesOption,
         kBlockLinkWindowOption,
         kPrivateMsaAdmitAllOption,
@@ -181,6 +183,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
         {"recover-gaps", no_argument, nullptr, kRecoverGapsOption},
         {"gap-recovery-report", required_argument, nullptr, kGapRecoveryReportOption},
+        {"gap-evidence-cache", required_argument, nullptr, kGapEvidenceCacheOption},
         {"link-by-alleles",   no_argument,     nullptr, kLinkByAllelesOption},
         {"block-link-window", required_argument, nullptr, kBlockLinkWindowOption},
         {"private-msa-admit-all-in-region", no_argument, nullptr, kPrivateMsaAdmitAllOption},
@@ -244,6 +247,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
             case kRecoverGapsOption: opts.recover_gaps = true; break;
             case kGapRecoveryReportOption: opts.gap_recovery_report = optarg; break;
+            case kGapEvidenceCacheOption: opts.gap_evidence_cache = optarg; break;
             case kLinkByAllelesOption: opts.link_by_alleles = true; break;
             case kBlockLinkWindowOption: opts.block_link_window = std::atoi(optarg); break;
             case kPrivateMsaAdmitAllOption: opts.private_msa_admit_all_in_region = true; break;
@@ -278,8 +282,9 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         print_hybrid_help();
         return 1;
     }
-    if (!opts.gap_recovery_report.empty() && !opts.recover_gaps) {
-        std::cerr << "Error: --gap-recovery-report requires --recover-gaps\n";
+    if ((!opts.gap_recovery_report.empty() || !opts.gap_evidence_cache.empty()) &&
+        !opts.recover_gaps) {
+        std::cerr << "Error: --gap-recovery-report and --gap-evidence-cache require --recover-gaps\n";
         return 1;
     }
     if (opts.recover_gaps && (!opts.private_sites_vcf.empty() || opts.gap_fill ||
