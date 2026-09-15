@@ -1,0 +1,13 @@
+{
+  "common_status_transitions": {
+    "concordant -> concordant": 186307,
+    "DISCORDANT -> concordant": 307,
+    "DISCORDANT -> DISCORDANT": 2427,
+    "skipped -> skipped": 8
+  },
+  "new_statuses": {
+    "concordant": 1
+  },
+  "lost_reads": 0,
+  "newly_discordant_by_old_ps": {}
+}

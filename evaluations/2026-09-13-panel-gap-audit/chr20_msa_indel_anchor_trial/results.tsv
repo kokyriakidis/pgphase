@@ -1,0 +1,2 @@
+region	left	right	clean_target	clean_total_reads_evaluated	clean_discordant_reads	clean_total_phase_sets	clean_switchflip_errors	recovery2_target	recovery2_total_reads_evaluated	recovery2_discordant_reads	recovery2_total_phase_sets	recovery2_switchflip_errors	original_reads_preserved	added_tagged_reads
+chr20_37984529_38008026	37984529	38008026	split	440	1	2	1	split	456	1	2	1	440	16

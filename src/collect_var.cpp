@@ -2022,6 +2022,12 @@ void collect_var_classify(PhasingChunk& chunk,
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts) {
     if (chunk.candidates.empty()) return;
     collect_read_var_profile(opts, chunk);
+    if (opts.recover_gaps) {
+        for (auto& profile : chunk.read_var_profile) {
+            profile.bam_alleles = profile.alleles;
+            profile.bam_qi = profile.alt_qi;
+        }
+    }
 }
 
 // Recover the reads that skip_noisy_kmeans leaves unphased without disturbing

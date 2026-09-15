@@ -1,0 +1,53 @@
+[
+  {
+    "arm": "balanced_uniform",
+    "schema": 1,
+    "seconds": 2.3021293566562235,
+    "feature_cache_reused": true,
+    "preparation_seconds": 2.071633334737271,
+    "scoring_seconds": 0.23049674788489938,
+    "weighting": "uniform",
+    "min_margin": 2.0,
+    "min_haplotype_margin": 2.0,
+    "counts": {
+      "FLIP": 53,
+      "INSUFFICIENT": 151,
+      "SAME": 71,
+      "CONFLICTING": 5
+    }
+  },
+  {
+    "arm": "balanced_mapq",
+    "schema": 1,
+    "seconds": 2.3503905260004103,
+    "feature_cache_reused": true,
+    "preparation_seconds": 2.0831374591216445,
+    "scoring_seconds": 0.26725372578948736,
+    "weighting": "mapq",
+    "min_margin": 2.0,
+    "min_haplotype_margin": 2.0,
+    "counts": {
+      "FLIP": 53,
+      "INSUFFICIENT": 152,
+      "SAME": 70,
+      "CONFLICTING": 5
+    }
+  },
+  {
+    "arm": "unbalanced_uniform",
+    "schema": 1,
+    "seconds": 2.261518240906298,
+    "feature_cache_reused": true,
+    "preparation_seconds": 2.0519575527869165,
+    "scoring_seconds": 0.20956136006861925,
+    "weighting": "uniform",
+    "min_margin": 2.0,
+    "min_haplotype_margin": 0.0,
+    "counts": {
+      "FLIP": 54,
+      "INSUFFICIENT": 149,
+      "SAME": 72,
+      "CONFLICTING": 5
+    }
+  }
+]

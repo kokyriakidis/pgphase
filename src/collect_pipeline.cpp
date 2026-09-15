@@ -17,6 +17,7 @@
 #include "collect_phase_pgbam.hpp"
 #include "collect_var.hpp"
 #include "gap_recovery.hpp"
+#include "gap_evidence.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -33,6 +34,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -924,6 +926,14 @@ static PhasingChunk process_chunk_hybrid(
             reads_injected, reads_extended);
     }
 
+    std::vector<uint32_t> discovery_flags;
+    if (opts.recover_gaps) {
+        discovery_flags.reserve(chunk.candidates.size());
+        for (auto& candidate : chunk.candidates) {
+            discovery_flags.push_back(candidate.lcd_var_i_to_cate);
+            if (!candidate.graph_site) candidate.lcd_var_i_to_cate = 0;
+        }
+    }
     // Steps 3.2-4: k-means + noisy-region MSA. Private-site MSA is experimental:
     // when enabled, admit only exact-whitelist calls and phase them with the
     // clean graph core. The default preserves the private ownership boundary
@@ -946,6 +956,11 @@ static PhasingChunk process_chunk_hybrid(
         collect_var_run_phasing(chunk, global_msa_opts);
     } else {
         collect_var_run_phasing(chunk, opts);
+    }
+
+    if (opts.recover_gaps) {
+        for (size_t vi = 0; vi < discovery_flags.size(); ++vi)
+            chunk.candidates[vi].lcd_var_i_to_cate = discovery_flags[vi];
     }
 
     // Recovery still consumes the candidate-indexed profiles. Pruning here
@@ -1072,7 +1087,7 @@ static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
 static constexpr hts_pos_t kGapRecoveryFlank = 50000;
 static constexpr hts_pos_t kGapRecoveryMsaFlank = 5000;
 static constexpr hts_pos_t kGapRecoveryMaxMsaSpan = 250000;
-static constexpr uint32_t kGapEvidenceCacheVersion = 5;
+static constexpr uint32_t kGapEvidenceCacheVersion = 6;
 static constexpr char kGapEvidenceCacheMagic[] = "PGGAPEV";
 
 static void gap_cache_hash_bytes(uint64_t& hash, const void* data, size_t size) {
@@ -1234,6 +1249,7 @@ static void write_gap_cache_candidate(std::ostream& out,
     write_gap_cache_value(out, candidate.is_homopolymer_indel);
     write_gap_cache_value(out, candidate.gap_link_supported);
     write_gap_cache_value(out, candidate.msa_verified);
+    write_gap_cache_value(out, candidate.graph_site);
     write_gap_cache_value(out, candidate.lcd_make_variants_region_pass);
     write_gap_cache_value(out, candidate.lcd_var_i_to_cate);
     for (const auto& profile : candidate.hap_to_alle_profile)
@@ -1277,6 +1293,7 @@ static CandidateVariant read_gap_cache_candidate(std::istream& in) {
     read_gap_cache_value(in, candidate.is_homopolymer_indel);
     read_gap_cache_value(in, candidate.gap_link_supported);
     read_gap_cache_value(in, candidate.msa_verified);
+    read_gap_cache_value(in, candidate.graph_site);
     read_gap_cache_value(in, candidate.lcd_make_variants_region_pass);
     read_gap_cache_value(in, candidate.lcd_var_i_to_cate);
     for (auto& profile : candidate.hap_to_alle_profile)
@@ -1322,6 +1339,8 @@ static void write_gap_evidence_cache(const std::string& path,
             write_gap_cache_vector(out, profile.alleles);
             write_gap_cache_vector(out, profile.alt_qi);
             write_gap_cache_vector(out, profile.graph_alleles);
+            write_gap_cache_vector(out, profile.bam_alleles);
+            write_gap_cache_vector(out, profile.bam_qi);
         }
     }
     out.close();
@@ -1402,6 +1421,8 @@ static void read_gap_evidence_cache(const std::string& path,
             read_gap_cache_vector(in, profile.alleles);
             read_gap_cache_vector(in, profile.alt_qi);
             read_gap_cache_vector(in, profile.graph_alleles);
+            read_gap_cache_vector(in, profile.bam_alleles);
+            read_gap_cache_vector(in, profile.bam_qi);
         }
         chunk.candidates = std::move(candidates);
         chunk.read_var_profile = std::move(profiles);
@@ -1523,6 +1544,15 @@ static void populate_gap_msa_cache(std::vector<PhasingChunk>& chunks,
                         candidate->hap_to_alle_profile = state.profiles;
                         candidate->hap_to_cons_alle = state.consensus;
                     }
+                    VariantKeySet original_keys;
+                    for (const auto& state : candidate_states) original_keys.insert(state.key);
+                    for (auto& candidate : chunk.candidates) {
+                        if (original_keys.count(candidate.key)) continue;
+                        candidate.phase_set = -1;
+                        candidate.hap_alt = candidate.hap_ref = 0;
+                        candidate.hap_to_cons_alle = {-1, -1, -1};
+                        for (auto& profile : candidate.hap_to_alle_profile) profile.clear();
+                    }
                     chunk.noisy_regions = saved_noisy_regions;
                 }
             } catch (...) {
@@ -1553,6 +1583,30 @@ static ReadRecord clone_cached_read(const ReadRecord& source) {
     read.is_ont_palindrome = source.is_ont_palindrome;
     read.total_cand_events = source.total_cand_events;
     return read;
+}
+
+static void merge_cached_allele(int& dest, int source) {
+    constexpr int kConflictingAllele = -3;
+    if (source == -1 || dest == kConflictingAllele) return;
+    if (source == kConflictingAllele || (dest >= 0 && source >= 0 && dest != source)) {
+        dest = kConflictingAllele;
+    } else if (dest < 0 || source >= 0) dest = source;
+}
+
+static int remap_cached_allele(int allele, const CandidateVariant& source,
+                              const CandidateVariant& dest) {
+    if (allele <= 0) return allele;
+    std::string sequence;
+    if (source.msa_insertion_alts.empty()) {
+        if (allele != 1) return -3;
+        sequence = source.key.alt;
+    } else {
+        if (static_cast<size_t>(allele) > source.msa_insertion_alts.size()) return -3;
+        sequence = source.msa_insertion_alts[allele - 1];
+    }
+    if (dest.msa_insertion_alts.empty()) return sequence == dest.key.alt ? 1 : -3;
+    const auto found = std::find(dest.msa_insertion_alts.begin(), dest.msa_insertion_alts.end(), sequence);
+    return found == dest.msa_insertion_alts.end() ? -3 : static_cast<int>(found - dest.msa_insertion_alts.begin()) + 1;
 }
 
 static PhasingChunk build_cached_gap_proposal(
@@ -1597,9 +1651,11 @@ static PhasingChunk build_cached_gap_proposal(
     for (const CandidateVariant& candidate : candidates) {
         if (!proposal.candidates.empty() &&
             exact_comp_var_site(&proposal.candidates.back().key, &candidate.key) == 0) {
+            const bool graph_site = proposal.candidates.back().graph_site || candidate.graph_site;
             if (!proposal.candidates.back().lcd_make_variants_region_pass &&
                 candidate.lcd_make_variants_region_pass)
                 proposal.candidates.back() = candidate;
+            proposal.candidates.back().graph_site = graph_site;
         } else {
             proposal.candidates.push_back(candidate);
         }
@@ -1629,8 +1685,12 @@ static PhasingChunk build_cached_gap_proposal(
                 profile.alleles.assign(proposal.candidates.size(), -1);
                 profile.alt_qi.assign(proposal.candidates.size(), -1);
                 profile.graph_alleles.assign(proposal.candidates.size(), -1);
+                profile.bam_alleles.assign(proposal.candidates.size(), -1);
+                profile.bam_qi.assign(proposal.candidates.size(), -1);
                 proposal.read_var_profile.push_back(std::move(profile));
             }
+            if (!inserted.second && proposal.reads[inserted.first->second].is_skipped && !read.is_skipped)
+                proposal.reads[inserted.first->second] = clone_cached_read(read);
             if (source_i >= source.read_var_profile.size()) continue;
             const ReadVariantProfile& source_profile =
                 source.read_var_profile[source_i];
@@ -1656,13 +1716,19 @@ static PhasingChunk build_cached_gap_proposal(
                     found - proposal.candidates.begin());
                 const size_t allele_i = static_cast<size_t>(
                     source_vi - source_profile.start_var_idx);
+                if (allele_i < source_profile.bam_alleles.size()) {
+                    merge_cached_allele(dest.bam_alleles[dest_vi], source_profile.bam_alleles[allele_i]);
+                    if (allele_i < source_profile.bam_qi.size())
+                        dest.bam_qi[dest_vi] = source_profile.bam_qi[allele_i];
+                }
                 if (allele_i < source_profile.graph_alleles.size() &&
                     source_profile.graph_alleles[allele_i] >= 0)
-                    dest.graph_alleles[dest_vi] = source_profile.graph_alleles[allele_i];
+                    merge_cached_allele(dest.graph_alleles[dest_vi], source_profile.graph_alleles[allele_i]);
                 if (allele_i >= source_profile.alleles.size() ||
                     source_profile.alleles[allele_i] == -1)
                     continue;
-                dest.alleles[dest_vi] = source_profile.alleles[allele_i];
+                merge_cached_allele(dest.alleles[dest_vi],
+                    remap_cached_allele(source_profile.alleles[allele_i], source_candidate, *found));
                 if (allele_i < source_profile.alt_qi.size())
                     dest.alt_qi[dest_vi] = source_profile.alt_qi[allele_i];
             }
@@ -1708,7 +1774,69 @@ struct GapRecoveryJobResult {
     bool has_edge = false;
     GapPhaseEdge edge{};
     std::string report_rows;
+    // Final proposal state, kept only when !joined, for independent-block
+    // consideration strictly after EVERY mechanism that can still claim or
+    // relabel a block has finished -- not just this gap's own stitch decision
+    // and apply_gap_phase_edges, but also the batch-level stitch_chunk_haps
+    // call that runs again after recover_hybrid_gaps returns (it re-examines
+    // block boundaries across the whole batch and does not know about an
+    // independent block's provenance, so emitting before it ran let it
+    // re-merge/relabel a handful of reads based on its own, separate voting
+    // logic). Applying independent blocks only after that second stitch call
+    // leaves nothing downstream able to touch them again.
+    bool has_proposal = false;
+    PhasingChunk proposal;
 };
+
+/// Gaps whose own bridge decision never reached `joined`, together with the
+/// evidence needed to consider emitting each as an independent block later,
+/// once every other mechanism that could still relabel a block has run.
+struct PendingIndependentGaps {
+    std::vector<std::pair<PhaseGap, PhasingChunk>> proposals;
+    std::unique_ptr<GapReadIndex> read_index;
+    int joined_this_round = 0;
+};
+
+static void write_gap_audit_input(std::ostream& out, const PhasingChunk& proposal,
+                                  const PhaseGap& gap, const GapReadIndex& index) {
+    out << "SCHEMA\t1\nGAP\t" << gap.tid << '\t' << gap.left_ps << '\t'
+        << gap.right_ps << '\t' << gap.left_end << '\t' << gap.right_beg
+        << '\t' << proposal.ref_beg << '\t' << proposal.ref_end << '\n';
+    out << "REFERENCE\t" << proposal.ref_seq << '\n';
+    for (size_t vi = 0; vi < proposal.candidates.size(); ++vi) {
+        const auto& v = proposal.candidates[vi];
+        out << "SITE\t" << vi << '\t' << v.key.pos << '\t'
+            << static_cast<int>(v.key.type) << '\t' << v.key.ref_len << '\t'
+            << v.key.alt << '\t' << static_cast<int>(v.ref_base) << '\t'
+            << v.lcd_var_i_to_cate << '\t' << v.msa_verified << '\t'
+            << v.is_homopolymer_indel << '\t' << v.phase_set << '\t'
+            << v.hap_to_cons_alle[1] << '\t' << v.hap_to_cons_alle[2];
+        for (const auto& allele : v.msa_insertion_alts) out << '\t' << allele;
+        out << '\n';
+    }
+    for (size_t ri = 0; ri < proposal.reads.size(); ++ri) {
+        const auto& r = proposal.reads[ri];
+        const auto found = index.assignments.find({r.input_index, r.qname});
+        const auto original = found == index.assignments.end()
+            ? std::make_pair(0, static_cast<hts_pos_t>(-1)) : found->second;
+        out << "READ\t" << ri << '\t' << r.input_index << '\t' << r.qname
+            << '\t' << r.beg << '\t' << r.end << '\t' << r.mapq << '\t'
+            << r.is_skipped << '\t' << original.first << '\t' << original.second
+            << '\t' << (r.alignment ? r.alignment->core.flag : -1) << '\n';
+        const auto& p = proposal.read_var_profile[ri];
+        for (size_t pi = 0; pi < p.alleles.size(); ++pi) {
+            const int vi = p.start_var_idx + static_cast<int>(pi);
+            if (vi < 0 || static_cast<size_t>(vi) >= proposal.candidates.size()) continue;
+            const int graph = pi < p.graph_alleles.size() ? p.graph_alleles[pi] : -1;
+            if (p.alleles[pi] < 0 && graph < 0) continue;
+            const int qi = pi < p.alt_qi.size() ? p.alt_qi[pi] : -1;
+            const int quality = r.alignment && qi >= 0 && qi < r.alignment->core.l_qseq
+                ? bam_get_qual(r.alignment.get())[qi] : -1;
+            out << "OBS\t" << ri << '\t' << vi << '\t' << p.alleles[pi]
+                << '\t' << graph << '\t' << qi << '\t' << quality << '\n';
+        }
+    }
+}
 
 static GapRecoveryJobResult recover_one_hybrid_gap(
         std::vector<PhasingChunk>& chunks, const Options& opts,
@@ -1716,7 +1844,7 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
         const std::unordered_map<std::string, std::string>& chrom_remap,
         const BamAuthorityIntervals* bam_authority,
         const GapReadIndex& read_index, const PhaseGap& initial_gap,
-        size_t gap_index, std::mutex& chunks_mutex) {
+        size_t gap_index, std::mutex& chunks_mutex, const GapEvidence& frozen, bool audit = false) {
     GapRecoveryJobResult job_result;
     PhaseGap gap = initial_gap;
     RegionChunk window;
@@ -1740,11 +1868,26 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
     (void)chrom_remap;
     (void)bam_authority;
     std::vector<PhasingChunk> local;
-    {
-        std::lock_guard<std::mutex> lock(chunks_mutex);
-        local.push_back(build_cached_gap_proposal(chunks, window));
-    }
+    local.push_back(frozen.project(local_opts));
     auto& proposal = local.front();
+    std::ofstream audit_input, audit_votes, audit_reads;
+    if (audit) {
+        const auto prefix = (std::filesystem::path(opts.gap_decision_audit) /
+            ("tid" + std::to_string(gap.tid) + "." + std::to_string(gap.left_end) +
+             "." + std::to_string(gap.right_beg))).string();
+        frozen.write_audit(prefix);
+        for (const auto* suffix : {".evidence.tsv", ".votes.tsv", ".reads.tsv"})
+            if (std::filesystem::exists(prefix + suffix))
+                throw std::runtime_error("gap audit files exist; use a new directory: " + prefix);
+        audit_input.open(prefix + ".evidence.tsv");
+        audit_votes.open(prefix + ".votes.tsv");
+        audit_reads.open(prefix + ".reads.tsv");
+        if (!audit_input || !audit_votes || !audit_reads)
+            throw std::runtime_error("cannot write gap decision audit: " + prefix);
+        write_gap_audit_input(audit_input, proposal, gap, read_index);
+        audit_votes << "VIEW\tTIER\tPS\tL11\tL12\tL21\tL22\tR11\tR12\tR21\tR22\tJOINED\tFLIP\n";
+        audit_reads << "VIEW\tTIER\tREAD\tHP\tPS\tSKIPPED\n";
+    }
     int graph_observations = 0;
     int graph_conflicts = 0;
     for (const ReadVariantProfile& profile : proposal.read_var_profile) {
@@ -1760,13 +1903,25 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
     }
     std::ostringstream report_rows;
     const int recovery_passes = opts.graph_gap_bam ? 2 : 1;
+    // Tried preserving pass 0's fully-solved proposal here (pass 1 reprojects
+    // and overwrites `proposal` in place, and its graph-observation filter in
+    // select_graph_gap_bam_reads excludes any read lacking a graph-channel
+    // call, even one that formed a coherent local split during pass 0), so
+    // the independent-block fallback below could pick whichever pass phased
+    // more reads. Measured on chr20: a modest, unclear net change in
+    // independent-block yield, but it also caused 112-116 reads that were
+    // fine in a fresh flag-off baseline to become entirely unphased (not
+    // corrupted -- no concordant read flipped to DISCORDANT -- but lost from
+    // evaluation), through an interaction with the gap-link-by-alleles
+    // one-sided partial-link attachment inside this same gap's own pass-0,
+    // non-orientation-only stitch_gap_proposal tier attempts (not fully
+    // root-caused before running out of session budget). Reverted: keep
+    // whichever proposal the pass loop naturally ends on, unconditionally, as
+    // before -- see CHECKPOINT.md, 2026-09-15, for the measurements.
     for (int recovery_pass = 0; recovery_pass < recovery_passes; ++recovery_pass) {
         int selected_graph_reads = 0;
         if (recovery_pass == 1) {
-            {
-                std::lock_guard<std::mutex> lock(chunks_mutex);
-                proposal = build_cached_gap_proposal(chunks, window);
-            }
+            proposal = frozen.project(local_opts, true);
             selected_graph_reads = select_graph_gap_bam_reads(proposal, gap, local_opts);
             if (selected_graph_reads == 0) break;
         }
@@ -1780,7 +1935,7 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
         for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
             const size_t previous_sites = proposal.candidates.size();
             if (tier == kGapHomopolymerTier) {
-                if (recovery_pass == 1) break;
+                if (recovery_pass == 1 && !audit) break;
                 for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
                     proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
                 const bool has_hp = std::any_of(
@@ -1818,11 +1973,47 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
             filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
 
             GapStitchResult result;
+            std::vector<GapLinkEvidence> evidence;
             {
-                std::lock_guard<std::mutex> lock(chunks_mutex);
+                std::unique_lock<std::mutex> lock(chunks_mutex, std::defer_lock);
+                if (!audit) lock.lock();
                 result = stitch_gap_proposal(
                     chunks, proposal, gap, local_opts, &read_index, true,
-                    recovery_pass == 1);
+                    audit || recovery_pass == 1 || tier == kGapHomopolymerTier,
+                    audit ? &evidence : nullptr);
+            }
+            // A repeat-driven graph proposal must agree with a BAM-only solve
+            // before its orientation can propagate into either trusted flank.
+            // Both checks are read-only; apply accepted parity edges once below.
+            if (audit) {
+                for (const auto& e : evidence) {
+                    audit_votes << recovery_pass << '\t' << tier << '\t' << e.proposal_ps;
+                    for (const auto& side : e.votes)
+                        for (const int count : side) audit_votes << '\t' << count;
+                    audit_votes << '\t' << result.joined << '\t' << result.right_flip << '\n';
+                }
+                for (size_t ri = 0; ri < proposal.reads.size(); ++ri)
+                    audit_reads << recovery_pass << '\t' << tier << '\t' << ri << '\t'
+                        << proposal.haps[ri] << '\t' << proposal.phase_sets[ri] << '\t'
+                        << proposal.reads[ri].is_skipped << '\n';
+            }
+            if (!audit && tier == kGapHomopolymerTier && result.joined) {
+                std::vector<PhasingChunk> validation;
+                validation.push_back(frozen.project(local_opts, true));
+                auto& bam_proposal = validation.front();
+                const int bam_reads = select_graph_gap_bam_reads(bam_proposal, gap, local_opts);
+                if (bam_reads > 0) {
+                    assign_hap_based_on_germline_het_vars_kmeans(bam_proposal, local_opts, kCandGermlineClean);
+                    assign_hap_based_on_germline_het_vars_kmeans(bam_proposal, local_opts, kCandGermlineVarCate);
+                    filter_hybrid_reads_by_margin(validation, opts.min_read_hap_margin, true);
+                    filter_hybrid_small_phase_sets(validation, opts.min_phase_set_reads);
+                }
+                std::unique_lock<std::mutex> lock(chunks_mutex, std::defer_lock);
+                if (!audit) lock.lock();
+                const auto bam_result = stitch_gap_proposal(
+                    chunks, bam_proposal, gap, local_opts, &read_index, true, true);
+                if (bam_reads == 0 || !bam_result.joined || bam_result.right_flip != result.right_flip)
+                    result.joined = false;
             }
             int msa_snps = 0;
             int msa_indels = 0;
@@ -1848,7 +2039,7 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
                                             ? "partial"
                                             : "open");
             report_rows << '\n';
-            if (result.joined) {
+            if (result.joined && !audit) {
                 job_result.joined = true;
                 job_result.has_edge = true;
                 job_result.edge = {gap.left_ps, gap.right_ps, result.right_flip};
@@ -1859,6 +2050,26 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
         local_opts.gap_hp_link_beg = -1;
         local_opts.gap_hp_link_end = -1;
     }
+    if (audit) {
+        audit_input.flush();
+        audit_votes.flush();
+        audit_reads.flush();
+        if (!audit_input || !audit_votes || !audit_reads)
+            throw std::runtime_error("failed writing gap decision audit: " + opts.gap_decision_audit);
+    }
+    // The gap could not be confidently bridged to either flank (stitch never
+    // reached `joined`, so nothing above was applied to `chunks` for it).
+    // Its own reads may still have converged to a coherent local split among
+    // themselves; keep this proposal so a later, strictly sequential pass
+    // (after every gap's own stitch decision is fully settled) can emit it as
+    // a new, independent block instead of discarding it -- see the race-
+    // avoidance note on GapRecoveryJobResult::has_proposal. Skipped during
+    // audit, which must stay strictly read-only against the frozen
+    // pre-recovery state.
+    if (!job_result.joined && !audit && opts.gap_independent_min_reads > 0) {
+        job_result.has_proposal = true;
+        job_result.proposal = std::move(proposal);
+    }
     job_result.report_rows = report_rows.str();
     return job_result;
 }
@@ -1867,7 +2078,8 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                                 const std::string& contig,
                                 const std::unordered_map<std::string, std::string>& chrom_remap,
                                 const BamAuthorityIntervals* bam_authority,
-                                std::ostream* report) {
+                                std::ostream* report,
+                                PendingIndependentGaps* pending_out = nullptr) {
     const auto initial_gaps = find_phase_gaps(chunks);
     if (initial_gaps.empty()) return;
     const auto cache_begin = std::chrono::steady_clock::now();
@@ -1886,11 +2098,121 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                 opts.gap_evidence_cache, chunks, cache_signature);
     }
     const auto cache_end = std::chrono::steady_clock::now();
-    const GapReadIndex read_index(chunks);
+    GapReadIndex read_index(chunks);
     std::vector<size_t> pending(initial_gaps.size());
     std::iota(pending.begin(), pending.end(), 0);
     std::vector<GapRecoveryJobResult> results(initial_gaps.size());
     std::mutex chunks_mutex;
+    // Freeze every gap before any proposal can extend a block. These records
+    // retain source observations; later tiers only construct mutable views.
+    std::vector<std::unique_ptr<GapEvidence>> evidence(initial_gaps.size());
+    std::atomic<size_t> next_snapshot{0};
+    std::exception_ptr snapshot_error;
+    std::mutex snapshot_error_mutex;
+    std::vector<std::thread> snapshot_workers;
+    for (size_t wi = 0; wi < std::min<size_t>(opts.threads, initial_gaps.size()); ++wi) {
+        snapshot_workers.emplace_back([&]() {
+            try {
+                while (true) {
+                    const size_t gi = next_snapshot.fetch_add(1);
+                    if (gi >= initial_gaps.size()) break;
+                    const auto& gap = initial_gaps[gi];
+                    RegionChunk window;
+                    window.tid = gap.tid;
+                    window.beg = std::max(gap.region_beg, gap.left_end - kGapRecoveryFlank);
+                    window.end = std::min(gap.region_end, gap.right_beg + kGapRecoveryFlank);
+                    window.chunk_id = static_cast<int>(gi);
+                    evidence[gi] = std::make_unique<GapEvidence>(build_cached_gap_proposal(chunks, window), gap);
+                }
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(snapshot_error_mutex);
+                if (!snapshot_error) snapshot_error = std::current_exception();
+            }
+        });
+    }
+    for (auto& worker : snapshot_workers) worker.join();
+    if (snapshot_error) std::rethrow_exception(snapshot_error);
+    // Audit every proposal against the same pre-recovery chunks. No production
+    // recovery is allowed to mutate them until all audit workers have finished.
+    if (!opts.gap_decision_audit.empty()) {
+        std::filesystem::create_directories(opts.gap_decision_audit);
+        const auto manifest_path = std::filesystem::path(opts.gap_decision_audit) /
+            ("tid" + std::to_string(initial_gaps.front().tid) + ".manifest.tsv");
+        if (std::filesystem::exists(manifest_path))
+            throw std::runtime_error("gap audit snapshot exists; use a new directory: " + manifest_path.string());
+        std::ofstream manifest(manifest_path);
+        manifest << "SCHEMA\t1\nCONTIG\t" << contig << "\nCACHE_SIGNATURE\t" << cache_signature
+                 << "\nGAPS\t" << initial_gaps.size() << "\nREFERENCE\t" << opts.ref_fasta
+                 << "\nBAM\t" << opts.primary_bam_file() << "\nGRAPH_SITES\t" << opts.graph_sites_vcf
+                 << "\nMIN_BLOCK_LINK_READS\t" << opts.min_block_link_reads
+                 << "\nSTITCH_RULE\t" << opts.stitch_rule << "\nSTITCH_MARGIN\t" << opts.stitch_min_margin
+                 << "\nMIN_READ_MARGIN\t" << opts.min_read_hap_margin
+                 << "\nGRAPH_BAM\t" << opts.graph_gap_bam << '\n';
+        manifest.close();
+        if (!manifest) throw std::runtime_error("failed writing gap audit manifest: " + manifest_path.string());
+        const auto block_path = std::filesystem::path(opts.gap_decision_audit) /
+            ("tid" + std::to_string(initial_gaps.front().tid) + ".blocks.tsv");
+        const auto member_path = std::filesystem::path(opts.gap_decision_audit) /
+            ("tid" + std::to_string(initial_gaps.front().tid) + ".members.tsv");
+        if (std::filesystem::exists(block_path) || std::filesystem::exists(member_path))
+            throw std::runtime_error("gap block snapshot exists; use a new directory: " + opts.gap_decision_audit);
+        std::ofstream blocks_out(block_path), members_out(member_path);
+        members_out << "INPUT\tREAD\tHP\tPS\n";
+        std::vector<GapReadIndex::Key> members;
+        for (const auto& entry : read_index.assignments) members.push_back(entry.first);
+        std::sort(members.begin(), members.end());
+        std::map<hts_pos_t, std::array<int, 2>> block_counts;
+        for (const auto& key : members) {
+            const auto assignment = read_index.assignments.at(key);
+            members_out << key.first << '\t' << key.second << '\t'
+                        << assignment.first << '\t' << assignment.second << '\n';
+            ++block_counts[assignment.second][assignment.first - 1];
+        }
+        std::map<hts_pos_t, std::pair<hts_pos_t, hts_pos_t>> block_bounds;
+        for (const auto& chunk : chunks)
+            for (const auto& v : chunk.candidates) {
+                if (!block_counts.count(v.phase_set) || v.hap_to_cons_alle[1] < 0 ||
+                    v.hap_to_cons_alle[2] < 0 || v.hap_to_cons_alle[1] == v.hap_to_cons_alle[2]) continue;
+                const auto pos = v.key.sort_pos();
+                auto inserted = block_bounds.emplace(v.phase_set, std::make_pair(pos, pos));
+                inserted.first->second.first = std::min(inserted.first->second.first, pos);
+                inserted.first->second.second = std::max(inserted.first->second.second, pos);
+            }
+        blocks_out << "PS\tBEGIN\tEND\tHP1_READS\tHP2_READS\n";
+        for (const auto& [ps, counts] : block_counts) {
+            const auto found = block_bounds.find(ps);
+            const auto bounds = found == block_bounds.end()
+                ? std::make_pair(static_cast<hts_pos_t>(-1), static_cast<hts_pos_t>(-1)) : found->second;
+            blocks_out << ps << '\t' << bounds.first << '\t' << bounds.second
+                       << '\t' << counts[0] << '\t' << counts[1] << '\n';
+        }
+        blocks_out.close();
+        members_out.close();
+        if (!blocks_out || !members_out)
+            throw std::runtime_error("failed writing gap block snapshot: " + opts.gap_decision_audit);
+        std::atomic<size_t> next_audit{0};
+        std::exception_ptr audit_error;
+        std::mutex audit_error_mutex;
+        std::vector<std::thread> audit_workers;
+        const size_t count = std::min<size_t>(opts.threads, initial_gaps.size());
+        for (size_t wi = 0; wi < count; ++wi) {
+            audit_workers.emplace_back([&]() {
+                try {
+                    while (true) {
+                        const size_t gi = next_audit.fetch_add(1);
+                        if (gi >= initial_gaps.size()) break;
+                        recover_one_hybrid_gap(chunks, opts, contig, chrom_remap,
+                            bam_authority, read_index, initial_gaps[gi], gi, chunks_mutex, *evidence[gi], true);
+                    }
+                } catch (...) {
+                    std::lock_guard<std::mutex> lock(audit_error_mutex);
+                    if (!audit_error) audit_error = std::current_exception();
+                }
+            });
+        }
+        for (auto& worker : audit_workers) worker.join();
+        if (audit_error) std::rethrow_exception(audit_error);
+    }
     size_t wave_count = 0;
     while (!pending.empty()) {
         std::vector<size_t> wave;
@@ -1924,7 +2246,7 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                         results[gap_index] = recover_one_hybrid_gap(
                             chunks, opts, contig, chrom_remap, bam_authority,
                             read_index, initial_gaps[gap_index], gap_index,
-                            chunks_mutex);
+                            chunks_mutex, *evidence[gap_index]);
                     }
                 } catch (...) {
                     std::lock_guard<std::mutex> lock(error_mutex);
@@ -1944,10 +2266,25 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
         if (report) *report << result.report_rows;
     }
     const int edge_conflicts = apply_gap_phase_edges(chunks, edges);
+    const int anchored_sites = anchor_orphan_msa_sites(chunks, opts, &initial_gaps);
     std::cerr << "Gap recovery: " << initial_gaps.size() << " initial gaps, "
               << joined << " joined in " << wave_count << " wave(s) on "
               << contig << ", " << edge_conflicts
               << " conflicting edge(s) rejected\n";
+    std::cerr << "Gap recovery: attached " << anchored_sites
+              << " orphan MSA sites to read-supported blocks\n";
+    if (pending_out != nullptr) {
+        // The caller applies these strictly after the batch's second
+        // stitch_chunk_haps call; read_index must outlive that call, and it
+        // borrows read names from `chunks`, which the caller keeps alive
+        // (batch.chunks) across both calls.
+        pending_out->joined_this_round = joined;
+        pending_out->read_index = std::make_unique<GapReadIndex>(std::move(read_index));
+        for (size_t gi = 0; gi < results.size(); ++gi) {
+            if (!results[gi].has_proposal) continue;
+            pending_out->proposals.emplace_back(initial_gaps[gi], std::move(results[gi].proposal));
+        }
+    }
     std::cerr << "Gap recovery timing: evidence cache "
               << (loaded_cache ? "load " : "build ")
               << std::chrono::duration<double>(cache_end - cache_begin).count()
@@ -2067,9 +2404,113 @@ void run_collect_hybrid_variation(const Options& opts) {
                                       opts.private_msa_admit_all_in_region);
         filter_hybrid_small_phase_sets(batch.chunks, opts.min_phase_set_reads);
         if (opts.recover_gaps) {
-            recover_hybrid_gaps(batch.chunks, opts, graph_query_contig, chrom_remap,
-                                bam_authority_ptr, recovery_report.is_open() ? &recovery_report : nullptr);
-            stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
+            // Emitting an independent block, or bridging a gap, can both
+            // create new, smaller gaps that did not exist in the original
+            // inventory -- e.g. one newly-phased block now sits between an
+            // existing flank and where a bridge previously had nothing to
+            // reach. find_phase_gaps (inside recover_hybrid_gaps) discovers
+            // the current gap inventory fresh each call, so repeating the
+            // whole sequence lets the SAME, already-validated bridge and
+            // independent-block logic reach those new opportunities too,
+            // rather than requiring a separate general stitch solver. Bounded
+            // and terminated on the first round with no progress at all.
+            for (int round = 0; round < opts.gap_recovery_max_rounds; ++round) {
+                // A cache is keyed by a signature over the current gap
+                // inventory; every round after the first changes that
+                // inventory (a newly-independent block splits an old gap
+                // into two smaller ones), which read_gap_evidence_cache
+                // rejects outright as an input mismatch. Only round 0 can
+                // legitimately reuse a cache built for the original gaps.
+                Options round_opts = opts;
+                if (round > 0) round_opts.gap_evidence_cache.clear();
+                PendingIndependentGaps pending;
+                recover_hybrid_gaps(batch.chunks, round_opts, graph_query_contig, chrom_remap,
+                                    bam_authority_ptr, recovery_report.is_open() ? &recovery_report : nullptr,
+                                    &pending);
+                stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
+                // Only after this second stitch call -- which re-examines
+                // block boundaries across the whole batch and would
+                // otherwise be free to re-merge or relabel a block it does
+                // not know is independent -- can a gap-only local split
+                // safely be applied as new, untouchable output. See
+                // PendingIndependentGaps.
+                int independent_gaps = 0, independent_reads = 0;
+                // Index (not pointer) into pending.proposals, so the matching
+                // proposal can be looked up cleanly for the bridge attempt
+                // below without pending.proposals being touched in between.
+                std::vector<std::pair<size_t, hts_pos_t>> emitted;
+                // Adjacent gaps' windows overlap by construction, so two
+                // gaps in this same sequential loop can independently
+                // reconstruct the same leftmost-het phase-set id from
+                // overlapping gap-only read pools. `pending.read_index` is a
+                // whole-batch snapshot frozen before this loop starts, so it
+                // cannot see an id a prior iteration of *this* loop already
+                // claimed -- track that separately and thread it through.
+                std::set<hts_pos_t> emitted_this_round;
+                for (size_t pi = 0; pi < pending.proposals.size(); ++pi) {
+                    auto& [gap, proposal] = pending.proposals[pi];
+                    hts_pos_t chosen_ps = -1;
+                    const int gained = emit_independent_gap_block(
+                        batch.chunks, proposal, gap, opts, *pending.read_index,
+                        opts.gap_independent_min_reads, &chosen_ps, &emitted_this_round);
+                    if (gained > 0) {
+                        ++independent_gaps;
+                        independent_reads += gained;
+                        emitted.emplace_back(pi, chosen_ps);
+                    }
+                }
+                if (independent_gaps > 0 || opts.gap_independent_min_reads > 0)
+                    std::cerr << "Gap recovery: " << independent_gaps
+                              << " gap(s) emitted as new independent blocks, "
+                              << independent_reads << " previously-unphased read(s) phased\n";
+                // Cheap final stitch: try bridging each new block to its own
+                // two flanks as two small sub-gaps, reusing the SAME proposal
+                // (the gap's own local evidence already spans both flanks --
+                // no re-extraction needed) against a read index rebuilt from
+                // the just-updated chunks, so it correctly sees the new
+                // block's reads as assigned to its own phase set. Bounded,
+                // cheap alternative to a full extra recovery round: it can
+                // only ever connect a block just emitted this round, so one
+                // pass suffices and it never risks the unbounded, uncached
+                // re-extraction cost of round > 0.
+                int stitched_independent = 0;
+                if (opts.gap_bridge_independent_blocks && !emitted.empty()) {
+                    const GapReadIndex fresh_index(batch.chunks);
+                    std::vector<GapPhaseEdge> independent_edges;
+                    for (const auto& [pi, chosen_ps] : emitted) {
+                        const PhaseGap& gap = pending.proposals[pi].first;
+                        const PhasingChunk& proposal = pending.proposals[pi].second;
+                        for (const bool right_side : {false, true}) {
+                            PhaseGap sub = gap;
+                            if (right_side) sub.left_ps = chosen_ps;
+                            else sub.right_ps = chosen_ps;
+                            // Deferred: a chain of gap.left_ps <-> chosen_ps
+                            // <-> gap.right_ps must be resolved together by
+                            // one union-find pass below, not by two
+                            // independent immediate renames -- applying the
+                            // left edge's rename first would leave the right
+                            // edge relabelling gap.right_ps's reads to a
+                            // chosen_ps that no longer names anything,
+                            // splitting what should be one merged block into
+                            // two surviving phase-set ids instead of one.
+                            const auto result = stitch_gap_proposal(
+                                batch.chunks, proposal, sub, opts, &fresh_index,
+                                /*defer_phase_set_merge=*/true);
+                            if (result.joined) {
+                                independent_edges.push_back(
+                                    {sub.left_ps, sub.right_ps, result.right_flip});
+                            }
+                        }
+                    }
+                    stitched_independent = static_cast<int>(independent_edges.size());
+                    apply_gap_phase_edges(batch.chunks, independent_edges);
+                }
+                if (stitched_independent > 0)
+                    std::cerr << "Gap recovery: " << stitched_independent
+                              << " newly-independent block/flank edge(s) bridged\n";
+                if (pending.joined_this_round == 0 && independent_gaps == 0 &&
+                    stitched_independent == 0) break;
+            }
             for (auto& chunk : batch.chunks) prune_not_candidate_variants(chunk);
         }
         CandidateTable variants = merge_chunk_candidates(batch.chunks);

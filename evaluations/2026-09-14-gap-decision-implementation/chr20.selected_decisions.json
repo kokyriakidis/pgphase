@@ -1,0 +1,4073 @@
+[
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      890260,
+      1110921,
+      1086625,
+      1110921,
+      1036625,
+      1160921
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 1037388,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            107.0,
+            0.0,
+            0.0,
+            113.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            27.0,
+            0.0,
+            0.0,
+            27.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 1037388,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            107.0,
+            0.0,
+            0.0,
+            113.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            27.0,
+            0.0,
+            0.0,
+            27.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 1037388,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            107.0,
+            0.0,
+            0.0,
+            113.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            27.0,
+            0.0,
+            0.0,
+            27.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 1077579,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            31.0,
+            39.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            27.0,
+            27.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 1077579,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            31.0,
+            39.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            27.0,
+            27.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 1077579,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            31.0,
+            39.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 1110921,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            27.0,
+            27.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 1,
+        "flip": 0,
+        "bridges": [
+          {
+            "molecule": "0:m84031_231217_034919_s2/267651002/ccs",
+            "flip": false,
+            "original_hp": 2,
+            "counts": [
+              [
+                0,
+                2
+              ],
+              [
+                0,
+                1
+              ]
+            ]
+          }
+        ],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.1086625.1110921.evidence.tsv": "49bbcb6a5eecae6c9f827674780d634672c3791b582dff993cc1b7bc791dfa9c",
+      "tid11.1086625.1110921.reads.tsv": "08a9085fe072c33dd2832e9942093126667025d43feaf2e08f3df765990dd401",
+      "tid11.1086625.1110921.votes.tsv": "bbe9b730053562f6f9e9b9f85e5bfd1bd6e4f298da26dace72285e1619045cd9"
+    },
+    "decision": "INSUFFICIENT"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      17521341,
+      17667022,
+      17607780,
+      17667022,
+      17557780,
+      17717022
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 17559224,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            99.0,
+            0.0,
+            0.0,
+            118.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            34.0,
+            0.0,
+            0.0,
+            40.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 17559224,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            99.0,
+            0.0,
+            0.0,
+            118.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            34.0,
+            0.0,
+            0.0,
+            40.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 17559224,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            99.0,
+            0.0,
+            0.0,
+            118.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            34.0,
+            0.0,
+            0.0,
+            40.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 17559224,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            99.0,
+            0.0,
+            0.0,
+            118.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            34.0,
+            0.0,
+            0.0,
+            40.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 17590714,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            30.0,
+            0.0,
+            0.0,
+            22.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            9.0,
+            0.0,
+            0.0,
+            5.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 17590714,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            30.0,
+            0.0,
+            0.0,
+            22.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            9.0,
+            0.0,
+            0.0,
+            5.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 17590714,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            30.0,
+            0.0,
+            0.0,
+            22.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            9.0,
+            0.0,
+            0.0,
+            5.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 17590714,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            30.0,
+            0.0,
+            0.0,
+            22.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 17667022,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            9.0,
+            0.0,
+            0.0,
+            5.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.17607780.17667022.evidence.tsv": "58488d5fd02013e328e94bcbf3aea8269a24bf968d1ffec867642a6c75c406d5",
+      "tid11.17607780.17667022.reads.tsv": "6bb64163aa53893430ac8a7150ee730e7e2ac637da0703717cc2b3350a3a27e0",
+      "tid11.17607780.17667022.votes.tsv": "9505b7f567088131adefa5557df2c77d74e56adddfb88fe015ae3687273d3717"
+    },
+    "decision": "INSUFFICIENT"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      18999993,
+      19395544,
+      19358995,
+      19395544,
+      19308995,
+      19445544
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 19310197,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            47.0,
+            46.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 19395544,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            84.0,
+            0.0,
+            0.0,
+            83.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 19310197,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            47.0,
+            46.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 19395544,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            84.0,
+            0.0,
+            0.0,
+            83.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 19310197,
+        "decision": "FLIP",
+        "same_cost": 93.0,
+        "flip_cost": 0.0,
+        "margin": 93.0,
+        "votes": [
+          [
+            0.0,
+            47.0,
+            46.0,
+            0.0
+          ],
+          [
+            84.0,
+            0.0,
+            0.0,
+            83.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 46.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 19310197,
+        "decision": "FLIP",
+        "same_cost": 93.0,
+        "flip_cost": 0.0,
+        "margin": 93.0,
+        "votes": [
+          [
+            0.0,
+            47.0,
+            46.0,
+            0.0
+          ],
+          [
+            84.0,
+            0.0,
+            0.0,
+            83.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 46.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 19341833,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            3.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 19395544,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            18.0,
+            0.0,
+            0.0,
+            12.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 19341833,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            3.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 19395544,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            18.0,
+            0.0,
+            0.0,
+            12.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 19341833,
+        "decision": "FLIP",
+        "same_cost": 5.0,
+        "flip_cost": 0.0,
+        "margin": 5.0,
+        "votes": [
+          [
+            3.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            18.0,
+            12.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 2.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 19341833,
+        "decision": "FLIP",
+        "same_cost": 5.0,
+        "flip_cost": 0.0,
+        "margin": 5.0,
+        "votes": [
+          [
+            3.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            18.0,
+            12.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 2.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": true,
+        "flip": true
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": true,
+        "flip": true
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": true,
+        "flip": true
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": true,
+        "flip": true
+      }
+    ],
+    "input_sha256": {
+      "tid11.19358995.19395544.evidence.tsv": "a4b8670726f26386687bbd8a25a8e4c3d07e1c36e7c05d6d350290fa62d59909",
+      "tid11.19358995.19395544.reads.tsv": "6fdb32c46967be76b693ddfb00bc04e5d365bc728c3c52a0fb51b99c256c3018",
+      "tid11.19358995.19395544.votes.tsv": "0e57d84e46a65b8bbf1987d0c989d339869c4f4ffdb6849614f5f368b75bdd31"
+    },
+    "decision": "FLIP"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      23008891,
+      23449834,
+      23421003,
+      23449834,
+      23371003,
+      23499834
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 23371208,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            47.0,
+            0.0,
+            0.0,
+            51.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 23371208,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            47.0,
+            0.0,
+            0.0,
+            51.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 23371208,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            47.0,
+            0.0,
+            0.0,
+            51.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 23445252,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 23371208,
+        "decision": "FLIP",
+        "same_cost": 32.0,
+        "flip_cost": 0.0,
+        "margin": 32.0,
+        "votes": [
+          [
+            47.0,
+            0.0,
+            0.0,
+            51.0
+          ],
+          [
+            0.0,
+            15.0,
+            17.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 15.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 23403554,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 23403554,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 23403554,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 23445252,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 23403554,
+        "decision": "INSUFFICIENT",
+        "same_cost": 3.0,
+        "flip_cost": 0.0,
+        "margin": 3.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            15.0,
+            17.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "FLIP",
+        "haplotype_margin": 1.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": true,
+        "flip": true
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.23421003.23449834.evidence.tsv": "b2686da4062712912a772d998ba3ec9fad5584ae1a5d8efa716b859d56eb4c8c",
+      "tid11.23421003.23449834.reads.tsv": "a1df6090abdd37e9bbe18c0cacf0b783e10b15fbc1d1f30e3e175868495d28c1",
+      "tid11.23421003.23449834.votes.tsv": "468390c3199be78aa6ca7b9eb289dec908645a8577405a831a951f29de8d0c2e"
+    },
+    "decision": "FLIP"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      23449834,
+      23481134,
+      23460963,
+      23481134,
+      23410963,
+      23531134
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 23449834,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 32.0,
+        "margin": 32.0,
+        "votes": [
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ],
+          [
+            29.0,
+            0.0,
+            0.0,
+            31.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 15.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 23449834,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 32.0,
+        "margin": 32.0,
+        "votes": [
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ],
+          [
+            29.0,
+            0.0,
+            0.0,
+            31.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 15.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 23445252,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 32.0,
+        "margin": 32.0,
+        "votes": [
+          [
+            15.0,
+            0.0,
+            0.0,
+            17.0
+          ],
+          [
+            29.0,
+            0.0,
+            0.0,
+            31.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 15.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            15.0,
+            17.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 23481134,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            29.0,
+            31.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 23449834,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            15.0,
+            17.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 23481134,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            29.0,
+            31.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 23445252,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            15.0,
+            17.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 23480815,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            29.0,
+            31.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 1,
+        "flip": 0,
+        "bridges": [
+          {
+            "molecule": "0:m84031_231217_062403_s3/150737511/ccs",
+            "flip": false,
+            "original_hp": 0,
+            "counts": [
+              [
+                1,
+                0
+              ],
+              [
+                2,
+                0
+              ]
+            ]
+          }
+        ],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.23460963.23481134.evidence.tsv": "629a3d0871e2045187c534934f0a49607fc2f77e6e8874d57f1aaa2f97f16789",
+      "tid11.23460963.23481134.reads.tsv": "ed1f0695b39e096308c4f6bd234410066396432d94edb0f9eb4de1df757cfed9",
+      "tid11.23460963.23481134.votes.tsv": "5168464ad3038aae2127d652e0281823a70786976aee5d22cbab178dcd194765"
+    },
+    "decision": "SAME"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      37606622,
+      37667751,
+      37642719,
+      37667751,
+      37592719,
+      37717751
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 37606622,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            35.0,
+            20.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 37667751,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            57.0,
+            0.0,
+            0.0,
+            56.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 37606622,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            35.0,
+            20.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 37667751,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            57.0,
+            0.0,
+            0.0,
+            56.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 37606443,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            35.0,
+            20.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 37667751,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            57.0,
+            0.0,
+            0.0,
+            56.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 37606443,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 55.0,
+        "margin": 55.0,
+        "votes": [
+          [
+            0.0,
+            35.0,
+            20.0,
+            0.0
+          ],
+          [
+            0.0,
+            57.0,
+            56.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 20.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 37620744,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 37620744,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 37620744,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 37620744,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.37642719.37667751.evidence.tsv": "2b802bf1deaec171e3414f0e3f91d35e232a4d05cff962d4d35ed278ab1a98de",
+      "tid11.37642719.37667751.reads.tsv": "dfc5615d531f80e830fc499a5ffe17f46b7b83950fb31884b9a025d606b92b06",
+      "tid11.37642719.37667751.votes.tsv": "dd866189bd78629bfe758439b6d3e97f22edc04e8e16482a34ad6f022230213c"
+    },
+    "decision": "SAME"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      55889113,
+      56040612,
+      55999561,
+      56040612,
+      55949561,
+      56090612
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 55949998,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            130.0,
+            0.0,
+            0.0,
+            139.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            21.0,
+            18.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 55949998,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            130.0,
+            0.0,
+            0.0,
+            139.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            21.0,
+            18.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 55949998,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            130.0,
+            0.0,
+            0.0,
+            139.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            21.0,
+            18.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 55949998,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            130.0,
+            0.0,
+            0.0,
+            139.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 56026465,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            21.0,
+            18.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 55999194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            28.0,
+            36.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            16.0,
+            8.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 55999194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            28.0,
+            36.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            16.0,
+            8.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 55998530,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            28.0,
+            36.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 56040612,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            16.0,
+            8.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 55998530,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            28.0,
+            36.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 56026465,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            16.0,
+            8.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": false,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.55999561.56040612.evidence.tsv": "b531987768ae4befb79f051a2612b7e12ece0a36ab555658b7c15b8196a7b2e9",
+      "tid11.55999561.56040612.reads.tsv": "3cdce7364fec4d6a3647967d547adda7f53f56db9e35381bce70e08595a0d430",
+      "tid11.55999561.56040612.votes.tsv": "114898f0477230a0ac653a13d222882388c4d72edc5d1c45b50f2da9eb15326d"
+    },
+    "decision": "INSUFFICIENT"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      57836194,
+      57866713,
+      57841772,
+      57866713,
+      57791772,
+      57916713
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            32.0,
+            0.0,
+            0.0,
+            31.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            52.0,
+            0.0,
+            0.0,
+            52.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            32.0,
+            0.0,
+            0.0,
+            31.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            52.0,
+            0.0,
+            0.0,
+            52.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            32.0,
+            0.0,
+            0.0,
+            31.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            52.0,
+            0.0,
+            0.0,
+            52.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 57836194,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 63.0,
+        "margin": 63.0,
+        "votes": [
+          [
+            32.0,
+            0.0,
+            0.0,
+            31.0
+          ],
+          [
+            52.0,
+            0.0,
+            0.0,
+            52.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 31.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            22.0,
+            26.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            32.0,
+            0.0,
+            0.0,
+            26.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            22.0,
+            26.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            32.0,
+            0.0,
+            0.0,
+            26.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 57836194,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            22.0,
+            26.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 57866713,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            32.0,
+            0.0,
+            0.0,
+            26.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 57836194,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 48.0,
+        "margin": 48.0,
+        "votes": [
+          [
+            0.0,
+            22.0,
+            26.0,
+            0.0
+          ],
+          [
+            0.0,
+            32.0,
+            26.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 22.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 5,
+        "flip": 3,
+        "bridges": [
+          {
+            "molecule": "0:m84031_231217_034919_s2/245700454/ccs",
+            "flip": false,
+            "original_hp": 0,
+            "counts": [
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_034919_s2/39390585/ccs",
+            "flip": false,
+            "original_hp": 2,
+            "counts": [
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                1
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_034919_s2/111347505/ccs",
+            "flip": true,
+            "original_hp": 0,
+            "counts": [
+              [
+                1,
+                0
+              ],
+              [
+                0,
+                1
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_034919_s2/208669197/ccs",
+            "flip": true,
+            "original_hp": 0,
+            "counts": [
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_062403_s3/11080413/ccs",
+            "flip": false,
+            "original_hp": 2,
+            "counts": [
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                1
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_062403_s3/131269058/ccs",
+            "flip": false,
+            "original_hp": 1,
+            "counts": [
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_034919_s2/10884692/ccs",
+            "flip": true,
+            "original_hp": 1,
+            "counts": [
+              [
+                0,
+                1
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          },
+          {
+            "molecule": "0:m84031_231217_062403_s3/199888887/ccs",
+            "flip": false,
+            "original_hp": 1,
+            "counts": [
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                0
+              ]
+            ]
+          }
+        ],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": true,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.57841772.57866713.evidence.tsv": "6d90e8d31d2155233b1953651c14d7e29e7c84851391c6211b72b028e0ce257d",
+      "tid11.57841772.57866713.reads.tsv": "9977b0ed38f7d87c2f6f2ace7ce126240abd2bb06bf2c06b5cd593766aabbc4a",
+      "tid11.57841772.57866713.votes.tsv": "3fe388f076c03c498eb661c98129bb7cb3284fae382660d43c76b815683e4a47"
+    },
+    "decision": "SAME"
+  },
+  {
+    "snapshot": "/tmp/pgphase-decision-audit-chr20/audit",
+    "gap": [
+      11,
+      62385548,
+      62432427,
+      62408056,
+      62432427,
+      62358056,
+      62482427
+    ],
+    "proposals": [
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 62385548,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            87.0,
+            70.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 1,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            116.0,
+            0.0,
+            0.0,
+            113.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 62385548,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            87.0,
+            70.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            116.0,
+            0.0,
+            0.0,
+            113.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 62385548,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            87.0,
+            70.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            116.0,
+            0.0,
+            0.0,
+            113.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "ps": 62385548,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 157.0,
+        "margin": 157.0,
+        "votes": [
+          [
+            0.0,
+            87.0,
+            70.0,
+            0.0
+          ],
+          [
+            0.0,
+            116.0,
+            113.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 70.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 62389771,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            45.0,
+            0.0,
+            0.0,
+            32.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            24.0,
+            0.0,
+            0.0,
+            24.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 62389771,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            45.0,
+            0.0,
+            0.0,
+            32.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            24.0,
+            0.0,
+            0.0,
+            24.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 62389771,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            45.0,
+            0.0,
+            0.0,
+            32.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "ps": 62432427,
+        "decision": "INSUFFICIENT",
+        "same_cost": 0.0,
+        "flip_cost": 0.0,
+        "margin": 0.0,
+        "votes": [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            24.0,
+            0.0,
+            0.0,
+            24.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "INSUFFICIENT",
+        "haplotype_margin": 0.0
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "ps": 62389771,
+        "decision": "SAME",
+        "same_cost": 0.0,
+        "flip_cost": 48.0,
+        "margin": 48.0,
+        "votes": [
+          [
+            45.0,
+            0.0,
+            0.0,
+            32.0
+          ],
+          [
+            24.0,
+            0.0,
+            0.0,
+            24.0
+          ]
+        ],
+        "reversing_molecules": [],
+        "support_critical_molecules": [],
+        "raw_decision": "SAME",
+        "haplotype_margin": 24.0
+      }
+    ],
+    "direct_observations": {
+      "hybrid": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      },
+      "graph": {
+        "same": 0,
+        "flip": 0,
+        "bridges": [],
+        "ambiguous_molecules": []
+      }
+    },
+    "legacy_trials": [
+      {
+        "view": 0,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 0,
+        "tier": 4,
+        "joined": true,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 1,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 2,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 3,
+        "joined": false,
+        "flip": false
+      },
+      {
+        "view": 1,
+        "tier": 4,
+        "joined": true,
+        "flip": false
+      }
+    ],
+    "input_sha256": {
+      "tid11.62408056.62432427.evidence.tsv": "cf83f36157bdf5cae05d7ad8f50a2d54968aca2a777f661bfd209f79cd710e5a",
+      "tid11.62408056.62432427.reads.tsv": "d090cd07ab1e0e5ed89778bbba8e1db97a7f24a50e930378afa5b63cd0c4b969",
+      "tid11.62408056.62432427.votes.tsv": "bf88c7550cdeb072bf35928c8284236ae9ea178e694454e66be2087400bf351f"
+    },
+    "decision": "SAME"
+  }
+]

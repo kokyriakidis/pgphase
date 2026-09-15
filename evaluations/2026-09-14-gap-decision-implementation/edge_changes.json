@@ -1,0 +1,46 @@
+{
+  "added": [
+    {
+      "CHROM": "CHM13#0#chr20",
+      "GAP_LEFT": "57841772",
+      "GAP_RIGHT": "57866713",
+      "TIER": "4",
+      "WINDOW_BEG": "57791772",
+      "WINDOW_END": "57916713",
+      "NEW_SITES": "0",
+      "MSA_HET_SNPS": "0",
+      "MSA_HET_INDELS": "7",
+      "LEFT_LINK": "1",
+      "RIGHT_LINK": "1",
+      "READS_ADDED": "0",
+      "RECOVERY_FLIP": "0",
+      "GRAPH_OBSERVATIONS": "105333",
+      "GRAPH_CONFLICTS": "134",
+      "GRAPH_BAM_PASS": "0",
+      "SELECTED_GRAPH_READS": "0",
+      "STATUS": "joined"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "GAP_LEFT": "62408056",
+      "GAP_RIGHT": "62432427",
+      "TIER": "4",
+      "WINDOW_BEG": "62358056",
+      "WINDOW_END": "62482427",
+      "NEW_SITES": "0",
+      "MSA_HET_SNPS": "0",
+      "MSA_HET_INDELS": "6",
+      "LEFT_LINK": "1",
+      "RIGHT_LINK": "1",
+      "READS_ADDED": "0",
+      "RECOVERY_FLIP": "0",
+      "GRAPH_OBSERVATIONS": "112559",
+      "GRAPH_CONFLICTS": "223",
+      "GRAPH_BAM_PASS": "0",
+      "SELECTED_GRAPH_READS": "0",
+      "STATUS": "joined"
+    }
+  ],
+  "lost": [],
+  "changed": []
+}

@@ -15,6 +15,7 @@
 #include "collect_phase_noisy.hpp"
 #include "collect_types.hpp"
 #include "gap_recovery.hpp"
+#include "gap_evidence.hpp"
 
 #include <cstdio>
 #include <numeric>
@@ -253,6 +254,15 @@ static bool test_private_msa_merge_admits_only_whitelist() {
     chunk.reads.push_back(min_read());
     chunk.candidates.push_back(
         noisy_merge_cand(100, VariantCategory::RepeatHetIndel, 3));
+    chunk.candidates[0].graph_site = true;
+    ReadVariantProfile original;
+    original.start_var_idx = original.end_var_idx = 0;
+    original.alleles = {0};
+    original.alt_qi = {kGraphConfirmedAltQi};
+    original.bam_alleles = {-2};
+    original.bam_qi = {12};
+    original.graph_alleles = {0};
+    chunk.read_var_profile.push_back(original);
 
     std::vector<CandidateVariant> msa_vars = {
         noisy_merge_cand(100, VariantCategory::NoisyCandHet, 8),
@@ -280,6 +290,11 @@ static bool test_private_msa_merge_admits_only_whitelist() {
                 "whitelisted repeat collision replaced by MSA call");
     ok &= check(chunk.candidates[0].counts.alt_cov == 8,
                 "MSA counts replace repeat candidate counts");
+    ok &= check(chunk.candidates[0].graph_site &&
+                chunk.read_var_profile[0].bam_alleles == std::vector<int>({-2, -1}) &&
+                chunk.read_var_profile[0].bam_qi == std::vector<int>({12, -1}) &&
+                chunk.read_var_profile[0].graph_alleles == std::vector<int>({0, -1}),
+                "MSA replacement retains catalog identity and conflicting source history");
     ok &= check(chunk.candidates[0].counts.candvarcate_initial ==
                     VariantCategory::RepeatHetIndel,
                 "repeat candidate provenance preserved");
@@ -548,6 +563,97 @@ static bool test_read_phase_set_ignores_non_scoring_repeat() {
     return ok;
 }
 
+static bool test_msa_edge_requires_both_haplotype_votes() {
+    bool ok = true;
+    for (int mode = 0; mode < 8; ++mode) {
+        const bool consistent = mode & 1;
+        PhasingChunk chunk;
+        for (int i = 0; i < 2; ++i) {
+            auto var = dummy_cand(100 + 100 * i);
+            var.key.pos = 100 + 100 * i;
+            var.key.type = i ? VariantType::Insertion : VariantType::Snp;
+            var.key.alt = i ? "AC" : "T";
+            var.lcd_var_i_to_cate = i ? kCandNoisyCandHet : kCandCleanHetSnp;
+            var.msa_verified = var.gap_link_supported = i;
+            var.hap_to_cons_alle = {-1, 0, 1};
+            if (i && (mode & 2)) std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
+            chunk.candidates.push_back(var);
+        }
+        chunk.read_var_cr.reset(cr_init());
+        // Pooled 9:3 support favors a join, but the second haplotype opposes
+        // that orientation 3:1. Increasing reference depth cannot resolve it.
+        for (int i = 0; i < 12; ++i) {
+            auto read = min_read();
+            read.qname = "allele" + std::to_string(i);
+            chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {i >= 8 ? 1 : 0, (consistent ? i >= 8 : i == 11) ? 1 : 0};
+            if (mode & 4) std::swap(profile.alleles[0], profile.alleles[1]);
+            profile.alt_qi.assign(2, -1);
+            chunk.read_var_profile.push_back(profile);
+            cr_add(chunk.read_var_cr.get(), "cr", 0, 2, i);
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.recover_gaps = opts.private_msa_admit_all_in_region = opts.link_by_alleles = true;
+        opts.gap_recovery_beg = 150;
+        opts.gap_recovery_end = 250;
+        opts.min_block_link_reads = 2;
+        iter_update_var_hap_cons_phase_set(chunk, {0, 1}, opts);
+        ok &= check((chunk.candidates[0].phase_set == chunk.candidates[1].phase_set) == consistent,
+                    "pooled reference depth cannot override contradictory MSA allele linkage");
+    }
+    return ok;
+}
+
+static bool test_recovery_rejects_unsupported_biallelic_indel() {
+    bool ok = true;
+    for (int mode = 0; mode < 2; ++mode) {
+        const bool supported = mode != 0;
+        PhasingChunk chunk;
+        for (int i = 0; i < 3; ++i) {
+            auto var = dummy_cand(100 + 100 * i);
+            var.key.pos = 100 + 100 * i;
+            var.key.type = i == 1 ? VariantType::Insertion : VariantType::Snp;
+            var.key.alt = i == 1 ? "AC" : "T";
+            var.lcd_var_i_to_cate = i == 1 ? kCandNoisyCandHet : kCandCleanHetSnp;
+            var.msa_verified = i == 1;
+            var.gap_link_supported = supported;
+            var.hap_to_cons_alle = {-1, 0, 1};
+            chunk.candidates.push_back(var);
+        }
+        chunk.read_var_cr.reset(cr_init());
+        // Separate read groups overlap the candidate bridge, never both flanks.
+        // A rejected site must not connect them merely through reference reads.
+        for (int i = 0; i < 8; ++i) {
+            auto read = min_read();
+            read.qname = "bridge" + std::to_string(i);
+            chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 2;
+            const int allele = supported ? i % 2 : 0;
+            const int flank_allele = supported ? i % 2 : (i % 4 == 3 ? 1 : 0);
+            profile.alleles = {i < 4 ? flank_allele : -1, allele, i >= 4 ? flank_allele : -1};
+            profile.alt_qi.assign(3, -1);
+            chunk.read_var_profile.push_back(profile);
+            cr_add(chunk.read_var_cr.get(), "cr", 0, 3, i);
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.recover_gaps = opts.private_msa_admit_all_in_region = opts.link_by_alleles = true;
+        opts.gap_recovery_beg = 150;
+        opts.gap_recovery_end = 250;
+        opts.min_block_link_reads = 2;
+        iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
+        ok &= check((chunk.candidates[0].phase_set == chunk.candidates[2].phase_set) == (mode == 1),
+                    "recovery honors MSA bridge validation");
+    }
+    return ok;
+}
+
 static bool test_repeat_anchor_prefers_complete_evidence() {
     PhasingChunk chunk;
     for (int i = 0; i < 3; ++i) {
@@ -670,12 +776,28 @@ static bool test_gap_recovery_join_preserves_blocks() {
                     "find internal gaps across chunk boundaries");
     Options opts;
     opts.stitch_rule = kStitchRuleBothStrands;
+    std::vector<GapLinkEvidence> evidence;
     const auto edge_only = stitch_gap_proposal(chunks, proposal, gaps[0], opts,
-                                               nullptr, true, true);
+                                               nullptr, true, true, &evidence);
+    ok &= check(evidence.size() == 1 && evidence[0].proposal_ps == 200 &&
+                evidence[0].votes[0] == std::array<int, 4>{1, 0, 0, 1} &&
+                evidence[0].votes[1] == std::array<int, 4>{0, 1, 1, 0},
+                "read-only audit preserves both original flank vote matrices");
     ok &= check(edge_only.joined && edge_only.right_flip && edge_only.reads_added == 0 &&
                 chunks[0].haps == std::vector<int>({1, 2, 0}) &&
                 chunks[1].phase_sets == std::vector<hts_pos_t>({300, 300, 500}),
                 "orientation-only recovery reports a flip without changing reads or blocks");
+    Options hp_opts = opts;
+    hp_opts.gap_hp_link_beg = gaps[0].left_end;
+    hp_opts.gap_hp_link_end = gaps[0].right_beg;
+    hp_opts.min_block_link_reads = 1;
+    const auto hp_edge = stitch_gap_proposal(chunks, proposal, gaps[0], hp_opts,
+                                            nullptr, true, true);
+    ok &= check(hp_edge.joined && hp_edge.right_flip && hp_edge.reads_added == 0 &&
+                chunks[0].haps == std::vector<int>({1, 2, 0}) &&
+                chunks[1].phase_sets == std::vector<hts_pos_t>({300, 300, 500}) &&
+                chunks[0].candidates.size() == 1,
+                "homopolymer confirmation cannot mutate either flank before acceptance");
     const auto result = stitch_gap_proposal(chunks, proposal, gaps[0], opts);
     ok &= check(result.joined && result.reads_added == 1, "bridge joins both flanks and adds an unphased read");
     ok &= check(chunks[0].haps == std::vector<int>({1, 2, 1}), "left block orientation retained");
@@ -1283,7 +1405,50 @@ static bool test_msa_snp_backfills_all_bam_reads() {
                  "MSA SNP and exact indel observations are backfilled from BAM reads");
 }
 
-static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
+static bool test_gap_backfill_preserves_homozygous_calls() {
+    bool ok = true;
+    for (int mode = 0; mode < 2; ++mode) {
+        PhasingChunk chunk;
+        CandidateVariant var;
+        var.key.pos = 200;
+        var.key.type = VariantType::Deletion;
+        var.key.ref_len = 1;
+        var.msa_verified = true;
+        var.is_homopolymer_indel = mode == 1;
+        var.counts.category = VariantCategory::NoisyCandHom;
+        var.lcd_var_i_to_cate = kCandNoisyCandHom;
+        chunk.candidates.push_back(var);
+        for (int ri = 0; ri < 4; ++ri) {
+            auto read = min_read();
+            read.qname = std::to_string(ri);
+            read.mapq = 60;
+            read.alignment.reset(bam_init1());
+            const bool deletion = ri >= 2;
+            const std::string sequence(deletion ? 200 : 201, 'A');
+            const std::vector<uint32_t> cigar = deletion
+                ? std::vector<uint32_t>{bam_cigar_gen(100, BAM_CMATCH),
+                    bam_cigar_gen(1, BAM_CDEL), bam_cigar_gen(100, BAM_CMATCH)}
+                : std::vector<uint32_t>{bam_cigar_gen(201, BAM_CMATCH)};
+            bam_set1(read.alignment.get(), 7, "backfill", 0, 0, 99, 60,
+                     cigar.size(), cigar.data(), -1, -1, 0,
+                     sequence.size(), sequence.c_str(), nullptr, 0);
+            std::fill(bam_get_qual(read.alignment.get()),
+                      bam_get_qual(read.alignment.get()) + sequence.size(), 40);
+            chunk.reads.push_back(std::move(read));
+            chunk.read_var_profile.emplace_back();
+        }
+        Options opts;
+        opts.min_alt_depth = 2;
+        ok &= check(backfill_msa_observations(chunk, opts, 150, 250) == 0,
+                    "ordinary backfill leaves homozygous candidates alone");
+        ok &= check(chunk.candidates[0].lcd_var_i_to_cate == kCandNoisyCandHom &&
+                    chunk.candidates[0].is_homopolymer_indel == (mode == 1),
+                    "confirmation cannot promote a sparse genotype or remove its repeat flag");
+    }
+    return ok;
+}
+
+static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion(int mode = 0) {
     PhasingChunk chunk;
     chunk.ref_beg = 1;
     chunk.ref_end = 400;
@@ -1309,28 +1474,40 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
     insertion.msa_verified = true;
     insertion.gap_link_supported = true;
     insertion.hap_to_cons_alle = {-1, 1, 2};
+    if (mode == 2) {
+        insertion.key.alt = "T";
+        insertion.msa_insertion_alts = {"T", "TT"};
+    }
 
-    const std::vector<std::vector<int>> alleles = {
+    std::vector<std::vector<int>> alleles = {
         {0, 1, -1}, {1, 2, -1}, {-1, -1, 0}, {-1, -1, 1},
         {-1, 1, 1}, {-1, 1, 1}};
+    if (mode > 0) alleles.pop_back();
     chunk.read_var_cr.reset(cr_init());
     for (size_t ri = 0; ri < alleles.size(); ++ri) {
         auto read = min_read();
         read.mapq = 60;
-        if (ri >= alleles.size() - 2) {
+        if (ri >= 4) {
             read.alignment.reset(bam_init1());
-            std::string sequence(104, 'A');
-            sequence[6] = 'C';
-            sequence[7] = 'T';
+            std::string sequence(mode == 2 ? 103 : 104, 'A');
+            if (mode == 2) sequence[1] = 'T';
+            else { sequence[6] = 'C'; sequence[7] = 'T'; }
             sequence.back() = 'T';
             const std::array<uint32_t, 3> cigar = {
-                bam_cigar_gen(6, BAM_CMATCH), bam_cigar_gen(2, BAM_CINS),
-                bam_cigar_gen(96, BAM_CMATCH)};
+                bam_cigar_gen(mode == 2 ? 1 : 6, BAM_CMATCH),
+                bam_cigar_gen(mode == 2 ? 1 : 2, BAM_CINS),
+                bam_cigar_gen(mode == 2 ? 101 : 96, BAM_CMATCH)};
             bam_set1(read.alignment.get(), 7, "msaedge", 0, 0, 198, 60,
                      cigar.size(), cigar.data(),
                      -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
             std::fill(bam_get_qual(read.alignment.get()),
-                      bam_get_qual(read.alignment.get()) + sequence.size(), 40);
+                      bam_get_qual(read.alignment.get()) + sequence.size(), mode == 3 ? 10 : 40);
+            if (mode >= 4) {
+                auto* quality = bam_get_qual(read.alignment.get());
+                quality[5] = 22;
+                quality[7] = mode == 6 ? 19 : mode == 7 ? 255 : 22;
+                if (mode == 5) quality[6] = 22;
+            }
         }
         chunk.reads.push_back(std::move(read));
         ReadVariantProfile profile;
@@ -1347,8 +1524,9 @@ static bool test_gap_bridge_uses_equivalent_shifted_msa_insertion() {
     opts.min_block_link_reads = 2;
     opts.block_link_window = 8;
     iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2}, opts);
-    return check(chunk.candidates[0].phase_set == chunk.candidates[2].phase_set,
-                 "two shifted but sequence-equivalent MSA insertion reads can bridge phase components");
+    const bool joined = chunk.candidates[0].phase_set == chunk.candidates[2].phase_set;
+    return check(joined == (mode < 2 || mode == 4),
+                 "singleton MSA insertion bridges require separated alleles and confident BAM support");
 }
 
 static bool test_gap_bridge_validates_msa_deletion() {
@@ -1421,9 +1599,124 @@ static bool test_gap_bridge_validates_msa_deletion() {
     return ok;
 }
 
+static bool test_orphan_msa_site_uses_stitched_read_orientation() {
+    bool ok = true;
+    for (int mode = 0; mode < 4; ++mode) {
+        std::vector<PhasingChunk> chunks(1);
+        auto& chunk = chunks.front();
+        chunk.region.tid = 0;
+        CandidateVariant var;
+        var.key.pos = 200;
+        var.key.type = VariantType::Insertion;
+        var.key.alt = "C";
+        var.msa_insertion_alts = {"C", "CC"};
+        var.msa_verified = mode != 3;
+        var.hap_to_cons_alle = {-1, 1, 2};
+        var.phase_set = mode == 2 ? 100 : 200;
+        chunk.candidates.push_back(var);
+        chunk.read_var_cr.reset(cr_init());
+        for (int ri = 0; ri < 4; ++ri) {
+            auto read = min_read();
+            read.qname = std::to_string(ri);
+            chunk.reads.push_back(std::move(read));
+            chunk.haps.push_back(ri < 2 ? 1 : 2);
+            chunk.phase_sets.push_back(100);
+            ReadVariantProfile profile;
+            profile.start_var_idx = profile.end_var_idx = 0;
+            profile.alleles = {ri < 2 || mode == 1 ? 2 : 1};
+            chunk.read_var_profile.push_back(std::move(profile));
+            cr_add(chunk.read_var_cr.get(), "cr", 0, 1, ri);
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.min_block_link_reads = 2;
+        const int attached = anchor_orphan_msa_sites(chunks, opts);
+        ok &= check(attached == (mode == 0 ? 1 : 0),
+                    "only verified orphan sites with support on both haplotypes are attached");
+        if (mode == 0)
+            ok &= check(chunk.candidates[0].phase_set == 100 &&
+                        chunk.candidates[0].hap_to_cons_alle[1] == 2 &&
+                        chunk.candidates[0].hap_to_cons_alle[2] == 1,
+                        "alternate/alternate site orientation follows the stitched reads");
+        ok &= check(chunk.haps == std::vector<int>({1, 1, 2, 2}) &&
+                    chunk.phase_sets == std::vector<hts_pos_t>({100, 100, 100, 100}),
+                    "orphan attachment does not change read assignments");
+    }
+    return ok;
+}
+
+static bool test_gap_bridge_separates_indel_boundary_signal() {
+    bool ok = true;
+    for (int mode = 0; mode < 4; ++mode) {
+        PhasingChunk chunk;
+        const std::array<int, 5> positions{100, 200, 300, mode == 1 ? 350 : 301, 400};
+        for (const auto pos : positions) {
+            CandidateVariant var;
+            var.key.pos = pos;
+            var.key.type = VariantType::Snp;
+            var.key.ref_len = 1;
+            var.key.alt = "T";
+            var.ref_base = 0;
+            var.lcd_var_i_to_cate = kCandCleanHetSnp;
+            var.hap_to_cons_alle = {-1, 0, 1};
+            chunk.candidates.push_back(var);
+        }
+        auto& insertion = chunk.candidates[1];
+        insertion.key.type = VariantType::Insertion;
+        insertion.key.ref_len = 0;
+        insertion.msa_verified = insertion.gap_link_supported = true;
+        insertion.lcd_var_i_to_cate = kCandNoisyCandHet;
+        auto& deletion = chunk.candidates[2];
+        deletion.key.type = VariantType::Deletion;
+        deletion.key.alt.clear();
+        deletion.msa_verified = mode != 2;
+        deletion.gap_link_supported = true;
+        deletion.lcd_var_i_to_cate = kCandNoisyCandHet;
+        const std::vector<std::vector<int>> alleles = {
+            {0, 0, -1, -1, -1}, {1, 1, -1, -1, -1},
+            {-1, -1, 0, 0, 0}, {-1, -1, 1, 1, 1},
+            {-1, 0, 0, 0, 1}};
+        chunk.read_var_cr.reset(cr_init());
+        for (size_t ri = 0; ri < alleles.size(); ++ri) {
+            auto read = min_read();
+            read.mapq = 60;
+            if (ri == 4) {
+                read.alignment.reset(bam_init1());
+                std::string sequence(202, 'A');
+                sequence.back() = 'T';
+                const uint32_t cigar = bam_cigar_gen(sequence.size(), BAM_CMATCH);
+                bam_set1(read.alignment.get(), 6, "bridge", 0, 0, 198, 60, 1, &cigar,
+                         -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
+                std::fill(bam_get_qual(read.alignment.get()),
+                          bam_get_qual(read.alignment.get()) + sequence.size(), 40);
+                if (mode == 3) bam_get_qual(read.alignment.get())[sequence.size() - 1] = 10;
+            }
+            chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 4;
+            profile.alleles = alleles[ri];
+            chunk.read_var_profile.push_back(std::move(profile));
+            cr_add(chunk.read_var_cr.get(), "cr", 0, 5, ri);
+        }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.link_by_alleles = opts.recover_gaps = opts.private_msa_admit_all_in_region = true;
+        opts.min_block_link_reads = 2;
+        iter_update_var_hap_cons_phase_set(chunk, {0, 1, 2, 3, 4}, opts);
+        const bool joined = chunk.candidates[0].phase_set == chunk.candidates[4].phase_set;
+        ok &= check(joined == (mode == 0),
+                    "indel-boundary signal cannot veto a separate confident clean SNP bridge");
+        if (joined)
+            ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[4].hap_to_cons_alle[1],
+                        "indel-boundary rescue uses the independent SNP orientation");
+    }
+    return ok;
+}
+
 static bool test_gap_clean_block_bridge() {
     bool ok = true;
-    for (int mode = 0; mode < 10; ++mode) {
+    for (int mode = 0; mode < 11; ++mode) {
         PhasingChunk chunk;
         for (int vi = 0; vi < 4; ++vi) {
             CandidateVariant var;
@@ -1455,13 +1748,14 @@ static bool test_gap_clean_block_bridge() {
                 const int quality = mode == 4 ? 40 : mode == 6 ? 22 : 10;
                 std::fill(bam_get_qual(read.alignment.get()),
                           bam_get_qual(read.alignment.get()) + sequence.size(), quality);
+                if (mode == 10) bam_get_qual(read.alignment.get())[200] = 40;
             }
             chunk.reads.push_back(std::move(read));
             ReadVariantProfile profile;
             profile.start_var_idx = 0; profile.end_var_idx = 3;
             profile.alleles = alleles[ri];
             profile.alt_qi.assign(4, -1);
-            if (ri == 4 && (mode == 8 || mode == 9)) {
+            if (ri == 4 && (mode == 8 || mode == 9 || mode == 10)) {
                 profile.alt_qi[0] = kGraphConfirmedAltQi;
                 if (mode == 8) profile.alt_qi[2] = kGraphConfirmedAltQi;
             }
@@ -1477,7 +1771,7 @@ static bool test_gap_clean_block_bridge() {
         const std::string bridge_message =
             "singleton block bridge requires strong clean SNPs or graph confirmation on both flanks (mode " +
             std::to_string(mode) + ")";
-        ok &= check(joined == (mode == 0 || mode == 4 || mode == 8),
+        ok &= check(joined == (mode == 0 || mode == 4 || mode == 8 || mode == 10),
                     bridge_message.c_str());
         if (joined) {
             ok &= check(chunk.candidates[0].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[1],
@@ -1557,18 +1851,134 @@ static bool test_graph_gap_uses_bam_nucleotide() {
                  "graph selects the read, but BAM supplies its nucleotide");
 }
 
+static PhasingChunk gap_evidence_fixture(bool permute = false) {
+    PhasingChunk chunk;
+    chunk.region.tid = 0;
+    chunk.region.beg = chunk.ref_beg = 50;
+    chunk.region.end = chunk.ref_end = 350;
+    chunk.ref_seq.assign(301, 'A');
+    for (const int pos : {80, 100, 150, 200, 220, 290, 300}) {
+        auto var = dummy_cand(pos);
+        var.key = {0, pos, VariantType::Snp, 1, "T"};
+        var.ref_base = 0;
+        var.lcd_var_i_to_cate = kCandCleanHetSnp;
+        var.counts.total_cov = 999;
+        if (pos == 100 || pos == 300) {
+            var.graph_site = true;
+            var.phase_set = pos;
+            var.hap_to_cons_alle = {-1, 0, 1};
+        }
+        if (pos == 200) {
+            var.key.type = VariantType::Insertion;
+            var.key.ref_len = 0;
+            var.msa_verified = true;
+            var.lcd_var_i_to_cate = kCandNoisyCandHet;
+            var.msa_insertion_alts = permute ? std::vector<std::string>{"T", "GT"} : std::vector<std::string>{"GT", "T"};
+        }
+        if (pos == 220) {
+            var.key.type = VariantType::Insertion;
+            var.key.alt = "CG"; // a replacement, not a pure insertion
+        }
+        if (pos == 290) {
+            var.key.type = VariantType::Deletion;
+            var.key.ref_len = 20;
+            var.key.alt.clear();
+        }
+        chunk.candidates.push_back(var);
+    }
+    for (int i = 0; i < 2; ++i) {
+        auto read = min_read();
+        read.qname = "molecule" + std::to_string(i);
+        read.tid = 0;
+        read.mapq = 60;
+        read.beg = 50; read.end = 350;
+        read.alignment.reset(bam_init1());
+        const std::string sequence(301, 'A');
+        const uint32_t cigar = bam_cigar_gen(301, BAM_CMATCH);
+        bam_set1(read.alignment.get(), read.qname.size(), read.qname.c_str(), 0, 0, 49, 60,
+                 1, &cigar, -1, -1, 0, sequence.size(), sequence.c_str(), nullptr, 0);
+        std::fill(bam_get_qual(read.alignment.get()), bam_get_qual(read.alignment.get()) + 301, 40);
+        chunk.reads.push_back(std::move(read));
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0; profile.end_var_idx = 6;
+        profile.alleles = {1, 0, 1, permute ? 2 - i : 1 + i, 1, 1, 1};
+        profile.alt_qi.assign(7, kGraphConfirmedAltQi);
+        profile.bam_alleles = {1, 1, 1, 1, -1, -1, 0};
+        profile.bam_qi.assign(7, 50);
+        profile.graph_alleles = {-1, 0, -1, -1, -1, -1, 1};
+        chunk.read_var_profile.push_back(profile);
+    }
+    return chunk;
+}
+
+static bool test_gap_evidence_scope_and_sources() {
+    const PhaseGap gap{0, 100, 300, 100, 300, 50, 350};
+    const GapEvidence evidence(gap_evidence_fixture(), gap);
+    const GapEvidence permuted(gap_evidence_fixture(true), gap);
+    auto projected = evidence.project();
+    bool ok = check(projected.candidates.size() == 4, "only gap-owned private events and graph anchors enter projection");
+    ok &= check(evidence.events().size() == 6 && evidence.events()[3].role == GapEventRole::Unsupported &&
+                evidence.events()[4].role == GapEventRole::Boundary,
+                "complex and boundary events retain explicit non-projectable records");
+    ok &= check(projected.candidates[0].key.pos == 100 && projected.candidates.back().key.pos == 300,
+                "flank extraction context does not admit the outside-gap private SNP");
+    ok &= check(evidence.events()[2].alleles == std::vector<std::string>({"", "T", "GT"}) &&
+                evidence.events()[2].id == permuted.events()[2].id,
+                "canonical event identity is invariant to MSA allele dictionary order");
+    ok &= check(projected.read_var_profile[0].alleles == std::vector<int>({0, 1, 2, 1}) &&
+                projected.read_var_profile[0].bam_alleles == std::vector<int>({1, 1, 1, 0}) &&
+                projected.read_var_profile[0].alleles == permuted.project().read_var_profile[0].alleles,
+                "source-local allele IDs map by sequence and disagreements survive projection");
+    ok &= check(evidence.observations()[0].bam.query_index == 50 &&
+                evidence.observations()[0].bam.base_quality == 40 &&
+                evidence.observations()[0].graph.index == 0,
+                "graph confirmation preserves original BAM coordinate and quality");
+    ok &= check(projected.candidates[2].counts.total_cov == 2 &&
+                projected.candidates[2].counts.alle_covs == std::vector<int>({0, 1, 1}),
+                "counts derive from projected molecules, including genotype 1/2");
+    projected.read_var_profile[0].alleles[0] = 99;
+    projected.candidates[0].phase_set = 999;
+    const auto replay = evidence.project();
+    ok &= check(replay.read_var_profile[0].alleles[0] == 0 && replay.candidates[0].phase_set == 100 &&
+                replay.haps == std::vector<int>({0, 0}), "rephasing cannot modify immutable gap evidence");
+    const auto bam_view = evidence.project(Options{}, true);
+    ok &= check(bam_view.read_var_profile[0].alleles[0] == 1 &&
+                bam_view.read_var_profile[0].graph_alleles[0] == 0,
+                "BAM-only views reuse stored observations without erasing graph conflicts");
+    const auto second = evidence.project();
+    for (size_t i = 0; i < second.candidates.size(); ++i)
+        if (!second.candidates[i].graph_site)
+            ok &= check(gap_owns_variant(gap, second.candidates[i].key), "private candidate footprint belongs to its gap");
+    auto anchored = gap_evidence_fixture();
+    anchored.candidates[3].graph_site = true;
+    anchored.candidates[3].phase_set = gap.left_ps;
+    anchored.candidates[3].hap_to_cons_alle = {-1, 1, 2};
+    const auto anchor_view = GapEvidence(std::move(anchored), gap).project();
+    ok &= check(anchor_view.candidates[2].hap_to_cons_alle == std::array<int, 3>({-1, 2, 1}),
+                "anchor consensus follows the canonical MSA allele dictionary");
+    return ok;
+}
+
 int main() {
     int failures = 0;
+    failures += test_gap_evidence_scope_and_sources() ? 0 : 1;
     failures += test_graph_gap_uses_bam_nucleotide() ? 0 : 1;
     failures += test_gap_edges_compose_before_relabelling() ? 0 : 1;
     failures += test_msa_snp_backfills_all_bam_reads() ? 0 : 1;
+    failures += test_gap_backfill_preserves_homozygous_calls() ? 0 : 1;
     failures += test_gap_bridge_uses_equivalent_shifted_msa_insertion() ? 0 : 1;
+    for (int mode = 1; mode < 8; ++mode)
+        failures += test_gap_bridge_uses_equivalent_shifted_msa_insertion(mode) ? 0 : 1;
     failures += test_read_hp_matches_reported_phase_set() ? 0 : 1;
     failures += test_gap_clean_block_bridge() ? 0 : 1;
     failures += test_gap_bridge_validates_msa_deletion() ? 0 : 1;
+    failures += test_gap_bridge_separates_indel_boundary_signal() ? 0 : 1;
+    failures += test_orphan_msa_site_uses_stitched_read_orientation() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;
     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;
+    failures += test_msa_edge_requires_both_haplotype_votes() ? 0 : 1;
+    failures += test_recovery_rejects_unsupported_biallelic_indel() ? 0 : 1;
     failures += test_repeat_anchor_prefers_complete_evidence() ? 0 : 1;
     failures += test_unassigned_msa_local_allele_evidence() ? 0 : 1;
     failures += test_assigned_repeat_allows_one_local_error() ? 0 : 1;

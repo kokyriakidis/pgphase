@@ -1,0 +1,4 @@
+Before fix: FAIL: recovery honors biallelic MSA bridge validation
+After fix: ALL PASS
+make -j8 unit-tests benchmark-tests: PASS
+Build/test logs: /tmp/gap-validation-build.log, /tmp/gap-validation-all-tests.log

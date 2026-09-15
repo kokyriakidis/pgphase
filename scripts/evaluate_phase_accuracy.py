@@ -139,6 +139,7 @@ def count_sites_in_range(chrom, start, end):
 
 # ── load HP/PS per read from phased uBAM ─────────────────────────────
 read_phase = {}
+read_coordinates = {}
 total_input_reads = 0
 unphased_reads = 0
 ps_all = collections.defaultdict(lambda: {"hp1": 0, "hp2": 0})  # all PS, not just truth-matched
@@ -152,6 +153,7 @@ for line in proc.stdout:
         elif tag.startswith("PS:i:"): ps = int(tag[5:])
     if hp > 0:
         read_phase[f[0]] = (hp, ps)
+        read_coordinates[f[0]] = (f[2], int(f[3]))
         ps_all[ps][f"hp{hp}"] += 1
     else:
         unphased_reads += 1
@@ -308,15 +310,10 @@ def is_concordant(hp, truth_hap, orientation):
         return (hp == 1 and truth_hap == "PAT") or (hp == 2 and truth_hap == "MAT")
 
 # ── compute switch and flip errors per phase set ─────────────────────
-# A raw transition is a change between concordant and discordant in
-# consecutive reads sorted by truth position.  Following the whatshap
-# compare convention, we decompose raw transitions into switches and
-# flips:
-#   - A flip is an isolated single-read error: two consecutive
-#     transitions at adjacent positions (conc→disc→conc or vice versa).
-#     It counts as 1 flip, consuming 2 raw transitions.
-#   - A switch is a persistent phase change (1 raw transition).
-#   - switchflips = switches + flips (the HiPhase paper metric).
+# These are read-order diagnostics, not variant switch/flip errors. Sort
+# on the input alignment reference: maternal and paternal truth assemblies
+# have different coordinates and cannot be interleaved by truth POS.
+# Unmapped input reads have no common coordinate and are excluded here.
 ps_switches = {}
 ps_flips = {}
 ps_read_list = collections.defaultdict(list)  # ps -> [(pos, is_concordant)]
@@ -328,13 +325,15 @@ for qname in read_truth:
     if orient is None:
         continue
     conc = is_concordant(hp, t.hap, orient)
-    ps_read_list[ps].append((t.pos, conc))
+    chrom, pos = read_coordinates[qname]
+    if chrom != "*" and pos > 0:
+        ps_read_list[(ps, chrom)].append((pos, conc, qname))
 
 total_switches = 0
 total_flips = 0
 total_switch_opportunities = 0
-for ps in ps_read_list:
-    reads = sorted(ps_read_list[ps], key=lambda x: x[0])
+for ps, chrom in ps_read_list:
+    reads = sorted(ps_read_list[(ps, chrom)], key=lambda x: (x[0], x[2]))
     # Collect indices where transitions occur
     transition_indices = []
     for i in range(1, len(reads)):
@@ -353,8 +352,8 @@ for ps in ps_read_list:
         else:
             switches += 1
             i += 1
-    ps_switches[ps] = switches
-    ps_flips[ps] = flips
+    ps_switches[ps] = ps_switches.get(ps, 0) + switches
+    ps_flips[ps] = ps_flips.get(ps, 0) + flips
     total_switches += switches
     total_flips += flips
     total_switch_opportunities += max(len(reads) - 1, 0)
@@ -366,11 +365,9 @@ for r in results:
 
 # Record switch positions for BED output
 switch_positions = []  # (chrom, pos, ps, from_status, to_status)
-for ps in ps_read_list:
-    reads = sorted(ps_read_list[ps], key=lambda x: x[0])
-    # Need chrom info — get from ps_contig_positions
-    # Use the first chrom for this PS (most PS are single-chrom)
-    ps_chrom = next(iter(ps_contig_positions[ps]), "unknown")
+for ps, chrom in ps_read_list:
+    reads = sorted(ps_read_list[(ps, chrom)], key=lambda x: (x[0], x[2]))
+    ps_chrom = chrom
     for i in range(1, len(reads)):
         if reads[i][1] != reads[i-1][1]:
             switch_positions.append((ps_chrom, reads[i][0], ps,
@@ -435,11 +432,13 @@ if has_annotations:
         conc = is_concordant(hp, t.hap, orient)
         full_contig = full_contig_name(t.chrom, t.hap)
         cat = classify_read(full_contig, t.pos)
-        cat_read_list[cat][ps].append((t.pos, conc))
+        chrom, pos = read_coordinates[qname]
+        if chrom != "*" and pos > 0:
+            cat_read_list[cat][(ps, chrom)].append((pos, conc, qname))
 
     for cat in cat_read_list:
         for ps_reads in cat_read_list[cat].values():
-            reads = sorted(ps_reads, key=lambda x: x[0])
+            reads = sorted(ps_reads, key=lambda x: (x[0], x[2]))
             transition_indices = []
             for i in range(1, len(reads)):
                 cat_counts[cat]["pairs"] += 1
@@ -619,6 +618,10 @@ phaseable_acc = phaseable_conc / (phaseable_conc + phaseable_disc) if (phaseable
 unphaseable_acc = unphaseable_conc / (unphaseable_conc + unphaseable_disc) if (unphaseable_conc + unphaseable_disc) else 0
 
 summary = {
+    "accuracy_metric_unit": "read",
+    "transition_metric": "read_concordance_transitions",
+    "transition_coordinate_system": "input_bam_reference",
+    "transition_metric_version": 2,
     "tool": "pgphase",
     "sample": "HG002",
     "chroms": chroms_arg if chroms_arg else "all",
@@ -741,9 +744,9 @@ with open(summary_file, "w") as fh:
         f"  HapQ-filtered:            {n_low_hapq:,}",
         f"  Excluded (difficult):     {n_excluded:,}", "",
         f"  Overall accuracy:         {100*overall_acc:.2f}%",
-        f"  Hamming error rate:       {100*hamming_rate:.2f}%  "
+        f"  Read discordance rate:    {100*hamming_rate:.2f}%  "
         f"({total_disc:,} discordant reads / {total_reads:,})",
-        f"  Switch error rate:        {100*switch_rate:.2f}%  "
+        f"  Read transition rate:     {100*switch_rate:.2f}%  "
         f"({total_switches:,} switches + {total_flips:,} flips = "
         f"{total_switches+total_flips:,} switchflips / "
         f"{total_switch_opportunities:,} pairs)",

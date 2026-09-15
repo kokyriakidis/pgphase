@@ -1,0 +1,4 @@
+region	before_target	after_target	before_reads	after_reads	before_discordant	after_discordant	before_switchflips	after_switchflips
+chr20_863640_890261	split	split	433	433	0	0	0	0
+chr20_37984529_38008026	joined	joined	474	474	4	4	4	4
+chr20_62410496_62432427	joined	joined	386	386	0	0	0	0

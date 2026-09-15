@@ -1,0 +1,12 @@
+{
+  "cases": 21,
+  "target_transitions": {
+    "split -> split": 21
+  },
+  "original_reads_preserved": 5751,
+  "added_tagged_reads": 96,
+  "discordance_increases": [
+    "chr20_57087239_57119478"
+  ],
+  "majority_reversed_original_blocks": []
+}

@@ -1,0 +1,62 @@
+{
+  "cases": 114,
+  "target_transitions": {
+    "split -> joined": 91,
+    "split -> split": 23
+  },
+  "original_reads_preserved": 37278,
+  "added_tagged_reads": 1829,
+  "discordance_increases": [
+    "chr20_7218910_7250571",
+    "chr20_36247421_36268291",
+    "chr20_36268558_36299817",
+    "chr20_37984529_38008026",
+    "chr20_46727050_46747637",
+    "chr20_47019175_47026671",
+    "chr20_54675445_54702072",
+    "chr20_54976339_54988434",
+    "chr20_57087239_57119478",
+    "chr20_60033052_60056028",
+    "chr20_60063142_60114911",
+    "chr20_26602087_26651086",
+    "chr20_26626247_26651086",
+    "chr20_36032227_36056601",
+    "chr20_47002481_47026671",
+    "chr20_54547514_54590762",
+    "chr20_54976282_54993445"
+  ],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "joined -> joined": 90,
+    "split -> split": 22,
+    "split -> joined": 1,
+    "joined -> split": 1
+  },
+  "baseline_discordance_increases": [
+    {
+      "region": "chr20_37984529_38008026",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 456,
+      "after_reads": 474,
+      "before_discordant": 1,
+      "after_discordant": 4,
+      "before_switchflips": 1,
+      "after_switchflips": 4
+    }
+  ],
+  "baseline_switchflip_increases": [
+    {
+      "region": "chr20_37984529_38008026",
+      "before_target": "split",
+      "after_target": "joined",
+      "before_reads": 456,
+      "after_reads": 474,
+      "before_discordant": 1,
+      "after_discordant": 4,
+      "before_switchflips": 1,
+      "after_switchflips": 4
+    }
+  ],
+  "baseline_discordance_decreases": []
+}

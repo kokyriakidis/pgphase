@@ -6063,3 +6063,644 @@ diagnostics and matrix provenance metadata for further investigation.
 
 Results and reproduction context:
 evaluations/2026-09-14-gap-deletion-bridge/README.md.
+
+## Independent gap anchors and separated insertion alleles (2026-09-14)
+
+Fixed chr20's remaining 37.98 Mb and 0.86 Mb targets. At 37.98 Mb the sole
+bridge read has conflicting indel/boundary-SNP observations and an independent
+clean SNP. The old component unanimity rule discarded the entire anchor.
+Recovery now excludes SNPs inside/immediately bordering link-supported,
+MSA-verified indels from the clean bridge channel, and chooses independent
+clean SNPs before indels separately for each read/component. Conflicting
+independent SNPs still veto an anchor; an indel cannot supply confidence for
+a weak SNP that displaced its observations. BAM-validated biallelic insertion
+anchors receive the existing singleton treatment used for deletions.
+
+At 0.86 Mb, an exact Q30-supported BAM observation distinguishes TC from TCTC.
+The blanket alternate/alternate insertion singleton exclusion discarded that
+evidence. These bridges now also permit two alternate sequences differing by
+at least two bases in length, provided neither is mononucleotide, retaining
+MSA verification, linkage support, exact sequence-equivalent BAM validation
+and the opposing-read veto. The C/CC bridge at 23.48 Mb is still excluded.
+
+Local panel: 3 joined, 7 split, 1 unphased endpoint; no local read-error
+increase. Nine regions have exactly unchanged ordered read/mapping/HP/PS
+records, allowing explicit reuse of their previous parental evaluations.
+The two changed regions have separate evaluations: 435/435 concordant at
+0.86 Mb, 458/459 at 37.98 Mb (the previous one discordant read remains).
+
+Full chr20: 123 → 125 joined of 280 initial gaps, no previous join lost.
+All previously evaluated reads retain their truth-concordance status. Of 40
+newly evaluated reads, 37 are concordant and 3 discordant (all three have
+truth HapQ 0). Raw discordance is 2,734/189,041 versus 2,731/189,001; switches
+355 versus 353 and flips 414 versus 413. These are read metrics, not new VCF
+Hamming measurements. No existing-block orientation regression was detected.
+Cached solve time 192.868 s, cache loading 1.823 s. Initial interrupted runs
+were not counted as validation; completed output is
+/tmp/pgphase-anchor-final-check.
+
+Build/unit tests pass, including independent-versus-boundary SNP conflict,
+weak SNP, unverified indel, exact shifted insertion, mononucleotide alternate,
+and low-quality insertion cases. Details and results:
+evaluations/2026-09-14-independent-gap-anchors/README.md.
+
+## 2026-09-14 — Remaining-gap orientation validation
+
+See `evaluations/2026-09-14-gap-orientation-validation/README.md` for the full
+regional panel, rejected experiments and final chromosome-wide checks.
+
+- Corrected the gap trial endpoint checker to read native VCF GT/PS. The
+  purported unphased endpoint at 23,480,815 was phased `1|2`; candidate-table
+  HAP_ALT/HAP_REF cannot encode that distinction. Corrected baseline: eight
+  split rows representing seven distinct gaps.
+- Rescued 19.37 Mb with exact, sequence-distinct two-alt insertion observations:
+  minimum Q20 on all inserted/flanking bases plus mean inserted-base Q30.
+  Other singleton insertion/deletion confidence gates retain Q30.
+- Rescued 23.48 Mb by assessing SNP-anchor confidence independently on each
+  flank (graph-confirmed versus BAM-confident sources may differ). Attach
+  otherwise orphan MSA site phase sets only with consistent net support from
+  both haplotypes of an existing read-supported block; do not change reads.
+- Caught a full-chromosome cascade: the locally correct 23.48 Mb edge propagated
+  an earlier wrong homopolymer orientation into 745 previously correct reads.
+  The unvalidated combination was rejected. Homopolymer joins now require a
+  second solve with restored BAM SNP observations to connect both original
+  flanks with matching parity. Trials remain read-only until final edge
+  composition. Sparse MSA genotype backfill is confined to this confirmation.
+- Rejected general HOM-to-HET backfill during gap recovery: it produced 135
+  joins but 13,580 discordant reads. Existing allele presence/balance is not
+  evidence that it separates the two flanking haplotypes correctly.
+- Final full chr20: six panel target rows joined, five split, zero unphased
+  endpoints. Two distinct new gaps close. Four old homopolymer joins are
+  withheld, including the erroneous upstream edge; net recovery is 123/280
+  versus 125/280. Withholding the 57.84 and 62.41 Mb edges has no measured
+  read-accuracy benefit and remains an explicit contiguity cost.
+- Parental read discordance improves 2,734/189,041 to 2,427/189,042; switches
+  355 to 351, flips unchanged at 414. All previously concordant reads remain
+  concordant, 307 previously discordant reads become concordant, one new
+  concordant read is added and none are lost. Variant Hamming/NGC50 not rerun.
+- Build and unit tests pass, including mixed-source anchors, insertion quality
+  boundaries, alternate/alternate endpoint reporting, orphan site orientation,
+  sparse MSA backfill and read-only homopolymer confirmation.
+
+## 2026-09-14 — Joint gap-decision experiment plan
+
+`evaluations/2026-09-14-gap-decision-plan/PLAN.md` specifies an immutable
+chromosome-context export/replay, explicit SAME/FLIP/insufficient/conflicting
+outcomes, molecule/event provenance and deduplication, controlled scoring
+ablations, and one final component-orientation application. No new scorer is
+enabled. Existing k-means remains the initial proposal generator. Source views
+are sensitivity checks on overlapping reads, not independent confirmations.
+
+The proposed validation distinguishes edge parity and fixed-cohort component
+errors from read tagging and contiguity. Known bad joins and withheld good
+joins are regression/development cases, not a locked test set. Previously
+examined chr12/18/20 regions cannot serve as unseen validation.
+
+Initial experiment: replayed 11 regions in both existing arms at 2 jobs × 2
+threads and 1 job × 1 thread. All 22 paired comparisons preserve read HP/PS,
+alignment identities and native VCF data exactly; six target rows join and
+five split in each arm. Median per-arm times were 0.802 and 0.918 seconds in
+these single warm-cache runs. This demonstrates regional reproducibility only;
+chromosome-context ordering and new scoring remain to be implemented/tested.
+Manifests, source/binary hashes, results and comparator are preserved beside
+the plan. No production code changed during this planning experiment.
+
+## 2026-09-14 — Implement frozen gap audit/replay and fix confirmation evidence
+
+Implementation and artifacts:
+`evaluations/2026-09-14-gap-decision-implementation/README.md`.
+
+- Added opt-in `--gap-decision-audit DIR` to hybrid recovery. All tier/view
+  proposals run read-only against one pre-recovery chromosome state before
+  any production worker mutates chunks. Export molecule assignments, original
+  flank matrices, candidate/observation provenance and full original block
+  memberships/bounds. Snapshot overwrite is rejected. Serial and parallel
+  control runs produced 54 byte-identical audit files.
+- Added `scripts/replay_gap_decisions.py`: exact molecule-to-matrix validation,
+  SAME/FLIP scores, insufficient/conflicting states, independent original
+  haplotype margins, fixed-proposal molecule influence and tentative parity
+  component checks. Correlated overlapping observations do not multiply direct
+  molecule votes; untagged bridge reads are retained. Integrated observations
+  are not mislabeled independent BAM evidence. Feature schema 2 includes
+  corrected interval ordering for overlapping SNP/indel groups.
+- Versioned/hash-validated features permit parameter trials without rereading
+  observations or rerunning phasing/MSA/BAM output: ~19 MB features, ~0.2 s
+  scoring and ~2.3 s total verified replay for 280 chr20 gaps. Initial extraction
+  took ~71 s; the initial opt-in audit plus normal solve took 405.3 s. Single-run
+  timings only. Existing default runtime remains ~191 s cached solving.
+- The audit exposed why good 57.84/62.41 Mb edges failed confirmation: the
+  validator first altered sparse HOM calls with extra backfill/promotion.
+  Confirmation now evaluates the existing BAM evidence without that promotion;
+  removed the unused HOM-revisit extension and retained a preservation test.
+- Full chr20 recovers 125/280 gaps versus 123/280, adding only
+  57,841,772–57,866,713 and 62,408,056–62,432,427. No old edges lost or reoriented.
+  Both bad 23.42/37.64 Mb joins remain rejected. Read accuracy is unchanged:
+  2,427 discordant / 189,042 evaluated, 351 switches, 414 flips. Every read
+  retains its concordance status; none are gained or lost. No new variant
+  Hamming/shared-callset NGC50 measurement is claimed.
+- The initial audit was noninterfering on the entire chromosome (native VCF
+  records and BAM identity/alignment/HP/PS identical) and all 22 regional arms.
+  Build, C++ tests and Python benchmark tests pass. Python replay tests include
+  provenance corruption, input-cache changes, untagged/correlated observations,
+  label invariance, uneven haplotype support and contradictory cycles.
+- General score remains diagnostic: balanced uniform gives 124 directional
+  proposals, 151 insufficient and 5 conflicting cases. Unbalanced scoring
+  admits the known bad 23.42 Mb proposal; MAPQ-only weighting has no demonstrated
+  benefit. Event error calibration, sequence-equivalent multi-allelic recovery,
+  influence re-solving, untouched validation and general-score adoption remain
+  outstanding. Five original difficult gaps are not claimed fixed.
+
+## 2026-09-14: Recovery error attribution and read evaluator correction
+
+Fresh current-binary recovery-disabled chr20 baseline has 586/185835 discordant reads versus recovery's 2427/189042. Common-read block comparison confirms incorrect relative orientation after merges (not nonuniform mutation inside original blocks). Largest examples: PS52434849 adds 487 errors, PS46663811 adds 233, PS46748667 adds 347. Strong flank votes and BAM/graph proposal agreement both fail to detect the wrong bridge at 52394827–52434849. Production acceptance remains unresolved; do not call recovery accuracy-safe.
+
+Corrected `evaluate_phase_accuracy.py` transition ordering to input BAM coordinates instead of interleaving maternal/paternal assembly positions. Counts are explicitly read-concordance diagnostics, not variant switch/flip metrics. Recovery diagnostic counts become 205/267 versus old 351/414; discordance is unchanged. Added parental-coordinate-offset integration regression to benchmark-tests. See `evaluations/2026-09-14-read-error-audit/README.md` and common-read block attribution table. Legacy truth-based spans need independent correction before contiguity comparisons.
+
+## 2026-09-14: Validate internal MSA bridges; move toward gap-owned evidence
+
+Implemented two recovery-only corrections in collect_phase.cpp: honor ordinary
+biallelic MSA indel gap_link_supported, and require the winning orientation of
+an MSA allele edge to be supported by both alleles at both endpoints, with the
+existing combined net margin. The latter is symmetric under endpoint exchange
+and HP-label swaps. Pooled majority counts previously concealed contradictory
+minority-haplotype linkage. New regressions reproduce both failures, including
+9:3 pooled support whose second haplotype opposes the join 3:1. All unit and
+benchmark tests pass. Existing singleton bridge controls continue to pass.
+
+Full chr20: 2427/189042 -> 760/188714 discordant reads; corrected read-transition
+counts 205/267 -> 138/208. Ten previously identified erroneous joins -> zero
+under the original-block parental-majority audit. Accepted joins 125 -> 86;
+27 previously correct and two uncertain joins are also withheld. The 57.84 Mb
+control survives; 62.41 Mb is withheld. Forty originally concordant reads become
+discordant relative to no recovery (previously1452); do not claim zero errors or
+zero regressions. A HOM-node exclusion trial was rejected because it introduced
+a new 56.15 Mb error. It is absent from the final code. Full ablations, artifacts
+and source hashes: evaluations/2026-09-14-gap-bridge-validation/README.md.
+
+User redirected the next architectural work toward a source-preserving evidence
+boundary with private BAM sites ONLY inside original graph-derived phase gaps.
+Each frozen gap owns its candidate/observation view; flanks provide fixed graph
+anchors and alignment context, not additional outside-gap BAM candidates.
+Audited loss of query-coordinate provenance through kGraphConfirmedAltQi,
+combined mutable evidence/phasing fields, missing separate BAM/MSA histories,
+and incompatible complex-replacement conventions. Proposed immutable event,
+source-allele mapping and per-molecule observations behind a checked adapter to
+the existing phaser. This replacement is designed, not implemented. Details:
+evaluations/2026-09-14-shared-evidence-design/DESIGN.md.
+
+
+### Gap-owned source evidence implementation (2026-09-14)
+
+Implemented `GapEvidence`: freeze original graph-derived gaps, retain graph
+anchors from adjacent original blocks, and admit private BAM/MSA events only
+when their full reference footprint belongs to that gap. Flanking extraction
+context cannot introduce outside-gap private candidates. Recovery-mode initial
+phasing now masks non-catalog candidates; this changes the initial block/gap
+inventory relative to the previous hybrid baseline. Discovery evidence remains
+cached for gap recovery. No DeepVariant calls enter this path.
+
+BAM allele calls and original query positions are saved before graph injection;
+MSA profile replacement preserves BAM and graph source histories. A snapshot
+stores separate per-molecule BAM/graph/MSA-derived observations, explicit missing,
+low-quality and conflicting states, reference/alternate sequences, and immutable
+anchor orientation. Source-local MSA allele integers and anchor consensus are
+translated by sequence. Repeated proposals read the frozen snapshot rather than
+previous recovery mutations. Counts are rebuilt from retained molecules.
+
+Boundary-crossing and unsupported complex replacement events remain auditable
+but are not projected into the legacy simple-event core. This is deliberately
+not a general repeat-equivalence merger. MSA observations are the retained
+MSA-derived working calls, not a claim of independent per-read MSA quality.
+Cache format 6 stores the added provenance; old cache files require a one-time
+rebuild. Gap audits now include `.events.tsv` and `.observations.tsv`.
+
+Regional chr20:52-53 Mb validation: cold cache / 4 threads and warm cache /
+1 thread produce identical BAM records, VCF records, candidates, tier reports,
+and all five per-gap audit tables. Four initial gaps, one joined. Cold 28.33 s;
+warm 6.76 s, cache load 0.034 s. Unit and benchmark tests pass, including allele
+permutation, immutable projection, source disagreement, query-quality provenance,
+1/2 genotype counts and boundary exclusion. Artifacts:
+`/tmp/pgphase-gap-owned-region/`. Whole-chromosome validation is recorded below
+when complete; previous 280-gap metrics are not the baseline for this scope.
+
+### Whole-chromosome validation and independent gap blocks (2026-09-15)
+
+Completed the whole-chromosome validation the gap-owned-evidence entry left
+open, then built the first extension that phases gaps' own reads even when
+they cannot be confidently tied to a specific flank.
+
+**Whole-chromosome validation (gap-owned evidence, no new mechanism yet).**
+`collect-hybrid-variation --recover-gaps --gap-evidence-cache
+/tmp/chr20-evidence-v6.gapev` on chr20: 276 initial gaps, 112 joined in 4
+waves, 0 conflicting edges. Cold and warm (8 vs 1 thread) runs produced
+byte-identical `tiers.tsv` and BAM output. Peak RSS 49.9 GB for the whole
+chromosome -- an existing property of this evidence-cache-based pipeline, not
+introduced by anything below.
+
+**Independent gap blocks (`emit_independent_gap_block`, `src/gap_recovery.cpp`).**
+A gap that cannot bridge to either flank is currently discarded outright, even
+when its own gap-only reads (no pre-recovery flank/block assignment at all)
+converged to a coherent local split during the gap's own k-means solve. This
+recovers that: reads with no original assignment sharing the gap's own
+locally-derived phase set (>= `--gap-independent-min-reads`, default 3, itself
+a genome position and therefore unique) are emitted as a brand-new,
+independent block. Strictly additive -- never overwrites a read that already
+carries any assignment.
+
+Diagnostic groundwork before implementing: of the 169 chr20 gaps the existing
+bridge-vote mechanism marks unresolvable, 146 have >=2 mutually-consistent
+private events spanned by >=3 reads among themselves, using only the raw
+per-read/per-event data `--gap-decision-audit` already exports
+(`scripts/measure_internal_gap_phaseability.py`, ~39 s for all 276 gaps once
+the audit exists -- no C++ rerun).
+
+Three bugs found and fixed while building this, each caught by insisting on a
+read-by-read corruption check (concordant -> DISCORDANT against
+`../pgphase-eval-data/truth/chr20/diplinator_merged.bam`) rather than trusting
+aggregate counts:
+
+1. `min_reads <= 0` was meant to disable the feature; unsigned comparison made
+   it enable unconditionally instead.
+2. A race: applying independent blocks during the parallel per-gap phase let
+   two gaps whose windows shared an unclaimed read compete for it, an
+   order-dependent outcome across runs (8 reads corrupted, reproducibly).
+   Fixed by deferring application to one sequential pass, strictly after
+   `apply_gap_phase_edges` (`GapRecoveryJobResult::has_proposal` /
+   `PendingIndependentGaps`).
+3. The batch loop calls `stitch_chunk_haps` a *second* time after
+   `recover_hybrid_gaps` returns, to re-examine block boundaries across the
+   whole batch. That second call does not know a block is independent and
+   was free to re-merge/relabel it (same 8 reads, still corrupted after fix
+   2). Fixed by moving emission to run after that second stitch call too --
+   confirmed via `--gap-independent-min-reads 0` producing a byte-identical
+   BAM to the pre-feature baseline, isolating that the corruption came from
+   this code path specifically and not from unrelated nondeterminism.
+
+Verified clean on the third attempt: chr20, both bugs fixed, 27 gaps emitted
+27 gap(s) as new independent blocks, 1,271 (later 1,170 once evaluator
+`min_reads_per_ps=5` filtering is applied) previously-unphased reads newly
+evaluated. Zero reads corrupted, zero lost, 96.2% concordant on the newly
+phased population. `--gap-independent-min-reads 5` and `8` were also swept and
+are equally safe (0 corrupted); 8 gives 96.8% accuracy on a slightly smaller
+population (1,151 reads) -- default stays 3 since the difference is marginal
+and more reads phased is the goal.
+
+**Multi-round recovery: attempted, unsafe, disabled by default.** The natural
+extension -- repeat the whole bridge/independent-block sequence so gaps newly
+created by an independent block (it now sits between an existing flank and a
+bridge that previously had nothing to reach) get their own attempt -- is
+correct in principle but every round after the first cannot reuse
+`--gap-evidence-cache` (its signature is keyed to the gap inventory, which
+changes every round) and must rebuild raw evidence uncached. Measured: peak
+RSS exceeded 47 GB and was still climbing after 10 minutes on round 2+, so the
+run was killed before it risked the host. `gap_recovery_max_rounds` defaults
+to 1 (single pass, the verified-safe behavior above); raising it is left
+available for a future session with the uncached-rebuild cost addressed, not
+recommended as-is.
+
+**Sub-gap bridging: attempted, low value, disabled by default.** A cheaper
+alternative to a full extra round -- try bridging each newly-independent block
+to its own two flanks as two small sub-gaps, reusing the *same* `proposal`
+already in memory (no re-extraction) against a `GapReadIndex` rebuilt from the
+just-updated chunks. Implemented with `defer_phase_set_merge=true` on both
+sub-gap attempts plus one `apply_gap_phase_edges` call at the end, so a
+gap.left_ps <-> chosen_ps <-> gap.right_ps chain resolves to one phase set via
+union-find rather than two independent immediate renames splitting it into
+two surviving ids. Memory stayed flat (~50 GB, no growth) and corruption was
+zero -- but the yield was 4 edges / 6 reads chromosome-wide at only 50%
+accuracy on that population. Root cause: these sub-gaps were already tested by
+the *identical* flank-side vote evidence when the original, larger gap failed
+to bridge; routing the same votes through a new intermediate node does not
+add information. Gated behind `--gap-bridge-independent-blocks` (default off)
+rather than removed, since the mechanism itself is correct, just not a good
+trade with the current all-or-nothing, pre-recovery-flank-assignment-gated
+vote model.
+
+**What is left, precisely.** Checked whether the remaining small (<20 kb)
+gaps are limited by catalog completeness (the dominant cause documented
+elsewhere in this repo for the *original* gap set): they are not. 44 of 46
+small post-recovery gaps have both candidates (median in the teens, several
+in the 20s-50s) and abundant spanning reads (median several dozen). The
+blocker is that `stitch_gap_proposal`'s vote count only credits a read that
+already carries a *pre-recovery* flank assignment (`GapReadIndex::assignments`,
+`src/gap_recovery.cpp`); a read that spans the junction but was never tagged
+to either flank contributes nothing, regardless of how many such reads exist.
+This is the same untagged-linking-read circularity documented earlier in this
+file for the non-recovery pipeline, now located precisely inside the
+recovery-specific bridge test. The natural fix is allele-pattern voting for
+`stitch_gap_proposal` itself (compare a spanning read's own allele calls at
+the flank anchor and at the gap-owned candidates directly, the same principle
+`--link-by-alleles`/`check_agree_alleles` already use for the main phasing
+pass, not yet threaded into the gap-recovery-specific vote path) -- designed
+here, not implemented.
+
+Build and all unit/benchmark tests pass throughout. Default behavior with
+`--recover-gaps` alone is unchanged except for the verified-safe independent-
+block emission (3 above); `--gap-recovery-max-rounds` and
+`--gap-bridge-independent-blocks` are both off by default.
+
+### Allele-pattern voting for gap bridging: attempted, corrupts, disabled (2026-09-15)
+
+Implemented the fix designed above: `--gap-link-by-alleles`
+(`src/gap_recovery.cpp`, gated by `Options::gap_link_by_alleles`). When a
+proposal read has no committed pre-recovery hap/PS at all
+(`GapReadIndex::assignments` misses it), `stitch_gap_proposal` now falls back
+to deriving an implied flank side from the read's own allele agreement with
+that flank's already-resolved sites (`CandidateVariant::hap_to_cons_alle`),
+the same principle `--link-by-alleles`/`check_agree_alleles` use for the main
+phasing pass. Strictly additive in intent: a read with a committed assignment
+always uses it; the allele-derived one only fills in where nothing existed.
+
+Measured on chr20, whole chromosome, both arms from the same
+`/tmp/chr20-evidence-v6.gapev` cache, otherwise-identical command
+(`--link-by-alleles --block-link-window 8 --min-read-margin 2 --recover-gaps`),
+read-by-read status compared against
+`../pgphase-eval-data/truth/chr20/diplinator_merged.bam`:
+
+| | Baseline (flag off) | `--gap-link-by-alleles` |
+| --- | ---: | ---: |
+| Gaps bridged | 112 | 115 |
+| Independent blocks / reads | 27 / 1,271 | 62 / 2,200 |
+| Phase sets (evaluated) | 179 | 204 |
+| Reads evaluated | 184,961 | 183,475 |
+
+More gaps bridged and far more independent-block reads captured, but the net
+effect is worse, not better:
+
+- 1,465 reads that were concordant and evaluated in the baseline dropped out
+  of evaluation entirely in the new run (fell below the evaluator's
+  min-reads-per-phase-set floor) -- an existing, previously well-supported
+  block fragmented into pieces too small to score. 1,446 of those 1,465 were
+  concordant before, i.e. this is a straightforward contiguity regression, not
+  noise being correctly dropped.
+- 5,215 common reads were relabelled to a different phase-set id (versus a
+  baseline where flag-off reproduces the exact 112/27/1,271 numbers above
+  byte-for-byte) -- far more churn than "3 more gaps joined" can explain on
+  its own.
+- At least one phase set (PS 60552043) ended up internally contradictory:
+  some of its reads correctly kept HP2 (matching baseline and truth), others
+  were flipped to HP1, i.e. a single nominal phase set no longer has one
+  consistent haplotype orientation. This is the clearest signal -- an
+  allele-derived vote is pulling part of an otherwise-correct block into the
+  wrong orientation.
+
+**First hypothesis, tested and ruled out.** Suspected `GapReadIndex::reads`
+returning more than one `(chunk, read_index)` location for the same read
+(tiling windows overlap), with `CandidateVariant::hap_to_cons_alle` for a
+gap.left_ps/right_ps site only guaranteed canonically oriented in chunks this
+batch's `orient_candidate` has actually touched -- an untouched duplicate tile
+copy could carry an independently k-means-derived, possibly oppositely
+labelled, hap1/hap2 sense for the same phase-set id, and the original
+`implied_assignment` took the first location it found without checking which
+copy that was. Fix implemented: `implied_assignment` now scans *all* of a
+read's locations and only trusts a phase set's implied hap if every location
+that resolves it agrees; any disagreement poisons that phase set for that
+read rather than picking a side. Re-ran the identical chr20 regression: result
+essentially unchanged (116 joined / 61 independent blocks / 2,199 reads vs the
+pre-fix 115/62/2,200), and PS 60552043 still shows the same symptom with the
+same specific reads flipped (baseline: 12/120 reads discordant there already
+-- an existing hard region; with the flag, either version: ~25/120, HP1/HP2
+split shifting from an even 60/60 to 63/57). The implied vote is internally
+self-consistent per read across all its locations; it is simply wrong often
+enough, concentrated in already-hard regions, to corrupt a join when it feeds
+the bridge/orientation decision directly. Not a chunk-duplication bug --
+allele-derived votes are just not reliable enough there, the same class of
+risk already documented above for `gap_bridge_independent_blocks`. The more
+conservative `implied_assignment` is still worth keeping (strictly more
+correct than the first version, at no measured cost), but the mechanism it
+feeds is still unsafe.
+
+**Third attempt: decouple the decision from the attachment -- verified safe,
+now the default.** Implemented exactly the direction sketched above: `votes`
+and the orientation decision (which side wins, whether it flips) in
+`stitch_gap_proposal` are computed from committed (`first_assignment`) reads
+only -- byte-identical to the flag being off, confirmed by chr20 reproducing
+112 joined with unchanged orientation. Allele-derived agreement
+(`implied_assignment`, the cross-location-safe version from the second
+attempt) is consulted only *after* `accepted` already names which flank(s)
+this gap resolved to on committed evidence alone, in a new pass that
+additively attaches any still-unassigned read whose own alleles agree with
+that already-decided side -- the same purely-additive contract
+`emit_independent_gap_block` uses, just triggered by a direct per-read allele
+match instead of local-bucket membership. (The existing local-bucket
+attachment path already covered gap-only reads sharing the winning local
+phase_set; this new pass additionally covers reads on a flank chunk itself,
+or in a losing local bucket, that individually agree by allele with the
+accepted side -- which turned out to be the large majority of the gain.)
+
+Found and fixed one real bug while wiring this in: `implied_assignment`
+indexed `chunk.read_var_profile[ri]` and `prof.alleles[...]` without bounds
+checks against `chunk.read_var_profile.size()`/`prof.alleles.size()`; real
+pipeline chunks always keep those consistent with `chunk.reads.size()`, but
+`test_gap_recovery_keeps_unphased_observations`'s minimal fixture does not
+populate `read_var_profile` at all, segfaulting the instant this became the
+default and the test exercised `stitch_gap_proposal` with default `Options`
+for the first time. Fixed with explicit size guards; caught immediately by
+`make unit-tests` before this reached real data.
+
+Verified on chr20, whole chromosome, reused `/tmp/chr20-evidence-v6.gapev`,
+read-by-read status against `../pgphase-eval-data/truth/chr20/
+diplinator_merged.bam`, compared to a fresh flag-off baseline run from the
+identical command: gaps bridged (112) and their orientation are unchanged,
+byte-for-byte. Zero of the 184,974 previously-evaluated reads regressed --
+no concordant -> DISCORDANT transition anywhere, confirmed by full read-by-
+read diff, not just aggregate counts. 22,676 additional reads got evaluated,
+96.4% of them concordant (in line with `emit_independent_gap_block`'s 96.2%
+on its own, much smaller, population) -- roughly 17x the reach of independent-
+block emission alone. The 12 reads that changed HP within an already-existing
+phase set were all corrections (previously DISCORDANT, now concordant), not
+new errors. Contiguity improved slightly, 176 phase sets vs 179 (fewer,
+larger blocks), because many reads that previously only qualified for a
+same-PS independent block now attach directly to the correct flank instead
+(independent-block yield correspondingly dropped from 27/1,271 to 17/1,183 --
+expected redistribution, not a loss, since the reads land in a normal flank
+block rather than a small standalone one).
+
+`Options::gap_link_by_alleles` now defaults to `true` (part of default
+`--recover-gaps` behavior, same tier as `gap_independent_min_reads`'s
+nonzero default), given this measured-clean result meets the same bar used
+to accept `emit_independent_gap_block`. All three findings (two rejected
+designs, one accepted) are recorded in its comment in
+`src/phasing_types.hpp`. Build and all unit/benchmark tests pass.
+
+### Code review of the gap-recovery diff: 3 real findings, all fixed (2026-09-15)
+
+Dispatched an independent review agent over the session's gap-recovery diff
+(`src/gap_recovery.cpp/.hpp`, the gap-recovery sections of
+`src/collect_pipeline.cpp`) with explicit context on what was already
+shipped/verified vs. reverted, asking specifically for correctness bugs, not
+style. It found three, all genuine extensions of the same defense
+(`established_phase_sets`) rather than restatements of it:
+
+1. **The collision guard only recorded read-supported phase-set ids.**
+   `filter_hybrid_reads_by_margin`/`filter_hybrid_small_phase_sets` zero a
+   read's `haps`/`phase_sets` when its block loses support, but never touch
+   `CandidateVariant::phase_set` -- an orphaned block can leave candidate rows
+   still labelled with its id and the main solve's orientation, with zero
+   committed reads (exactly why `find_phase_gaps` has no support for that id
+   either, and the region becomes a gap). `emit_independent_gap_block` could
+   still choose that id, inserting new rows under the proposal's own polarity
+   while the orphaned rows kept the main solve's -- silently splitting one
+   phase set's orientation. Fixed: `GapReadIndex` now also scans every
+   chunk's `candidates` and adds any `phase_set > 0` to
+   `established_phase_sets`, not just ids with a committed read
+   (`src/gap_recovery.cpp`, `GapReadIndex` constructor).
+2. **The guard is a frozen, whole-batch snapshot, so two gaps in the same
+   sequential emission loop could still emit into each other's brand-new
+   phase set.** Adjacent gaps' windows overlap by construction
+   (`kGapRecoveryFlank` on both sides), so two gaps failing to join (both
+   landing in `pending.proposals`) can independently reconstruct the same
+   leftmost-het id from overlapping gap-only read pools -- each yields
+   `chosen_ps == P` with an independently-derived, uncorrelated orientation.
+   Fixed: `emit_independent_gap_block` takes an additional in/out
+   `std::set<hts_pos_t>* emitted_this_round`, threaded through one shared set
+   across the whole sequential loop in `collect_pipeline.cpp`; a candidate
+   group whose id is already in that set is treated the same as a real
+   collision, and a successful emission inserts its own `chosen_ps` before
+   the next iteration runs.
+3. **The new allele-attach pass's cross-chunk dedup could leave the
+   output-owning tile copy of a read unphased.** The pre-existing read-attach
+   loop is chunk-independent (gates only on `original` and that chunk's own
+   `haps`/`phase_sets`, so every overlapping tile copy of a read gets the
+   same, deterministic assignment). The new allele-attach loop added an
+   `added.count(key)` skip on top of that -- but `implied_assignment` reads
+   *live*, per-chunk candidates, which only gain a gap's interior sites via
+   that same chunk's own `merge_var_profile` call, later in the same
+   iteration. A read's earlier (output-owning) tile copy can run its attach
+   attempt before its own chunk has those sites merged in, fail, and then get
+   permanently skipped once a *later*, non-owning tile copy succeeds --
+   leaving the owning copy, and therefore the emitted read, unphased despite
+   being counted as attached. Fixed: dropped the `added` gate from this loop
+   (kept only the `original` check, matching the pre-existing loop exactly);
+   every qualifying tile copy gets an independent chance, which is redundant
+   when they agree (they read the same shared `orient_candidate` output) and
+   never corrupting. `added` (a set) still dedupes the `reads_added` count
+   correctly regardless.
+
+**Verification exposed a methodology gap, not a new bug.** Comparing the
+fixed build against `/tmp/pgphase-gap-baseline-fresh` (this session's
+long-standing regression reference) showed 224 reads newly "lost" (220
+concordant there). Before concluding the fixes regressed anything, checked
+what those reads actually were: that reference predates finding 1/2's fixes,
+so its own independent-block emission could already be riding the exact
+collision bug just fixed -- silently, since a 50/50-orientation risk simply
+did not manifest as visible wrongness for those specific reads on this
+dataset. Generated a proper, unambiguous reference instead
+(`--no-gap-link-by-alleles --gap-independent-min-reads 0`, i.e. bridging
+joins only, zero independent-block risk by construction) and confirmed: all
+224 "lost" reads are absent from that clean reference too -- they only ever
+existed via the now-fixed buggy path, never a legitimate assignment. Full
+read-by-read diff against the clean reference: 0 lost, 0 phase-set changes,
+0 HP flips, 0 corruption among 183,804 common reads, +23,622 additional
+reads at 96.4% concordance. `/tmp/pgphase-gap-baseline-fresh` should not be
+reused as a regression reference going forward -- it is contaminated by the
+same bug class this entry fixes; use a fresh
+`--no-gap-link-by-alleles --gap-independent-min-reads 0` run instead when
+checking for genuine regressions.
+
+Chr20 with all fixes: 112 joined / 12 independent blocks / 954 reads (down
+from 16/1,181 pre-fix, as expected -- the now-excluded collision cases are
+exactly what dropped). Build and all unit/benchmark tests pass.
+
+### Why independent-block emission still only reaches a fraction of unresolved gaps (2026-09-15, later same day)
+
+With `gap_link_by_alleles` on by default, chr20 has 276 initial gaps: 112
+bridged, 162 still `partial` (never bridged to either flank) per
+`--gap-recovery-report`. `scripts/measure_internal_gap_phaseability.py`
+(pure re-aggregation of `--gap-decision-audit` data, no C++ rerun) says 141 of
+those 162 have an internally-coherent private-event component spanned by
+`>=3` reads -- real structure exists. But `emit_independent_gap_block` only
+turns 17-20 of the 276 gaps into new blocks. Investigated why the other ~120+
+gaps with apparent structure never qualify.
+
+Dispatched an Explore agent to trace the call chain
+(`recover_hybrid_gaps` -> `recover_one_hybrid_gap`, src/collect_pipeline.cpp
+-- the phasing itself is the same `assign_hap_based_on_germline_het_vars_kmeans`
+as the main pass, just run on a per-gap local `proposal` chunk). Its finding,
+confirmed by direct reading: `recover_one_hybrid_gap` runs up to two internal
+"passes" per gap (`recovery_passes = opts.graph_gap_bam ? 2 : 1`, default 2).
+Pass 0 is the broad local solve (all of the gap's own reads); pass 1
+reprojects to a narrower graph-BAM-only view and `select_graph_gap_bam_reads`
+(`src/gap_recovery.cpp:20`) marks any read with no graph-channel allele
+spanning the gap as `is_skipped` -- excluding pure BAM/MSA-only internal
+structure entirely. Whichever pass the loop ends on is what gets saved as
+`job_result.proposal` for `emit_independent_gap_block`; if pass 1 finds zero
+graph-observed reads it `break`s immediately, discarding pass 0's fully-solved
+state and saving an entirely fresh, unphased reprojection instead.
+
+Added temporary `--verbose 2` diagnostics (`GapIndependentBlock`,
+`GapIndependentBlockApplied` in `emit_independent_gap_block` -- kept, they are
+read-only and gated, same pattern as the existing `GapLinkVotes` log) and
+measured directly rather than continuing to reason from hypothesis:
+
+- Of 162 unresolved gaps, most locally-phased reads (median ratio ~99.6%,
+  mean ~90.6%) already carry an original pre-recovery assignment -- the local
+  window's k-means mostly just re-derives what the flanks already know, not
+  new gap-only structure. Only a minority of gaps have any gap-only reads at
+  all in their local solve.
+- Tried: preserve pass 0's proposal and prefer whichever pass has more
+  locally-phased reads (`locally_phased_reads` comparator, no gap-only/
+  original filtering). Chr20 yield barely moved (17/1,183 -> 20/1,111, then
+  18/1,106 with the fix below) -- not the large unlock hoped for. Worse: it
+  measurably regressed 112-116 reads (114 concordant in a fresh flag-off
+  baseline) to fully unphased, with zero corruption (no concordant ->
+  DISCORDANT) but a genuine, not-fully-root-caused loss traced to an
+  interaction with `gap_link_by_alleles`'s one-sided partial-link attachment
+  inside this *same* gap's own pass-0, non-`orientation_only`
+  `stitch_gap_proposal` tier attempts (a `left_linked`-or-`right_linked`,
+  not-fully-`joined` result still attaches individual reads to whichever side
+  voted, per the existing code -- this predates this investigation and is
+  outside its scope to fully trace). Reverted; see `src/collect_pipeline.cpp`
+  history/comment at `recover_one_hybrid_gap` for the measurements.
+- Along the way, found and fixed a real, independent latent bug: phase-set
+  ids are genome positions in both the main pass and a gap's local re-solve,
+  so a wide-window local solve can, by coincidence, anchor on the same first
+  het site as an adjacent *established* block and reproduce its exact id.
+  `emit_independent_gap_block` had no defense against this -- it would
+  silently emit gap-only reads into a real block's phase-set id with no
+  orientation-vote safety net (unlike `stitch_gap_proposal`, which always
+  votes before merging into an existing id). Fixed by recording every
+  already-assigned phase-set id at `GapReadIndex` construction
+  (`established_phase_sets`) and refusing to select a candidate group whose
+  id collides with one, in `emit_independent_gap_block`
+  (`src/gap_recovery.cpp`/`.hpp`). This is a permanent, kept improvement,
+  independent of the reverted pass-0/pass-1 selection change above --
+  verified harmless and correctness-only (chr20: 16/1,181 vs the pre-fix
+  17/1,183, only the genuinely-colliding cases excluded, 0 lost reads beyond
+  2 that were not concordant in baseline either, 0 corruption).
+
+Net result of this sub-investigation: `established_phase_sets` kept as a
+real, if narrow, correctness fix; the pass-0/pass-1 proposal-selection change
+reverted as not worth its unexplained cost. The ~120 gaps with apparent
+internal structure that still do not produce an independent block are, per
+the ratio measurement above, mostly *not* a missed opportunity -- their local
+solve is dominated by flank-anchored reads with no true gap-only population
+large enough to matter, not evidence the pipeline is discarding. What
+residual real opportunity exists (`gap_only_ps_groups=0` for the ~77 fully-
+flank-dominated gaps vs some-groups-but-below-threshold for ~14 others,
+measured via the kept `GapIndependentBlock` diagnostic) is small and would
+need pass 1's graph-BAM narrowing itself relaxed to admit BAM/MSA-only
+internal structure -- a materially different, riskier change than swapping
+which already-computed proposal gets kept, not attempted this session.
+
+Build and all unit/benchmark tests pass. Default `--recover-gaps` behavior:
+112 joined / 16 independent blocks / 1,181 reads on chr20, byte-for-byte
+reproducible; read-by-read regression check against a fresh flag-off baseline
+shows 0 corruption and 22,676 net additional evaluated reads at 96.4%
+accuracy, matching the gap-link-by-alleles verification above.
+
+### CLI cleanup: missing opt-out for a now-on-by-default flag (2026-09-15)
+
+When `Options::gap_link_by_alleles` flipped its struct default to `true`
+earlier this session, its CLI wiring in `src/hybrid_collect.cpp` was left as
+an enable-only flag (`--gap-link-by-alleles` -> `= true`) -- there was no way
+to turn it back off from the command line, unlike every other on-by-default
+boolean in this file (`graph_gap_bam` has `--no-graph-gap-bam`,
+`exp_hybrid_trim` has `--no-hybrid-trim`). Every other boolean CLI flag in the
+file was checked against its struct default and all others are consistent
+(enable-only flags all correspond to `false`-by-default fields). Fixed:
+replaced `--gap-link-by-alleles` with `--no-gap-link-by-alleles` (sets
+`opts.gap_link_by_alleles = false`), matching the `--no-graph-gap-bam`
+pattern, and corrected its stale "(experimental, off)" help text. No other
+CLI-facing references to the old flag name existed (scripts, evaluations).
+Build and both test suites pass.

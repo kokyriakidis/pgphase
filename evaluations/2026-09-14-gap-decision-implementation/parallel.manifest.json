@@ -1,0 +1,43 @@
+{
+  "binary_sha256": "b2149d2c8e99863d4a4e4c1e09fd71ec38d9de2baafdd5d9388bb59a789592ab",
+  "targets": [
+    [
+      "chr20",
+      23421003,
+      23449834
+    ],
+    [
+      "chr20",
+      37642719,
+      37667751
+    ],
+    [
+      "chr20",
+      57841772,
+      57866713
+    ],
+    [
+      "chr20",
+      62408056,
+      62432427
+    ]
+  ],
+  "args": {
+    "targets": "/tmp/gap-audit-controls.tsv",
+    "binary": "/home/kokyriakidis/Downloads/pgphase/pgphase",
+    "ref": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr20.renamed.fa",
+    "bam": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "graph_sites": "/home/kokyriakidis/Downloads/pgphase/test_data/chr20.sites.striped.vcf.gz",
+    "gaf": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "output": "/tmp/pgphase-gap-trials",
+    "truth_bam": null,
+    "decision_audit": true,
+    "run_name": "audit_controls_parallel_v2",
+    "contig_prefix": "CHM13#0#",
+    "flank": 50000,
+    "threads": 2,
+    "jobs": 2,
+    "limit": 0
+  },
+  "note": "Local windows can differ from whole-chromosome phasing. Confirm improvements on chr20."
+}

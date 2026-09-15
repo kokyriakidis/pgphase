@@ -1,0 +1,26 @@
+{
+  "52394827.52434849": {
+    "observations": 122490,
+    "matching_graph_and_working_allele": 117001,
+    "matching_with_graph_sentinel_in_query_position": 117001,
+    "matching_without_exportable_query_base_quality": 117001
+  },
+  "46844468.46895038": {
+    "observations": 127003,
+    "matching_graph_and_working_allele": 125016,
+    "matching_with_graph_sentinel_in_query_position": 125016,
+    "matching_without_exportable_query_base_quality": 125016
+  },
+  "57841772.57866713": {
+    "observations": 105973,
+    "matching_graph_and_working_allele": 105199,
+    "matching_with_graph_sentinel_in_query_position": 105199,
+    "matching_without_exportable_query_base_quality": 105199
+  },
+  "62408056.62432427": {
+    "observations": 113355,
+    "matching_graph_and_working_allele": 112336,
+    "matching_with_graph_sentinel_in_query_position": 112336,
+    "matching_without_exportable_query_base_quality": 112336
+  }
+}

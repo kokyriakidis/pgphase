@@ -1,0 +1,9 @@
+{
+  "transitions": {
+    "concordant -> concordant": 186615,
+    "DISCORDANT -> DISCORDANT": 2427,
+    "skipped -> skipped": 8
+  },
+  "new_reads": 0,
+  "lost_reads": 0
+}

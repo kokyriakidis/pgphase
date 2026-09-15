@@ -1,0 +1,219 @@
+{
+  "passed": true,
+  "binary_sha256": "949f00471e090b84d960416666391b293cb51085d01546224ac0198908f9e68a",
+  "left": "/tmp/pgphase-gap-trials/runs/robust_plan_replay_v1",
+  "right": "/tmp/pgphase-gap-trials/runs/robust_plan_serial_v1",
+  "left_workers": [
+    2,
+    2
+  ],
+  "right_workers": [
+    1,
+    1
+  ],
+  "median_seconds_per_arm": [
+    0.8015000000000001,
+    0.918
+  ],
+  "checks": [
+    {
+      "target": "chr20_863640_890261",
+      "arm": "baseline",
+      "reads": 531,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_863640_890261",
+      "arm": "graph_bam",
+      "reads": 531,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_1086625_1110921",
+      "arm": "baseline",
+      "reads": 577,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_1086625_1110921",
+      "arm": "graph_bam",
+      "reads": 577,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_12721112_12752291",
+      "arm": "baseline",
+      "reads": 647,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_12721112_12752291",
+      "arm": "graph_bam",
+      "reads": 647,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_17607780_17667022",
+      "arm": "baseline",
+      "reads": 632,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_17607780_17667022",
+      "arm": "graph_bam",
+      "reads": 632,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_19358995_19395544",
+      "arm": "baseline",
+      "reads": 635,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_19358995_19395544",
+      "arm": "graph_bam",
+      "reads": 635,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_23460963_23480815",
+      "arm": "baseline",
+      "reads": 511,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_23460963_23480815",
+      "arm": "graph_bam",
+      "reads": 511,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_23460963_23481134",
+      "arm": "baseline",
+      "reads": 512,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_23460963_23481134",
+      "arm": "graph_bam",
+      "reads": 512,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_37984529_38008026",
+      "arm": "baseline",
+      "reads": 557,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_37984529_38008026",
+      "arm": "graph_bam",
+      "reads": 557,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_47671540_47713869",
+      "arm": "baseline",
+      "reads": 570,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_47671540_47713869",
+      "arm": "graph_bam",
+      "reads": 570,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_53926537_53962801",
+      "arm": "baseline",
+      "reads": 604,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_53926537_53962801",
+      "arm": "graph_bam",
+      "reads": 604,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "joined"
+    },
+    {
+      "target": "chr20_55999561_56040612",
+      "arm": "baseline",
+      "reads": 711,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    },
+    {
+      "target": "chr20_55999561_56040612",
+      "arm": "graph_bam",
+      "reads": 711,
+      "same_reads": true,
+      "same_variants": true,
+      "same_endpoint_status": true,
+      "endpoint_status": "split"
+    }
+  ],
+  "limitation": "Regional replay only; does not prove chromosome-context order independence or truth accuracy."
+}

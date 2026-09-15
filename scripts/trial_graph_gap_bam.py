@@ -22,14 +22,21 @@ def run(command, directory, name):
 def endpoint_blocks(path, left, right):
     blocks = {left: set(), right: set()}
     with path.open() as stream:
-        for row in csv.DictReader(stream, delimiter="\t"):
-            # Native indel POS names the event; audited VCF POS names its
-            # preceding anchor, as in VariantKey::sort_pos().
-            pos = int(row["POS"]) - (row["TYPE"] != "SNP")
-            if (pos in blocks and row["HAP_ALT"] in ("1", "2") and
-                    row["HAP_REF"] in ("1", "2") and row["HAP_ALT"] != row["HAP_REF"] and
-                    int(row["PHASE_SET"]) >= 0):
-                blocks[pos].add(row["PHASE_SET"])
+        for line in stream:
+            if line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            pos = int(fields[1])
+            if pos not in blocks or len(fields) < 10:
+                continue
+            # The candidate table's HAP_ALT/HAP_REF summary cannot express
+            # alternate/alternate genotypes. Use the actual phased genotype.
+            sample = dict(zip(fields[8].split(":"), fields[9].split(":")))
+            gt = sample.get("GT", ".").split("|")
+            ps = sample.get("PS", ".")
+            if (len(gt) == 2 and all(a.isdigit() for a in gt) and gt[0] != gt[1] and
+                    ps.isdigit()):
+                blocks[pos].add(ps)
     if len(blocks[left]) != 1 or len(blocks[right]) != 1:
         return "unresolved_endpoint"
     return "joined" if blocks[left] == blocks[right] else "split"
@@ -55,11 +62,13 @@ def trial_region(args, target):
         command = common + ["-o", str(out / "candidates.tsv"), "--phased-vcf-out",
                             str(out / "native.vcf"), "-b", str(out / "phased.bam"),
                             "--gap-recovery-report", str(out / "tiers.tsv")]
+        if args.decision_audit:
+            command += ["--gap-decision-audit", str(out / "decision_audit")]
         if arm == "baseline":
             command.append("--no-graph-gap-bam")
         result[f"{arm}_cache_reused"] = cache.exists()
         result[f"{arm}_seconds"] = run(command, out, "phase")
-        result[f"{arm}_status"] = endpoint_blocks(out / "candidates.tsv", left, right)
+        result[f"{arm}_status"] = endpoint_blocks(out / "native.vcf", left, right)
         with (out / "tiers.tsv").open() as stream:
             rows = list(csv.DictReader(stream, delimiter="\t"))
         selected = [r for r in rows if r["GRAPH_BAM_PASS"] == "1"]
@@ -89,6 +98,8 @@ def main():
     for flag in ("ref", "bam", "graph-sites", "gaf", "output"):
         parser.add_argument(f"--{flag}", type=Path, required=True)
     parser.add_argument("--truth-bam", type=Path, help="Evaluation only; never passed to pgphase")
+    parser.add_argument("--decision-audit", action="store_true",
+                        help="Export all-tier frozen evidence for offline decision replay")
     parser.add_argument("--run-name", required=True, help="New label for this build; caches are shared between runs")
     parser.add_argument("--contig-prefix", default="CHM13#0#")
     parser.add_argument("--flank", type=int, default=50000)

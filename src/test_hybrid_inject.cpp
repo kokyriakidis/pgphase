@@ -105,6 +105,10 @@ int main() {
         ok &= check(c.read_var_profile[2].alleles[0] == -2 &&
                         c.read_var_profile[2].alt_qi[0] == 12,
                     "a different graph ALT does not confirm the first ALT candidate");
+        ok &= check(c.read_var_profile[0].bam_alleles == std::vector<int>({-2}) &&
+                    c.read_var_profile[0].bam_qi == std::vector<int>({12}) &&
+                    c.read_var_profile[1].bam_alleles == std::vector<int>({0}),
+                    "GAF injection retains original BAM observations and query coordinates");
         ok &= check(c.candidates[0].counts.total_cov == 10,
                     "shared-site confirmation does not double-count read depth");
     }

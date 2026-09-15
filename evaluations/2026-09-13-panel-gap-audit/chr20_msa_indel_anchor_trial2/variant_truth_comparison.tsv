@@ -1,0 +1,2 @@
+region	before_covered_variants	before_all_assessed_pairs	before_all_switches	before_all_switchflips	before_blockwise_hamming	before_blockwise_hamming_rate	after_covered_variants	after_all_assessed_pairs	after_all_switches	after_all_switchflips	after_blockwise_hamming	after_blockwise_hamming_rate
+chr20_37984529_38008026	68	66	0	0/0	0	0.0	68	67	0	0/0	0	0.0

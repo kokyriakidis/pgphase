@@ -1,0 +1,77 @@
+{
+  "binary_sha256": "949f00471e090b84d960416666391b293cb51085d01546224ac0198908f9e68a",
+  "targets": [
+    [
+      "chr20",
+      863640,
+      890261
+    ],
+    [
+      "chr20",
+      1086625,
+      1110921
+    ],
+    [
+      "chr20",
+      12721112,
+      12752291
+    ],
+    [
+      "chr20",
+      17607780,
+      17667022
+    ],
+    [
+      "chr20",
+      19358995,
+      19395544
+    ],
+    [
+      "chr20",
+      23460963,
+      23480815
+    ],
+    [
+      "chr20",
+      23460963,
+      23481134
+    ],
+    [
+      "chr20",
+      37984529,
+      38008026
+    ],
+    [
+      "chr20",
+      47671540,
+      47713869
+    ],
+    [
+      "chr20",
+      53926537,
+      53962801
+    ],
+    [
+      "chr20",
+      55999561,
+      56040612
+    ]
+  ],
+  "args": {
+    "targets": "/home/kokyriakidis/Downloads/pgphase/evaluations/2026-09-14-graph-gap-bam/targets.tsv",
+    "binary": "/home/kokyriakidis/Downloads/pgphase/pgphase",
+    "ref": "/home/kokyriakidis/Downloads/pgphase/test_data/chm13v2.0.chr20.renamed.fa",
+    "bam": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "graph_sites": "/home/kokyriakidis/Downloads/pgphase/test_data/chr20.sites.striped.vcf.gz",
+    "gaf": "/home/kokyriakidis/Downloads/pgphase/test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "output": "/tmp/pgphase-gap-trials",
+    "truth_bam": null,
+    "run_name": "robust_plan_replay_v1",
+    "contig_prefix": "CHM13#0#",
+    "flank": 50000,
+    "threads": 2,
+    "jobs": 2,
+    "limit": 0
+  },
+  "note": "Local windows can differ from whole-chromosome phasing. Confirm improvements on chr20."
+}

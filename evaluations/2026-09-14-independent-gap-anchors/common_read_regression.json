@@ -1,0 +1,13 @@
+{
+  "previously_evaluated_reads": 189009,
+  "currently_evaluated_reads": 189049,
+  "lost_evaluated_reads": 0,
+  "existing_reads_with_changed_truth_status": 0,
+  "new_evaluated_reads": 40,
+  "new_discordant_reads": 3,
+  "new_discordant_truth_hapq": [
+    0,
+    0,
+    0
+  ]
+}

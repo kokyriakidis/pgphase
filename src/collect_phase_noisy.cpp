@@ -1248,6 +1248,7 @@ int merge_var_profile(PhasingChunk& chunk,
                 replace_sites->count(new_vars[new_i].key) != 0 && admissible_type(new_vars[new_i]);
             if (replace_repeat || replace_selected) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
+                new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =
                     old_vars[old_i].counts.candvarcate_initial;
                 new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
@@ -1301,6 +1302,31 @@ int merge_var_profile(PhasingChunk& chunk,
                                        new_p, new_to_merged,
                                        merged_profiles[static_cast<size_t>(read_i)],
                                        static_cast<int>(merged_vars.size()));
+    }
+
+    // MSA replaces a working observation, not its original BAM/GAF history.
+    for (size_t ri = 0; ri < merged_profiles.size() && ri < old_profiles.size(); ++ri) {
+        auto& dest = merged_profiles[ri];
+        const auto& source = old_profiles[ri];
+        dest.bam_alleles.assign(dest.alleles.size(), -1);
+        dest.bam_qi.assign(dest.alleles.size(), -1);
+        for (size_t pi = 0; pi < source.alleles.size(); ++pi) {
+            const int vi = source.start_var_idx + static_cast<int>(pi);
+            if (vi < 0 || static_cast<size_t>(vi) >= old_vars.size()) continue;
+            const auto found = std::lower_bound(merged_vars.begin(), merged_vars.end(), old_vars[vi].key,
+                [](const CandidateVariant& v, const VariantKey& key) {
+                    return exact_comp_var_site(&v.key, &key) < 0;
+                });
+            if (found == merged_vars.end() || exact_comp_var_site(&found->key, &old_vars[vi].key)) continue;
+            const int di = static_cast<int>(found - merged_vars.begin()) - dest.start_var_idx;
+            if (di < 0 || static_cast<size_t>(di) >= dest.alleles.size()) continue;
+            if (pi < source.bam_alleles.size()) dest.bam_alleles[di] = source.bam_alleles[pi];
+            if (pi < source.bam_qi.size()) dest.bam_qi[di] = source.bam_qi[pi];
+            if (pi < source.graph_alleles.size()) {
+                dest.graph_alleles.resize(dest.alleles.size(), -1);
+                dest.graph_alleles[di] = source.graph_alleles[pi];
+            }
+        }
     }
 
     cgranges_t* merged_cr = cr_init();

@@ -234,6 +234,73 @@ struct Options {
     // Internal bounds for non-repeat MSA sites admitted for one gap retry.
     hts_pos_t gap_recovery_beg = -1;
     hts_pos_t gap_recovery_end = -1;
+    // Minimum gap-only reads (no original flank/block assignment at all)
+    // sharing one locally-derived phase set before emitting it as a new,
+    // independent block. Purely additive: never overwrites an existing
+    // assignment. 0 disables independent-block emission entirely.
+    int gap_independent_min_reads = 3;
+    // Bound on how many times the bridge/independent-block recovery sequence
+    // repeats per batch. Each round can create new, smaller gaps (a fresh
+    // independent block now sits between an existing flank and a bridge that
+    // previously had nothing to reach); repeating lets the same validated
+    // logic reach those, terminating itself on the first round with no
+    // progress. 1 reproduces the original single-pass behavior.
+    //
+    // Default is 1: only round 0 can use --gap-evidence-cache (its signature
+    // is keyed to the gap inventory, which every later round changes), so
+    // round >=1 rebuilds raw evidence uncached. On chr20 this was observed to
+    // grow resident memory past 47 GB within 10 minutes with no sign of
+    // bounding -- not yet safe to enable by default. Raise this only with
+    // memory monitored, on a pipeline that has evidence-building costs under
+    // control for repeated, partial re-invocation.
+    int gap_recovery_max_rounds = 1;
+    // Attempt to bridge each newly-independent block to its own two flanks,
+    // reusing its proposal (no re-extraction) against a read index rebuilt
+    // post-emission. Off by default: measured on chr20 it added only 6 reads
+    // chromosome-wide with 50% accuracy on that specific population -- these
+    // gaps already failed the identical vote test once (that is why they
+    // could not join originally), and routing through the new block does not
+    // change the flank-side vote count, so any success here rides on
+    // marginal evidence. Never corrupts an existing read (same guards as
+    // emit_independent_gap_block), but not worth enabling until the bridge
+    // criterion itself is strengthened for this specific, already-once-
+    // rejected evidence.
+    bool gap_bridge_independent_blocks = false;
+    // Additively attach reads with no committed pre-recovery haplotype/phase-
+    // set at all (GapReadIndex::assignments misses them -- e.g. they sat
+    // right at a block boundary and the main pass left them unassigned) to a
+    // flank they individually agree with by allele
+    // (CandidateVariant::hap_to_cons_alle), same principle as
+    // --link-by-alleles / check_agree_alleles for the main phasing pass.
+    //
+    // Two earlier versions fed this allele agreement directly into
+    // stitch_gap_proposal's `votes` (i.e. let it help decide which side a
+    // gap joins to, and whether it flips) and both measurably corrupted
+    // existing phase sets on chr20 -- the allele-derived signal is self-
+    // consistent per read (confirmed by requiring agreement across every one
+    // of a read's overlapping-tile-chunk locations, which changed nothing)
+    // but simply not reliable enough, concentrated in already-hard regions,
+    // to trust for the join/orientation decision itself. See CHECKPOINT.md,
+    // 2026-09-15, for both experiments' numbers.
+    //
+    // The current implementation instead computes `votes`/orientation
+    // selection (which side wins, whether it flips) from committed
+    // (first_assignment) reads only -- byte-identical to this flag being
+    // off -- and consults allele agreement only *after* a join is already
+    // accepted on committed evidence alone, purely to attach more reads to
+    // it (the same additive contract emit_independent_gap_block uses).
+    // Verified on chr20, whole chromosome, against
+    // ../pgphase-eval-data/truth/chr20/diplinator_merged.bam: gaps bridged
+    // (112) and their orientation are unchanged, byte-for-byte, from this
+    // flag being off. Zero of the 184,974 previously-evaluated reads
+    // regressed (no concordant -> DISCORDANT transition anywhere); 22,676
+    // additional reads got evaluated, 96.4% of them concordant (in line with
+    // emit_independent_gap_block's 96.2% on its own, much smaller,
+    // population); contiguity improved slightly (176 phase sets vs 179,
+    // fewer/larger blocks) because many reads that previously only qualified
+    // for a same-PS independent block now attach directly to the correct
+    // flank instead.
+    bool gap_link_by_alleles = true;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
@@ -307,6 +374,8 @@ struct Options {
     bool recover_gaps = false;
     bool graph_gap_bam = true;
     std::string gap_recovery_report;
+    /// Read-only, all-tier decision and observation export before recovery.
+    std::string gap_decision_audit;
     /// Optional persistent cache for gap-targeted MSA sites and read alleles.
     std::string gap_evidence_cache;
     // Emit and phase hets that fail the anchor AF margin instead of discarding
@@ -580,10 +649,12 @@ struct CandidateVariant {
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).
     bool is_homopolymer_indel = false;
-    // Recomputed from clean-site evidence for gap repeat links and MSA allele pairs.
+    // Recomputed from clean-site evidence for MSA indel bridges in recovery gaps.
     bool gap_link_supported = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
+    // Site identity from the graph catalog, independent of observed coverage.
+    bool graph_site = false;
     // True when the variant's VCF POS falls inside the chunk's active region.
     // Used during tiling-overlap dedup: prefer the copy that passes this gate.
     bool lcd_make_variants_region_pass = true;
@@ -618,6 +689,9 @@ struct ReadVariantProfile {
     // Parallel GAF observation channel. It preserves graph/BAM conflicts for
     // recovery without changing the BAM allele used by the normal phaser.
     std::vector<int> graph_alleles;
+    // Original BAM observations, retained before GAF injection/MSA replacement.
+    std::vector<int> bam_alleles;
+    std::vector<int> bam_qi;
 };
 
 // ════════════════════════════════════════════════════════════════════════════

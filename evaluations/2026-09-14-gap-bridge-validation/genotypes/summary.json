@@ -1,0 +1,18 @@
+{
+  "edges": {
+    "CORRECT": 102,
+    "SPLIT": 161,
+    "UNCERTAIN_TRUTH": 4,
+    "UNASSESSED": 7,
+    "WRONG": 6
+  },
+  "common_read_transitions": {
+    "concordant->concordant": 184208,
+    "DISCORDANT->DISCORDANT": 554,
+    "concordant->DISCORDANT": 1041,
+    "DISCORDANT->concordant": 32,
+    "skipped->skipped": 8
+  },
+  "original_blocks": 278,
+  "uniform_original_block_transformations": true
+}

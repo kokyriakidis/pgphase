@@ -1,0 +1,11 @@
+{
+  "transitions": {
+    "concordant -> concordant": 186394,
+    "DISCORDANT -> DISCORDANT": 733,
+    "DISCORDANT -> concordant": 1597,
+    "concordant -> DISCORDANT": 74,
+    "skipped -> skipped": 8
+  },
+  "lost_evaluated": 244,
+  "new_evaluated": 3
+}

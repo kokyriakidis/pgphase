@@ -1,0 +1,20 @@
+{
+  "cases": 3,
+  "target_transitions": {
+    "split -> split": 1,
+    "split -> joined": 2
+  },
+  "original_reads_preserved": 1257,
+  "added_tagged_reads": 36,
+  "discordance_increases": [
+    "chr20_37984529_38008026"
+  ],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "split -> split": 1,
+    "joined -> joined": 2
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}

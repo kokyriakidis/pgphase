@@ -1,0 +1,5 @@
+chrom	left	right	baseline_cache_reused	baseline_seconds	baseline_status	baseline_selected_reads	graph_bam_cache_reused	graph_bam_seconds	graph_bam_status	graph_bam_selected_reads
+chr20	23421003	23449834	True	1.015	split	0	True	1.143	split	170
+chr20	37642719	37667751	True	0.914	split	0	True	0.978	split	130
+chr20	57841772	57866713	True	1.341	joined	0	True	1.342	joined	0
+chr20	62408056	62432427	True	0.953	split	0	True	1.054	split	173

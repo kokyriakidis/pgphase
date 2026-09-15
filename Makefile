@@ -45,6 +45,7 @@ SOURCES_CXX = src/main.cpp \
 	src/collect_var.cpp \
 	src/collect_phase.cpp \
 	src/gap_recovery.cpp \
+	src/gap_evidence.cpp \
 	src/collect_phase_pgbam.cpp \
 	src/collect_phase_noisy.cpp \
 	src/align.cpp \
@@ -78,6 +79,9 @@ unit-tests: test_phase_block_stitch test_graph_sites test_graph_bam_adapter test
 	./test_noise_filter
 
 benchmark-tests:
+	python3 scripts/test_replay_gap_decisions.py
+	python3 scripts/test_evaluate_phase_accuracy.py
+	python3 scripts/test_trial_graph_gap_bam.py
 	PYTHONPATH=scripts python3 scripts/test_benchmark_framework.py
 	python3 -m py_compile scripts/benchmark_panel.py scripts/run_cached_step.py scripts/analyze_correct_competitor_bridges.py
 	bash -n evaluations/2026-09-12-chr12-18-20-comparison/commands.sh
@@ -153,8 +157,8 @@ $(GBZ_FFI_LIB): $(wildcard $(GBZ_FFI_DIR)/lib.rs $(GBZ_FFI_DIR)/Cargo.toml)
 pgphase: $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB) $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
-test_phase_block_stitch: src/test_phase_block_stitch.cpp src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
-	$(CXX) $(CXXFLAGS) -o $@ $< src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
+test_phase_block_stitch: src/test_phase_block_stitch.cpp src/gap_evidence.o src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $< src/gap_evidence.o src/gap_recovery.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)

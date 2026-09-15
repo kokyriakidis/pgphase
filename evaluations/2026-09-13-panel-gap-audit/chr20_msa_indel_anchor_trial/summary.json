@@ -1,0 +1,16 @@
+{
+  "cases": 1,
+  "target_transitions": {
+    "split -> split": 1
+  },
+  "original_reads_preserved": 440,
+  "added_tagged_reads": 16,
+  "discordance_increases": [],
+  "majority_reversed_original_blocks": [],
+  "baseline_target_transitions": {
+    "split -> split": 1
+  },
+  "baseline_discordance_increases": [],
+  "baseline_switchflip_increases": [],
+  "baseline_discordance_decreases": []
+}

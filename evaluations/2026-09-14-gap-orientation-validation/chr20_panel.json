@@ -1,0 +1,57 @@
+[
+  {
+    "left": 863640,
+    "right": 890261,
+    "status": "joined"
+  },
+  {
+    "left": 1086625,
+    "right": 1110921,
+    "status": "split"
+  },
+  {
+    "left": 12721112,
+    "right": 12752291,
+    "status": "split"
+  },
+  {
+    "left": 17607780,
+    "right": 17667022,
+    "status": "split"
+  },
+  {
+    "left": 19358995,
+    "right": 19395544,
+    "status": "joined"
+  },
+  {
+    "left": 23460963,
+    "right": 23480815,
+    "status": "joined"
+  },
+  {
+    "left": 23460963,
+    "right": 23481134,
+    "status": "joined"
+  },
+  {
+    "left": 37984529,
+    "right": 38008026,
+    "status": "joined"
+  },
+  {
+    "left": 47671540,
+    "right": 47713869,
+    "status": "split"
+  },
+  {
+    "left": 53926537,
+    "right": 53962801,
+    "status": "joined"
+  },
+  {
+    "left": 55999561,
+    "right": 56040612,
+    "status": "split"
+  }
+]

@@ -1,0 +1,5 @@
+region	original_ps	final_ps	truth_reads	before_discordant	after_discordant	uniform_label_flip	majority_reversed
+chr20_37984529_38008026	37936082	37936082	237	0	0	0	False
+chr20_37984529_38008026	38008026	37936082	203	1	1	0	False
+chr20_62410496_62432427	62385548	62385548	157	0	0	0	False
+chr20_62410496_62432427	62432427	62385548	229	0	0	0	False

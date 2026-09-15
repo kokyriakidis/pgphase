@@ -1,0 +1,2 @@
+region	before_target	after_target	before_reads	after_reads	before_discordant	after_discordant	before_switchflips	after_switchflips
+chr20_37984529_38008026	split	split	456	456	1	1	1	1

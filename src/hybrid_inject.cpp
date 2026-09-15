@@ -236,6 +236,7 @@ static int add_graph_only_candidate(PhasingChunk& chunk,
     const int idx = static_cast<int>(chunk.candidates.size());
     CandidateVariant cand;
     cand.key = vcf_to_variant_key(tid, site.pos, site.ref, vcf_alt);
+    cand.graph_site = true;
     if (cand.key.type == VariantType::Snp && cand.key.pos >= site.pos &&
         static_cast<size_t>(cand.key.pos - site.pos) < site.ref.size()) {
         switch (site.ref[static_cast<size_t>(cand.key.pos - site.pos)]) {
@@ -321,6 +322,7 @@ SiteToCandidateMap inject_graph_sites(
                 chunk.candidates, target, orig_count);
 
             if (match_idx >= 0 && match_idx < orig_count) {
+                chunk.candidates[match_idx].graph_site = true;
                 site_to_candidate[site_key] = match_idx;
                 all_graph_pre_sort.insert(match_idx);
                 pre_sort_vcf_alleles[match_idx] =
@@ -411,6 +413,9 @@ static bool extend_bam_profile_with_graph_obs(
         const std::vector<std::pair<int,int>>& graph_obs,  // (candidate_idx, allele)
         const std::unordered_set<int>& graph_only_candidates) {
     ReadVariantProfile& prof = chunk.read_var_profile[static_cast<size_t>(read_i)];
+    const int bam_start = prof.start_var_idx;
+    auto bam_alleles = std::move(prof.bam_alleles);
+    auto bam_qi = std::move(prof.bam_qi);
 
     // Track which observations are actually applied so we only update
     // allele counts for slots that were filled (not already occupied).
@@ -514,6 +519,14 @@ static bool extend_bam_profile_with_graph_obs(
         }
     }
 
+    prof.bam_alleles.assign(prof.alleles.size(), -1);
+    prof.bam_qi.assign(prof.alleles.size(), -1);
+    for (size_t i = 0; i < bam_alleles.size(); ++i) {
+        const int offset = bam_start + static_cast<int>(i) - prof.start_var_idx;
+        if (offset < 0 || static_cast<size_t>(offset) >= prof.alleles.size()) continue;
+        prof.bam_alleles[offset] = bam_alleles[i];
+        if (i < bam_qi.size()) prof.bam_qi[offset] = bam_qi[i];
+    }
     return !applied.empty() || confirmed;
 }
 
@@ -524,6 +537,11 @@ int inject_graph_reads(
         const std::unordered_set<int>& graph_only_candidates,
         const Options& opts,
         int* reads_extended_out) {
+    for (auto& profile : chunk.read_var_profile) {
+        if (!profile.bam_alleles.empty()) continue;
+        profile.bam_alleles = profile.alleles;
+        profile.bam_qi = profile.alt_qi;
+    }
     if (graph_rows.empty() || site_to_candidate.empty()) {
         if (reads_extended_out) *reads_extended_out = 0;
         return 0;
@@ -615,6 +633,8 @@ int inject_graph_reads(
         profile.alleles.assign(span, -1);
         profile.alt_qi.assign(span, kGraphConfirmedAltQi);
         profile.graph_alleles.assign(span, -1);
+        profile.bam_alleles.assign(span, -1);
+        profile.bam_qi.assign(span, -1);
 
         for (const ReadObs& obs : obs_vec) {
             const int offset = obs.candidate_idx - first_idx;
