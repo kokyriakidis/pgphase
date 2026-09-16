@@ -8133,3 +8133,34 @@ blind to this error class; only the site-level truth check sees it. The retry mu
 refuse to join across a zero-spanning-read spacing: the right output here is two
 blocks, 48,147,227-48,183,976 and 48,225,786-48,229,226, which is what 20 kb chunks
 already produce.
+
+### verify_retry.py, and the bridging site we call homozygous (2026-09-16)
+
+`evaluations/2026-09-16-retry-verify/`. One command per window, built so no check
+can pass by being blind. It reports CATEGORY and emitted GENOTYPE separately,
+counts spanning reads for every consecutive pair of usable het sites, names every
+unscorable site with its reason, collapses records at one position before
+declaring a switch and requires a run of sites on each side, censuses what a
+competitor phases here against what we do at those positions, and sets
+`gate_blind` whenever an unsupported link or unscorable site exists -- a PASS
+requires it false. It was written after four errors of mine, one per row of the
+table in that README, each of which a silent skip had produced.
+
+On chr20:48,176,830-48,229,446 it says: retry off PASS (44 usable hets, 2 in
+region, no unsupported link); retry on FAIL (63 usable hets, 8 in region, one
+unsupported link, one category-het/genotype-hom site, gate_blind true even though
+concordant->discordant is 0).
+
+THE BUG IT LOCALISED: hiphase crosses this interval with two het sites,
+48,183,976 and 48,204,383, and we have both. At 48,204,383 (AT>A, DP 71, 30 ref /
+41 alt, AF 0.577) our CATEGORY is NOISY_CAND_HET but the emitted genotype is 1|1 --
+alt on both haplotypes -- so it links nothing. That site is the difference between
+a read-supported chain (48,183,976->48,204,383 has 1 spanning read,
+48,204,383->48,225,786 has 7) and the 41.8 kb jump with ZERO spanning reads the
+solve makes instead.
+
+RETRACTION: the earlier claim that this block was measured as switched across the
+hole is withdrawn. With positions collapsed and a two-site run required per side,
+no switch is demonstrated -- the right side has one scorable site (48,229,226)
+because 48,225,786 is below confidence. The join is unsupported and its
+correctness untestable, which is why an unsupported link fails on its own.
