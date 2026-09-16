@@ -176,18 +176,26 @@ size_t GapReadIndex::Hash::operator()(const Key& key) const {
     return std::hash<std::string_view>{}(key.second) ^ std::hash<int>{}(key.first);
 }
 
-GapReadIndex::GapReadIndex(const std::vector<PhasingChunk>& chunks) {
+GapReadIndex::GapReadIndex(const std::vector<PhasingChunk>& chunks,
+                           const std::vector<PreFilterLabels>* prefilter) {
+    const bool use_prefilter = prefilter != nullptr && prefilter->size() == chunks.size();
     for (size_t ci = 0; ci < chunks.size(); ++ci) {
         for (size_t ri = 0; ri < chunks[ci].reads.size(); ++ri) {
             const auto& read = chunks[ci].reads[ri];
             const Key key{read.input_index, read.qname};
             reads[key].emplace_back(ci, ri);
-            if (!read.is_skipped && chunks[ci].haps[ri] != 0 &&
-                chunks[ci].phase_sets[ri] >= 0) {
-                assignments.emplace(
-                    key, std::make_pair(chunks[ci].haps[ri],
-                                        chunks[ci].phase_sets[ri]));
-                established_phase_sets.insert(chunks[ci].phase_sets[ri]);
+            const int hap = chunks[ci].haps[ri];
+            const hts_pos_t phase_set = chunks[ci].phase_sets[ri];
+            if (!read.is_skipped && hap != 0 && phase_set >= 0) {
+                assignments.emplace(key, std::make_pair(hap, phase_set));
+                vote_assignments.emplace(key, std::make_pair(hap, phase_set));
+                established_phase_sets.insert(phase_set);
+            } else if (use_prefilter && !read.is_skipped) {
+                const PreFilterLabels& before = (*prefilter)[ci];
+                if (ri < before.haps.size() && ri < before.phase_sets.size() &&
+                    before.haps[ri] != 0 && before.phase_sets[ri] >= 0)
+                    vote_assignments.emplace(
+                        key, std::make_pair(before.haps[ri], before.phase_sets[ri]));
             }
         }
         // filter_hybrid_reads_by_margin / filter_hybrid_small_phase_sets zero
@@ -305,12 +313,27 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     // reads to it (below), the same purely-additive contract
     // emit_independent_gap_block uses.
     std::unordered_map<ReadKey, std::pair<int, hts_pos_t>, GapReadIndex::Hash> original;
+    // Link votes count one read more than `original` does: one the output filter
+    // zeroed. Such a read is evidence of linkage whether or not it cleared the
+    // reporting margin, and without it a flank can be left with too few voters
+    // to join at all -- 2 of 64 at chr20:36,247,421. The two maps have to stay
+    // separate because `original` also means "this read already belongs to a
+    // block, do not attach it" further down, and widening that suppresses read
+    // attachment instead of enabling a join.
+    std::unordered_map<ReadKey, std::pair<int, hts_pos_t>, GapReadIndex::Hash> vote_original;
     for (const auto& read : proposal.reads) {
         const ReadKey key{read.input_index, read.qname};
         const auto found = index.reads.find(key);
         if (found == index.reads.end()) continue;
         const auto assignment = first_assignment(key, found->second);
-        if (assignment.first != 0) original.emplace(key, assignment);
+        if (assignment.first != 0) {
+            original.emplace(key, assignment);
+            vote_original.emplace(key, assignment);
+            continue;
+        }
+        const auto vote = index.vote_assignments.find(key);
+        if (vote != index.vote_assignments.end())
+            vote_original.emplace(key, vote->second);
     }
     std::map<ReadKey, size_t> proposal_reads;
     std::map<ReadKey, size_t> observation_reads;
@@ -322,8 +345,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
         observation_reads.emplace(key, i);
         if (proposal.haps[i] == 0 || proposal.phase_sets[i] < 0) continue;
         if (!proposal_reads.emplace(key, i).second) continue;
-        const auto it = original.find(key);
-        if (it == original.end()) continue;
+        const auto it = vote_original.find(key);
+        if (it == vote_original.end()) continue;
         const auto [hp, ps] = it->second;
         const int side = ps == gap.left_ps ? 0 : ps == gap.right_ps ? 1 : -1;
         if (side < 0) continue;
@@ -422,6 +445,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
             read.n_clean_conflict_snps = src.n_clean_conflict_snps;
             read.n_bridge_agree_snps = src.n_bridge_agree_snps;
             read.n_bridge_conflict_snps = src.n_bridge_conflict_snps;
+            read.n_hp_gap_agree = src.n_hp_gap_agree;
+            read.n_hp_gap_conflict = src.n_hp_gap_conflict;
             read.hap_score_margin = src.hap_score_margin;
             read.n_vars_scored = src.n_vars_scored;
         }
@@ -712,6 +737,8 @@ int emit_independent_gap_block(std::vector<PhasingChunk>& chunks,
             read.n_clean_conflict_snps = src.n_clean_conflict_snps;
             read.n_bridge_agree_snps = src.n_bridge_agree_snps;
             read.n_bridge_conflict_snps = src.n_bridge_conflict_snps;
+            read.n_hp_gap_agree = src.n_hp_gap_agree;
+            read.n_hp_gap_conflict = src.n_hp_gap_conflict;
             read.hap_score_margin = src.hap_score_margin;
             read.n_vars_scored = src.n_vars_scored;
         }

@@ -1,0 +1,9 @@
+gap_left	gap_bp	verdict_before	verdict_after	phase_sets_before	phase_sets_after	spans_before	spans_after	tagged_before	tagged_after	correct_before	correct_after	gate_conc_to_disc	lost_tag_was_concordant	gained_tag_concordant	gained_tag_discordant
+7073919	44697	rejected	joined	3	2	0	0	453	564	450	543	0	0	93	18
+7163303	43347	rejected	joined	3	2	0	0	369	561	367	556	0	0	189	3
+10296487	47108	split	split	2	2	0	0	642	680	641	671	0	0	30	8
+13429829	201996	rejected	rejected	3	3	0	0	418	736	415	691	0	0	276	42
+16673759	41482	split	split	2	2	0	0	385	464	385	462	0	0	77	2
+35919404	236915	rejected	joined	7	4	0	0	527	1066	518	983	29	0	487	52
+36332599	48420	joined	joined	1	1	1	1	437	494	433	484	0	0	51	6
+60084884	47398	rejected	rejected	2	2	0	0	468	469	467	467	1	0	1	0

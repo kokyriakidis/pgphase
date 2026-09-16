@@ -20,11 +20,30 @@ struct PhaseGap {
 };
 
 /// Index read locations and freeze the pre-recovery haplotype/PS assignments.
+// Read haplotype labels as they stood before the output filters ran, one entry
+// per chunk. filter_hybrid_reads_by_margin zeroes a read's hap and phase set for
+// reporting, but stitch_gap_proposal can only count a link vote from a read that
+// still holds one, so a vote index built after filtering silently loses the
+// evidence: measured at chr20:36,247,421, 62 of the 64 reads overlapping the left
+// flank's own boundary variant were zeroed, leaving that side two voters and no
+// join reachable from any recovery tier.
+struct PreFilterLabels {
+    std::vector<int> haps;
+    std::vector<hts_pos_t> phase_sets;
+};
+
 struct GapReadIndex {
     using Key = std::pair<int, std::string_view>;
     struct Hash { size_t operator()(const Key& key) const; };
     std::unordered_map<Key, std::vector<std::pair<size_t, size_t>>, Hash> reads;
     std::unordered_map<Key, std::pair<int, hts_pos_t>, Hash> assignments;
+    // Same map, but falling back to the pre-filter label where the output filter
+    // emptied a read's own. Used ONLY for link votes. `assignments` has to stay
+    // filter-accurate: emit_independent_gap_block treats a read with no entry
+    // there as gap-only and re-phases it, so widening that map would silence the
+    // independent-block path (measured: 105 and 169 concordant read tags lost in
+    // the two deficit gaps).
+    std::unordered_map<Key, std::pair<int, hts_pos_t>, Hash> vote_assignments;
     // Every phase-set id already carrying a committed pre-recovery read
     // (the set of `assignments` values' second element). Phase-set ids are
     // genome positions, so a gap's own locally re-derived k-means can, by
@@ -35,7 +54,12 @@ struct GapReadIndex {
     // way stitch_gap_proposal does, so silently landing gap-only reads in an
     // already-real phase set pollutes that block with unvalidated orientation.
     std::set<hts_pos_t> established_phase_sets;
-    explicit GapReadIndex(const std::vector<PhasingChunk>& chunks);
+    // `prefilter`, when given, supplies a read's label only where the chunk's
+    // current one is empty. Reads phased now -- including any this recovery pass
+    // has already attached -- keep their live label, so the fallback undoes the
+    // output filter without freezing a stale view across recovery rounds.
+    explicit GapReadIndex(const std::vector<PhasingChunk>& chunks,
+                          const std::vector<PreFilterLabels>* prefilter = nullptr);
 };
 
 struct GapLinkEvidence {

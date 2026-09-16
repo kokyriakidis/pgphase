@@ -7525,3 +7525,117 @@ nuance: five panel gaps whose STATUS read `split` or `partial` now read
 `rejected`, since tier 4 is evaluated in pass 1 and its label is the last report
 row -- same blocks and reads underneath, but the `split`/`partial` distinction is
 lost to anything reading the final row.
+
+### Deficit gap 2 diagnosed to the line; three fixes kept, two reverted (2026-09-16)
+
+`chr20:36,217,274-36,268,291`, second gap of the competitor-deficit set.
+`evaluations/2026-09-16-competitor-deficit/`.
+
+The evidence is sufficient and the correct join exists. An offline solver over
+the audit's per-read observations reaches a spanning partition at **1.000**
+accuracy from clean sites plus the one verified homopolymer deletion (0.923
+segregation), while the full site set reaches only 0.846 and tier 3's set --
+clean plus the non-repeat verified indels, which segregate at 0.509 and 0.644 --
+reaches 0.538. The tiers were cumulative, so the junk admitted at tier 3 was
+never removed when tier 4 added the good site.
+
+What blocks the join is upstream of the tiers. `stitch_gap_proposal` counts a
+link vote only from a read still holding a hap and one of the flanks' phase sets,
+and two read-tagging filters run before `recover_hybrid_gaps` in the batch loop:
+**62 of the 64 reads overlapping the left flank's own boundary variant are
+zeroed there**, leaving that side 2 voters. Those reads observe exactly one clean
+het SNP, and the margin counts only `kCandCleanHetSnp` (its rescue credits
+bridge SNPs, never indels), so 1 < 2 strips them. With the labels unfiltered,
+both flanks link to the same proposal phase set and the tier-4 proposal scores
+1.0000 against read truth over 95 reads, agreeing with the frozen haplotype of
+all 26 left-flank and all 69 right-flank reads.
+
+Lowering `--min-read-margin` is not the fix. Ten-window panel: margin 2 -> 1
+turns **99 concordant reads discordant** (70 in this gap alone, so its join there
+is wrong) and drops accuracy 97.63% -> 95.44%; margin 2 -> 0 turns 30 and drops
+99.38% -> 96.48%. The flag is also not a BAM-side remnant -- it is the global
+`min_read_hap_margin`, parsed by both subcommands and consumed by the chromosome
+pass, gap recovery's proposal and validation, and the graph path's own read gate.
+Its built-in default is 0 while this project's canonical scripts pass 2.
+
+Reordering the filters after recovery is not the implementation either: it fixes
+the starvation (all 64 boundary reads keep a phase set) but then judges reads on
+counters recomputed over a narrow gap window, collapsing tagging 358 -> 177 in
+this gap and 575 -> 398 in gap 1 (105 and 169 concordant tags lost, 0 concordant
+-> discordant). Crediting bridge and last-resort evidence at that call does not
+restore them. Reverted, along with removing the validation view's own filters,
+which did not clear the veto.
+
+Kept, each measured, defaults unchanged elsewhere:
+
+1. Tier 4 is a real last resort -- clean plus verified SNPs plus verified
+   homopolymer indels -- instead of restoring every flag and readmitting the
+   non-repeat indels tier 3 had just failed with.
+2. `CandidateVariant::hp_gap_scorable` lets the site the homopolymer tier
+   admitted contribute read scores. `init_assign_read_hap` skipped *every*
+   homopolymer indel, so the tier could earn link support and still not phase the
+   reads it was reached for; this is what grew the in-gap block 69 -> 95 reads and
+   extended it ~17 kb leftward (reads reaching the left endpoint 1 -> 26).
+   `gap_link_supported` could not be reused: line 1188 grants it from
+   `msa_insertion_alts` alone, also outside a homopolymer gap. Unit test
+   `test_hp_gap_site_scores_reads_only_in_its_gap` pins both directions.
+3. `ReadRecord::n_hp_gap_agree/conflict`, credited in the recovery margin
+   filter's rescue for the same reason bridge SNPs are.
+
+Gap 1 still joins with all three applied; gap 2 does not yet -- it now reports
+`vetoed`, the homopolymer tier's requirement that an independent BAM-only solve
+reach the same orientation. That guard is worth keeping (margin 1 proved a wrong
+join is available here), but it fires against a proposal measured 1.0000
+accurate with `SELECTED_GRAPH_READS=157` and `GRAPH_BAM_PASS=1`, so it needs
+instrumenting next. The implementation the diagnosis points to is a snapshot:
+build the stitch's `read_index` from the labels as they stand before the output
+filters, leaving output filtering where it is.
+
+Also measured: two truth-free site screens fail here. Pairwise agreement with a
+clean anchor ranks the 0.923 site at 0.744 below a 0.644 site at 0.818, because
+agreement between two noisy sites compounds their errors; leave-one-out
+consistency scores the junk *higher* (0.820, 0.857 vs 0.754, 0.737) because
+`36,261,164`/`36,261,302`/`36,261,311` are one repeat event called three times
+inside 150 bp and form a self-consistent clique. Collapsing candidates within
+300 bp to the best-covered one lifts gap 2 to 0.981 and leaves gap 1 at 1.000 --
+the screen worth implementing.
+
+### Gap-recovery link votes now read the pre-filter labels (2026-09-16)
+
+`stitch_gap_proposal` counts a link vote only from a read still holding a hap and
+one of the flanks' phase sets, and two read-tagging filters run before
+`recover_hybrid_gaps` in the batch loop. At `chr20:36,247,421` that left the left
+flank **2 voters out of 64 reads** overlapping its own boundary variant, with no
+join reachable from any tier.
+
+`GapReadIndex::vote_assignments` now falls back to the label a read held before
+those filters, captured as `PreFilterLabels` in the batch loop and threaded into
+`recover_hybrid_gaps`. The gap inventory is still derived from the filtered
+chunks, so emission is unchanged; only the votes see more.
+
+Scoping took three attempts, and the lesson generalizes: three consumers read
+"no committed assignment" as permission to act, so widening the filtered view
+suppresses read attachment instead of enabling joins. `emit_independent_gap_block`
+re-phases reads with no assignment as gap-only; `first_assignment` also builds
+`supported_phase_sets`, which gates emission; and `original` in
+`stitch_gap_proposal` also means "already in a block, do not attach". Widening
+any of them cost 105 and 169 concordant read tags in the two deficit gaps. Final
+form: those three stay filter-accurate, and one wide map (`vote_original`) is
+used by the vote loop alone. The validation view's own output filters were
+removed too -- filtering the validator for reporting silenced the validator.
+
+Measured, ten-window panel vs matched pre-change runs
+(`evaluations/2026-09-16-competitor-deficit/votesnapshot_panel.tsv`): **0
+concordant -> discordant**, tagged 4,687 -> 4,714, concordant 4,576 -> 4,606
+(net +30), nine of ten windows byte-identical. All movement is in deficit gap 1
+`61,732,321`, which gains 78 concordant tags and rises 98.61% -> 99.17%.
+
+Deficit gap 2 is still not closed. Both flanks now link to the same proposal
+phase set, so the starvation is gone, but tier 4 reports `vetoed` with
+`bam_reads=157 bam_joined=0 bam_flip=0 graph_flip=0`: the orientations agree and
+the validator simply cannot link the flanks from its own read set, so it cannot
+confirm a join measured 1.0000 accurate over 95 reads. The guard stays -- margin
+1 proved a wrong join is available in this window. The next step is the
+validator itself: `select_graph_gap_bam_reads` restricts it to reads carrying a
+graph-channel call, so it must reproduce a join from a smaller read set than the
+proposal it judges.

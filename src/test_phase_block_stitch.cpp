@@ -1342,6 +1342,52 @@ static bool test_verified_msa_snp_bridges_without_flag() {
     return ok;
 }
 
+static bool test_hp_gap_site_scores_reads_only_in_its_gap() {
+    bool ok = true;
+    // A homopolymer indel is excluded from read scores everywhere except the gap
+    // the homopolymer tier admitted it for. Without that exception the tier could
+    // earn link support and still leave the gap's reads unphased, because the
+    // reads inside such a gap frequently have no other interior evidence.
+    for (const bool hp_tier : {false, true}) {
+        PhasingChunk chunk;
+        CandidateVariant anchor;
+        anchor.key.pos = 100; anchor.key.type = VariantType::Snp;
+        anchor.key.alt = "T"; anchor.key.ref_len = 1;
+        anchor.lcd_var_i_to_cate = kCandCleanHetSnp;
+        anchor.hap_to_cons_alle = {-1, 0, 1};
+        CandidateVariant hp_site;
+        hp_site.key.pos = 200; hp_site.key.type = VariantType::Deletion;
+        hp_site.key.alt = "."; hp_site.key.ref_len = 4;
+        hp_site.lcd_var_i_to_cate = kCandNoisyCandHet;
+        hp_site.msa_verified = true;
+        hp_site.is_homopolymer_indel = true;
+        chunk.candidates = {anchor, hp_site};
+        chunk.read_var_cr.reset(cr_init());
+        const std::array<int, 4> table{6, 0, 0, 6};
+        for (int cell = 0; cell < 4; ++cell)
+            for (int n = 0; n < table[cell]; ++n) {
+                const int ri = static_cast<int>(chunk.reads.size());
+                chunk.reads.emplace_back();
+                ReadVariantProfile profile;
+                profile.start_var_idx = 0; profile.end_var_idx = 1;
+                profile.alleles = {cell / 2, cell % 2};
+                profile.alt_qi = {-1, -1};
+                chunk.read_var_profile.push_back(profile);
+                cr_add(chunk.read_var_cr.get(), "cr", 0, 2, ri);
+            }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.recover_gaps = opts.link_by_alleles = opts.private_msa_admit_all_in_region = true;
+        opts.gap_recovery_beg = 150; opts.gap_recovery_end = 250;
+        if (hp_tier) { opts.gap_hp_link_beg = 150; opts.gap_hp_link_end = 250; }
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+        ok &= check(chunk.candidates[1].hp_gap_scorable == hp_tier,
+                    hp_tier ? "verified homopolymer indel is scorable inside the homopolymer tier's gap"
+                            : "homopolymer indel stays unscorable outside the homopolymer tier");
+    }
+    return ok;
+}
+
 static bool test_msa_insertion_pair_clean_anchor() {
     bool ok = true;
     // The first pattern separates the two alleles despite one weak row.
@@ -2040,6 +2086,7 @@ int main() {
     failures += test_orphan_msa_site_uses_stitched_read_orientation() ? 0 : 1;
     failures += test_assign_mapq_floor_gates_tags_only() ? 0 : 1;
     failures += test_verified_msa_snp_bridges_without_flag() ? 0 : 1;
+    failures += test_hp_gap_site_scores_reads_only_in_its_gap() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;
     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;

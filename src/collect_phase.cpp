@@ -332,6 +332,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
     read.n_clean_conflict_snps = 0;
     read.n_bridge_agree_snps = 0;
     read.n_bridge_conflict_snps = 0;
+    read.n_hp_gap_agree = 0;
+    read.n_hp_gap_conflict = 0;
 
     const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
     if (prof.start_var_idx < 0) return -1;
@@ -342,13 +344,23 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
     int n_clean_conflict[3] = {0, 0, 0};
     int n_bridge_agree[3] = {0, 0, 0};
     int n_bridge_conflict[3] = {0, 0, 0};
+    int n_hp_gap_agree[3] = {0, 0, 0};
+    int n_hp_gap_conflict[3] = {0, 0, 0};
 
     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
         CandidateVariant& var = chunk.candidates[vi];
         const uint32_t vic = var.lcd_var_i_to_cate;
         if ((vic & flags) == 0 || (phase_set && var.phase_set != *phase_set)) continue;
-        // Homopolymer indels and noisy homozygous sites do not contribute read scores.
-        if (var.is_homopolymer_indel || vic == kCandNoisyCandHom) continue;
+        // Homopolymer indels and noisy homozygous sites do not contribute read
+        // scores. The one exception is a site the homopolymer tier admitted as a
+        // gap's last-resort evidence: excluding it there left the reads inside
+        // the gap with no interior evidence at all, so the tier could earn link
+        // support and still not phase the reads it was reached for. Measured on
+        // chr20:36,247,421-36,268,291, the admitted homopolymer deletion
+        // segregates at 0.923 against read truth while the non-homopolymer
+        // verified indels beside it sit at 0.509-0.644.
+        if ((var.is_homopolymer_indel && !var.hp_gap_scorable) ||
+            vic == kCandNoisyCandHom) continue;
 
         const int aidx = prof.alleles[vi - prof.start_var_idx];
         if (aidx < 0) continue;
@@ -364,6 +376,9 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
                           var.counts.n_uniq_alles <= 2) {
                     if (score > 0) n_bridge_agree[hap]++;
                     else n_bridge_conflict[hap]++;
+                } else if (var.hp_gap_scorable) {
+                    if (score > 0) n_hp_gap_agree[hap]++;
+                    else n_hp_gap_conflict[hap]++;
                 }
             }
             if (vic != kCandCleanHom) hap_scores[hap] += score;
@@ -385,6 +400,8 @@ static int init_assign_read_hap(PhasingChunk& chunk, int read_i, uint32_t flags,
         read.n_clean_conflict_snps = n_clean_conflict[max_hap];
         read.n_bridge_agree_snps = n_bridge_agree[max_hap];
         read.n_bridge_conflict_snps = n_bridge_conflict[max_hap];
+        read.n_hp_gap_agree = n_hp_gap_agree[max_hap];
+        read.n_hp_gap_conflict = n_hp_gap_conflict[max_hap];
         read.n_vars_scored = n_vars_used[max_hap];
         return max_hap;
     }
@@ -1186,6 +1203,7 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
         auto& var = chunk.candidates[vi];
         const bool multi = !var.msa_insertion_alts.empty();
         var.gap_link_supported = multi;
+        var.hp_gap_scorable = false;
         const bool in_gap = opts.gap_recovery_beg >= 0 &&
                             var.key.sort_pos() >= opts.gap_recovery_beg &&
                             var.key.sort_pos() <= opts.gap_recovery_end;
@@ -1206,6 +1224,9 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
         const bool verified_snp = var.msa_verified &&
                                   var.key.type == VariantType::Snp &&
                                   var.lcd_var_i_to_cate == kCandNoisyCandHet && in_gap;
+        var.hp_gap_scorable = in_hp_gap && var.is_homopolymer_indel &&
+                              var.msa_verified &&
+                              var.lcd_var_i_to_cate == kCandNoisyCandHet;
         if (!multi && !verified_indel && !verified_snp &&
             (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet || !in_hp_gap))
             continue;

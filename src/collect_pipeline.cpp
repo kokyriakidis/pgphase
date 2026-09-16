@@ -1040,10 +1040,20 @@ static void filter_hybrid_reads_by_margin(std::vector<PhasingChunk>& chunks,
             // (never indels: an MSA indel can be placed at several equivalent
             // positions inside a repeat run and is not trustworthy enough to
             // rescue an otherwise-thin read).
-            if (credit_bridge_snps && read.n_bridge_agree_snps > 0) {
+            if (credit_bridge_snps &&
+                (read.n_bridge_agree_snps > 0 || read.n_hp_gap_agree > 0)) {
+                // hp_gap_scorable observations are credited here for the same
+                // reason as bridge SNPs: the read's haplotype was assigned using
+                // that evidence, so judging it on clean-SNP counts alone strips a
+                // read the solve had already phased. This is the narrow case the
+                // indel caveat above does not cover -- the site is MSA-verified
+                // and inside the homopolymer tier's own gap window, and it is
+                // frequently the only interior evidence such a gap has.
                 const int bridge_margin =
-                    (read.n_clean_agree_snps + read.n_bridge_agree_snps) -
-                    (read.n_clean_conflict_snps + read.n_bridge_conflict_snps);
+                    (read.n_clean_agree_snps + read.n_bridge_agree_snps +
+                     read.n_hp_gap_agree) -
+                    (read.n_clean_conflict_snps + read.n_bridge_conflict_snps +
+                     read.n_hp_gap_conflict);
                 if (bridge_margin >= min_margin) continue;
             }
             if (i < chunk.haps.size()) chunk.haps[i] = 0;
@@ -1950,8 +1960,26 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
                 // one side only. The tier's own guards are unchanged: it still needs
                 // a homopolymer candidate in the gap, --link-by-alleles, that
                 // orientation agreement, and the BAM validation below.
-                for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
-                    proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
+                // Last resort means the clean evidence plus homopolymer sites, not
+                // everything at once. Restoring every flag also readmitted the
+                // non-homopolymer verified indels tier 3 had just failed with, and
+                // those are frequently the worst sites in the window: on
+                // chr20:36,247,421-36,268,291 they segregate at 0.509 and 0.644
+                // against read truth while the homopolymer deletion segregates at
+                // 0.923, and carrying them into this tier holds the read partition
+                // at 0.846 accuracy where clean plus the homopolymer site alone
+                // reaches 1.000. Escalating to a weaker class should not re-admit a
+                // class that already had its turn.
+                for (size_t vi = 0; vi < proposal.candidates.size(); ++vi) {
+                    CandidateVariant& candidate = proposal.candidates[vi];
+                    candidate.lcd_var_i_to_cate = original_flags[vi];
+                    if (candidate.lcd_var_i_to_cate != kCandNoisyCandHet) continue;
+                    const bool allowed = candidate.msa_verified &&
+                        (candidate.key.type == VariantType::Snp ||
+                         candidate.is_homopolymer_indel);
+                    if (!allowed)
+                        candidate.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+                }
                 const bool has_hp = std::any_of(
                     proposal.candidates.begin(), proposal.candidates.end(),
                     [&](const CandidateVariant& v) {
@@ -2022,8 +2050,16 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
                 if (bam_reads > 0) {
                     assign_hap_based_on_germline_het_vars_kmeans(bam_proposal, local_opts, kCandGermlineClean);
                     assign_hap_based_on_germline_het_vars_kmeans(bam_proposal, local_opts, kCandGermlineVarCate);
-                    filter_hybrid_reads_by_margin(validation, opts.min_read_hap_margin, true);
-                    filter_hybrid_small_phase_sets(validation, opts.min_phase_set_reads);
+                    // No output filters on the validation view. The check asks
+                    // whether an independent BAM-only solve reaches the same
+                    // orientation, and stitch_gap_proposal counts a vote only
+                    // from a proposal read that still holds a hap and phase set
+                    // -- so filtering this view for reporting silenced the
+                    // validator itself and vetoed joins that were right.
+                    // Measured on chr20:36,247,421-36,268,291: the vetoed
+                    // proposal scores 1.0000 against read truth over 95 reads
+                    // and matches the frozen haplotype of all 26 left-flank and
+                    // 69 right-flank reads it holds.
                 }
                 std::unique_lock<std::mutex> lock(chunks_mutex, std::defer_lock);
                 if (!audit) lock.lock();
@@ -2102,7 +2138,8 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                                 const std::unordered_map<std::string, std::string>& chrom_remap,
                                 const BamAuthorityIntervals* bam_authority,
                                 std::ostream* report,
-                                PendingIndependentGaps* pending_out = nullptr) {
+                                PendingIndependentGaps* pending_out = nullptr,
+                                const std::vector<PreFilterLabels>* prefilter = nullptr) {
     const auto initial_gaps = find_phase_gaps(chunks);
     if (initial_gaps.empty()) return;
     const auto cache_begin = std::chrono::steady_clock::now();
@@ -2121,7 +2158,7 @@ static void recover_hybrid_gaps(std::vector<PhasingChunk>& chunks, const Options
                 opts.gap_evidence_cache, chunks, cache_signature);
     }
     const auto cache_end = std::chrono::steady_clock::now();
-    GapReadIndex read_index(chunks);
+    GapReadIndex read_index(chunks, prefilter);
     std::vector<size_t> pending(initial_gaps.size());
     std::iota(pending.begin(), pending.end(), 0);
     std::vector<GapRecoveryJobResult> results(initial_gaps.size());
@@ -2423,6 +2460,16 @@ void run_collect_hybrid_variation(const Options& opts) {
             graph_query_contig, chrom_remap, private_keys_ptr,
             bam_authority_ptr);
         stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
+        // Snapshot the labels the solve produced, before the output filters
+        // erase the ones gap recovery's link votes are counted from. The gap
+        // inventory itself is still derived from the filtered chunks, so this
+        // changes what the votes can see and nothing about what is emitted.
+        std::vector<PreFilterLabels> prefilter_labels;
+        if (opts.recover_gaps) {
+            prefilter_labels.reserve(batch.chunks.size());
+            for (const PhasingChunk& chunk : batch.chunks)
+                prefilter_labels.push_back({chunk.haps, chunk.phase_sets});
+        }
         filter_hybrid_reads_by_margin(batch.chunks, opts.min_read_hap_margin,
                                       opts.private_msa_admit_all_in_region);
         filter_hybrid_small_phase_sets(batch.chunks, opts.min_phase_set_reads);
@@ -2449,7 +2496,7 @@ void run_collect_hybrid_variation(const Options& opts) {
                 PendingIndependentGaps pending;
                 recover_hybrid_gaps(batch.chunks, round_opts, graph_query_contig, chrom_remap,
                                     bam_authority_ptr, recovery_report.is_open() ? &recovery_report : nullptr,
-                                    &pending);
+                                    &pending, &prefilter_labels);
                 stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
                 // Only after this second stitch call -- which re-examines
                 // block boundaries across the whole batch and would

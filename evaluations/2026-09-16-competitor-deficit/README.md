@@ -201,3 +201,193 @@ label (`tier == kGapHomopolymerTier && !joined`) is the last report row. The
 underlying state is unchanged -- same blocks, same reads, same tags -- but any
 consumer reading the final tier row loses the `split` versus `partial`
 distinction. Worth fixing in the report rather than in the tier.
+
+## Deficit gap 2: diagnosed to the line, not yet closed
+
+`chr20:36,217,274-36,268,291`. The evidence is sufficient and the correct join
+exists; what blocks it is an ordering flaw plus a veto, both upstream of the
+recovery tiers.
+
+### The evidence is sufficient
+
+An offline solver over the audit's per-read observations (orient each site by
+pairwise agreement, assign reads by majority vote at margin 2) shows what the
+window supports:
+
+| site set | gap 1 | gap 2 |
+|---|---|---|
+| clean only | no partition | no partition |
+| + verified indels, non-repeat (tier 3 today) | 38 reads, 1.000 | 26 reads, **0.538** |
+| + homopolymer, cumulative (tier 4 today) | 73 reads, 1.000 | 65 reads, 0.846 |
+| clean + homopolymer only | 11 reads, 1.000 | **52 reads, 1.000** |
+
+Gap 2's poison is the *non-repeat* verified indels (truth segregation 0.509 and
+0.644); its one good site is the homopolymer deletion at 0.923. Because the
+tiers were cumulative, the junk admitted at tier 3 was never removed when tier 4
+added the good site. Class hierarchy does not predict per-site quality here --
+though it does on average, which is why the ladder is still clean SNPs first:
+measured earlier on this chromosome, verified SNPs segregate at a median 0.988
+against 0.895 for verified indels.
+
+### Two truth-free screens fail, one works
+
+Do not reach for these again as they stand:
+
+- **Pairwise agreement with a clean anchor**: the 0.923 site scored 0.744 while a
+  0.644 site scored 0.818. Agreement between two noisy sites compounds their
+  errors, so a good site against a 0.906 anchor expects only ~0.84.
+- **Leave-one-out consistency against the consensus partition**: the junk sites
+  scored *higher* (0.820, 0.857) than the good ones (0.754, 0.737).
+
+The reason is positional. `36,261,164`, `36,261,302` and `36,261,311` are one
+repeat event called three times inside 150 bp; they agree with each other and
+form a self-consistent clique that outvotes the true signal -- the same failure
+shape as the earlier column-discovery result, where self-consistency read 1.000
+at chance-level truth concordance. **Collapsing candidates within 300 bp to the
+best-covered one** lifts gap 2 from 0.846 to 0.981 and leaves gap 1 at 1.000.
+That is the screen worth implementing.
+
+### What actually blocks the join
+
+`stitch_gap_proposal` counts a link vote only from a read that still holds a hap
+and one of the flanks' phase sets. Two read-tagging filters run *before*
+`recover_hybrid_gaps` in the batch loop, so the labels the stitch needs are
+already erased:
+
+| reads overlapping | n | frozen phase set |
+|---|---:|---|
+| left endpoint `36,247,421` | 64 | **62 unphased**, 2 in the flank block |
+| right endpoint `36,268,291` | 71 | 68 in the flank block |
+
+Those 62 reads observe exactly one clean het SNP, and the margin counts only
+`kCandCleanHetSnp` (its rescue credits bridge SNPs, never indels), so 1 < 2
+strips them. No tier configuration can reach them, and no evidence-crediting fix
+helps because the break contains zero MSA-verified SNPs.
+
+**The correct join does exist.** Running recovery on unfiltered labels, both
+flanks link to the same proposal phase set (`36247421` on both sides), the
+tier-4 proposal scores **1.0000** against read truth over 95 reads, and it
+agrees with the frozen haplotype of **all 26** left-flank and **all 69**
+right-flank reads it holds.
+
+### Lowering the margin is not the fix
+
+Ten-window panel, current build, read-level gate matched by read name:
+
+| | margin 2 | margin 1 | margin 0 (8 windows) |
+|---|---:|---:|---:|
+| reads tagged | 4,687 | 5,740 | 3,699 -> 5,034 |
+| accuracy | 97.63% | **95.44%** | 99.38% -> **96.48%** |
+| concordant -> discordant | -- | **99** | **30** |
+
+Gap 2 does span at margin 1 -- by flipping 70 previously concordant reads, so
+that join is wrong. `--min-read-margin` is also not a BAM-side remnant: it is
+the global `min_read_hap_margin`, parsed by both subcommands and consumed by the
+chromosome pass, gap recovery's proposal and validation, and the graph path's own
+read gate. Note the built-in default is 0 while this project's canonical scripts
+pass 2.
+
+### Reordering the filters is not the implementation either
+
+Moving both filters after recovery does fix the starvation -- all 64 left-boundary
+reads keep a frozen phase set -- but it then makes the output filter judge reads
+on counters recomputed over a narrow gap window, and tagging collapses: 358 -> 177
+reads in this gap and 575 -> 398 in gap 1, losing 105 and 169 concordant tags with
+0 concordant -> discordant. Crediting bridge and last-resort evidence at that call
+does not restore them. Reverted.
+
+The implementation that follows from the diagnosis is a **snapshot**: build the
+stitch's `read_index` from the haps and phase sets as they stand before the
+output filters, and leave output filtering exactly where it is. That preserves
+current tagging by construction while giving the votes an unstarved view.
+
+### And the veto needs its own look
+
+With the starvation removed, tier 4 reports `vetoed`, not `joined`. The
+homopolymer tier requires an independent BAM-only solve to reach the same
+orientation, which is a guard worth keeping -- margin 1 proved a wrong join is
+readily available in this window. But it fires here against a proposal measured
+1.0000 accurate, with `SELECTED_GRAPH_READS=157` and `GRAPH_BAM_PASS=1` in pass 1,
+so either the validation solve does not join or its orientation differs. That is
+the next thing to instrument.
+
+### Kept from this session
+
+Three changes, each measured, all opt-in-by-default-behaviour:
+
+1. Tier 4 is now a real last resort -- clean plus verified SNPs plus verified
+   homopolymer indels -- instead of restoring every flag and readmitting the
+   non-repeat indels tier 3 had just failed with.
+2. `CandidateVariant::hp_gap_scorable` lets the one site the homopolymer tier
+   admitted contribute read scores. `init_assign_read_hap` had skipped *every*
+   homopolymer indel, so the tier could earn link support and still not phase the
+   reads it was reached for. Measured effect on gap 2: the in-gap block grew
+   69 -> 95 reads and extended ~17 kb leftward, reads reaching the left endpoint
+   1 -> 26. `gap_link_supported` could not be reused for this: line 1188 grants it
+   from `msa_insertion_alts` alone, also outside a homopolymer gap.
+3. `ReadRecord::n_hp_gap_agree/conflict`, credited in the recovery margin
+   filter's rescue for the same reason bridge SNPs are.
+
+Gap 1 still joins with all three applied; gap 2 does not yet.
+
+## The starvation bug is fixed; gap 2's last blocker is the validator
+
+The diagnosis above named the fix as a snapshot, and that is what was built --
+but it took three attempts to scope, because the filtered view turned out to be
+load-bearing in three places, not one.
+
+`GapReadIndex` gains `vote_assignments`: the same read-to-(hap, phase set) map,
+falling back to the label a read held **before** the output filters ran wherever
+its current one is empty. `PreFilterLabels` is captured in the batch loop just
+before `filter_hybrid_reads_by_margin` and threaded into `recover_hybrid_gaps`.
+The gap inventory is still derived from the filtered chunks, so nothing about
+what is emitted changes -- only what the link votes can see.
+
+**Scoping was the hard part.** Each widening of the filtered view cost read
+coverage, because three consumers treat "no committed assignment" as permission
+to act:
+
+| widened | effect |
+|---|---|
+| `assignments` (whole index) | `emit_independent_gap_block` stops treating filter-zeroed reads as gap-only and re-phasing them -- 105 and 169 concordant tags lost in the two gaps |
+| `first_assignment` | also builds `supported_phase_sets`, which gates emission -- same loss |
+| `original` in `stitch_gap_proposal` | also means "already in a block, do not attach" -- same loss |
+
+So the final form keeps `assignments`, `first_assignment` and `original`
+filter-accurate, and adds one wide map, `vote_original`, used by the vote loop
+alone. The validation view's own output filters were also removed, for the same
+reason they were wrong on the flanks: `stitch_gap_proposal` counts a vote only
+from a proposal read still holding a hap and phase set, so filtering the
+validator for reporting silenced the validator.
+
+### Measured
+
+Left-boundary voters at `chr20:36,247,421` went from **2 of 64** reads to
+**64 of 64**, and both flanks now link to the same proposal phase set
+(`36247421` on both sides) -- the join condition. Ten-window panel against the
+matched pre-change runs (`votesnapshot_panel.tsv`):
+
+- gate concordant -> discordant: **0**
+- tagged reads 4,687 -> 4,714; concordant 4,576 -> **4,606** (net +30)
+- nine of ten windows byte-identical; all movement is in `61,732,321`, which
+  gains 78 concordant and 2 discordant tags while 48 concordant tags move into
+  the merged block, and its window accuracy rises 98.61% -> 99.17%
+
+### Gap 2 is still not closed, and the remaining blocker is now isolated
+
+Tier 4 reports `vetoed`, and the veto's own counters say why:
+
+```
+gap=36247421-36268291  bam_reads=157  bam_joined=0  bam_flip=0  graph_flip=0
+```
+
+Not an orientation disagreement -- the orientations agree. The homopolymer
+tier's validator has 157 reads and its independent BAM-only solve simply does
+not link the flanks, so it cannot confirm a join that scores 1.0000 against read
+truth over 95 reads. The guard is left in place: margin 1 proved a wrong join is
+readily available in this window, so a veto that fires too often is the right
+failure direction. What needs work is the confirmation mechanism --
+`select_graph_gap_bam_reads` restricts the validator to reads carrying a
+graph-channel call, so it is asked to reproduce a join from a smaller read set
+than the proposal it judges. That is the next measurement, and it is a design
+change to the validator rather than another scoping fix.

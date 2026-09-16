@@ -596,6 +596,12 @@ struct ReadRecord {
     // not from ordinary noisy-region recall run without --private-msa.
     int n_bridge_agree_snps = 0;
     int n_bridge_conflict_snps = 0;
+    // Observations of a homopolymer indel the homopolymer tier admitted as a
+    // gap's last-resort evidence (CandidateVariant::hp_gap_scorable). Kept
+    // separate from the bridge-SNP counters so the margin filter can credit
+    // them only where that tier is what phased the read.
+    int n_hp_gap_agree = 0;
+    int n_hp_gap_conflict = 0;
     // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap call,
     // and the number of informative variants behind the winning haplotype.
     // The clean-SNP agree/conflict counts above see only germline clean SNPs;
@@ -666,6 +672,11 @@ struct CandidateVariant {
     bool is_homopolymer_indel = false;
     // Recomputed from clean-site evidence for MSA indel bridges in recovery gaps.
     bool gap_link_supported = false;
+    // Set only by select_gap_link_sites, only for an MSA-verified homopolymer
+    // indel inside the homopolymer tier's gap window. Lets that one site score
+    // reads in the gap it was admitted for without relaxing the global rule
+    // that homopolymer indels do not contribute read scores.
+    bool hp_gap_scorable = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
     // Site identity from the graph catalog, independent of observed coverage.
