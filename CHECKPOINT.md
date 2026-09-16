@@ -8290,3 +8290,31 @@ truth prefers at both sites.
 
 Also noted: the tier report's right flank is rightPS=48243938 while the emitted
 VCF gives that block PS=48229446 -- a third identity for the same block.
+
+### The stitch has no voters because homopolymer sites cannot grant a phase set (2026-09-16)
+
+Traced why the existing stitching machinery does not join the retry's window to
+its neighbour on chr20:48,176,830-48,229,446. The flank vote counts reads holding
+each side's phase set, and update_read_phase_set excludes homopolymer indels from
+granting one. Both terminal sites of the left block sit in long A homopolymers
+(48,225,780 ctctctcaaaaaaaaaaaaaaaa; 48,229,220 tctttagaaaaaaaaaaaaaaac), so
+their reads take the next eligible het's phase set -- the right block's -- and the
+left flank has zero voters (L=0, leftPS=-1, every tier abstains).
+
+Three compounding facts, each probed: hp_gap_scorable already exists as the
+exception and init_assign_read_hap honours it (collect_phase.cpp:362) while
+update_read_phase_set does not, despite a comment claiming the same eligible
+evidence; the flag is set only for the homopolymer recovery tier's window; and
+select_gap_link_sites, which sets it, is guarded on gap_hp_link_beg >= 0 or the
+experimental private_msa_admit_all_in_region, so it never runs in a normal
+configuration. Probe at the site: hp_indel=1 hp_scorable=0 cate=0x100
+msa_verified=1 cons=1/0.
+
+Fixing all three DOES join the window through the existing machinery -- tier 1
+reports joined, one 132.2 kb block of 61 sites spans the region, and the 60 edge
+reads move to the left phase set -- but the orientation is WRONG: 161 concordant
+reads become discordant and window accuracy falls 100.00% (167/167) to 71.50%
+(148/207). REVERTED. The shared-read vote at the boundary is 56 in phase against
+4, so the correct orientation is available and the joining path does not use it;
+the tier report's leftPS = rightPS = 48243938, a third identity for these blocks,
+is where that orientation comes from and the next thing to fix.

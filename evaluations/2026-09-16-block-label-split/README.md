@@ -79,3 +79,70 @@ Worth noting separately: the tier report's right flank is `rightPS=48243938`,
 not the `48229446` the emitted VCF carries for that block -- a third phase-set
 identity for the same block, and a sign the reconciliation problem is not
 confined to this boundary.
+
+## Why the existing stitching machinery does not fire, traced to the line
+
+The machinery is the right one and it is already wired: the retry re-phases the
+window, and gap recovery's flank vote is exactly the "stitch to the previous
+window" step. That vote counts **reads holding each side's phase set** -- and
+`update_read_phase_set` (`collect_phase.cpp`) refuses to let a homopolymer indel
+grant a read its phase set:
+
+```cpp
+// Use the same eligible evidence as init_assign_read_hap. An
+// excluded repeat can inherit a preceding PS without a link.
+if (var.is_homopolymer_indel || var.lcd_var_i_to_cate == kCandNoisyCandHom ||
+    (!var.msa_insertion_alts.empty() && !var.gap_link_supported)) continue;
+```
+
+Both of the left block's terminal sites sit in long A homopolymers
+(`48,225,780: ctctctcaaaaaaaaaaaaaaaa`, `48,229,220: tctttagaaaaaaaaaaaaaaac`), so
+every read over them skips them and takes the phase set of the next eligible het
+-- the right block. Hence `L=0, leftPS=-1` and every tier abstains. The stitch
+has no voters because its input was excluded upstream, not because it is missing.
+
+Three things compound, and a probe confirms each:
+
+1. The exception for exactly this case exists -- `CandidateVariant::hp_gap_scorable`
+   -- and `init_assign_read_hap` honours it (`collect_phase.cpp:362`), so such a
+   site can assign a read's **haplotype**. `update_read_phase_set` omits it,
+   though its comment claims the same eligible evidence, so the same site can
+   never grant a **phase set**.
+2. The flag is set only for the homopolymer recovery tier's window
+   (`in_hp_gap`), never for a retry window.
+3. `select_gap_link_sites`, which sets it, is itself guarded on
+   `opts.gap_hp_link_beg >= 0 || (opts.recover_gaps && opts.private_msa_admit_all_in_region)`
+   -- neither holds in a normal run, so the function never executes. A probe at
+   the site confirms the rest is eligible: `hp_indel=1 hp_scorable=0 cate=0x100
+   msa_verified=1 cons=1/0`.
+
+## Enabling it joins the window -- with the wrong orientation
+
+Fixing all three (parity in `update_read_phase_set`, the flag for retry windows,
+and running the selection when a retry window exists) produces exactly the
+intended behaviour:
+
+| | before | after |
+|---|---|---|
+| blocks over the region | 2 (82.0 kb + 50.0 kb) | **1 (48,147,225-48,279,445, 132.2 kb, 61 sites)** |
+| spans the region | no | **YES** |
+| reads at `48,229,227` | `PS=48229446` (60) | **`PS=48147225` (60)** |
+| tier 1 pass 0 | `L=0 R=1 leftPS=-1 status=partial` | **`L=1 R=1 leftPS=rightPS=48243938 status=joined`** |
+
+And it is **wrong**. The read-level gate:
+
+```
+tagged 393 -> 433   concordant 393 -> 232   conc->disc 161   lost 3   new 3c/40d
+```
+
+**161 concordant reads become discordant**, and window accuracy falls from
+**100.00%** (167/167) to **71.50%** (148/207). Reverted; the reverted build
+reproduces two blocks and 167/167.
+
+So the missing piece is not only that the site cannot carry a phase set. The
+orientation the joining path then chooses disagrees with the reads: the shared-read
+vote at the boundary is **56 in phase against 4** (and those 4 equal the deletion
+site's own error rate), yet the merge inverts one side. The tier report naming
+`leftPS = rightPS = 48243938` -- a third phase-set identity for these blocks --
+is where to look next: the orientation is taken from that path, not from the 60
+reads that span both sites.
