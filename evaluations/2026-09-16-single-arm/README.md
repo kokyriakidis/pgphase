@@ -1018,3 +1018,60 @@ That leaves the real remedy at site quality rather than edge policy: a site
 segregating at chance (`48,202,056`) and a slippage record
 (`48,225,786 CA>C`) should not be chain anchors at all. hiphase calls neither,
 which is why its chain has no near-even edge to get wrong.
+
+## Audit: is this still the original phasing logic?
+
+Two separate questions, both answered by measurement rather than inspection: did
+the code change the default path, and is the arm the stock pipeline?
+
+### The arm is NOT the stock pipeline
+
+`arm.sh` passes four non-default settings, and this matters for every conclusion
+drawn from it:
+
+| setting | default | note |
+|---|---|---|
+| `--link-by-alleles` | `link_by_alleles = false` | switches the block-link vote from `check_agree_haps` to `check_agree_alleles` -- the vote whose 26-vs-31 split the parity analysis rests on |
+| `--keep-noisy-kmeans` | hybrid overrides `skip_noisy_kmeans = true` | re-enables the noisy-region pass the hybrid subcommand disables |
+| `--joint-het-orientation` | `false` | added this session |
+| `-q 1` | `kDefaultMinMapq` | the floor adopted earlier in this work |
+
+So the parity work was done in a deliberately non-stock configuration. Stated
+plainly because it was not stated plainly before.
+
+### Every option added this session defaults to off
+
+`gap_bridge_private_snps`, `gap_allele_attach_join_only`, `joint_het_orientation`,
+`retry_unphased_with_bam`, `force_noisy_msa` all default `false`;
+`min_assign_mapq` defaults to `kDefaultMinMapq`. But several changes are
+**unconditional**, including one in the core chain (a homopolymer indel whose own
+depths call it het now enters the het link list) and one that explicitly removed
+a `recover_gaps` gate from the MSA observation refresh.
+
+### Measured: the pre-session binary against the current one
+
+`git worktree` at `281ec0d`, built with the same vendored libraries, run on the
+same inputs.
+
+| scope / flags | result |
+|---|---|
+| the arm's window, stock flags | **VCF and BAM byte-identical** |
+| the arm's window, `--recover-gaps` | candidates 144 -> 147, records 131 -> 132; reads 393 tagged, 2 blocks, 100.00% in both |
+| **whole chr20, stock flags** | tagged 212,320 in both; blocks 454 -> 452; read hamming **0.558% -> 0.559%**; **156 records dropped, 5 added**; PS differs for ~2,165 reads |
+
+So the default path *has* changed chromosome-wide -- byte-identity on one window
+was not evidence of that, and 154 of the 156 dropped records are small deletions.
+
+### The dropped records are phantoms
+
+Scoring each dropped het deletion against read truth, against 120 randomly
+sampled retained ones as control:
+
+| class | n scorable | median segregation | informative | phantom |
+|---|---:|---:|---:|---:|
+| dropped by these changes | 104 | **0.550** | **1%** | **99%** |
+| retained (control) | 120 | **1.000** | 82% | 17% |
+
+The dropped class segregates at chance. Removing it is a precision gain at
+neutral read accuracy (0.558% -> 0.559% hamming, two more errors in 212,320
+reads), and block count improves slightly, 454 -> 452.
