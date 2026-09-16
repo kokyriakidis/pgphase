@@ -103,6 +103,37 @@ first version's window: the two hard linkage breaks
 pulled the left flank to the far side of them. The gap's own interval is
 bridgeable, and closing it needs nothing the evidence does not already contain.
 
+## How much of the adjacent blocks the link uses, and why that is the limit
+
+The flank vote originally took a fixed eight sites nearest the seam. That is not
+"all the information in the adjacent blocks": the right flank holds 916 sites at
+roughly one per 800 bp, so a read crossing the seam can observe far more than
+eight, and capping it both weakened each read's own call and dropped reads that
+would otherwise have cleared the per-side minimum. Site selection is now bounded
+by `--seam-span` (default 30 kb, a read length) rather than by a count.
+
+Swept on this gap, with everything else fixed:
+
+| `--seam-span` | compose the gap blocks | left flank link | verdict |
+|---|---|---|---|
+| 3 kb | no link, n=0 | no link (1+6 sites) | FAIL |
+| 10 kb | compose, 42 voters | no link (1+7 sites) | PASS, extension only, +107 reads |
+| **30 kb** | compose, 42 voters | **link, 14 voters [9,0,0,5] (2+7 sites)** | **PASS, gap CLOSED** |
+| 60 kb | compose, 42 voters | link, 14 voters [9,0,0,5] (2+14 sites) | PASS, gap CLOSED |
+
+Two things follow. The span is decisive -- at eight sites the left flank
+contributed a single site and never linked, and the gap only closes once its
+whole 2-site block is inside the window. And **the evidence saturates at read
+reach**: 30 kb and 60 kb give the identical vote (14 voters) because no read
+extends further, so taking more of the adjacent block cannot add information.
+The bound is the read length, not the block size.
+
+That also says what to do when a seam still has no voters after saturation, as at
+3 kb here: more sites cannot help, and the missing link has to come from either a
+different evidence type (the graph's haplotype threads cross a read-linkage break)
+or a chain of links through an intermediate block, which is what stage 1 does for
+the gap's own blocks.
+
 ## What to use it for
 
 The stitch here runs outside the pipeline, so this is a measurement rig, not a

@@ -310,7 +310,7 @@ def read_allele(read, pos, ref, alt, flank):
 
 
 def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
-                site_flank):
+                site_flank, seam_span=None):
     """Orient two blocks using reads that cross the seam, from ALLELES not PS tags.
 
     A read is tagged with at most one phase set, so two blocks that split at the
@@ -320,10 +320,26 @@ def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
     both blocks, and each block's own phased genotypes say which haplotype each
     allele belongs to. That is the vote this builds.
     """
-    left = sorted(left_sites)[-n_sites:]
-    right = sorted(right_sites)[:n_sites]
+    # Take every site of each adjacent block that a bridge read could actually
+    # reach, not a fixed count nearest the seam. A HiFi read crossing the seam
+    # observes as many sites as fall inside it -- capping at eight discarded most
+    # of them where the flank is site-dense (the right flank here holds 916
+    # sites, about one per 800 bp), which weakened each read's own call and
+    # dropped reads that would otherwise have cleared min_obs. Sites beyond read
+    # reach cannot contribute however many of them the block holds, so the bound
+    # is the read length, not the block.
+    left = sorted(left_sites)
+    right = sorted(right_sites)
     if not left or not right:
         return None
+    if seam_span:
+        seam_guess = (left[-1] + right[0]) // 2
+        left = [pos for pos in left if pos >= seam_guess - seam_span]
+        right = [pos for pos in right if pos <= seam_guess + seam_span]
+        if not left or not right:
+            return None
+    left = left[-n_sites:]
+    right = right[:n_sites]
     # A bridge read has to cross the SEAM -- the point between the blocks -- and
     # observe enough sites on each side of it. Requiring it to span every
     # selected site instead is unsatisfiable: the sites reach tens of kb back
@@ -363,7 +379,7 @@ def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
             continue
         t[(ha - 1) * 2 + (hb - 1)] += 1
     return dict(votes=t, crossing=crossing, voters=sum(t), seam=seam,
-                left_sites=left, right_sites=right)
+                n_left_sites=len(left), n_right_sites=len(right))
 
 
 
@@ -433,8 +449,12 @@ p.add_argument('--seam-read-window', type=int, default=60000,
                help='bp each side of the gap from which bridge reads are loaded')
 p.add_argument('--seam-window', type=int, default=2000,
                help='bp a bridge read must extend past the outermost seam site')
-p.add_argument('--seam-sites', type=int, default=8,
-               help='sites per side used for the allele-level bridge vote')
+p.add_argument('--seam-sites', type=int, default=200,
+               help='cap on sites per side for the allele-level bridge vote')
+p.add_argument('--seam-span', type=int, default=30000,
+               help='bp each side of the seam from which block sites are taken; '
+                    'set to a read length, since sites a bridge read cannot '
+                    'reach contribute nothing however many the block holds')
 p.add_argument('--min-site-obs', type=int, default=2,
                help='site observations a bridge read needs on each side to vote')
 p.add_argument('--max-new-discordant', type=int, default=0,
@@ -618,7 +638,7 @@ for left, right in zip(ordered, ordered[1:]):
         br = bridge_vote({pos: v for pos, v in gap_vcf_sites.items() if v[3] == left},
                          {pos: v for pos, v in gap_vcf_sites.items() if v[3] == right},
                          bridge_reads, a.seam_window, a.seam_sites,
-                         a.min_site_obs, a.site_flank)
+                         a.min_site_obs, a.site_flank, a.seam_span)
         if br is not None:
             t, shared = br['votes'], br['voters']
             flip = decide(t, a.stitch_margin)
@@ -684,18 +704,19 @@ for root, members in sorted(frames.items(), key=lambda kv: -len(kv[1])):
             if side == 'left':
                 br = bridge_vote(flank_sites, frame_sites, bridge_reads,
                                  a.seam_window, a.seam_sites, a.min_site_obs,
-                                 a.site_flank)
+                                 a.site_flank, a.seam_span)
             else:
                 br = bridge_vote(frame_sites, flank_sites, bridge_reads,
                                  a.seam_window, a.seam_sites, a.min_site_obs,
-                                 a.site_flank)
+                                 a.site_flank, a.seam_span)
             if br is not None:
                 t, shared = br['votes'], br['voters']
                 flip = decide(t, a.stitch_margin)
                 # The vote is (flank, frame) on the left and (frame, flank) on
                 # the right; the orientation applied to the frame is the same
                 # either way because the table is symmetric under transpose.
-                source = f'alleles ({br["crossing"]} reads cross the seam)'
+                source = (f'alleles ({br["crossing"]} cross, '
+                          f'{br["n_left_sites"]}+{br["n_right_sites"]} sites)')
         row[side] = dict(votes=t, shared=shared, flip=flip, source=source)
         print(f'    frame {sorted(members)} ({sites} sites, {lo}-{hi}, '
               f'{len(ftags)} reads) vs {side} flank {flank}: n={shared} '

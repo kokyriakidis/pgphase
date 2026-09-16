@@ -8012,3 +8012,26 @@ spanning reads at 72x) lie OUTSIDE the gap and only became obstacles because the
 nothing the evidence does not already contain -- what the pipeline lacks is the
 allele-level block-to-block link (tags cannot orient blocks that split at the same
 position, and a read-less flank has no tags at all).
+
+### The link vote must use the adjacent blocks out to read reach, not 8 sites (2026-09-16)
+
+The rig's flank vote took a fixed eight sites nearest the seam, which is not all
+the information the adjacent blocks hold: the right flank here has 916 sites at
+about one per 800 bp, so a crossing read can observe many more, and the cap both
+weakened each read's own call and dropped reads below the per-side minimum. Site
+selection is now bounded by --seam-span (default 30 kb, a read length).
+
+Swept on chr20:48,176,830-48,229,446: at 3 kb nothing links at all (compose n=0,
+left flank 1+6 sites, FAIL); at 10 kb the gap blocks compose (42 voters) but the
+left flank still does not link (1+7 sites) so the result is extension only (+107
+reads); at 30 kb the left flank links with 14 voters [9,0,0,5] over 2+7 sites and
+THE GAP CLOSES; at 60 kb the vote is IDENTICAL (14 voters, 2+14 sites).
+
+So the span is decisive -- the gap closes only once the flank's whole 2-site block
+is inside the window -- and the evidence SATURATES AT READ REACH: beyond ~30 kb no
+read extends further, so taking more of the adjacent block cannot add information.
+The bound is read length, not block size. When a seam still has no voters after
+saturation, more sites cannot help; the link must come from a different evidence
+type (graph haplotype threads cross a read-linkage break) or from a chain through
+an intermediate block, which is what the composition stage does for the gap's own
+blocks.

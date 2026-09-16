@@ -50,7 +50,7 @@
           ],
           "shared": 14,
           "flip": false,
-          "source": "alleles (66 reads cross the seam)"
+          "source": "alleles (66 cross, 2+7 sites)"
         },
         "right": {
           "votes": [
