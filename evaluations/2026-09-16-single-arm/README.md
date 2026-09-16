@@ -588,3 +588,49 @@ Two fixes follow, and they are not equivalent:
   windows before it is trusted.
 
 The first is the smaller change and is the next one to make.
+
+## The gate is `full_cover`, not read selection — two candidate fixes measured and rejected
+
+Chasing the missing observations produced two changes that are defensible on
+their own and **inert on this data**, so neither was kept.
+
+**1. The rescue channel is gated on `--recover-gaps`.** `collect_noisy_vars1`
+passes `opts.recover_gaps ? &unassigned : nullptr`, so in a normal run the
+reads the MSA cannot assign are never collected and
+`add_msa_site_observations` has nothing to work with -- which is why it probes
+`unassigned = 0` here. Opening the channel for every run is right in principle:
+that consumer only extends a `NoisyCandHet` site, accepts an allele only where
+two independently composed paths agree, and keeps the site's own
+allele-fraction gate, so it can add an observation where there is none and
+cannot change one that exists.
+
+**2. The no-phase-set branch has no rescue output at all.** Only
+`wfa_collect_noisy_aln_str_with_ps_hap` takes an `unassigned` argument;
+`wfa_collect_noisy_aln_str_no_ps_hap` had none, so even with the channel open
+this region -- which reports `ps = -1` -- could not fill it. Both were
+implemented: the parameter added and threaded, and the branch composing each
+unassigned read against both consensuses exactly as the hap-aware path does.
+
+**Measured, they change nothing, because there are no unassigned reads.**
+Instrumented across every branch-B region in the window:
+
+```
+n_reads=69  full=69  assigned=69  pushed=0
+n_reads=71  full=71  assigned=71  pushed=0
+n_reads=73  full=73  assigned=73  pushed=0
+```
+
+The clustering assigns **every** full-cover read. So the earlier inference that
+abPOA dropped reads was wrong, and read selection is not the gate at any level:
+not MAPQ, not `is_skipped`, not full coverage, and not cluster assignment.
+
+**What is left is `full_cover`.** The reads are in a cluster and do enter the
+per-read loop; their observation is dropped because
+`update_cand_var_profile_from_cons_aln_str2` records one only `if (full_cover)`,
+and for a deletion `is_match_aln_str_del` sets `full_cover = 0` -- returning
+`-1` -- whenever the read's alignment to its cluster consensus does not cover
+**both** endpoints of the deletion window in consensus coordinates. At
+`48,225,787` those endpoints are derived from the consensus's own deletion
+length and offset inside the A run, so a read whose gap sits elsewhere in the
+run fails the coverage test rather than the allele test. That is the single
+remaining gate, and it is inside the site call, not the read pipeline.
