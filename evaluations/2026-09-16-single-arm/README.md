@@ -690,3 +690,45 @@ So the sequence for the next change is: open the two gates, then make the rescue
 observations at a multi-record repeat locus exclusive -- a read's deletion length
 should support one record, not every record whose window it covers -- and re-gate
 on this window plus `36,217,274`.
+
+## The impossible allele fraction: co-located deletions were double-counting reads
+
+The evidence above contained a contradiction worth chasing. At `48,225,787` the
+pipeline reported, for the 1 bp record, **ref/alt 11/35 at AF 0.761 on DP 46** --
+not a heterozygous split -- and its alt allele was carried by reads from *both*
+parents (segregation 0.733), while the 6 bp record read 11/12.
+
+Read straight from the alignment the locus is **multiallelic**: the maternal
+allele is a 1 bp deletion (17 reads), the paternal a 5-8 bp deletion (30 reads),
+over 75 covering reads. We emit it as **two independent biallelic hets**, and a
+read whose deletion reached 6 bp satisfies the 1 bp record's window too, so it is
+scored alt at *both*. The shorter record therefore absorbs the longer
+haplotype's reads, which is what inflates its AF past any het and leaves the
+locus without a usable orientation.
+
+`make_colocated_deletions_exclusive` attributes each read's event to a single
+record: it keeps alt at the longest co-located record the read supports -- the
+read's own deletion reached that far, so a shorter record is a prefix of the same
+event, not a separate allele -- and makes it reference at the others, moving the
+counts with it. Nothing is invented; every observation already existed.
+
+| | before | after |
+|---|---|---|
+| `48,225,787` 1 bp record | ref/alt 11/35, **AF 0.761** | ref/alt 23/23, **AF 0.500** |
+| `48,225,787` 6 bp record | ref/alt 11/12, AF 0.522 | unchanged |
+| phased hets in the window | 65 | **68** |
+| blocks / reads tagged / concordance | 2 / 393 / 100.00% | 2 / 393 / **100.00%** |
+
+Pinned by `test_colocated_deletions_are_exclusive`.
+
+### It does not fix the parity
+
+Opening the two rescue gates on top of this still closes the window into one
+132.2 kb block that spans it -- as hiphase does -- and still at **56.14%**, with
+each half internally consistent under opposite conventions. So the double
+counting and the seam parity are independent defects: this one is fixed, and the
+parity remains. The site-level evidence for the correct parity is unchanged and
+unambiguous -- alt at `48,204,383` segregates maternal at 0.958, alt at
+`48,225,787 CAAAAAA>C` segregates paternal at 0.987, so the two sites belong on
+opposite haplotypes -- so whatever the solver does with the rescued observations
+is inverting one side for a reason that is not this accounting.

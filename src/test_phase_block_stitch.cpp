@@ -1582,6 +1582,48 @@ static bool test_hp_gap_site_scores_reads_only_in_its_gap() {
     return ok;
 }
 
+static bool test_colocated_deletions_are_exclusive() {
+    bool ok = true;
+    // Two deletion records at one position, 1 bp and 6 bp: the two haplotypes'
+    // lengths at one locus. A read whose own deletion reached 6 bp satisfies
+    // both windows and is scored alt at both, so the shorter record absorbs the
+    // longer haplotype's reads -- measured on chr20:48,225,787 as ref/alt 11/35
+    // at AF 0.761, impossible for a het, with its alt carried by reads from
+    // both parents.
+    std::vector<CandidateVariant> vars(2);
+    vars[0].key.pos = 100; vars[0].key.type = VariantType::Deletion;
+    vars[0].key.ref_len = 1; vars[0].counts.alle_covs = {1, 3};
+    vars[1].key.pos = 100; vars[1].key.type = VariantType::Deletion;
+    vars[1].key.ref_len = 6; vars[1].counts.alle_covs = {1, 2};
+
+    std::vector<ReadVariantProfile> profiles(3);
+    for (int i = 0; i < 3; ++i) {
+        profiles[static_cast<size_t>(i)].read_id = i;
+        profiles[static_cast<size_t>(i)].start_var_idx = 0;
+        profiles[static_cast<size_t>(i)].end_var_idx = 1;
+        profiles[static_cast<size_t>(i)].alt_qi = {-1, -1};
+    }
+    // reads 0,1 carry the 6 bp event and are alt at BOTH records; read 2 carries
+    // only the 1 bp event.
+    profiles[0].alleles = {1, 1};
+    profiles[1].alleles = {1, 1};
+    profiles[2].alleles = {1, 0};
+
+    make_colocated_deletions_exclusive(vars, profiles);
+
+    ok &= check(profiles[0].alleles[0] == 0 && profiles[0].alleles[1] == 1,
+                "a read supporting both records keeps alt only at the longer one");
+    ok &= check(profiles[1].alleles[0] == 0 && profiles[1].alleles[1] == 1,
+                "the same holds for the second such read");
+    ok &= check(profiles[2].alleles[0] == 1 && profiles[2].alleles[1] == 0,
+                "a read supporting only the shorter record is untouched");
+    ok &= check(vars[0].counts.alle_covs[1] == 1 && vars[0].counts.alle_covs[0] == 3,
+                "the shorter record's alt count loses the reads reattributed away");
+    ok &= check(vars[1].counts.alle_covs[1] == 2 && vars[1].counts.alle_covs[0] == 1,
+                "the longer record's counts are unchanged");
+    return ok;
+}
+
 static bool test_msa_insertion_pair_clean_anchor() {
     bool ok = true;
     // The first pattern separates the two alleles despite one weak row.
@@ -2280,6 +2322,7 @@ int main() {
     failures += test_orphan_msa_site_uses_stitched_read_orientation() ? 0 : 1;
     failures += test_assign_mapq_floor_gates_tags_only() ? 0 : 1;
     failures += test_verified_msa_snp_bridges_without_flag() ? 0 : 1;
+    failures += test_colocated_deletions_are_exclusive() ? 0 : 1;
     failures += test_hp_gap_site_scores_reads_only_in_its_gap() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;

@@ -12,6 +12,7 @@
  */
 
 #include "collect_phase_noisy.hpp"
+#include <map>
 #include "collect_phase.hpp" // assign_hap_based_on_germline_het_vars_kmeans, kCandGermlineVarCate
 #include "collect_var.hpp"   // exact_comp_cand_var, exact_comp_var_site
 
@@ -1607,6 +1608,64 @@ void add_msa_site_observations(const Options& opts,
     }
 }
 
+// Two deletion records at one position are the two haplotypes' different lengths
+// at one locus, not two independent sites -- and a read carrying the longer
+// deletion satisfies the shorter record's window too, so it is scored alt in
+// BOTH. That double-counts one haplotype and corrupts the locus: on
+// chr20:48,225,787 the maternal allele is a 1 bp deletion (17 reads) and the
+// paternal a 5-8 bp one (30 reads) over 75 covering reads, yet the 1 bp record
+// reported ref/alt 11/35 at AF 0.761 -- impossible for a het -- with its alt
+// allele carried by 20 maternal AND 31 paternal reads, while the 6 bp record
+// reported 11/12. A locus whose two records each look het but share their alt
+// reads has no usable orientation, which is what inverts the parity when the
+// blocks either side are joined.
+//
+// Resolve it by exclusivity: a read supports the co-located record whose length
+// its own event is closest to, and is reference for the others. Nothing is
+// invented -- every observation already exists, it is only attributed to one
+// record instead of several.
+void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
+                                               std::vector<ReadVariantProfile>& profiles) {
+    std::map<hts_pos_t, std::vector<int>> by_pos;
+    for (int vi = 0; vi < static_cast<int>(vars.size()); ++vi) {
+        const CandidateVariant& v = vars[static_cast<size_t>(vi)];
+        if (v.key.type == VariantType::Deletion && v.key.ref_len > 0)
+            by_pos[v.key.pos].push_back(vi);
+    }
+    for (auto& [pos, group] : by_pos) {
+        (void)pos;
+        if (group.size() < 2) continue;
+        for (ReadVariantProfile& pr : profiles) {
+            if (pr.start_var_idx < 0) continue;
+            std::vector<int> alt_hits;
+            for (const int vi : group) {
+                if (vi < pr.start_var_idx || vi > pr.end_var_idx) continue;
+                if (pr.alleles[static_cast<size_t>(vi - pr.start_var_idx)] == 1)
+                    alt_hits.push_back(vi);
+            }
+            if (alt_hits.size() < 2) continue;
+            // The read is alt at several records for one event. Keep the longest
+            // record it supports -- the read's own event reached that far, so a
+            // shorter record is a prefix of the same deletion, not a separate
+            // allele -- and make it reference at the rest.
+            int keep = alt_hits.front();
+            for (const int vi : alt_hits)
+                if (vars[static_cast<size_t>(vi)].key.ref_len >
+                    vars[static_cast<size_t>(keep)].key.ref_len) keep = vi;
+            for (const int vi : alt_hits) {
+                if (vi == keep) continue;
+                pr.alleles[static_cast<size_t>(vi - pr.start_var_idx)] = 0;
+                CandidateVariant& v = vars[static_cast<size_t>(vi)];
+                if (v.counts.alle_covs.size() > 1 && v.counts.alle_covs[1] > 0) {
+                    --v.counts.alle_covs[1];
+                    ++v.counts.alle_covs[0];
+                }
+            }
+        }
+        for (const int vi : group) update_variant_depth_fields(vars[static_cast<size_t>(vi)]);
+    }
+}
+
 int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
                         const VariantKeySet* site_whitelist, bool snp_only_admission) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
@@ -1676,6 +1735,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     if (n_cons == 2) consensuses = {aln_strs[0][0], aln_strs[1][0]};
     add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
                               noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
+    make_colocated_deletions_exclusive(noisy_vars, noisy_rvp);
 
     return merge_var_profile(
         chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,

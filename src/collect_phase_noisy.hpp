@@ -58,6 +58,18 @@ int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
  *
  * @note No-ops when `chunk.noisy_regions` is empty.
  */
+/**
+ * @brief Attribute a read's deletion to one of several co-located records.
+ *
+ * Two deletion records at one position are the two haplotypes' different lengths
+ * at one locus. A read carrying the longer deletion satisfies the shorter
+ * record's window too and is scored alt at both, which double-counts one
+ * haplotype and leaves the locus without a usable orientation. Each read keeps
+ * alt at the longest record it supports and becomes reference at the rest.
+ */
+void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
+                                        std::vector<ReadVariantProfile>& profiles);
+
 void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
                               const VariantKeySet* site_whitelist = nullptr);
 
