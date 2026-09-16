@@ -82,6 +82,8 @@ static void print_hybrid_help() {
         << "      --no-gap-link-by-alleles  Disable additively attaching reads to an already-decided gap join by allele agreement (on by default)\n"
         << "      --gap-allele-attach-join-only  Allele attachment needs a joined gap\n"
         << "      --retry-unphased-with-bam  Re-solve a window the graph sites could not\n"
+        << "      --joint-het-orientation    Orient both haplotypes jointly at a site the\n"
+        << "                                 allele depths call heterozygous\n"
         << "                                 phase, or could not connect to the previous\n"
         << "                                 block, with the BAM's own sites admitted there\n"
         << "      --retry-min-unphased-reads INT  Reads over an unphased window before the\n"
@@ -181,6 +183,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kNoGapLinkByAllelesOption,
     kGapAlleleAttachJoinOnlyOption,
     kRetryUnphasedWithBamOption,
+    kJointHetOrientationOption,
     kRetryMinUnphasedReadsOption,
     kRetryMinWindowBpOption,
         kNoHybridTrimOption,
@@ -251,6 +254,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"no-gap-link-by-alleles", no_argument, nullptr, kNoGapLinkByAllelesOption},
         {"gap-allele-attach-join-only", no_argument, nullptr, kGapAlleleAttachJoinOnlyOption},
         {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
+        {"joint-het-orientation", no_argument, nullptr, kJointHetOrientationOption},
         {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
         {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
@@ -342,6 +346,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kNoGapLinkByAllelesOption: opts.gap_link_by_alleles = false; break;
             case kGapAlleleAttachJoinOnlyOption:
             case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
+            case kJointHetOrientationOption: opts.joint_het_orientation = true; break;
             case kRetryMinUnphasedReadsOption: opts.retry_min_unphased_reads = std::atoi(optarg); break;
             case kRetryMinWindowBpOption: opts.retry_min_window_bp = std::atoll(optarg); break;
                 opts.gap_allele_attach_join_only = true; break;

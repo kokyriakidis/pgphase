@@ -1087,11 +1087,12 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 
 // Rebuild allele profiles and consensus; returns 1 if any cons_alle changed.
 // Iter_update_var_hap_to_cons_alle.
-/// Is this a biallelic candidate inside a window the retry is re-solving that
-/// the allele depths call heterozygous? Such a site must not be collapsed to a
-/// homozygous consensus by provisional read labels; see the call site.
-static bool retry_window_het(const CandidateVariant& var, const Options& opts) {
-    if (opts.retry_windows.empty()) return false;
+/// Do this biallelic candidate's own allele depths call it heterozygous? Such a
+/// site must not be collapsed to a homozygous consensus by provisional read
+/// labels; see the call site. Applies inside a window the retry is re-solving,
+/// and everywhere when --joint-het-orientation is set.
+static bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
+    if (opts.retry_windows.empty() && !opts.joint_het_orientation) return false;
     if (var.lcd_var_i_to_cate != kCandNoisyCandHet &&
         var.lcd_var_i_to_cate != kCandCleanHetSnp &&
         var.lcd_var_i_to_cate != kCandCleanHetIndel) return false;
@@ -1102,6 +1103,7 @@ static bool retry_window_het(const CandidateVariant& var, const Options& opts) {
         return false;
     if (var.counts.allele_fraction < opts.min_af || var.counts.allele_fraction > opts.max_af)
         return false;
+    if (opts.joint_het_orientation) return true;
     const hts_pos_t pos = var.key.sort_pos();
     for (const auto& [beg, end] : opts.retry_windows)
         if (pos >= beg && pos < end) return true;
@@ -1167,7 +1169,7 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
                 var.hap_to_cons_alle[1] = same > flip ? 1 : 2;
                 var.hap_to_cons_alle[2] = same > flip ? 2 : 1;
             }
-        } else if (retry_window_het(var, opts)) {
+        } else if (allele_depths_call_het(var, opts)) {
             // Same hazard the branch above guards against, for a plain biallelic
             // site: taking each haplotype's majority independently lets both
             // pick the same allele, which emits a genuine het as 1|1 and makes

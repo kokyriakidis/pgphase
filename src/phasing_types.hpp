@@ -320,6 +320,19 @@ struct Options {
     /// solving again keeps the work in the normal pass, and confines the cost:
     /// admitting them chromosome-wide doubled the read Hamming error on chr20,
     /// 0.878% -> 1.837%, while spanning only 14 of the 196 gaps.
+    /// Give a biallelic candidate the joint two-haplotype orientation whenever
+    /// its own allele depths call it heterozygous, not only inside a retry
+    /// window. iter_update_var_hap_to_cons_alle otherwise recomputes each
+    /// haplotype's consensus independently by majority, so both haplotypes can
+    /// select the deeper allele and the site is emitted homozygous -- the case
+    /// the multi-allele branch beside it already guards, with the comment
+    /// "Independent haplotype majorities can select the same allele twice."
+    /// Measured on chr20:48,204,383 (DEL, DP 71, 30 ref / 41 alt, AF 0.577,
+    /// NoisyCandHet): emitted 1|1, where hiphase calls 0|1 and uses it to cross
+    /// a 41.8 kb interval that otherwise carries no phased heterozygote, so our
+    /// chain links across it with no spanning read and picks an arbitrary
+    /// orientation.
+    bool joint_het_orientation = false;
     bool retry_unphased_with_bam = false;
     /// Run the noisy-region MSA even though recover_gaps is set. The retry needs
     /// that step, which collect_var_run_phasing otherwise defers to the recovery
