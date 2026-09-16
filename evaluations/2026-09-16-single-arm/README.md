@@ -488,3 +488,36 @@ What remains is not a site deficit. The window is still two blocks where hiphase
 emits one, and the split is the link `48,204,383 -> 48,225,786`: of 173 reads
 overlapping the pair exactly 1 carries a usable allele at both ends, while 7
 span the positions.
+
+## Why the window is still two blocks: the overlap test, not the site set
+
+With every hiphase site now used, the split `48,204,383 -> 48,225,786` is the
+only thing left, and it is a read-observation problem. The seven reads that span
+both positions separate **perfectly** by haplotype at the right-hand site:
+
+| truth | net length at 48,204,383 | net length at 48,225,786 |
+|---|---|---|
+| PATERNAL | -1, 0, -1, 0 | **-7, -6, -6, -5** |
+| MATERNAL | 0, -2, -2 | **-1, 0, 0** |
+
+Our records there are `CA>C` (1 bp) and `CAAAA>C` (4 bp), so no paternal read
+matches either length exactly, and the link scored one usable read out of seven.
+
+The obvious repair -- resolve a non-exact overlapping indel by the closer
+hypothesis, which is the rule this project's own genotyping tooling validated --
+was implemented and measured, and it is **inert on this window**. Instrumented,
+the branch is reached 1000 times, 861 of those inside a repeat tract, and it
+decides 538 observations that were previously `-1`; the arm's VCF and BAM come
+out byte-identical, and there is **no hit at all** at `48,225,78x`. It was
+reverted rather than shipped unmeasured.
+
+That absence is the finding. Those reads never reach the non-exact branch,
+because `profile_ovlp_var_site` does not consider their deletion to overlap the
+candidate in the first place -- the aligner has placed the event at a different
+offset inside the A run, not merely at a different length. So the fix has to be
+in the **overlap test**: inside a repeat tract, a same-kind indel anywhere in
+the tract is the same event and should be compared by net length over the tract
+window, which is exactly the rule already recorded for genotyping these sites by
+hand ("never at the anchor position"). That is a change to how reads are matched
+to candidates, wider in blast radius than anything in this file so far, and it
+is the next thing to do.
