@@ -44,8 +44,12 @@ silently is what hid the site this window turns on.
 | `gate_blind` | false | **true** |
 | verdict | PASS | **FAIL** |
 
-The retry recovers real evidence -- 13 of the competitor's sites move from
-absent to phased, and in-region usable hets go 2 -> 8. It fails on two specific
+The retry recovers real evidence -- **12** of the competitor's sites move from
+absent to phased het (44 -> 56), and in-region usable hets go 2 -> 8. The
+`absent` count falls by 13 (34 -> 21), but the thirteenth site did not become
+usable: it is `48,204,383`, which moved from absent to `we_call_it_hom`, the
+mislabelled site described below. Counting it as recovered would credit the bug
+as a success. It fails on two specific
 things, both actionable:
 
 **1. The site the competitor bridges with, we call homozygous.** HiPhase crosses
