@@ -267,3 +267,52 @@ next thing to pin -- not to guess at.
 A merge is not safe on this window until that is fixed: the orientation the
 merge would need is the one the block body carries, and the block's own terminal
 site contradicts it.
+
+## The stitching was the wrong target: the machinery is already correct here
+
+Run as the alignment machinery with the graph's sites injected -- which is what
+`collect-hybrid-variation` already is, one solve over one chunk holding both site
+sets -- this window comes out **correct** in every arm:
+
+| arm | blocks | spans | in-gap phased hets | accuracy |
+|---|---:|---|---:|---|
+| `--recover-gaps` | 2 | no | 5 | **100.00%** |
+| `--recover-gaps --retry-unphased-with-bam` | 2 | no | 8 | **100.00%** |
+| plain (no recovery, noisy k-means off) | 2 | no | 3 | **100.00%** |
+| plain `--keep-noisy-kmeans` | 2 | no | 6 | **100.00%** |
+
+Every attempt to make it *span* degraded it, and all of them are reverted:
+
+| attempt | result |
+|---|---|
+| let a homopolymer site grant a read's phase set | spans, **59.29%** (161 concordant reads flipped) |
+| within-chunk block merge on the site vote | spans, **59.29%** |
+| earlier relabel-only experiment | spans, **71.50%** |
+| place a chunk seam at the boundary (`--chunk-size 102500` / `51300`) | still no span, **90.36%** / **82.21%** |
+| finer chunks (`34200` / `20520`) | no span, 100.00% -- i.e. no change |
+
+Note the plain arm stops the left block at `48,183,976` and never admits the
+mis-oriented tail at all, so the internal switch is a product of admitting the
+noisy class, not of the recovery pass.
+
+### What is actually left, and it is site-level
+
+HiPhase spans this interval at 100.0% over 252 reads using two het sites,
+`48,183,976` and `48,204,383`, across the same thin links we have (18.1 kb on 7
+reads, 2.3 kb on 58, 21.4 kb on 7). So the links are sufficient when the
+orientation is right, and splitting the block at them would give up a span that
+is demonstrably achievable. The stitching machinery is not the problem.
+
+Two site-level defects in the existing classifier are:
+
+1. **`48,177,780` is called `NOISY_CAND_HOM` and emitted `1|1`** where HiPhase
+   calls a het. A genotyping error, in the same class as `48,204,383` before the
+   joint-orientation fix (`1|1` at AF 0.577), which that fix corrected.
+2. **`48,202,056` and `48,177,788` are admitted as phased hets carrying no
+   haplotype information** (segregation 0.507 over 69 reads and 0.500 over 74).
+   They sit between `48,204,383` and the tail, which is where the orientation
+   flips, and the existing noise screening is what should be excluding them.
+
+Both are defects in the alignment machinery's own site calling and classification,
+which is where the remaining work belongs -- no new stitching, merging or
+phase-set reconciliation.
