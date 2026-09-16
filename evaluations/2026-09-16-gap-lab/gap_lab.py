@@ -320,14 +320,16 @@ def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
     both blocks, and each block's own phased genotypes say which haplotype each
     allele belongs to. That is the vote this builds.
     """
-    # Take every site of each adjacent block that a bridge read could actually
-    # reach, not a fixed count nearest the seam. A HiFi read crossing the seam
-    # observes as many sites as fall inside it -- capping at eight discarded most
-    # of them where the flank is site-dense (the right flank here holds 916
-    # sites, about one per 800 bp), which weakened each read's own call and
-    # dropped reads that would otherwise have cleared min_obs. Sites beyond read
-    # reach cannot contribute however many of them the block holds, so the bound
-    # is the read length, not the block.
+    # EVERY site of both adjacent blocks, by default. A fixed count nearest the
+    # seam is wrong -- the right flank on the test gap holds 916 sites at about
+    # one per 800 bp, so capping at eight discarded most of what a crossing read
+    # can see and dropped reads below min_obs -- and a distance cap is no better,
+    # only subtler: the bounding is already per read. A read votes on the sites
+    # it overlaps and nothing else, so offering it the whole block adds the
+    # reachable sites and silently ignores the rest, whereas a global span has a
+    # gap-dependent correct value (a site-sparse flank needs a wider one) and so
+    # would have to be re-tuned per gap to avoid deciding the outcome. --seam-span
+    # is therefore a runtime limit only, off by default.
     left = sorted(left_sites)
     right = sorted(right_sites)
     if not left or not right:
@@ -338,8 +340,9 @@ def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
         right = [pos for pos in right if pos <= seam_guess + seam_span]
         if not left or not right:
             return None
-    left = left[-n_sites:]
-    right = right[:n_sites]
+    if n_sites:
+        left = left[-n_sites:]
+        right = right[:n_sites]
     # A bridge read has to cross the SEAM -- the point between the blocks -- and
     # observe enough sites on each side of it. Requiring it to span every
     # selected site instead is unsatisfiable: the sites reach tens of kb back
@@ -422,6 +425,83 @@ def site_orientation(positions, table, reads, truth, site_flank, min_obs=10):
     return winner, used, votes_
 
 
+
+def hap_from_sites(read, table, positions, min_obs, site_flank):
+    """A read's haplotype under a block's own phased genotypes."""
+    tab = collections.Counter()
+    for pos in positions:
+        ref, alt, gt, _ = table[pos]
+        al = read_allele(read, pos, ref, alt, site_flank)
+        if al is None:
+            continue
+        tab[1 if gt.split('|')[0] == str(al) else 2] += 1
+    if sum(tab.values()) < min_obs or tab[1] == tab[2]:
+        return None
+    return 1 if tab[1] > tab[2] else 2
+
+
+def flank_tag_vote(flank_ps, base_tags, frame_tags_, frame_sites, reads,
+                   min_obs, site_flank):
+    """Vote using the FLANK'S OWN read assignments on one side.
+
+    A phase set already carries every read it contains with a haplotype, derived
+    from that whole block's evidence rather than from a few sites near the seam --
+    so on the flank side there is nothing to re-derive and no site selection to
+    choose. The gap side is taken from the frame's tag where it has one and from
+    the frame's genotypes otherwise. Requiring a tag on BOTH sides, as the first
+    version did, discarded every read the flank had phased but the gap arm had
+    not, which is most of the population at a seam.
+    """
+    positions = sorted(frame_sites)
+    t = [0, 0, 0, 0]
+    considered = 0
+    for q, (h_flank, ps) in base_tags.items():
+        if ps != flank_ps:
+            continue
+        read = reads.get(q)
+        if read is None:
+            continue
+        considered += 1
+        h_gap = frame_tags_.get(q, (None,))[0]
+        if h_gap is None:
+            h_gap = hap_from_sites(read, frame_sites, positions, min_obs, site_flank)
+        if h_gap is None:
+            continue
+        t[(h_gap - 1) * 2 + (h_flank - 1)] += 1
+    return dict(votes=t, considered=considered, voters=sum(t))
+
+
+
+def shared_site_vote(frame_sites, flank_sites):
+    """Orientation from sites BOTH blocks phase, which needs no reads at all.
+
+    The gap arm re-discovers sites inside the flank's own span -- at
+    chr20:48,176,830 the flank's two sites are 48,162,480 and 48,176,830 and the
+    gap arm phases 48,173,317, 48,173,989, 48,173,990 and 48,176,830 -- so the
+    two labellings often phase the same site. Each block's genotype at a shared
+    site already carries that block's whole evidence, so comparing the two
+    genotypes gives the relative orientation exactly, with no bridge read and no
+    site selection. Agreement is counted over every shared site, because one site
+    can be wrong in either block.
+    """
+    agree = disagree = 0
+    shared = []
+    for pos, v in frame_sites.items():
+        other = flank_sites.get(pos)
+        if other is None:
+            continue
+        if (v[0], v[1]) != (other[0], other[1]):
+            continue  # same position, different alleles: not the same variant
+        same = v[2].split('|')[0] == other[2].split('|')[0]
+        agree += same
+        disagree += not same
+        shared.append(pos)
+    if not shared:
+        return None
+    return dict(agree=agree, disagree=disagree, shared=shared,
+                flip=None if agree == disagree else (disagree > agree))
+
+
 p = argparse.ArgumentParser(description=__doc__,
                             formatter_class=argparse.RawDescriptionHelpFormatter)
 p.add_argument('--gap-left', type=int, required=True)
@@ -449,12 +529,12 @@ p.add_argument('--seam-read-window', type=int, default=60000,
                help='bp each side of the gap from which bridge reads are loaded')
 p.add_argument('--seam-window', type=int, default=2000,
                help='bp a bridge read must extend past the outermost seam site')
-p.add_argument('--seam-sites', type=int, default=200,
-               help='cap on sites per side for the allele-level bridge vote')
-p.add_argument('--seam-span', type=int, default=30000,
-               help='bp each side of the seam from which block sites are taken; '
-                    'set to a read length, since sites a bridge read cannot '
-                    'reach contribute nothing however many the block holds')
+p.add_argument('--seam-sites', type=int, default=0,
+               help='optional cap on sites per side (0 = the whole adjacent block)')
+p.add_argument('--seam-span', type=int, default=0,
+               help='optional bp limit each side of the seam (0 = no limit). Only '
+                    'a runtime knob: a read already votes on the sites it '
+                    'overlaps, so the whole block is the correct offer')
 p.add_argument('--min-site-obs', type=int, default=2,
                help='site observations a bridge read needs on each side to vote')
 p.add_argument('--max-new-discordant', type=int, default=0,
@@ -695,9 +775,33 @@ for root, members in sorted(frames.items(), key=lambda kv: -len(kv[1])):
         if flank is None:
             row[side] = None
             continue
+        flank_sites_all = {pos: v for pos, v in base_vcf_sites.items()
+                           if v[3] == flank}
+        # Evidence in order of directness, all of it recorded so the sources can
+        # be required to agree rather than the first one simply winning.
+        evidence = {}
+        ss = shared_site_vote(frame_sites, flank_sites_all)
+        if ss is not None and ss['flip'] is not None:
+            evidence['shared sites'] = (ss['flip'],
+                                        f"{ss['agree']}/{ss['agree'] + ss['disagree']} "
+                                        f"shared phased site(s) agree")
         t, shared = votes(ftags, 'frame', base_tags, flank)
         flip = decide(t, a.stitch_margin)
-        source = 'tags'
+        source = 'tags both sides'
+        if flip is not None:
+            evidence['tags both sides'] = (flip, f'{shared} reads')
+        if flip is None or True:
+            # Preferred: the flank's own read assignments, which already
+            # integrate its whole block, against the frame's tags-or-genotypes.
+            ft = flank_tag_vote(flank, base_tags, ftags, frame_sites,
+                                bridge_reads, a.min_site_obs, a.site_flank)
+            ft_flip = decide(ft['votes'], a.stitch_margin)
+            if ft_flip is not None:
+                t, shared, flip = ft['votes'], ft['voters'], ft_flip
+                source = (f'flank tags x gap alleles '
+                          f'({ft["voters"]}/{ft["considered"]} flank reads voted)')
+                evidence['flank tags x gap alleles'] = (
+                    ft_flip, f'{ft["voters"]}/{ft["considered"]} flank reads')
         if flip is None:
             flank_sites = {pos: v for pos, v in base_vcf_sites.items()
                            if v[3] == flank}
@@ -712,16 +816,34 @@ for root, members in sorted(frames.items(), key=lambda kv: -len(kv[1])):
             if br is not None:
                 t, shared = br['votes'], br['voters']
                 flip = decide(t, a.stitch_margin)
+                if flip is not None:
+                    evidence['alleles both sides'] = (
+                        flip, f'{br["voters"]} of {br["crossing"]} crossing reads')
                 # The vote is (flank, frame) on the left and (frame, flank) on
                 # the right; the orientation applied to the frame is the same
                 # either way because the table is symmetric under transpose.
                 source = (f'alleles ({br["crossing"]} cross, '
                           f'{br["n_left_sites"]}+{br["n_right_sites"]} sites)')
-        row[side] = dict(votes=t, shared=shared, flip=flip, source=source)
-        print(f'    frame {sorted(members)} ({sites} sites, {lo}-{hi}, '
-              f'{len(ftags)} reads) vs {side} flank {flank}: n={shared} '
-              f'votes={t} [{source}] -> '
-              + ('no link' if flip is None else f'link, flip={int(flip)}'))
+        # Independent sources must not contradict each other. A shared-site
+        # comparison and a read vote are different evidence about the same
+        # orientation, so a conflict means one of the two blocks is internally
+        # wrong near the seam -- refusing to link is the only safe reading.
+        decided = {k: v for k, v in evidence.items() if v[0] is not None}
+        conflict = len({v[0] for v in decided.values()}) > 1
+        row[side] = dict(votes=t, shared=shared, flip=None if conflict else flip,
+                         source=source, conflict=conflict,
+                         evidence={k: [bool(v[0]), v[1]] for k, v in decided.items()})
+        print(f'    frame {sorted(members)} vs {side} flank {flank}:')
+        for name, (fl, detail) in decided.items():
+            print(f'        {name:<26s} flip={int(fl)}  ({detail})')
+        if conflict:
+            print('        -> CONFLICT between sources, refusing to link')
+            flip = None
+        elif flip is None:
+            print('        -> no link')
+        else:
+            print(f'        -> link, flip={int(flip)} '
+                  f'({len(decided)} source(s) agreeing)')
     row['members'] = members
     links.append(row)
 

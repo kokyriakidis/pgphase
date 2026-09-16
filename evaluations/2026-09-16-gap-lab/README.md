@@ -103,36 +103,67 @@ first version's window: the two hard linkage breaks
 pulled the left flank to the far side of them. The gap's own interval is
 bridgeable, and closing it needs nothing the evidence does not already contain.
 
-## How much of the adjacent blocks the link uses, and why that is the limit
+## What the link uses from the adjacent blocks
 
-The flank vote originally took a fixed eight sites nearest the seam. That is not
-"all the information in the adjacent blocks": the right flank holds 916 sites at
-roughly one per 800 bp, so a read crossing the seam can observe far more than
-eight, and capping it both weakened each read's own call and dropped reads that
-would otherwise have cleared the per-side minimum. Site selection is now bounded
-by `--seam-span` (default 30 kb, a read length) rather than by a count.
+The first version took eight sites nearest the seam. That was wrong twice over,
+and the corrections were the same insight applied twice: an adjacent phase block
+is not a few sites near its edge, it is a complete labelling -- every read it
+contains with a haplotype, and a genotype at every site it phases -- and all of
+that is already integrated from the whole block's evidence.
 
-Swept on this gap, with everything else fixed:
+So the flank link now draws on three sources, in order of directness, and they
+are required to agree:
 
-| `--seam-span` | compose the gap blocks | left flank link | verdict |
-|---|---|---|---|
-| 3 kb | no link, n=0 | no link (1+6 sites) | FAIL |
-| 10 kb | compose, 42 voters | no link (1+7 sites) | PASS, extension only, +107 reads |
-| **30 kb** | compose, 42 voters | **link, 14 voters [9,0,0,5] (2+7 sites)** | **PASS, gap CLOSED** |
-| 60 kb | compose, 42 voters | link, 14 voters [9,0,0,5] (2+14 sites) | PASS, gap CLOSED |
+1. **Shared phased sites.** The gap arm re-discovers sites inside the flank's own
+   span -- here the flank's two sites are 48,162,480 and 48,176,830 while the gap
+   arm phases 48,173,317, 48,173,989, 48,173,990 and 48,176,830 -- so both
+   labellings frequently phase the same variant. Comparing the two genotypes at a
+   shared site gives the relative orientation exactly, with no bridge read and no
+   site selection at all.
+2. **The flank's own read assignments** against the frame's tags-or-genotypes. A
+   phase set already carries every read it contains with a haplotype; there is
+   nothing to re-derive on that side. The earlier version required a tag on
+   *both* sides, which discarded every read the flank had phased but the gap arm
+   had not -- most of the population at a seam.
+3. **Alleles on both sides**, for a flank that carries no reads at all. The block
+   adjacent to this gap is exactly that case: 2 sites, zero tagged reads.
 
-Two things follow. The span is decisive -- at eight sites the left flank
-contributed a single site and never linked, and the gap only closes once its
-whole 2-site block is inside the window. And **the evidence saturates at read
-reach**: 30 kb and 60 kb give the identical vote (14 voters) because no read
-extends further, so taking more of the adjacent block cannot add information.
-The bound is the read length, not the block size.
+`--seam-span` and `--seam-sites` are now off by default: the whole adjacent block
+is offered and the bounding is per read, since a read votes on the sites it
+overlaps and silently ignores the rest. A global distance limit only duplicates
+that, and its correct value is gap-dependent -- a site-sparse flank needs a wider
+one -- so a fixed default would quietly decide outcomes. They remain as runtime
+knobs. The earlier sweep that motivated them is still instructive: capped at eight
+sites the left flank offered one site and never linked, at a 10 kb limit the gap
+managed only an extension, and only with its whole 2-site block in view did it
+close.
 
-That also says what to do when a seam still has no voters after saturation, as at
-3 kb here: more sites cannot help, and the missing link has to come from either a
-different evidence type (the graph's haplotype threads cross a read-linkage break)
-or a chain of links through an intermediate block, which is what stage 1 does for
-the gap's own blocks.
+Sources that fire must not contradict each other. A shared-site comparison and a
+read vote are independent evidence about one orientation, so a conflict means one
+of the two blocks is internally wrong near the seam, and the rig refuses to link
+rather than picking a winner.
+
+## Result on chr20:48,176,830-48,229,446 (52.6 kb): CLOSED
+
+The deficit gap hiphase spans at 100.0% over 252 reads.
+
+| stage | result |
+|---|---|
+| gauge | whole-chr20 pipeline run: 238 blocks, 1,319 tagged reads in the gauge window |
+| flanks | left `48162480` (2 sites, **0 tagged reads**), right `48229446` (916 sites, 859 reads) |
+| gap arm | machinery on `48,171,830-48,234,446` -> 2 gap-local blocks; **11/11** in-gap het sites phased |
+| compose | 42 allele voters, **[15, 0, 0, 27]** -- unanimous, 58 reads cross the seam -> flip 0 |
+| link left | shared sites **1/1 agree**; alleles **14 of 66** crossing reads -> 2 sources agreeing, flip 0 |
+| link right | shared sites **4/4 agree**; tags **71 reads**; flank tags x gap alleles **71/298** -> 3 sources agreeing, flip 0 |
+| link validation | frame hap1 carries PATERNAL over 14 sites; left flank PATERNAL over 2 sites (**CORRECT**), right flank PATERNAL over 81 sites (**CORRECT**) |
+| gate | tagged 1,319 -> 1,426, concordant 1,316 -> **1,423**, accuracy 99.77% -> 99.79%, **0** concordant->discordant, **107 newly tagged, all concordant**, 0 lost |
+| verdict | **PASS -- gap CLOSED, both links validated, +107 concordant reads** |
+
+The earlier conclusion that this gap cannot be closed was an artifact of the
+first version's window: the two hard linkage breaks
+(`48,096,582->48,123,657` and `48,123,657->48,147,230`, zero spanning reads at
+72x) lie **outside** the gap, and only became obstacles because the 150 kb window
+pulled the left flank to the far side of them.
 
 ## What to use it for
 

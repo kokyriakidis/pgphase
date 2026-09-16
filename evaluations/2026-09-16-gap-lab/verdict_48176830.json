@@ -50,7 +50,18 @@
           ],
           "shared": 14,
           "flip": false,
-          "source": "alleles (66 cross, 2+7 sites)"
+          "source": "alleles (66 cross, 2+14 sites)",
+          "conflict": false,
+          "evidence": {
+            "shared sites": [
+              false,
+              "1/1 shared phased site(s) agree"
+            ],
+            "alleles both sides": [
+              false,
+              "14 of 66 crossing reads"
+            ]
+          }
         },
         "right": {
           "votes": [
@@ -61,7 +72,22 @@
           ],
           "shared": 71,
           "flip": false,
-          "source": "tags"
+          "source": "flank tags x gap alleles (71/298 flank reads voted)",
+          "conflict": false,
+          "evidence": {
+            "shared sites": [
+              false,
+              "4/4 shared phased site(s) agree"
+            ],
+            "tags both sides": [
+              false,
+              "71 reads"
+            ],
+            "flank tags x gap alleles": [
+              false,
+              "71/298 flank reads"
+            ]
+          }
         }
       }
     ],

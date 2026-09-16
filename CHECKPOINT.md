@@ -8035,3 +8035,33 @@ saturation, more sites cannot help; the link must come from a different evidence
 type (graph haplotype threads cross a read-linkage break) or from a chain through
 an intermediate block, which is what the composition stage does for the gap's own
 blocks.
+
+### Link the gap to its flanks from the whole adjacent blocks, not a seam window (2026-09-16)
+
+An adjacent phase block is a COMPLETE labelling -- every read it contains with a
+haplotype, and a genotype at every site it phases, all integrated from that
+block's whole evidence -- so a seam window throws most of it away. The rig's flank
+link now draws three sources and requires them to agree:
+
+1. SHARED PHASED SITES. The gap arm re-discovers sites inside the flank's own span
+   (the flank here holds 48,162,480 and 48,176,830; the gap arm phases 48,173,317,
+   48,173,989, 48,173,990 and 48,176,830), so both labellings often phase the same
+   variant. Comparing genotypes at a shared site gives the orientation EXACTLY --
+   no bridge read, no site selection.
+2. THE FLANK'S OWN READ ASSIGNMENTS against the frame's tags-or-genotypes.
+   Requiring a tag on BOTH sides, as before, discarded every read the flank had
+   phased but the gap arm had not, which is most of a seam's population.
+3. ALLELES BOTH SIDES, for a flank with no reads at all -- exactly this gap's left
+   block (2 sites, 0 tagged reads).
+
+--seam-span and --seam-sites are now OFF by default: the whole block is offered and
+the bounding is per read (a read votes on the sites it overlaps), so a global
+distance limit only duplicates it while having a gap-dependent correct value that
+would quietly decide outcomes. Conflicting sources REFUSE to link rather than
+picking a winner, since a conflict means one block is internally wrong at the seam.
+
+On chr20:48,176,830-48,229,446: left flank links with shared sites 1/1 plus 14 of
+66 crossing reads (2 sources, flip 0); right flank with shared sites 4/4, 71 tag
+reads, and 71/298 flank reads (3 sources, flip 0). Both validate CORRECT against
+truth. Gate unchanged at tagged 1319 -> 1426, concordant 1316 -> 1423, 0 flips.
+PASS, gap CLOSED.
