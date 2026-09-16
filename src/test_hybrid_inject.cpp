@@ -229,6 +229,68 @@ int main() {
                     "graph-only SNP retains its reference-base encoding");
     }
 
+    // A BAM-discovered candidate describes reads, so injecting a graph site at
+    // the same locus must not change its counts or its category: the hybrid arm
+    // is supposed to use the BAM's own evidence for it. Measured on
+    // chr20:48,176,830-48,229,446, eight of the seventy-six candidates shared
+    // between the alignment-only channel and the hybrid arm carry different
+    // DP/REF_COUNT/ALT_COUNT, and region width is not the cause -- narrow and
+    // wide alignment-only runs agree on all seventy-nine rows. This pins the
+    // injection half of that question.
+    {
+        PhasingChunk fidelity_chunk;
+        fidelity_chunk.region.tid = 0;
+        CandidateVariant bam_cand = make_graph_snp(100, 29, 45);
+        bam_cand.key.alt = "T";
+        bam_cand.graph_site = false;
+        bam_cand.counts.category = VariantCategory::NoisyCandHet;
+        bam_cand.counts.candvarcate_initial = VariantCategory::NoisyCandHet;
+        bam_cand.counts.total_cov = 74;
+        bam_cand.counts.ref_cov = 29;
+        bam_cand.counts.alt_cov = 45;
+        bam_cand.counts.alle_covs = {29, 45};
+        const VariantCounts before = bam_cand.counts;
+        fidelity_chunk.candidates.push_back(bam_cand);
+
+        GraphSiteCatalog fidelity_catalog;
+        GraphSite same_locus;
+        same_locus.chrom = "chr20";
+        same_locus.pos = 100;
+        same_locus.id = "same";
+        same_locus.ref = "C";
+        same_locus.alts = {"T"};
+        fidelity_catalog.sites.push_back(same_locus);
+
+        std::unordered_set<int> only_cands, all_cands;
+        GraphOnlyVcfAlleles alleles;
+        int n_bridged = 0, n_added = 0;
+        Options fidelity_opts;
+        inject_graph_sites(fidelity_chunk, fidelity_catalog.view_all(), {},
+                           fidelity_opts, &n_bridged, &n_added, &only_cands,
+                           &alleles, &all_cands);
+        const auto found = std::find_if(
+            fidelity_chunk.candidates.begin(), fidelity_chunk.candidates.end(),
+            [](const CandidateVariant& c) { return c.key.pos == 100; });
+        ok &= check(found != fidelity_chunk.candidates.end() &&
+                        found->counts.total_cov == before.total_cov &&
+                        found->counts.ref_cov == before.ref_cov &&
+                        found->counts.alt_cov == before.alt_cov &&
+                        found->counts.alle_covs == before.alle_covs,
+                    "graph injection leaves a BAM candidate's allele counts alone");
+        ok &= check(found != fidelity_chunk.candidates.end() &&
+                        found->counts.category == before.category,
+                    "graph injection leaves a BAM candidate's category alone");
+
+        backfill_graph_candidate_counts(fidelity_chunk, only_cands);
+        const auto after_backfill = std::find_if(
+            fidelity_chunk.candidates.begin(), fidelity_chunk.candidates.end(),
+            [](const CandidateVariant& c) { return c.key.pos == 100; });
+        ok &= check(after_backfill != fidelity_chunk.candidates.end() &&
+                        after_backfill->counts.ref_cov == before.ref_cov &&
+                        after_backfill->counts.alt_cov == before.alt_cov,
+                    "the graph-only count backfill does not touch a BAM candidate");
+    }
+
     // --private-sites must remove every BAM candidate not explicitly listed
     // before graph candidates and read profiles are added.
     {

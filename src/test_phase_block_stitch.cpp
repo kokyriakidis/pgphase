@@ -1253,6 +1253,64 @@ static bool test_unassigned_msa_local_allele_evidence() {
                  "unassigned reads retain local evidence only when both paths uniquely agree");
 }
 
+static bool test_msa_counts_do_not_depend_on_recover_gaps() {
+    // A candidate's allele counts describe the reads, so the same MSA input must
+    // produce the same counts whether or not gap recovery is enabled. It does
+    // not today: refresh_assigned_msa_observations runs only when recover_gaps
+    // is set (collect_phase_noisy.cpp), so the hybrid arm re-scores MSA site
+    // observations and the alignment-only channel never does. On
+    // chr20:48,176,830-48,229,446 eight of the seventy-six candidates shared
+    // between the two channels carry different DP/REF_COUNT/ALT_COUNT, which is
+    // what this pins. The fixture deliberately has no nested deletion, so
+    // split_nested_msa_deletions is a no-op and the refresh is the only
+    // difference between the two runs.
+    const auto build = [](bool recover_gaps,
+                          std::vector<CandidateVariant>& vars,
+                          std::vector<VariantCategory>& categories,
+                          std::vector<ReadVariantProfile>& profiles) {
+        PhasingChunk chunk;
+        chunk.region.tid = 0;
+        chunk.ref_beg = 100;
+        chunk.ref_seq = "ACGTACGTACGT";
+        chunk.reads.resize(2);
+        const auto hap1 = site_alignment(chunk.ref_seq, "ACGTTCGTACGT");
+        const auto hap2 = site_alignment(chunk.ref_seq, "ACGTACGTACGT");
+        const std::array<std::vector<AlnStr>, 2> alignments = {{{hap1}, {hap2}}};
+        Options opts;
+        opts.recover_gaps = recover_gaps;
+        // Assigned read clusters, because refresh_assigned_msa_observations only
+        // re-scores reads that a cluster owns: with empty clusters it is a no-op
+        // and the two arms agree trivially.
+        chunk.reads.resize(4);
+        const std::array<int, 2> clu_n_seqs = {2, 2};
+        const std::array<std::vector<int>, 2> clu_read_ids = {{{0, 1}, {2, 3}}};
+        const std::array<std::vector<AlnStr>, 2> read_alns = {{{hap1, hap1}, {hap2, hap2}}};
+        make_vars_from_msa_cons_aln(opts, chunk, 4, {0, 1, 2, 3}, 100, 2,
+                                   clu_n_seqs, clu_read_ids,
+                                   read_alns, vars, categories, profiles);
+        const std::array<AlnStr, 2> consensuses = {hap1, hap2};
+        add_msa_site_observations(opts, {{0, {hap1, hap1}}, {1, {hap2, hap2}}},
+                                  100, false, vars, profiles, &consensuses);
+    };
+    std::vector<CandidateVariant> off_vars, on_vars;
+    std::vector<VariantCategory> off_cate, on_cate;
+    std::vector<ReadVariantProfile> off_prof, on_prof;
+    build(false, off_vars, off_cate, off_prof);
+    build(true, on_vars, on_cate, on_prof);
+    bool ok = check(off_vars.size() == on_vars.size(),
+                    "the same MSA input yields the same candidates either way");
+    if (!ok) return false;
+    for (size_t vi = 0; vi < off_vars.size(); ++vi) {
+        const VariantCounts& a = off_vars[vi].counts;
+        const VariantCounts& b = on_vars[vi].counts;
+        ok &= check(a.total_cov == b.total_cov && a.ref_cov == b.ref_cov &&
+                    a.alt_cov == b.alt_cov && a.alle_covs == b.alle_covs &&
+                    off_cate[vi] == on_cate[vi],
+                    "candidate counts and category do not depend on recover_gaps");
+    }
+    return ok;
+}
+
 static bool test_nested_msa_deletions_share_common_event() {
     PhasingChunk chunk;
     chunk.region.tid = 0;
@@ -2220,6 +2278,7 @@ int main() {
     failures += test_read_phase_set_ignores_non_scoring_repeat() ? 0 : 1;
     failures += test_composed_msa_repeat_placement() ? 0 : 1;
     failures += test_read_phase_set_requires_observed_allele() ? 0 : 1;
+    failures += test_msa_counts_do_not_depend_on_recover_gaps() ? 0 : 1;
     failures += test_nested_msa_deletions_share_common_event() ? 0 : 1;
     failures += test_gap_hp_trial_is_transactional() ? 0 : 1;
     failures += test_recovery_links_join_earlier_components() ? 0 : 1;

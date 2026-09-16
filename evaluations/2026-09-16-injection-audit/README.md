@@ -65,3 +65,46 @@ measured.
 `48,202,057` is the one to fix next: a site at chance segregation carrying a phase
 set is the failure mode the whole gap effort has been chasing, and it is not
 explained by representation.
+
+## Where the divergence is not: four invariants, pinned in the test suite
+
+The audit showed 8 of 76 shared candidates carrying different DP/REF_COUNT/
+ALT_COUNT between the alignment-only channel and the hybrid arm, with region
+width ruled out (narrow and wide alignment-only runs agree on all 79 rows). Four
+candidate explanations were turned into unit tests rather than argued about, and
+all four hold, so none of them is the cause:
+
+| invariant | test | binary |
+|---|---|---|
+| the same MSA input gives the same counts whether or not `recover_gaps` is set | `test_msa_counts_do_not_depend_on_recover_gaps` | `test_phase_block_stitch` |
+| ... also with real assigned read clusters, so `refresh_assigned_msa_observations` actually runs | same test, second fixture iteration | `test_phase_block_stitch` |
+| injecting a graph site at a BAM candidate's locus leaves its counts alone | `graph injection leaves a BAM candidate's allele counts alone` | `test_hybrid_inject` |
+| ... and leaves its category alone, and the graph-only backfill does not reach it | two further checks in the same block | `test_hybrid_inject` |
+
+The first fixture initially passed for the wrong reason -- with empty read
+clusters `refresh_assigned_msa_observations` is a no-op -- so it was iterated to
+carry four assigned reads in two clusters before being trusted.
+
+What remains, therefore, is upstream of injection: the hybrid arm applies
+`apply_hybrid_noise_filter`, which is what rewrites `NOISY_CAND_HET` to
+`REP_HET_INDEL` at `48,177,726`, and the MSA consensus is built inside a chunk
+whose candidate list also holds the graph catalog. Those two are the next places
+to look, and both now have a harness that will catch a change.
+
+## On injecting the alignment channel's alleles verbatim
+
+Attempted and **not** adopted, because the evidence turned against the premise.
+Carrying the two nested deletions as one two-allele site does produce the right
+record -- `REF=GAGAAAGAAAGAAAGAAAGAA ALT=GAGAAAGAAAGAA,G` -- but per-read
+observations are scored against a single ALT, so the second allele arrives with
+**zero reads** (`AD 28,40,0`, genotype `1|0` rather than `1|2`), which is strictly
+worse than the current representation.
+
+More importantly the split it would replace looks correct. The reads at
+`48,177,781` carry two deletion lengths, **-8 (27 reads) and -20 (21 reads)**: both
+haplotypes delete at least 8 bases and one deletes 20. That is exactly what the
+split encodes -- a homozygous common 8 bp deletion (1/73, matching truth scoring
+"8 bp against reference" at 0.514, i.e. uninformative) plus a 12 bp residual het
+(40/28) -- and `test_nested_msa_deletions_share_common_event` pins the same model
+on a 4/6 fixture. The alignment channel's own form, two overlapping hets each
+carrying a phase set, is the one a long-deletion read can support on both rows.
