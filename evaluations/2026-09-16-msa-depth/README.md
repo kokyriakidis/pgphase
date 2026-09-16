@@ -93,3 +93,44 @@ Also visible here and not yet addressed: `39,846,791` is emitted as **two
 records with identical alleles and opposite genotypes**, each at AF 1.000 with no
 reference reads, where hiphase emits one multiallelic `1|2`. That is the same
 representation defect found at `48,225,787`, in a second window.
+
+## Reclassifying on the corrected counts: tried, destructive, reverted
+
+The obvious follow-up is to re-run classification once step 4 has corrected the
+counts. Two attempts, both instructive.
+
+**Attempt 1 guarded on the candidate count and was inert.** `collect_noisy_vars_step4`
+*inserts* its own candidates, so the vector grows and a `size()` comparison
+skipped the whole block. Nothing changed, which is why `INIT_CAT` still read
+`LOW_COV` at DP 70.
+
+**Attempt 2 compared by variant key instead, so it ran -- and deleted the sites.**
+After `classify_cand_vars_pgphase` was re-run, the entire neighbourhood
+`39,845,000-39,862,000` was reduced to the single non-MSA site
+(`39,849,434 CLEAN_HOM`): every MSA-derived candidate, including the
+34/36-at-DP-70 SNP, disappeared from the output.
+
+The reason is in that function's own comment: it is the initial-discovery pass,
+and it assumes `cand.alt_ref_base` holds a reference base, while noisy candidates
+built by `make_cand_vars_from_baln0` carry consensus column bytes there. Re-run
+over MSA candidates it therefore misreads them, assigns a category that
+`prune_not_candidate_variants` deletes, and the site is lost outright -- a worse
+outcome than the stale verdict it was meant to fix.
+
+Reverted; the panel is byte-identical to the baseline again and the suite passes.
+
+So reclassification cannot be done by re-running that function. The narrower
+route is to call `classify_variant_initial` alone on the corrected counts -- it
+takes only the key, the counts and the reference slice, and recomputes the allele
+fraction itself -- and then set the phasing mask directly for the clean verdicts,
+rather than re-deriving every candidate's mask. That needs the
+category-to-`lcd_var_i_to_cate` mapping the later passes apply, which is the part
+to read next.
+
+Still open in this window, and unchanged by any of the above:
+`39,846,791` is emitted as two records with identical-length but different
+insertion sequences and opposite genotypes, each at AF 1.000 with **zero
+reference reads** (DP 27 and 23 after the depth fix, 0 ref in both). Each record
+is internally consistent over its own read subset; together they are one
+multiallelic locus that hiphase emits as a single `1|2`. Emitting it as two
+biallelic hets is what lets both claim AF 1.000.
