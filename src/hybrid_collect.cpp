@@ -72,6 +72,7 @@ static void print_hybrid_help() {
         << "      --gap-bridge-independent-blocks  Try bridging new independent blocks to flanks (experimental, off)\n"
         << "      --gap-bridge-private-snps  Let MSA-verified private het SNPs inside a gap act as block-bridge anchors\n"
         << "      --no-gap-link-by-alleles  Disable additively attaching reads to an already-decided gap join by allele agreement (on by default)\n"
+        << "      --gap-allele-attach-join-only  Allele attachment needs a joined gap\n"
         << "      --no-hybrid-trim          Disable minimal-VCF trimming of graph-only alleles before noise filter (on by default)\n"
         << "      --gap-fill                Additively phase reads the clean core left unphased into a disjoint PS namespace (off by default)\n"
         << "      --private-sites FILE      Jointly phase graph sites plus only listed BAM candidates\n"
@@ -156,6 +157,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kGapBridgePrivateSnpsOption,
         kMinAssignMapqOption,
         kNoGapLinkByAllelesOption,
+    kGapAlleleAttachJoinOnlyOption,
         kNoHybridTrimOption,
         kGapFillOption,
         kPrivateSitesOption,
@@ -214,6 +216,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"gap-bridge-independent-blocks", no_argument, nullptr, kGapBridgeIndependentOption},
         {"gap-bridge-private-snps", no_argument, nullptr, kGapBridgePrivateSnpsOption},
         {"no-gap-link-by-alleles", no_argument, nullptr, kNoGapLinkByAllelesOption},
+        {"gap-allele-attach-join-only", no_argument, nullptr, kGapAlleleAttachJoinOnlyOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
         {"gap-fill",        no_argument,       nullptr, kGapFillOption},
         {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
@@ -286,6 +289,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGapBridgeIndependentOption: opts.gap_bridge_independent_blocks = true; break;
             case kGapBridgePrivateSnpsOption: opts.gap_bridge_private_snps = true; break;
             case kNoGapLinkByAllelesOption: opts.gap_link_by_alleles = false; break;
+            case kGapAlleleAttachJoinOnlyOption:
+                opts.gap_allele_attach_join_only = true; break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
             case kGapFillOption:      opts.gap_fill = true; break;
             case kPrivateSitesOption:

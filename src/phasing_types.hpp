@@ -308,6 +308,10 @@ struct Options {
     // for a same-PS independent block now attach directly to the correct
     // flank instead.
     bool gap_link_by_alleles = true;
+    /// Require a gap to have actually joined before allele agreement may attach
+    /// reads to its flanks. Off by default: the allele path is a net gain across
+    /// most windows and only harmful where a one-sided link is unvalidated.
+    bool gap_allele_attach_join_only = false;
     // When true (gap recovery only), an MSA-verified private het SNP inside a
     // gap may act as a block-bridge anchor, on the same terms as a recovered
     // MSA indel: it must pass the anchor allele-segregation test that sets

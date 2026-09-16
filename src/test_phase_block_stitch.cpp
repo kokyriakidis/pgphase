@@ -825,6 +825,55 @@ static bool test_gap_recovery_partial_extension() {
                  "one-sided evidence preserves an extension but cannot close the gap");
 }
 
+static bool test_gap_allele_attach_join_only_gates_one_sided() {
+    // Isolate the allele-agreement path. `extra` is unphased in the chunk AND in
+    // the proposal, so the proposal-based attachment cannot claim it and only
+    // implied_assignment can; chunk 0 gains read profiles because the shared
+    // fixture has none, which is why the other one-sided tests never reach this
+    // path. Zeroing proposal read 3 leaves the right flank unlinked, so the join
+    // is one-sided.
+    auto build = [](std::vector<PhasingChunk>& chunks, PhasingChunk& proposal) {
+        make_gap_fixture(chunks, proposal);
+        proposal.haps[3] = 0;
+        proposal.haps[4] = 0;
+        chunks[0].read_var_profile.resize(chunks[0].reads.size());
+        for (auto& prof : chunks[0].read_var_profile) {
+            prof.start_var_idx = prof.end_var_idx = 0;
+            prof.alleles.assign(1, -1);
+            prof.alt_qi.assign(1, -1);
+        }
+        const size_t extra_i = chunks[0].reads.size() - 1;
+        chunks[0].read_var_profile[extra_i].alleles[0] =
+            chunks[0].candidates[0].hap_to_cons_alle[1];
+        return extra_i;
+    };
+
+    std::vector<PhasingChunk> open_chunks;
+    PhasingChunk open_proposal;
+    const size_t extra_i = build(open_chunks, open_proposal);
+    Options open_opts;
+    open_opts.stitch_rule = kStitchRuleBothStrands;
+    const auto open_result = stitch_gap_proposal(open_chunks, open_proposal,
+                                                 find_phase_gaps(open_chunks)[0], open_opts);
+    bool ok = check(!open_result.joined && open_result.left_linked &&
+                    open_chunks[0].haps[extra_i] == 1 &&
+                    open_chunks[0].phase_sets[extra_i] == 100,
+                    "allele agreement attaches to a one-sided link by default");
+
+    std::vector<PhasingChunk> gated_chunks;
+    PhasingChunk gated_proposal;
+    build(gated_chunks, gated_proposal);
+    Options gated_opts = open_opts;
+    gated_opts.gap_allele_attach_join_only = true;
+    const auto gated_result = stitch_gap_proposal(gated_chunks, gated_proposal,
+                                                  find_phase_gaps(gated_chunks)[0], gated_opts);
+    ok &= check(!gated_result.joined && gated_result.left_linked &&
+                gated_chunks[0].haps[extra_i] == 0 &&
+                gated_chunks[0].phase_sets[extra_i] == -1,
+                "allele attachment is withheld from a one-sided link when it must follow a join");
+    return ok;
+}
+
 static bool test_gap_read_index_freezes_initial_assignments() {
     std::vector<PhasingChunk> chunks;
     PhasingChunk proposal;
@@ -2114,6 +2163,7 @@ int main() {
     failures += test_gap_tiers_are_cumulative() ? 0 : 1;
     failures += test_gap_recovery_join_preserves_blocks() ? 0 : 1;
     failures += test_gap_recovery_partial_extension() ? 0 : 1;
+    failures += test_gap_allele_attach_join_only_gates_one_sided() ? 0 : 1;
     failures += test_gap_msa_covers_clean_stretches() ? 0 : 1;
     failures += test_msa_unsorted_profile_indices() ? 0 : 1;
     failures += test_allele_link_orientation_and_tie() ? 0 : 1;

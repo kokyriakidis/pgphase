@@ -391,3 +391,380 @@ failure direction. What needs work is the confirmation mechanism --
 graph-channel call, so it is asked to reproduce a join from a smaller read set
 than the proposal it judges. That is the next measurement, and it is a design
 change to the validator rather than another scoping fix.
+
+## Why the validator fails on a proposal that is 1.0000 accurate
+
+A temporary probe in the veto branch (removed again) dumped the validator's own
+proposal. It is not disagreeing about orientation -- it never forms a block that
+reaches both flanks:
+
+```
+gap=36247421-36268291  left_ps=36209945  right_ps=36268291
+selected=157  total=510  skipped=353  phased=151
+  ps=36247421   reads=63   left-flank reads=63   right-flank reads=0
+  ps=36259922   reads=41   left-flank reads=0    right-flank reads=41
+  ps=36261163   reads=47   left-flank reads=0    right-flank reads=29
+```
+
+Three blocks, each touching exactly one flank, against the graph proposal's
+single 95-read block holding 26 left-flank and 70 right-flank reads. Two things
+cause it:
+
+1. **The validator solves on a subset.** `select_graph_gap_bam_reads` admits
+   only reads carrying a graph-channel call -- 157 of the 510 reads in the
+   window, with 353 skipped -- so it is asked to reproduce a join from
+   materially thinner coverage than the proposal it judges.
+2. **It fragments exactly at the repeat cluster.** Its block boundaries are
+   `36,259,922` and `36,261,163`, which are the junk sites `36,259,923` and
+   `36,261,164` -- the same one-repeat-event-called-three-times that drags the
+   full solve from 1.000 down to 0.846. With 157 reads there is not enough
+   overlap to chain across them, so the partition breaks there.
+
+Both point the same way, and neither is fixed by weakening the veto. The
+root-cause fix is the positional screen the site analysis already identified:
+collapse candidates within 300 bp to the best-covered one, which lifts the full
+solve 0.846 -> 0.981 and would remove the boundaries the validator breaks at.
+Widening the validator's read set to match the proposal it judges is the second
+candidate, and the weaker one -- it makes the check easier to pass without making
+the underlying evidence any cleaner.
+
+## Applying the default pipeline's own merge rule to recovery: tested, wrong
+
+The default pipeline merges blocks in three steps, and only two mechanisms:
+
+| mechanism | scope | evidence |
+|---|---|---|
+| `flip_chunk_hap` -> `select_stitch_orientation` -> `apply_chunk_flip_and_merge` | adjacent **chunks** | overlap reads present in both chunks, counted as an n11/n12/n21/n22 table |
+| `stitch_phase_blocks_with_pgbam` / `stitch_adjacent_chunks_with_pgbam` | blocks **within** a chunk, and chunk seams where the read vote fails | GBWT haplotype threads, requires `--pgbam-file` |
+
+`select_stitch_orientation` is the whole standard: under the default
+`kStitchRuleNetMargin` it merges iff `|(n12+n21) - (n11+n22)| > stitch_min_margin`
+and takes the orientation from the sign. After a merge,
+`apply_chunk_flip_and_merge` rewrites the downstream phase set to the upstream id
+and flips hap labels if needed, and
+`propagate_overlap_read_phase_to_output_owner` copies HP/PS onto overlap reads
+that were unphased -- but only for pairs that merged, because otherwise the
+relative phase is unknown.
+
+Recovery's `stitch_gap_proposal` already builds the same table, per flank, and
+`GapStitchResult::right_flip` is the same orientation bit. So the parity question
+is narrow: recovery adds the homopolymer tier's independent BAM-only re-solve on
+top, and nothing in the default pipeline does that.
+
+**Tested: skip the re-solve when the table is unambiguous.** Gap 2's tier-4 vote
+table is 26-0 on the left and 69-0 on the right -- under the default rule, scores
+of -26 and -69, both unambiguous merges, three times the support that joins
+deficit gap 1 (19 and 10). Making confirmation conditional on that produced the
+join:
+
+| | before | after |
+|---|---:|---:|
+| spans the gap | no | **yes** (`36,168,059-36,268,558`) |
+| reads tagged | 358 | 358 |
+| window accuracy | 77.65% | **58.38%** |
+| concordant -> discordant | -- | **70** |
+
+**The join is wrong, and the veto was right.** All 70 broken reads were in the
+right flank's phase set `36268291`, all land in the merged block, and all sit
+inside the break: the merge inverted the right flank relative to the left. Change
+reverted.
+
+### Why the same rule gives a wrong answer here
+
+The rule is not the problem; its inputs are. In the default pipeline the voting
+reads are phased **independently, twice** -- once by each chunk's own
+full-coverage solve -- and a chunk seam is an artifact of chunking, so the two
+solves really are independent estimates of the same reads' haplotypes. In
+recovery the voters at the left flank's boundary are, measured, **62 of 64 reads
+that the output filter had zeroed**, each phased from a single clean het SNP.
+Admitting them makes the table unanimous, but they share one point of failure, so
+26 votes carry about one vote's worth of independent information. Unanimity among
+correlated weak voters is not confirmation, which is exactly the hole the
+BAM-only re-solve was covering.
+
+That reframes what "parity with the default pipeline" should mean for recovery.
+Not a looser confirmation, but voters that resemble the default pipeline's: reads
+whose own phase is independently supported. Two candidates, in order:
+
+1. **Collapse the repeat cluster** (`36,259,923`/`36,261,164`/`36,261,311` are one
+   event called three times inside 150 bp). It is the root cause of both the
+   solve's 0.846 ceiling and the validator's fragmentation, and it is what makes
+   the boundary reads' single-site phase unreliable in the first place.
+2. **Weight votes by supporting evidence** -- admit a filter-zeroed read as a
+   voter only when more than one site supports its hap. On this gap that would
+   return the left flank to 2 voters and correctly refuse the join.
+
+Note the interaction with the committed vote-snapshot change: with the veto in
+place nothing regresses (gap 2 stays `vetoed`, panel gate clean), but that change
+is what makes this wrong join *reachable* if the confirmation is ever loosened.
+The two must not be relaxed together.
+
+## Removing the repeats: measured, and it fixes the orientation
+
+The wrong join above means the merge inverted one flank, i.e. the proposal's own
+polarity differs between its left-touching and right-touching reads. That is
+testable from the audit observations with truth alone, no flank labels needed:
+build the partition, pick the single global orientation truth prefers, then score
+the reads that reach each endpoint separately. A proposal that is internally
+consistent scores the same both ways; one carrying a switch does not.
+
+| site set | sites | left reads | left acc | right reads | right acc |
+|---|---:|---:|---:|---:|---:|
+| all in-break sites | 7 | 30 | 93.3% | 22 | **81.8%** |
+| drop the `REP` class | 6 | 28 | 100.0% | 20 | **85.0%** |
+| collapse to one site per 300 bp | 5 | 28 | **100.0%** | 17 | **100.0%** |
+| clean + homopolymer only | 4 | 27 | **100.0%** | 18 | **100.0%** |
+| clean only | 2 | -- | no partition | -- | -- |
+| oracle, informative sites only | 3 | 29 | 100.0% | 4 | 100.0% |
+
+So yes -- removing the repeats fixes it. With all seven sites the two halves
+disagree under one orientation (93.3% against 81.8%), which is exactly the switch
+that inverts the right flank when the blocks merge. Collapse the cluster and both
+halves read 100.0% while still holding 28 left-reaching and 17 right-reaching
+reads, so the merge orientation would be correct and the 70-read flip would not
+occur.
+
+**The removal has to be positional, not by class.** Dropping the `REP` category
+leaves the right half at 85.0%, because only one of the three correlated calls is
+`REP` -- `36,261,164` and `36,261,302` are `NoisyMsaHet` with `msa_verified = 1`.
+Class hierarchy cannot see that three calls inside 150 bp are one event; only
+position can. This is the same conclusion the site-quality work reached from the
+other direction, where leave-one-out consistency ranked that clique *above* the
+genuinely informative sites.
+
+Also note `clean only` yields no partition at all: two sites 20.9 kb apart cannot
+chain. So the answer is not "trust only clean SNPs" -- it is clean SNPs plus one
+representative of each repeat event, which is what the 300 bp collapse produces
+and what reaches 100% on both halves.
+
+### Caveat: the offline result did not transfer to the pipeline
+
+Implemented the collapse where it belongs -- a positional demotion applied to
+`original_flags` right after they are captured, so every tier inherits it, with
+redundant cluster members set to `kLongcalldRepHetVar` (which
+`kCandGermlineVarCate` excludes, so they drop out of the solve as well as out of
+link eligibility). Paired with the default-rule confirmation, gap 2 still joins
+**and still flips the same 70 reads**, byte-identical to the run without the
+collapse: 358 tags, 58.38%.
+
+So one of two things is true, and the next diagnostic separates them: either the
+demotion is not reaching the candidates the solve actually uses (the `in_gap`
+selection or the observation counts are wrong), or the switch inside the
+pipeline's k-means has a cause other than the three correlated calls, and the
+offline agreement at 100%/100% was a property of my solver rather than of the
+evidence. The measurement to run is the pipeline analogue of the halves test:
+export the tier-4 proposal and score its left-reaching and right-reaching reads
+separately under one orientation, with and without the collapse.
+
+Both experimental changes are reverted; `src/` is back to the pushed commit,
+gap 2 `vetoed`, nothing regressed.
+
+## The phasing inside both gaps, scored on its own (no join)
+
+Fresh audits from the committed build. For each recovery pass and tier, the
+largest proposal block is scored against read truth under a single global
+orientation, and the reads reaching each endpoint are scored separately -- so an
+internally inconsistent partition (a switch) shows up as one half disagreeing
+with the other.
+
+### Gap 1, `chr20:61,732,321-61,810,469`, break `61,738,233-61,757,551`
+
+Interior sites: `61,747,508` MSA DEL homopolymer seg 0.929; `61,747,510` REP DEL
+seg 0.956; `61,755,064` MSA INS seg 1.000; `61,757,551` clean SNP seg 1.000.
+
+| pass/tier | blocks | reads | accuracy | left half | right half |
+|---|---:|---:|---:|---|---|
+| pass 0, tiers 1-2 | 1 | 115 | 100.0% | 11/11 | -- |
+| pass 0, tier 3 | 1 | 109 | 100.0% | 9/9 | -- |
+| pass 0, tier 4 | 2 | 109 | 100.0% | 9/9 | -- |
+| pass 1, tiers 1-3 | 2 | 20 | 100.0% | 20/20 | -- |
+| **pass 1, tier 4** | 1 | **45** | **100.0%** | **27/27** | **20/20** |
+
+### Gap 2, `chr20:36,217,274-36,268,291`, break `36,247,421-36,268,291`
+
+Interior sites: clean SNPs at the edges (`36,247,421` seg 0.906, `36,268,291` seg
+0.986), `36,252,908` MSA DEL homopolymer seg 0.923, then the correlated cluster
+`36,259,923` seg 0.607, `36,261,164` seg 0.509, `36,261,302` seg 0.644,
+`36,261,311` seg 0.644.
+
+| pass/tier | blocks | reads | accuracy | left half | right half |
+|---|---:|---:|---:|---|---|
+| pass 0/1, tiers 1-2 | 2 / 1 | 69 | 100.0% | 1/1 | 69/69 |
+| pass 0, tier 3 | 2 | 41 | **97.6%** | -- | -- |
+| pass 1, tier 3 | 1 | 41 | 100.0% | -- | 41/41 |
+| **pass 0/1, tier 4** | 2 / 1 | **95** | **100.0%** | **26/26** | **70/70** |
+
+### Two things this settles
+
+**The phasing is not the problem in either gap.** At tier 4 both gaps produce a
+single block that reaches both endpoints and is perfectly concordant with truth
+-- gap 1 at 45 reads (27 left, 20 right), gap 2 at 95 reads (26 left, 70 right).
+Every read scored, in both halves, in both gaps. Tier 3 is the only tier that
+degrades (gap 2, pass 0: 41 reads at 97.6%), and it is the tier that admits the
+non-repeat verified indels, consistent with the escalation-ladder result.
+
+**Correction: gap 2's proposal carries no internal switch.** An earlier offline
+solve of the same observations put its left-reaching reads at 93.3% and its
+right-reaching reads at 81.8% and attributed the wrong merge to that
+disagreement. The pipeline's own tier-4 proposal reads 26/26 and 70/70 -- no
+switch at all. That 93.3/81.8 split was a property of the offline solver, which
+voted over all seven interior sites with a plain majority instead of the tier's
+filtered set, and it should not have been carried into an explanation of the
+pipeline's behaviour.
+
+So the 70-read flip seen when the join is forced does **not** originate in the
+proposal. It has to come from the flank side of the comparison: the left flank
+contributes only 26 voters, all of them reads the output filter had zeroed and
+each phased from a single clean het SNP -- and the nearest such SNP,
+`36,247,421`, itself segregates at only 0.906. The next diagnostic is therefore
+whether those 26 boundary reads are correctly phased *relative to their own
+block*, not whether the proposal is self-consistent.
+
+## Why the join cannot be correct: an earlier join in the same window is wrong
+
+Gap 2's phasing is perfect and its votes are sound, so the failure had to be on
+the other side of the comparison. It is.
+
+### The voters are fine
+
+Probed every read that casts a link vote for proposal `36247421` (temporary
+probe, removed). Left flank `36209945`: 64 voters, proposal labels 90.6% correct
+against truth, flank labels 90.6% correct, both `hap1=PAT`. Right flank
+`36268291`: 69 voters, 100.0% both, also `hap1=PAT`. Each flank's voters agree
+with the proposal *and* with truth, so the local comparison is sound on both
+sides.
+
+### The block they point at carries a switch
+
+The emitted left block `36168059` spans `36,144,761-36,267,248` with 287 reads at
+only **72.5%** truth consistency, and the opposite-polarity reads are not
+scattered -- they appear abruptly:
+
+| 10 kb bin | reads | opposite |
+|---|---:|---:|
+| 36,140,000-36,190,000 | 125 | **0%** |
+| 36,200,000 | 41 | 2% |
+| 36,210,000 | 39 | 31% |
+| 36,220,000 | 23 | 57% |
+| 36,230,000 | 36 | **92%** |
+| 36,240,000 | 23 | 87% |
+
+Everything before ~36,210,000 is perfectly consistent; everything after is
+inverted. That is a switch error, and `36,209,945` -- the phase set recovery
+links gap 2's left side to -- is exactly where it starts.
+
+### The switch is a gap-recovery join (culprit corrected below)
+
+The same run's recovery report holds an upstream gap:
+
+```
+gap 36,172,778-36,209,945  tier 1  L=1 R=1  leftPS=36168059  rightPS=36168059
+                                   reads_added=81  STATUS=joined
+```
+
+Re-running the identical window **without** `--recover-gaps` settles it:
+
+| | block `36168059` | window total |
+|---|---|---|
+| recovery off | 169 reads, span `36,148,502-36,233,980`, **99.4%** | 241/242 = **99.59%** |
+| recovery on | 287 reads, span `36,144,761-36,247,400`, **72.5%** | 278/358 = **77.65%** |
+
+Recovery is what breaks this window. The tier-1 join across
+`36,172,778-36,209,945` attaches 81 reads and inverts everything downstream of
+the seam, taking the block from 99.4% to 72.5% and the window from 99.59% to
+77.65%. It buys 116 more scored reads and 37 more concordant ones while creating
+79 discordant ones.
+
+### What this means
+
+Gap 2 is not a gap-recovery *admission* problem and never was. Its own solve is
+perfect, its votes are correct, and it correctly aligns with the segment next to
+it -- but that segment is already inverted relative to the rest of its own block,
+so any join propagates our correct local orientation into a block whose global
+polarity disagrees with it, and the 70 reads we attach score discordant. **The
+veto has been preventing us from compounding an error we had already made.**
+
+It also explains three earlier results that looked unrelated: the window's 77.65%
+baseline (noted at the time as a pre-existing inconsistency, now root-caused),
+why `--min-read-margin 1` and the unanimity skip both flipped exactly the same 70
+reads, and why removing the repeat cluster changed nothing -- the defect was never
+inside gap 2.
+
+The priority therefore inverts. The bug worth fixing is the **tier-1** join at
+`36,172,778-36,209,945` -- tier 1 being the clean-SNP-only tier, the one we trust
+most -- not gap 2's confirmation rule. And the measurement that sizes it is the
+read-level gate for `--recover-gaps` on versus off across the whole chromosome,
+since a single wrong join costs more concordant reads than several correct ones
+gain.
+
+## Root cause: allele attachment on a gap that never joined
+
+The section above pinned the corruption on recovery and on the tier-1 join in the
+same window. Recovery is right; the tier-1 join is not. Bisecting the pipeline
+settles it -- read labels dumped and scored at each stage:
+
+| stage | window | key block |
+|---|---|---|
+| pre-recovery | 157/161 (**97.52%**) | `36209945`: 49 reads, 91.8% |
+| after the gap threads | 278/360 (**77.22%**) | `36209945`: **164 reads, 50.6%** |
+| after the parity edges | 278/360 (77.22%) | merged, 72.0% |
+
+So the damage happens inside the gap threads, before any edge is applied, and the
+join is not doing it: the joined gap's target block goes 44 -> 125 reads and stays
+at **100.0%**. `apply_gap_phase_edges` is a parity union-find that relabels
+uniformly per phase set and already guards self-edges, so it cannot corrupt half a
+block either.
+
+Attributing every write single-threaded (parallel threads interleave stderr and
+lose lines -- an earlier count of 44 was an artifact of that) gives 199 new labels,
+of which **155 come from `implied_assignment`**, the allele-agreement path behind
+`--link-by-alleles`:
+
+| gap | verdict | target | reads attached | accuracy vs truth |
+|---|---|---|---:|---:|
+| 36,172,778-36,209,945 | **joined** | 36168059 | 38 | **100.0%** |
+| 36,247,421-36,268,291 | **never joins** | 36209945 | **115** | **67.0%** |
+| 36,247,421-36,268,291 | never joins | 36268291 | 2 | 50.0% |
+
+`implied_assignment` derives a read's haplotype from its own allele agreement with
+the flank's live candidates and commits it with no flip, and it is a pure
+unanimity test with **no minimum count**: a read that observes a single site of
+that phase set and matches it gets a haplotype. On a joined gap that is sound,
+because the flank's orientation has been confirmed from both sides. On gap 2,
+which never joins, nothing confirms it -- and the 115 reads it wrote took flank
+36209945 from 49 reads at 91.8% to 164 at 50.6%, chance.
+
+**That is why the gap looked unjoinable.** Its own phasing is perfect (95 reads,
+100.0%, both halves), its votes are sound, and every attempt to force the join --
+`--min-read-margin 1`, skipping the confirmation, collapsing the repeat cluster --
+flipped the same ~70 reads, because the block it was joining to had already been
+filled with coin-flip haplotypes by the same gap's own one-sided attachment.
+
+### The fix, and why it is opt-in
+
+`--gap-allele-attach-join-only` requires a gap to have joined before allele
+agreement may attach reads to its flanks. On this window: **77.65% -> 98.51%**
+(265 concordant of 269 tagged, against 241/242 with recovery off, so recovery now
+adds 24 correct reads instead of 79 wrong ones). Default behaviour is unchanged
+byte-for-byte.
+
+It is not a default because across the ten-window panel the restriction is a bad
+trade overall (`implied_attach_panel.tsv`):
+
+| | before | after |
+|---|---:|---:|
+| tagged | 4,687 | 3,576 |
+| concordant | 4,576 | 3,555 |
+| discordant | 111 | **21** |
+| accuracy | 97.63% | **99.41%** |
+| gate concordant -> discordant | -- | 2 |
+
+It removes 90 discordant reads and 1,021 concordant ones. The allele path is a
+net gain in most windows and harmful only where a one-sided link is unvalidated.
+
+Read agreement count does **not** separate the two cases, which rules out the
+obvious threshold: single-site attachments are 98.1% correct at chr20:7,073,919
+and 74.8% at 36,217,274. The discriminator has to be a property of the flank being
+attached to, not of the read. That is the next measurement: score attachments
+against the polarity of their target block across the panel, split by whether the
+flank carries committed read support of its own.

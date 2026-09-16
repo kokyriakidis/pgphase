@@ -413,7 +413,28 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     // decision above; allele agreement below only attaches more reads to it,
     // never influences which side wins or whether it flips).
     std::set<hts_pos_t> accepted_targets;
-    if (opts.gap_link_by_alleles)
+    // `--gap-allele-attach-join-only` restricts allele attachment to gaps that
+    // actually joined. The loop consuming this set attaches a read on its own
+    // allele agreement with the chunk's live candidates and applies no flip,
+    // which is sound once the flank's orientation is confirmed from both sides;
+    // when a single flank links, nothing confirms it, and `implied_assignment`
+    // accepts a read that agrees with a single site of that flank.
+    //
+    // Measured on chr20, window 36,167,274-36,318,291, single-threaded so every
+    // write is attributable: the path attaches 155 reads. The 38 for the joined
+    // gap 36,172,778-36,209,945 are 100.0% correct against read truth; the 115
+    // for gap 36,247,421-36,268,291, which never joins, are 67.0% correct and
+    // take flank 36209945 from 49 reads at 91.8% to 164 at 50.6%, carrying the
+    // window from 157/161 (97.52%) to 278/360 (77.22%). That corruption is why
+    // every attempt to force that gap's join flipped the same ~70 reads.
+    //
+    // Off by default because the path is a net gain elsewhere: across the
+    // ten-window panel the restriction removes 90 discordant reads but also
+    // 1,021 concordant ones (4,687 -> 3,576 tagged, 97.63% -> 99.41%), and read
+    // agreement count does not separate the two cases -- single-site
+    // attachments are 98.1% correct at chr20:7,073,919 and 74.8% at 36,217,274.
+    if (opts.gap_link_by_alleles &&
+        (!opts.gap_allele_attach_join_only || result.joined))
         for (const auto& [local_ps, tgt] : accepted) accepted_targets.insert(tgt.first);
     for (auto& chunk : chunks) {
         if (chunk.region.tid != gap.tid) continue;
