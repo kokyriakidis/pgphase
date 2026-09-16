@@ -782,3 +782,34 @@ converts the ambiguous anchor into a single consistent one, which is the
 structural property hiphase gets for free by emitting one record. It can only be
 validated with the rescue gates open, since that is the only arm where the two
 records end up in one phase set, so the two changes have to land together.
+
+## Does hiphase phase the reads correctly there? Yes -- 587 of 587
+
+Scored with the same function used on the arm, over the same window
+`48,140,000-48,285,000`, and cross-checked against the frozen per-read
+evaluation:
+
+| | reads tagged | phase sets | concordance |
+|---|---:|---:|---|
+| hiphase | **587** | **1** (`48149548`) | **100.00%** |
+| the arm, shipped | 393 | 2 | 100.00% |
+| the arm, rescue gates open | 472 | 1 | 56.14% |
+
+The seam test our merge fails, applied to hiphase's single block:
+
+| | n | concordant | convention |
+|---|---:|---:|---|
+| left of `48,204,383` | 250 | 250 (**100.00%**) | hap1=PAT |
+| right of `48,225,786` | 243 | 243 (**100.00%**) | hap1=PAT |
+
+Both halves are perfect under the *same* convention, so there is no switch
+anywhere in the block -- the frozen evaluation agrees independently at 587/587.
+That makes hiphase's result here the full target and not merely a longer block:
+it is one phase set, no switch, and every tagged read correct.
+
+Two things follow for the arm. The parity defect is real and hiphase is not
+getting lucky on it. And read coverage is a second, separate shortfall: we tag
+**393** reads where hiphase tags 587, all of its extra reads being correct, and
+even with the rescue gates open we reach only 472. So closing this window means
+matching three properties at once -- one block, no switch, and ~587 reads -- and
+the shipped arm currently has the third partially and the second fully.
