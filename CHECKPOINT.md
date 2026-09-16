@@ -7808,3 +7808,46 @@ homopolymer join claims first; nothing there flips concordant to discordant.
 
 emit_independent_gap_block had no unit test; it now has one pinning both halves of
 the contract.
+
+### The deficit re-measured against the current pipeline: 0.81 Mb, and it is indels (2026-09-16)
+
+The 187-gap / 4.74 Mb deficit was computed from the graph-only pass-1 gap
+inventory and does not describe what the pipeline leaves open.
+`chr20:30,794,962-30,814,005`, which all three competitors close, is already
+covered by a single 76.1 kb hybrid phase set at 99.6% read accuracy with 116 clean
+het SNPs inside; recovery is never asked about it. `evaluations/2026-09-16-current-deficit/`.
+
+Whole-chr20 current pipeline (10.5 min, 16 threads): 238 blocks, 56.02 Mb phased,
+196 gaps spanning 11.88 Mb. Of those, 47 gaps / 1.20 Mb are spanned by at least
+one competitor and 149 gaps / 10.67 Mb by nobody. Scoring each span against read
+truth cuts it further: hiphase spans 45 at 91.11% overall but is >=98% in only 31
+(0.80 Mb) and <90% in 8 (0.25 Mb), including 31.8% at 36,059,715 and 35.9% at
+58,994,554 -- where our abstention beats their join. THE RECOVERABLE DEFICIT IS 31
+GAPS / 0.81 Mb.
+
+In the 30 gaps hiphase spans at >=98%, its 98 in-gap het sites break down as: all
+44 SNPs we already hold as CLEAN_HET_SNP (SNP discovery is not the deficit), 33
+NOISY_CAND_HET indels, 7 we call NOISY_CAND_HOM, 6 CLEAN_HET_INDEL, 3
+REP_HET_INDEL, 5 absent. Genotyped from the alignment against read truth, with
+the clean classes as controls at median 1.000 / 100% informative: NOISY_CAND_HET
+in these gaps is median 0.904, 58% informative, 18% phantom -- far better than the
+23% measured for repeat-demoted indels chromosome-wide. The 7 NOISY_CAND_HOM
+calls (median 0.939) are a genotyping error, not a screening decision: a site
+called homozygous can never link. A first run scored the SNP control at 0.542,
+which was a one-base coordinate error in my genotyper, caught by that control.
+
+MSA verification is NOT the blocker. On chr20:48,176,830-48,229,446 (hiphase 100%
+over 252 reads) it crosses on 8 het records, 7 of them homopolymer/tandem indels,
+and every msa_verified=1 site there segregates 0.89-1.00. The blocker is
+structural: every tier links both flanks but to DIFFERENT proposal phase sets.
+Recovery's gap for that region is 134.7 kb and contains two hard linkage breaks
+(48,096,582->48,123,657, 27.1 kb, and 48,123,657->48,147,230, 23.6 kb, both with
+ZERO reads covering the flanking sites at 72x/67x coverage), while the interval a
+competitor spans is the right 52.6 kb whose widest holes carry 7 spanning reads
+each. Recovery is all-or-nothing over a whole gap, so the bridgeable part is
+abandoned with the unbridgeable part. That is the next method change to make.
+
+Also settled: chr20:13,429,829-13,631,825 (202 kb) is a correct abstention for
+everyone -- no competitor spans it, 8 clean het SNPs in 202 kb at 75x -- and its
+proposal blocks cannot be chained (adjacent pairs share 0-12 reads observing
+consensus sites in both; the one pair with 12 votes splits 6/6).
