@@ -100,6 +100,12 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 // read_var_profile and read_var_cr must be populated before calling.
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Options& opts, uint32_t flags);
 
+/// True when a read is mapped confidently enough to carry a haplotype call
+/// into the output. Reads that fail this still supply allele evidence, so
+/// lowering `min_mapq` below `min_assign_mapq` admits their sites without
+/// letting an ambiguously placed read own an HP/PS tag.
+bool read_carries_phase_tags(int mapq, const Options& opts);
+
 } // namespace pgphase_collect
 
 #endif

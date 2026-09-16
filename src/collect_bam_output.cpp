@@ -1,5 +1,7 @@
 #include "collect_bam_output.hpp"
 
+#include "collect_phase.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -449,7 +451,14 @@ int PhasedAlignmentWriter::write_chunks(const std::vector<PhasingChunk>& chunks)
                             std::abort();
                         }
                     }
-                    update_hp_ps_tags(read, hap, ps);
+                    // A read admitted above min_mapq but below min_assign_mapq
+                    // contributed its alleles to discovery and linking; it is
+                    // too ambiguously placed to own a haplotype call, so it is
+                    // emitted untagged.
+                    if (read_carries_phase_tags(read->core.qual, opts_))
+                        update_hp_ps_tags(read, hap, ps);
+                    else
+                        strip_hp_ps_tags(read);
                     if (sam_write1(out_, in_header, read) < 0) {
                         const char* tname = (tid >= 0 && tid < in_header->n_targets) ? in_header->target_name[tid] : ".";
                         std::cerr << "Failed to write BAM record. "

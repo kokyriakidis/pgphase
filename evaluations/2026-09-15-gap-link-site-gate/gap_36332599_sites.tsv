@@ -1,0 +1,17 @@
+pos	category	type	msa_verified	is_homopolymer_indel	reads	segregation_vs_truth	link_site_by_default	link_site_needs_flag
+36332599	CleanHetSnp	SNP	0	0	68	0.9706	0	0
+36343993	NoisyMsaHet	INS	1	0	77	0.9221	1	0
+36354891	NoisyMsaHet	DEL	1	0	76	0.8947	1	0
+36354935	NoisyMsaHet	SNP	1	0	71	0.9437	0	1
+36354937	NoisyMsaHet	SNP	1	0	81	1.0	0	1
+36354939	NoisyMsaHet	SNP	1	0	81	1.0	0	1
+36354941	NoisyMsaHet	SNP	1	0	80	0.9875	0	1
+36354943	NoisyMsaHet	SNP	1	0	81	0.8519	0	1
+36363642	NoisyMsaHet	INS	1	0	84	0.881	1	0
+36363645	NoisyMsaHet	SNP	1	0	78	0.859	0	1
+36365795	NoisyMsaHet	INS	1	0	72	0.9444	1	0
+36373836	NoisyMsaHet	INS	1	0	48	0.7917	1	0
+36373837	NoisyMsaHet	SNP	1	0	52	1.0	0	1
+36373838	NoisyMsaHet	INS	1	0	27	1.0	1	0
+36380739	NoisyMsaHet	DEL	1	0	35	0.6571	1	0
+36381019	CleanHetSnp	SNP	0	0	48	1.0	0	0

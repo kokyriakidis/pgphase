@@ -24,10 +24,21 @@ int select_graph_gap_bam_reads(PhasingChunk& proposal, const PhaseGap& gap,
         auto& read = proposal.reads[ri];
         auto& profile = proposal.read_var_profile[ri];
         hts_pos_t graph_beg = -1, graph_end = -1;
-        for (size_t pi = 0; pi < profile.graph_alleles.size(); ++pi) {
+        for (size_t pi = 0; pi < profile.alleles.size(); ++pi) {
             const int vi = profile.start_var_idx + static_cast<int>(pi);
-            if (profile.graph_alleles[pi] < 0 || vi < 0 ||
-                static_cast<size_t>(vi) >= proposal.candidates.size()) continue;
+            if (vi < 0 || static_cast<size_t>(vi) >= proposal.candidates.size()) continue;
+            // A read can span the gap on graph-channel evidence (the
+            // original criterion) or on a confident call at an MSA-verified
+            // private site -- both are trustworthy enough to admit the read
+            // into the graph-BAM pass. Requiring a graph observation only
+            // excluded every read whose sole informative sites are private,
+            // even when those sites are individually just as verified as a
+            // graph one (this is why a region rich in private MSA het SNPs
+            // but thin on graph-catalogued sites could leave nearly all its
+            // reads unphased despite good evidence -- see CHECKPOINT.md).
+            const bool has_graph = pi < profile.graph_alleles.size() && profile.graph_alleles[pi] >= 0;
+            const bool has_private = proposal.candidates[vi].msa_verified && profile.alleles[pi] >= 0;
+            if (!has_graph && !has_private) continue;
             const auto pos = proposal.candidates[vi].key.sort_pos();
             if (graph_beg < 0) graph_beg = pos;
             graph_end = pos;
@@ -360,6 +371,8 @@ GapStitchResult stitch_gap_proposal(std::vector<PhasingChunk>& chunks,
     GapStitchResult result;
     result.left_linked = links[0].ps >= 0;
     result.right_linked = links[1].ps >= 0;
+    result.left_link_ps = links[0].ps;
+    result.right_link_ps = links[1].ps;
     result.joined = result.left_linked && result.right_linked && links[0].ps == links[1].ps;
     result.right_flip = result.joined && links[0].flip != links[1].flip;
     if (orientation_only) return result;

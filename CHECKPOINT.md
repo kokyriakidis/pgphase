@@ -6704,3 +6704,824 @@ replaced `--gap-link-by-alleles` with `--no-gap-link-by-alleles` (sets
 pattern, and corrected its stale "(experimental, off)" help text. No other
 CLI-facing references to the old flag name existed (scripts, evaluations).
 Build and both test suites pass.
+
+### Auditing what's still unresolved on chr20: mostly legitimate, one dead end (2026-09-15, later)
+
+After the code-review fixes, asked directly: of chr20's 64,590 reads still
+carrying no PS tag at all, what's actually blocking them, gap by gap? Ranked
+all 164 unresolved gap windows by their own count of fully-unphased reads
+(not by `emit_independent_gap_block`'s narrower "applied" signal, which the
+earlier investigation already showed undercounts success -- many of its
+"applied=0" gaps turned out to have their reads captured instead via the
+existing one-sided flank attach, confirmed by checking output PS tags
+directly: e.g. gap 7305204-7343405's reads are phased at PS 7343405, its
+real right flank, not lost at all).
+
+**The top-ranked gaps are legitimately hard, not buggy.** The single largest
+window, chr20:27,133,886-29,068,243 (~1.9 Mb, 9,828 of 9,841 reads unphased),
+has essentially no clean sites (`NEW_SITES`/`MSA_HET_SNPS`/`MSA_HET_INDELS`
+all 0 across every tier) because >85% of its reads have MAPQ<10 -- a
+genuinely ambiguously-mapped, likely repetitive region; forcing a phase call
+there would be inventing confidence the mapping doesn't support. The next
+largest, chr20:43,688,351-45,143,091 (~1.45 Mb, 6,068 unphased, all high
+MAPQ), has 1.3M graph observations and 6,069 graph-selected reads but only
+145 end up with an individually confident k-means haplotype call -- a
+genuinely low-heterozygosity stretch (only 1,393 raw candidates over 1.45 Mb)
+rather than an algorithmic gap. Filtering the full ranked list for gaps with
+candidate density comparable to normal, well-phased regions (>=2/kb) *and*
+still substantially unphased found only 21 gaps totaling 1,797 reads -- the
+real remaining opportunity is one to two orders of magnitude smaller than the
+raw 64,590 unphased count suggests.
+
+**One promising lead turned out to be a dead end.** Gap
+chr20:26,784,052-26,804,346 stood out: 38 clean MSA het SNPs (real
+information) but only 13 of 76 reads ever admitted into the graph-BAM
+recovery pass (`select_graph_gap_bam_reads`, `src/gap_recovery.cpp`), because
+that function's admission test requires a graph-channel allele
+(`profile.graph_alleles[pi] >= 0`) and nothing else -- a read whose only
+informative sites are private/MSA-only never counts as "spanning" the gap,
+regardless of how much private evidence it carries. Implemented and tested a
+targeted fix: admit a read if it has a graph-channel call *or* a confident
+call at an `msa_verified` candidate. Measured zero effect on chr20
+(`SELECTED_GRAPH_READS` for this gap stayed at 13, identical
+before/after) -- root cause: `CandidateVariant::msa_verified` for a gap's own
+interior sites is set later, per-gap, during `recover_one_hybrid_gap`'s own
+tier loop (`run_gap_msa_tier`/MSA consensus admission), not yet true on the
+frozen `GapEvidence` snapshot `select_graph_gap_bam_reads` sees at the point
+it runs. Before chasing a fix to the flag-timing itself, pulled this gap's
+frozen reference sequence from its `--gap-decision-audit` export and found it
+is a tandem-repeat/satellite-like sequence -- the "38 clean MSA het SNPs" are
+plausibly repeat-unit alignment artifacts, not real heterozygous sites, so
+this specific gap was likely never a genuine opportunity regardless. Reverted
+the fix cleanly (confirmed via `git diff` showing no change to
+`select_graph_gap_bam_reads`); rebuilt and both test suites still pass.
+
+**Conclusion:** after today's shipped fixes (gap-owned evidence,
+`emit_independent_gap_block`, allele-pattern voting, and the three
+collision/race fixes above), chr20's remaining unresolved gaps are
+overwhelmingly legitimate abstentions -- low-MAPQ/repetitive mapping, low
+heterozygous-site density, or noisy tandem-repeat structure -- not bugs.
+Recovering the residual ~1,800-read opportunity in the density-normal subset
+would need the `msa_verified`-timing / graph-BAM-admission interaction
+properly redesigned (decide whether a gap's own private-site verification
+should run *before* `select_graph_gap_bam_reads`, or admit on a different,
+already-reliable signal instead of `msa_verified` specifically) -- a
+materially different, riskier change than anything else shipped today, not
+attempted further this session.
+
+### The MAPQ floor, not evidence scarcity, closes the competitor gap on chr20 (2026-09-15, later)
+
+Took one gap competitors bridge correctly and we do not, and traced why, rather
+than continuing whole-chromosome iteration. Full detail and reproduction in
+`evaluations/2026-09-15-mapq-starved-gaps/`.
+
+`chr20:25,834,662-25,883,079` (48.4 kb, status `split`, 279 of 296 reads
+unphased): HiPhase spans it in one block on 103 phased het sites. We produced 18
+candidates there, 2 of them clean het SNPs, matching 3 of those 103. Not a
+classification problem -- at the same positions DeepVariant reports DP 59-76 with
+balanced allele depths while our candidates report DP 2-10. Input coverage is
+68.2x, but the reads are MAPQ 3 (166) and MAPQ 4 (41) of 296, and
+`kDefaultMinMapq = 30` leaves 3.7x. The gap looks evidence-free because the floor
+removed the evidence.
+
+Sweeping `-q` on a 148 kb window around it (same binary, truth restricted by read
+name after phasing): at `-q 10` we get 35 clean het SNPs instead of 2 and +74
+reads phased with **zero** discordant reads; at `-q 1` we get 302 clean het SNPs,
+86 of HiPhase's 103 sites, 734 of 776 reads phased, and the gap ceases to exist
+-- one 375 kb block, N50 166 kb -> 375 kb -- at a cost of 37 discordant reads.
+Those errors are entirely low-MAPQ: 14.5% on MAPQ 1-9, 0% at MAPQ >= 10.
+
+The instructive part is that HiPhase's own default floor is MAPQ 5, which does
+not admit this gap's MAPQ 3-4 reads either -- it tagged 89 reads here and exactly
+the 15 that sit at MAPQ 5-9. So it did not win by admitting the bulk. DeepVariant
+*called* the 103 sites using the low-MAPQ reads, and HiPhase *phased* those calls
+with a MAPQ >= 5 read floor. We drive both jobs from one `min_mapq`
+(`gap_recovery.cpp:46`, `graph_query.cpp:421`, `hybrid_inject.cpp:570`,
+`collect_bam_output.cpp:410`), so dropping a read for phasing also drops it for
+discovery and the anchors never exist. Our `-q 1` arm shows discovery recovers
+those anchors once the reads are visible, and that assigning the same reads to
+haplotypes is what injects the error -- which argues for a split floor: discovery
+inside a gap at a low floor, haplotype assignment and output unchanged at 30.
+
+Screened all 164 unresolved chr20 gaps (15.2 Mb) for the pattern: 20 gaps
+(2.99 Mb) are MAPQ-starved, 5 are genuinely low-depth, 139 keep their depth
+through the floor. Scoring the reads we leave unphased against the diplinator
+truth splits the 20 -- 3 gaps (149 kb, 765 reads, all just proximal to the
+centromere) where LongPhase reaches 96.4-100% and HiPhase 98.3-100%, and 17 gaps
+(12,393 reads) spanning LongPhase 3.8-93.2% and HiPhase 11.8-100%. The second
+group is graded rather than uniformly noisy: three of it sit at LongPhase 81-93%
+and miss the trustworthy cut on the 95% threshold, and its lone HiPhase 100% is
+10 reads at 32,432,281-32,449,137 where LongPhase gets 61.9% on 21. The latter includes the 1.93 Mb `27,133,886-29,068,243` window
+at 54.1% (LongPhase) and 56.4% (HiPhase): **the earlier audit's verdict on that
+gap stands**, and the 2,596 competitor-phased sites inside it are not evidence of
+correct phase. The honest recoverable opportunity from relaxing the floor is the
+765-read subset, not the 12,808 reads the raw starvation count suggests. A
+truth-free discriminator exists but is weak (median |VAF-0.5| 0.052 across the
+three trustworthy gaps vs 0.115 across the 16 noise-verdict gaps carrying a
+value, one trustworthy gap at 0.220 -- overlapping, so not a gate on its own).
+
+### Private MSA het SNPs as bridge anchors: measured, kept off by default (2026-09-15)
+
+`--gap-bridge-private-snps` (`src/collect_phase.cpp`, opt-in) measured on whole
+chr20 against the same binary with the flag off, both arms reusing
+`/tmp/chr20-evidence-v6.gapev`; see `evaluations/2026-09-15-private-snp-bridge/`.
+Flag off reproduces the accepted baseline exactly (112 joined, 207,426 phased,
+1,400 discordant, 0.675% read Hamming, N50 1,064,616, 177 phase sets), which also
+clears the three un-gated changes in the same diff (private-site admission in
+`select_graph_gap_bam_reads`, pass 1 reprojecting into a scratch chunk instead of
+overwriting pass 0's solved proposal, and the `LEFT_LINK_PS`/`RIGHT_LINK_PS`
+report columns with `split`/`vetoed` statuses). The same-day sweep that reached
+115-116 joins at 0.720%/0.713% came from the anchor segregation experiment
+already recorded as reverted, not from anything still in the tree.
+
+Flag on: one further gap joined (`chr20:36,332,599-36,381,019`, `split` ->
+`joined`, merging PS 36,381,019 into PS 36,317,511), auN +3,392 bp, N50
+unchanged, flip errors 671 -> 657, read Hamming 0.675% -> 0.668%, and **0
+previously concordant reads became discordant**. The cost is coverage: 74 reads
+lose their PS tag, 61 of them previously concordant (25 dropped by the merge
+itself, 38 and 11 at two unrelated phase sets), because a read whose only
+informative gap site is a private SNP now needs that observation confirmed in the
+BAM and an unconfirmed read can fall below its output margin. One join and 3.4 kb
+of auN for 61 concordant reads is the wrong trade when more reads phased is the
+objective, so the flag stays off by default.
+
+One open item on it: a 1-thread rerun of the flag-on arm reproduced the same 113
+joins and a byte-identical `native.vcf`, but the read tags do not match the
+8-thread run -- 191 reads differ, 176 of them tagged only under 8 threads and 15
+only under 1 thread, and `tiers.tsv` differs in 96 rows after sorting (not merely
+row order). The default path is documented byte-identical across 8 vs 1 thread, so
+the flag appears to introduce thread-order dependence in gap read attachment. Not
+diagnosed; a further reason it should not become default before that is understood.
+
+### New diagnostics kept from this work
+
+`--gap-recovery-report` gained `LEFT_LINK_PS`/`RIGHT_LINK_PS` and two new STATUS
+values. `split` (both flanks linked, to different proposal phase sets) turns out
+to be the dominant unresolved outcome -- 830 of the tier attempts previously
+reported as `partial` on chr20 -- which is a materially different failure from a
+genuinely one-sided link and is what makes gaps like the 25.83 Mb one identifiable
+as near-misses.
+
+### Split MAPQ floor implemented; discovery-side admission corrupts 2 of 3 gaps (2026-09-15)
+
+Acted on the MAPQ finding above by separating the two jobs `min_mapq` was doing
+at once. New `--min-assign-mapq` (`Options::min_assign_mapq`, default
+`kDefaultMinMapq`, predicate `read_carries_phase_tags` in
+`src/collect_phase.cpp` consulted in `PhasedAlignmentWriter::write_chunks`): a
+read admitted above `-q` but below this floor supplies allele evidence to
+discovery and linking and is emitted without HP/PS. Equal floors are the default
+and reproduce previous behavior exactly -- the default arm's `phased.bam` is
+byte-identical to the pre-change build. Build clean, both test suites pass, new
+unit test `test_assign_mapq_floor_gates_tags_only`.
+
+On the gap the idea came from (`chr20:25,834,662-25,883,079`) the in-pipeline
+result reproduced the post-hoc estimate exactly: `-q 1 --min-assign-mapq 30`
+gives 399 reads / 1 block / 0 discordant / N50 270,669 against the default's
+395 / 2 / 0 / 166,590, and `--min-assign-mapq 5` gives 505 / 1 / 0 / 275,646.
+Zero previously concordant reads became discordant.
+
+It does not generalize. Run on the other two gaps whose sub-floor reads were
+verified to carry correct phase (`evaluations/2026-09-15-split-mapq-floor/`),
+the gate fails: 6 previously concordant reads corrupted at 25,944,471-25,986,123
+(which does not even join) and 6 at 26,029,591-26,088,679 (which joins, N50
+124 kb -> 300 kb, while losing 26 phased reads). The corruption count is
+**identical at assignment floor 30 and 5**, and at floor 30 no sub-floor read
+carries a tag at all, so the damage comes from the discovery/linking side: the
+sub-floor reads' alleles and link votes change the solution for confidently
+mapped reads. The option therefore stays opt-in and is not a default candidate.
+
+The methodological lesson is worth keeping: competitor read-level evidence that a
+gap's low-MAPQ reads are phaseable (96-100% on all three of these gaps) does not
+imply our mechanism phases them correctly, and deriving a design from the single
+gap that motivated it oversold it by 3x. Selective admission is the next thing to
+try -- per-site balance gating using the VAF-deviation signal (0.052 across the
+trustworthy gaps vs 0.115 across the noisy ones) or down-weighted sub-floor link
+votes -- re-measuring the gate on all three gaps before any whole-chromosome run.
+
+### Graph-only path audit: classification sound, MNPs escape noise screening (2026-09-15)
+
+Audited `collect-graph-variation` end to end on chr20 against the hybrid default
+arm and the diplinator read truth. Full detail in
+`evaluations/2026-09-15-graph-path-audit/`.
+
+Baseline: 73,627 candidates retained of 988,602 catalog sites considered;
+203,751 reads phased, 27,631 unphased, 371 phase sets, 1,744 discordant, read
+Hamming 0.856%, N50 917,428 bp. The hybrid arm is 207,426 / 0.675% / N50
+1,064,616 / 177 phase sets, so graph-only trades accuracy and contiguity for
+independence from the BAM channel, as expected.
+
+Clean/noisy classification holds up. `apply_graph_noise_filter` fires -- 17,350
+het indels demoted to `REP_HET_INDEL` against 2,036 surviving clean, i.e. 89.5%
+of graph het indels screened. Categories agree with the BAM classifier on 57,033
+of 58,394 shared sites (97.7%), and every systematic disagreement is the graph
+being stricter (397 sites it demotes that the BAM path calls clean, 426 more it
+demotes that the BAM path files as noisy candidates). The reference fetch that
+guards the noise filter resolves because `batch_contig` comes from the
+FASTA-derived header -- though if that fetch ever failed the filter would be
+skipped silently, with no warning.
+
+One real defect. `build_graph_chunk` derives variant type from allele lengths
+alone (`graph_bam_adapter.cpp:944-950`) and `VariantType` has no MNP member, so
+every equal-length multi-base substitution is typed `Snp` with
+`key.ref_len = ref.size()`. On chr20 that is **781 sites, all classified
+`CLEAN_HET_SNP`, all 781 carrying a PHASE_SET** -- they vote in k-means at the
+top anchor score. Worse, `apply_graph_noise_filter` reconsiders only
+`CleanHetIndel`, so these sites are structurally unreachable by repeat screening
+no matter their context, and the context is often repetitive: 115 of the first
+400 sit in homopolymer or dinucleotide-repeat windows (`GTG>CTC` inside
+`GTGTGTGTGTGTG` at 145,051; `CT>TC` inside `CCCTCTCTCTCCC` at 863,876). The BAM
+path demotes the equivalent site at 47,301,789 (`AT>TA`) to `REP_HET_INDEL`
+while the graph path calls it a clean SNP anchor. Lengths run 2-12 bp and include
+a 367 bp allele pair at 764,862 typed `Snp`, so the key's span also contradicts
+its type. The BAM path's `Deletion` label for the same sites is equally wrong;
+neither path represents MNPs.
+
+Recommended fix (not yet implemented): extend `apply_graph_noise_filter` to
+examine `CleanHetSnp` candidates with multi-base catalog alleles and move those
+in low-complexity context out of the anchor mask, keying on
+`pos_in_low_complexity` rather than `is_noisy_site` (whose indel-length
+derivation is zero for equal-length alleles).
+
+MSA is not used in the graph-only path at all: `abpoa` is reached only via
+`align.cpp`, whose verification consumer is `collect_phase_noisy.cpp`, which
+`graph_collect.cpp` does not include; `msa_verified` is never set and the output
+carries no `NOISY_CAND_*` calls (against 4,003 + 1,964 in the hybrid arm). The
+path phases clean catalog sites with no noisy-site rescue -- a capability
+boundary, and the reason its unphased count is 3.3x the hybrid arm's.
+
+Also noted: graph-only emits zero homozygous records (42,750 sites filtered
+`high_af`) where the hybrid arm emits 34,722 `CLEAN_HOM`; the `n_uniq_alles > 2`
+branch of `classify_graph_candidates` is unreachable as configured (all retained
+sites are biallelic post-decomposition) but would bypass the AF-centering
+paralog guard if that ever changed; and the evaluator's switch/flip counts are
+meaningless for this path because the emitted BAM is unaligned.
+
+### NEW_SITES in the recovery report is identically zero by construction (2026-09-15)
+
+`previous_sites` is declared inside the tier loop it is differenced against
+(`collect_pipeline.cpp:1942` vs the row write at `:2039`), so
+`proposal.candidates.size() - previous_sites` can only ever be 0. The NEW_SITES
+column has never carried information, and it has already produced two wrong
+conclusions: the 09-14 audit of `chr20:27,133,886-29,068,243` cited
+"NEW_SITES/MSA_HET_SNPS all 0" as evidence the window holds no usable variation,
+and this session repeated the same reading across all 276 gaps before checking
+the source. The MSA_HET_SNPS half of that observation is real (it counts
+`kCandNoisyCandHet` candidates in the proposal); the NEW_SITES half is vacuous.
+No absolute count of recovered gap candidates is emitted anywhere, so the
+question "did BAM-side recovery find sites in this gap" is currently
+unanswerable from the report.
+
+What the report does show on chr20 (default arm, 276 gaps): 112 joined, 140
+split, 22 partial, 2 open; gap recovery selected BAM reads in 168 of 276 gaps;
+MSA-verified hets are present in the proposal for 55 gaps (21 joined, 29 split,
+4 partial, 1 open). Split gaps carry a median of 253 selected reads.
+
+`split` -- both flanks linked, to *different* proposal phase sets -- is the
+dominant unresolved outcome at 140 of 276. That is the gap-block-then-stitch
+step failing at unification rather than at recovery, and those gaps are the bulk
+of the 15.2 Mb still unphased. Diagnosing whether the proposal fragments
+internally into two phase sets or the stitch mis-gauges them is the highest-value
+open question, ahead of the MAPQ and MNP work.
+
+Correction to this session's earlier claim that adding MSA to gap recovery would
+be "a much larger project": wrong. The machinery already exists and runs --
+`populate_gap_msa_cache` -> `prepare_gap_msa_regions` / `run_gap_msa_tier`
+(`gap_recovery.cpp:848-899`), feeding `kCandNoisyCandHet` candidates into the
+gap proposal. The intended architecture (graph-derived blocks, BAM-recovered gap
+blocks from clean plus MSA-verified sites, then stitch to both neighbours) is
+implemented; the open problems are instrumentation and the split outcome.
+
+### Per-gap targeting: the linkage bottleneck, and only 34 of 164 gaps are actionable (2026-09-15)
+
+Answered "which region of the BAM should a per-gap subprocess look at" with a
+measurement rather than a window heuristic. A gap is bridgeable only where a read
+crosses a position carrying an informative het site on *both* sides; scanning cut
+points across the gap and counting such reads localises where phasing actually
+breaks. Reads need not span the whole gap -- each cut needs only one read
+reaching a site either side -- which is why the bottleneck is interior rather
+than at a junction in 87 of 164 gaps, and why widening the recovery window around
+the gap edges cannot help. Script, table and detail in
+`evaluations/2026-09-15-gap-targeting/`.
+
+Applied to the 164 unresolved chr20 gaps, with our own called sites compared
+against the het calls a caller makes using every read:
+
+- `thin_linkage`, 130 gaps, 11.96 Mb -- no read carries a het site on both sides
+  of the bottleneck even using all reads. Coverage is not the issue (median 66
+  spanning reads, 65 passing the MAPQ floor). Only 41 of the 130 have a het site
+  on both sides within 25 kb, and for those the median spacing is 3,603 bp one
+  side and 22,658 bp the other, i.e. a **median 25,848 bp a single read would have
+  to cover**. These are correct abstentions, information-limited by heterozygosity
+  spacing versus read length, and should stop consuming recovery tiers.
+- `sites_not_called`, 20 gaps, 0.64 Mb -- sites and a read chain exist; we did not
+  call them. This is exactly what gap MSA discovery is for, pointed at the target
+  window.
+- `mapq_starved`, 12 gaps, 2.59 Mb -- reads present, none passing the floor at the
+  cut. Gated admission confined to the target window, with MSA verification before
+  a site becomes an anchor.
+- `linkage_present`, 2 gaps, 0.02 Mb -- reads and our own sites link across, so the
+  defect is in the solver or the stitch, not the evidence.
+
+So the honest remaining opportunity is 3.24 Mb across 34 gaps, reduced to 1.70 Mb
+of BAM to inspect (6.51 Mb -> 0.45 Mb for the nine gaps over 200 kb), not the
+15.2 Mb the unresolved-gap span suggests.
+
+The scan reproduces the hand diagnosis of `chr20:25,834,662-25,883,079` from
+scratch -- `mapq_starved`, bottleneck 25,870,298, target 25,845,298-25,895,298,
+20 of our sites against 98 potential -- which took a full manual session to reach
+the first time.
+
+Production note: the potential-site set is currently read from an external
+caller's VCF. A self-contained subprocess should replace it with a direct
+pileup scan over the target window (allele balance, no MAPQ floor), which is work
+the MSA discovery step performs anyway.
+
+### Correction: the gap "heterozygosity deserts" were an artifact of the site set (2026-09-15)
+
+The targeting entry above concluded that 130 of 164 unresolved chr20 gaps are
+information-limited because no read carries a het site on both sides of the
+bottleneck. That conclusion was wrong, and the reason is instructive: both site
+sets used were BAM-derived -- our own `CLEAN_HET_*` calls and a pileup caller's
+het calls -- and *both* omit repeat-context indels. The snarl catalog itself was
+never consulted.
+
+The catalog is dense at precisely those bottlenecks: median **671 sites within
+25 kb**. About 96% are homozygous in this sample (median 614 `ref_only`, 31
+`high_af`; unobserved sites are negligible at 2%, so filtering is not hiding
+them), but a median of **7 `REP_HET_INDEL`** sites and 4 `low_af` sites per
+window are heterozygous and currently excluded from phasing.
+
+Re-testing every bottleneck with those classes included
+(`evaluations/2026-09-15-gap-targeting/add_demoted_site_linkage.py`,
+`gap_targets_revised.tsv`): `repeat_indels_would_bridge` 88 gaps / 6.45 Mb,
+`low_af_sites_would_bridge` 24 gaps / 3.43 Mb, `no_linkage_from_any_site_class`
+52 gaps / 5.32 Mb. So **112 of 164 gaps (9.89 Mb) have candidate linkage from
+graph sites the pipeline discards**, median 17 linking reads once repeat indels
+are included, in a median 50 kb window. 99 of the 130 gaps written off above are
+in that group.
+
+This is candidate linkage, not proven linkage: those sites are demoted because
+per-read genotypes at homopolymer/STR indels are unreliable, so the linkage may
+be phantom. The way to use them is MSA verification confined to the target
+window, keeping only sites whose consensus resolves two consistent haplotypes --
+i.e. this result argues *for* the `populate_gap_msa_cache` / `run_gap_msa_tier`
+path, pointed at a 50 kb window, and explains why that path currently yields
+MSA-verified hets in only 55 of 276 gaps. Note also that 12 of the 52 remaining
+gaps are MAPQ-starved, where no read passes the floor at the bottleneck, so their
+linkability is untested rather than refuted; the genuinely unlinkable residue is
+at most 40 gaps (~2.7 Mb).
+
+Method lesson, third time this session: a negative result is only as strong as
+the input set it was computed over. "No evidence exists" claims need the evidence
+inventory enumerated explicitly -- catalog sites by disposition, not just the
+sites that survived our own filters.
+
+### The demoted-indel linkage is mostly phantom: 0.43 Mb of the 6.45 Mb (2026-09-15)
+
+Tested whether the repeat-demoted het indels that would bridge 88 unresolved
+chr20 gaps carry real haplotype signal, by genotyping each from the alignment and
+scoring its allele partition against the read-level truth
+(`evaluations/2026-09-15-gap-targeting/verify_demoted_sites.py`).
+
+Site level: `CLEAN_HET_INDEL` (control) 96% informative, median segregation
+1.000. Repeat-demoted het indels: 744 scored, median 0.586, **23% informative,
+62% phantom** (INS 33%, DEL 18%). The noisy-candidate het class the pipeline
+emits: 138 scored, median 0.728, 25% informative, 48% phantom.
+
+Gap level: recomputing each bottleneck with only truth-validated sites admitted,
+**10 of 88 gaps retain linkage, 0.43 Mb**, against 88 gaps / 6.45 Mb when all
+demoted sites are admitted. The 171 informative sites across those windows
+(~2 per window) are real but not positioned to span the bottlenecks. So
+`apply_graph_noise_filter` discards ~23% genuine signal yet is right about the
+majority, and even a perfect oracle gate recovers only 0.43 Mb from this class.
+Admitting demoted indels wholesale would inject roughly three phantom sites per
+real one.
+
+Load-bearing open question. The noisy-candidate class that carries MSA-derived
+sites into phasing is three-quarters noise -- but `NOISY_CAND_HET` in the output
+is the candidate *category* (`collect_phase.cpp:72`), not a verification
+certificate; `msa_verified` is a separate flag set in
+`collect_phase_noisy.cpp:213` and consumed at `collect_phase.cpp:580,1188`, and
+the TSV never exposes it. Only `--gap-decision-audit` writes `msa_verified=`
+per variant (`collect_phase.cpp:303`). So MSA verification's precision remains
+unmeasured, and it is the next thing to measure: the whole
+graph-blocks-plus-BAM-recovered-gap-blocks design assumes MSA-verified sites are
+trustworthy anchors.
+
+Two measurement bugs of mine, both caught by the same control (score
+`CLEAN_HET_INDEL` and require it to come out informative): genotyping indels at
+the VCF anchor position scored the control at 2% scorable, because repeat-context
+indels are placed arbitrarily within their run by the aligner and the allele must
+be read from the net length change over a window; and deriving the expected
+length change from `len(ALT) - len(REF)` skipped every deletion, since this TSV
+writes deletions as the deleted bases in REF with `ALT` = `.`
+(`collect_output.cpp:110-145`). Control now reads 96% informative, 744 of 795
+sites scorable. Build a trusted-class control into any future site-quality
+measurement.
+
+### Graph-only chr20 baseline and gap inventory (2026-09-15)
+
+Ran `collect-graph-variation` alone on whole chr20 as pass 1 of the two-pass
+design, and derived the phase-block gap inventory that a pass-2 subprocess would
+consume. 41 s wall, 2 m 07 s CPU on 8 threads. Detail and scripts in
+`evaluations/2026-09-15-graph-only-baseline/`.
+
+Sites: 73,627 retained of 988,602 considered -- 54,241 `CLEAN_HET_SNP`, 17,350
+`REP_HET_INDEL`, 2,036 `CLEAN_HET_INDEL`; filtered 826,336 `ref_only`, 42,750
+`high_af`, 35,481 `no_reads_in_chunk`, 7,044 `low_af`, 3,364 `low_depth`.
+
+Reads: 203,751 phased, 27,631 unphased, 201,991 concordant, 1,744 discordant,
+read Hamming 0.856%, 371 phase sets, N50 917,428 bp, auN 987,490 bp. Switch and
+flip counts are not measurable for this path (the emitted BAM has no contig
+header), so only read-level figures are usable.
+
+Gaps: 288 of 375 phase sets have two or more sites and span 47.60 Mb; the spaces
+between consecutive blocks are **286 gaps spanning 18.52 Mb** (47.60 + 18.52
+accounts for chr20's 66.1 Mb). Size distribution: 9 under 1 kb, 6 at 1-10 kb, 183
+at 10-50 kb, 80 at 50-200 kb, 8 over 200 kb. **55,583 distinct reads sit in gap
+windows unassigned, 40,214 of them at MAPQ >= 30.**
+
+Two pass-2 observations. The nine sub-kilobase gaps are 3-249 bp with 0-3
+untagged reads each -- adjacent blocks that failed to link while sharing reads,
+so pure stitching failures and the cheapest first test of a gap subprocess. The
+two largest gaps fail oppositely: `43,688,351-45,896,820` (2.21 Mb) leaves 8,659
+reads unphased of which 8,425 pass MAPQ 30, while `27,133,886-29,068,099`
+(1.93 Mb) leaves 9,825 of which only 196 pass.
+
+Note for comparison, stated carefully because the two populations are not the
+same thing: the hybrid path's gap-recovery report lists 276 gaps *before*
+recovery and joins 112 of them, leaving 164 unresolved spanning 15.2 Mb.
+Graph-only's 286 gaps / 18.52 Mb is a pre-recovery population with no recovery
+attempted, so it is comparable to hybrid's 276 total (4% larger) and is ~75%
+larger than hybrid's post-recovery residue of 164 gaps.
+
+Tooling: `gap_inventory.py` initially read tagged reads from the phased BAM by
+region, which silently returned nothing every time (no contig header, no index,
+`samtools view` exit 1) and reported all 94,014 overlapping reads as untagged --
+the same swallowed-failure pattern flagged in `apply_graph_noise_filter` earlier
+today, this time in my own tool. It now reads the per-read assignment TSV and
+raises on any non-zero samtools exit.
+
+### Graph-only MAPQ floor: -q 1 is free for existing reads, costly only for new ones (2026-09-15)
+
+Swept the graph-only floor on whole chr20 (`-q 30/10/5/1`, 55 s per arm;
+`evaluations/2026-09-15-graph-only-baseline/mapq_sweep.sh`).
+
+`-q 1` against the `-q 30` default: sites 79,291 vs 73,627 (clean het SNPs
+59,282 vs 54,241), reads phased 214,065 vs 203,751, discordant 2,945 vs 1,744,
+read Hamming **1.376% vs 0.856%**, phase sets 379 vs 371, N50 1,011,696 vs
+917,428 (+10.3%), gaps 311 vs 286, gap span 17.81 vs 18.52 Mb.
+
+The decisive split: restricting both arms to reads at MAPQ >= 30, the population
+`-q 30` could already see, gives **0.856% at `-q 30` against 0.854% at `-q 1`**
+(1,744 vs 1,741 discordant). Lowering the floor does not degrade existing
+phasing. All the added error is in the 10,347 newly phased reads, which carry
+1,240 discordant calls (11.98%) and are almost entirely the low-MAPQ population
+(2,769 at MAPQ 1-4, 1,250 at 5-9, 6,210 at 10-29). Per-bucket error in the `-q 1`
+arm: MAPQ 1-4 16.50%, 5-9 22.80%, 10-29 7.44%, 30-59 1.61%, 60 0.80%.
+
+103 reads flip concordant -> discordant (29 at MAPQ 30-59, 74 at 60) against 138
+flipping back. With the MAPQ >= 30 error rate flat to three decimals and blocks
+re-forming (phase sets 371 -> 379, N50 +10%), those are consistent with
+re-blocking churn rather than corruption; the gate count is also non-monotonic
+across floors (780 at `-q 10`, 316 at `-q 5`, 103 at `-q 1`), which points the
+same way.
+
+Decision for the two-pass design: use `-q 1` for pass 1, but do not let pass 1
+tag the 10,347 ambiguous reads -- they are pass 2's job, to be decided from local
+gap evidence. That separation exists as `--min-assign-mapq` but is not reachable
+here: only `hybrid_collect.cpp` parses the option and `read_carries_phase_tags`
+is consulted only at `collect_bam_output.cpp:458`, while the graph-only path
+writes its BAM through its own mirror of that writer
+(`graph_bam_adapter.cpp:209-222`). Two small additions would wire it up.
+
+### Decision: -q 1 adopted as the graph pass-1 floor (2026-09-15)
+
+Standing on the sweep above: `-q 1` leaves the MAPQ >= 30 population's accuracy
+unchanged (0.856% -> 0.854%, 1,744 -> 1,741 discordant) while adding 5,041 clean
+het SNPs, 10.3% block N50 and 0.71 Mb less gap span, so the floor is adopted for
+pass 1. `evaluations/2026-09-15-graph-only-baseline/run.sh` now defaults to
+`MIN_MAPQ=1`, and the canonical pass-1 gap inventory in that directory is the
+`-q 1` one: **311 gaps spanning 17.81 Mb** (not the 286 / 18.52 Mb from the
+`-q 30` arm).
+
+One caveat carried forward rather than resolved: pass 1 at `-q 1` also tags the
+10,347 newly admitted reads, which carry 11.98% discordance. Under the two-pass
+design those reads belong to pass 2, decided from local gap evidence.
+`--min-assign-mapq` is the mechanism and is not reachable from this subcommand
+(only `hybrid_collect.cpp` parses it; `read_carries_phase_tags` is consulted only
+at `collect_bam_output.cpp:458`, while the graph path writes through its own
+mirror at `graph_bam_adapter.cpp:209-222`). Until it is wired up, pass-1 output
+carries those tags.
+
+Note for pass 2 scoping: the untagged population inside gap windows barely moves
+between floors -- 55,583 distinct reads at `-q 30` versus 52,340 at `-q 1`, and
+the MAPQ >= 30 subset is essentially identical (40,214 vs 40,142). The work pass
+2 has to do is therefore not a function of the pass-1 floor: roughly 40,000
+confidently mapped reads sit in gaps unphased either way.
+
+### Pileup-based column discovery: mechanism sound, starved in gaps (2026-09-15)
+
+Prototyped the pass-2 site-finding step -- candidate columns straight from the
+pileup, no catalog, no classification, no MSA, admitted by agreement with the
+partition the other columns imply -- and scored it against read truth with
+in-block controls. Detail in `evaluations/2026-09-15-gap-column-discovery/`.
+
+Controls pass: inside blocks, 39-109 candidate columns, 30-103 admitted, median
+segregation 1.000, and 29-100 of the admitted columns are sites the pipeline
+already calls. Self-consistency tracks quality without truth (0.884 consistency
+-> 88.6% truth concordance; 1.000 -> 100.0%).
+
+In gaps the same code finds **0-20 candidates and admits 0-4**. The linear
+pileup does not expose enough het columns there, so the answer to "will this
+find the missing sites in the gaps" is no -- it finds them inside blocks, where
+they were never missing. Three gaps (`13429829`, `60084884`, `10296487`) report
+consistency 1.000 at **51-52% truth concordance**, i.e. chance: with 2-4 columns
+the consistency score is vacuous because the columns trivially agree with the
+partition they defined. Design consequence: require a minimum admitted-column
+count (controls sat at 30+) in addition to consistency and flank anchoring.
+Three gaps did resolve at 100% concordance, so the approach is starved rather
+than wrong.
+
+Next channel to measure, identically: the GAF `cs:Z:` difference string, present
+on every record and private by construction (catalog variation is traversed as
+path, not as mismatch). One gap-sized window carried 1,006 mismatch, 1,860
+insertion and 3,458 deletion events. pgphase already has an accurate cs
+tokenizer (`bam_digar.cpp` `build_digars_cs_tag`) but it is BAM-bound, and the
+surjected BAM here carries no `cs` tag at all -- only `hs` -- so the GAF is the
+sole source. Columns should be keyed on (node, node-offset) rather than reference
+coordinate: no projection needed, and reads through different repeat copies
+cannot contaminate each other's columns. `hs`/`hb`/`he` are not a projection
+table (30 entries against 2,601 path nodes); they are the GBWT haplotype-thread
+annotations already consumed by `collect_phase_pgbam.cpp`.
+
+Aside: `-q 1` closed `chr20:25,834,662-25,883,079`, the gap this whole
+investigation started from. It now sits inside a single 831 kb block
+(PS 25,102,178, 25,102,178-25,933,230, 995 sites).
+
+### BAM phase transfer into the graph gauge: works, does not stitch, shrinks gaps 95% (2026-09-15)
+
+Tested the idea of phasing each graph gap with `collect-bam-variation` over the
+gap plus a 50 kb flank and transferring the result into the graph's gauge by read
+identity, on the eight gap windows also used for column discovery.
+`evaluations/2026-09-15-bam-phase-transfer/`.
+
+Anchoring is unambiguous: all eight gaps anchor on **both** sides at agreement
+**1.000**, with 97-302 anchor reads per side. **719 reads the graph left unphased
+receive a haplotype, 702 correct against truth (97.64%)** -- against the graph's
+own 0.85% error, so transferred reads are lower-quality coverage, not free
+coverage. Transfer is pure addition (graph blocks keep their gauge, only untagged
+reads gain tags), so the concordant-to-discordant gate cannot be violated by
+construction, and it requires no new variant calling.
+
+But **no BAM phase set spans any of the eight gaps**. The BAM phase sets run into
+the gap 18-33 kb from each side and break. Two independent channels -- catalog
+driven and pileup driven -- break at the same position, which is strong evidence
+the break belongs to the data, not to the graph channel. That agrees with the
+linkage-bottleneck scan and with pileup column discovery admitting 0-4 columns in
+gaps against 30-103 in blocks.
+
+Residual break after two-sided transfer: the six 10-50 kb gaps go from 272.5 kb
+of gap to **38.6 kb (14.2% remaining)**, and four of them land at **0.6-2.0 kb**
+from 41-48 kb originally. The two 200 kb+ gaps barely move (438.9 -> 390.5 kb):
+their interiors are phased into BAM phase sets anchored to neither graph block,
+i.e. phasing islands needing chaining -- the same both-flanks-link-to-different-
+sets failure as hybrid gap recovery.
+
+Plan consequence: transfer runs first, before any site discovery, and then the
+open problem is a 1-2 kb residual rather than a 48 kb gap. At that size abPOA
+consensus over the crossing reads, or the GAF `cs:Z:` private-variant channel
+keyed on (node, offset), are tractable where they were not across 48 kb.
+
+Tooling note: `csv.writer` defaults to CRLF, so every TSV these evaluation tools
+wrote had `\r` line endings. Python readers tolerate it; the shell runner silently
+matched zero windows because `kind` read as `gap\r`. All four writers now pass
+`lineterminator='\n'` and the already-saved tables were rewritten.
+
+### BAM site injection into the graph solve: narrows gaps, closes none (2026-09-15)
+
+Measured the "retrieve sites from the BAM and phase the graph with them" route on
+the eight gap windows, two arms (`collect-hybrid-variation` site union, and union
+plus `--recover-gaps`), `-q 1`, 50 kb flank.
+`evaluations/2026-09-15-site-injection/`.
+
+The sites are genuinely there: inside the true residual break intervals the BAM
+channel has **23 clean het SNPs against the graph's 9**, plus 79 noisy-candidate
+hets where the graph holds 74 demoted repeat indels. Distribution is uneven --
+four of six mid-size gaps get only 0-2 extra clean het SNPs, the two 200 kb+ gaps
+get 6 and 12.
+
+**0 of 8 gaps end up spanned by a single phase set, in either arm.** Windows keep
+2-7 phase sets. The blocks that form are correct (target block 97.9-100.0% against
+truth over the sixteen window-arms: 100.0% in all eight union arms, floor 97.9%
+at gap 35,919,404 with recovery), so this is linkage failure, not corruption.
+
+Largest uncovered stretch inside the eight gaps, by approach: graph-only 711.4 kb,
+phase transfer 541.5 kb, injection 328.9 kb, injection + recovery **304.7 kb**
+(57% reduction). Injection transforms the two large gaps (202 -> 58 kb, 237 -> 43
+kb) where transfer barely moved them, tracking their extra sites; on four of six
+mid-size gaps injection alone changes nothing, because their breaks hold 0-2
+usable sites.
+
+Anomaly to chase: `--recover-gaps` makes the two large gaps worse than the plain
+union (57,744 -> 137,367 bp; 43,482 -> 56,364 bp) while improving mid-size ones.
+
+Correction to the previous entry: the transfer residuals reported there were
+measured from read START positions, which understates a phase set's reach by up
+to a read length at each end. Re-measured from first-to-last phased variant, the
+mid-size residuals are 8.0-44.7 kb, not 0.6-2.0 kb, and transfer reduces 272.5 kb
+of mid-size gap to 124.4 kb (54%), not the 95-99% claimed. `transfer_results.tsv`
+now carries `residual_beg`/`residual_end` so downstream work targets the actual
+interval instead of assuming it sits at the gap midpoint.
+
+Untested option that needs no called site, and is the pipeline's own designed
+answer for this case: pgbam haplotype-thread stitching via `--pgbam-file` with the
+`--pgbam-*-min-winning` thresholds, documented as the fallback "when common-read
+signal is absent" and built on the `hs`/`hb`/`he` GBWT thread tags.
+
+### Root cause of `split`: verified SNPs refused as gap-link sites (2026-09-15)
+
+Single-gap diagnosis of `chr20:36,332,599-36,381,019` via `--gap-decision-audit`.
+`evaluations/2026-09-15-gap-link-site-gate/`.
+
+Injection and profiling are NOT the problem. The proposal holds 581 in-gap sites;
+of the 16 in phase-informative categories, 2 are `CleanHetSnp` at the gap edges
+and **14 are `NoisyMsaHet` with `msa_verified=1` and no homopolymer flag**, each
+with 27-84 BAM observations. 10 of the 16 score >= 0.90 segregation against the
+diplinator read truth, and they form an unbroken chain (11.4, 10.9, 10.9, 8.0,
+7.2 kb) with 17-81 reads spanning every consecutive pair.
+
+It still splits because `joined = left_linked && right_linked && links[0].ps ==
+links[1].ps` and the two links land on different proposal ids. Only **10 of 637
+reads in the window carry the left block's phase set**, they never merge into the
+388-438 read block, and **zero reads in the big block overlap the left anchor**,
+so the big block has no left vote in any tier.
+
+The gate is `select_gap_link_sites` (`collect_phase.cpp:1188-1193`, pre-fix line numbers): an
+MSA-verified **indel** in the gap may carry link support unconditionally, while
+an MSA-verified **SNP** requires `--gap-bridge-private-snps`, off by default.
+Both come from the same verification. Measured against truth the policy is
+inverted: the flag-gated verified SNPs have median segregation **0.988**
+(0.852-1.000, three at 1.000), the default-admitted verified indels **0.895**
+(0.657-1.000) -- the default class holds the two worst sites in the window, the
+gated class the three best.
+
+Corroboration from the other direction: the whole-chr20 `--gap-bridge-private-snps`
+arm joined exactly one gap, `['CHM13#0#chr20','36332599','36381019']`, with zero
+concordant-to-discordant reads. Same locus, same mechanism, two independent routes.
+
+Fix direction: (1) drop `opts.gap_bridge_private_snps &&` from `verified_snp` so
+both verified classes are treated alike -- a strict subset of the flag's current
+behaviour, so it needs its own chr20 gate measurement rather than inheriting that
+flag's 61-read coverage cost; (2) the same function's anchor loop only accepts
+`kCandGermlineClean` anchors, so MSA sites can be linked but never anchor, and
+cannot chain to each other -- every link must reach a flanking clean anchor,
+capping bridgeable distance however dense the MSA evidence is; (3)
+`kCandAnchorClean` (`collect_phase.hpp:47`) is dead code whose comment describes
+an anchor policy the code never enforces.
+
+### Correction and fix: the private-SNP bridge is gated twice, not once (2026-09-15)
+
+The previous entry named `select_gap_link_sites` as the gate. That is only half
+of it. Two gates carry the same asymmetry and are chained:
+`collect_phase.cpp:1191` (`verified_snp`) decides whether a site may earn
+`gap_link_supported`, and `collect_phase.cpp:896` (`recovered_snp`) decides
+whether it may cast a bridge vote -- and the second requires the first.
+Patching only the eligibility gate is **inert**: measured, it produced
+byte-identical tier statuses on `chr20:36,332,599-36,381,019`.
+
+Both flag terms are now removed, so an MSA-verified SNP is treated exactly as an
+MSA-verified indel already was. Clean build, no new warnings, all five unit-test
+binaries pass; `test_private_snp_bridge_anchor_requires_flag` pinned the old
+behaviour and is now `test_verified_msa_snp_bridges_without_flag`.
+
+Verified on the diagnosed gap with `--gap-bridge-private-snps` **off**: tier 3
+reports `joined` with `LEFT_LINK_PS = RIGHT_LINK_PS = 36317511`, the window goes
+from 2 phase sets to **1 spanning set** (55 variants, 437 reads, 99.08%
+accurate). Read-level gate matched by name: **0 concordant -> discordant**, 433
+concordant preserved, and **23 concordant + 2 discordant reads lose their tags**.
+So the join costs 23 correct read tags for 48.4 kb of closed gap.
+
+Not promoted to default on this evidence: one gap, and the coverage cost is the
+same kind the whole-chr20 flag arm measured (61 reads). The chr20 gate run is the
+next step before the flag is retired.
+
+### The two-gate fix verified across the panel: 1 of 8 gaps (2026-09-15)
+
+Re-ran the eight-window panel with the patched build, flag off, against matched
+pre-change runs (`evaluations/2026-09-15-gap-link-site-gate/compare_panel.py`,
+`panel_before_after.tsv`).
+
+`chr20:36,332,599-36,381,019` joins and gains a spanning phase set. **The other
+seven windows are unchanged down to the individual read tag** -- no verdict
+change, no tag gained or lost. Panel totals: **0 concordant -> discordant**, 23
+concordant tags lost, tagged 3832 -> 3807, concordant 3808 -> 3785.
+
+Crucially the no-ops are not for lack of material: `35,919,404` holds **12**
+in-gap MSA-verified het SNPs (more than the gap that joined) plus 15 in-gap clean
+het SNPs for anchoring, and `7,163,303` holds 6 -- both still `split`. So the
+flag asymmetry was a genuine blocker but only one of at least two, and it does
+not explain the `split` population. Chromosome-wide this change should be
+expected to behave like the earlier flag arm did: about one extra join.
+
+Next diagnosis: the same `--gap-decision-audit` on `35,919,404`, where anchors
+and verified SNPs are both present and both gates are now open, so the blocker is
+a third mechanism -- bridge-vote thresholds (`min_block_link_reads`, the
+`strong`/`snp_strong` requirements) or the anchor-eligibility restriction that
+keeps MSA sites from anchoring.
+
+### Correction: the evaluator's phase-block metrics are invalid on the graph path (2026-09-15)
+
+The `-q 1` adoption entry cited "10.3% block N50" from
+`scripts/evaluate_phase_accuracy.py`. That number, and the auN column in
+`graph_mapq_sweep.tsv`, are not valid block statistics on this path: the
+evaluator reports **auN = 15,474,231 bp at `-q 1`** while the largest single
+phase block is **1,282,456 bp**, and auN cannot exceed the largest block. The
+evaluator derives block extents from the emitted alignment, which is unaligned
+here -- the same reason its switch/flip counts were already known to be
+meaningless for `collect-graph-variation`.
+
+Block spans recomputed from `phase_sites.tsv` (first to last phased site per
+phase set): `-q 30` gives 375 blocks / 47.60 Mb / N50 439,677 / auN 496,788;
+`-q 1` gives 402 blocks / 48.34 Mb / **N50 428,655** / auN 492,205, with an
+identical largest block of 1,282,456 bp. So N50 **falls 2.5%** rather than rising
+10%, and the auN "spike" is an artifact, not a giant mis-joined block.
+
+The `-q 1` decision stands, on the parts that never depended on those metrics:
+5,041 more clean het SNPs, MAPQ >= 30 accuracy flat (0.856% -> 0.854%), phased
+span up 0.74 Mb, gap span 18.52 -> 17.81 Mb. The block-length argument is
+withdrawn. Rule carried forward: do not quote this evaluator's N50/auN for any
+graph-path arm -- derive block spans from `phase_sites.tsv`.
+
+### The patch is gate-specific: `35,919,404` is coverage-limited (2026-09-15)
+
+Audited the largest non-joined panel gap (`chr20:35,919,404-36,156,319`, 236.9 kb)
+with the patched build. It carries more of the material the fix unlocks than the
+gap that joined (10 MSA het SNPs, 27 MSA het indels per tier; 48 in-gap sites in
+phase-informative categories in the audit export, 19 of them truth-informative)
+and still reports `split` on tiers 1-3 and
+`rejected` on tier 4.
+
+Its vote matrix has the opposite shape to the joined gap: **both flanks link
+strongly** (left PS 35873360, 124/126 votes; right PS 36156319, 54/60) into two
+blocks with nothing between, where the joined gap had a 10-vote left remnant.
+Nothing is refused; the halves never meet. Chaining the truth-informative sites,
+**3 of 18 steps have zero spanning reads** (22.9, 26.5, 43.5 kb = 92.9 kb, 39% of
+the gap); repeating the step test over the wider 60-site linking selection from
+the candidate TSV -- a different set, never truth-scored -- one 21.2 kb step has
+none. No
+site-admission policy bridges a step no read crosses.
+
+Panel-wide (`classify_blockers.py`, `blocker_classes.tsv`): 2 gaps are
+coverage-limited (`13,429,829` with a 16.8 kb break, `35,919,404` with 21.2 kb,
+438.9 kb of span between them -- the same two that neither phase transfer nor
+injection moved), and 6 have a flank-to-flank chain of called sites with reads
+spanning every step. The patch fixed **one** of those six. So five have a chain
+and no flag refusing them and still split: a third blocker, neither site
+admission nor read coverage. Next candidates in order -- whether those chains'
+sites are actually informative (at `35,919,404`, 19 of the 48 audit-category
+in-gap sites scored informative; do not chain that to the 60-site candidate-TSV
+selection, which was never truth-scored), the bridge-vote thresholds (`min_block_link_reads`,
+`strong`/`snp_strong`), and the anchor-eligibility rule that stops MSA sites
+anchoring each other.
+
+### Homopolymer tier skipped the pass where the join lives (2026-09-16)
+
+Diagnosing the competitor-deficit gaps one at a time
+(`evaluations/2026-09-16-competitor-deficit/`) turned up a narrow defect in gap
+recovery. `collect_pipeline.cpp` skipped `kGapHomopolymerTier` whenever
+`recovery_pass == 1 && !audit`, so the tier never ran in the reprojected pass.
+On `chr20:61,738,233-61,757,551` that is the only pass where the join exists: the
+audit export, which bypasses the skip, showed pass 1 reaching `JOINED` for
+proposal set 61725696 with left support 5 and right support 4 -- clear of
+`min_block_link_reads = 2` and of the tier's per-haplotype orientation agreement
+-- while pass 0's differently anchored proposal linked one side only. A
+consequence worth remembering: the audit and normal runs do not evaluate the same
+tiers, so "audit matches normal" cannot be inferred from matching final blocks.
+
+Removing the skip closes the gap. `chr20:61,732,321-61,810,469` (78.1 kb) goes
+from two blocks to **one spanning block `61,690,751-61,858,547`, 56 sites**, and
+the read level is untouched: 575 reads tagged before and after, 567 concordant
+both times (98.61%), **0 concordant -> discordant and 0 tags lost**. Compare the
+private-SNP gate fix, which closed its gap at a cost of 23 correct read tags.
+Gap 2 (`36,217,274-36,268,291`) is the control: the tier now runs in pass 1,
+reports `rejected` because no proposal block holds both-sided support, and the
+output is identical.
+
+Also measured while diagnosing these two gaps: `msa_verified` is not a proxy for
+informativeness. All four `NoisyMsaHet` sites in gap 2's break carry
+`msa_verified = 1` and their truth segregation runs 0.509 (chance), 0.607, 0.644,
+0.923 -- and the tiers admit the uninformative ones while the 0.923 site is
+homopolymer-flagged and reachable only by tier 4.
+
+Still opt-in-by-measurement: the chr20 gate run decides whether this ships as
+default, since the change touches every gap with a homopolymer candidate.
+
+Panel regression for the same change: eight windows, matched pre-change runs, and
+it is inert -- 0 newly joined, 0 newly spanning, 0 gate violations, 0 tag changes,
+3807 reads tagged and 3785 concordant in both arms. So the change buys gap 1 and
+costs nothing measured, but is not a broad win. It does introduce a reporting
+nuance: five panel gaps whose STATUS read `split` or `partial` now read
+`rejected`, since tier 4 is evaluated in pass 1 and its label is the last report
+row -- same blocks and reads underneath, but the `split`/`partial` distinction is
+lost to anything reading the final row.

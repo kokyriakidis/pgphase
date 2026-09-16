@@ -33,6 +33,8 @@ static void print_hybrid_help() {
         << "Options:\n"
         << "  -t, --threads INT             Region worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
+        << "      --min-assign-mapq INT     Minimum mapping quality to carry an HP/PS tag; reads\n"
+        << "                                between -q and this supply alleles only [30]\n"
         << "  -B, --min-bq INT              Minimum base quality [10]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
         << "      --min-alt-depth INT       Minimum alternate depth [2]\n"
@@ -68,6 +70,7 @@ static void print_hybrid_help() {
         << "      --gap-independent-min-reads INT  Min gap-only reads to emit a new block [3]\n"
         << "      --gap-recovery-max-rounds INT  Max repeat rounds per batch [1]\n"
         << "      --gap-bridge-independent-blocks  Try bridging new independent blocks to flanks (experimental, off)\n"
+        << "      --gap-bridge-private-snps  Let MSA-verified private het SNPs inside a gap act as block-bridge anchors\n"
         << "      --no-gap-link-by-alleles  Disable additively attaching reads to an already-decided gap join by allele agreement (on by default)\n"
         << "      --no-hybrid-trim          Disable minimal-VCF trimming of graph-only alleles before noise filter (on by default)\n"
         << "      --gap-fill                Additively phase reads the clean core left unphased into a disjoint PS namespace (off by default)\n"
@@ -150,6 +153,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kGapIndependentMinReadsOption,
         kGapRecoveryMaxRoundsOption,
         kGapBridgeIndependentOption,
+        kGapBridgePrivateSnpsOption,
+        kMinAssignMapqOption,
         kNoGapLinkByAllelesOption,
         kNoHybridTrimOption,
         kGapFillOption,
@@ -170,6 +175,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"gaf",             required_argument, nullptr, kGafOption},
         {"threads",         required_argument, nullptr, 't'},
         {"min-mapq",        required_argument, nullptr, 'q'},
+        {"min-assign-mapq", required_argument, nullptr, kMinAssignMapqOption},
         {"min-bq",          required_argument, nullptr, 'B'},
         {"min-depth",       required_argument, nullptr, 'D'},
         {"min-alt-depth",   required_argument, nullptr, kMinAltDepthOption},
@@ -206,6 +212,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"gap-independent-min-reads", required_argument, nullptr, kGapIndependentMinReadsOption},
         {"gap-recovery-max-rounds", required_argument, nullptr, kGapRecoveryMaxRoundsOption},
         {"gap-bridge-independent-blocks", no_argument, nullptr, kGapBridgeIndependentOption},
+        {"gap-bridge-private-snps", no_argument, nullptr, kGapBridgePrivateSnpsOption},
         {"no-gap-link-by-alleles", no_argument, nullptr, kNoGapLinkByAllelesOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
         {"gap-fill",        no_argument,       nullptr, kGapFillOption},
@@ -233,6 +240,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGafOption:          opts.gaf_file = optarg; break;
             case 't':                 opts.threads = std::atoi(optarg); break;
             case 'q':                 opts.min_mapq = std::atoi(optarg); break;
+            case kMinAssignMapqOption: opts.min_assign_mapq = std::atoi(optarg); break;
             case 'B':                 opts.min_bq = std::atoi(optarg); break;
             case 'D':                 opts.min_depth = std::atoi(optarg); break;
             case kMinAltDepthOption:  opts.min_alt_depth = std::atoi(optarg); break;
@@ -276,6 +284,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGapIndependentMinReadsOption: opts.gap_independent_min_reads = std::atoi(optarg); break;
             case kGapRecoveryMaxRoundsOption: opts.gap_recovery_max_rounds = std::atoi(optarg); break;
             case kGapBridgeIndependentOption: opts.gap_bridge_independent_blocks = true; break;
+            case kGapBridgePrivateSnpsOption: opts.gap_bridge_private_snps = true; break;
             case kNoGapLinkByAllelesOption: opts.gap_link_by_alleles = false; break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
             case kGapFillOption:      opts.gap_fill = true; break;
@@ -304,6 +313,10 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         opts.graph_sites_vcf.empty() || opts.gaf_file.empty()) {
         std::cerr << "Error: --ref, --bam, --graph-sites, and --gaf are required\n\n";
         print_hybrid_help();
+        return 1;
+    }
+    if (opts.gap_bridge_private_snps && !opts.recover_gaps) {
+        std::cerr << "Error: --gap-bridge-private-snps requires --recover-gaps\n";
         return 1;
     }
     if ((!opts.gap_recovery_report.empty() || !opts.gap_evidence_cache.empty() ||

@@ -49,6 +49,12 @@ struct GapStitchResult {
     bool joined = false;
     bool right_flip = false;
     int reads_added = 0;
+    // Proposal phase set each flank linked to. Both sides can link while the
+    // gap stays unjoined, because a join needs one proposal phase set that
+    // reaches both flanks; reporting both ids separates that case from a
+    // genuinely one-sided link.
+    hts_pos_t left_link_ps = -1;
+    hts_pos_t right_link_ps = -1;
 };
 
 struct GapPhaseEdge {

@@ -1,0 +1,6 @@
+min_mapq	gap_depth	gap_candidates	gap_median_dp	gap_clean_het_snp	of_competitor_103_sites	window_phased_reads	window_unphased_reads	window_phase_sets	window_concordant	window_discordant	window_hamming_pct	window_block_n50	gap_joined
+30	3.7	18	5.0	2	3	395	381	2	395	0	0.0	166590	no
+20	4.2	19	5	3	4	414	362	2	414	0	0.0	168611	no
+10	13.4	88	15.0	35	26	469	307	2	469	0	0.0	170529	no
+5	16.5	86	20.0	34	26	494	282	2	494	0	0.0	176361	no
+1	68.2	327	85	302	86	734	42	1	697	37	5.04	375181	yes

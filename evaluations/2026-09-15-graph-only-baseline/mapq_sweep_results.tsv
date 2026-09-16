@@ -1,0 +1,5 @@
+arm	total_phased_reads	unphased_reads	total_phase_sets	concordant_reads	discordant_reads	hamming_error_rate	phase_block_n50_bp	phase_block_aun_bp	gaps	gap_span_bp	untagged_in_gaps	gaps_over_200kb	reads_shared_with_baseline	gate_concordant_to_discordant	discordant_to_concordant	reads_gained_vs_baseline	reads_lost_vs_baseline
+q30	203751	27631	371	201991	1744	0.00856	917428	987490	286	18523078	55947	8	203751	0	0	0	0
+q10	209963	28396	381	207295	2645	0.012599	920605	1068205	309	18058006	55487	8	203722	780	334	6241	29
+q5	211255	28453	378	208555	2688	0.012725	920605	1056615	301	17957414	53947	8	203729	316	150	7526	22
+q1	214065	28721	379	211106	2945	0.013758	1011696	15474231	311	17806328	52620	8	203718	103	138	10347	33

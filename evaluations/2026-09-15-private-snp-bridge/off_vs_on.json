@@ -1,0 +1,107 @@
+{
+  "baseline": "/tmp/pgphase-private-snp-bridge/off",
+  "corrupted_reads": [],
+  "discordant_to_concordant": 3,
+  "gap_status_changes": {
+    "split->joined": 1
+  },
+  "gap_status_totals": {
+    "baseline": {
+      "joined": 112,
+      "open": 2,
+      "partial": 22,
+      "split": 140
+    },
+    "run": {
+      "joined": 113,
+      "open": 2,
+      "partial": 22,
+      "split": 139
+    }
+  },
+  "gaps_newly_joined": [
+    [
+      "CHM13#0#chr20",
+      "36332599",
+      "36381019"
+    ]
+  ],
+  "gaps_no_longer_joined": [],
+  "gate_concordant_to_discordant": 0,
+  "metrics": {
+    "concordant_reads": {
+      "baseline": 206017,
+      "delta": -39,
+      "run": 205978
+    },
+    "discordant_reads": {
+      "baseline": 1400,
+      "delta": -14,
+      "run": 1386
+    },
+    "flip_errors": {
+      "baseline": 671,
+      "delta": -14,
+      "run": 657
+    },
+    "hamming_error_rate": {
+      "baseline": 0.00675,
+      "delta": -6.600000000000009e-05,
+      "run": 0.006684
+    },
+    "phase_block_aun_bp": {
+      "baseline": 1234653,
+      "delta": 3392,
+      "run": 1238045
+    },
+    "phase_block_n50_bp": {
+      "baseline": 1064616,
+      "delta": 0,
+      "run": 1064616
+    },
+    "switch_errors": {
+      "baseline": 249,
+      "delta": 0,
+      "run": 249
+    },
+    "total_phase_sets": {
+      "baseline": 177,
+      "delta": -1,
+      "run": 176
+    },
+    "total_phased_reads": {
+      "baseline": 207426,
+      "delta": -53,
+      "run": 207373
+    },
+    "total_reads_evaluated": {
+      "baseline": 207417,
+      "delta": -53,
+      "run": 207364
+    },
+    "unphased_reads": {
+      "baseline": 64590,
+      "delta": 53,
+      "run": 64643
+    }
+  },
+  "read_transitions": {
+    "concordant->concordant": 205956,
+    "discordant->concordant": 3,
+    "discordant->discordant": 1384,
+    "read_dropped": 74,
+    "skipped->skipped": 9
+  },
+  "reads_gained": 21,
+  "reads_lost": 74,
+  "reads_lost_by_baseline_ps": {
+    "1142089": 11,
+    "36381019": 25,
+    "38236063": 38
+  },
+  "reads_lost_by_baseline_status": {
+    "concordant": 61,
+    "discordant": 13
+  },
+  "run": "/tmp/pgphase-private-snp-bridge/on"
+}

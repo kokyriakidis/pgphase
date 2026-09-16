@@ -1921,9 +1921,15 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
     for (int recovery_pass = 0; recovery_pass < recovery_passes; ++recovery_pass) {
         int selected_graph_reads = 0;
         if (recovery_pass == 1) {
-            proposal = frozen.project(local_opts, true);
-            selected_graph_reads = select_graph_gap_bam_reads(proposal, gap, local_opts);
+            // Reproject into a scratch view first. When no read qualifies, this
+            // pass has nothing to solve and pass 0's solved split is the only
+            // proposal the independent-block fallback below can still use --
+            // overwriting it in place discarded that split for an unphased
+            // reprojection.
+            PhasingChunk bam_view = frozen.project(local_opts, true);
+            selected_graph_reads = select_graph_gap_bam_reads(bam_view, gap, local_opts);
             if (selected_graph_reads == 0) break;
+            proposal = std::move(bam_view);
         }
         assign_hap_based_on_germline_het_vars_kmeans(
             proposal, local_opts, kCandGermlineClean);
@@ -1935,7 +1941,15 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
         for (int tier = 1; tier <= kGapHomopolymerTier; ++tier) {
             const size_t previous_sites = proposal.candidates.size();
             if (tier == kGapHomopolymerTier) {
-                if (recovery_pass == 1 && !audit) break;
+                // Skipping this tier in the reprojected pass hid the only join some
+                // gaps have. On chr20:61,738,233-61,757,551 the audit export, which
+                // bypassed the skip, showed pass 1 reaching JOINED for proposal set
+                // 61725696 with left support 5 and right support 4 -- clear of
+                // min_block_link_reads and of the per-haplotype orientation
+                // agreement -- while pass 0's differently anchored proposal linked
+                // one side only. The tier's own guards are unchanged: it still needs
+                // a homopolymer candidate in the gap, --link-by-alleles, that
+                // orientation agreement, and the BAM validation below.
                 for (size_t vi = 0; vi < proposal.candidates.size(); ++vi)
                     proposal.candidates[vi].lcd_var_i_to_cate = original_flags[vi];
                 const bool has_hp = std::any_of(
@@ -1973,6 +1987,9 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
             filter_hybrid_small_phase_sets(local, opts.min_phase_set_reads);
 
             GapStitchResult result;
+            // Set when the homopolymer tier's own stitch joined and only the
+            // BAM-only confirmation revoked it.
+            bool hp_vetoed = false;
             std::vector<GapLinkEvidence> evidence;
             {
                 std::unique_lock<std::mutex> lock(chunks_mutex, std::defer_lock);
@@ -2012,8 +2029,10 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
                 if (!audit) lock.lock();
                 const auto bam_result = stitch_gap_proposal(
                     chunks, bam_proposal, gap, local_opts, &read_index, true, true);
-                if (bam_reads == 0 || !bam_result.joined || bam_result.right_flip != result.right_flip)
+                if (bam_reads == 0 || !bam_result.joined || bam_result.right_flip != result.right_flip) {
                     result.joined = false;
+                    hp_vetoed = true;
+                }
             }
             int msa_snps = 0;
             int msa_indels = 0;
@@ -2028,16 +2047,20 @@ static GapRecoveryJobResult recover_one_hybrid_gap(
                         << proposal.candidates.size() - previous_sites << '\t'
                         << msa_snps << '\t' << msa_indels << '\t'
                         << result.left_linked << '\t' << result.right_linked << '\t'
+                        << result.left_link_ps << '\t' << result.right_link_ps << '\t'
                         << result.reads_added << '\t' << result.right_flip << '\t'
                         << graph_observations << '\t' << graph_conflicts << '\t'
                         << recovery_pass << '\t' << selected_graph_reads << '\t'
-                        << (tier == kGapHomopolymerTier && !result.joined
-                                ? "rejected"
+                        << (hp_vetoed ? "vetoed"
+                                : tier == kGapHomopolymerTier && !result.joined
+                                      ? "rejected"
                                 : result.joined
                                       ? "joined"
-                                      : result.left_linked || result.right_linked
-                                            ? "partial"
-                                            : "open");
+                                : result.left_linked && result.right_linked
+                                      ? "split"
+                                : result.left_linked || result.right_linked
+                                      ? "partial"
+                                      : "open");
             report_rows << '\n';
             if (result.joined && !audit) {
                 job_result.joined = true;
@@ -2375,7 +2398,7 @@ void run_collect_hybrid_variation(const Options& opts) {
     if (!opts.gap_recovery_report.empty()) {
         recovery_report.open(opts.gap_recovery_report);
         if (!recovery_report) throw std::runtime_error("failed to open recovery report: " + opts.gap_recovery_report);
-        recovery_report << "CHROM\tGAP_LEFT\tGAP_RIGHT\tTIER\tWINDOW_BEG\tWINDOW_END\tNEW_SITES\tMSA_HET_SNPS\tMSA_HET_INDELS\tLEFT_LINK\tRIGHT_LINK\tREADS_ADDED\tRECOVERY_FLIP\tGRAPH_OBSERVATIONS\tGRAPH_CONFLICTS\tGRAPH_BAM_PASS\tSELECTED_GRAPH_READS\tSTATUS\n";
+        recovery_report << "CHROM\tGAP_LEFT\tGAP_RIGHT\tTIER\tWINDOW_BEG\tWINDOW_END\tNEW_SITES\tMSA_HET_SNPS\tMSA_HET_INDELS\tLEFT_LINK\tRIGHT_LINK\tLEFT_LINK_PS\tRIGHT_LINK_PS\tREADS_ADDED\tRECOVERY_FLIP\tGRAPH_OBSERVATIONS\tGRAPH_CONFLICTS\tGRAPH_BAM_PASS\tSELECTED_GRAPH_READS\tSTATUS\n";
     }
 
     size_t n_variants = 0;

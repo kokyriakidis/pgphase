@@ -1,0 +1,9 @@
+gap_left	gap_right	gap_bp	linking_sites	steps	unbridged_steps	unbridged_bp	widest_unbridged_bp	blocker
+7073919	7118616	44697	10	10	0	0	0	chain_present
+7163303	7206650	43347	20	19	0	0	0	chain_present
+10296487	10343595	47108	6	5	0	0	0	chain_present
+13429829	13631825	201996	29	28	1	16808	16808	read_coverage
+16673759	16715241	41482	5	4	0	0	0	chain_present
+35919404	36156319	236915	60	59	1	21156	21156	read_coverage
+36332599	36381019	48420	17	16	0	0	0	chain_present
+60084884	60132282	47398	13	12	0	0	0	chain_present

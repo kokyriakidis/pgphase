@@ -893,6 +893,17 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 const bool recovered_indel = var.gap_link_supported && var.msa_verified &&
                                              !var.is_homopolymer_indel &&
                                              var.key.type != VariantType::Snp;
+                // Chained with the eligibility gate in select_gap_link_sites: that
+                // one decides whether a site may earn gap_link_supported, this one
+                // whether it may cast a bridge vote. Gating the SNP half of an MSA
+                // verification behind an opt-in flag at both points is what left
+                // chr20:36,332,599-36,381,019 reported `split` while carrying a
+                // complete read-backed chain of informative sites (the excluded
+                // verified SNPs there scored a median 0.988 segregation against read
+                // truth against 0.895 for the verified indels admitted alongside).
+                const bool recovered_snp = var.gap_link_supported && var.msa_verified &&
+                                           var.key.type == VariantType::Snp &&
+                                           var.lcd_var_i_to_cate == kCandNoisyCandHet;
                 constexpr size_t kMinRepeatAlleleDifference = 2;
                 bool separated_insertion_alleles = false;
                 if (var.msa_insertion_alts.size() == 2) {
@@ -904,13 +915,14 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                         !b.empty() && b.find_first_not_of(b.front()) != std::string::npos;
                 }
                 if (vi < profile.start_var_idx || vi > profile.end_var_idx ||
-                    (!clean_snp && !recovered_indel) || variant_allele_slots(var) < 2) continue;
+                    (!clean_snp && !recovered_indel && !recovered_snp) ||
+                    variant_allele_slots(var) < 2) continue;
                 const int allele = profile.alleles[vi - profile.start_var_idx];
                 if (allele < 0) continue;
                 const size_t profile_i = static_cast<size_t>(vi - profile.start_var_idx);
                 const bool graph_confirmed = profile_i < profile.alt_qi.size() &&
                     profile.alt_qi[profile_i] == kGraphConfirmedAltQi;
-                const bool confident = clean_snp
+                const bool confident = clean_snp || recovered_snp
                     ? clean_snp_has_bam_observation(read, var, allele, kGapBridgeMinBaseQuality)
                     : msa_indel_has_confident_bam_observation(
                         chunk, read, var, allele, separated_insertion_alleles);
@@ -919,7 +931,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                         read.qname.c_str(), static_cast<long long>(var.key.sort_pos()), allele,
                         var.hap_to_cons_alle[1], var.hap_to_cons_alle[2], confident ? 1 : 0,
                         graph_confirmed ? 1 : 0);
-                if (recovered_indel && !confident) continue;
+                if ((recovered_indel || recovered_snp) && !confident) continue;
                 const int hap = allele == var.hap_to_cons_alle[1] ? 0 :
                                 allele == var.hap_to_cons_alle[2] ? 1 : -1;
                 if (hap >= 0) {
@@ -1183,7 +1195,18 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
         const bool verified_indel = var.msa_verified && !var.is_homopolymer_indel &&
                                     var.key.type != VariantType::Snp &&
                                     var.lcd_var_i_to_cate == kCandNoisyCandHet && in_gap;
-        if (!multi && !verified_indel &&
+        // Verified SNPs and verified indels come out of the same MSA verification
+        // and carry the same msa_verified flag, so gating only the SNPs behind an
+        // opt-in flag admitted the less informative half of the evidence. On
+        // chr20:36,332,599-36,381,019 the verified indels admitted above scored a
+        // median 0.895 segregation against read truth (range 0.657-1.000) while the
+        // verified SNPs this excluded scored 0.988 (0.852-1.000, three at 1.000),
+        // and the gap was reported `split` despite a complete read-backed chain of
+        // informative sites across it.
+        const bool verified_snp = var.msa_verified &&
+                                  var.key.type == VariantType::Snp &&
+                                  var.lcd_var_i_to_cate == kCandNoisyCandHet && in_gap;
+        if (!multi && !verified_indel && !verified_snp &&
             (!var.is_homopolymer_indel || var.lcd_var_i_to_cate != kCandNoisyCandHet || !in_hp_gap))
             continue;
         std::map<hts_pos_t, std::array<int, 4>> votes;
@@ -1252,10 +1275,20 @@ static void select_gap_link_sites(PhasingChunk& chunk, const Options& opts,
         }
         // A sparse distant subset must not establish heterozygosity when a
         // better-covered clean anchor shows the same allele on both haplotypes.
+        // Tried letting another anchor's segregating table stand when this one
+        // is merely too thin to decide (only an actively contradicting table
+        // revoking support). On chr20 that admitted 3 further gap joins, one of
+        // which merged a flank in the wrong orientation and flipped 95
+        // previously concordant reads -- read Hamming 0.675% -> 0.720% for
+        // 6.7 kb of block N50. Reverted; see CHECKPOINT.md, 2026-09-15.
         if (best_anchor_depth >= opts.min_block_link_reads)
             var.gap_link_supported = direct_supported;
     }
     free(overlaps);
+}
+
+bool read_carries_phase_tags(const int mapq, const Options& opts) {
+    return mapq >= opts.min_assign_mapq;
 }
 
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,

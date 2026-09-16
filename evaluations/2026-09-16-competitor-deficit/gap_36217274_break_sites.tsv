@@ -1,0 +1,8 @@
+gap_left	gap_right	break_beg	break_end	pos	type	msa_verified	is_homopolymer_indel	category	reads	segregation	admitted_by_tier
+36217274	36268291	36247421	36268291	36247421	SNP	0	0	CleanHetSnp	64	0.9062	all (clean germline)
+36217274	36268291	36247421	36268291	36252908	DEL	1	1	NoisyMsaHet	65	0.9231	4 only (homopolymer)
+36217274	36268291	36247421	36268291	36259923	DEL	1	1	NoisyMsaHet	61	0.6066	4 only (homopolymer)
+36217274	36268291	36247421	36268291	36261164	INS	1	0	NoisyMsaHet	57	0.5088	3-4
+36217274	36268291	36247421	36268291	36261302	INS	1	0	NoisyMsaHet	59	0.6441	3-4
+36217274	36268291	36247421	36268291	36261311	INS	0	0	RepHetIndel	59	0.6441	never (repeat-demoted)
+36217274	36268291	36247421	36268291	36268291	SNP	0	0	CleanHetSnp	71	0.9859	all (clean germline)

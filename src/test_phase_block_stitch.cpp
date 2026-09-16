@@ -1278,6 +1278,70 @@ static bool test_msa_two_alternate_insertions() {
     return ok;
 }
 
+// An MSA-verified private het SNP inside a gap earns a bridge verdict only when
+// --gap-bridge-private-snps admits it; the default path leaves it unsupported.
+// Reads between --min-mapq and --min-assign-mapq supply allele evidence but must
+// not carry a haplotype tag; equal floors must behave exactly as one floor.
+static bool test_assign_mapq_floor_gates_tags_only() {
+    bool ok = true;
+    Options opts;
+    ok &= check(opts.min_assign_mapq == opts.min_mapq,
+                "assignment floor defaults to the discovery floor");
+    ok &= check(read_carries_phase_tags(opts.min_mapq, opts),
+                "a read at the default floor carries tags");
+    ok &= check(!read_carries_phase_tags(opts.min_mapq - 1, opts),
+                "a read below the default floor carries no tags");
+    opts.min_mapq = 1;
+    ok &= check(!read_carries_phase_tags(3, opts),
+                "an admitted low-MAPQ read carries no tags once the floors differ");
+    ok &= check(read_carries_phase_tags(30, opts),
+                "a confidently mapped read still carries tags");
+    opts.min_assign_mapq = 5;
+    ok &= check(read_carries_phase_tags(5, opts),
+                "lowering the assignment floor admits reads at it");
+    return ok;
+}
+
+static bool test_verified_msa_snp_bridges_without_flag() {
+    bool ok = true;
+    for (const bool enabled : {false, true}) {
+        PhasingChunk chunk;
+        CandidateVariant site;
+        site.key.pos = 200; site.key.type = VariantType::Snp;
+        site.key.alt = "A"; site.key.ref_len = 1;
+        site.lcd_var_i_to_cate = kCandNoisyCandHet;
+        site.msa_verified = true;
+        CandidateVariant anchor;
+        anchor.key.pos = 100; anchor.key.type = VariantType::Snp;
+        anchor.key.alt = "T"; anchor.key.ref_len = 1;
+        anchor.lcd_var_i_to_cate = kCandCleanHetSnp;
+        anchor.hap_to_cons_alle = {-1, 0, 1};
+        chunk.candidates = {anchor, site};
+        chunk.read_var_cr.reset(cr_init());
+        const std::array<int, 4> table{6, 0, 0, 6};
+        for (int cell = 0; cell < 4; ++cell)
+            for (int n = 0; n < table[cell]; ++n) {
+                const int ri = static_cast<int>(chunk.reads.size());
+                chunk.reads.emplace_back();
+                ReadVariantProfile profile;
+                profile.start_var_idx = 0; profile.end_var_idx = 1;
+                profile.alleles = {cell / 2, cell % 2};
+                profile.alt_qi = {-1, -1};
+                chunk.read_var_profile.push_back(profile);
+                cr_add(chunk.read_var_cr.get(), "cr", 0, 2, ri);
+            }
+        cr_index(chunk.read_var_cr.get());
+        Options opts;
+        opts.recover_gaps = opts.link_by_alleles = opts.private_msa_admit_all_in_region = true;
+        opts.gap_recovery_beg = 150; opts.gap_recovery_end = 250;
+        opts.gap_bridge_private_snps = enabled;
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+        ok &= check(chunk.candidates[1].gap_link_supported,
+                    "MSA-verified het SNP earns a bridge verdict with the flag off too");
+    }
+    return ok;
+}
+
 static bool test_msa_insertion_pair_clean_anchor() {
     bool ok = true;
     // The first pattern separates the two alleles despite one weak row.
@@ -1974,6 +2038,8 @@ int main() {
     failures += test_gap_bridge_validates_msa_deletion() ? 0 : 1;
     failures += test_gap_bridge_separates_indel_boundary_signal() ? 0 : 1;
     failures += test_orphan_msa_site_uses_stitched_read_orientation() ? 0 : 1;
+    failures += test_assign_mapq_floor_gates_tags_only() ? 0 : 1;
+    failures += test_verified_msa_snp_bridges_without_flag() ? 0 : 1;
     failures += test_msa_insertion_pair_clean_anchor() ? 0 : 1;
     failures += test_msa_two_alternate_insertions() ? 0 : 1;
     failures += test_deletion_reference_with_overlapping_snp() ? 0 : 1;

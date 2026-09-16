@@ -1,0 +1,5 @@
+pos	vtype	msa_verified	is_homopolymer_indel	category	reads	segregation	admitted_tier
+61747508	DEL	1	1	NoisyMsaHet	56	0.929	4 only (hp-flagged)
+61747510	DEL	0	0	RepHetIndel	45	0.956	never (repeat-demoted)
+61755064	INS	1	0	NoisyMsaHet	51	1.0	3 and 4
+61757551	SNP	0	0	CleanHetSnp	49	1.0	1-4 (block endpoint)

@@ -1,0 +1,9 @@
+configuration	phased_reads	phase_sets	gap_joined	concordant	discordant	window_hamming_pct	block_n50_bp	note
+single floor 30	395	2	no	395	0	0.0	166590	current default
+single floor 10	469	2	no	469	0	0.0	170529	
+single floor 5	494	2	no	494	0	0.0	176361	HiPhase default floor
+single floor 1	734	1	yes	697	37	5.04	375181	gap joins, errors appear
+discover 1 / assign 5	505	1	yes	505	0	0.0	275646	best coverage at zero error
+discover 1 / assign 10	479	1	yes	479	0	0.0	274608	
+discover 1 / assign 20	418	1	yes	418	0	0.0	272690	
+discover 1 / assign 30	399	1	yes	399	0	0.0	270669	contiguity gain with no low-MAPQ read tagged

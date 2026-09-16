@@ -166,6 +166,13 @@ enum class OutputAlignmentFormat : uint8_t {
 struct Options {
     int threads = 1;
     int min_mapq = kDefaultMinMapq;
+    // Reads below min_mapq never enter a phasing chunk, so that floor governs
+    // candidate discovery and block linking as well as haplotype assignment.
+    // This floor governs only the assignment: an admitted read below it still
+    // contributes its alleles, but is left without HP/PS in the output because
+    // its placement is too ambiguous to own a haplotype call. Equal values
+    // reproduce single-floor behavior exactly, which is the default.
+    int min_assign_mapq = kDefaultMinMapq;
     int min_bq = kDefaultMinBaseq;
     int min_depth = kDefaultMinDepth;
     int min_alt_depth = kDefaultMinAltDepth;
@@ -301,6 +308,14 @@ struct Options {
     // for a same-PS independent block now attach directly to the correct
     // flank instead.
     bool gap_link_by_alleles = true;
+    // When true (gap recovery only), an MSA-verified private het SNP inside a
+    // gap may act as a block-bridge anchor, on the same terms as a recovered
+    // MSA indel: it must pass the anchor allele-segregation test that sets
+    // gap_link_supported, and a read's observation of it must be confirmed
+    // directly in the BAM. The bridge anchor set otherwise admits only exactly
+    // clean het SNPs and non-homopolymer MSA indels, which is the evidence a
+    // graph gap interior is least likely to contain.
+    bool gap_bridge_private_snps = false;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
