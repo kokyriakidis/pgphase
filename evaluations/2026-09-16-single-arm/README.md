@@ -878,15 +878,28 @@ alleles on opposite haplotypes.
 **The chain vote that decides it (`--verbose 2`, `pos agree conflict`):**
 
 ```
-48204384    0    0      <- no link evidence at all
-48225787    3    1      <- four reads set the parity of a 53-site block
-48229227   21    2
-48230918   52    1
-48183977   41    0
+48147228 20  1     48183977 41  0     48230918 52  1
+48149549 14  0     48202057  6  1     48232579 48  1
+48162480  5  0     48204384  0  0  <- no evidence at all
+48173318 21  0     48225787  3  1  <- sets a 53-site block's parity
+48173990 21  0     48229227 21  2     48234101 51  0
+48176831 15  0     48229446  0  0  <- also no evidence
+48177726 65  5     48232790 56  0     48235310 36 22
 ```
 
-Every other link in the window is carried by 20-65 reads. This one has four, and
-the accepted orientation is the wrong one.
+**Correction.** An earlier version of this section claimed every other link in
+the window carries 20-65 reads, which this same dump contradicts: `48,149,549`
+has 14, `48,176,831` 15, `48,202,057` 6, `48,162,480` 5, and `48,229,446` is a
+*second* site with no link evidence at all, which the earlier text also failed to
+mention. Agree counts across the window run 0 to 65, so the `48,225,787` link is
+**not** uniquely weak by voter count.
+
+What does distinguish it is the combination: every other low-count link is
+unanimous or near it -- 14/0, 15/0, 5/0, 6/1 -- whereas `48,225,787` is `3/1`,
+carrying 25% dissent at a net margin of exactly 2, which is precisely
+`min_block_link_reads`. It is the only link in the window accepted at the
+threshold rather than comfortably above it. (`48,235,310` at 36/22 has far more
+dissent but a margin of 14, and sits outside the seam.)
 
 **No vote-quality rule would refuse it.** The acceptance test is
 `support = (a == c) ? 0 : max(a, c)` against `min_block_link_reads` (default 2),
@@ -945,3 +958,63 @@ Limitation worth carrying: only 14-16 sites in the window are resolvable at that
 margin, the rest having too few tagged alt reads or an ambiguous split. This
 rules out a systematic injection inversion, not one bad site among the
 unresolved.
+
+## The bug: near-even edges decide parity, because support ignores the margin
+
+The chain probe prints each het's chosen predecessor, its vote and the resulting
+parity. Across the seam, in the merged (gates-open) arm:
+
+```
+48202056      <- 48183976         agree= 6  conflict= 1   parity=0
+48204383      <- 48202056         agree=26  conflict=31   parity=1   FLIP
+48225786 1bp  <- 48204383         agree= 5  conflict= 2   parity=1
+48225786 6bp  <- 48225786 1bp     agree=18  conflict=21   parity=0   FLIP
+48229226      <- 48225786 6bp     agree=21  conflict= 2   parity=0
+48229446      <- 48229226         agree=56  conflict= 4   parity=0
+48230918      <- 48229446         agree=52  conflict= 1   parity=0
+```
+
+Two edges are near-even splits -- **26 against 31** (margin 5) and **18 against
+21** (margin 3) -- and each inverts the parity of everything downstream. They are
+accepted because the acceptance test is
+
+```cpp
+const int support = link_agree[hi] == link_conflict[hi]
+                        ? 0 : std::max(link_agree[hi], link_conflict[hi]);
+if (hj < 0 || support < opts.min_block_link_reads) { /* break */ }
+```
+
+`support` is the **louder side**, not the net margin, so 31-against-26 passes on
+volume and `conflict > agree` then flips. The first of those edges runs through
+`48,202,056`, a site this project already measured as segregating **0.507**
+against read truth -- chance -- so its majority is noise. This also explains the
+four-read link at `48,225,787` reported earlier: it is not the origin of the
+flip, only one of several near-even edges in the same chain, and the per-read
+vote data shows its three agreeing reads are each *correct* while its single
+conflicting read is a miscall.
+
+### Requiring a significant margin is not the fix
+
+Tested: refuse an edge whose margin is within a fair coin's fluctuation,
+`|agree - conflict| > sqrt(agree + conflict)`, written as
+`net * net > votes` -- parameter-free, and it refuses 26/31 and 18/21 while
+admitting every load-bearing link (6/1, 21/2, 41/0, 52/1, 56/4).
+
+| arm | tagged | blocks | concordance | largest block |
+|---|---:|---:|---|---|
+| hiphase (target) | 587 | **1** | 100.00% | 587 reads, 156 kb |
+| shipped | 393 | **2** | 100.00% | 233 reads, 68 kb |
+| margin only | 393 | 4 | 100.00% | 160 reads, 43 kb |
+| margin + rescue gates | **472** | 4 | **100.00%** | 207 reads, 55 kb |
+
+It does prevent the wrong join -- with the gates open the window goes from
+56.14% to **100.00% at 472 reads**, recovering the 79 extra reads without
+corrupting anything. But it also **fragments a correct join**: in the shipped arm
+the 26/31 flip happens to be the right one, so refusing it splits one good block
+into three and drops the largest from 233 reads to 160. Same accuracy, worse
+contiguity, so it is not shippable as it stands and was reverted.
+
+That leaves the real remedy at site quality rather than edge policy: a site
+segregating at chance (`48,202,056`) and a slippage record
+(`48,225,786 CA>C`) should not be chain anchors at all. hiphase calls neither,
+which is why its chain has no near-even edge to get wrong.
