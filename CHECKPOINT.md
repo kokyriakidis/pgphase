@@ -8065,3 +8065,43 @@ On chr20:48,176,830-48,229,446: left flank links with shared sites 1/1 plus 14 o
 reads, and 71/298 flank reads (3 sources, flip 0). Both validate CORRECT against
 truth. Gate unchanged at tagged 1319 -> 1426, concordant 1316 -> 1423, 0 flips.
 PASS, gap CLOSED.
+
+### Phase the gap in windows and let the chunk stitch refuse: safer than one block (2026-09-16)
+
+`evaluations/2026-09-16-window-stitch/`. The pipeline already chunks: split_region
+(collect_pipeline.cpp:239) cuts non-overlapping fixed windows, chunk_beg +=
+chunk_size, default 500 kb, --chunk-size; flip_chunk_hap stitches adjacent chunks
+on the reads present in both (up_ovlp_read_i/down_ovlp_read_i) via
+select_stitch_orientation, and REFUSES when there are none (`if
+(n_cur_ovlp_reads <= 0) return false`). That refusal is the guard a bespoke gap
+link lacks.
+
+Windows alone change nothing: sweeping --chunk-size 500k/50k/20k/10k over
+chr20:48,126,830-48,279,446 in the shipped configuration phases ZERO sites inside
+the gap at every size (10 kb is worse -- the left 2-site block fragments into two
+singletons), because --recover-gaps zeroes every !graph_site category before
+phasing.
+
+With those sites admitted (drop --recover-gaps, add --keep-noisy-kmeans) the gap
+gets 77-79 phased records, and the WINDOW SIZE THEN DECIDES CORRECTNESS. Between
+the gap's two site clusters, 48,183,976 -> 48,225,786 is 41.8 kb with ZERO reads
+covering both sites (neighbours carry 41 and 51; longest read 29.9 kb). At 20 kb
+the arm emits two blocks -- 48,147,227-48,183,976 (10 sites, holding the left
+flank's own site 48,162,480) and 48,224,939-48,279,445 (50 sites, anchored right)
+-- neither crossing the hole. At 500 kb it emits one 82 kb block that crosses it
+with the two halves on OPPOSITE haplotypes (7 sites left, 6 agreeing; 2 right,
+both opposite). Read accuracy is 100.00% in both arms and cannot tell them apart,
+because no read spans the hole; only the site-level truth check sees it.
+
+RETRACTION: the gap_lab closure of chr20:48,176,830-48,229,446 (+107 concordant,
+0 flips) crossed that same hole and was LUCK. The gap arm at 5 kb read context and
+at 30 kb produce OPPOSITE genotypes at 48,225,786 and 48,229,226, and the 30 kb one
+links the right flank backwards (159 discordant, caught only by truth). The honest
+outcome is two blocks, each anchored to one flank, with 41.8 kb between them that
+no read-based method can phase.
+
+So the mechanism to build is not a new link: phase the gap in windows with the BAM
+sites admitted and let flip_chunk_hap stitch them. Both blockers are already
+measured -- recovery zeroes the BAM categories, and --keep-noisy-kmeans is
+chromosome-wide (~8k reads at ~65% error per its call site) -- so both need the
+same gap-interval scoping.
