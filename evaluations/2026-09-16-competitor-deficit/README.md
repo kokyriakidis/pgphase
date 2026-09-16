@@ -768,3 +768,95 @@ and 74.8% at 36,217,274. The discriminator has to be a property of the flank bei
 attached to, not of the read. That is the next measurement: score attachments
 against the polarity of their target block across the panel, split by whether the
 flank carries committed read support of its own.
+
+## Deficit gap 3: cannot be joined, but its interior was being thrown away
+
+`chr20:35,919,404-36,156,319`, 236.9 kb. A different failure from gap 2: every
+tier links **both** flanks (`L=1 R=1`) but to different proposal phase sets
+(`35873360` and `36156319`), and joining requires one proposal block to hold both.
+
+### Why no single block spans it
+
+The proposal fragments into four to six blocks, all internally accurate. At tier 1
+pass 0:
+
+| proposal ps | reads | span | accuracy | reaches left / right edge |
+|---|---:|---|---:|---|
+| 35873360 | 299 | 35,849,159-35,961,779 | 100.0% | 63 / 0 |
+| 36011708 | 58 | 35,998,813-36,041,729 | 100.0% | 0 / 0 |
+| 36083127 | 30 | 36,076,496-36,123,378 | 96.7% | 0 / 0 |
+| 36156319 | 114 | 36,134,775-36,194,144 | 100.0% | 0 / 71 |
+
+The interior sites cover the gap edge to edge (58 sites with >= 10 observations:
+11 clean SNPs, 2 clean indels, 36 MSA, 9 repeat), so this is not a site-discovery
+failure. One spacing breaks the chain: **35,959,001 -> 35,981,762, 22.8 kb, with
+zero reads covering both sites.** Every other large spacing carries 8-20 spanning
+reads. Coverage is not the problem either -- 65-71x throughout, 168 reads inside
+the interval -- the longest read in the region is 29.1 kb and none of them spans
+from one flanking het site to the other.
+
+So the gap genuinely cannot be closed by read linkage, and abstaining is correct.
+No read-based phaser can cross that point.
+
+### What was being lost
+
+The output kept only the two flanks and discarded every interior block:
+
+```
+ps=35873360  379 reads  35,849,159-35,958,948   97.9%
+ps=36156319  144 reads  36,131,191-36,172,639  100.0%
+```
+
+`emit_independent_gap_block` exists for exactly this case and was not firing. Its
+own diagnostic (`--verbose 2`) shows why:
+
+```
+GapIndependentBlock  locally_phased=522  has_original=134
+                     gap_only_ps_groups=5  chosen_ps=35902410  chosen_size=111
+GapIndependentBlockApplied  chosen_size=111  applied=5
+```
+
+Five gap-only groups qualify and the function takes **only the largest**. That
+choice is also the wrong one: the largest gap-only group is the flank-adjacent
+component, whose reads this same recovery round has already attached, so it
+applies 5 reads while four real interior blocks are discarded. Raising
+`--gap-independent-min-reads` does not help (default 3; at 20 the window moves by
+4 reads) because the limit was never the threshold.
+
+### Fix: emit every group that clears min_reads
+
+`min_reads` already screens the noise fragments the single-group rule was
+guarding against. On this window:
+
+| | before | after |
+|---|---:|---:|
+| tagged | 527 | 801 |
+| concordant | 518 | **788** |
+| accuracy | 98.29% | 98.38% |
+| gate concordant -> discordant | -- | **0** |
+
+Four interior blocks now emit: `35981805` 41 reads at 100.0%, `36011708` 91 at
+98.9%, `36056601` 50 at 100.0%, `36077134` 92 at 96.7%.
+
+Across the ten-window panel (`independent_blocks_panel.tsv`) it is a net gain
+rather than a trade, which is why this one is a default and the allele-attachment
+restriction is not:
+
+| | before | after |
+|---|---:|---:|
+| blocks | 21 | 26 |
+| tagged | 4,687 | 5,037 |
+| concordant | 4,576 | **4,922** |
+| discordant | 111 | 115 |
+| accuracy | 97.63% | 97.72% |
+| gate concordant -> discordant | -- | **0** |
+
+394 reads newly tagged concordant against 9 discordant. Two windows carry the
+change: this one and `13,429,829` (+49 tags, +46 concordant, one extra block).
+`61,732,321` churns -- 48 concordant tags lost against a larger gain, net +30
+concordant -- because emitting more interior blocks changes which reads its
+homopolymer-tier join claims first; no read there flips concordant to discordant.
+
+`emit_independent_gap_block` had no unit test at all; it now has one pinning both
+halves of the contract (every qualifying group emitted, groups below `min_reads`
+still screened).

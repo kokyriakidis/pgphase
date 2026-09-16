@@ -825,6 +825,78 @@ static bool test_gap_recovery_partial_extension() {
                  "one-sided evidence preserves an extension but cannot close the gap");
 }
 
+static bool test_gap_independent_emits_every_qualifying_group() {
+    // A wide gap can hold several independent internal blocks. Emitting only the
+    // largest group discards the rest, and it also picks badly: the largest
+    // gap-only group is usually the flank-adjacent component, whose reads the
+    // same recovery round has already attached. Both groups here clear
+    // min_reads, so both must be emitted.
+    std::vector<PhasingChunk> chunks(1);
+    PhasingChunk& chunk = chunks[0];
+    chunk.region.tid = 0;
+    chunk.region.beg = 1;
+    chunk.region.end = 1000;
+    for (int i = 0; i < 8; ++i) {
+        auto read = min_read();
+        read.qname = "gapread" + std::to_string(i);
+        chunk.reads.push_back(std::move(read));
+        chunk.haps.push_back(0);
+        chunk.phase_sets.push_back(-1);
+    }
+    const GapReadIndex index(chunks);
+
+    PhasingChunk proposal;
+    proposal.region.tid = 0;
+    for (int i = 0; i < 8; ++i) {
+        auto read = min_read();
+        read.qname = "gapread" + std::to_string(i);
+        proposal.reads.push_back(std::move(read));
+        proposal.haps.push_back(i % 2 + 1);
+        proposal.phase_sets.push_back(i < 5 ? 400 : 700);
+    }
+
+    PhaseGap gap{};
+    gap.tid = 0;
+    gap.left_end = 100;
+    gap.right_beg = 900;
+    gap.left_ps = 100;
+    gap.right_ps = 900;
+    gap.region_beg = 1;
+    gap.region_end = 1000;
+    Options opts;
+    hts_pos_t emitted = -1;
+    std::set<hts_pos_t> emitted_round;
+    const int applied = emit_independent_gap_block(chunks, proposal, gap, opts, index, 3,
+                                                   &emitted, &emitted_round);
+    bool ok = check(applied == 8 && emitted_round.size() == 2 &&
+                    emitted_round.count(400) == 1 && emitted_round.count(700) == 1,
+                    "every gap-only group clearing min_reads is emitted, not just the largest");
+    ok &= check(emitted == 400, "emitted_ps still reports the largest group");
+    ok &= check(chunk.phase_sets[0] == 400 && chunk.phase_sets[7] == 700 &&
+                chunk.haps[0] == 1 && chunk.haps[7] == 2,
+                "reads of both groups carry their own block and haplotype");
+
+    // A group below min_reads is still screened out.
+    std::vector<PhasingChunk> strict_chunks(1);
+    PhasingChunk& strict = strict_chunks[0];
+    strict.region = chunk.region;
+    for (int i = 0; i < 8; ++i) {
+        auto read = min_read();
+        read.qname = "gapread" + std::to_string(i);
+        strict.reads.push_back(std::move(read));
+        strict.haps.push_back(0);
+        strict.phase_sets.push_back(-1);
+    }
+    const GapReadIndex strict_index(strict_chunks);
+    hts_pos_t strict_emitted = -1;
+    std::set<hts_pos_t> strict_round;
+    const int strict_applied = emit_independent_gap_block(
+        strict_chunks, proposal, gap, opts, strict_index, 4, &strict_emitted, &strict_round);
+    ok &= check(strict_applied == 5 && strict_round.size() == 1 && strict_round.count(400) == 1,
+                "a group below min_reads is not emitted");
+    return ok;
+}
+
 static bool test_gap_allele_attach_join_only_gates_one_sided() {
     // Isolate the allele-agreement path. `extra` is unphased in the chunk AND in
     // the proposal, so the proposal-based attachment cannot claim it and only
@@ -2164,6 +2236,7 @@ int main() {
     failures += test_gap_recovery_join_preserves_blocks() ? 0 : 1;
     failures += test_gap_recovery_partial_extension() ? 0 : 1;
     failures += test_gap_allele_attach_join_only_gates_one_sided() ? 0 : 1;
+    failures += test_gap_independent_emits_every_qualifying_group() ? 0 : 1;
     failures += test_gap_msa_covers_clean_stretches() ? 0 : 1;
     failures += test_msa_unsorted_profile_indices() ? 0 : 1;
     failures += test_allele_link_orientation_and_tie() ? 0 : 1;

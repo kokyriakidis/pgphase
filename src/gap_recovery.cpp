@@ -717,16 +717,37 @@ int emit_independent_gap_block(std::vector<PhasingChunk>& chunks,
             chosen_size = members.size();
         }
     }
+    // Every qualifying group, not just the largest. A wide gap can hold several
+    // genuinely independent internal blocks, and min_reads already screens the
+    // noise fragments this used to guard against. Taking one group also picks
+    // badly: the largest gap-only group is usually the flank-adjacent component,
+    // whose reads this same recovery round has already attached, so it applies
+    // almost nothing while the real interior blocks are discarded.
+    //
+    // Measured on chr20:35,919,404-36,156,319 (236.9 kb, cannot be joined -- no
+    // read spans the 22.8 kb site spacing at 35,959,001-35,981,762): five
+    // gap-only groups exist, the largest (35902410, 111 reads) applies 5, and the
+    // interior blocks 36011708 / 36056601 / 36077134 -- 91, 50 and 94 reads at
+    // 100.0%, 100.0% and 96.8% against read truth -- were dropped entirely.
+    std::vector<hts_pos_t> emit_order;
+    for (const auto& [ps, members] : candidates_by_ps)
+        if (static_cast<int>(members.size()) >= min_reads) emit_order.push_back(ps);
+    std::sort(emit_order.begin(), emit_order.end(),
+              [&](hts_pos_t a, hts_pos_t b) {
+                  return candidates_by_ps.at(a).size() > candidates_by_ps.at(b).size();
+              });
     if (opts.verbose >= 2) {
         std::cerr << "GapIndependentBlock\t" << gap.left_end << '\t' << gap.right_beg
                   << "\tlocally_phased=" << locally_phased << "\thas_original=" << has_original
                   << "\tgap_only_ps_groups=" << candidates_by_ps.size()
                   << "\tchosen_ps=" << chosen_ps << "\tchosen_size=" << chosen_size << '\n';
     }
-    if (chosen_ps < 0 || static_cast<int>(chosen_size) < min_reads) return 0;
+    if (chosen_ps < 0 || emit_order.empty()) return 0;
     if (emitted_ps != nullptr) *emitted_ps = chosen_ps;
-    if (emitted_this_round != nullptr) emitted_this_round->insert(chosen_ps);
+    if (emitted_this_round != nullptr)
+        for (const hts_pos_t ps : emit_order) emitted_this_round->insert(ps);
 
+    const std::set<hts_pos_t> emit_set(emit_order.begin(), emit_order.end());
     std::map<ReadKey, size_t> proposal_reads;
     std::map<ReadKey, size_t> observation_reads;
     for (size_t pi = 0; pi < proposal.reads.size(); ++pi) {
@@ -734,7 +755,7 @@ int emit_independent_gap_block(std::vector<PhasingChunk>& chunks,
         if (read.is_skipped) continue;
         const ReadKey key{read.input_index, read.qname};
         observation_reads.emplace(key, pi);
-        if (proposal.haps[pi] != 0 && proposal.phase_sets[pi] == chosen_ps)
+        if (proposal.haps[pi] != 0 && emit_set.count(proposal.phase_sets[pi]))
             proposal_reads.emplace(key, pi);
     }
 

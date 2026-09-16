@@ -7772,3 +7772,39 @@ attachments are 98.1% correct at 7,073,919 and 74.8% at 36,217,274 -- so the
 discriminator must be a property of the target flank, not the read. Next: score
 attachments against their target block's polarity across the panel, split by
 whether the flank carries committed read support.
+
+### Deficit gap 3: a real linkage break, and four interior blocks we were discarding (2026-09-16)
+
+`chr20:35,919,404-36,156,319` (236.9 kb) fails differently from gap 2: every tier
+links both flanks but to different proposal phase sets, and the join needs one
+proposal block holding both. The proposal fragments into four to six internally
+accurate blocks (96.7-100.0% against read truth), one reaching the left edge with
+63 reads and one the right with 71.
+
+The cause is a genuine linkage break, not site discovery: 58 interior sites cover
+the gap edge to edge, but the spacing 35,959,001 -> 35,981,762 (22.8 kb) has ZERO
+reads covering both sites, while every other large spacing has 8-20. Coverage is
+65-71x with 168 reads inside the interval; the longest read there is 29.1 kb. No
+read-based phaser can cross that point, so abstaining is correct.
+
+What was wrong is what happened to the interior. The output kept only the two
+flanks and dropped every interior block. `emit_independent_gap_block` exists for
+this and its own --verbose 2 line explains itself: `gap_only_ps_groups=5
+chosen_ps=35902410 chosen_size=111` then `applied=5`. It takes only the largest
+gap-only group, and that group is the flank-adjacent component whose reads this
+same round already attached -- so it applies 5 reads and discards four real
+interior blocks. `--gap-independent-min-reads` was never the limit (default 3; at
+20 the window moves by 4 reads).
+
+Fixed by emitting every group that clears min_reads, which already screens noise
+fragments. This window: 527 -> 801 tagged, 518 -> 788 concordant, 98.29% ->
+98.38%, gate concordant->discordant 0, four new interior blocks (41/91/50/92 reads
+at 100.0/98.9/100.0/96.7%). Ten-window panel: blocks 21 -> 26, tagged 4,687 ->
+5,037, concordant 4,576 -> 4,922, discordant 111 -> 115, 97.63% -> 97.72%, gate 0,
+394 newly tagged concordant against 9 discordant. A net gain rather than a trade,
+so this one ships as a default. 61,732,321 churns (48 concordant tags lost against
+a larger gain, net +30) because more interior blocks change which reads its
+homopolymer join claims first; nothing there flips concordant to discordant.
+
+emit_independent_gap_block had no unit test; it now has one pinning both halves of
+the contract.
