@@ -7851,3 +7851,44 @@ Also settled: chr20:13,429,829-13,631,825 (202 kb) is a correct abstention for
 everyone -- no competitor spans it, 8 clean het SNPs in 202 kb at 75x -- and its
 proposal blocks cannot be chained (adjacent pairs share 0-12 reads observing
 consensus sites in both; the one pair with 12 votes splits 6/6).
+
+### The pgbam within-chunk stitcher exists, and is unusable on this input (2026-09-16)
+
+Answering whether the current machinery can make multiple blocks and stitch them.
+`evaluations/2026-09-16-pgbam-stitch/`.
+
+`stitch_chunk_haps` (collect_phase.cpp:1658) is four stages: per-chunk
+`stitch_phase_blocks_with_pgbam` (merges blocks WITHIN a chunk), the adjacent-chunk
+read vote `flip_chunk_hap`, `stitch_adjacent_chunks_with_pgbam` rescuing seams the
+read vote could not decide, then two more within-chunk pgbam passes at cleanup and
+relaxed thresholds (both default ON). Stages 1, 3 and 4 are gated on
+`--pgbam-file`, which no run in this investigation passed -- while the sidecar for
+this exact BAM sat in test_data/ the whole time.
+
+It links on GBWT haplotype threads: decide_phase_block_concordance intersects the
+thread sets polarized to each hap and merges when one orientation wins by
+min_winning_threads. That is the right SHAPE of evidence -- a thread crosses a
+27 kb read-linkage break that no read can -- but measured on whole chr20 it is not
+usable: at defaults it merges the chromosome into ONE read block at 47.511% read
+Hamming (chance) against 0.878% for the committed no-pgbam arm. Tightening trades
+merging for accuracy monotonically and never nears baseline: primary pass only at
+win/margin 2 -> 46.853% (5 blocks), 5 -> 41.087% (11), 20 -> 24.050% (92). The
+sidecar parses (magic and version correct) but predates the current pipeline, so a
+stale sidecar is not excluded. It also explains a 51 s runtime versus 10.5 min:
+with everything merged there are no gaps and recovery does nothing (1,313 tier
+rows -> 1).
+
+The gap this leaves is precise: select_stitch_orientation, the project's read-vote
+standard, is called in exactly three places -- the adjacent-chunk seam and the two
+gap-recovery link votes. THERE IS NO READ-VOTE STITCH BETWEEN TWO BLOCKS INSIDE A
+CHUNK. Chunks are 500 kb and the deficit gaps are 3-72 kb, so they are within-chunk
+essentially always, and the read stitch never applies to them. That is why recovery
+has its own flank-linking and why it is all-or-nothing. Re-prototype the pairwise
+block vote on the MAIN solve's blocks (consensus from hundreds of reads, not the
+proposal's dozens) before writing C++; the proposal-level prototype found seams of
+0-12 shared reads with one 12-read pair splitting 6/6.
+
+Changed: the hybrid subcommand exposed --pgbam-file but none of the eight pgbam
+threshold options collect-bam-variation has, so the path could only run at the
+47.5%-error defaults. All eight are now exposed in collect-hybrid-variation.
+Defaults unchanged.

@@ -51,6 +51,14 @@ static void print_hybrid_help() {
         << "      --phased-vcf-out FILE     Phased VCF (GT:DP:AD:VAF:GQ:PS)\n"
         << "  -b, --out-bam FILE            Phased BAM output\n"
         << "      --pgbam-file FILE         Optional .pgbam sidecar for stitching\n"
+        << "      --pgbam-primary-margin INT  pgbam primary polarity margin [2]\n"
+        << "      --pgbam-primary-min-winning INT  pgbam primary min winning threads [2]\n"
+        << "      --no-pgbam-cleanup-pass   Disable the pgbam cleanup stitch pass\n"
+        << "      --pgbam-cleanup-margin INT  pgbam cleanup polarity margin [2]\n"
+        << "      --pgbam-cleanup-min-winning INT  pgbam cleanup min winning threads [1]\n"
+        << "      --no-pgbam-relaxed-cleanup-pass  Disable the relaxed pgbam cleanup pass\n"
+        << "      --pgbam-relaxed-cleanup-margin INT  relaxed cleanup margin [1]\n"
+        << "      --pgbam-relaxed-cleanup-min-winning INT  relaxed cleanup min winning threads [1]\n" 
         << "      --stitch-min-margin INT   Min flip-vote margin to merge blocks [10]\n"
         << "      --stitch-rule INT         Stitch rule: 0=net-margin 1=both-strands 2=literal 3=both+margin [1]\n"
         << "      --graph-indel-af-margin F Max |AF-0.5| for graph het-indel anchor [0.11]\n"
@@ -131,6 +139,14 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kOntOption,
         kPhasedVcfOutputOption,
         kPgbamFileOption,
+        kPgbamPrimaryMarginOption,
+        kPgbamPrimaryMinWinningOption,
+        kNoPgbamCleanupPassOption,
+        kPgbamCleanupMarginOption,
+        kPgbamCleanupMinWinningOption,
+        kNoPgbamRelaxedCleanupPassOption,
+        kPgbamRelaxedCleanupMarginOption,
+        kPgbamRelaxedCleanupMinWinningOption,
         kAutosomeOption,
         kRegionFileOption,
         kNoisyMaxXgapsOption,
@@ -194,6 +210,14 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"phased-vcf-out",  required_argument, nullptr, kPhasedVcfOutputOption},
         {"out-bam",         required_argument, nullptr, 'b'},
         {"pgbam-file",      required_argument, nullptr, kPgbamFileOption},
+        {"pgbam-primary-margin",      required_argument, nullptr, kPgbamPrimaryMarginOption},
+        {"pgbam-primary-min-winning", required_argument, nullptr, kPgbamPrimaryMinWinningOption},
+        {"no-pgbam-cleanup-pass",     no_argument,       nullptr, kNoPgbamCleanupPassOption},
+        {"pgbam-cleanup-margin",      required_argument, nullptr, kPgbamCleanupMarginOption},
+        {"pgbam-cleanup-min-winning", required_argument, nullptr, kPgbamCleanupMinWinningOption},
+        {"no-pgbam-relaxed-cleanup-pass", no_argument,   nullptr, kNoPgbamRelaxedCleanupPassOption},
+        {"pgbam-relaxed-cleanup-margin", required_argument, nullptr, kPgbamRelaxedCleanupMarginOption},
+        {"pgbam-relaxed-cleanup-min-winning", required_argument, nullptr, kPgbamRelaxedCleanupMinWinningOption},
         {"noisy-max-xgaps", required_argument, nullptr, kNoisyMaxXgapsOption},
         {"stitch-min-margin", required_argument, nullptr, kStitchMinMarginOption},
         {"stitch-rule", required_argument, nullptr, kStitchRuleOption},
@@ -267,6 +291,21 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
                 opts.output_aln_format = OutputAlignmentFormat::Bam;
                 break;
             case kPgbamFileOption:    opts.pgbam_file = optarg; break;
+            case kPgbamPrimaryMarginOption:
+                opts.pgbam_primary_polarity_margin = std::atoi(optarg); break;
+            case kPgbamPrimaryMinWinningOption:
+                opts.pgbam_primary_min_winning_threads = std::atoi(optarg); break;
+            case kNoPgbamCleanupPassOption: opts.pgbam_cleanup_pass = false; break;
+            case kPgbamCleanupMarginOption:
+                opts.pgbam_cleanup_polarity_margin = std::atoi(optarg); break;
+            case kPgbamCleanupMinWinningOption:
+                opts.pgbam_cleanup_min_winning_threads = std::atoi(optarg); break;
+            case kNoPgbamRelaxedCleanupPassOption:
+                opts.pgbam_relaxed_cleanup_pass = false; break;
+            case kPgbamRelaxedCleanupMarginOption:
+                opts.pgbam_relaxed_cleanup_polarity_margin = std::atoi(optarg); break;
+            case kPgbamRelaxedCleanupMinWinningOption:
+                opts.pgbam_relaxed_cleanup_min_winning_threads = std::atoi(optarg); break;
             case kNoisyMaxXgapsOption: opts.noisy_reg_max_xgaps = std::atoi(optarg); break;
             case kStitchMinMarginOption: opts.stitch_min_margin = std::atoi(optarg); break;
             case kStitchRuleOption: opts.stitch_rule = std::atoi(optarg); break;
