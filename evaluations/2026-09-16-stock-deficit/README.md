@@ -6,15 +6,26 @@ flags, whole chr20.
 
 | | gaps | span |
 |---|---:|---:|
-| our gaps | 963 | -- |
-| a competitor spans it | 744 (hiphase), 685 (longphase), 327 (whatshap) | -- |
+| our gaps | 963 | 5.15 Mb |
+| a competitor spans it | 948 (hiphase), 934 (whatshap), 840 (longphase) | -- |
+| that competitor is **>= 98%** accurate there | 216 (hiphase), 218 (longphase), 193 (whatshap) | 2.94 / 1.40 / 2.22 Mb |
+| that competitor is **below 90%** there | 663 (hiphase), 666 (whatshap), 556 (longphase) | 1.10 / 1.16 / 0.79 Mb |
 | **a competitor spans it at >= 99% over >= 100 scored reads** | **104** | **2.62 Mb** |
+
+**Correction.** An earlier version of this table reported 744 / 685 / 327 spans
+and 459 hiphase gaps below 90%, and ranked longphase above whatshap. Recounted
+directly from `deficit_scored.tsv`, the spans are 948 / 934 / 840 -- whatshap
+spans more gaps than longphase, reversing that ranking -- and 663 of hiphase's
+948 spans are below 90%. The 963-gap total and the 104-window / 2.62 Mb
+qualifying set were correct.
 
 `find_current_deficit.py` and `score_deficit.py` (from the sibling directory) do
 the derivation and score every competitor span against the diplinator read truth,
-so a window only qualifies when the competitor is demonstrably right. Several
-competitor spans are worse than chance -- hiphase is under 90% in 459 of the
-gaps it spans -- and those are not opportunities.
+so a window only qualifies when the competitor is demonstrably right. Most
+competitor spans are not opportunities: hiphase is under 90% on **663 of the 948**
+gaps it spans, and several are worse than chance. Note that the summary
+`score_deficit.py` prints to stdout disagrees with the table it writes; the table
+is authoritative and every count here is recomputed from it.
 
 ## Target: chr20:55,843,827-55,889,113
 
@@ -68,7 +79,8 @@ Chromosome-wide the trade is bad:
 +6,669 reads for roughly five times the error. The cause is the admission gate,
 and this window measures it for the first time. Every one of the eight interior
 sites the retry admits carries `msa_verified = 1` (category `0x100`), yet scored
-against read truth:
+against read truth (an earlier version of this section miscounted the column
+below as two informative and four phantoms):
 
 | site | msa_verified | homopolymer | segregation |
 |---|---:|---:|---:|
@@ -81,8 +93,8 @@ against read truth:
 | 55,883,019 `AATAT>A` (two records) | 1 | 0 | **0.507** |
 | 55,883,023 `TAT>T` | 1 | 0 | **0.507** |
 
-Two of eight are informative and four are phantoms. So `msa_verified` passes
-phantoms as readily as real sites, and neither allele fraction nor the
+**One** of the eight reaches 0.90 and **five** fall below 0.70, with two in
+between. So `msa_verified` passes phantoms as readily as real sites, and neither allele fraction nor the
 homopolymer flag separates them -- `55,862,239` and `55,862,269` share
 AF 0.483 and segregate 0.689 and 1.000.
 
