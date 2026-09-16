@@ -32,13 +32,32 @@ Stages:
 `--reuse` skips arms whose outputs exist, so iterating on the stitch costs
 seconds rather than a pipeline run.
 
-## Three things it found in its first run, all of which were wrong in my hand analyses
+## Correction: the first version did not run the machinery in the gap
 
-**A flank can hold sites and no reads.** The block nearest the gap on the left,
-`48162480`, has 2 sites and **zero tagged reads** -- the read-tagging margin drops
-reads that observe too few of its sites. Nothing can link to it by read identity,
-so flanks are now chosen by read support and read-less blocks are reported as
-skipped.
+The first version ran the phasing machinery over the gap plus a 150 kb flank and
+took its flanks from that same re-run. Both are wrong, and they were my errors:
+
+- **The machinery must run on the gap interval.** Over gap+150 kb its blocks are
+  window-wide and inherit the window's own breaks -- the block it produced spanned
+  48,147,227-48,229,226, which is not the gap's phasing at all. The gap arm now
+  runs on the gap plus `--gap-margin` (5 kb) of read context, so its blocks are
+  gap-local, the same shape as a recovery proposal.
+- **The flanks are the frozen chromosome-wide blocks.** Re-solving them in a
+  window can move the very boundaries under test. `--baseline-vcf` /
+  `--baseline-bam` now take the real pipeline run's outputs and the windowed
+  re-run is only a fallback.
+
+Fixing those exposed two more, and the gap closed once all four were fixed.
+
+## Four mechanisms it found, each of which had silently broken a hand analysis
+
+**A flank can hold sites and no reads -- and it is still the flank.** The block
+nearest this gap on the left, `48162480`, holds 2 sites and **zero tagged reads**:
+the read-tagging margin drops reads that observe too few of its sites. Choosing
+flanks by read support instead picked a block 80 kb further out, across a stretch
+holding no phased sites at all, and then reported no link. Flanks are now the
+blocks holding the phased sites nearest the gap, and a read-less flank is linked
+through its own genotypes rather than its tags.
 
 **Two blocks that split at the same position share no tagged reads.** A read
 carries at most one phase set, so tag-identity voting returns n=0 between blocks
@@ -52,30 +71,37 @@ span every selected site, which reaches tens of kb back into each block while th
 seam here is 220 bp wide; it reported zero crossing reads. The test is now the
 seam point plus a margin, with a minimum number of site observations per side.
 
-## Result on chr20:48,176,830-48,229,446 (52.6 kb)
+**A read-less flank is invisible to the read-level gate.** Every read in the
+merged block comes from the other side and keeps its own relative labelling, so a
+wrong orientation across that link cannot flip anything and the gate passes
+regardless. The applied links are therefore validated separately: each side's
+genotypes are read off the alignment, compared with the read truth, and the
+applied flip is checked against the two sides' truth haplotypes. `--pass`
+requires that check as well as a clean gate.
+
+## Result on chr20:48,176,830-48,229,446 (52.6 kb): CLOSED
 
 The deficit gap hiphase spans at 100.0% over 252 reads.
 
 | stage | result |
 |---|---|
-| baseline | 3 blocks, 893 tagged reads; does not span the gap |
-| flanks (read-supported) | left `48043584` (28 sites), right `48229446` (182 sites); `48162480` skipped, 0 reads |
-| BAM evidence in interval | 11 het sites, **11 phased by the BAM channel**, 7 informative against truth |
-| compose | `48147227` + `48229446`: 42 allele voters, votes **[15, 0, 0, 27]** -- unanimous, 58 reads cross the seam -> composed, flip 0 |
-| link | composed frame (231 sites, 48,147,227-48,377,087, 820 reads) links the **right** flank at n=661, votes [318, 0, 0, 343]; **no link to the left flank** (n=0) |
-| gate | tagged 893 -> 1052, concordant 892 -> **1051**, accuracy 99.89% -> 99.90%, **0** concordant->discordant, **159 newly tagged, all concordant**, 0 lost |
-| verdict | **PASS** -- not closed, right flank extended, +159 concordant reads |
+| gauge | the whole-chr20 pipeline run: 238 blocks, 1,319 tagged reads in the gauge window |
+| flanks | left `48162480` (nearest phased site 48,162,480; **2 sites, 0 tagged reads**), right `48229446` (916 sites, 859 reads) |
+| gap arm | machinery on `48,171,830-48,234,446` -> 2 gap-local blocks: `48173317` (11 sites) and `48229446` (5 sites) |
+| evidence | 11 het sites in the interval, **11 phased by the gap arm**, 7 informative against truth |
+| compose | 42 allele voters, votes **[15, 0, 0, 27]** -- unanimous, 58 reads cross the seam -> flip 0 |
+| link left | **alleles**, 14 voters, **[9, 0, 0, 5]** -- unanimous, 66 reads cross -> flip 0 |
+| link right | **tags**, 71 voters, **[28, 0, 0, 43]** -- unanimous -> flip 0 |
+| link validation | frame hap1 carries PATERNAL over 14 sites; left flank hap1 PATERNAL over 2 sites (**CORRECT**), right flank hap1 PATERNAL over 81 sites (**CORRECT**) |
+| gate | tagged 1,319 -> 1,426, concordant 1,316 -> **1,423**, accuracy 99.77% -> 99.79%, **0** concordant->discordant, **107 newly tagged, all concordant**, 0 lost |
+| verdict | **PASS -- gap CLOSED, both links validated, +107 concordant reads** |
 
-So the gap does not close, and for a reason already established: the left side
-carries two hard linkage breaks (`48,096,582->48,123,657`, 27.1 kb, and
-`48,123,657->48,147,230`, 23.6 kb) with zero reads covering the flanking sites at
-72x coverage. No read-based method crosses those.
-
-But the composed frame covers the whole competitor-spanned interval and adds
-**159 correctly phased reads with no read flipped**, which the shipped pipeline
-leaves unphased. The two operations that produced it are exactly the two the
-pipeline has no mechanism for: an allele-level block-to-block vote, and a
-one-sided extension of a flank by a composed frame.
+The earlier conclusion that this gap cannot be closed was an artifact of the
+first version's window: the two hard linkage breaks
+(`48,096,582->48,123,657` and `48,123,657->48,147,230`, zero spanning reads at
+72x) lie **outside** the gap, and only became obstacles because the 150 kb window
+pulled the left flank to the far side of them. The gap's own interval is
+bridgeable, and closing it needs nothing the evidence does not already contain.
 
 ## What to use it for
 

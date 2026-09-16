@@ -7973,3 +7973,42 @@ of a flank by a composed frame. The stitch runs outside the pipeline, so this is
 measurement rig rather than a fix -- it states what a scoped change must
 reproduce, and its verdict is that change's regression test. Next: run it across
 the 31-gap accurate-deficit list to size the recoverable coverage before any C++.
+
+### gap_lab.py corrected: the gap arm must run IN the gap, and the gap closes (2026-09-16)
+
+The first version of the rig ran the machinery over gap+150 kb and took its flanks
+from that same re-run. Both wrong: over a wide window the gap arm's blocks are
+window-wide and inherit the window's breaks (the block it produced spanned
+48,147,227-48,229,226, not the gap), and re-solving the flanks in a window can move
+the boundaries under test. The gap arm now runs on gap + --gap-margin (5 kb) of read
+context, and --baseline-vcf/--baseline-bam take the real pipeline run's outputs.
+
+That exposed two further mechanisms. FLANK SELECTION BY READ SUPPORT IS WRONG: the
+block holding the nearest phased site left of this gap (48162480) has 2 sites and
+ZERO tagged reads, so picking by read support jumped 80 kb further out across a
+stretch with no phased sites and then reported no link. Flanks are now the blocks
+holding the phased sites nearest the gap, and a read-less flank is linked through
+its GENOTYPES: the allele-level bridge vote, previously used only for gap-block
+composition, now also links frames to flanks. And A READ-LESS FLANK IS INVISIBLE TO
+THE READ GATE -- every read in the merged block comes from the other side and keeps
+its relative labelling, so a wrong orientation there flips nothing. Applied links
+are now validated separately against truth (each side's genotypes read off the
+alignment, the applied flip checked against the two sides' truth haplotypes), and
+PASS requires it.
+
+RESULT on chr20:48,176,830-48,229,446 (52.6 kb, hiphase spans at 100.0%): CLOSED.
+Gap arm yields 2 gap-local blocks (48173317, 11 sites; 48229446, 5 sites) and phases
+11/11 in-gap het sites. Compose: 42 allele voters [15,0,0,27] unanimous. Left flank
+link: ALLELES, 14 voters [9,0,0,5] unanimous. Right flank: TAGS, 71 voters
+[28,0,0,43] unanimous. Link validation: frame hap1 = PATERNAL over 14 sites, left
+flank PATERNAL over 2 sites CORRECT, right flank PATERNAL over 81 sites CORRECT.
+Gate: tagged 1319 -> 1426, concordant 1316 -> 1423, 0 concordant->discordant, 107
+newly tagged ALL concordant. PASS.
+
+So the earlier "this gap cannot be closed" was an artifact of my window: the two
+hard linkage breaks (48,096,582->48,123,657 and 48,123,657->48,147,230, zero
+spanning reads at 72x) lie OUTSIDE the gap and only became obstacles because the
+150 kb window pulled the left flank to the far side of them. Closing this gap needs
+nothing the evidence does not already contain -- what the pipeline lacks is the
+allele-level block-to-block link (tags cannot orient blocks that split at the same
+position, and a read-less flank has no tags at all).

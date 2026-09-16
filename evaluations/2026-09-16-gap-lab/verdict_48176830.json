@@ -5,10 +5,10 @@
       48229446
     ],
     "gap_bp": 52616,
-    "region": "CHM13#0#chr20:48026830-48379446",
-    "baseline_blocks": 3,
-    "gap_blocks": 3,
-    "left_flank_ps": "48043584",
+    "region": "CHM13#0#chr20:48126830-48279446",
+    "baseline_blocks": 238,
+    "gap_blocks": 2,
+    "left_flank_ps": "48162480",
     "right_flank_ps": "48229446",
     "baseline_spans_gap": false,
     "gap_het_sites": 11,
@@ -16,7 +16,7 @@
     "gap_het_informative": 7,
     "compositions": [
       {
-        "a": "48147227",
+        "a": "48173317",
         "b": "48229446",
         "votes": [
           15,
@@ -32,53 +32,77 @@
     "links": [
       {
         "frame": [
-          "48147227",
+          "48173317",
           "48229446"
         ],
         "span": [
-          48147227,
-          48377087
+          48173317,
+          48234100
         ],
-        "sites": 231,
-        "reads": 820,
+        "sites": 16,
+        "reads": 178,
         "left": {
           "votes": [
+            9,
             0,
             0,
-            0,
-            0
+            5
           ],
-          "shared": 0,
-          "flip": null
+          "shared": 14,
+          "flip": false,
+          "source": "alleles (66 reads cross the seam)"
         },
         "right": {
           "votes": [
-            318,
+            28,
             0,
             0,
-            343
+            43
           ],
-          "shared": 661,
-          "flip": false
+          "shared": 71,
+          "flip": false,
+          "source": "tags"
         }
       }
     ],
-    "closed": false,
-    "extended_side": "right",
-    "extending_frame": [
-      "48147227",
+    "closed": true,
+    "closing_frame": [
+      "48173317",
       "48229446"
     ],
+    "link_validation": [
+      {
+        "side": "left",
+        "flank": "48162480",
+        "flip": false,
+        "flank_hap1": "PATERNAL",
+        "flank_sites": 2,
+        "frame_hap1": "PATERNAL",
+        "frame_sites": 14,
+        "correct": true
+      },
+      {
+        "side": "right",
+        "flank": "48229446",
+        "flip": false,
+        "flank_hap1": "PATERNAL",
+        "flank_sites": 81,
+        "frame_hap1": "PATERNAL",
+        "frame_sites": 14,
+        "correct": true
+      }
+    ],
+    "links_correct": true,
     "gate": {
-      "tagged_before": 893,
-      "tagged_after": 1052,
-      "scored_before": 893,
-      "scored_after": 1052,
-      "concordant_before": 892,
-      "concordant_after": 1051,
+      "tagged_before": 1319,
+      "tagged_after": 1426,
+      "scored_before": 1319,
+      "scored_after": 1426,
+      "concordant_before": 1316,
+      "concordant_after": 1423,
       "conc_to_disc": 0,
       "disc_to_conc": 0,
-      "newly_concordant": 159,
+      "newly_concordant": 107,
       "newly_discordant": 0,
       "lost_concordant": 0
     },
@@ -89,7 +113,7 @@
       "pos": 48176831,
       "type": "DEL",
       "category": "CLEAN_HET_INDEL",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.9859154929577465,
       "scored": 71
     },
@@ -97,7 +121,7 @@
       "pos": 48177726,
       "type": "INS",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": null,
       "scored": 0
     },
@@ -105,7 +129,7 @@
       "pos": 48177781,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.5135135135135135,
       "scored": 74
     },
@@ -113,7 +137,7 @@
       "pos": 48177781,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.9459459459459459,
       "scored": 74
     },
@@ -121,7 +145,7 @@
       "pos": 48183977,
       "type": "DEL",
       "category": "CLEAN_HET_INDEL",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 1.0,
       "scored": 74
     },
@@ -129,7 +153,7 @@
       "pos": 48202057,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.5072463768115942,
       "scored": 69
     },
@@ -137,7 +161,7 @@
       "pos": 48204384,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.9577464788732394,
       "scored": 71
     },
@@ -145,7 +169,7 @@
       "pos": 48225787,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.7333333333333333,
       "scored": 75
     },
@@ -153,7 +177,7 @@
       "pos": 48225787,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 1.0,
       "scored": 74
     },
@@ -161,7 +185,7 @@
       "pos": 48229227,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48147227",
+      "phase_set": "48173317",
       "segregation": 0.9333333333333333,
       "scored": 60
     },

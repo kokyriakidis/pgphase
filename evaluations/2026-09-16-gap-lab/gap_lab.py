@@ -70,9 +70,17 @@ def vcf_phase_sets(path):
     return out
 
 
-def bam_tags(path):
-    """qname -> (hap, ps). Only reads the aligner placed and the pipeline tagged."""
-    p = subprocess.run(['samtools', 'view', str(path)], capture_output=True, text=True)
+def bam_tags(path, region=None):
+    """qname -> (hap, ps). Only reads the aligner placed and the pipeline tagged.
+
+    A chromosome-wide phased BAM is read by region when an index exists: the
+    gauge that matters is the blocks around this gap, and the gate is scored over
+    the same read population.
+    """
+    cmd = ['samtools', 'view', str(path)]
+    if region and Path(str(path) + '.bai').exists():
+        cmd.append(region)
+    p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         raise SystemExit(f'samtools view failed on {path}')
     out = {}
@@ -301,7 +309,8 @@ def read_allele(read, pos, ref, alt, flank):
     return None
 
 
-def bridge_vote(sites, reads, left_ps, right_ps, seam_window, n_sites, min_obs, site_flank):
+def bridge_vote(left_sites, right_sites, reads, seam_window, n_sites, min_obs,
+                site_flank):
     """Orient two blocks using reads that cross the seam, from ALLELES not PS tags.
 
     A read is tagged with at most one phase set, so two blocks that split at the
@@ -311,8 +320,8 @@ def bridge_vote(sites, reads, left_ps, right_ps, seam_window, n_sites, min_obs, 
     both blocks, and each block's own phased genotypes say which haplotype each
     allele belongs to. That is the vote this builds.
     """
-    left = sorted((pos for pos, v in sites.items() if v[3] == left_ps))[-n_sites:]
-    right = sorted((pos for pos, v in sites.items() if v[3] == right_ps))[:n_sites]
+    left = sorted(left_sites)[-n_sites:]
+    right = sorted(right_sites)[:n_sites]
     if not left or not right:
         return None
     # A bridge read has to cross the SEAM -- the point between the blocks -- and
@@ -322,10 +331,10 @@ def bridge_vote(sites, reads, left_ps, right_ps, seam_window, n_sites, min_obs, 
     # of this vote reported zero crossing reads for exactly that reason.
     seam = (max(left) + min(right)) // 2
 
-    def hap_of(read, positions):
+    def hap_of(read, positions, table):
         tab = collections.Counter()
         for pos in positions:
-            ref, alt, gt, _ = sites[pos]
+            ref, alt, gt, _ = table[pos]
             al = read_allele(read, pos, ref, alt, site_flank)
             if al is None:
                 continue
@@ -348,7 +357,8 @@ def bridge_vote(sites, reads, left_ps, right_ps, seam_window, n_sites, min_obs, 
         if read[0] > seam - seam_window or ref_end(read) < seam + seam_window:
             continue
         crossing += 1
-        ha, hb = hap_of(read, left), hap_of(read, right)
+        ha = hap_of(read, left, left_sites)
+        hb = hap_of(read, right, right_sites)
         if ha is None or hb is None:
             continue
         t[(ha - 1) * 2 + (hb - 1)] += 1
@@ -356,14 +366,71 @@ def bridge_vote(sites, reads, left_ps, right_ps, seam_window, n_sites, min_obs, 
                 left_sites=left, right_sites=right)
 
 
+
+def site_orientation(positions, table, reads, truth, site_flank, min_obs=10):
+    """Which truth haplotype does hap1 carry at these sites, per the genotypes?
+
+    A flank with no tagged reads contributes nothing to the read-level gate, so a
+    wrong orientation on that side is invisible to it: every read in the merged
+    block comes from the other side and keeps its own relative labelling. The
+    genotypes are still checkable -- each site's alleles can be read off the
+    alignment and compared with the read truth -- so the LINK is validated here
+    even when the flank's block cannot be.
+    """
+    votes_ = collections.Counter()
+    used = 0
+    for pos in positions:
+        ref, alt, gt, _ = table[pos]
+        tab = collections.Counter()
+        for q, read in reads.items():
+            if q not in truth:
+                continue
+            al = read_allele(read, pos, ref, alt, site_flank)
+            if al is None:
+                continue
+            first = gt.split('|')[0]
+            hap = 1 if (first == str(al)) else 2
+            tab[(hap, truth[q])] += 1
+        n = sum(tab.values())
+        if n < min_obs:
+            continue
+        mat = tab[(1, 'MATERNAL')] + tab[(2, 'PATERNAL')]
+        pat = tab[(1, 'PATERNAL')] + tab[(2, 'MATERNAL')]
+        if mat == pat:
+            continue
+        used += 1
+        votes_['MATERNAL' if mat > pat else 'PATERNAL'] += 1
+    if not used:
+        return None, 0, votes_
+    winner = 'MATERNAL' if votes_['MATERNAL'] >= votes_['PATERNAL'] else 'PATERNAL'
+    return winner, used, votes_
+
+
 p = argparse.ArgumentParser(description=__doc__,
                             formatter_class=argparse.RawDescriptionHelpFormatter)
 p.add_argument('--gap-left', type=int, required=True)
 p.add_argument('--gap-right', type=int, required=True)
-p.add_argument('--flank', type=int, default=50000)
+p.add_argument('--flank', type=int, default=50000,
+               help='window for the BASELINE arm when no --baseline-vcf is given')
+p.add_argument('--baseline-vcf', type=Path,
+               help='phased VCF from the real pipeline run. The flanks a gap is '
+                    'stitched to are the frozen chromosome-wide blocks, not blocks '
+                    'from a windowed re-run: re-running over gap+flank re-solves '
+                    'the flanks and can move the very boundaries under test.')
+p.add_argument('--baseline-bam', type=Path,
+               help='phased BAM from the same run (read tags define the gauge)')
+p.add_argument('--gauge-window', type=int, default=200000,
+               help='bp each side of the gap read from the baseline BAM for the gauge')
+p.add_argument('--gap-margin', type=int, default=5000,
+               help='read context around the gap for the GAP arm. The machinery '
+                    'must run on the gap interval so its blocks are gap-local; '
+                    'running it over gap+50kb inherits the window\'s own breaks '
+                    'and produces blocks that are not the gap\'s phasing at all.')
 p.add_argument('--threads', type=int, default=8)
 p.add_argument('--min-mapq', type=int, default=1)
 p.add_argument('--stitch-margin', type=int, default=2)
+p.add_argument('--seam-read-window', type=int, default=60000,
+               help='bp each side of the gap from which bridge reads are loaded')
 p.add_argument('--seam-window', type=int, default=2000,
                help='bp a bridge read must extend past the outermost seam site')
 p.add_argument('--seam-sites', type=int, default=8,
@@ -389,33 +456,47 @@ truth = {}
 if a.truth_map:
     truth = dict(line.rstrip('\n').split('\t') for line in a.truth_map.open())
 
-# ---- 1. BASELINE: the pipeline as shipped.
+# ---- 1. BASELINE: the frozen gauge. Prefer the real pipeline run's outputs;
+# only fall back to a windowed re-run when none is supplied.
 base = a.work / 'baseline'
 base.mkdir(exist_ok=True)
-if not (a.reuse and (base / 'native.vcf').exists()):
-    run(['./pgphase', 'collect-hybrid-variation', '--ref', REF, '--bam', BAM,
-         '--graph-sites', SITES, '--gaf', GAF, '-r', region,
-         '-t', str(a.threads), '-q', str(a.min_mapq),
-         '--link-by-alleles', '--block-link-window', '8', '--min-read-margin', '2',
-         '--recover-gaps', '--gap-recovery-report', str(base / 'tiers.tsv'),
-         '-o', str(base / 'candidates.tsv'),
-         '--phased-vcf-out', str(base / 'native.vcf'),
-         '-b', str(base / 'phased.bam')], base / 'run.log')
+if a.baseline_vcf and a.baseline_bam:
+    base_vcf, base_bam = a.baseline_vcf, a.baseline_bam
+    baseline_source = f'pipeline run ({base_vcf})'
+else:
+    base_vcf, base_bam = base / 'native.vcf', base / 'phased.bam'
+    baseline_source = f'windowed re-run ({region})'
+    if not (a.reuse and base_vcf.exists()):
+        run(['./pgphase', 'collect-hybrid-variation', '--ref', REF, '--bam', BAM,
+             '--graph-sites', SITES, '--gaf', GAF, '-r', region,
+             '-t', str(a.threads), '-q', str(a.min_mapq),
+             '--link-by-alleles', '--block-link-window', '8',
+             '--min-read-margin', '2',
+             '--recover-gaps', '--gap-recovery-report', str(base / 'tiers.tsv'),
+             '-o', str(base / 'candidates.tsv'),
+             '--phased-vcf-out', str(base_vcf),
+             '-b', str(base_bam)], base / 'run.log')
 
-# ---- 2/3. GAP PHASING: the BAM channel over the same window.
+# ---- 2/3. GAP PHASING: the machinery ON THE GAP INTERVAL, plus only enough
+# margin for read context. Its blocks are then the gap's own phasing, which is
+# what gets stitched -- the same shape as recovery's proposal.
+gap_region = f'{CONTIG}:{max(1, GL - a.gap_margin)}-{GR + a.gap_margin}'
 gapdir = a.work / 'gap_bam'
 gapdir.mkdir(exist_ok=True)
 if not (a.reuse and (gapdir / 'native.vcf').exists()):
     run(['./pgphase', 'collect-bam-variation', '--ref', REF, '--bam', BAM,
-         '-r', region, '-t', str(a.threads), '-q', str(a.min_mapq),
+         '-r', gap_region, '-t', str(a.threads), '-q', str(a.min_mapq),
          '-o', str(gapdir / 'candidates.tsv'),
          '--phased-vcf-out', str(gapdir / 'native.vcf'),
          '-b', str(gapdir / 'phased.bam')], gapdir / 'run.log')
 
-base_sets = vcf_phase_sets(base / 'native.vcf')
+base_sets = vcf_phase_sets(base_vcf)
 gap_sets = vcf_phase_sets(gapdir / 'native.vcf')
-base_tags = bam_tags(base / 'phased.bam')
+gauge_region = f'{CONTIG}:{max(1, GL - a.gauge_window)}-{GR + a.gauge_window}'
+base_tags = bam_tags(base_bam, gauge_region)
 gap_tags = bam_tags(gapdir / 'phased.bam')
+print(f'  baseline gauge: {baseline_source}')
+print(f'  gap arm region: {gap_region} (gap + {a.gap_margin} bp read context)')
 
 # Flanks must be READ-supported, not merely present in the VCF. A block can
 # hold sites and no tagged reads at all -- the read-tagging margin drops reads
@@ -432,26 +513,34 @@ for q, (h, ps) in base_tags.items():
     if e:
         lo_hi[0] = min(lo_hi[0], e[0])
         lo_hi[1] = max(lo_hi[1], e[1])
-supported = {ps for ps, n in base_reads_per_ps.items() if n >= a.min_flank_reads}
-skipped_left = [ps for ps, e in base_sets.items()
-                if e[0] < GL and ps not in supported]
-left_ps = max((ps for ps in supported if base_sets.get(ps, (0, 0))[0] < GL),
-              key=lambda ps: base_sets[ps][1], default=None)
-right_ps = min((ps for ps in supported if base_sets.get(ps, (0, 0))[1] > GR),
-               key=lambda ps: base_sets[ps][0], default=None)
+# The flanks are the blocks holding the phased sites nearest the gap, not the
+# blocks with the largest extent or the most reads. Block extents interleave and
+# a flank can be a two-site island: at chr20:48,176,830 the adjacent block
+# (48162480) holds 2 sites and no tagged reads, while the nearest read-supported
+# block is 80 kb further out -- picking by read support silently stitched to the
+# wrong side of an 80 kb stretch that holds no phased sites at all. A read-less
+# flank is still linkable, through its own genotypes rather than its tags.
+supported = {ps for ps, n in base_reads_per_ps.items()
+             if n >= a.min_flank_reads and ps in base_sets}
+base_vcf_sites = vcf_sites(base_vcf)
+left_site = max((pos for pos in base_vcf_sites if pos < GL), default=None)
+right_site = min((pos for pos in base_vcf_sites if pos > GR), default=None)
+left_ps = base_vcf_sites[left_site][3] if left_site else None
+right_ps = base_vcf_sites[right_site][3] if right_site else None
 
 verdict = dict(gap=[GL, GR], gap_bp=GR - GL, region=region,
                baseline_blocks=len(base_sets), gap_blocks=len(gap_sets),
                left_flank_ps=left_ps, right_flank_ps=right_ps)
 
 print(f'gap {GL}-{GR}  ({(GR - GL) / 1e3:.1f} kb)   window {region}')
-print(f'  baseline: {len(base_sets)} blocks, {len(base_tags)} tagged reads, '
-      f'{len(supported)} blocks with >= {a.min_flank_reads} reads')
-if skipped_left:
-    print(f'  skipped {len(skipped_left)} read-less block(s) left of the gap: '
-          + ', '.join(f'{ps} ({base_sets[ps][2]} sites, '
-                      f'{base_reads_per_ps.get(ps, 0)} reads)' for ps in skipped_left[:3]))
-print(f'  read-supported flanks: left PS={left_ps} right PS={right_ps}')
+print(f'  baseline: {len(base_sets)} blocks, {len(base_tags)} tagged reads in '
+      f'the gauge window, {len(supported)} with >= {a.min_flank_reads} reads')
+print(f'  nearest phased site left of the gap: {left_site} (PS={left_ps}, '
+      f'{base_reads_per_ps.get(left_ps, 0)} tagged reads, '
+      f'{base_sets.get(left_ps, (0, 0, 0))[2]} sites)')
+print(f'  nearest phased site right of the gap: {right_site} (PS={right_ps}, '
+      f'{base_reads_per_ps.get(right_ps, 0)} tagged reads, '
+      f'{base_sets.get(right_ps, (0, 0, 0))[2]} sites)')
 if left_ps:
     e = base_sets[left_ps]
     print(f'    left  {e[0]}-{e[1]} ({e[2]} sites)')
@@ -494,7 +583,10 @@ for r in rows[:14]:
 # seam and to gap recovery's flank votes). Only then is each composed frame
 # linked to the flanks. Composing second would ask each single block to reach
 # both flanks, which is exactly the all-or-nothing test recovery already fails.
-gap_in_window = [ps for ps, e in gap_sets.items() if e[1] >= GL and e[0] <= GR]
+# Only blocks whose phased sites lie inside the gap (plus its read margin) are
+# the gap's own phasing. A block reaching far outside it is a flank re-solve.
+gap_in_window = [ps for ps, e in gap_sets.items()
+                 if e[1] >= GL - a.gap_margin and e[0] <= GR + a.gap_margin]
 parent = {ps: ps for ps in gap_in_window}
 parity = {ps: 0 for ps in gap_in_window}
 
@@ -513,7 +605,8 @@ print('\n  stage 1 -- compose the gap channel\'s own blocks '
       f'(net-margin rule, margin {a.stitch_margin})')
 compositions = []
 gap_vcf_sites = vcf_sites(gapdir / 'native.vcf')
-bridge_reads = load_reads(max(1, lo), hi)
+bridge_reads = load_reads(max(1, GL - a.seam_read_window),
+                          GR + a.seam_read_window)
 ordered = sorted(gap_in_window, key=lambda ps: gap_sets[ps][0])
 for left, right in zip(ordered, ordered[1:]):
     t, shared = votes(gap_tags, left, gap_tags, right)
@@ -522,8 +615,10 @@ for left, right in zip(ordered, ordered[1:]):
     if flip is None:
         # No read is tagged in both blocks, which is the normal state when two
         # blocks split at the same position. Fall back to the alleles.
-        br = bridge_vote(gap_vcf_sites, bridge_reads, left, right,
-                         a.seam_window, a.seam_sites, a.min_site_obs, a.site_flank)
+        br = bridge_vote({pos: v for pos, v in gap_vcf_sites.items() if v[3] == left},
+                         {pos: v for pos, v in gap_vcf_sites.items() if v[3] == right},
+                         bridge_reads, a.seam_window, a.seam_sites,
+                         a.min_site_obs, a.site_flank)
         if br is not None:
             t, shared = br['votes'], br['voters']
             flip = decide(t, a.stitch_margin)
@@ -566,15 +661,45 @@ for root, members in sorted(frames.items(), key=lambda kv: -len(kv[1])):
     hi = max(gap_sets[ps][1] for ps in members)
     sites = sum(gap_sets[ps][2] for ps in members)
     row = dict(frame=list(members), span=[lo, hi], sites=sites, reads=len(ftags))
+    # The frame's genotypes in its own composed gauge: a member block with
+    # parity 1 has its phased genotypes flipped, so the frame reads as one block.
+    frame_sites = {}
+    for pos, v in gap_vcf_sites.items():
+        if v[3] not in members:
+            continue
+        gt = v[2]
+        if members[v[3]]:
+            gt = '|'.join(reversed(gt.split('|')))
+        frame_sites[pos] = (v[0], v[1], gt, 'frame')
     for side, flank in (('left', left_ps), ('right', right_ps)):
         if flank is None:
             row[side] = None
             continue
         t, shared = votes(ftags, 'frame', base_tags, flank)
         flip = decide(t, a.stitch_margin)
-        row[side] = dict(votes=t, shared=shared, flip=flip)
+        source = 'tags'
+        if flip is None:
+            flank_sites = {pos: v for pos, v in base_vcf_sites.items()
+                           if v[3] == flank}
+            if side == 'left':
+                br = bridge_vote(flank_sites, frame_sites, bridge_reads,
+                                 a.seam_window, a.seam_sites, a.min_site_obs,
+                                 a.site_flank)
+            else:
+                br = bridge_vote(frame_sites, flank_sites, bridge_reads,
+                                 a.seam_window, a.seam_sites, a.min_site_obs,
+                                 a.site_flank)
+            if br is not None:
+                t, shared = br['votes'], br['voters']
+                flip = decide(t, a.stitch_margin)
+                # The vote is (flank, frame) on the left and (frame, flank) on
+                # the right; the orientation applied to the frame is the same
+                # either way because the table is symmetric under transpose.
+                source = f'alleles ({br["crossing"]} reads cross the seam)'
+        row[side] = dict(votes=t, shared=shared, flip=flip, source=source)
         print(f'    frame {sorted(members)} ({sites} sites, {lo}-{hi}, '
-              f'{len(ftags)} reads) vs {side} flank {flank}: n={shared} votes={t} -> '
+              f'{len(ftags)} reads) vs {side} flank {flank}: n={shared} '
+              f'votes={t} [{source}] -> '
               + ('no link' if flip is None else f'link, flip={int(flip)}'))
     row['members'] = members
     links.append(row)
@@ -632,6 +757,49 @@ elif one_sided:
 else:
     print('\n  NOT CLOSED: no gap block links either flank')
 
+# ---- 4b. VALIDATE EACH APPLIED LINK against truth, independently of the gate.
+if truth:
+    applied = []
+    if closed:
+        applied = [('left', left_ps, chosen['left']['flip']),
+                   ('right', right_ps, chosen['right']['flip'])]
+    elif one_sided and 'extended_side' in verdict:
+        applied = [(verdict['extended_side'],
+                    left_ps if verdict['extended_side'] == 'left' else right_ps,
+                    chosen[verdict['extended_side']]['flip'])]
+    if applied:
+        frame_sites_v = {}
+        for pos, v in gap_vcf_sites.items():
+            if v[3] not in chosen['members']:
+                continue
+            gt = v[2]
+            if chosen['members'][v[3]]:
+                gt = '|'.join(reversed(gt.split('|')))
+            frame_sites_v[pos] = (v[0], v[1], gt, 'frame')
+        f_or, f_n, _ = site_orientation(sorted(frame_sites_v), frame_sites_v,
+                                        bridge_reads, truth, a.site_flank)
+        print('\n  link validation against truth '
+              f'(frame hap1 carries {f_or} over {f_n} sites)')
+        verdict['link_validation'] = []
+        for side, flank, flip in applied:
+            fl_sites = {pos: v for pos, v in base_vcf_sites.items() if v[3] == flank}
+            l_or, l_n, _ = site_orientation(sorted(fl_sites), fl_sites,
+                                            bridge_reads, truth, a.site_flank)
+            if f_or is None or l_or is None:
+                ok = None
+            else:
+                # flip=0 means the frame keeps its polarity relative to the flank,
+                # so the two sides must then carry the same truth haplotype.
+                ok = ((l_or == f_or) if not flip else (l_or != f_or))
+            verdict['link_validation'].append(
+                dict(side=side, flank=flank, flip=bool(flip), flank_hap1=l_or,
+                     flank_sites=l_n, frame_hap1=f_or, frame_sites=f_n, correct=ok))
+            print(f'    {side} flank {flank}: hap1 carries {l_or} over {l_n} sites, '
+                  f'flip={int(flip)} -> '
+                  + ('CORRECT' if ok else ('WRONG' if ok is False else 'unscorable')))
+        bad = [v for v in verdict['link_validation'] if v['correct'] is False]
+        verdict['links_correct'] = not bad
+
 # ---- 5. GATE.
 if truth:
     before, after = score(base_tags, truth), score(merged, truth)
@@ -658,11 +826,13 @@ if truth:
     # baseline restated.
     passed = (g['conc_to_disc'] == 0 and
               g['concordant_after'] > g['concordant_before'] and
-              g['newly_discordant'] <= a.max_new_discordant)
+              g['newly_discordant'] <= a.max_new_discordant and
+              verdict.get('links_correct', True))
     verdict['pass'] = bool(passed)
     print(f'\n  VERDICT: {"PASS" if passed else "FAIL"}'
           f'  (closed={verdict["closed"]}, '
           f'extended={verdict.get("extended_side", "no")}, '
+          f'links_correct={verdict.get("links_correct", "n/a")}, '
           f'gate flips={g["conc_to_disc"]}, '
           f'net concordant {g["concordant_after"] - g["concordant_before"]:+d})')
 
