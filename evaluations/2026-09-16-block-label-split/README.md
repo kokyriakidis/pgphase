@@ -146,3 +146,57 @@ site's own error rate), yet the merge inverts one side. The tier report naming
 `leftPS = rightPS = 48243938` -- a third phase-set identity for these blocks --
 is where to look next: the orientation is taken from that path, not from the 60
 reads that span both sites.
+
+## Why it mis-joined: a label merge with no orientation flip
+
+Diagnosed with the built-in diagnostics rather than new probes. `--verbose 2`
+prints the flank votes:
+
+```
+GapLinkVotes  48229226 48229446  proposal_ps=48243938  side=0 (left)   0,4,1,1    -> straight 1, flipped 5
+GapLinkVotes  48229226 48229446  proposal_ps=48243938  side=1 (right)  0,42,39,0  -> straight 0, flipped 81
+```
+
+The left flank is oriented by **6 voters, 5 against 1**, the right by 81
+unanimous -- but that is not the cause. Raising `--min-block-link-reads` to 6, 8
+or 12 still reports tier 1 `joined` and leaves read consistency at 54-56%, so the
+flank vote is not what corrupts the window.
+
+The read tags say what does:
+
+```
+390 reads tagged in both arms:   HP changed for 1,   PS changed for 230
+left  population (161 reads):  PS 48147225 -> 48147225   HP changed for 0
+right population (173 reads):  PS 48229446 -> 48147225   HP changed for 0
+after the merge:  left  hap1 = PATERNAL (160 against 1)
+                  right hap1 = MATERNAL (173 against 0)
+```
+
+The right population is **relabelled into the left block's phase set with no flip
+applied**. Both populations keep the haplotype labels they were given under their
+own orientation, so the merged block carries two contradictory hap-to-parent
+mappings: 233 reads right, 160 wrong, which is the 53.6% measured (before the
+change each block was 100.0% on its own).
+
+That is exactly the hazard the exclusion's own comment names -- *"An excluded
+repeat can inherit a preceding PS without a link."* Letting a homopolymer indel
+grant a phase set lets a read inherit the neighbouring block's label **without
+any evidence that the two sides share an orientation**, and nothing downstream
+supplies the missing flip.
+
+### What the fix has to be
+
+Two steps, and only the second was attempted:
+
+1. **Compute the relative orientation from the shared reads and apply it.** At a
+   chunk seam this is `select_stitch_orientation` followed by
+   `apply_chunk_flip_and_merge`, which rewrites the downstream phase set to the
+   upstream id *and flips the hap labels as it does so*. Within a chunk nothing
+   performs this step.
+2. Relabel the phase sets as one block.
+
+The evidence for step 1 is present and unambiguous -- 60 reads span the two
+boundary sites, 56 in phase against 4 -- so a within-chunk merge that reuses
+`select_stitch_orientation` on those reads and then `apply_chunk_flip_and_merge`
+is the shape this window needs. Relabelling without it produces a spanning block
+at chance accuracy.
