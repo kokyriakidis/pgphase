@@ -59,14 +59,71 @@ after the single phased het at 48,176,831. The retry admits `48,183,977`
 phased hets 2 -> 3. Gate clean: 0 concordant->discordant, 0 tags lost, 0 newly
 discordant.
 
-**Open, and the reason the gain is one site rather than several.** Of the 662
-candidates in that window, 661 are graph sites, so the category zeroing withholds
-only one of them. The BAM channel run alone on the same interval calls 11 het
-sites there, so the rest are present at catalog positions and held back by
-something other than the zeroing -- the noisy-candidate class and the
-`skip_noisy_kmeans` default are the next thing to check, since the retry enables
-that only for its own call and the earlier chromosome-wide arm with it enabled
-reached 7 in-gap phased hets rather than 3.
+## The bug: the noisy-region MSA is skipped whenever recovery is on
+
+`collect_var_run_phasing` (`collect_var.cpp`):
+
+```cpp
+    if (!opts.recover_gaps)
+        collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
+```
+
+So with `--recover-gaps` the noisy-region MSA never runs in the normal pass; it
+is deferred to the recovery pass. That is why the failed window holds **no
+`NoisyCandHet` candidate at all** -- 1 clean het SNP, 2 clean het indels and 606
+low-coverage catalog sites -- while the BAM channel run on the same interval
+calls **8 noisy het sites** and phases the whole window into one block. The
+candidates were never created, so nothing was there to admit, and the first
+version of this retry could only re-admit the single non-catalog site.
+
+Three explanations were checked and ruled out first: the 50 kb
+`max_noisy_reg_len` cap (the BAM channel produces the same 8 sites whether run
+over 52 kb or 152 kb), the `private_keys` branch that zeroes that cap (it is
+entered only with `--private-sites-vcf`, which these runs do not pass), and
+`skip_noisy_kmeans` (it is read *inside* the step that never ran).
+
+The retry is the second try that deferral assumes, so it now runs that step for
+its own call: `retry_opts.recover_gaps = false` plus
+`skip_noisy_kmeans = false`.
+
+| | retry off | retry on |
+|---|---:|---:|
+| phased het records in the gap | 2 | **8** |
+| left block | `48,162,480-48,176,830` (2 sites, 14.3 kb) | `48,147,227-48,229,226` (**13 sites, 82.0 kb**) |
+| gate: concordant -> discordant | -- | **0** |
+| gate: tags lost / newly discordant | -- | 0 / 0 |
+
+The evidence recovery works: 8 in-gap phased hets matches what the BAM channel
+finds on its own, and the left block now reaches to within 220 bp of the right
+one.
+
+## But the block it forms is switched, and the read gate cannot see it
+
+That 82 kb block spans `48,183,976 -> 48,225,786`, which is **41.8 kb with zero
+reads covering both sites** (the neighbouring spacings carry 41 and 51; the
+longest read there is 29.9 kb). Scoring its sites against read truth:
+
+| site | side of the hole | hap1 carries | confidence |
+|---|---|---|---:|
+| 48,162,480 | left | PAT | 1.00 |
+| 48,176,830 | left | PAT | 0.96 |
+| 48,183,976 | left | PAT | 1.00 |
+| 48,225,786 | right | **MAT** | 0.99 |
+| 48,229,226 | right | **MAT** | 0.93 |
+
+Left and right are on opposite haplotypes: the block asserts a phase across a
+hole nothing supports. The read-level gate reports zero flips because no read
+spans the hole, so it is structurally blind to this class of error -- only the
+site-level truth check sees it.
+
+## Next, and it is a rule already validated here
+
+The retry must not join across a spacing with no spanning reads. The correct
+output for this window is two blocks -- `48,147,227-48,183,976` and
+`48,225,786-48,229,226` -- each anchored to its own flank, with the 41.8 kb
+between them left open. That is the same conclusion the window-size comparison
+reached (`evaluations/2026-09-16-window-stitch/`), where 20 kb chunks produced
+exactly those two blocks and a 500 kb chunk produced this switched one.
 
 Defaults unchanged (`retry_unphased_with_bam = false`); all five unit-test
 binaries pass.

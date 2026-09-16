@@ -8105,3 +8105,31 @@ sites admitted and let flip_chunk_hap stitch them. Both blockers are already
 measured -- recovery zeroes the BAM categories, and --keep-noisy-kmeans is
 chromosome-wide (~8k reads at ~65% error per its call site) -- so both need the
 same gap-interval scoping.
+
+### The noisy-region MSA never runs when --recover-gaps is on (2026-09-16)
+
+collect_var_run_phasing (collect_var.cpp) guards the noisy-region MSA with
+`if (!opts.recover_gaps) collect_noisy_vars_step4(...)`, deferring it to the
+recovery pass. So in the normal hybrid run with recovery the noisy het class does
+not exist: inside chr20:48,176,831-48,229,447 the chunk holds 1 clean het SNP, 2
+clean het indels, 1 repeat indel, 64 clean hom and 606 low-coverage catalog sites,
+and ZERO NoisyCandHet -- while collect-bam-variation on the same interval calls 8
+NoisyCandHet and phases the window into a single block. Ruled out first: the 50 kb
+max_noisy_reg_len cap (the BAM channel yields the same 8 sites over 52 kb and over
+152 kb), the private_keys branch that zeroes that cap (entered only with
+--private-sites-vcf), and skip_noisy_kmeans (read INSIDE the step that never ran).
+
+--retry-unphased-with-bam now runs that step for its own call (recover_gaps=false,
+skip_noisy_kmeans=false). In-gap phased hets 2 -> 8, and the left block goes
+48,162,480-48,176,830 (2 sites, 14.3 kb) -> 48,147,227-48,229,226 (13 sites,
+82.0 kb), 220 bp short of the right block. Gate clean: 0 concordant->discordant,
+0 tags lost, 0 newly discordant.
+
+CAVEAT, measured: that 82 kb block spans 48,183,976 -> 48,225,786, which is 41.8 kb
+with ZERO reads covering both sites, and it is SWITCHED across it -- left-of-hole
+sites carry hap1=PAT (1.00, 0.96, 1.00), right-of-hole hap1=MAT (0.99, 0.93). The
+read gate reports 0 flips because no read spans the hole, so it is structurally
+blind to this error class; only the site-level truth check sees it. The retry must
+refuse to join across a zero-spanning-read spacing: the right output here is two
+blocks, 48,147,227-48,183,976 and 48,225,786-48,229,226, which is what 20 kb chunks
+already produce.

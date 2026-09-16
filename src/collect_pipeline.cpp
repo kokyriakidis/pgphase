@@ -775,12 +775,19 @@ void run_collect_bam_variation(const Options& opts) {
 
 namespace pgphase_collect {
 
-/// Reference windows where this chunk's solve assigned no phase set at all.
+/// Reference windows where this chunk's solve failed, either way it can fail.
 ///
-/// A window counts as failed when reads cover it and none of them came out
-/// phased -- the observed failure, not a prediction from site spacing. Scattered
-/// unphased reads inside an otherwise phased stretch are not a failure and are
-/// left alone: the bins they fall in also carry phased reads.
+/// Two failures, both observed rather than predicted from site spacing:
+///
+///   NOT PHASED    -- reads cover the window and no eligible het candidate there
+///                    carries a phase set, so nothing in it was phased at all.
+///   NOT CONNECTED -- it was phased, but into a different phase set from the
+///                    block before it, so the solve could not link the two.
+///
+/// The second matters as much as the first: a window phased into its own block
+/// leaves the same unusable result as one not phased, and it is the shape most of
+/// these gaps actually have. Scattered unphased reads inside an otherwise phased
+/// stretch are not a failure and are left alone.
 static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
         const PhasingChunk& chunk, int min_reads, hts_pos_t min_bp) {
     constexpr hts_pos_t kBin = 1000;
@@ -814,6 +821,28 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
         }
     }
     std::vector<std::pair<hts_pos_t, hts_pos_t>> out;
+    // NOT CONNECTED: consecutive phasing candidates in different phase sets. The
+    // span between them is where the link failed, whatever its width -- a break
+    // is a break -- so it is admitted without the width floor that the
+    // not-phased runs carry.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> breaks;
+    {
+        std::vector<std::pair<hts_pos_t, hts_pos_t>> ordered;  // pos -> phase set
+        for (const auto& cand : chunk.candidates) {
+            if (cand.phase_set < 0) continue;
+            if (cand.is_homopolymer_indel ||
+                cand.lcd_var_i_to_cate == kCandNoisyCandHom ||
+                (!cand.msa_insertion_alts.empty() && !cand.gap_link_supported)) continue;
+            if (cand.hap_to_cons_alle[1] == -1 || cand.hap_to_cons_alle[2] == -1 ||
+                cand.hap_to_cons_alle[1] == cand.hap_to_cons_alle[2]) continue;
+            ordered.emplace_back(cand.key.pos, cand.phase_set);
+        }
+        std::sort(ordered.begin(), ordered.end());
+        for (size_t i = 1; i < ordered.size(); ++i) {
+            if (ordered[i].second == ordered[i - 1].second) continue;
+            breaks.emplace_back(ordered[i - 1].first, ordered[i].first + 1);
+        }
+    }
     hts_pos_t run_beg = -1;
     hts_pos_t prev = -2;
     for (const auto& [b, counts] : bins) {
@@ -833,7 +862,18 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
     }
     if (run_beg >= 0 && (prev + 1) * kBin - run_beg * kBin >= min_bp)
         out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
-    return out;
+    out.insert(out.end(), breaks.begin(), breaks.end());
+    std::sort(out.begin(), out.end());
+    // Merge overlaps so a candidate is not admitted twice and the report reads
+    // as one failure per region.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> merged;
+    for (const auto& w : out) {
+        if (!merged.empty() && w.first <= merged.back().second)
+            merged.back().second = std::max(merged.back().second, w.second);
+        else
+            merged.push_back(w);
+    }
+    return merged;
 }
 
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
@@ -1055,16 +1095,21 @@ static PhasingChunk process_chunk_hybrid(
                     "%d candidate(s) inside, %d of them graph sites\n",
                     region.chunk_id, (long)wbeg, (long)wend,
                     (double)(wend - wbeg) / 1000.0, in_win, in_win_graph);
+                std::map<uint32_t, std::pair<int, int>> by_cate;  // saved cate -> {total, phased}
                 for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
                     const auto& cand = chunk.candidates[vi];
-                    if (cand.graph_site) continue;
                     if (cand.key.pos < wbeg || cand.key.pos >= wend) continue;
+                    const uint32_t saved =
+                        vi < discovery_flags.size() ? discovery_flags[vi] : cand.lcd_var_i_to_cate;
+                    if (saved == 0) continue;
+                    auto& e = by_cate[saved];
+                    ++e.first;
+                    e.second += cand.phase_set >= 0 ? 1 : 0;
+                }
+                for (const auto& [cate, counts] : by_cate) {
                     std::fprintf(stderr,
-                        "    admittable: pos=%ld cate_now=0x%03x cate_saved=0x%03x "
-                        "ref_len=%d alt=%s\n",
-                        (long)cand.key.pos, cand.lcd_var_i_to_cate,
-                        vi < discovery_flags.size() ? discovery_flags[vi] : 0u,
-                        (int)cand.key.ref_len, cand.key.alt.c_str());
+                        "      cate=0x%03x total=%d phased=%d\n",
+                        cate, counts.first, counts.second);
                 }
             }
             std::fprintf(stderr,
@@ -1072,10 +1117,18 @@ static PhasingChunk process_chunk_hybrid(
                 region.chunk_id, windows.size(), readmitted);
         }
         if (readmitted > 0) {
-            // The noisy-candidate k-means is off by default because it is a poor
-            // trade chromosome-wide; inside a window the catalog could not phase
-            // at all, that class is most of the evidence there.
             Options retry_opts = opts;
+            // collect_var_run_phasing skips the noisy-region MSA outright while
+            // recover_gaps is set (collect_var.cpp), deferring it to the recovery
+            // pass, so the noisy het class never exists in the first solve: inside
+            // chr20:48,176,831-48,229,447 the chunk holds 1 clean het SNP, 2 clean
+            // het indels and no NoisyCandHet at all, while the BAM channel run on
+            // the same interval calls 8 of them and phases the window into one
+            // block. The retry is the second try the deferral assumes, so it runs
+            // that step here rather than leaving the region to recovery -- and the
+            // noisy k-means with it, since orienting those candidates is the point
+            // of admitting them.
+            retry_opts.recover_gaps = false;
             retry_opts.skip_noisy_kmeans = false;
             collect_var_run_phasing(chunk, retry_opts);
         }
