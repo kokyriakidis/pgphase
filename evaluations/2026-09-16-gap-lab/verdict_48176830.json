@@ -1,0 +1,177 @@
+{
+  "verdict": {
+    "gap": [
+      48176830,
+      48229446
+    ],
+    "gap_bp": 52616,
+    "region": "CHM13#0#chr20:48026830-48379446",
+    "baseline_blocks": 3,
+    "gap_blocks": 3,
+    "left_flank_ps": "48043584",
+    "right_flank_ps": "48229446",
+    "baseline_spans_gap": false,
+    "gap_het_sites": 11,
+    "gap_het_phased": 11,
+    "gap_het_informative": 7,
+    "compositions": [
+      {
+        "a": "48147227",
+        "b": "48229446",
+        "votes": [
+          15,
+          0,
+          0,
+          27
+        ],
+        "shared": 42,
+        "flip": false,
+        "source": "alleles (58 reads cross the seam)"
+      }
+    ],
+    "links": [
+      {
+        "frame": [
+          "48147227",
+          "48229446"
+        ],
+        "span": [
+          48147227,
+          48377087
+        ],
+        "sites": 231,
+        "reads": 820,
+        "left": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null
+        },
+        "right": {
+          "votes": [
+            318,
+            0,
+            0,
+            343
+          ],
+          "shared": 661,
+          "flip": false
+        }
+      }
+    ],
+    "closed": false,
+    "extended_side": "right",
+    "extending_frame": [
+      "48147227",
+      "48229446"
+    ],
+    "gate": {
+      "tagged_before": 893,
+      "tagged_after": 1052,
+      "scored_before": 893,
+      "scored_after": 1052,
+      "concordant_before": 892,
+      "concordant_after": 1051,
+      "conc_to_disc": 0,
+      "disc_to_conc": 0,
+      "newly_concordant": 159,
+      "newly_discordant": 0,
+      "lost_concordant": 0
+    },
+    "pass": true
+  },
+  "sites": [
+    {
+      "pos": 48176831,
+      "type": "DEL",
+      "category": "CLEAN_HET_INDEL",
+      "phase_set": "48147227",
+      "segregation": 0.9859154929577465,
+      "scored": 71
+    },
+    {
+      "pos": 48177726,
+      "type": "INS",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": null,
+      "scored": 0
+    },
+    {
+      "pos": 48177781,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.5135135135135135,
+      "scored": 74
+    },
+    {
+      "pos": 48177781,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.9459459459459459,
+      "scored": 74
+    },
+    {
+      "pos": 48183977,
+      "type": "DEL",
+      "category": "CLEAN_HET_INDEL",
+      "phase_set": "48147227",
+      "segregation": 1.0,
+      "scored": 74
+    },
+    {
+      "pos": 48202057,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.5072463768115942,
+      "scored": 69
+    },
+    {
+      "pos": 48204384,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.9577464788732394,
+      "scored": 71
+    },
+    {
+      "pos": 48225787,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.7333333333333333,
+      "scored": 75
+    },
+    {
+      "pos": 48225787,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 1.0,
+      "scored": 74
+    },
+    {
+      "pos": 48229227,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "48147227",
+      "segregation": 0.9333333333333333,
+      "scored": 60
+    },
+    {
+      "pos": 48229446,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "48229446",
+      "segregation": 1.0,
+      "scored": 60
+    }
+  ]
+}

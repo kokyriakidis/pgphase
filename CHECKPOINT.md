@@ -7932,3 +7932,44 @@ would have produced an 82 kb block at 100%. Fix direction: admit BAM-discovered
 noisy candidates to phasing INSIDE GAP INTERVALS ONLY, scoped rather than the
 chromosome-wide enabling that cost ~8k reads at ~65% error; regression-test it with
 this window's three-arm comparison and the 31-gap accurate-deficit list.
+
+### gap_lab.py: a gated per-gap rig, and +159 correct reads on the first gap (2026-09-16)
+
+`evaluations/2026-09-16-gap-lab/`. One command per gap: baseline arm, BAM evidence
+inside the interval with truth segregation per site, the BAM channel's own phasing
+of the interval, a two-stage stitch, and a read-level gate that decides pass/fail.
+`--reuse` skips arms whose outputs exist, so stitch iterations cost seconds.
+
+Three mechanisms it exposed, each of which had silently broken a hand analysis:
+
+1. A FLANK CAN HOLD SITES AND NO READS. The block nearest this gap on the left
+   (48162480) has 2 sites and ZERO tagged reads, because the read-tagging margin
+   drops reads observing too few of its sites. Nothing links to it by read
+   identity. Flanks are now selected by read support and read-less blocks are
+   reported as skipped.
+2. TWO BLOCKS THAT SPLIT AT THE SAME POSITION SHARE NO TAGGED READS, since a read
+   carries at most one phase set -- so tag-identity voting returns n=0 for exactly
+   the seams we care about. The alleles remain: a read crossing the seam observes
+   sites in both blocks and each block's phased genotypes map allele -> hap. That
+   allele-level vote is now the fallback and is what composed this gap.
+3. THE SEAM IS NOT THE BLOCK. Requiring a bridge read to span every selected site
+   (which reach tens of kb back into each block) reported zero crossing reads
+   where the seam is 220 bp wide. The test is now the seam point plus a margin
+   with a minimum site-observation count per side.
+
+RESULT on chr20:48,176,830-48,229,446 (52.6 kb, hiphase spans at 100.0% over 252
+reads): BAM channel phases 11/11 in-gap het sites (7 informative vs truth).
+Compose 48147227 + 48229446 -> 42 allele voters, votes [15,0,0,27], UNANIMOUS, 58
+reads cross the seam. The composed frame (231 sites, 48,147,227-48,377,087, 820
+reads) links the RIGHT flank (n=661, [318,0,0,343]) but NOT the left (n=0), since
+the left side carries the two hard breaks (48,096,582->48,123,657 27.1 kb and
+48,123,657->48,147,230 23.6 kb, zero spanning reads at 72x). Gate: tagged 893 ->
+1052, concordant 892 -> 1051, 0 concordant->discordant, 159 newly tagged ALL
+concordant, 0 lost. VERDICT PASS (not closed; right flank extended, +159).
+
+The two operations that produced that gain are precisely the two the pipeline has
+no mechanism for: an allele-level block-to-block vote, and a one-sided extension
+of a flank by a composed frame. The stitch runs outside the pipeline, so this is a
+measurement rig rather than a fix -- it states what a scoped change must
+reproduce, and its verdict is that change's regression test. Next: run it across
+the 31-gap accurate-deficit list to size the recoverable coverage before any C++.
