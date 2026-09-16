@@ -19,6 +19,12 @@
 #                               override; the alignment pipeline does not apply
 #                               it, and the evidence inside gaps is exactly that
 #                               class.
+#   * --joint-het-orientation -- iteration 1: without it a site whose own allele
+#                               depths call it heterozygous can still be emitted
+#                               homozygous, because each haplotype's consensus is
+#                               recomputed independently by majority. chr20:48,204,383
+#                               (DP 71, 30 ref / 41 alt, AF 0.577) is emitted 1|1
+#                               without it and 0|1 with it, matching hiphase.
 #   * -q 1                   -- the adopted MAPQ floor.
 #
 #   * --link-by-alleles     -- REQUIRED, and it is not the same option as
@@ -49,6 +55,7 @@ mkdir -p "${OUT}"
     --graph-sites "${REPO}/test_data/chr20.sites.striped.vcf.gz" \
     --gaf "${REPO}/test_data/HG002.chr20.annotated.coord.gaf.gz" \
     -r "${REGION}" -t "${THREADS}" -q 1 --keep-noisy-kmeans --link-by-alleles \
+    --joint-het-orientation \
     -o "${OUT}/candidates.tsv" \
     --phased-vcf-out "${OUT}/native.vcf" \
     -b "${OUT}/phased.bam" \

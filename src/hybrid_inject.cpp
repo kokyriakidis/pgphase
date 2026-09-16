@@ -310,16 +310,26 @@ SiteToCandidateMap inject_graph_sites(
         // Use the same key format as GraphReadAllele.site_id.
         const std::string site_key = graph_site_key_str(site);
 
-        // Use first non-spanning ALT allele.
+        // Try every non-spanning ALT for a match before falling back to adding
+        // the first as graph-only. Stopping at the first ALT loses the catalog's
+        // confirmation whenever the allele actually present is a later one: at
+        // chr20:48,149,567 the catalog carries 11 ALTs of a 5-mer repeat
+        // (+5, +20, +10, -5, +15, +35, +30, +25, -15, -10, -20) and 74 of the
+        // 1178 catalog sites across this window are multi-allelic, so the first
+        // ALT is frequently not the one a read supports.
+        int fallback_ai = -1;
         for (size_t ai = 0; ai < site.alts.size(); ++ai) {
             const std::string& vcf_alt = site.alts[ai];
             if (vcf_alt == "*") continue;
+            if (fallback_ai < 0) fallback_ai = static_cast<int>(ai);
 
             const VariantKey target = vcf_to_variant_key(
                 chunk_tid, site.pos, site.ref, vcf_alt);
 
             const int match_idx = find_matching_candidate(
                 chunk.candidates, target, orig_count);
+
+            if (match_idx < 0) continue;  // try the next ALT before adding
 
             if (match_idx >= 0 && match_idx < orig_count) {
                 chunk.candidates[match_idx].graph_site = true;
@@ -328,17 +338,22 @@ SiteToCandidateMap inject_graph_sites(
                 pre_sort_vcf_alleles[match_idx] =
                     GraphOnlyVcfAllele{site.pos, site.ref, vcf_alt};
                 ++bridged;
-            } else if (match_idx < 0) {
-                const int new_idx = add_graph_only_candidate(
-                    chunk, site, vcf_alt, chunk_tid);
-                site_to_candidate[site_key] = new_idx;
-                graph_only_pre_sort.push_back(new_idx);
-                all_graph_pre_sort.insert(new_idx);
-                pre_sort_vcf_alleles[new_idx] =
-                    GraphOnlyVcfAllele{site.pos, site.ref, vcf_alt};
-                ++added;
             }
-            break;  // first ALT only
+            fallback_ai = -1;  // matched, nothing to add
+            break;
+        }
+        // No ALT matched an existing candidate: add the first as graph-only,
+        // which is what the single-ALT path did before.
+        if (fallback_ai >= 0) {
+            const std::string& vcf_alt = site.alts[static_cast<size_t>(fallback_ai)];
+            const int new_idx = add_graph_only_candidate(
+                chunk, site, vcf_alt, chunk_tid);
+            site_to_candidate[site_key] = new_idx;
+            graph_only_pre_sort.push_back(new_idx);
+            all_graph_pre_sort.insert(new_idx);
+            pre_sort_vcf_alleles[new_idx] =
+                GraphOnlyVcfAllele{site.pos, site.ref, vcf_alt};
+            ++added;
         }
     }
 

@@ -102,7 +102,7 @@ The four we do not use all carry real signal:
 
 | site | hiphase allele | our status | n | segregation |
 |---|---|---|---:|---:|
-| 48,149,567 | `A>AGAG` | **absent** | 64 | **0.984** |
+| 48,149,567 | `A>AGAG` | **present, placed 19 bp away** (see correction) | 64 | **0.984** |
 | 48,173,317 | `TGGG>T` | **absent** | 66 | **1.000** |
 | 48,177,725 | `T>TA` | candidate, `REP_HET_INDEL` | 74 | 0.865 |
 | 48,234,100 | `C>CCT` | candidate, `REP_HET_INDEL` | 54 | **0.981** |
@@ -264,3 +264,59 @@ depending on which of the two split records is used. Hiphase crosses the same
 21.4 kb using its own `48,225,788 AAAA>A`, so the difference is that it obtains
 an allele call for reads where we record none. That is the next thing to fix:
 why the per-read allele is unset at that site.
+
+## Correction: one of the two "absent" sites is a matching artifact
+
+`48,149,567` was reported absent because nothing matched within 6 bp. That window
+is too tight for a tandem repeat, where the aligner places the same event
+anywhere within its tract. The arm does hold this variation, as **two records
+19 bp upstream at `48,149,548`**:
+
+```
+48,149,548  A>AAGAAGAGAAG    GT=0|1      (+10 insertion)
+48,149,548  AAGAAG>A         GT=1|0      (-5 deletion)
+```
+
+and that is exactly what the reads carry. Net length change over a 25 bp window
+at `48,149,567`, split by truth haplotype:
+
+| haplotype | net length |
+|---|---|
+| PATERNAL | **+10 (29 reads)**, +5..+13 scatter, 0 (2) |
+| MATERNAL | **-5 (10 reads)**, 0 (11), -6 (3), -10 (1) |
+
+So the locus is discovered, genotyped and phased, in the opposite orientation on
+the two records, matching the reads. Hiphase writes the same event as
+`48,149,548 AAGA>A` plus `48,149,567 A>AGAGA`; we write it as one position with
+two records. **Matching competitor sites must be by event within the repeat
+tract, not by position within a few bases** -- the same rule the project already
+recorded for anchor offsets, applied at repeat scale rather than 1-2 bp.
+
+The corrected accounting for this window is therefore **1 absent, not 2**.
+
+## `48,173,317` is a genuine miss, and both channels fail on it
+
+```
+net length change over +/-25 bp, by truth haplotype:
+  PATERNAL :  -7 (39 reads),  -8 (3),  -9 (1)
+  MATERNAL :   0 (21 reads),  -1 (2)
+reference context: ggttccttggggatgggggattgggggatggga     (GGGGATG tandem repeat)
+```
+
+A clean 7 bp deletion, 43 reads against 23 at roughly 66x, which hiphase calls
+`TGGGGATG>T`. The arm has **no candidate and no emitted record within 120 bp**,
+and `collect-bam-variation` alone does not call it either, so the alignment
+channel's discovery misses it outright.
+
+The catalog *does* carry it -- `CHM13#0#chr20 48173317 TGGGGATG>T`, single ALT,
+`AT=>118674138>118674139>118674140,>118674138>118674140` so two allele walks,
+which makes it eligible -- and injection still produced no candidate. So two
+independent paths to this site both fail:
+
+1. the pileup caller does not propose a 7 bp deletion at a 43/23 split, and
+2. an eligible single-ALT catalog site did not become a graph-only candidate.
+
+The second is the tractable one and is the next thing to localize: `inject_graph_sites`
+calls `add_graph_only_candidate` whenever no existing candidate matches, so
+either the site is absent from the `GraphSiteCatalogView` this chunk was given,
+or the candidate was created and later dropped.
