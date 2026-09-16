@@ -1149,7 +1149,16 @@ int make_vars_from_msa_cons_aln(
         hap1_vars, hap2_vars, noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.recover_gaps && opts.private_msa_admit_all_in_region)
         merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
-    if (opts.recover_gaps && !aln_strs[0].empty() && !aln_strs[1].empty())
+    // An assigned read's allele at an MSA site is read from its own cluster
+    // alignment, and that is true whether or not gap recovery is enabled: these
+    // counts describe the reads. Gating the refresh on recover_gaps left the
+    // alignment-only channel with the pre-refresh counts, which are wrong --
+    // test_msa_counts_do_not_depend_on_recover_gaps has two clusters of two
+    // reads each carrying their own consensus, so the site is 2 ref / 2 alt, and
+    // without the refresh it was counted 3 ref / 1 alt. It is also why eight of
+    // the seventy-six candidates shared with the hybrid arm on
+    // chr20:48,176,830-48,229,446 carried different counts.
+    if (!aln_strs[0].empty() && !aln_strs[1].empty())
         refresh_assigned_msa_observations(opts, clu_n_seqs, clu_read_ids, aln_strs,
                                            noisy_reg_beg, noisy_vars, noisy_rvp);
     return static_cast<int>(noisy_vars.size());

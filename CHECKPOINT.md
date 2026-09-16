@@ -8228,3 +8228,27 @@ and the playbook. min_read_hap_margin defaults to 0 and the hybrid subcommand
 does not override it, so passing --min-read-margin 2 was our own addition; on
 chr20:36,217,274-36,268,291 it strips 271 reads of which truth says 254 (93.7%)
 were phased correctly.
+
+### The MSA observation refresh was gated on recover_gaps (2026-09-16)
+
+refresh_assigned_msa_observations re-reads each assigned read's allele from its
+own cluster alignment, and ran only when recover_gaps was set, so the
+alignment-only channel kept pre-refresh counts. Pinned by
+test_msa_counts_do_not_depend_on_recover_gaps: two clusters of two reads each
+carrying their own consensus make the site 2 ref / 2 alt, and the ungated arm
+counted 3 ref / 1 alt. Gate removed; all five test binaries pass.
+
+Two process notes. `make -j20` builds pgphase but NOT the test binaries, so a
+stale binary reported ALL PASS and I committed a claim that all four pinned
+invariants held when one failed -- use `make unit-tests`. And the fixture needed
+two iterations: with empty read clusters the refresh is a no-op and the test
+passed vacuously; with an assigned read handed to add_msa_site_observations as
+the other haplotype the input contradicted itself.
+
+The fix does NOT explain the real-data divergence: with the refresh unconditional
+the alignment channel's counts at all eight divergent loci on
+chr20:48,176,830-48,229,446 are byte-identical and the count remains 8 of 76.
+Those come from the hybrid side -- three homozygous loci where the hybrid counts
+a candidate's reads across the chunk rather than only inside the noisy region
+(DP 23->53, 18->58, 41->69), two that are the nested-deletion re-representation,
+and 1-3 read differences at three loci that remain unexplained.

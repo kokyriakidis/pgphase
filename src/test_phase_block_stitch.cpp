@@ -1281,15 +1281,22 @@ static bool test_msa_counts_do_not_depend_on_recover_gaps() {
         // Assigned read clusters, because refresh_assigned_msa_observations only
         // re-scores reads that a cluster owns: with empty clusters it is a no-op
         // and the two arms agree trivially.
-        chunk.reads.resize(4);
+        // Reads 0-3 are ASSIGNED, two per cluster, each aligned as its own
+        // cluster's consensus. Reads 4-5 are UNASSIGNED, which is what
+        // add_msa_site_observations takes. An earlier version of this fixture
+        // handed an assigned read to that call as the other haplotype, so the
+        // two arms disagreed only because the input contradicted itself: with
+        // recover_gaps set, refresh_assigned_msa_observations re-scores assigned
+        // reads from their cluster and overrode the explicit observation.
+        chunk.reads.resize(6);
         const std::array<int, 2> clu_n_seqs = {2, 2};
         const std::array<std::vector<int>, 2> clu_read_ids = {{{0, 1}, {2, 3}}};
         const std::array<std::vector<AlnStr>, 2> read_alns = {{{hap1, hap1}, {hap2, hap2}}};
-        make_vars_from_msa_cons_aln(opts, chunk, 4, {0, 1, 2, 3}, 100, 2,
+        make_vars_from_msa_cons_aln(opts, chunk, 6, {0, 1, 2, 3, 4, 5}, 100, 2,
                                    clu_n_seqs, clu_read_ids,
                                    read_alns, vars, categories, profiles);
         const std::array<AlnStr, 2> consensuses = {hap1, hap2};
-        add_msa_site_observations(opts, {{0, {hap1, hap1}}, {1, {hap2, hap2}}},
+        add_msa_site_observations(opts, {{4, {hap1, hap1}}, {5, {hap2, hap2}}},
                                   100, false, vars, profiles, &consensuses);
     };
     std::vector<CandidateVariant> off_vars, on_vars;
@@ -1303,9 +1310,17 @@ static bool test_msa_counts_do_not_depend_on_recover_gaps() {
     for (size_t vi = 0; vi < off_vars.size(); ++vi) {
         const VariantCounts& a = off_vars[vi].counts;
         const VariantCounts& b = on_vars[vi].counts;
-        ok &= check(a.total_cov == b.total_cov && a.ref_cov == b.ref_cov &&
-                    a.alt_cov == b.alt_cov && a.alle_covs == b.alle_covs &&
-                    off_cate[vi] == on_cate[vi],
+        const bool same = a.total_cov == b.total_cov && a.ref_cov == b.ref_cov &&
+                          a.alt_cov == b.alt_cov && a.alle_covs == b.alle_covs &&
+                          off_cate[vi] == on_cate[vi];
+        if (!same)
+            std::fprintf(stderr,
+                "  var %zu pos=%ld type=%d: recover_gaps off DP=%d ref=%d alt=%d cate=%d"
+                " | on DP=%d ref=%d alt=%d cate=%d\n",
+                vi, (long)off_vars[vi].key.pos, (int)off_vars[vi].key.type,
+                a.total_cov, a.ref_cov, a.alt_cov, (int)off_cate[vi],
+                b.total_cov, b.ref_cov, b.alt_cov, (int)on_cate[vi]);
+        ok &= check(same,
                     "candidate counts and category do not depend on recover_gaps");
     }
     return ok;

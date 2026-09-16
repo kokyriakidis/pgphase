@@ -66,30 +66,52 @@ measured.
 set is the failure mode the whole gap effort has been chasing, and it is not
 explained by representation.
 
-## Where the divergence is not: four invariants, pinned in the test suite
+## Four invariants pinned in the test suite; one of them was broken
 
 The audit showed 8 of 76 shared candidates carrying different DP/REF_COUNT/
 ALT_COUNT between the alignment-only channel and the hybrid arm, with region
 width ruled out (narrow and wide alignment-only runs agree on all 79 rows). Four
-candidate explanations were turned into unit tests rather than argued about, and
-all four hold, so none of them is the cause:
+candidate explanations became unit tests rather than arguments.
 
-| invariant | test | binary |
+| invariant | test | verdict |
 |---|---|---|
-| the same MSA input gives the same counts whether or not `recover_gaps` is set | `test_msa_counts_do_not_depend_on_recover_gaps` | `test_phase_block_stitch` |
-| ... also with real assigned read clusters, so `refresh_assigned_msa_observations` actually runs | same test, second fixture iteration | `test_phase_block_stitch` |
-| injecting a graph site at a BAM candidate's locus leaves its counts alone | `graph injection leaves a BAM candidate's allele counts alone` | `test_hybrid_inject` |
-| ... and leaves its category alone, and the graph-only backfill does not reach it | two further checks in the same block | `test_hybrid_inject` |
+| the same MSA input gives the same counts whether or not `recover_gaps` is set | `test_msa_counts_do_not_depend_on_recover_gaps` | **failed -- fixed** |
+| injecting a graph site at a BAM candidate's locus leaves its counts alone | `test_hybrid_inject` | holds |
+| ... and leaves its category alone | same block | holds |
+| the graph-only count backfill does not reach a BAM candidate | same block | holds |
 
-The first fixture initially passed for the wrong reason -- with empty read
-clusters `refresh_assigned_msa_observations` is a no-op -- so it was iterated to
-carry four assigned reads in two clusters before being trusted.
+**Correction.** An earlier version of this section reported all four as holding.
+That was wrong: `make -j20` builds `pgphase` but not the test binaries, so the
+binary run at the time was stale. `make unit-tests` rebuilds and the first
+invariant fails.
 
-What remains, therefore, is upstream of injection: the hybrid arm applies
-`apply_hybrid_noise_filter`, which is what rewrites `NOISY_CAND_HET` to
-`REP_HET_INDEL` at `48,177,726`, and the MSA consensus is built inside a chunk
-whose candidate list also holds the graph catalog. Those two are the next places
-to look, and both now have a harness that will catch a change.
+### The defect it found
+
+`refresh_assigned_msa_observations` re-reads each assigned read's allele from its
+own cluster alignment, and it was gated on `recover_gaps`. In the fixture -- two
+clusters of two reads, each carrying its own consensus, so the site is genuinely
+2 ref / 2 alt -- the ungated arm counted it **3 ref / 1 alt**. An assigned read's
+allele does not depend on whether gap recovery is enabled, so the gate is removed
+and the refresh now always runs. All five test binaries pass.
+
+The fixture took two iterations to be worth trusting. With empty read clusters
+the refresh is a no-op and the test passed vacuously; with clusters but an
+assigned read handed to `add_msa_site_observations` as the other haplotype, the
+input contradicted itself and the two arms differed for that reason alone. It now
+has four assigned reads in two clusters plus two genuinely unassigned reads.
+
+### It is not the cause of the real-data divergence
+
+With the refresh unconditional, the alignment-only channel's counts at all eight
+divergent loci are byte-identical to before and the divergence is still 8 of 76.
+So the remaining differences come from the hybrid side, and the per-locus numbers
+say what they are: at `48,193,233`, `48,195,984` and `48,223,075` the hybrid's
+depth is much higher (23 -> 53, 18 -> 58, 41 -> 69), because it counts a
+candidate's reads across the chunk while the alignment channel counts only reads
+inside the noisy region -- more evidence, not corruption, and all three are
+homozygous. `48,177,781` and `48,225,787` are the deliberate nested-deletion
+re-representation. That leaves 1-3 read differences at three loci
+(`48,177,726`, `48,202,057`, `48,229,227`) still unexplained.
 
 ## On injecting the alignment channel's alleles verbatim
 
