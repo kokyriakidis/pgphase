@@ -732,3 +732,53 @@ unambiguous -- alt at `48,204,383` segregates maternal at 0.958, alt at
 `48,225,787 CAAAAAA>C` segregates paternal at 0.987, so the two sites belong on
 opposite haplotypes -- so whatever the solver does with the rescued observations
 is inverting one side for a reason that is not this accounting.
+
+## Why hiphase gets the parity right: it emits one record at the locus, we emit two
+
+Hiphase and the arm hold the same evidence and cross the same 21.4 kb link. The
+difference is the representation of `48,225,78x`.
+
+| | record(s) at the locus | genotype |
+|---|---|---|
+| hiphase | **one**: `48,225,788 AAAAAAA>A` | `1\|0` |
+| the arm | **two**: `48,225,786 CA>C` and `48,225,786 CAAAAAA>C` | `0\|1` and `1\|0` |
+
+Each of our records is individually correct. Scored against read truth after the
+exclusivity fix:
+
+| record | alt reads | alt sits on |
+|---|---:|---|
+| `48,204,383 AT>A` | 41 | **maternal** (39 vs 2) |
+| `48,225,787 CA>C` | 21 | **maternal** (20 vs 1) |
+| `48,225,787 CAAAAAA>C` | 30 | **paternal** (0 vs 30) |
+
+So the locus carries two alleles on *opposite* haplotypes, and the two records'
+alt read sets are disjoint. Hiphase keeps only the paternal one, so when it
+chains `48,204,383` to this locus there is **exactly one** relative orientation
+available, and it is the right one: alt maternal at the first site, alt paternal
+at the second, emitted `0|1` and `1|0` in one phase set.
+
+**We offer the chain two contradictory choices at the same position.** Linking to
+`CA>C` puts the locus's alt on the same haplotype as `48,204,383`'s; linking to
+`CAAAAAA>C` puts it on the opposite one. Both are locally valid, and only the
+second orients the right-hand block the way its own 53 sites are oriented.
+
+The shipped build keeps them apart -- two phase sets, records emitted `0|1` and
+`1|0`, mutually consistent and both correct. With the rescue gates open and the
+blocks merged into one, they are emitted **`0|1` and `0|1`**: both alleles on the
+same haplotype, which is impossible for a locus whose alt read sets are disjoint,
+and it is that contradiction which inverts the right half.
+
+`--joint-het-orientation` does not catch this. It makes a *single* site's two
+haplotypes joint; it does not coordinate two records at one position, so each
+independently picks which haplotype carries its alt and both picked the same one.
+
+### The fix this specifies
+
+Two co-located records whose alt read sets are disjoint are the two alleles of
+one locus and **must** be oriented oppositely -- a constraint the reads decide
+with no thresholds, now that exclusivity makes the sets disjoint. Enforcing it
+converts the ambiguous anchor into a single consistent one, which is the
+structural property hiphase gets for free by emitting one record. It can only be
+validated with the rescue gates open, since that is the only arm where the two
+records end up in one phase set, so the two changes have to land together.
