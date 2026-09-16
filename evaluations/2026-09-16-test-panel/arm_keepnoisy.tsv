@@ -1,0 +1,7 @@
+gap_left	gap_right	gap_bp	competitor	competitor_acc	blocks	spans_gap	in_gap_hets	tagged	scored	concordant	accuracy	gate_conc_to_disc	lost_concordant	gained_concordant	gained_discordant
+48183976	48229446	45470	hiphase	1.0000	2	0	4	472	472	472	1.0	0	0	79	0
+55843827	55889113	45286	hiphase	1.0000	3	0	8	501	501	490	0.97804	1	0	79	9
+24105188	24142287	37099	hiphase	1.0000	3	0	3	495	495	495	1.0	0	0	0	0
+5309406	5345085	35679	whatshap_opt	1.0000	2	1	4	545	545	537	0.98532	0	0	97	6
+12717796	12752291	34495	hiphase	1.0000	2	0	3	543	543	537	0.98895	0	0	14	0
+39838293	39868811	30518	hiphase	1.0000	2	1	8	586	586	586	1.0	0	0	64	0
