@@ -5,6 +5,13 @@
 # pass-1 gap inventory, which overstates the remaining work: the hybrid path
 # already spans many of those gaps.
 set -euo pipefail
+
+# The margin filter is not part of this pipeline: min_read_hap_margin defaults
+# to 0 and the hybrid subcommand does not override it, so passing
+# --min-read-margin 2 was our own addition. Measured on
+# chr20:36,217,274-36,268,291 it stripped 271 reads of which truth says 254
+# (93.7%) were phased correctly. Runs here pass the filters the BAM pipeline
+# itself needs and nothing more.
 readonly REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly OUT="${OUT:-/tmp/hybrid-chr20-current}"
 readonly THREADS="${THREADS:-16}"
@@ -15,7 +22,7 @@ mkdir -p "${OUT}"
     --graph-sites "${REPO}/test_data/chr20.sites.striped.vcf.gz" \
     --gaf "${REPO}/test_data/HG002.chr20.annotated.coord.gaf.gz" \
     -r 'CHM13#0#chr20' -t "${THREADS}" -q 1 \
-    --link-by-alleles --block-link-window 8 --min-read-margin 2 \
+    --link-by-alleles --block-link-window 8 \
     --recover-gaps --gap-recovery-report "${OUT}/tiers.tsv" \
     -o "${OUT}/candidates.tsv" --phased-vcf-out "${OUT}/native.vcf" \
     -b "${OUT}/phased.bam" > "${OUT}/stdout.log" 2> "${OUT}/stderr.log"

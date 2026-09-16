@@ -8194,3 +8194,37 @@ switches 1 -> 0, competitor-absent 14 -> 7, accuracy 77.65% -> 99.6%, but tagged
 358 -> 240 and 75 correct tags LOST against 12 gained. Not a default: the re-solve
 judges every read in the chunk against the new site set, same shape as the earlier
 filter-reorder regression.
+
+### One window's BAM-site injection, audited in four stages (2026-09-16)
+
+`evaluations/2026-09-16-injection-audit/`. Takes collect-bam-variation's own
+candidates for the interval as the reference set and checks presence, field
+fidelity, admission and informativeness, with the clean-het control required.
+On chr20:48,176,830-48,229,446 with --retry-unphased-with-bam: 9 of 9 het sites
+PRESENT, 8 of 9 loci used as phased hets, 0 emitted homozygous, control
+informative (0.986/1.000/1.000). Injection is not the problem.
+
+Two things the audit established about representation. The BAM channel emits BOTH
+nested forms of a repeat deletion at one position as independent contradictory
+hets (48,177,780: GAGAAAGAA>G 1|0 29/45 AND GAGAAAGAAAGAAAGAAAGAA>G 0|1 46/28;
+48,225,786 likewise) -- the defect split_nested_msa_deletions exists to prevent,
+and it is off in that channel. And a RETRACTION: the hybrid residual at
+48,177,789 scoring 0.500 against 0.946 for the unsplit allele is NOT the split
+destroying information. The reads carry -8 (27) and -20 (21); a net-length test
+for a 12 bp residual has a window containing the common 8 bp deletion, so a -8
+read is called alt too (66 vs 8). A split residual is unscorable by that method
+by construction; the audit now declares it and falls back to the unsplit allele.
+At 48,225,787 the same split scores 1.000.
+
+Open in this window: 48,202,057 is used as a phased het but segregates 0.507 over
+69 reads (0.509/0.507/0.515 as a 2/3/4 bp deletion, so not a representation
+artifact, and not a split residual) -- a site with no haplotype information
+carrying a phase set. 48,177,726 is NOISY_CAND_HET to the BAM channel and
+REP_HET_INDEL with no emitted record in hybrid. Three loci differ from the BAM
+channel by 1-3 reads in their allele counts.
+
+Also: the margin filter is removed from the canonical chr20 runner, the gap rig
+and the playbook. min_read_hap_margin defaults to 0 and the hybrid subcommand
+does not override it, so passing --min-read-margin 2 was our own addition; on
+chr20:36,217,274-36,268,291 it strips 271 reads of which truth says 254 (93.7%)
+were phased correctly.

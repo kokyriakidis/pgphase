@@ -52,7 +52,7 @@ structure.
   --graph-sites test_data/chr20.sites.striped.vcf.gz \
   --gaf test_data/HG002.chr20.annotated.coord.gaf.gz \
   -r "CHM13#0#chr20:$((GL-50000))-$((GR+50000))" -t 8 -q 1 \
-  --link-by-alleles --block-link-window 8 --min-read-margin 2 \
+  --link-by-alleles --block-link-window 8 \
   --recover-gaps --gap-decision-audit $D --gap-recovery-report $D/tiers.tsv \
   -o $D/candidates.tsv --phased-vcf-out $D/native.vcf -b $D/phased.bam
 ```
@@ -120,6 +120,17 @@ for a whole window panel):
 - **Run the panel, not just the motivating gap.** Deriving a change from the one
   gap that motivated it has overstated it more than once here. A fix that closes
   its own gap and is inert on eight others is a narrow fix, and worth saying so.
+
+## Do not pass `--min-read-margin`
+
+`min_read_hap_margin` defaults to 0 and the hybrid subcommand does not override
+it, so the margin filter only ever existed because our own invocations passed
+`--min-read-margin 2`. It counts **clean-SNP** agreement only, so a read phased
+on MSA-admitted evidence has no margin by construction and is stripped even
+though the solve used that evidence to place it. Measured on
+`chr20:36,217,274-36,268,291`: it strips 271 reads of which truth says **254
+(93.7%) were phased correctly**. Run with the filters the BAM pipeline itself
+needs and nothing more.
 
 ## Gotchas that have each cost a wrong conclusion
 

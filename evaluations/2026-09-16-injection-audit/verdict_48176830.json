@@ -1,0 +1,2443 @@
+{
+ "verdict": {
+  "window": [
+   48176830,
+   48229446
+  ],
+  "bam_channel_sites": 79,
+  "bam_channel_het": 9,
+  "present": 9,
+  "absent": 0,
+  "field_mismatches": 5,
+  "used_as_het": 8,
+  "genotype_hom": 0,
+  "informative": 5,
+  "unscorable": 1,
+  "control_sites": 3,
+  "control_ok": true,
+  "tagged_reads": 393,
+  "findings": [
+   {
+    "stage": "FIELDS",
+    "pos": 48177726,
+    "detail": "NOISY_CAND_HET differs between channels: {'REF_COUNT': ['34', '35'], 'ALT_COUNT': ['40', '39'], 'AF': ['0.540541', '0.527027'], 'CATEGORY': ['NOISY_CAND_HET', 'REP_HET_INDEL']}"
+   },
+   {
+    "stage": "USED",
+    "pos": 48177726,
+    "detail": "NOISY_CAND_HET: no row of this locus is emitted as a phased het (nearest genotype None), so the locus links nothing"
+   },
+   {
+    "stage": "UNSCORABLE",
+    "pos": 48177789,
+    "detail": "used as a phased het; residual_window_contains_the_common_deletion, so this audit cannot score it (the unsplit allele reads 0.946)"
+   },
+   {
+    "stage": "FIELDS",
+    "pos": 48202057,
+    "detail": "NOISY_CAND_HET differs between channels: {'DP': ['69', '68'], 'REF_COUNT': ['54', '53'], 'AF': ['0.217391', '0.220588']}"
+   },
+   {
+    "stage": "USED",
+    "pos": 48202057,
+    "detail": "used as a phased het but segregates 0.507 against read truth over 69 reads"
+   },
+   {
+    "stage": "USED",
+    "pos": 48225787,
+    "detail": "used as a phased het but segregates 0.733 against read truth over 75 reads"
+   },
+   {
+    "stage": "FIELDS",
+    "pos": 48229227,
+    "detail": "NOISY_CAND_HET differs between channels: {'REF_COUNT': ['26', '23'], 'ALT_COUNT': ['34', '37'], 'AF': ['0.566667', '0.616667']}"
+   }
+  ],
+  "passes": false
+ },
+ "sites": [
+  {
+   "pos": 48176831,
+   "type": "DEL",
+   "ref": "AC",
+   "alt": ".",
+   "bam_category": "CLEAN_HET_INDEL",
+   "present": true,
+   "hybrid_category": "CLEAN_HET_INDEL",
+   "field_diffs": {},
+   "genotype": "1|0",
+   "ps": "48147225",
+   "vcf_pos": 48176830,
+   "segregation": 0.9859154929577465,
+   "scored": 71,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48176831,
+     "ref": "AC",
+     "alt": ".",
+     "category": "CLEAN_HET_INDEL"
+    }
+   ],
+   "used_pos": 48176831,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48177726,
+   "type": "INS",
+   "ref": "T",
+   "alt": "A",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "REP_HET_INDEL",
+   "field_diffs": {
+    "REF_COUNT": [
+     "34",
+     "35"
+    ],
+    "ALT_COUNT": [
+     "40",
+     "39"
+    ],
+    "AF": [
+     "0.540541",
+     "0.527027"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HET",
+     "REP_HET_INDEL"
+    ]
+   },
+   "genotype": null,
+   "ps": null,
+   "vcf_pos": null,
+   "segregation": 0.8648648648648649,
+   "scored": 74,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48177726,
+     "ref": "T",
+     "alt": "A",
+     "category": "REP_HET_INDEL"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48177781,
+   "type": "DEL",
+   "ref": "AGAAAGAAAGAAAGAAAGAA",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {
+    "REF_COUNT": [
+     "46",
+     "1"
+    ],
+    "ALT_COUNT": [
+     "28",
+     "73"
+    ],
+    "AF": [
+     "0.378378",
+     "0.986486"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HET",
+     "NOISY_CAND_HOM"
+    ]
+   },
+   "genotype": "0|1",
+   "ps": "48147225",
+   "vcf_pos": 48177780,
+   "segregation": null,
+   "scored": 74,
+   "used": true,
+   "representation_differs": true,
+   "locus_rows": [
+    {
+     "pos": 48177781,
+     "ref": "AGAAAGAA",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48177789,
+     "ref": "AGAAAGAAAGAA",
+     "alt": ".",
+     "category": "NOISY_CAND_HET"
+    }
+   ],
+   "used_pos": 48177789,
+   "unscorable_reason": "residual_window_contains_the_common_deletion",
+   "unsplit_segregation": 0.9459459459459459
+  },
+  {
+   "pos": 48178415,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48178415,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48178415,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48182640,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48182640,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48182640,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48183515,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48183515,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48183515,
+     "ref": "G",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48183598,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48183598,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48183598,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48183600,
+     "ref": "C",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48183600,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48183600,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48183598,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48183600,
+     "ref": "C",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48183977,
+   "type": "DEL",
+   "ref": "CT",
+   "alt": ".",
+   "bam_category": "CLEAN_HET_INDEL",
+   "present": true,
+   "hybrid_category": "CLEAN_HET_INDEL",
+   "field_diffs": {},
+   "genotype": "0|1",
+   "ps": "48147225",
+   "vcf_pos": 48183976,
+   "segregation": 1.0,
+   "scored": 74,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48183977,
+     "ref": "CT",
+     "alt": ".",
+     "category": "CLEAN_HET_INDEL"
+    }
+   ],
+   "used_pos": 48183977,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48184084,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48184084,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48184084,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48184378,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48184378,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48184378,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48184613,
+   "type": "INS",
+   "ref": "C",
+   "alt": "TCT",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48184612,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48184613,
+     "ref": "C",
+     "alt": "TCT",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48184632,
+     "ref": "C",
+     "alt": "TTT",
+     "category": "NOISY_CAND_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48184632,
+   "type": "INS",
+   "ref": "C",
+   "alt": "TTT",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48184631,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48184613,
+     "ref": "C",
+     "alt": "TCT",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48184632,
+     "ref": "C",
+     "alt": "TTT",
+     "category": "NOISY_CAND_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48185433,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48185433,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48185433,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48185437,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48185437,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48185437,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48185433,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48185437,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48186259,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48186259,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48186259,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48186677,
+   "type": "DEL",
+   "ref": "AC",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48186676,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48186677,
+     "ref": "AC",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48186739,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48186739,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48186739,
+     "ref": "A",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187232,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187232,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187232,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187260,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187260,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187260,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187412,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187412,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187412,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187651,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187651,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187651,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187799,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187799,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187799,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48187806,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48187806,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48187806,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48187799,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48187806,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48189307,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48189307,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48189307,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48189436,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48189436,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48189436,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48191453,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48191453,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48191453,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48191639,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48191639,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48191639,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48192903,
+   "type": "DEL",
+   "ref": "TTT",
+   "alt": ".",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48192902,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48192903,
+     "ref": "TTT",
+     "alt": ".",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48193233,
+   "type": "DEL",
+   "ref": "A",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {
+    "DP": [
+     "23",
+     "53"
+    ],
+    "REF_COUNT": [
+     "2",
+     "5"
+    ],
+    "ALT_COUNT": [
+     "21",
+     "48"
+    ],
+    "AF": [
+     "0.913043",
+     "0.90566"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HOM",
+     "CLEAN_HOM"
+    ]
+   },
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48193232,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48193233,
+     "ref": "A",
+     "alt": ".",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48195475,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48195475,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48195475,
+     "ref": "C",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48195984,
+   "type": "INS",
+   "ref": "A",
+   "alt": "GATGATATT",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {
+    "DP": [
+     "18",
+     "58"
+    ],
+    "ALT_COUNT": [
+     "18",
+     "58"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HOM",
+     "CLEAN_HOM"
+    ]
+   },
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48195983,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48195984,
+     "ref": "A",
+     "alt": "GATGATATT",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48196248,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48196248,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48196248,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48196750,
+   "type": "DEL",
+   "ref": "A",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48196749,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48196750,
+     "ref": "A",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48198001,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48198001,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48198001,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48200320,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48200320,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48200320,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48200792,
+   "type": "DEL",
+   "ref": "TTCT",
+   "alt": ".",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48200791,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48200792,
+     "ref": "TTCT",
+     "alt": ".",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48202037,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48202037,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48202037,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48202057,
+   "type": "DEL",
+   "ref": "A",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HET",
+   "field_diffs": {
+    "DP": [
+     "69",
+     "68"
+    ],
+    "REF_COUNT": [
+     "54",
+     "53"
+    ],
+    "AF": [
+     "0.217391",
+     "0.220588"
+    ]
+   },
+   "genotype": "0|1",
+   "ps": "48147225",
+   "vcf_pos": 48202056,
+   "segregation": 0.5072463768115942,
+   "scored": 69,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48202057,
+     "ref": "A",
+     "alt": ".",
+     "category": "NOISY_CAND_HET"
+    }
+   ],
+   "used_pos": 48202057,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48202626,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48202626,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48202626,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48203375,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48203375,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48203375,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48204283,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48204283,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48204283,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48204384,
+   "type": "DEL",
+   "ref": "T",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HET",
+   "field_diffs": {},
+   "genotype": "0|1",
+   "ps": "48147225",
+   "vcf_pos": 48204383,
+   "segregation": 0.9577464788732394,
+   "scored": 71,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48204384,
+     "ref": "T",
+     "alt": ".",
+     "category": "NOISY_CAND_HET"
+    }
+   ],
+   "used_pos": 48204384,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48204973,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48204973,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48204973,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48205640,
+   "type": "INS",
+   "ref": "A",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48205639,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48205640,
+     "ref": "A",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48206333,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48206333,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48206333,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48206402,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48206402,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48206402,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48207341,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48207341,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48207341,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48207749,
+   "type": "DEL",
+   "ref": "T",
+   "alt": ".",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48207748,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48207749,
+     "ref": "T",
+     "alt": ".",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48208227,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48208227,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48208227,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48208327,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48208327,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48208327,
+     "ref": "T",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48209094,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48209094,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48209094,
+     "ref": "T",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48209732,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48209732,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48209732,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48210205,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48210205,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48210205,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48210485,
+   "type": "INS",
+   "ref": "C",
+   "alt": "A",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": false,
+   "hybrid_category": null,
+   "field_diffs": {},
+   "genotype": null,
+   "ps": null,
+   "vcf_pos": null,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48210637,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48210637,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48210637,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48210664,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48210664,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48210664,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48211881,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48211881,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48211881,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48211890,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48211890,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48211890,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48211881,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48211890,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48212609,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48212609,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48212609,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48217799,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48217799,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48217799,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48218399,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48218399,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48218399,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48220746,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48220746,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48220746,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48220761,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48220761,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48220761,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48220746,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48220761,
+     "ref": "A",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48221207,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48221207,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48221207,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48221682,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "G",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48221682,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48221682,
+     "ref": "A",
+     "alt": "G",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48222720,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48222720,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48222720,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48223075,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "T",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {
+    "DP": [
+     "41",
+     "69"
+    ],
+    "REF_COUNT": [
+     "4",
+     "0"
+    ],
+    "ALT_COUNT": [
+     "37",
+     "69"
+    ],
+    "AF": [
+     "0.902439",
+     "1"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HOM",
+     "CLEAN_HOM"
+    ]
+   },
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48223075,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48223075,
+     "ref": "A",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48223110,
+   "type": "SNP",
+   "ref": "T",
+   "alt": "C",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48223110,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48223110,
+     "ref": "T",
+     "alt": "C",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48223646,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48223646,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48223646,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48223824,
+   "type": "SNP",
+   "ref": "C",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48223824,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48223824,
+     "ref": "C",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48223865,
+   "type": "SNP",
+   "ref": "A",
+   "alt": "T",
+   "bam_category": "CLEAN_HOM",
+   "present": true,
+   "hybrid_category": "CLEAN_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48223865,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48223865,
+     "ref": "A",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48224524,
+   "type": "DEL",
+   "ref": "TATTTATATATATATATATATATA",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48224523,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48224523,
+     "ref": "TTATTTATATATATATATATATAT",
+     "alt": ".",
+     "category": "CLEAN_HOM"
+    },
+    {
+     "pos": 48224524,
+     "ref": "TATTTATATATATATATATATATA",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48224553,
+     "ref": "ATATATATA",
+     "alt": "TATATATA",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48224940,
+   "type": "DEL",
+   "ref": "G",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HOM",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {},
+   "genotype": "1|1",
+   "ps": null,
+   "vcf_pos": 48224940,
+   "segregation": null,
+   "scored": 0,
+   "used": false,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48224940,
+     "ref": "G",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48224941,
+     "ref": "GT",
+     "alt": "T",
+     "category": "CLEAN_HOM"
+    }
+   ],
+   "used_pos": null,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48225787,
+   "type": "DEL",
+   "ref": "AAAAAA",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HOM",
+   "field_diffs": {
+    "REF_COUNT": [
+     "33",
+     "17"
+    ],
+    "ALT_COUNT": [
+     "18",
+     "34"
+    ],
+    "AF": [
+     "0.352941",
+     "0.666667"
+    ],
+    "CATEGORY": [
+     "NOISY_CAND_HET",
+     "NOISY_CAND_HOM"
+    ]
+   },
+   "genotype": "0|1",
+   "ps": "48147225",
+   "vcf_pos": 48225787,
+   "segregation": 0.7333333333333333,
+   "scored": 75,
+   "used": true,
+   "representation_differs": true,
+   "locus_rows": [
+    {
+     "pos": 48225787,
+     "ref": "A",
+     "alt": ".",
+     "category": "NOISY_CAND_HOM"
+    },
+    {
+     "pos": 48225788,
+     "ref": "AAAAA",
+     "alt": ".",
+     "category": "NOISY_CAND_HET"
+    }
+   ],
+   "used_pos": 48225787,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48229227,
+   "type": "DEL",
+   "ref": "A",
+   "alt": ".",
+   "bam_category": "NOISY_CAND_HET",
+   "present": true,
+   "hybrid_category": "NOISY_CAND_HET",
+   "field_diffs": {
+    "REF_COUNT": [
+     "26",
+     "23"
+    ],
+    "ALT_COUNT": [
+     "34",
+     "37"
+    ],
+    "AF": [
+     "0.566667",
+     "0.616667"
+    ]
+   },
+   "genotype": "1|0",
+   "ps": "48147225",
+   "vcf_pos": 48229226,
+   "segregation": 0.9333333333333333,
+   "scored": 60,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48229227,
+     "ref": "A",
+     "alt": ".",
+     "category": "NOISY_CAND_HET"
+    }
+   ],
+   "used_pos": 48229227,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  },
+  {
+   "pos": 48229446,
+   "type": "SNP",
+   "ref": "G",
+   "alt": "A",
+   "bam_category": "CLEAN_HET_SNP",
+   "present": true,
+   "hybrid_category": "CLEAN_HET_SNP",
+   "field_diffs": {},
+   "genotype": "1|0",
+   "ps": "48229446",
+   "vcf_pos": 48229446,
+   "segregation": 1.0,
+   "scored": 60,
+   "used": true,
+   "representation_differs": false,
+   "locus_rows": [
+    {
+     "pos": 48229446,
+     "ref": "G",
+     "alt": "A",
+     "category": "CLEAN_HET_SNP"
+    }
+   ],
+   "used_pos": 48229446,
+   "unscorable_reason": null,
+   "unsplit_segregation": null
+  }
+ ]
+}
