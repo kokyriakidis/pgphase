@@ -916,3 +916,32 @@ same reads and gets it right, which means its allele assignment on those reads
 differs from ours. Both changes were reverted; the screen is also too blunt as
 written, removing four emitted records across the window including one at
 `48,177,780` where hiphase does call a heterozygote.
+
+## Tested: are the injected sites' haplotype assignments wrong? No
+
+For every emitted heterozygote in the window, the alt allele was called from the
+alignment and compared against the haplotype the genotype claims, using the
+read tags rather than truth. Sites are split by whether the catalog claims the
+position (injected) or not (alignment-discovered). A verdict is only issued with
+at least 10 tagged alt reads and a 75% majority -- without that margin the test
+flags 34-vs-32 splits as inversions, which is its own resolution rather than a
+defect, and an earlier pass of this measurement did exactly that.
+
+| arm | source | OK | inverted | unresolved | too few reads |
+|---|---|---:|---:|---:|---:|
+| shipped, 2 blocks, 100% | injected | **9** | **0** | 19 | 32 |
+| | discovered | **5** | **0** | 3 | 0 |
+| screen + gates, 1 block, 56% | injected | **11** | **0** | 17 | 29 |
+| | discovered | **5** | **0** | 2 | 0 |
+
+**No inverted site in either arm, and injected sites are no worse than
+discovered ones.** In the broken arm the sites and the reads are *jointly*
+flipped across the seam -- each half internally consistent, the right at 100%
+under `hap1=MAT` and the left at 99.44% under `hap1=PAT` -- so the failure is one
+coherent parity edge inverting a whole sub-block, not per-site mis-assignment at
+injection.
+
+Limitation worth carrying: only 14-16 sites in the window are resolvable at that
+margin, the rest having too few tagged alt reads or an ambiguous split. This
+rules out a systematic injection inversion, not one bad site among the
+unresolved.
