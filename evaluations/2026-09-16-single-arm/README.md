@@ -538,10 +538,17 @@ The chain, probed end to end:
    They are **MSA-created**, so their per-read alleles never come from the digar
    comparison path at all, which is why the closer-hypothesis change to that
    path was inert.
-2. **In the final profile the observation is simply missing.** At the two split
-   records at `48,225,787` (`ref_len` 1 and 6, both `cate=0x100`), **six of the
-   seven reads hold `allele = -1`**, and those same six hold `hap = 0`. The one
-   read with an observation is the only one that is phased.
+2. **In the final profile the observation is simply missing**, and the two
+   records at `48,225,787` (`cate=0x100`) differ:
+
+   | record | reads with `allele = -1` | reads with an observation |
+   |---|---:|---|
+   | `ref_len = 1` | **6 of 7** | 1 (`allele = 1`), the only read with `hap = 1` |
+   | `ref_len = 6` | **7 of 7** | **none** |
+
+   So the six unphased reads have no observation at either record, and the one
+   phased read has one only at the shorter record. Every read carrying `hap = 0`
+   is uninformative at this locus in both representations.
 3. **The rescue for that case never runs.** `add_msa_site_observations` -- which
    re-calls a site against both consensuses and accepts it when two independently
    composed paths agree -- is invoked unconditionally, but probed at this site it
