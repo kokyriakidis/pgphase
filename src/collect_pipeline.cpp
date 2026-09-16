@@ -1065,11 +1065,25 @@ static PhasingChunk process_chunk_hybrid(
     // failed windows because admitting these sites chunk-wide is a bad trade:
     // chromosome-wide on chr20 it doubled the read Hamming error (0.878% ->
     // 1.837%, 1,831 -> 3,415 discordant reads) while spanning 14 of 196 gaps.
-    if (opts.retry_unphased_with_bam && !discovery_flags.empty()) {
+    // `discovery_flags` is only populated under recover_gaps, where every
+    // non-graph category is zeroed before the solve. Gating the retry on it made
+    // --retry-unphased-with-bam a no-op on its own: without recovery there is
+    // nothing to restore, `readmitted` stayed 0, and the re-solve below -- the
+    // part that actually admits the noisy class -- never ran. The two concerns
+    // are separate. Restoring zeroed categories is recovery-specific; asking for
+    // the noisy-region pass inside a window the first solve could not phase is
+    // not, and is exactly what the default path needs: on
+    // chr20:55,843,827-55,889,113 the chunk already holds all three of the
+    // interior sites a competitor crosses on (55,862,240 AATGGC>. at 31/29,
+    // 55,862,270 T>CAGTAAATTAATTATC at 31/29, 55,883,020 ATAT>. at 17/18), each
+    // classified NoisyCandHet with correct het depths and each left at
+    // phase_set 0, because the hybrid subcommand sets skip_noisy_kmeans = true
+    // (hybrid_collect.cpp:128) and that class never enters phasing.
+    if (opts.retry_unphased_with_bam) {
         const auto windows = collect_unphased_windows(
             chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
         int readmitted = 0;
-        if (!windows.empty()) {
+        if (!windows.empty() && !discovery_flags.empty()) {
             for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
                 if (chunk.candidates[vi].graph_site) continue;
                 const hts_pos_t pos = chunk.candidates[vi].key.pos;
@@ -1116,7 +1130,10 @@ static PhasingChunk process_chunk_hybrid(
                 "hybrid chunk %d retry: %zu unphased window(s), %d site(s) admitted\n",
                 region.chunk_id, windows.size(), readmitted);
         }
-        if (readmitted > 0) {
+        // Re-solve whenever a window failed, not only when a category had to be
+        // restored: under stock defaults nothing was zeroed, so `readmitted` is
+        // 0 while the sites are sitting there unphased.
+        if (!windows.empty()) {
             Options retry_opts = opts;
             // collect_var_run_phasing skips the noisy-region MSA outright while
             // recover_gaps is set (collect_var.cpp), deferring it to the recovery
