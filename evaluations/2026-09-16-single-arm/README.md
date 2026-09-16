@@ -133,3 +133,68 @@ So the two findings are separate, and in this order:
    the chain rather than fixing the switch: two sites to discover
    (`48,149,567`, `48,173,317`) and two the repeat screen removes at 0.865 and
    0.981 (`48,177,725`, `48,234,100`).
+
+## Iteration 2: a site excluded from the link list still inherited a phase set
+
+The switch was not a decision made on thin evidence -- it was no decision at
+all. `48,225,786` (`CAAAA>C`, in an A run) is `is_homopolymer_indel`, and the
+het **link** list excludes such a site unless a recovery homopolymer window is
+active:
+
+```cpp
+if (... && (var.msa_insertion_alts.empty() || var.gap_link_supported) &&
+    (!var.is_homopolymer_indel || gap_hp_link) && !unsupported_gap_indel) {
+    is_het[_vi] = true;
+    het_var_idx.push_back(_vi);
+}
+```
+
+The arm has no such window, so the site never entered the list and
+`het_rank[_vi]` stayed `-1`. But the emit loop still hands it the running phase
+set:
+
+```cpp
+const int hi = het_rank[_vi];
+if (hi >= 0) {
+    phase_set = het_ps[hi];
+    if (parity[hi] == 1) std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
+}
+var.phase_set = phase_set;      // reached with hi < 0 too
+```
+
+So it joined the block carrying whatever orientation its own consensus produced,
+with `parity` never applied -- never reconciled against the block it was labelled
+into. That is why the switch was invisible in read space: the reads covering the
+site belong to the next block, so per-block read concordance stayed at 100.00%
+while the site itself sat on the opposite haplotype.
+
+The fix admits a site to the link list when its own allele depths call it a clear
+heterozygote (`allele_depths_call_het`, the predicate iteration 1 generalised),
+so its orientation is decided by spanning reads like any other het instead of
+inherited.
+
+| | before | after |
+|---|---|---|
+| switches within a block | **1** | **0** |
+| blocks over the window | 2 | 3 |
+| reads tagged | 393 | 393 |
+| concordant | **100.00%** | **100.00%** |
+| `48,229,446` onward | own block `PS=48229446` | **merged into `PS=48225786`** |
+
+Blocks after the fix, each internally consistent against read truth:
+`48,147,225-48,202,056` (8 sites, all paternal-on-hap1 at 0.946-1.000),
+`48,204,383` alone, and `48,225,786-48,279,445` (52 sites, all maternal-on-hap1
+at 0.933-1.000). The 220 bp boundary that no merge could close is now joined by
+the ordinary chain, because the site on its left finally has a link.
+
+## Iteration 3, the next target
+
+The window now fragments where it used to switch. `48,204,383` is a singleton:
+its links to `48,202,056` (2.3 kb, 58 spanning reads) and to `48,225,786`
+(21.4 kb, 7 spanning reads) are both refused. `48,202,056` -- the site carrying
+no haplotype information, segregation 0.507 -- sits between it and the left
+block, so the chain's only route from the body to `48,204,383` runs through a
+site whose alleles are noise. Removing that site, or refusing to link through it,
+is the next step; hiphase holds no het there at all.
+
+Measured on this window only; `--joint-het-orientation` remains off by default.

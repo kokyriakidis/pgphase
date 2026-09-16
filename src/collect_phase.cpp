@@ -656,6 +656,9 @@ static bool msa_indel_has_confident_bam_observation(const PhasingChunk& chunk,
            bam_base_quality_at(bam, var.key.pos, kGapBridgeMinBaseQuality);
 }
 
+static bool allele_depths_call_het(const CandidateVariant& var,
+                                  const Options& opts);
+
 // Phase-set assignment + flip for one k-means iteration.
 // Returns 1 if any flip occurred (changed), 0 if converged.
 // Iter_update_var_hap_cons_phase_set.
@@ -710,10 +713,25 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             var.lcd_var_i_to_cate == kCandNoisyCandHet &&
             opts.gap_recovery_beg >= 0 && var.key.sort_pos() >= opts.gap_recovery_beg &&
             var.key.sort_pos() <= opts.gap_recovery_end && !var.gap_link_supported;
+        // A homopolymer indel is kept out of the LINK list because its allele is
+        // unreliable for linking. But the emit loop below still hands such a
+        // site the running phase set while leaving `parity` unapplied, so it
+        // joins a block carrying whatever orientation its own consensus
+        // produced, never reconciled against that block. On
+        // chr20:48,225,786 (CAAAA>C in an A run, segregation 1.000 against read
+        // truth) that put a maternal-on-hap1 site inside a block whose body is
+        // paternal-on-hap1 -- a switch invisible in read space, because the
+        // reads covering it belong to the next block. A site whose own allele
+        // depths call it a clear heterozygote is therefore admitted to the link
+        // list, so its orientation is decided by spanning reads like any other
+        // het rather than inherited.
+        const bool hp_indel_blocks_link =
+            var.is_homopolymer_indel && !gap_hp_link &&
+            !allele_depths_call_het(var, opts);
         if (var.hap_to_cons_alle[1] != -1 && var.hap_to_cons_alle[2] != -1 &&
             var.hap_to_cons_alle[1] != var.hap_to_cons_alle[2] &&
             (var.msa_insertion_alts.empty() || var.gap_link_supported) &&
-            (!var.is_homopolymer_indel || gap_hp_link) && !unsupported_gap_indel) {
+            !hp_indel_blocks_link && !unsupported_gap_indel) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
         }
