@@ -304,19 +304,78 @@ reference context: ggttccttggggatgggggattgggggatggga     (GGGGATG tandem repeat)
 ```
 
 A clean 7 bp deletion, 43 reads against 23 at roughly 66x, which hiphase calls
-`TGGGGATG>T`. The arm has **no candidate and no emitted record within 120 bp**,
-and `collect-bam-variation` alone does not call it either, so the alignment
-channel's discovery misses it outright.
+`TGGGGATG>T`. The arm has **no candidate and no emitted record within 120 bp**.
 
-The catalog *does* carry it -- `CHM13#0#chr20 48173317 TGGGGATG>T`, single ALT,
-`AT=>118674138>118674139>118674140,>118674138>118674140` so two allele walks,
-which makes it eligible -- and injection still produced no candidate. So two
-independent paths to this site both fail:
+**Retraction.** An earlier version of this section said `collect-bam-variation`
+alone does not call it either, and concluded that both channels fail. That was
+never tested -- the check queried the *hybrid* run's outputs. Run standalone, the
+alignment channel discovers **and phases** it:
 
-1. the pileup caller does not propose a 7 bp deletion at a 43/23 split, and
-2. an eligible single-ALT catalog site did not become a graph-only candidate.
+```
+POS=48173318  DEL  GGGGATG>.  DP=64  23/41  AF=0.6406  NOISY_CAND_HET
+record: 48173317  TGGGGATG>T  GT=0|1
+```
 
-The second is the tractable one and is the next thing to localize: `inject_graph_sites`
-calls `add_graph_only_candidate` whenever no existing candidate matches, so
-either the site is absent from the `GraphSiteCatalogView` this chunk was given,
-or the candidate was created and later dropped.
+So only the hybrid path loses it, and the mechanism is the catalog claiming the
+locus.
+
+### Localized: the catalog claim routes it to a stricter classifier
+
+Probing the injection path, nothing fails there -- the site is eligible, present
+in the chunk's catalog view, and a graph-only candidate **is** created (index
+586, key position 48,173,317). It is then dropped downstream. The counts after
+`backfill_graph_candidate_counts` explain why:
+
+```
+pos=48173317  graph_site=1  ref_cov=23  alt_cov=42  total=65  af=0.000  ref_len=7
+```
+
+The coverage is right and matches the reads, and `allele_fraction` is **0.000** --
+the backfill accumulates the three coverage fields and never publishes the
+fraction they imply. That is fixed here (same expression as
+`gap_evidence.cpp:256` and `graph_bam_adapter.cpp:693`), though it is not the
+whole story, because `classify_graph_only_candidates` recomputes the fraction
+itself.
+
+The decisive difference is *which classifier judges the site*. Because the
+catalog claims the locus, it goes through `classify_graph_only_candidates`,
+whose het-indel test is `|AF - 0.5| <= graph_indel_af_margin`, i.e. AF in
+**[0.39, 0.61]** at the default 0.11. The site's AF is **0.652**, so it falls to
+the `else` branch -- and that branch assigns `LowCoverage`, which
+`prune_not_candidate_variants` **deletes**. The identical site without a catalog
+claim is judged by the BAM classifier's `[min_af, max_af]` = **[0.20, 0.80]**
+and comes out `NOISY_CAND_HET`, phased `0|1`. So a catalog-claimed site is
+judged more harshly than the same site would be without the catalog, and the
+penalty is deletion rather than demotion -- while the branch's own comment says
+its purpose is only to "keep out of k-means".
+
+### Why simply admitting it is not the fix: the verification asymmetry
+
+Changing that branch to `NoisyCandHet` does recover the site -- hiphase sites
+used goes 15/19 to 16/19 and both blocks grow -- but read concordance on the arm
+falls from **100.00% (393/393)** to **88.39% (449/508)**, with *both* blocks
+turning internally inconsistent (87.06% and 90.45%). So it is not one flip.
+
+The cause is that a catalog-claimed site cannot be verified. `msa_verified` is
+set in exactly **one** place, inside the factory that *constructs* a candidate
+from the MSA consensus (`collect_phase_noisy.cpp:213`). It is a property of
+MSA-created candidates, not a stamp applied to existing ones -- and a
+catalog-claimed candidate exists *before* that pass. Probed across
+`48,145,000-48,240,000`:
+
+| | sites | `msa_verified` |
+|---|---:|---|
+| BAM-discovered `NoisyCandHet` | 14 | **1 for all of them** |
+| catalog-claimed `NoisyCandHet` | 5 | **0 for all of them** |
+
+So admitting them puts *unverified* sites into noisy k-means -- three of the five
+at AF 0.725-0.791 -- which is what corrupts both blocks. The BAM-discovered
+sites in the same window are safe precisely because they arrive verified, having
+been constructed by the MSA from the reads.
+
+The fix is therefore to let the noisy MSA pass construct the verified version of
+a catalog-claimed site, exactly as it already does for the identical site when
+the catalog does not claim it. Admitting it raw is measurably wrong, and hiding
+the admission behind a flag would only make the site unreachable by default. The
+branch now carries this reasoning so the drop is a named decision rather than an
+accident.

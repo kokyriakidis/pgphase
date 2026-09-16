@@ -816,6 +816,23 @@ void backfill_graph_candidate_counts(
             ++cand.counts.total_cov;
         }
     }
+
+    // Publish the allele fraction these counts imply. Accumulating ref_cov,
+    // alt_cov and total_cov without it left allele_fraction at its initial 0,
+    // and every downstream gate reads that field rather than the counts -- so a
+    // graph-only candidate with textbook heterozygous coverage was judged as
+    // having no alternate support and dropped. chr20:48,173,317
+    // (TGGGGATG>T, a 7 bp deletion hiphase phases) backfilled to ref_cov 23,
+    // alt_cov 42, total_cov 65 and allele_fraction 0.000, so it never reached
+    // the candidate table at all. Same expression the BAM and graph-only paths
+    // use (gap_evidence.cpp:256, graph_bam_adapter.cpp:693).
+    for (const int vi : graph_only_candidates) {
+        if (vi < 0 || static_cast<size_t>(vi) >= chunk.candidates.size()) continue;
+        VariantCounts& c = chunk.candidates[static_cast<size_t>(vi)].counts;
+        c.allele_fraction = c.total_cov > 0
+                ? static_cast<double>(c.alt_cov) / static_cast<double>(c.total_cov)
+                : 0.0;
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -878,11 +895,40 @@ int classify_graph_only_candidates(
                    c.alt_cov >= opts.graph_indel_min_alt) {
             cat = VariantCategory::CleanHetIndel;
         } else {
-            // Graph het indel with unreliable genotype (AF off-center or thin
-            // alt support): keep out of k-means to avoid mis-orienting reads.
+            // An indel whose AF is off the centre of the graph window but still
+            // inside the BAM classifier's own [min_af, max_af] is a het the BAM
+            // pipeline would call -- as NoisyCandHet, the class that exists for
+            // a het needing MSA verification. Mapping it to LowCoverage instead
+            // deleted it, because that is what prune_not_candidate_variants
+            // removes: chr20:48,173,317 (TGGGGATG>T) is discovered AND phased
+            // 0|1 by collect-bam-variation standalone at ref_cov 23 /
+            // alt_cov 41, AF 0.6406, yet vanished from the hybrid run purely
+            // because the catalog claimed the site and routed it through this
+            // classifier's tighter +/-0.11 window. Same thresholds as the BAM
+            // path, so a catalog-claimed site is not judged more harshly than
+            // the identical site would be without the catalog.
+            //
+            // Admitting it here as NoisyCandHet is NOT yet correct, and the
+            // reason is a verification asymmetry: `msa_verified` is set in
+            // exactly one place, inside the factory that CONSTRUCTS a candidate
+            // from the MSA consensus (collect_phase_noisy.cpp:213). It is a
+            // property of MSA-created candidates, not a stamp applied to
+            // existing ones, so a catalog-claimed candidate -- which exists
+            // before that pass -- can never acquire it. Probed over
+            // chr20:48,145,000-48,240,000: all 14 BAM-discovered NoisyCandHet
+            // sites carry msa_verified = 1, all 5 catalog-claimed ones carry 0.
+            // Admitting the latter puts unverified sites, three of them at
+            // AF 0.725-0.791, into noisy k-means: read concordance on the arm
+            // fell from 100.00% (393/393) to 88.39% (449/508), with both blocks
+            // internally inconsistent at 87.06% and 90.45%.
+            //
+            // The fix is to let the noisy MSA pass construct the verified
+            // version of such a site, as it already does for the identical site
+            // when the catalog does not claim it -- not to admit it raw, and
+            // not to hide the admission behind a flag. Until then the site is
+            // still dropped, but now for a named reason.
             cat = VariantCategory::LowCoverage;
         }
-
         c.category = cat;
         c.candvarcate_initial = cat;
         const bool clean_het = cat == VariantCategory::CleanHetSnp ||

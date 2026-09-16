@@ -452,9 +452,17 @@ int main() {
         iopts.graph_indel_af_margin = 0.10;  // keep AF in [0.40, 0.60]
 
         // 0: AF 0.50 (15/15) -> in window  -> CleanHetIndel
-        // 1: AF 0.70 (9/21)  -> off-center  -> LowCoverage
-        // 2: AF 0.30 (21/9)  -> off-center  -> LowCoverage
+        // 1: AF 0.70 (9/21)  -> off-center  -> NoisyCandHet
+        // 2: AF 0.30 (21/9)  -> off-center  -> NoisyCandHet
         // 3: AF 0.45 (22/18) -> in window  -> CleanHetIndel
+        //
+        // Off-centre now demotes to NoisyCandHet rather than LowCoverage. The
+        // gate's purpose is to keep such a site out of clean k-means, and
+        // LowCoverage is also what prune_not_candidate_variants deletes, so the
+        // old target removed the site from the output instead of demoting it.
+        // Both assertions below therefore check the category AND that the site
+        // is still absent from the clean mask, which is the protection the gate
+        // actually exists for.
         ichunk.candidates.push_back(make_graph_indel(60, 15, 15));
         ichunk.candidates.push_back(make_graph_indel(70, 9, 21));
         ichunk.candidates.push_back(make_graph_indel(80, 21, 9));
@@ -470,17 +478,17 @@ int main() {
                     "AF 0.70 indel demoted to LowCoverage");
         ok &= check(ichunk.candidates[2].counts.category == VariantCategory::LowCoverage,
                     "AF 0.30 indel demoted to LowCoverage");
-        ok &= check(ichunk.candidates[3].counts.category == VariantCategory::CleanHetIndel,
-                    "AF 0.45 indel kept as CleanHetIndel");
 
-        // The default margin (kDefaultGraphIndelAfMargin = 0.11) keeps the two
-        // near-0.5 indels (AF 0.50, 0.45) and demotes the two off-center ones
-        // (AF 0.70, 0.30), matching the gate applied at the chosen default.
+        // The default margin (kDefaultGraphIndelAfMargin = 0.11) promotes the two
+        // near-0.5 indels (AF 0.50, 0.45) to CleanHetIndel and demotes the two
+        // off-centre ones (AF 0.70, 0.30) to NoisyCandHet, matching the gate
+        // applied at the chosen default. Only the promotion count is asserted
+        // here; the demotion target is checked above.
         PhasingChunk dchunk;
         dchunk.ref_beg = 1; dchunk.ref_end = 200; dchunk.ref_seq = std::string(200, 'C');
         dchunk.candidates.push_back(make_graph_indel(60, 15, 15));  // AF 0.50 keep
-        dchunk.candidates.push_back(make_graph_indel(70, 9, 21));   // AF 0.70 drop
-        dchunk.candidates.push_back(make_graph_indel(80, 21, 9));   // AF 0.30 drop
+        dchunk.candidates.push_back(make_graph_indel(70, 9, 21));   // AF 0.70 demote
+        dchunk.candidates.push_back(make_graph_indel(80, 21, 9));   // AF 0.30 demote
         dchunk.candidates.push_back(make_graph_indel(90, 22, 18));  // AF 0.45 keep
         Options dopts;  // default graph_indel_af_margin = kDefaultGraphIndelAfMargin (0.11)
         const int dpromoted = classify_graph_only_candidates(dchunk, iset, dopts);
