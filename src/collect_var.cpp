@@ -2109,7 +2109,7 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     // first-pass read labels would mix independent PS orientations and undo
     // newly established bridges. Graph preservation is handled by the existing
     // graph/hybrid block merger, which aligns complete phase sets by shared reads.
-    if (!opts.recover_gaps)
+    if (!opts.recover_gaps || opts.force_noisy_msa)
         collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
 
     // Additive gap-fill: recover the reads skip_noisy_kmeans left unphased.

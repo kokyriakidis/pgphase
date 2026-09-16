@@ -4,21 +4,21 @@
    36217274,
    36268291
   ],
-  "usable_het_sites": 37,
-  "usable_het_sites_in_region": 15,
-  "links": 34,
+  "usable_het_sites": 27,
+  "usable_het_sites_in_region": 10,
+  "links": 24,
   "unsupported_links": 0,
-  "unscorable_sites": 8,
+  "unscorable_sites": 4,
   "switches": 0,
-  "category_het_genotype_hom": 0,
+  "category_het_genotype_hom": 7,
   "gate": {
    "tagged_before": 358,
-   "tagged_after": 240,
+   "tagged_after": 242,
    "concordant_before": 278,
-   "concordant_after": 239,
+   "concordant_after": 241,
    "concordant_to_discordant": 0,
    "concordant_lost": 75,
-   "newly_concordant": 12,
+   "newly_concordant": 14,
    "newly_discordant": 0
   },
   "gate_blind": true,
@@ -26,7 +26,8 @@
    "phased_hets": 24,
    "census": {
     "absent_from_our_vcf": 7,
-    "we_phase_it_het": 17
+    "we_phase_it_het": 16,
+    "we_call_it_hom": 1
    },
    "detail": [
     {
@@ -72,6 +73,13 @@
      "inside_region": false
     },
     {
+     "pos": 36230440,
+     "state": "we_call_it_hom",
+     "our_cat": "NOISY_CAND_HET",
+     "our_gt": "1|1",
+     "inside_region": true
+    },
+    {
      "pos": 36236726,
      "state": "absent_from_our_vcf",
      "our_cat": null,
@@ -84,16 +92,57 @@
  },
  "findings": [
   {
-   "kind": "unscorable_site",
-   "pos": 36179334,
-   "ps": "36168059",
-   "reason": "below_min_confidence",
-   "scored": 75,
+   "kind": "category_het_genotype_hom",
+   "pos": 36230439,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36230439,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36261163,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36261163,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36312266,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": false
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36318251,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": false
+  },
+  {
+   "kind": "category_het_genotype_hom",
+   "pos": 36318251,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
    "inside_region": false
   },
   {
    "kind": "unscorable_site",
-   "pos": 36179334,
+   "pos": 36179338,
    "ps": "36168059",
    "reason": "below_min_confidence",
    "scored": 75,
@@ -117,15 +166,7 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 36194843,
-   "ps": "36168059",
-   "reason": "below_min_confidence",
-   "scored": 64,
-   "inside_region": false
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36194843,
+   "pos": 36194851,
    "ps": "36168059",
    "reason": "below_min_confidence",
    "scored": 64,
@@ -165,22 +206,6 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 36230439,
-   "ps": "36168059",
-   "reason": "below_min_confidence",
-   "scored": 50,
-   "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36230439,
-   "ps": "36168059",
-   "reason": "below_min_confidence",
-   "scored": 50,
-   "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
    "pos": 36259922,
    "ps": "36168059",
    "reason": "below_min_confidence",
@@ -189,35 +214,11 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 36261163,
-   "ps": "36261163",
-   "reason": "below_min_confidence",
-   "scored": 59,
-   "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36261163,
-   "ps": "36261163",
-   "reason": "below_min_confidence",
-   "scored": 59,
-   "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
    "pos": 36261301,
-   "ps": "36261163",
+   "ps": "36261301",
    "reason": "below_min_confidence",
    "scored": 59,
    "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36312266,
-   "ps": "36286778",
-   "reason": "below_min_confidence",
-   "scored": 53,
-   "inside_region": false
   },
   {
    "kind": "unscorable_site",
@@ -230,22 +231,6 @@
   {
    "kind": "unscorable_site",
    "pos": 36312797,
-   "ps": "36286778",
-   "reason": "below_min_confidence",
-   "scored": 53,
-   "inside_region": false
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36318251,
-   "ps": "36286778",
-   "reason": "below_min_confidence",
-   "scored": 53,
-   "inside_region": false
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 36318251,
    "ps": "36286778",
    "reason": "below_min_confidence",
    "scored": 53,
@@ -301,6 +286,14 @@
   },
   {
    "kind": "competitor_site_unused",
+   "pos": 36230440,
+   "state": "we_call_it_hom",
+   "our_cat": "NOISY_CAND_HET",
+   "our_gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "competitor_site_unused",
    "pos": 36236726,
    "state": "absent_from_our_vcf",
    "our_cat": null,
@@ -321,26 +314,17 @@
   {
    "ps": "36168059",
    "left": 36172778,
-   "right": 36179334,
-   "bp": 6556,
+   "right": 36179338,
+   "bp": 6560,
    "spanning_reads": 44,
    "supported": true,
    "inside_region": false
   },
   {
    "ps": "36168059",
-   "left": 36179334,
-   "right": 36179334,
-   "bp": 0,
-   "spanning_reads": 75,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "36168059",
-   "left": 36179334,
+   "left": 36179338,
    "right": 36179378,
-   "bp": 44,
+   "bp": 40,
    "spanning_reads": 75,
    "supported": true,
    "inside_region": false
@@ -366,26 +350,17 @@
   {
    "ps": "36168059",
    "left": 36189207,
-   "right": 36194843,
-   "bp": 5636,
+   "right": 36194851,
+   "bp": 5644,
    "spanning_reads": 42,
    "supported": true,
    "inside_region": false
   },
   {
    "ps": "36168059",
-   "left": 36194843,
-   "right": 36194843,
-   "bp": 0,
-   "spanning_reads": 64,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "36168059",
-   "left": 36194843,
+   "left": 36194851,
    "right": 36195560,
-   "bp": 717,
+   "bp": 709,
    "spanning_reads": 59,
    "supported": true,
    "inside_region": false
@@ -456,45 +431,18 @@
   {
    "ps": "36168059",
    "left": 36222445,
-   "right": 36230439,
-   "bp": 7994,
-   "spanning_reads": 38,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "36168059",
-   "left": 36230439,
-   "right": 36230439,
-   "bp": 0,
-   "spanning_reads": 50,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "36168059",
-   "left": 36230439,
    "right": 36234165,
-   "bp": 3726,
-   "spanning_reads": 28,
+   "bp": 11720,
+   "spanning_reads": 19,
    "supported": true,
    "inside_region": true
   },
   {
    "ps": "36168059",
    "left": 36234165,
-   "right": 36236716,
-   "bp": 2551,
-   "spanning_reads": 39,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "36168059",
-   "left": 36236716,
    "right": 36247421,
-   "bp": 10705,
-   "spanning_reads": 30,
+   "bp": 13256,
+   "spanning_reads": 19,
    "supported": true,
    "inside_region": true
   },
@@ -517,25 +465,7 @@
    "inside_region": true
   },
   {
-   "ps": "36261163",
-   "left": 36261163,
-   "right": 36261163,
-   "bp": 0,
-   "spanning_reads": 59,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "36261163",
-   "left": 36261163,
-   "right": 36261301,
-   "bp": 138,
-   "spanning_reads": 59,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "36261163",
+   "ps": "36261301",
    "left": 36261301,
    "right": 36268291,
    "bp": 6990,
@@ -544,7 +474,7 @@
    "inside_region": true
   },
   {
-   "ps": "36261163",
+   "ps": "36261301",
    "left": 36268291,
    "right": 36268558,
    "bp": 267,
@@ -573,15 +503,6 @@
   {
    "ps": "36286778",
    "left": 36312266,
-   "right": 36312266,
-   "bp": 0,
-   "spanning_reads": 53,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "36286778",
-   "left": 36312266,
    "right": 36312797,
    "bp": 531,
    "spanning_reads": 53,
@@ -594,24 +515,6 @@
    "right": 36317511,
    "bp": 4714,
    "spanning_reads": 35,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "36286778",
-   "left": 36317511,
-   "right": 36318251,
-   "bp": 740,
-   "spanning_reads": 50,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "36286778",
-   "left": 36318251,
-   "right": 36318251,
-   "bp": 0,
-   "spanning_reads": 53,
    "supported": true,
    "inside_region": false
   }
@@ -636,16 +539,7 @@
    "unscorable": null
   },
   {
-   "pos": 36179334,
-   "ps": "36168059",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.5333333333333333,
-   "scored": 75,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36179334,
+   "pos": 36179338,
    "ps": "36168059",
    "cat": "NOISY_CAND_HET",
    "orientation": "MAT",
@@ -681,16 +575,7 @@
    "unscorable": null
   },
   {
-   "pos": 36194843,
-   "ps": "36168059",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.515625,
-   "scored": 64,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36194843,
+   "pos": 36194851,
    "ps": "36168059",
    "cat": "NOISY_CAND_HET",
    "orientation": "PAT",
@@ -771,39 +656,12 @@
    "unscorable": null
   },
   {
-   "pos": 36230439,
-   "ps": "36168059",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.62,
-   "scored": 50,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36230439,
-   "ps": "36168059",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.62,
-   "scored": 50,
-   "unscorable": "below_min_confidence"
-  },
-  {
    "pos": 36234165,
    "ps": "36168059",
    "cat": "CLEAN_HET_SNP",
    "orientation": "MAT",
    "confidence": 0.9787234042553191,
    "scored": 47,
-   "unscorable": null
-  },
-  {
-   "pos": 36236716,
-   "ps": "36168059",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.9423076923076923,
-   "scored": 52,
    "unscorable": null
   },
   {
@@ -834,26 +692,8 @@
    "unscorable": "below_min_confidence"
   },
   {
-   "pos": 36261163,
-   "ps": "36261163",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.6101694915254238,
-   "scored": 59,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36261163,
-   "ps": "36261163",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.6101694915254238,
-   "scored": 59,
-   "unscorable": "below_min_confidence"
-  },
-  {
    "pos": 36261301,
-   "ps": "36261163",
+   "ps": "36261301",
    "cat": "NOISY_CAND_HET",
    "orientation": "MAT",
    "confidence": 0.6440677966101694,
@@ -862,7 +702,7 @@
   },
   {
    "pos": 36268291,
-   "ps": "36261163",
+   "ps": "36261301",
    "cat": "CLEAN_HET_SNP",
    "orientation": "MAT",
    "confidence": 0.9859154929577465,
@@ -871,7 +711,7 @@
   },
   {
    "pos": 36268558,
-   "ps": "36261163",
+   "ps": "36261301",
    "cat": "CLEAN_HET_SNP",
    "orientation": "MAT",
    "confidence": 1.0,
@@ -900,15 +740,6 @@
    "pos": 36312266,
    "ps": "36286778",
    "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.5849056603773585,
-   "scored": 53,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36312266,
-   "ps": "36286778",
-   "cat": "NOISY_CAND_HET",
    "orientation": "PAT",
    "confidence": 0.6226415094339622,
    "scored": 53,
@@ -931,24 +762,6 @@
    "confidence": 0.9636363636363636,
    "scored": 55,
    "unscorable": null
-  },
-  {
-   "pos": 36318251,
-   "ps": "36286778",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.6415094339622641,
-   "scored": 53,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 36318251,
-   "ps": "36286778",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.5094339622641509,
-   "scored": 53,
-   "unscorable": "below_min_confidence"
   }
  ]
 }

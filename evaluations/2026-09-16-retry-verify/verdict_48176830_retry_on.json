@@ -4,13 +4,13 @@
    48176830,
    48229446
   ],
-  "usable_het_sites": 66,
-  "usable_het_sites_in_region": 10,
-  "links": 64,
+  "usable_het_sites": 61,
+  "usable_het_sites_in_region": 8,
+  "links": 59,
   "unsupported_links": 0,
-  "unscorable_sites": 3,
-  "switches": 1,
-  "category_het_genotype_hom": 0,
+  "unscorable_sites": 2,
+  "switches": 0,
+  "category_het_genotype_hom": 1,
   "gate": {
    "tagged_before": 205,
    "tagged_after": 205,
@@ -25,8 +25,9 @@
   "competitor": {
    "phased_hets": 78,
    "census": {
-    "we_phase_it_het": 57,
-    "absent_from_our_vcf": 21
+    "we_phase_it_het": 55,
+    "absent_from_our_vcf": 21,
+    "we_call_it_hom": 2
    },
    "detail": [
     {
@@ -51,6 +52,13 @@
      "inside_region": true
     },
     {
+     "pos": 48177780,
+     "state": "we_call_it_hom",
+     "our_cat": "NOISY_CAND_HOM",
+     "our_gt": "1|1",
+     "inside_region": true
+    },
+    {
      "pos": 48234100,
      "state": "absent_from_our_vcf",
      "our_cat": null,
@@ -62,6 +70,13 @@
      "state": "absent_from_our_vcf",
      "our_cat": null,
      "our_gt": null,
+     "inside_region": false
+    },
+    {
+     "pos": 48268237,
+     "state": "we_call_it_hom",
+     "our_cat": "NOISY_CAND_HOM",
+     "our_gt": "1|1",
      "inside_region": false
     },
     {
@@ -182,6 +197,13 @@
  },
  "findings": [
   {
+   "kind": "category_het_genotype_hom",
+   "pos": 48173990,
+   "cat": "NOISY_CAND_HET",
+   "gt": "1|1",
+   "inside_region": false
+  },
+  {
    "kind": "unscorable_site",
    "pos": 48147225,
    "ps": "48147225",
@@ -191,7 +213,7 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 48147227,
+   "pos": 48147229,
    "ps": "48147225",
    "reason": "tied_orientation",
    "scored": 64,
@@ -207,15 +229,7 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 48173990,
-   "ps": "48147225",
-   "reason": "below_min_confidence",
-   "scored": 67,
-   "inside_region": false
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 48177780,
+   "pos": 48177788,
    "ps": "48147225",
    "reason": "below_min_confidence",
    "scored": 74,
@@ -231,14 +245,6 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 48225786,
-   "ps": "48147225",
-   "reason": "below_min_confidence",
-   "scored": 75,
-   "inside_region": true
-  },
-  {
-   "kind": "unscorable_site",
    "pos": 48235309,
    "ps": "48229446",
    "reason": "below_min_confidence",
@@ -247,29 +253,11 @@
   },
   {
    "kind": "unscorable_site",
-   "pos": 48268237,
+   "pos": 48268249,
    "ps": "48229446",
    "reason": "below_min_confidence",
    "scored": 64,
    "inside_region": false
-  },
-  {
-   "kind": "unscorable_site",
-   "pos": 48268237,
-   "ps": "48229446",
-   "reason": "below_min_confidence",
-   "scored": 64,
-   "inside_region": false
-  },
-  {
-   "kind": "switch_within_phase_set",
-   "ps": "48147225",
-   "left": 48147227,
-   "right": 48149548,
-   "left_orientation": "MAT",
-   "right_orientation": "PAT",
-   "spanning_reads": 59,
-   "run": 2
   },
   {
    "kind": "competitor_site_unused",
@@ -297,6 +285,14 @@
   },
   {
    "kind": "competitor_site_unused",
+   "pos": 48177780,
+   "state": "we_call_it_hom",
+   "our_cat": "NOISY_CAND_HOM",
+   "our_gt": "1|1",
+   "inside_region": true
+  },
+  {
+   "kind": "competitor_site_unused",
    "pos": 48234100,
    "state": "absent_from_our_vcf",
    "our_cat": null,
@@ -309,6 +305,14 @@
    "state": "absent_from_our_vcf",
    "our_cat": null,
    "our_gt": null,
+   "inside_region": false
+  },
+  {
+   "kind": "competitor_site_unused",
+   "pos": 48268237,
+   "state": "we_call_it_hom",
+   "our_cat": "NOISY_CAND_HOM",
+   "our_gt": "1|1",
    "inside_region": false
   },
   {
@@ -444,26 +448,17 @@
   {
    "ps": "48147225",
    "left": 48147225,
-   "right": 48147227,
-   "bp": 2,
+   "right": 48147229,
+   "bp": 4,
    "spanning_reads": 64,
    "supported": true,
    "inside_region": false
   },
   {
    "ps": "48147225",
-   "left": 48147227,
-   "right": 48147227,
-   "bp": 0,
-   "spanning_reads": 64,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "48147225",
-   "left": 48147227,
+   "left": 48147229,
    "right": 48149548,
-   "bp": 2321,
+   "bp": 2319,
    "spanning_reads": 59,
    "supported": true,
    "inside_region": false
@@ -489,17 +484,8 @@
   {
    "ps": "48147225",
    "left": 48173989,
-   "right": 48173990,
-   "bp": 1,
-   "spanning_reads": 67,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "48147225",
-   "left": 48173990,
    "right": 48176830,
-   "bp": 2840,
+   "bp": 2841,
    "spanning_reads": 60,
    "supported": true,
    "inside_region": true
@@ -507,26 +493,17 @@
   {
    "ps": "48147225",
    "left": 48176830,
-   "right": 48177780,
-   "bp": 950,
+   "right": 48177788,
+   "bp": 958,
    "spanning_reads": 70,
    "supported": true,
    "inside_region": true
   },
   {
    "ps": "48147225",
-   "left": 48177780,
-   "right": 48177780,
-   "bp": 0,
-   "spanning_reads": 74,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "48147225",
-   "left": 48177780,
+   "left": 48177788,
    "right": 48183976,
-   "bp": 6196,
+   "bp": 6188,
    "spanning_reads": 45,
    "supported": true,
    "inside_region": true
@@ -552,26 +529,17 @@
   {
    "ps": "48147225",
    "left": 48204383,
-   "right": 48225786,
-   "bp": 21403,
+   "right": 48225787,
+   "bp": 21404,
    "spanning_reads": 7,
    "supported": true,
    "inside_region": true
   },
   {
    "ps": "48147225",
-   "left": 48225786,
-   "right": 48225786,
-   "bp": 0,
-   "spanning_reads": 75,
-   "supported": true,
-   "inside_region": true
-  },
-  {
-   "ps": "48147225",
-   "left": 48225786,
+   "left": 48225787,
    "right": 48229226,
-   "bp": 3440,
+   "bp": 3439,
    "spanning_reads": 51,
    "supported": true,
    "inside_region": true
@@ -975,26 +943,17 @@
   {
    "ps": "48229446",
    "left": 48267920,
-   "right": 48268237,
-   "bp": 317,
+   "right": 48268249,
+   "bp": 329,
    "spanning_reads": 63,
    "supported": true,
    "inside_region": false
   },
   {
    "ps": "48229446",
-   "left": 48268237,
-   "right": 48268237,
-   "bp": 0,
-   "spanning_reads": 64,
-   "supported": true,
-   "inside_region": false
-  },
-  {
-   "ps": "48229446",
-   "left": 48268237,
+   "left": 48268249,
    "right": 48271111,
-   "bp": 2874,
+   "bp": 2862,
    "spanning_reads": 49,
    "supported": true,
    "inside_region": false
@@ -1029,16 +988,7 @@
    "unscorable": "below_min_confidence"
   },
   {
-   "pos": 48147227,
-   "ps": "48147225",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "MAT",
-   "confidence": 0.859375,
-   "scored": 64,
-   "unscorable": null
-  },
-  {
-   "pos": 48147227,
+   "pos": 48147229,
    "ps": "48147225",
    "cat": "NOISY_CAND_HET",
    "orientation": null,
@@ -1074,15 +1024,6 @@
    "unscorable": "below_min_confidence"
   },
   {
-   "pos": 48173990,
-   "ps": "48147225",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.6417910447761194,
-   "scored": 67,
-   "unscorable": "below_min_confidence"
-  },
-  {
    "pos": 48176830,
    "ps": "48147225",
    "cat": "CLEAN_HET_INDEL",
@@ -1092,22 +1033,13 @@
    "unscorable": null
   },
   {
-   "pos": 48177780,
+   "pos": 48177788,
    "ps": "48147225",
    "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
+   "orientation": "MAT",
    "confidence": 0.5135135135135135,
    "scored": 74,
    "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 48177780,
-   "ps": "48147225",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.918918918918919,
-   "scored": 74,
-   "unscorable": null
   },
   {
    "pos": 48183976,
@@ -1137,20 +1069,11 @@
    "unscorable": null
   },
   {
-   "pos": 48225786,
-   "ps": "48147225",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.7333333333333333,
-   "scored": 75,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 48225786,
+   "pos": 48225787,
    "ps": "48147225",
    "cat": "NOISY_CAND_HET",
    "orientation": "MAT",
-   "confidence": 0.9866666666666667,
+   "confidence": 1.0,
    "scored": 75,
    "unscorable": null
   },
@@ -1569,16 +1492,7 @@
    "unscorable": null
   },
   {
-   "pos": 48268237,
-   "ps": "48229446",
-   "cat": "NOISY_CAND_HET",
-   "orientation": "PAT",
-   "confidence": 0.609375,
-   "scored": 64,
-   "unscorable": "below_min_confidence"
-  },
-  {
-   "pos": 48268237,
+   "pos": 48268249,
    "ps": "48229446",
    "cat": "NOISY_CAND_HET",
    "orientation": "MAT",

@@ -321,6 +321,14 @@ struct Options {
     /// admitting them chromosome-wide doubled the read Hamming error on chr20,
     /// 0.878% -> 1.837%, while spanning only 14 of the 196 gaps.
     bool retry_unphased_with_bam = false;
+    /// Run the noisy-region MSA even though recover_gaps is set. The retry needs
+    /// that step, which collect_var_run_phasing otherwise defers to the recovery
+    /// pass, but it must NOT claim recovery is off: other correctness guards are
+    /// gated on recover_gaps, and clearing it silently disabled
+    /// split_nested_msa_deletions, which then emitted both nested forms of one
+    /// tandem-repeat deletion as independent hets -- the exact false bridge that
+    /// function exists to prevent.
+    bool force_noisy_msa = false;
     /// Windows the retry is re-solving, in reference coordinates. Carried so the
     /// het-seeding repair in iter_update_var_hap_cons_phase_set can be confined
     /// to them: outside a failed window the provisional-label collapse is not

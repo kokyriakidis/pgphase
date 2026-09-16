@@ -1128,7 +1128,11 @@ static PhasingChunk process_chunk_hybrid(
             // that step here rather than leaving the region to recovery -- and the
             // noisy k-means with it, since orienting those candidates is the point
             // of admitting them.
-            retry_opts.recover_gaps = false;
+            // Ask for the MSA step by name. Clearing recover_gaps would also
+            // turn off every other guard gated on it -- it silently disabled
+            // split_nested_msa_deletions, which then emitted both nested forms
+            // of one tandem-repeat deletion as independent hets.
+            retry_opts.force_noisy_msa = true;
             retry_opts.skip_noisy_kmeans = false;
             retry_opts.retry_windows = windows;
             collect_var_run_phasing(chunk, retry_opts);

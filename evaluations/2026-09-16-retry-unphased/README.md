@@ -239,3 +239,44 @@ interval, left of it.
 Both findings point at the same place: the noisy MSA should emit one multiallelic
 record per locus, or mark its decomposed alternatives so they cannot be oriented
 as independent heterozygotes.
+
+## The retry was disabling five correctness guards, one of which mattered here
+
+`recover_gaps = false` on the retry's `Options` copy was a proxy for "run the
+noisy-region MSA". It is not one: five guards inside the phasing path are gated
+on that field, and the retry cleared all of them --
+`split_nested_msa_deletions` (`collect_phase_noisy.cpp:1145`), the paths at
+`collect_phase_noisy.cpp:1151` and `:1624`, `collect_var.cpp:2025`, and the
+`recovery_graph` composite.
+
+`split_nested_msa_deletions` is the one that produced the duplicate-locus
+records, and its own comment states the consequence:
+
+> Both haplotypes delete the common prefix. Treating each full deletion as an
+> independent het lets a longer-deletion read support both ALT rows,
+> manufacturing a false phase bridge.
+
+At `48,147,227` the two haplotype consensuses carry a 2 bp and a 24 bp deletion
+of the same GT tandem repeat. With the splitter disabled both full deletions were
+emitted as independent hets with opposite haplotype assignments. With it
+restored they decompose correctly into the common deletion, homozygous because
+both haplotypes carry it (`GGT>G`, `1|1`), and the residual het
+(`TGTGTGTGTGTGTGTGTGTGTGT>T`, `1|0`).
+
+The fix replaces the proxy with a named flag, `force_noisy_msa`, so the retry
+asks for that one step and keeps every other recovery guard in force.
+
+| `chr20:48,176,830-48,229,446` | before | after |
+|---|---:|---:|
+| duplicated positions among phased hets | 4 | **0** |
+| switches within a phase set | 1 | **0** |
+| unsupported links | 0 | 0 |
+| bridging site `48,204,383` | `0\|1` | `0\|1` |
+| gate: conc -> disc / tags lost | 0 / 0 | 0 / 0 |
+
+The verdict is still FAIL, now only because two sites fall below the verifier's
+confidence floor (`48,177,788` and `48,202,056`, the second inside the region),
+which sets `gate_blind`. Also still open, and both now visible rather than
+hidden behind the duplicates: `48,177,780` is called `NOISY_CAND_HOM` where the
+competitor calls a het, and `48,173,990` is a category-het / genotype-hom site
+outside the region.
