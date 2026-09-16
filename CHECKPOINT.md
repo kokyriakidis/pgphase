@@ -8252,3 +8252,41 @@ Those come from the hybrid side -- three homozygous loci where the hybrid counts
 a candidate's reads across the chunk rather than only inside the noisy region
 (DP 23->53, 18->58, 41->69), two that are the nested-deletion re-representation,
 and 1-3 read differences at three loci that remain unexplained.
+
+### Two blocks 220 bp apart never join because the site and read PS labels disagree (2026-09-16)
+
+`evaluations/2026-09-16-block-label-split/`. On chr20:48,176,830-48,229,446 with
+--retry-unphased-with-bam the left block reaches 48,229,226, 220 bp from the
+right block's first site at 48,229,446, and they never join.
+
+The evidence is complete, so this is not linkage: 60 reads call both boundary
+sites, none untagged; their allele co-occurrence is 22 (0,0), 34 (1,1), 1 (0,1),
+3 (1,0) -- 56 in phase against 4, and those 4 equal the deletion site's own
+genotyping error, which truth also puts at 56/60. The SNP at 48,229,446 scores
+60/60 against truth. Both sites already carry the same orientation in our VCF
+(1|0, HAP_ALT=1 HAP_REF=2).
+
+The bug is that the pipeline carries a phase set per SITE and a phase set per
+READ, and they contradict each other here. The left block's last two sites
+(48,225,787 and 48,229,226) are labelled PS=48147225 while 0 of their covering
+reads carry that PS and 51/60 respectively carry PS=48229446. The 82 kb left
+block's right end is populated entirely by right-block reads. That also starves
+recovery: the tier report reads L=0, leftPS=-1, R=1 on every tier
+(partial on pass 0, open on pass 1), because the left flank has no reads holding
+its own phase set at the boundary, so the flank vote has no voters.
+
+Competitors phase it because they assign one phase set per connected component of
+the variant graph -- two het sites joined by shared reads are one block by
+construction, with no second per-read label to contradict the per-site one. We
+reconcile the two labellings only at a chunk seam (flip_chunk_hap) and in the two
+gap-recovery flank votes, neither of which applies to two blocks inside one
+chunk.
+
+Fix direction: when every read covering a site is unanimously tagged into another
+phase set, the site's PS must follow its reads, or the two sets must merge with
+the orientation taken from the shared reads as select_stitch_orientation already
+does at a seam. Here that vote is 56-4 and the merged orientation is the one
+truth prefers at both sites.
+
+Also noted: the tier report's right flank is rightPS=48243938 while the emitted
+VCF gives that block PS=48229446 -- a third identity for the same block.
