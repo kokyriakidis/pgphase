@@ -321,6 +321,11 @@ struct Options {
     /// admitting them chromosome-wide doubled the read Hamming error on chr20,
     /// 0.878% -> 1.837%, while spanning only 14 of the 196 gaps.
     bool retry_unphased_with_bam = false;
+    /// Windows the retry is re-solving, in reference coordinates. Carried so the
+    /// het-seeding repair in iter_update_var_hap_cons_phase_set can be confined
+    /// to them: outside a failed window the provisional-label collapse is not
+    /// this pass's business to repair.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> retry_windows;
     /// Reads overlapping a window with no phase set before it counts as failed.
     int retry_min_unphased_reads = 5;
     /// Width a failed window must reach before the retry admits sites in it.

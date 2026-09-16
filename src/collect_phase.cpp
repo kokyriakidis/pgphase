@@ -1087,9 +1087,30 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 
 // Rebuild allele profiles and consensus; returns 1 if any cons_alle changed.
 // Iter_update_var_hap_to_cons_alle.
+/// Is this a biallelic candidate inside a window the retry is re-solving that
+/// the allele depths call heterozygous? Such a site must not be collapsed to a
+/// homozygous consensus by provisional read labels; see the call site.
+static bool retry_window_het(const CandidateVariant& var, const Options& opts) {
+    if (opts.retry_windows.empty()) return false;
+    if (var.lcd_var_i_to_cate != kCandNoisyCandHet &&
+        var.lcd_var_i_to_cate != kCandCleanHetSnp &&
+        var.lcd_var_i_to_cate != kCandCleanHetIndel) return false;
+    if (!var.msa_insertion_alts.empty()) return false;  // handled jointly above
+    if (var.hap_to_alle_profile[1].size() < 2 || var.hap_to_alle_profile[2].size() < 2)
+        return false;
+    if (var.counts.ref_cov < opts.min_alt_depth || var.counts.alt_cov < opts.min_alt_depth)
+        return false;
+    if (var.counts.allele_fraction < opts.min_af || var.counts.allele_fraction > opts.max_af)
+        return false;
+    const hts_pos_t pos = var.key.sort_pos();
+    for (const auto& [beg, end] : opts.retry_windows)
+        if (pos >= beg && pos < end) return true;
+    return false;
+}
+
 static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
                                              const std::vector<int>& valid_var_idx,
-                                             uint32_t flags) {
+                                             uint32_t flags, const Options& opts) {
     const int n = (int)valid_var_idx.size();
 
     // Save current consensus for convergence check.
@@ -1146,6 +1167,27 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
                 var.hap_to_cons_alle[1] = same > flip ? 1 : 2;
                 var.hap_to_cons_alle[2] = same > flip ? 2 : 1;
             }
+        } else if (retry_window_het(var, opts)) {
+            // Same hazard the branch above guards against, for a plain biallelic
+            // site: taking each haplotype's majority independently lets both
+            // pick the same allele, which emits a genuine het as 1|1 and makes
+            // it link nothing. Inside a window the first solve could not phase
+            // the reads carry no labels, so both majorities are the deeper
+            // allele and the collapse is certain -- and it is self-sustaining,
+            // because the window then stays unphasable. Measured on
+            // chr20:48,204,383 (AT>A, 30 ref / 41 alt, AF 0.577), the only
+            // heterozygote between 48,183,976 and 48,225,786 and the site
+            // hiphase bridges this gap with: emitted homozygous, the solve
+            // jumps 41.8 kb with no spanning read instead.
+            //
+            // So orient the pair jointly, exactly as the verified-allele branch
+            // does, and when the labels carry no preference at all seed a het
+            // rather than a hom: an arbitrary orientation is resolvable by the
+            // link votes, a collapsed one is not.
+            const int same = var.hap_to_alle_profile[1][0] + var.hap_to_alle_profile[2][1];
+            const int flip = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][0];
+            var.hap_to_cons_alle[1] = same >= flip ? 0 : 1;
+            var.hap_to_cons_alle[2] = same >= flip ? 1 : 0;
         } else {
             for (int hap = 1; hap <= 2; ++hap)
                 update_var_hap_to_cons_alle(is_ont, var, hap);
@@ -1377,7 +1419,7 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     // Phase 2: iterative k-means (up to 10 rounds, stop on convergence).
     for (int iter = 0; iter < 10; ++iter) {
         const int c1 = iter_update_var_hap_cons_phase_set(chunk, valid_var_idx, opts);
-        const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags);
+        const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags, opts);
         if (c1 == 0 && c2 == 0) break;
     }
 

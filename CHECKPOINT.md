@@ -8164,3 +8164,33 @@ hole is withdrawn. With positions collapsed and a two-site run required per side
 no switch is demonstrated -- the right side has one scorable site (48,229,226)
 because 48,225,786 is below confidence. The join is unsupported and its
 correctness untestable, which is why an unsupported link fails on its own.
+
+### The genotype collapse that kept the window unphasable (2026-09-16)
+
+iter_update_var_hap_to_cons_alle recomputes each haplotype's consensus allele
+INDEPENDENTLY by majority, except for verified multi-allele MSA insertions, whose
+branch carries the comment "Independent haplotype majorities can select the same
+allele twice." A plain biallelic site inside a window the first solve could not
+phase hits exactly that: the reads carry no hap labels, both majorities are the
+deeper allele, hap_to_cons_alle[1] == [2], and a real het is emitted 1|1. It is
+self-sustaining -- a hom links nothing, so the window stays unphasable. A probe
+inside the iteration caught chr20:48,204,383 going cons1=1 cons2=0 on one round
+and cons1=1 cons2=1 on the next. BOTH our channels did it: collect-bam-variation
+emitted 1|1 / HAP_ALT=3 there too, so the earlier framing of this as hybrid-only
+was wrong. Only hiphase called it 0|1, and it is the ONLY heterozygote between
+48,183,976 and 48,225,786.
+
+Fix: apply the joint orientation to a biallelic candidate whose allele depths call
+it het (ref_cov/alt_cov >= min_alt_depth, AF in [min_af,max_af]), confined to
+opts.retry_windows; with no preference in the labels, seed a het rather than a hom.
+
+Verified on two windows with verify_retry.py. chr20:48,176,830-48,229,446: in-region
+usable hets 2 -> 10, unsupported links 1 (41.8 kb) -> 0, category-het/genotype-hom
+1 -> 0, competitor sites we call hom 1 -> 0, gate 0 flips and 0 tags lost. Still
+FAIL, now on a switch 48,147,227 -> 48,149,548 (2.3 kb, 59 spanning reads, so a
+supported link oriented wrong, and LEFT of the gap) plus three sites below the
+confidence floor. chr20:36,217,274-36,268,291: in-region usable hets 4 -> 15,
+switches 1 -> 0, competitor-absent 14 -> 7, accuracy 77.65% -> 99.6%, but tagged
+358 -> 240 and 75 correct tags LOST against 12 gained. Not a default: the re-solve
+judges every read in the chunk against the new site set, same shape as the earlier
+filter-reorder regression.

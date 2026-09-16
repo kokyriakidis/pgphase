@@ -1130,6 +1130,7 @@ static PhasingChunk process_chunk_hybrid(
             // of admitting them.
             retry_opts.recover_gaps = false;
             retry_opts.skip_noisy_kmeans = false;
+            retry_opts.retry_windows = windows;
             collect_var_run_phasing(chunk, retry_opts);
         }
     }

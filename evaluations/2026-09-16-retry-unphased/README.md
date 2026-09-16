@@ -127,3 +127,68 @@ exactly those two blocks and a 500 kb chunk produced this switched one.
 
 Defaults unchanged (`retry_unphased_with_bam = false`); all five unit-test
 binaries pass.
+
+## The genotype collapse, and the fix
+
+The retry recovered the evidence but the window still would not phase, because
+the site that bridges it was emitted homozygous. `iter_update_var_hap_to_cons_alle`
+recomputes each haplotype's consensus allele **independently by majority**,
+except for verified multi-allele MSA insertions, which get a joint orientation
+with this comment on it:
+
+> Independent haplotype majorities can select the same allele twice.
+
+That is exactly what happens to a plain biallelic site inside a window the first
+solve could not phase: the reads there carry no haplotype labels, so both
+majorities are the deeper allele, `hap_to_cons_alle[1] == hap_to_cons_alle[2]`,
+and the record is written `1|1`. It is self-sustaining -- a hom site links
+nothing, so the window stays unphasable and the collapse repeats. A probe inside
+the iteration caught it in the act at `chr20:48,204,383`: `cons1=1 cons2=0` on
+one round, `cons1=1 cons2=1` on the next.
+
+Both of our channels did this, not just the hybrid one: `collect-bam-variation`
+on the same interval also emitted `1|1` with `HAP_ALT=3`. Only hiphase called it
+`0|1`, and it is the only heterozygote between 48,183,976 and 48,225,786 -- the
+difference between a read-chained bridge and a 41.8 kb jump with no spanning read.
+
+The fix applies the same joint orientation to a biallelic candidate whose allele
+depths call it het (`ref_cov`/`alt_cov` over `min_alt_depth`, AF within
+`min_af`..`max_af`), confined to the windows the retry is re-solving. Where the
+labels carry no preference at all it seeds a het rather than a hom: an arbitrary
+orientation is resolvable by the link votes, a collapsed one is not.
+
+### Verified with `verify_retry.py` on two windows
+
+`chr20:48,176,830-48,229,446`:
+
+| | retry off | retry on, before this fix | retry on, now |
+|---|---:|---:|---:|
+| usable het sites in region | 2 | 8 | **10** |
+| unsupported links (0 spanning reads) | 0 | **1 (41.8 kb)** | **0** |
+| category-het / genotype-hom | 0 | **1** | **0** |
+| competitor sites we call hom | 0 | **1** | **0** |
+| competitor sites absent from our VCF | 34 | 21 | **21** |
+| gate: conc -> disc / tags lost | -- | 0 / 0 | **0 / 0** |
+
+The 41.8 kb unsupported link is gone because `48,204,383` now sits inside it as a
+usable het and both halves carry spanning reads. The verdict is still FAIL, on a
+switch between `48,147,227` and `48,149,548` -- 2.3 kb apart with 59 spanning
+reads, so a supported link that is oriented wrong, and left of the gap rather
+than inside it -- plus three sites below the confidence floor.
+
+`chr20:36,217,274-36,268,291`, the same two arms:
+
+| | retry off | retry on |
+|---|---:|---:|
+| usable het sites in region | 4 | **15** |
+| switches | 1 | **0** |
+| competitor sites absent from our VCF | 14 | **7** |
+| gate: tagged | 358 | **240** |
+| gate: concordant | 278 | 239 |
+| gate: conc -> disc / lost / new | -- | 0 / **75** / 12c |
+
+Accuracy on what remains improves sharply (77.65% -> 99.6%) and the pre-existing
+switch disappears, but **75 correct read tags are lost against 12 gained**. So
+this is not a default: the re-solve judges every read in the chunk against the
+new site set, and on this window that costs coverage. The same shape as the
+earlier filter-reorder regression, and the next thing to measure.
