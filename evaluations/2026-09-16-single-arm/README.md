@@ -634,3 +634,59 @@ and for a deletion `is_match_aln_str_del` sets `full_cover = 0` -- returning
 length and offset inside the A run, so a read whose gap sits elsewhere in the
 run fails the coverage test rather than the allele test. That is the single
 remaining gate, and it is inside the site call, not the read pipeline.
+
+## The bug, confirmed: the rescue channel is gated behind `--private-msa`
+
+There is a bug, and assigning every read does close this gap.
+
+`collect_noisy_reg_aln_strs` takes an `unassigned` output for the reads the MSA
+cannot place, and `add_msa_site_observations` re-calls a site for them. Two gates
+made that unreachable in an ordinary run:
+
+- `collect_noisy_vars1` passes `opts.recover_gaps ? &unassigned : nullptr`, and
+- inside the hap-aware branch the composition loop is wrapped in
+  `if (opts.private_msa) { ... }` (`align.cpp:1816`).
+
+The region holding the site is `48,225,717-48,225,952` and takes that branch.
+Measured there: **76 reads go in, the clusters hold 30 + 22, and the other 24 get
+no observation at any MSA site in the region** -- among them six of the seven
+reads spanning the 21.4 kb link to `48,204,383`.
+
+With both gates opened (pointer always passed; the composition loop keyed on the
+pointer rather than `--private-msa`), the window behaves exactly as hiphase does:
+
+| arm | blocks | spans the window | reads tagged | concordance |
+|---|---:|---|---:|---|
+| before | 2 | no | 393 | **100.00%** |
+| gates opened | **1** (`48,147,227-48,279,445`, 65 sites, 132.2 kb) | **YES** | 472 | 56.14% |
+
+**But the merged block has inverted parity, so it was reverted.** The two halves
+are each still internally consistent -- 161 reads at 99.38% left of
+`48,204,383`, 182 at 100.00% right of `48,225,786` -- under *opposite*
+conventions, which is one switch at the seam rather than noisy reads (the 79
+newly tagged reads read 59.49%, consistent with being spread across both
+halves).
+
+The correct parity is not ambiguous in the data. Genotyping each site from the
+alignment and scoring against read truth:
+
+| site | segregation | alt allele sits on |
+|---|---:|---|
+| `48,204,383` `AT>A` | 0.958 | **maternal** (68 vs 3) |
+| `48,225,787` `CAAAAAA>C` | 0.987 | **paternal** (74 vs 1) |
+| `48,225,787` `CA>C` | 0.733 | paternal (55 vs 20) |
+
+So the two sites belong on **opposite** haplotypes, while the merged block emits
+`0|1` at both -- the same haplotype. That is the whole error.
+
+Prime suspect for the flip: `48,225,787` carries **two** records, `CA>C` (1 bp)
+and `CAAAAAA>C` (6 bp), the two haplotypes' different deletion lengths at one
+locus. A read carrying the 6 bp deletion satisfies the 1 bp record's window too,
+so the rescued observations can make both records look like they co-occur on one
+haplotype, which degenerates the site's orientation. The two records' own
+segregations (0.987 and 0.733) are consistent with that reading.
+
+So the sequence for the next change is: open the two gates, then make the rescued
+observations at a multi-record repeat locus exclusive -- a read's deletion length
+should support one record, not every record whose window it covers -- and re-gate
+on this window plus `36,217,274`.
