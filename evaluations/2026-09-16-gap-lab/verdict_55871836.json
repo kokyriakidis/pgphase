@@ -1,0 +1,56 @@
+{
+  "verdict": {
+    "gap": [
+      55871836,
+      55883023
+    ],
+    "gap_bp": 11187,
+    "region": "CHM13#0#chr20:55821836-55933023",
+    "baseline_blocks": 238,
+    "gap_blocks": 2,
+    "left_flank_ps": "55824242",
+    "right_flank_ps": "55889113",
+    "baseline_spans_gap": false,
+    "gap_het_sites": 4,
+    "gap_het_phased": 4,
+    "gap_het_informative": 0,
+    "gap_anchor_sites": 0,
+    "closed": false,
+    "refused": "no anchor-class evidence in the gap",
+    "pass": false
+  },
+  "sites": [
+    {
+      "pos": 55871837,
+      "type": "INS",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "55843827",
+      "segregation": null,
+      "scored": 0
+    },
+    {
+      "pos": 55882617,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "55843827",
+      "segregation": 0.5588235294117647,
+      "scored": 68
+    },
+    {
+      "pos": 55883020,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "55883019",
+      "segregation": 0.5,
+      "scored": 66
+    },
+    {
+      "pos": 55883020,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "55883019",
+      "segregation": 0.5074626865671642,
+      "scored": 67
+    }
+  ]
+}

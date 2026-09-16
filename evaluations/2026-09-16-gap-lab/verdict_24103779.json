@@ -1,0 +1,268 @@
+{
+  "verdict": {
+    "gap": [
+      24103779,
+      24142287
+    ],
+    "gap_bp": 38508,
+    "region": "CHM13#0#chr20:24053779-24192287",
+    "baseline_blocks": 238,
+    "gap_blocks": 3,
+    "left_flank_ps": "24012605",
+    "right_flank_ps": "24142287",
+    "baseline_spans_gap": false,
+    "gap_het_sites": 6,
+    "gap_het_phased": 6,
+    "gap_het_informative": 3,
+    "gap_anchor_sites": 3,
+    "compositions": [
+      {
+        "a": "24081165",
+        "b": "24103779",
+        "votes": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "shared": 0,
+        "flip": null,
+        "source": "alleles (64 reads cross the seam)"
+      },
+      {
+        "a": "24103779",
+        "b": "24142287",
+        "votes": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "shared": 1,
+        "flip": null,
+        "source": "alleles (62 reads cross the seam)"
+      }
+    ],
+    "links": [
+      {
+        "frame": [
+          "24081165"
+        ],
+        "span": [
+          24081165,
+          24081165
+        ],
+        "sites": 1,
+        "reads": 62,
+        "left": {
+          "votes": [
+            32,
+            0,
+            0,
+            30
+          ],
+          "shared": 62,
+          "flip": false,
+          "source": "flank tags x gap alleles (62/194 flank reads voted)",
+          "conflict": false,
+          "evidence": {
+            "shared sites": [
+              false,
+              "1/1 shared phased site(s) agree"
+            ],
+            "tags both sides": [
+              false,
+              "62 reads"
+            ],
+            "flank tags x gap alleles": [
+              false,
+              "62/194 flank reads"
+            ]
+          }
+        },
+        "right": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null,
+          "source": "alleles (74 cross, 1+2453 sites)",
+          "conflict": false,
+          "evidence": {}
+        }
+      },
+      {
+        "frame": [
+          "24103779"
+        ],
+        "span": [
+          24103779,
+          24131707
+        ],
+        "sites": 5,
+        "reads": 64,
+        "left": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null,
+          "source": "alleles (64 cross, 11+4 sites)",
+          "conflict": false,
+          "evidence": {}
+        },
+        "right": {
+          "votes": [
+            1,
+            0,
+            0,
+            0
+          ],
+          "shared": 1,
+          "flip": null,
+          "source": "alleles (62 cross, 4+2453 sites)",
+          "conflict": false,
+          "evidence": {}
+        }
+      },
+      {
+        "frame": [
+          "24142287"
+        ],
+        "span": [
+          24142287,
+          24147031
+        ],
+        "sites": 10,
+        "reads": 90,
+        "left": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null,
+          "source": "alleles (74 cross, 11+10 sites)",
+          "conflict": false,
+          "evidence": {}
+        },
+        "right": {
+          "votes": [
+            47,
+            0,
+            0,
+            43
+          ],
+          "shared": 90,
+          "flip": false,
+          "source": "flank tags x gap alleles (90/317 flank reads voted)",
+          "conflict": false,
+          "evidence": {
+            "shared sites": [
+              false,
+              "10/10 shared phased site(s) agree"
+            ],
+            "tags both sides": [
+              false,
+              "90 reads"
+            ],
+            "flank tags x gap alleles": [
+              false,
+              "90/317 flank reads"
+            ]
+          }
+        }
+      }
+    ],
+    "closed": false,
+    "extended_side": "right",
+    "extending_frame": [
+      "24142287"
+    ],
+    "link_validation": [
+      {
+        "side": "right",
+        "flank": "24142287",
+        "flip": false,
+        "flank_hap1": "MATERNAL",
+        "flank_sites": 99,
+        "frame_hap1": "MATERNAL",
+        "frame_sites": 10,
+        "correct": true
+      }
+    ],
+    "links_correct": true,
+    "gate": {
+      "tagged_before": 1277,
+      "tagged_after": 1277,
+      "scored_before": 1277,
+      "scored_after": 1277,
+      "concordant_before": 1265,
+      "concordant_after": 1265,
+      "conc_to_disc": 0,
+      "disc_to_conc": 0,
+      "newly_concordant": 0,
+      "newly_discordant": 0,
+      "lost_concordant": 0
+    },
+    "pass": false
+  },
+  "sites": [
+    {
+      "pos": 24103779,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "24103779",
+      "segregation": 1.0,
+      "scored": 57
+    },
+    {
+      "pos": 24105188,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "24103779",
+      "segregation": 1.0,
+      "scored": 61
+    },
+    {
+      "pos": 24121714,
+      "type": "INS",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "24103779",
+      "segregation": 0.5675675675675675,
+      "scored": 74
+    },
+    {
+      "pos": 24121714,
+      "type": "INS",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "24103779",
+      "segregation": 0.7567567567567568,
+      "scored": 74
+    },
+    {
+      "pos": 24131708,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "24103779",
+      "segregation": 0.5441176470588235,
+      "scored": 68
+    },
+    {
+      "pos": 24142287,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "24142287",
+      "segregation": 1.0,
+      "scored": 76
+    }
+  ]
+}

@@ -40,14 +40,27 @@ GAF = 'test_data/HG002.chr20.annotated.coord.gaf.gz'
 CONTIG = 'CHM13#0#chr20'
 
 
-def run(cmd, log):
-    """Run a pipeline arm, failing loudly. A silent non-zero exit here has
-    produced wrong conclusions before: an empty output looks like 'no evidence'."""
+def run(cmd, log, stamp=None, reuse=False):
+    """Run a pipeline arm, failing loudly, and only reuse a matching earlier run.
+
+    Reuse keyed on 'the output file exists' is unsafe: this rig reran a gap with
+    an arm computed under an earlier, much wider window, which produced a
+    different block set, the opposite orientation and 159 discordant reads. The
+    exact command is stamped beside the outputs and reuse requires it to match.
+    """
+    key = ' '.join(str(x) for x in cmd)
+    if reuse and stamp is not None and stamp.exists():
+        if stamp.read_text().strip() == key:
+            return 'reused'
+        print(f'  re-running {cmd[1]}: the cached arm used different parameters')
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open('w') as stream:
         p = subprocess.run(cmd, stdout=stream, stderr=subprocess.STDOUT)
     if p.returncode != 0:
         raise SystemExit(f'arm failed ({p.returncode}): {" ".join(cmd[:3])}... see {log}')
+    if stamp is not None:
+        stamp.write_text(key + '\n')
+    return 'ran'
 
 
 def vcf_phase_sets(path):
@@ -502,6 +515,42 @@ def shared_site_vote(frame_sites, flank_sites):
                 flip=None if agree == disagree else (disagree > agree))
 
 
+
+def internal_consistency(sites, reads, min_obs, site_flank):
+    """Does the gap's own phasing agree with itself across the gap?
+
+    A block asserts one haplotype per read, so it cannot report its own switch.
+    But its SITES can be split: derive each read's haplotype from the left half of
+    the in-gap sites and again from the right half, and a read that spans the
+    split must get the same answer twice. A switch inside the gap shows up as
+    systematic disagreement, with no truth needed.
+
+    This is the check that separates a solve worth stitching from one that is not:
+    at chr20:48,176,830 the arm run with 5 kb of read context is self-consistent
+    and links both flanks correctly, while the same arm with 30 kb carries a
+    switch -- it agreed with the left flank and disagreed with the right, and
+    stitching it put 159 reads on the wrong haplotype.
+    """
+    positions = sorted(sites)
+    if len(positions) < 4:
+        return None
+    mid = len(positions) // 2
+    left, right = positions[:mid], positions[mid:]
+    agree = disagree = 0
+    for read in reads.values():
+        hl = hap_from_sites(read, sites, left, min_obs, site_flank)
+        hr = hap_from_sites(read, sites, right, min_obs, site_flank)
+        if hl is None or hr is None:
+            continue
+        agree += hl == hr
+        disagree += hl != hr
+    n = agree + disagree
+    if n == 0:
+        return None
+    return dict(agree=agree, disagree=disagree, n=n, frac=agree / n,
+                split=positions[mid])
+
+
 p = argparse.ArgumentParser(description=__doc__,
                             formatter_class=argparse.RawDescriptionHelpFormatter)
 p.add_argument('--gap-left', type=int, required=True)
@@ -515,6 +564,9 @@ p.add_argument('--baseline-vcf', type=Path,
                     'the flanks and can move the very boundaries under test.')
 p.add_argument('--baseline-bam', type=Path,
                help='phased BAM from the same run (read tags define the gauge)')
+p.add_argument('--read-context', type=int, default=30000,
+               help='bp each side of the gap for the arm, so every read touching '
+                    'the gap is in the solve. One read length; not a link knob')
 p.add_argument('--gauge-window', type=int, default=200000,
                help='bp each side of the gap read from the baseline BAM for the gauge')
 p.add_argument('--gap-margin', type=int, default=5000,
@@ -535,6 +587,18 @@ p.add_argument('--seam-span', type=int, default=0,
                help='optional bp limit each side of the seam (0 = no limit). Only '
                     'a runtime knob: a read already votes on the sites it '
                     'overlaps, so the whole block is the correct offer')
+p.add_argument('--min-self-consistency', type=float, default=0.95,
+               help='fraction of split-spanning reads that must get the same '
+                    'haplotype from both halves of the gap\'s sites')
+p.add_argument('--require-anchor', dest='require_anchor',
+               action='store_true', default=True,
+               help='refuse to stitch unless the gap holds a CLEAN_HET_* site')
+p.add_argument('--no-require-anchor', dest='require_anchor', action='store_false')
+p.add_argument('--min-shared-sites', type=int, default=2,
+               help='unanimous shared phased sites needed to link with no read '
+                    'vote at all (1 is corroboration only: a lone shared site can '
+                    'be a genotyping error, and a read-less flank gives the gate '
+                    'no way to catch the resulting wrong join)')
 p.add_argument('--min-site-obs', type=int, default=2,
                help='site observations a bridge read needs on each side to vote')
 p.add_argument('--max-new-discordant', type=int, default=0,
@@ -566,29 +630,43 @@ if a.baseline_vcf and a.baseline_bam:
 else:
     base_vcf, base_bam = base / 'native.vcf', base / 'phased.bam'
     baseline_source = f'windowed re-run ({region})'
-    if not (a.reuse and base_vcf.exists()):
-        run(['./pgphase', 'collect-hybrid-variation', '--ref', REF, '--bam', BAM,
-             '--graph-sites', SITES, '--gaf', GAF, '-r', region,
-             '-t', str(a.threads), '-q', str(a.min_mapq),
-             '--link-by-alleles', '--block-link-window', '8',
-             '--min-read-margin', '2',
-             '--recover-gaps', '--gap-recovery-report', str(base / 'tiers.tsv'),
-             '-o', str(base / 'candidates.tsv'),
-             '--phased-vcf-out', str(base_vcf),
-             '-b', str(base_bam)], base / 'run.log')
+    run(['./pgphase', 'collect-hybrid-variation', '--ref', REF, '--bam', BAM,
+         '--graph-sites', SITES, '--gaf', GAF, '-r', region,
+         '-t', str(a.threads), '-q', str(a.min_mapq),
+         '--link-by-alleles', '--block-link-window', '8',
+         '--min-read-margin', '2',
+         '--recover-gaps', '--gap-recovery-report', str(base / 'tiers.tsv'),
+         '-o', str(base / 'candidates.tsv'),
+         '--phased-vcf-out', str(base_vcf),
+         '-b', str(base_bam)], base / 'run.log',
+        stamp=base / 'arm.stamp', reuse=a.reuse)
 
-# ---- 2/3. GAP PHASING: the machinery ON THE GAP INTERVAL, plus only enough
-# margin for read context. Its blocks are then the gap's own phasing, which is
-# what gets stitched -- the same shape as recovery's proposal.
-gap_region = f'{CONTIG}:{max(1, GL - a.gap_margin)}-{GR + a.gap_margin}'
+# ---- 2/3. GAP PHASING: the machinery on the gap, extended by one read length
+# for read context only. The margin exists so that every read touching the gap is
+# available to the solve, which is a property of the data (a read is the unit of
+# evidence and reaches about that far), not a number to tune.
+#
+# It must NOT be extended to reach the flanks' own sites. Doing that made the arm
+# re-solve flank territory, and at chr20:48,176,830 its re-solve carried a switch
+# at the block's left edge: the two sites it shares with the flank came out
+# opposite to the rest of its own block, both seam-local sources inherited that
+# switch, and the link went in backwards -- 159 reads discordant, where the
+# unextended arm had linked correctly. The flanks' phasing is authoritative and is
+# read from the baseline, never re-derived here.
+base_vcf_sites_all = vcf_sites(base_vcf)
+left_site_pre = max((pos for pos in base_vcf_sites_all if pos < GL), default=None)
+right_site_pre = min((pos for pos in base_vcf_sites_all if pos > GR), default=None)
+gap_lo = max(1, GL - a.read_context)
+gap_hi = GR + a.read_context
+gap_region = f'{CONTIG}:{gap_lo}-{gap_hi}'
 gapdir = a.work / 'gap_bam'
 gapdir.mkdir(exist_ok=True)
-if not (a.reuse and (gapdir / 'native.vcf').exists()):
-    run(['./pgphase', 'collect-bam-variation', '--ref', REF, '--bam', BAM,
-         '-r', gap_region, '-t', str(a.threads), '-q', str(a.min_mapq),
-         '-o', str(gapdir / 'candidates.tsv'),
-         '--phased-vcf-out', str(gapdir / 'native.vcf'),
-         '-b', str(gapdir / 'phased.bam')], gapdir / 'run.log')
+run(['./pgphase', 'collect-bam-variation', '--ref', REF, '--bam', BAM,
+     '-r', gap_region, '-t', str(a.threads), '-q', str(a.min_mapq),
+     '-o', str(gapdir / 'candidates.tsv'),
+     '--phased-vcf-out', str(gapdir / 'native.vcf'),
+     '-b', str(gapdir / 'phased.bam')], gapdir / 'run.log',
+    stamp=gapdir / 'arm.stamp', reuse=a.reuse)
 
 base_sets = vcf_phase_sets(base_vcf)
 gap_sets = vcf_phase_sets(gapdir / 'native.vcf')
@@ -596,7 +674,8 @@ gauge_region = f'{CONTIG}:{max(1, GL - a.gauge_window)}-{GR + a.gauge_window}'
 base_tags = bam_tags(base_bam, gauge_region)
 gap_tags = bam_tags(gapdir / 'phased.bam')
 print(f'  baseline gauge: {baseline_source}')
-print(f'  gap arm region: {gap_region} (gap + {a.gap_margin} bp read context)')
+print(f'  gap arm region: {gap_region} (gap + {a.read_context} bp read context; '
+      f'links use the flanks\' own phasing, not the arm\'s)')
 
 # Flanks must be READ-supported, not merely present in the VCF. A block can
 # hold sites and no tagged reads at all -- the read-tagging margin drops reads
@@ -622,9 +701,8 @@ for q, (h, ps) in base_tags.items():
 # flank is still linkable, through its own genotypes rather than its tags.
 supported = {ps for ps, n in base_reads_per_ps.items()
              if n >= a.min_flank_reads and ps in base_sets}
-base_vcf_sites = vcf_sites(base_vcf)
-left_site = max((pos for pos in base_vcf_sites if pos < GL), default=None)
-right_site = min((pos for pos in base_vcf_sites if pos > GR), default=None)
+base_vcf_sites = base_vcf_sites_all
+left_site, right_site = left_site_pre, right_site_pre
 left_ps = base_vcf_sites[left_site][3] if left_site else None
 right_ps = base_vcf_sites[right_site][3] if right_site else None
 
@@ -675,6 +753,60 @@ for r in rows[:14]:
     print('  %-11d %-6s %-18s %-12s %s' % (r['pos'], r['type'], r['category'],
                                            r['phase_set'], seg))
 
+# A correct link to a worthless block is still a regression, and the two are
+# independent: at chr20:55,871,836 the right-flank link validated CORRECT against
+# truth while the block it carried was built from four noisy candidates whose
+# allele partitions all sat at chance (0.500-0.559), and attaching it added 37
+# concordant reads and 28 discordant ones. Orientation evidence says where a block
+# goes; it says nothing about whether the block is right. So require the gap's own
+# phasing to rest on at least one anchor-class site, which is truth-free and
+# checkable in production, before stitching anything.
+anchor_rows = [r for r in rows if r['category'].startswith('CLEAN_HET')]
+verdict['gap_anchor_sites'] = len(anchor_rows)
+if a.require_anchor and not anchor_rows:
+    print(f'\n  REFUSED: the gap holds {len(rows)} het site(s) and none is '
+          f'anchor-class (CLEAN_HET_*); '
+          + ', '.join(sorted({r['category'] for r in rows})))
+    verdict.update(closed=False, refused='no anchor-class evidence in the gap')
+    if truth:
+        seg = [r['segregation'] for r in rows if r['segregation'] is not None]
+        if seg:
+            print(f'    truth check on that decision: {sum(1 for x in seg if x >= 0.9)}'
+                  f' of {len(seg)} scorable site(s) informative, '
+                  f'median segregation {sorted(seg)[len(seg) // 2]:.3f}')
+    verdict['pass'] = False
+    if a.out:
+        a.out.parent.mkdir(parents=True, exist_ok=True)
+        with a.out.open('w') as f:
+            json.dump(dict(verdict=verdict, sites=rows), f, indent=2)
+        print(f'\nwrote {a.out}')
+    raise SystemExit(0)
+
+# The gap's own phasing must agree with itself before it is stitched anywhere.
+gap_vcf_sites = vcf_sites(gapdir / 'native.vcf')
+bridge_reads = load_reads(max(1, min(gap_lo, GL - a.seam_read_window)),
+                          max(gap_hi, GR + a.seam_read_window))
+in_gap_sites_all = {pos: v for pos, v in gap_vcf_sites.items() if GL <= pos <= GR}
+cons = internal_consistency(in_gap_sites_all, bridge_reads, a.min_site_obs,
+                            a.site_flank)
+if cons is not None:
+    print(f'\n  gap self-consistency across the split at {cons["split"]}: '
+          f'{cons["agree"]}/{cons["n"]} reads agree with themselves '
+          f'({100 * cons["frac"]:.1f}%)')
+    verdict['self_consistency'] = cons
+    if cons['frac'] < a.min_self_consistency:
+        print(f'  REFUSED: the gap\'s phasing contradicts itself across the gap '
+              f'(threshold {100 * a.min_self_consistency:.0f}%), so no orientation '
+              f'of it can be right at both ends')
+        verdict.update(closed=False, refused='gap phasing not self-consistent',
+                       **{'pass': False})
+        if a.out:
+            a.out.parent.mkdir(parents=True, exist_ok=True)
+            with a.out.open('w') as f:
+                json.dump(dict(verdict=verdict, sites=rows), f, indent=2)
+            print(f'\nwrote {a.out}')
+        raise SystemExit(0)
+
 # ---- 4. STITCH.
 # STITCH, in two stages. The gap channel's own blocks are composed with each
 # other first: they overlap in read space, so a read carrying both can orient
@@ -686,7 +818,7 @@ for r in rows[:14]:
 # Only blocks whose phased sites lie inside the gap (plus its read margin) are
 # the gap's own phasing. A block reaching far outside it is a flank re-solve.
 gap_in_window = [ps for ps, e in gap_sets.items()
-                 if e[1] >= GL - a.gap_margin and e[0] <= GR + a.gap_margin]
+                 if e[1] >= gap_lo and e[0] <= gap_hi]
 parent = {ps: ps for ps in gap_in_window}
 parity = {ps: 0 for ps in gap_in_window}
 
@@ -704,9 +836,7 @@ def find(ps):
 print('\n  stage 1 -- compose the gap channel\'s own blocks '
       f'(net-margin rule, margin {a.stitch_margin})')
 compositions = []
-gap_vcf_sites = vcf_sites(gapdir / 'native.vcf')
-bridge_reads = load_reads(max(1, GL - a.seam_read_window),
-                          GR + a.seam_read_window)
+
 ordered = sorted(gap_in_window, key=lambda ps: gap_sets[ps][0])
 for left, right in zip(ordered, ordered[1:]):
     t, shared = votes(gap_tags, left, gap_tags, right)
@@ -715,8 +845,10 @@ for left, right in zip(ordered, ordered[1:]):
     if flip is None:
         # No read is tagged in both blocks, which is the normal state when two
         # blocks split at the same position. Fall back to the alleles.
-        br = bridge_vote({pos: v for pos, v in gap_vcf_sites.items() if v[3] == left},
-                         {pos: v for pos, v in gap_vcf_sites.items() if v[3] == right},
+        br = bridge_vote({pos: v for pos, v in gap_vcf_sites.items()
+                          if v[3] == left and GL <= pos <= GR},
+                         {pos: v for pos, v in gap_vcf_sites.items()
+                          if v[3] == right and GL <= pos <= GR},
                          bridge_reads, a.seam_window, a.seam_sites,
                          a.min_site_obs, a.site_flank, a.seam_span)
         if br is not None:
@@ -777,53 +909,71 @@ for root, members in sorted(frames.items(), key=lambda kv: -len(kv[1])):
             continue
         flank_sites_all = {pos: v for pos, v in base_vcf_sites.items()
                            if v[3] == flank}
-        # Evidence in order of directness, all of it recorded so the sources can
-        # be required to agree rather than the first one simply winning.
+        # One vote, over every read both labellings can place. Each side offers
+        # its own complete labelling and nothing is re-derived across the seam:
+        #
+        #   flank side -- the flank's read tag if it has one, else the read's
+        #     alleles under the FLANK'S OWN genotypes (from the baseline), which
+        #     is the only evidence when a flank carries no reads at all;
+        #   gap side   -- the frame's read tag if it has one, else the read's
+        #     alleles under the frame's genotypes at sites INSIDE the gap.
+        #
+        # Restricting the gap side to in-gap sites is what keeps the arm's
+        # re-solve of flank territory out of the decision.
+        in_gap_frame_sites = {pos: v for pos, v in frame_sites.items()
+                              if GL <= pos <= GR}
+        gap_positions = sorted(in_gap_frame_sites)
+        flank_positions = sorted(flank_sites_all)
+        t = [0, 0, 0, 0]
+        considered = tagged_side = allele_side = 0
+        for q, read in bridge_reads.items():
+            h_flank = None
+            if q in base_tags and base_tags[q][1] == flank:
+                h_flank = base_tags[q][0]
+            elif flank_positions:
+                h_flank = hap_from_sites(read, flank_sites_all, flank_positions,
+                                         a.min_site_obs, a.site_flank)
+            if h_flank is None:
+                continue
+            # The gap side is derived from the gap's OWN sites, never from the
+            # arm's read tags. A tag reflects the arm's solve over its whole
+            # region, so with any read context at all it carries the arm's
+            # re-solve of flank territory -- and at chr20:48,176,830 that
+            # re-solve held a switch at its left edge, which the tags imported
+            # into the link and put it in backwards (159 reads discordant) while
+            # the same gap linked correctly from in-gap sites alone. Restricting
+            # to in-gap sites makes the decision depend only on the gap's
+            # evidence, which is what the arm was run to produce, and makes the
+            # read-context margin irrelevant to the link rather than load-bearing.
+            h_gap = hap_from_sites(read, in_gap_frame_sites, gap_positions,
+                                   a.min_site_obs, a.site_flank) \
+                if gap_positions else None
+            if h_gap is None:
+                continue
+            allele_side += 1
+            tagged_side += q in ftags
+            considered += 1
+            t[(h_gap - 1) * 2 + (h_flank - 1)] += 1
+        shared = sum(t)
+        flip = decide(t, a.stitch_margin)
+        source = (f'{shared} reads voted on in-gap sites '
+                  f'({tagged_side} of them also tagged by the arm)')
         evidence = {}
+        if flip is not None:
+            evidence[source] = (flip, f'votes={t}')
+        # Shared sites are a CHECK on the arm, never a link. Where the arm's
+        # region overlaps a flank it re-phases sites the flank already owns, and
+        # the flank's phasing is authoritative, so the two must imply the same
+        # relative orientation as the reads do. They did at 5 kb of read context
+        # (1/1 agreeing, matching the read vote) and contradicted it at 30 kb
+        # (0/2, against a read vote of flip=0) -- the arm had a switch between
+        # the flank's sites and the gap's, and stitching it put 159 reads on the
+        # wrong haplotype. A contradiction here means the arm cannot be trusted
+        # at this seam whichever side is wrong, so the link is refused.
         ss = shared_site_vote(frame_sites, flank_sites_all)
         if ss is not None and ss['flip'] is not None:
-            evidence['shared sites'] = (ss['flip'],
-                                        f"{ss['agree']}/{ss['agree'] + ss['disagree']} "
-                                        f"shared phased site(s) agree")
-        t, shared = votes(ftags, 'frame', base_tags, flank)
-        flip = decide(t, a.stitch_margin)
-        source = 'tags both sides'
-        if flip is not None:
-            evidence['tags both sides'] = (flip, f'{shared} reads')
-        if flip is None or True:
-            # Preferred: the flank's own read assignments, which already
-            # integrate its whole block, against the frame's tags-or-genotypes.
-            ft = flank_tag_vote(flank, base_tags, ftags, frame_sites,
-                                bridge_reads, a.min_site_obs, a.site_flank)
-            ft_flip = decide(ft['votes'], a.stitch_margin)
-            if ft_flip is not None:
-                t, shared, flip = ft['votes'], ft['voters'], ft_flip
-                source = (f'flank tags x gap alleles '
-                          f'({ft["voters"]}/{ft["considered"]} flank reads voted)')
-                evidence['flank tags x gap alleles'] = (
-                    ft_flip, f'{ft["voters"]}/{ft["considered"]} flank reads')
-        if flip is None:
-            flank_sites = {pos: v for pos, v in base_vcf_sites.items()
-                           if v[3] == flank}
-            if side == 'left':
-                br = bridge_vote(flank_sites, frame_sites, bridge_reads,
-                                 a.seam_window, a.seam_sites, a.min_site_obs,
-                                 a.site_flank, a.seam_span)
-            else:
-                br = bridge_vote(frame_sites, flank_sites, bridge_reads,
-                                 a.seam_window, a.seam_sites, a.min_site_obs,
-                                 a.site_flank, a.seam_span)
-            if br is not None:
-                t, shared = br['votes'], br['voters']
-                flip = decide(t, a.stitch_margin)
-                if flip is not None:
-                    evidence['alleles both sides'] = (
-                        flip, f'{br["voters"]} of {br["crossing"]} crossing reads')
-                # The vote is (flank, frame) on the left and (frame, flank) on
-                # the right; the orientation applied to the frame is the same
-                # either way because the table is symmetric under transpose.
-                source = (f'alleles ({br["crossing"]} cross, '
-                          f'{br["n_left_sites"]}+{br["n_right_sites"]} sites)')
+            evidence[f'arm vs flank at {len(ss["shared"])} shared site(s)'] = (
+                ss['flip'], f"{ss['agree']} agree, {ss['disagree']} disagree")
         # Independent sources must not contradict each other. A shared-site
         # comparison and a read vote are different evidence about the same
         # orientation, so a conflict means one of the two blocks is internally

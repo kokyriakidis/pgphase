@@ -1,0 +1,253 @@
+{
+  "verdict": {
+    "gap": [
+      11517849,
+      11573074
+    ],
+    "gap_bp": 55225,
+    "region": "CHM13#0#chr20:11467849-11623074",
+    "baseline_blocks": 238,
+    "gap_blocks": 2,
+    "left_flank_ps": "11497008",
+    "right_flank_ps": "11599138",
+    "baseline_spans_gap": false,
+    "gap_het_sites": 13,
+    "gap_het_phased": 13,
+    "gap_het_informative": 9,
+    "gap_anchor_sites": 6,
+    "compositions": [
+      {
+        "a": "11495992",
+        "b": "11586531",
+        "votes": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "shared": 0,
+        "flip": null,
+        "source": "alleles (63 reads cross the seam)"
+      }
+    ],
+    "links": [
+      {
+        "frame": [
+          "11495992"
+        ],
+        "span": [
+          11495992,
+          11573074
+        ],
+        "sites": 15,
+        "reads": 378,
+        "left": {
+          "votes": [
+            0,
+            1,
+            1,
+            0
+          ],
+          "shared": 2,
+          "flip": null,
+          "source": "2 reads both labellings place (2 by frame tag, 0 by in-gap alleles)",
+          "conflict": false,
+          "evidence": {}
+        },
+        "right": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null,
+          "source": "0 reads both labellings place (0 by frame tag, 0 by in-gap alleles)",
+          "conflict": false,
+          "evidence": {}
+        }
+      },
+      {
+        "frame": [
+          "11586531"
+        ],
+        "span": [
+          11586531,
+          11602036
+        ],
+        "sites": 8,
+        "reads": 87,
+        "left": {
+          "votes": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "shared": 0,
+          "flip": null,
+          "source": "0 reads both labellings place (0 by frame tag, 0 by in-gap alleles)",
+          "conflict": false,
+          "evidence": {}
+        },
+        "right": {
+          "votes": [
+            0,
+            45,
+            42,
+            0
+          ],
+          "shared": 87,
+          "flip": true,
+          "source": "87 reads both labellings place (87 by frame tag, 0 by in-gap alleles)",
+          "conflict": false,
+          "evidence": {
+            "87 reads both labellings place (87 by frame tag, 0 by in-gap alleles)": [
+              true,
+              "votes=[0, 45, 42, 0]"
+            ]
+          }
+        }
+      }
+    ],
+    "closed": false,
+    "extended_side": "right",
+    "extending_frame": [
+      "11586531"
+    ],
+    "link_validation": [
+      {
+        "side": "right",
+        "flank": "11599138",
+        "flip": true,
+        "flank_hap1": "MATERNAL",
+        "flank_sites": 48,
+        "frame_hap1": "PATERNAL",
+        "frame_sites": 5,
+        "correct": true
+      }
+    ],
+    "links_correct": true,
+    "gate": {
+      "tagged_before": 1317,
+      "tagged_after": 1317,
+      "scored_before": 1317,
+      "scored_after": 1317,
+      "concordant_before": 1314,
+      "concordant_after": 1314,
+      "conc_to_disc": 0,
+      "disc_to_conc": 0,
+      "newly_concordant": 0,
+      "newly_discordant": 0,
+      "lost_concordant": 0
+    },
+    "pass": false
+  },
+  "sites": [
+    {
+      "pos": 11517849,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 1.0,
+      "scored": 76
+    },
+    {
+      "pos": 11524204,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 1.0,
+      "scored": 77
+    },
+    {
+      "pos": 11536442,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 1.0,
+      "scored": 76
+    },
+    {
+      "pos": 11546581,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 1.0,
+      "scored": 75
+    },
+    {
+      "pos": 11549751,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.9090909090909091,
+      "scored": 77
+    },
+    {
+      "pos": 11551522,
+      "type": "INS",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.6883116883116883,
+      "scored": 77
+    },
+    {
+      "pos": 11551551,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.9726027397260274,
+      "scored": 73
+    },
+    {
+      "pos": 11551552,
+      "type": "SNP",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.6060606060606061,
+      "scored": 66
+    },
+    {
+      "pos": 11551564,
+      "type": "SNP",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.9014084507042254,
+      "scored": 71
+    },
+    {
+      "pos": 11553383,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 0.9733333333333334,
+      "scored": 75
+    },
+    {
+      "pos": 11563167,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.5384615384615384,
+      "scored": 65
+    },
+    {
+      "pos": 11563169,
+      "type": "DEL",
+      "category": "NOISY_CAND_HET",
+      "phase_set": "11495992",
+      "segregation": 0.5384615384615384,
+      "scored": 65
+    },
+    {
+      "pos": 11573074,
+      "type": "SNP",
+      "category": "CLEAN_HET_SNP",
+      "phase_set": "11495992",
+      "segregation": 0.9552238805970149,
+      "scored": 67
+    }
+  ]
+}

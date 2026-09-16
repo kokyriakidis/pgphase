@@ -14,15 +14,16 @@
     "gap_het_sites": 11,
     "gap_het_phased": 11,
     "gap_het_informative": 7,
+    "gap_anchor_sites": 3,
     "compositions": [
       {
-        "a": "48173317",
+        "a": "48147227",
         "b": "48229446",
         "votes": [
-          15,
+          27,
           0,
           0,
-          27
+          15
         ],
         "shared": 42,
         "flip": false,
@@ -32,15 +33,15 @@
     "links": [
       {
         "frame": [
-          "48173317",
+          "48147227",
           "48229446"
         ],
         "span": [
-          48173317,
-          48234100
+          48147227,
+          48258766
         ],
-        "sites": 16,
-        "reads": 178,
+        "sites": 49,
+        "reads": 335,
         "left": {
           "votes": [
             9,
@@ -50,42 +51,30 @@
           ],
           "shared": 14,
           "flip": false,
-          "source": "alleles (66 cross, 2+14 sites)",
+          "source": "14 reads both labellings place (14 by frame tag, 0 by in-gap alleles)",
           "conflict": false,
           "evidence": {
-            "shared sites": [
+            "14 reads both labellings place (14 by frame tag, 0 by in-gap alleles)": [
               false,
-              "1/1 shared phased site(s) agree"
-            ],
-            "alleles both sides": [
-              false,
-              "14 of 66 crossing reads"
+              "votes=[9, 0, 0, 5]"
             ]
           }
         },
         "right": {
           "votes": [
-            28,
             0,
-            0,
-            43
+            98,
+            78,
+            0
           ],
-          "shared": 71,
-          "flip": false,
-          "source": "flank tags x gap alleles (71/298 flank reads voted)",
+          "shared": 176,
+          "flip": true,
+          "source": "176 reads both labellings place (176 by frame tag, 0 by in-gap alleles)",
           "conflict": false,
           "evidence": {
-            "shared sites": [
-              false,
-              "4/4 shared phased site(s) agree"
-            ],
-            "tags both sides": [
-              false,
-              "71 reads"
-            ],
-            "flank tags x gap alleles": [
-              false,
-              "71/298 flank reads"
+            "176 reads both labellings place (176 by frame tag, 0 by in-gap alleles)": [
+              true,
+              "votes=[0, 98, 78, 0]"
             ]
           }
         }
@@ -93,7 +82,7 @@
     ],
     "closed": true,
     "closing_frame": [
-      "48173317",
+      "48147227",
       "48229446"
     ],
     "link_validation": [
@@ -103,43 +92,43 @@
         "flip": false,
         "flank_hap1": "PATERNAL",
         "flank_sites": 2,
-        "frame_hap1": "PATERNAL",
-        "frame_sites": 14,
-        "correct": true
+        "frame_hap1": "MATERNAL",
+        "frame_sites": 45,
+        "correct": false
       },
       {
         "side": "right",
         "flank": "48229446",
-        "flip": false,
+        "flip": true,
         "flank_hap1": "PATERNAL",
         "flank_sites": 81,
-        "frame_hap1": "PATERNAL",
-        "frame_sites": 14,
+        "frame_hap1": "MATERNAL",
+        "frame_sites": 45,
         "correct": true
       }
     ],
-    "links_correct": true,
+    "links_correct": false,
     "gate": {
       "tagged_before": 1319,
-      "tagged_after": 1426,
+      "tagged_after": 1478,
       "scored_before": 1319,
-      "scored_after": 1426,
+      "scored_after": 1478,
       "concordant_before": 1316,
-      "concordant_after": 1423,
+      "concordant_after": 1316,
       "conc_to_disc": 0,
       "disc_to_conc": 0,
-      "newly_concordant": 107,
-      "newly_discordant": 0,
+      "newly_concordant": 0,
+      "newly_discordant": 159,
       "lost_concordant": 0
     },
-    "pass": true
+    "pass": false
   },
   "sites": [
     {
       "pos": 48176831,
       "type": "DEL",
       "category": "CLEAN_HET_INDEL",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.9859154929577465,
       "scored": 71
     },
@@ -147,7 +136,7 @@
       "pos": 48177726,
       "type": "INS",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": null,
       "scored": 0
     },
@@ -155,7 +144,7 @@
       "pos": 48177781,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.5135135135135135,
       "scored": 74
     },
@@ -163,7 +152,7 @@
       "pos": 48177781,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.9459459459459459,
       "scored": 74
     },
@@ -171,7 +160,7 @@
       "pos": 48183977,
       "type": "DEL",
       "category": "CLEAN_HET_INDEL",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 1.0,
       "scored": 74
     },
@@ -179,7 +168,7 @@
       "pos": 48202057,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.5072463768115942,
       "scored": 69
     },
@@ -187,7 +176,7 @@
       "pos": 48204384,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.9577464788732394,
       "scored": 71
     },
@@ -195,7 +184,7 @@
       "pos": 48225787,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.7333333333333333,
       "scored": 75
     },
@@ -203,7 +192,7 @@
       "pos": 48225787,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 1.0,
       "scored": 74
     },
@@ -211,7 +200,7 @@
       "pos": 48229227,
       "type": "DEL",
       "category": "NOISY_CAND_HET",
-      "phase_set": "48173317",
+      "phase_set": "48147227",
       "segregation": 0.9333333333333333,
       "scored": 60
     },
