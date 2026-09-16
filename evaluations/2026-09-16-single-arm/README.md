@@ -181,11 +181,28 @@ inherited.
 | concordant | **100.00%** | **100.00%** |
 | `48,229,446` onward | own block `PS=48229446` | **merged into `PS=48225786`** |
 
-Blocks after the fix, each internally consistent against read truth:
-`48,147,225-48,202,056` (8 sites, all paternal-on-hap1 at 0.946-1.000),
-`48,204,383` alone, and `48,225,786-48,279,445` (52 sites, all maternal-on-hap1
-at 0.933-1.000). The 220 bp boundary that no merge could close is now joined by
-the ordinary chain, because the site on its left finally has a link.
+Blocks after the fix: `48,147,225-48,202,056` (8 sites), `48,204,383` alone, and
+`48,225,786-48,279,445` (52 sites). The 220 bp boundary that no merge could close
+is now joined by the ordinary chain, because the site on its left finally has a
+link.
+
+**Correction.** An earlier version of this paragraph said the first block was
+"8 sites, all paternal-on-hap1 at 0.946-1.000" and the second "all
+maternal-on-hap1 at 0.933-1.000". Both ranges were taken from the reliably
+scored sites only, and stated as if they covered every site in the block. The
+full picture, from the same table:
+
+| block | sites scoring >= 0.90 | sites below that floor |
+|---|---|---|
+| `48147225` | 5, **all paternal-on-hap1**: 48,149,548 (0.952), 48,162,480 (1.000), 48,176,830 (0.986), 48,177,780 (0.946), 48,183,976 (1.000) | 3: 48,147,225 (0.579), 48,173,989 (0.642), 48,202,056 (0.507) -- all nominally maternal |
+| `48225786` | 48,225,786 `CAAAA>C` (1.000), 48,229,226 (0.933), 48,229,446 (1.000), 48,230,918 (0.983), 48,232,579 (1.000), 48,232,790 (1.000), 48,234,732 (1.000), 48,235,242 (1.000), **all maternal-on-hap1** | 2: 48,225,786 `CA>C` (0.733), 48,235,309 (0.610) -- also maternal |
+
+So the true per-block ranges are 0.507-1.000 and 0.610-1.000, and the defensible
+claim is narrower than the one made: **every site that carries usable haplotype
+signal agrees on its block's orientation, and no site above the floor
+contradicts it.** The three sub-floor sites in the first block reading the
+opposite way is what an uninformative site does -- 0.507 is chance -- not
+evidence of a switch.
 
 ## Iteration 3, the next target
 
@@ -198,3 +215,52 @@ site whose alleles are noise. Removing that site, or refusing to link through it
 is the next step; hiphase holds no het there at all.
 
 Measured on this window only; `--joint-het-orientation` remains off by default.
+
+## Iteration 3: the arm was running the block-link vote in the wrong mode
+
+`--link-by-alleles` was omitted from the arm on the stated grounds that it is
+already default-on. That was wrong, and it is worth stating precisely because
+the two options read almost identically:
+
+| field | default | set by |
+|---|---|---|
+| `gap_link_by_alleles` (`phasing_types.hpp:310`) | **true** | cleared by `--no-gap-link-by-alleles` |
+| `link_by_alleles` (`phasing_types.hpp:430`) | **false** | set by `--link-by-alleles` |
+
+The block-link vote reads the **second**:
+
+```cpp
+const int agree = opts.link_by_alleles
+        ? check_agree_alleles(chunk, read_i, vj, vi)
+        : check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
+```
+
+With it off, `check_agree_haps` requires the read to already carry a haplotype
+**and** its allele at the left site to match that haplotype's own consensus, so
+at a noisy site nearly every read returns `-1`. Probed at the two links in
+question: `48,202,056 -> 48,204,383` has 82 overlapping reads, **57 with a usable
+allele at both sites**, and scored **agree=1 conflict=0**. The allele histograms
+hold only `-1/0/1`, so nothing exotic is being discarded -- the vote was simply
+asking the wrong question.
+
+| arm | blocks | spans | tagged | concordant |
+|---|---:|---|---:|---|
+| without `--link-by-alleles` | 3 | no | 393 | **100.00%** |
+| with `--link-by-alleles` | **2** | no | 393 | **100.00%** |
+
+The singleton rejoins the left block, which becomes `48,147,225-48,204,383`
+(9 sites), at no cost in accuracy. `arm.sh` now passes the flag, with the
+distinction between the two options written next to it.
+
+## Iteration 4, the next target
+
+One split remains, `48,204,383 -> 48,225,786`, and the probe says why it cannot
+be linked: of 173 reads overlapping the pair, **exactly 1 has a usable allele at
+both sites** -- 102 lack one at the left, 70 at the right. Positionally 7 reads
+span both. So the link is starved of read-level observations, not of reads.
+
+At `48,225,786` the allele is `-1` for 29 to 52 of the overlapping reads
+depending on which of the two split records is used. Hiphase crosses the same
+21.4 kb using its own `48,225,788 AAAA>A`, so the difference is that it obtains
+an allele call for reads where we record none. That is the next thing to fix:
+why the per-read allele is unset at that site.

@@ -21,8 +21,20 @@
 #                               class.
 #   * -q 1                   -- the adopted MAPQ floor.
 #
-# gap_link_by_alleles is already true by default, so --link-by-alleles is
-# omitted rather than passed: it changes nothing and reads as if it did.
+#   * --link-by-alleles     -- REQUIRED, and it is not the same option as
+#                               gap_link_by_alleles. Options::link_by_alleles
+#                               defaults to FALSE (phasing_types.hpp:430) while
+#                               gap_link_by_alleles defaults to true (:310); the
+#                               block-link vote reads the former. With it off the
+#                               vote uses check_agree_haps, which needs the read
+#                               to already carry a haplotype AND its allele at
+#                               the left site to match that haplotype's own
+#                               consensus, so at a noisy site nearly every read
+#                               returns -1: on chr20 the 48,202,056 -> 48,204,383
+#                               link had 57 reads with usable alleles at both
+#                               sites and scored agree=1 conflict=0. With it on
+#                               the vote uses check_agree_alleles, which scores
+#                               the read's allele pattern directly.
 set -euo pipefail
 
 readonly REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -36,7 +48,7 @@ mkdir -p "${OUT}"
     --bam "${REPO}/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam" \
     --graph-sites "${REPO}/test_data/chr20.sites.striped.vcf.gz" \
     --gaf "${REPO}/test_data/HG002.chr20.annotated.coord.gaf.gz" \
-    -r "${REGION}" -t "${THREADS}" -q 1 --keep-noisy-kmeans \
+    -r "${REGION}" -t "${THREADS}" -q 1 --keep-noisy-kmeans --link-by-alleles \
     -o "${OUT}/candidates.tsv" \
     --phased-vcf-out "${OUT}/native.vcf" \
     -b "${OUT}/phased.bam" \
