@@ -79,3 +79,57 @@ evidence `agree=0 conflict=0` despite **60** reads spanning it, because both of
 the left block's terminal sites are homopolymer indels and those are excluded
 from read scoring. That exclusion must not be lifted before the switch above is
 fixed: doing so earlier produced a spanning block at 59.29% accuracy.
+
+## Recheck: do we hold all of hiphase's signal, and encode it usably?
+
+Every phased heterozygote hiphase emits in `48,145,000-48,240,000`, matched to
+the arm's candidate and emitted record at the same locus (indel anchors differ by
+a base or two, so matching is by locus, not by exact position), with each site
+genotyped from the alignment and scored against read truth.
+
+**Hiphase emits 19, all in a single phase set `48149548` spanning
+`48,149,548-48,235,309`. The arm holds 15 of them and splits the window into
+two blocks.**
+
+| verdict | n |
+|---|---:|
+| used, alleles identical | 12 |
+| used, re-represented | 3 |
+| candidate only, screened out | 2 |
+| absent from our candidates | 2 |
+
+The four we do not use all carry real signal:
+
+| site | hiphase allele | our status | n | segregation |
+|---|---|---|---:|---:|
+| 48,149,567 | `A>AGAG` | **absent** | 64 | **0.984** |
+| 48,173,317 | `TGGG>T` | **absent** | 66 | **1.000** |
+| 48,177,725 | `T>TA` | candidate, `REP_HET_INDEL` | 74 | 0.865 |
+| 48,234,100 | `C>CCT` | candidate, `REP_HET_INDEL` | 54 | **0.981** |
+
+So two informative sites are never discovered, and two more are discovered and
+then screened out by repeat demotion while hiphase phases both.
+
+The three re-represented sites are encoded differently but remain usable:
+`48,177,780` is multi-allelic for hiphase (`GAGA>G,GA`, `2|1`) and biallelic for
+us (`0|1`, segregation 0.946), so one allele is dropped; `48,225,788`
+(`AAAA>A`, `1|0`) is our nested-deletion split into a common `CA>C` emitted
+`1|1`, which carries nothing, plus a residual `CAAAA>C` emitted `0|1` at
+segregation **1.000**; `48,149,548` differs in anchor and allele only.
+
+### This does not explain the switch
+
+**None of the four unused sites lies inside the 21.4 kb link where our
+orientation flips, and hiphase has no heterozygote there either.** It crosses
+`48,204,383 -> 48,225,786` on the same 7 spanning reads we have, between two
+sites we also have and which are both informative in our own data (0.958 and
+**1.000**), and it gets the orientation right where we do not.
+
+So the two findings are separate, and in this order:
+
+1. **The switch is a decision, not a data deficit** -- same sites, same reads,
+   different outcome. That is iteration 2.
+2. **We do discard usable signal**, but recovering it lengthens and strengthens
+   the chain rather than fixing the switch: two sites to discover
+   (`48,149,567`, `48,173,317`) and two the repeat screen removes at 0.865 and
+   0.981 (`48,177,725`, `48,234,100`).
