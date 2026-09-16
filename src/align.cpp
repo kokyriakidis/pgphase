@@ -1596,7 +1596,8 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                          bool collect_ref_read_aln_str,
                                          std::array<int, 2>& clu_n_seqs,
                                          std::array<std::vector<int>, 2>& clu_read_ids,
-                                         std::array<std::vector<AlnStr>, 2>& aln_strs) {
+                                         std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                         std::vector<UnassignedMsaRead>* unassigned) {
     // Collect full-cover reads.
     std::vector<int>       full_ids;
     std::vector<uint8_t*>  full_seqs;
@@ -1813,12 +1814,16 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         }
     }
 
-    if (opts.private_msa) {
+    // Compose every read this branch did not place into a cluster, whenever the
+    // caller asked for them. Gating it on --private-msa left those reads with no
+    // observation at any MSA site in the region, and the site's own counts are
+    // accumulated from the same set: on chr20:39,856,144 a clean heterozygous SNP
+    // with 65 covering reads is recorded at DP 16 (5 ref / 11 alt), which puts it
+    // in LOW_COV, keeps it out of the clean classes, and leaves a 7.3 kb link to
+    // 39,848,887 with agree=0 conflict=0 despite 36 reads spanning both.
+    if (unassigned != nullptr) {
         for (int i = 0; i < n; ++i) {
-            if (info.lens[static_cast<size_t>(i)] <= 0 ||
-                !noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)])) {
-                continue;
-            }
+            if (info.lens[static_cast<size_t>(i)] <= 0) continue;
             if (info.phase_sets[static_cast<size_t>(i)] == ps &&
                 (info.haps[static_cast<size_t>(i)] == 1 ||
                  info.haps[static_cast<size_t>(i)] == 2)) {

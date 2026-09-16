@@ -1713,7 +1713,12 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         opts, chunk, noisy_reg_beg, noisy_reg_end,
         read_ids, ref_seq,
         clu_n_seqs, clu_read_ids, aln_strs,
-        opts.recover_gaps ? &unassigned : nullptr);
+        // Always collect the reads the MSA could not place. The consumer,
+        // add_msa_site_observations, only adds an observation where there is
+        // none and accepts an allele only where two independently composed
+        // paths agree, so this can raise a site's depth toward its true
+        // coverage but cannot overturn an existing observation.
+        &unassigned);
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
