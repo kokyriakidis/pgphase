@@ -200,3 +200,70 @@ boundary sites, 56 in phase against 4 -- so a within-chunk merge that reuses
 `select_stitch_orientation` on those reads and then `apply_chunk_flip_and_merge`
 is the shape this window needs. Relabelling without it produces a spanning block
 at chance accuracy.
+
+## Root cause: the left block already contains an internal switch
+
+Two hypotheses were tested and both are **wrong**, so they are recorded as such:
+
+- *The site chain crossed a spacing with no spanning reads.* It did not. Every
+  consecutive pair in the left block is read-supported: 18.1 kb carries 7 reads,
+  2.3 kb carries 58, 21.4 kb carries 7, 3.4 kb carries 51, and the 220 bp
+  boundary carries 60. The earlier "41.8 kb with zero spanning reads" was the
+  **pre-fix** site set, before `48,204,383` was recovered.
+- *Site and read labels disagree within a block.* They agree: HP against the
+  allele a read carries is 100.0% at `48,162,480`, `48,183,977`, `48,229,446` and
+  `48,232,579`, and 93.3% at `48,229,227` (its own error rate).
+
+Per-site orientation against read truth gives the answer:
+
+| site | our GT | consistency | hap1 carries |
+|---|---|---:|---|
+| 48,162,480 | `1\|0` | 1.000 | PATERNAL |
+| 48,176,830 | `1\|0` | 0.986 | PATERNAL |
+| 48,183,976 | `0\|1` | 1.000 | PATERNAL |
+| 48,177,788 | `0\|1` | **0.500** | no information |
+| 48,202,056 | `0\|1` | **0.507** | no information |
+| 48,204,383 | `0\|1` | 0.958 | PATERNAL |
+| **48,229,226** | `1\|0` | 0.933 | **MATERNAL** |
+| 48,229,446 | `1\|0` | 1.000 | MATERNAL |
+| 48,230,918 | `1\|0` | 0.983 | MATERNAL |
+
+**The left block's body is PATERNAL-on-hap1 and its terminal site is
+MATERNAL-on-hap1** -- in phase with the right block, not with its own body. That
+switch is in the shipped build, before any merge is attempted.
+
+Everything else follows from it:
+
+- Per-block read consistency reads 100.0% because the mis-oriented terminal
+  sites have **no reads of their own** -- every read covering them belongs to the
+  right block -- so the error is invisible in read space.
+- The boundary vote reports "straight" (`n11=34 n12=3 n21=1 n22=22`, the same
+  56-against-4 measured by hand) because it compares the *mis-oriented* site with
+  the right block, i.e. the right block against itself.
+- Merging therefore inverts the left block's body: 233 reads right, 160 wrong,
+  the 59.29% measured, where each block alone had been 100.0%.
+- `verify_retry.py` reports `switches: 0` because its detector needs a run of
+  scorable sites on each side, and `48,202,056` is unscorable while `48,225,787`
+  is absent from the VCF. This is exactly the `gate_blind: True` it flagged, and
+  the reason that flag exists.
+
+Note where the switch sits: between `48,204,383` and `48,229,226`, the only
+intervening evidence is `48,202,056` and `48,177,788`, both carrying **no
+haplotype information** (0.507 and 0.500). So the single open finding from the
+injection audit -- a site used as a phased het at chance segregation -- is not a
+side note. It is in the chain exactly where the orientation flips.
+
+### Where the fix belongs, and what is not yet known
+
+The parity that orients a site into a block is applied in the emit loop of the
+phase-set assignment (`collect_phase.cpp`, `parity[hi]` swapping
+`hap_to_cons_alle[1]/[2]`), and the union-find that can set it merges components
+on a bare majority, `flip[child] = ... ^ (edge.conflict > edge.agree)`, with no
+minimum count or margin. But that path logs `GapCleanBlockLink` under
+`--verbose 2` and logged **zero edges** for this window, so it is not what
+oriented `48,229,226` here. The path that did is not yet identified and is the
+next thing to pin -- not to guess at.
+
+A merge is not safe on this window until that is fixed: the orientation the
+merge would need is the one the block body carries, and the block's own terminal
+site contradicts it.
