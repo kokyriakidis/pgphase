@@ -813,3 +813,43 @@ getting lucky on it. And read coverage is a second, separate shortfall: we tag
 even with the rescue gates open we reach only 472. So closing this window means
 matching three properties at once -- one block, no switch, and ~587 reads -- and
 the shipped arm currently has the third partially and the second fully.
+
+## Correction: the locus has ONE real allele, and the second record is slippage
+
+The section above specified forcing two co-located records to opposite
+orientations. Reading the full read composition rather than a single summary
+number shows that is the wrong remedy, because the two records are not two
+alleles.
+
+Each parenthetical quantity used above, stated explicitly:
+
+* `(39 vs 2)` is the **parental composition of the alt-carrying reads** -- 39 of
+  the 41 alt reads are maternal; it sums to the alt count.
+* `(68 vs 3)` is **orientation consistency over every covering read**, alt and
+  ref together: `68 = 39 alt-maternal + 29 ref-paternal`, summing to 71. It is a
+  different quantity from the first and much larger, and labelling it
+  "alt-on-MAT" earlier was wrong.
+
+| record | covering | alt (MAT/PAT) | ref (MAT/PAT) | orientation MAT/PAT | segregation |
+|---|---:|---|---|---:|---:|
+| `48,204,383 AT>A` | 71 | 41 (39/2) | 30 (1/29) | 68 / 3 | 0.958 |
+| `48,225,787 CA>C` | 75 | 21 (20/1) | 54 (**24/30**) | 50 / 25 | **0.667** |
+| `48,225,787 CAAAAAA>C` | 75 | 30 (**0/30**) | 45 (44/1) | 1 / 74 | **0.987** |
+
+`CAAAAAA>C` is textbook: every one of its 30 alt reads is paternal and 44 of its
+45 reference reads are maternal. `CA>C` is not an allele at all -- its reference
+set is **mixed**, 24 maternal against 30 paternal, because the maternal
+haplotype itself splits **17 reads at -1 bp against 21 at 0** inside an A run.
+That is homopolymer slippage, and it is why its orientation sits at 0.667, near
+the floor, while the real record sits at 0.987.
+
+So the locus carries **one** real allele, the paternal 6 bp deletion -- precisely
+the single record hiphase emits -- and our second record is noise that happens to
+look heterozygous.
+
+**Revised fix:** screen the slippage record rather than orient it. The two
+separate on evidence already computed -- 0.987 against 0.667 segregation, and a
+clean single-parent reference set against a mixed one -- so this is a screening
+rule on an existing quantity, not a new threshold on the join. Screening it
+leaves one anchor at the locus, which is the structural property hiphase gets by
+emitting one record.
