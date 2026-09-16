@@ -7892,3 +7892,43 @@ Changed: the hybrid subcommand exposed --pgbam-file but none of the eight pgbam
 threshold options collect-bam-variation has, so the path could only run at the
 47.5%-error defaults. All eight are now exposed in collect-hybrid-variation.
 Defaults unchanged.
+
+### BAM variation IS in the initial hybrid solve, then withheld from phasing (2026-09-16)
+
+Tested on chr20:48,176,830-48,229,446 (deficit gap, hiphase spans at 100.0% over
+252 reads). `evaluations/2026-09-16-bam-sites-initial-solve/`.
+
+process_chunk_hybrid is "BAM classification -> graph site injection -> BAM profile
+build -> graph read injection -> unified k-means": the BAM chunk is the BASE and
+graph sites are injected into it, so BAM variation is already in the initial solve,
+and graph_authoritative is off by default so BAM evidence at matched candidates is
+kept (enabling it unconditionally cost +720 discordant reads, per the call site).
+
+But two mechanisms exclude the BAM's own sites from phasing. (1) With
+--recover-gaps, every non-graph candidate has lcd_var_i_to_cate zeroed before
+collect_var_run_phasing and restored only afterwards, so BAM-discovered het sites
+are invisible to the initial k-means AND to the noisy-region MSA, visible only to
+gap recovery. (2) hybrid_collect.cpp:120 sets skip_noisy_kmeans = true, disabling
+the step-4 noisy-candidate k-means, documented as having "phased ~8k extra reads
+at ~65% error and poisoned the BAM-shared core".
+
+Measured on the window: BAM-ONLY phases 11/11 in-gap het sites into ONE block
+spanning 48,147,227-48,229,226 (82.0 kb, 16 sites) at 100% read accuracy, covering
+all but the last 220 bp of the competitor-spanned interval. Hybrid default phases
+2/10 and leaves the interval unphased with 3 blocks, the nearest stopping exactly
+at the gap's left edge (48,162,480-48,176,830, 2 sites). Recovery off gives 3/11;
+--keep-noisy-kmeans gives 2/4. So no single flag explains it.
+
+The two channels find the SAME sites: 9 vs 10 het sites at the same positions,
+7 shared NOISY_CAND_HET indels; bam-only phases 9/9 into PS 48147227, hybrid 2/10.
+48,177,781 and 48,225,787 are NOISY_CAND_HET to the BAM channel but
+NOISY_CAND_HOM in hybrid (the het-called-hom class, 7 of hiphase's sites
+chromosome-wide). Noisy-region DETECTION is byte-identical: both paths emit the
+same 2,862 verbosity-2 noisy-region lines over the same regions.
+
+So at this gap the deficit is neither discovery nor MSA verification nor missing
+injection -- it is that hybrid withholds the BAM channel's noisy-site phasing that
+would have produced an 82 kb block at 100%. Fix direction: admit BAM-discovered
+noisy candidates to phasing INSIDE GAP INTERVALS ONLY, scoped rather than the
+chromosome-wide enabling that cost ~8k reads at ~65% error; regression-test it with
+this window's three-arm comparison and the 31-gap accurate-deficit list.
