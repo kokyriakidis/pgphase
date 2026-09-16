@@ -1248,10 +1248,17 @@ int merge_var_profile(PhasingChunk& chunk,
             merged_vars.push_back(new_vars[new_i++]);
             ++admitted;
         } else {
+            // A RepeatHetIndel is screened out of k-means by construction, so it
+            // is never assigned a haplotype and never emitted: chr20:48,177,726
+            // (INS, DP 74, 35/39, AF 0.527) and chr20:48,234,101 (INS, DP 57,
+            // 23/34, AF 0.596) both sit in the candidate table with
+            // HAP_ALT = HAP_REF = 0 and PS = 0, and hiphase phases both. Such a
+            // candidate carries no phase information, so the MSA's own call at
+            // the same key strictly dominates it -- and that call is the
+            // verified one, which is the evidence this pipeline is supposed to
+            // admit. Requiring region-trust mode or a whitelist hit before the
+            // swap meant a plain run always kept the screened, unusable version.
             const bool replace_repeat =
-                (admit_all_in_region ||
-                 (site_whitelist != nullptr &&
-                  site_whitelist->find(new_vars[new_i].key) != site_whitelist->end())) &&
                 old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel &&
                 admissible_type(new_vars[new_i]);
             const bool replace_selected = replace_sites != nullptr &&

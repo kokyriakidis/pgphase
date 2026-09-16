@@ -420,11 +420,18 @@ replacing a pruned candidate is **no site at all**, and what replaces it is the
 MSA-constructed version, which carries `msa_verified` for the same reason the 14
 BAM-discovered sites in this window do.
 
-| arm | blocks | hiphase sites used | reads tagged | concordance |
-|---|---:|---:|---:|---|
-| before, site pruned | 2 | 15/19 | 393 | **100.00%** |
-| raw admission (`NoisyCandHet` in the classifier) | 2 | 16/19 | 508 | 88.39% |
-| **MSA replaces the pruned candidate** | 2 | **16/19** | 393 | **100.00%** |
+| arm | blocks | sites used (+/-6 bp) | sites used (event) | reads tagged | concordance |
+|---|---:|---:|---:|---:|---|
+| before, site pruned | 2 | 15/19 | 16/19 | 393 | **100.00%** |
+| raw admission (`NoisyCandHet` in the classifier) | 2 | 16/19 | 17/19 | 508 | 88.39% |
+| **MSA replaces the pruned candidate** | 2 | 16/19 | **17/19** | 393 | **100.00%** |
+
+Two columns because the naive matcher is the one this document already
+retracted: counting a hiphase site as used only when one of ours sits within
+6 bp marks `48,149,567` unused, although the arm emits that event 19 bp away at
+`48,149,548`. **The event column is the correct criterion** -- a tandem-repeat
+indel may be placed anywhere in its tract -- and the narrow column is kept only
+because the earlier tables in this file quote it.
 
 The site comes back with the alignment channel's own numbers -- `48,173,318 DEL
 GGGGATG>. DP 64, 23/41, AF 0.6406, NOISY_CAND_HET`, emitted `TGGGGATG>T` -- and
@@ -436,3 +443,48 @@ is what admitting an unverified site could not achieve.
 off-centre-AF graph indel is now harmless, because the MSA's verified call
 overrides it where one exists -- and where no MSA call exists, the strict verdict
 is the conservative one.
+
+## The same bug one category over: a repeat indel also outranked its MSA call
+
+`48,177,725` and `48,234,100` were the last two hiphase sites the arm did not
+use. Both sat in the candidate table as `REP_HET_INDEL` with `HAP_ALT = 0`,
+`HAP_REF = 0` and `PS = 0` -- screened out of k-means by construction, so never
+assigned a haplotype and never emitted. `48,177,716-48,177,915` is one of the
+41 noisy regions, so the MSA runs over them.
+
+The merge preferred the screened candidate for the same structural reason as
+before, one condition earlier:
+
+```cpp
+const bool replace_repeat =
+    (admit_all_in_region ||
+     (site_whitelist != nullptr && site_whitelist->find(key) != site_whitelist->end())) &&
+    old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel && ...;
+```
+
+The swap required region-trust mode or a whitelist hit, so a plain run always
+kept the screened, unusable version and discarded the MSA's verified call. The
+`admit_all_in_region || whitelisted` requirement is dropped: a `RepeatHetIndel`
+carries no phase information by construction, so the MSA's call at the same key
+strictly dominates it.
+
+| arm | blocks | sites used (+/-6 bp) | sites used (event) | reads tagged | concordance |
+|---|---:|---:|---:|---:|---|
+| site pruned | 2 | 15/19 | 16/19 | 393 | **100.00%** |
+| MSA replaces pruned | 2 | 16/19 | 17/19 | 393 | **100.00%** |
+| **+ MSA replaces repeat** | 2 | **18/19** | **19/19** | 393 | **100.00%** |
+
+Both sites come back matching hiphase's alleles *and* genotypes exactly --
+`48,177,725 T>TA` at `1|0` and `48,234,100 C>CCT` at `0|1`, both
+`NOISY_CAND_HET`, joined to the blocks at `48147225` and `48225786`. Reads
+tagged and read concordance are unchanged at 393 and 100.00%, both blocks still
+internally consistent.
+
+**The arm now uses every heterozygous site hiphase phases in this window.** The
+only position the narrow matcher still reports missing is `48,149,567`, which
+the arm emits as two records at `48,149,548`.
+
+What remains is not a site deficit. The window is still two blocks where hiphase
+emits one, and the split is the link `48,204,383 -> 48,225,786`: of 173 reads
+overlapping the pair exactly 1 carries a usable allele at both ends, while 7
+span the positions.
