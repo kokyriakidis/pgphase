@@ -312,6 +312,19 @@ struct Options {
     /// reads to its flanks. Off by default: the allele path is a net gain across
     /// most windows and only harmful where a one-sided link is unvalidated.
     bool gap_allele_attach_join_only = false;
+    /// Re-solve a chunk with the BAM's own sites admitted, in the windows where
+    /// the first solve left reads unphased. The first solve sees only catalog
+    /// sites (recover_gaps zeroes every other candidate's category), so where the
+    /// catalog is too sparse to phase, nothing is assigned and the region becomes
+    /// a gap for a later pass to recover. Admitting the BAM sites there and
+    /// solving again keeps the work in the normal pass, and confines the cost:
+    /// admitting them chromosome-wide doubled the read Hamming error on chr20,
+    /// 0.878% -> 1.837%, while spanning only 14 of the 196 gaps.
+    bool retry_unphased_with_bam = false;
+    /// Reads overlapping a window with no phase set before it counts as failed.
+    int retry_min_unphased_reads = 5;
+    /// Width a failed window must reach before the retry admits sites in it.
+    hts_pos_t retry_min_window_bp = 10000;
     // When true (gap recovery only), an MSA-verified private het SNP inside a
     // gap may act as a block-bridge anchor, on the same terms as a recovered
     // MSA indel: it must pass the anchor allele-segregation test that sets

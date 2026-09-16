@@ -18,12 +18,22 @@ guarantee a bespoke gap link does not have.
 Swept `--chunk-size` over `chr20:48,126,830-48,279,446` with the shipped
 configuration (recovery on):
 
-| `--chunk-size` | blocks | phased sites INSIDE the gap | spans gap |
-|---|---:|---:|---|
-| 500 kb | 2 | **0** | no |
-| 50 kb | 2 | **0** | no |
-| 20 kb | 2 | **0** | no |
-| 10 kb | 3 | **0** | no |
+| `--chunk-size` | blocks | spans gap |
+|---|---:|---|
+| 500 kb | 2 | no |
+| 50 kb | 2 | no |
+| 20 kb | 2 | no |
+| 10 kb | 3 | no |
+
+**Correction.** An earlier version of this table claimed zero phased sites inside
+the gap at every chunk size. That column was never measured -- the sweep recorded
+blocks, spanning and read accuracy only. Measured properly, the shipped
+configuration phases **2** heterozygous records inside this gap (against 64
+homozygous ones, which carry no linkage), and 170 reads lie wholly inside the gap
+with **no phase set at all**: `update_read_phase_set` grants a read a phase set
+only from an eligible het candidate, and the VCF writer emits `PS` only for
+phased hets. So the pipeline does not label a window it could not phase -- which
+is what makes the failure detectable.
 
 At 10 kb it is worse -- the left two-site block fragments into two single-site
 blocks. The window size is irrelevant because nothing inside the gap is admitted

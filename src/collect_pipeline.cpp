@@ -775,6 +775,67 @@ void run_collect_bam_variation(const Options& opts) {
 
 namespace pgphase_collect {
 
+/// Reference windows where this chunk's solve assigned no phase set at all.
+///
+/// A window counts as failed when reads cover it and none of them came out
+/// phased -- the observed failure, not a prediction from site spacing. Scattered
+/// unphased reads inside an otherwise phased stretch are not a failure and are
+/// left alone: the bins they fall in also carry phased reads.
+static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
+        const PhasingChunk& chunk, int min_reads, hts_pos_t min_bp) {
+    constexpr hts_pos_t kBin = 1000;
+    // A read's phase set comes only from an eligible heterozygous candidate
+    // (update_read_phase_set, collect_phase.cpp): homopolymer indels,
+    // kCandNoisyCandHom and unsupported MSA insertions are skipped, and a read
+    // with no such candidate gets ps = -1. So a window the solve could not phase
+    // is one holding no such candidate -- and it is measured that way rather than
+    // by asking whether reads carry a phase set, because a read reaching in from
+    // a flanking block carries one earned outside the window and would mask it.
+    // The eligibility test mirrors update_read_phase_set exactly, including the
+    // hap_to_cons_alle[1] / [2] indices; [0] is not a haplotype allele.
+    std::set<hts_pos_t> phasing_bins;
+    for (const auto& cand : chunk.candidates) {
+        if (cand.phase_set < 0) continue;
+        if (cand.is_homopolymer_indel ||
+            cand.lcd_var_i_to_cate == kCandNoisyCandHom ||
+            (!cand.msa_insertion_alts.empty() && !cand.gap_link_supported)) continue;
+        if (cand.hap_to_cons_alle[1] == -1 || cand.hap_to_cons_alle[2] == -1 ||
+            cand.hap_to_cons_alle[1] == cand.hap_to_cons_alle[2]) continue;
+        phasing_bins.insert(cand.key.pos / kBin);
+    }
+    std::map<hts_pos_t, std::pair<int, int>> bins;  // bin -> {phased, unphased}
+    const size_t n = std::min(chunk.reads.size(), chunk.haps.size());
+    for (size_t i = 0; i < n; ++i) {
+        const ReadRecord& read = chunk.reads[i];
+        if (read.is_skipped || read.end <= read.beg) continue;
+        for (hts_pos_t b = read.beg / kBin; b <= read.end / kBin; ++b) {
+            auto& e = bins[b];
+            if (phasing_bins.count(b) != 0) ++e.first; else ++e.second;
+        }
+    }
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> out;
+    hts_pos_t run_beg = -1;
+    hts_pos_t prev = -2;
+    for (const auto& [b, counts] : bins) {
+        const bool dead = counts.first == 0 && counts.second >= min_reads;
+        if (dead) {
+            if (run_beg < 0 || b != prev + 1) {
+                if (run_beg >= 0 && (prev + 1) * kBin - run_beg * kBin >= min_bp)
+                    out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
+                run_beg = b;
+            }
+            prev = b;
+        } else if (run_beg >= 0) {
+            if ((prev + 1) * kBin - run_beg * kBin >= min_bp)
+                out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
+            run_beg = -1;
+        }
+    }
+    if (run_beg >= 0 && (prev + 1) * kBin - run_beg * kBin >= min_bp)
+        out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
+    return out;
+}
+
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
 /// BAM profile build → graph read injection → unified k-means.
 static PhasingChunk process_chunk_hybrid(
@@ -958,6 +1019,68 @@ static PhasingChunk process_chunk_hybrid(
         collect_var_run_phasing(chunk, opts);
     }
 
+    // The solve above saw only catalog sites. Where it left reads unphased, admit
+    // the BAM's own sites IN THOSE WINDOWS and solve again, rather than leaving
+    // the region to a later recovery pass. The admission is confined to the
+    // failed windows because admitting these sites chunk-wide is a bad trade:
+    // chromosome-wide on chr20 it doubled the read Hamming error (0.878% ->
+    // 1.837%, 1,831 -> 3,415 discordant reads) while spanning 14 of 196 gaps.
+    if (opts.retry_unphased_with_bam && !discovery_flags.empty()) {
+        const auto windows = collect_unphased_windows(
+            chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+        int readmitted = 0;
+        if (!windows.empty()) {
+            for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
+                if (chunk.candidates[vi].graph_site) continue;
+                const hts_pos_t pos = chunk.candidates[vi].key.pos;
+                bool inside = false;
+                for (const auto& [beg, end] : windows) {
+                    if (pos >= beg && pos < end) { inside = true; break; }
+                }
+                if (!inside) continue;
+                chunk.candidates[vi].lcd_var_i_to_cate = discovery_flags[vi];
+                ++readmitted;
+            }
+        }
+        if (opts.verbose >= 1 && !windows.empty()) {
+            for (const auto& [wbeg, wend] : windows) {
+                int in_win = 0, in_win_graph = 0;
+                for (const auto& cand : chunk.candidates) {
+                    if (cand.key.pos < wbeg || cand.key.pos >= wend) continue;
+                    ++in_win;
+                    in_win_graph += cand.graph_site ? 1 : 0;
+                }
+                std::fprintf(stderr,
+                    "hybrid chunk %d retry window %ld-%ld (%.1f kb): "
+                    "%d candidate(s) inside, %d of them graph sites\n",
+                    region.chunk_id, (long)wbeg, (long)wend,
+                    (double)(wend - wbeg) / 1000.0, in_win, in_win_graph);
+                for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
+                    const auto& cand = chunk.candidates[vi];
+                    if (cand.graph_site) continue;
+                    if (cand.key.pos < wbeg || cand.key.pos >= wend) continue;
+                    std::fprintf(stderr,
+                        "    admittable: pos=%ld cate_now=0x%03x cate_saved=0x%03x "
+                        "ref_len=%d alt=%s\n",
+                        (long)cand.key.pos, cand.lcd_var_i_to_cate,
+                        vi < discovery_flags.size() ? discovery_flags[vi] : 0u,
+                        (int)cand.key.ref_len, cand.key.alt.c_str());
+                }
+            }
+            std::fprintf(stderr,
+                "hybrid chunk %d retry: %zu unphased window(s), %d site(s) admitted\n",
+                region.chunk_id, windows.size(), readmitted);
+        }
+        if (readmitted > 0) {
+            // The noisy-candidate k-means is off by default because it is a poor
+            // trade chromosome-wide; inside a window the catalog could not phase
+            // at all, that class is most of the evidence there.
+            Options retry_opts = opts;
+            retry_opts.skip_noisy_kmeans = false;
+            collect_var_run_phasing(chunk, retry_opts);
+        }
+    }
+
     if (opts.recover_gaps) {
         for (size_t vi = 0; vi < discovery_flags.size(); ++vi)
             chunk.candidates[vi].lcd_var_i_to_cate = discovery_flags[vi];
@@ -969,6 +1092,7 @@ static PhasingChunk process_chunk_hybrid(
     if (!keep_intermediates) mid_free_chunk(chunk, opts);
     return chunk;
 }
+
 
 /// Parallel batch for hybrid pipeline.
 static ChunkBatchResult collect_hybrid_chunk_batch_parallel(

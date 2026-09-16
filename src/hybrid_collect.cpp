@@ -174,6 +174,9 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kMinAssignMapqOption,
         kNoGapLinkByAllelesOption,
     kGapAlleleAttachJoinOnlyOption,
+    kRetryUnphasedWithBamOption,
+    kRetryMinUnphasedReadsOption,
+    kRetryMinWindowBpOption,
         kNoHybridTrimOption,
         kGapFillOption,
         kPrivateSitesOption,
@@ -241,6 +244,9 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"gap-bridge-private-snps", no_argument, nullptr, kGapBridgePrivateSnpsOption},
         {"no-gap-link-by-alleles", no_argument, nullptr, kNoGapLinkByAllelesOption},
         {"gap-allele-attach-join-only", no_argument, nullptr, kGapAlleleAttachJoinOnlyOption},
+        {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
+        {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
+        {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
         {"gap-fill",        no_argument,       nullptr, kGapFillOption},
         {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
@@ -329,6 +335,9 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGapBridgePrivateSnpsOption: opts.gap_bridge_private_snps = true; break;
             case kNoGapLinkByAllelesOption: opts.gap_link_by_alleles = false; break;
             case kGapAlleleAttachJoinOnlyOption:
+            case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
+            case kRetryMinUnphasedReadsOption: opts.retry_min_unphased_reads = std::atoi(optarg); break;
+            case kRetryMinWindowBpOption: opts.retry_min_window_bp = std::atoll(optarg); break;
                 opts.gap_allele_attach_join_only = true; break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
             case kGapFillOption:      opts.gap_fill = true; break;
