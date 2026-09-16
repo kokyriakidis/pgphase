@@ -1256,7 +1256,23 @@ int merge_var_profile(PhasingChunk& chunk,
                 admissible_type(new_vars[new_i]);
             const bool replace_selected = replace_sites != nullptr &&
                 replace_sites->count(new_vars[new_i].key) != 0 && admissible_type(new_vars[new_i]);
-            if (replace_repeat || replace_selected) {
+            // An old candidate in a pruned category is about to be deleted by
+            // prune_not_candidate_variants, so keeping it in preference to the
+            // MSA's own call at the same key discards the only version of the
+            // site that will survive -- and the MSA's version is the verified
+            // one, since `msa_verified` is set where the MSA CONSTRUCTS a
+            // candidate. That is how chr20:48,173,317 was lost: the catalog
+            // claims the locus, classify_graph_only_candidates judges it by the
+            // graph window (AF 0.652 against [0.39, 0.61]) and marks it
+            // LowCoverage, and the MSA call that collect-bam-variation emits as
+            // a phased het was then thrown away in favour of it. Replacing a
+            // pruned candidate can only add information: the alternative is no
+            // site at all.
+            const bool replace_pruned =
+                (old_vars[old_i].counts.category == VariantCategory::LowCoverage ||
+                 old_vars[old_i].counts.category == VariantCategory::LowAlleleFraction) &&
+                admissible_type(new_vars[new_i]);
+            if (replace_repeat || replace_selected || replace_pruned) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
                 new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =

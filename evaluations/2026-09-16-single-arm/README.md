@@ -379,3 +379,60 @@ the catalog does not claim it. Admitting it raw is measurably wrong, and hiding
 the admission behind a flag would only make the site unreachable by default. The
 branch now carries this reasoning so the drop is a named decision rather than an
 accident.
+
+## The fix: an MSA call must not lose to a candidate that is about to be deleted
+
+The noisy MSA pass was never the problem. Both the hybrid and the standalone
+alignment runs build the **same 41 noisy regions**, and
+`48,173,237-48,173,436` covers the site in both -- so the MSA constructs its
+verified call at `48,173,317` in the hybrid run too. It is then thrown away.
+
+`merge_var_profile` decides what happens when the MSA's new variant has the same
+key as an existing candidate:
+
+```cpp
+const bool replace_repeat = (admit_all_in_region || whitelisted) &&
+    old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel &&
+    admissible_type(new_vars[new_i]);
+const bool replace_selected = replace_sites != nullptr && ...;
+if (replace_repeat || replace_selected) { /* take the MSA variant */ }
+else { merged_vars.push_back(old_vars[old_i]); }   // keep the old one
+```
+
+The MSA's call is preferred only when the old candidate is specifically
+`RepeatHetIndel`, or explicitly listed. Our catalog-claimed candidate is
+`LowCoverage` -- the category `prune_not_candidate_variants` **deletes** -- so
+the pipeline kept a candidate it was about to throw away, in preference to the
+verified call that would have survived. The site then vanished at prune time.
+
+The fix adds one condition: an old candidate in a pruned category loses to the
+MSA's call at the same key.
+
+```cpp
+const bool replace_pruned =
+    (old_vars[old_i].counts.category == VariantCategory::LowCoverage ||
+     old_vars[old_i].counts.category == VariantCategory::LowAlleleFraction) &&
+    admissible_type(new_vars[new_i]);
+```
+
+This is safe by construction rather than by threshold: the alternative to
+replacing a pruned candidate is **no site at all**, and what replaces it is the
+MSA-constructed version, which carries `msa_verified` for the same reason the 14
+BAM-discovered sites in this window do.
+
+| arm | blocks | hiphase sites used | reads tagged | concordance |
+|---|---:|---:|---:|---|
+| before, site pruned | 2 | 15/19 | 393 | **100.00%** |
+| raw admission (`NoisyCandHet` in the classifier) | 2 | 16/19 | 508 | 88.39% |
+| **MSA replaces the pruned candidate** | 2 | **16/19** | 393 | **100.00%** |
+
+The site comes back with the alignment channel's own numbers -- `48,173,318 DEL
+GGGGATG>. DP 64, 23/41, AF 0.6406, NOISY_CAND_HET`, emitted `TGGGGATG>T` -- and
+read tagging is untouched: 393 reads, both blocks still 100.00% internally
+consistent. So the recovery is purely site-level, with no read-level cost, which
+is what admitting an unverified site could not achieve.
+
+`classify_graph_only_candidates` is left alone. Its `LowCoverage` verdict on an
+off-centre-AF graph indel is now harmless, because the MSA's verified call
+overrides it where one exists -- and where no MSA call exists, the strict verdict
+is the conservative one.
