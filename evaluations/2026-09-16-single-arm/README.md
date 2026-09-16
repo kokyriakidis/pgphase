@@ -521,3 +521,63 @@ window, which is exactly the rule already recorded for genotyping these sites by
 hand ("never at the anchor position"). That is a change to how reads are matched
 to candidates, wider in blast radius than anything in this file so far, and it
 is the next thing to do.
+
+## Not a mapping-quality gate: the observation is lost in the MSA allele call
+
+Mapping quality is ruled out at the read level. All seven reads spanning
+`48,204,383 -> 48,225,786` are **MAPQ 60**, primary, and none is skipped
+(`is_skipped` is written in exactly one place, `gap_recovery.cpp:50`, which this
+arm never reaches). `min_read_hap_margin` is 0 and the arm does not pass a
+margin, so no read-tagging gate applies either.
+
+The chain, probed end to end:
+
+1. **The site does not exist when read profiles are built.** At
+   `collect_var_build_profiles` time the candidates near there are `48,204,379`,
+   `48,204,385` and `48,225,795` -- `48,204,383` and `48,225,787` are absent.
+   They are **MSA-created**, so their per-read alleles never come from the digar
+   comparison path at all, which is why the closer-hypothesis change to that
+   path was inert.
+2. **In the final profile the observation is simply missing.** At the two split
+   records at `48,225,787` (`ref_len` 1 and 6, both `cate=0x100`), **six of the
+   seven reads hold `allele = -1`**, and those same six hold `hap = 0`. The one
+   read with an observation is the only one that is phased.
+3. **The rescue for that case never runs.** `add_msa_site_observations` -- which
+   re-calls a site against both consensuses and accepts it when two independently
+   composed paths agree -- is invoked unconditionally, but probed at this site it
+   reports `unassigned = 0`. The list is empty.
+4. **Because this region takes the branch that cannot fill it.**
+   `collect_noisy_reg_aln_strs` picks between two paths, and with
+   `--verbose 1` the region reports `BranchSelect ps=-1 n_full_reads=72
+   n_reads=76`. `ps = -1` means no phase set here has reads from both
+   haplotypes, so the hap-aware path is skipped and
+   `wfa_collect_noisy_aln_str_no_ps_hap` runs -- and that function **has no
+   `unassigned` parameter at all**. Only the hap-aware path takes one
+   (`align.cpp:1847`).
+5. **So a clustered read whose allele call fails has no fallback.** In
+   `update_cand_var_profile_from_cons_aln_str2`, a full-cover read gets
+   `allele_i = get_var_allele_i_from_cons_aln_str(...)` for a variant from its
+   own cluster's consensus, `0` for one from the other cluster, and whatever the
+   first returns -- including `-1` -- is written straight into the profile. For a
+   deletion the aligner placed elsewhere inside the A run, that call fails, and
+   nothing re-tries it.
+
+The consequence is circular, which is why it is stable: these reads are unphased
+because they have no observation at the site, and they have no observation
+because the rescue is reserved for reads that failed cluster assignment in a
+branch this region does not take.
+
+Two fixes follow, and they are not equivalent:
+
+- **Reach the existing evidence standard from this branch.** Give
+  `wfa_collect_noisy_aln_str_no_ps_hap` the same `unassigned` output, and route a
+  clustered read whose allele call returns `-1` through it, so
+  `call_msa_site_with_context` and the two-path agreement test decide the site.
+  This adds no new standard -- it applies the one already used for ambiguous
+  reads to a case that currently skips it.
+- **Fix the allele call itself**, by reading the read's alignment over the
+  variant's repeat tract by net length rather than at the key. Stronger, but it
+  changes how every MSA site is called, so it wants the read-level gate on both
+  windows before it is trusted.
+
+The first is the smaller change and is the next one to make.
