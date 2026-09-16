@@ -192,3 +192,50 @@ switch disappears, but **75 correct read tags are lost against 12 gained**. So
 this is not a default: the re-solve judges every read in the chunk against the
 new site set, and on this window that costs coverage. The same shape as the
 earlier filter-reorder regression, and the next thing to measure.
+
+## Checking the fixed window for further bugs
+
+Two things the verifier still fails on, and what each turned out to be.
+
+### The duplicate-locus records are the MSA path's, not the retry's
+
+At `48,147,227` two deletion records sit at one position in the same phase set
+with **opposite** haplotype assignments and complementary depths: `GGT>G`
+(`0|1`, 10 ref / 5 alt) and `GGTGTGTGTG>G` (`1|0`, 5 ref / 10 alt). They are the
+2 bp and 8 bp forms of one GT tandem repeat, decomposed into separate biallelic
+candidates and then phased independently, which is contradictory as a genotype:
+one locus cannot carry both.
+
+Duplicated positions among phased hets, by arm:
+
+| arm | duplicated / phased hets |
+|---|---|
+| retry off (noisy MSA not run) | 0 / 44 |
+| `collect-bam-variation` (MSA on) | 2 / 8 |
+| hybrid `--keep-noisy-kmeans` (MSA on) | **4 / 63**, same cluster, same opposite haps |
+| retry on | 4 / 66 |
+
+So this is a pre-existing defect of the noisy-MSA path, present wherever that
+path runs; the retry arm shows it only because it runs that path. An earlier note
+here attributed it to the het-seeding change -- that was wrong, and the
+correction matters because the seeding was not what made these records: they are
+phased by the ordinary per-haplotype majority once the MSA has created them.
+
+A rule that seeded at most one candidate per overlapping locus was written and
+then **reverted**: the output was byte-identical with and without it, because
+suppressed candidates still reach the ordinary path and are phased there. Fixing
+this belongs where the alternatives are created, not where they are oriented.
+
+### The switch is anchored on that cluster
+
+`verify_retry.py` reports one switch, `48,147,227 (MAT) -> 48,149,548 (PAT)`,
+2.3 kb apart with 59 spanning reads. The left side of it is the repeat cluster
+above, whose three records disagree with each other: `MAT` at 0.86, a tie at
+0.50, and `MAT` at 0.57 (below the confidence floor). So the block's left anchor
+is a contradictory cluster at one locus, and the switch flag follows from it
+rather than from a long-range orientation error. It is also outside the gap
+interval, left of it.
+
+Both findings point at the same place: the noisy MSA should emit one multiallelic
+record per locus, or mark its decomposed alternatives so they cannot be oriented
+as independent heterozygotes.
