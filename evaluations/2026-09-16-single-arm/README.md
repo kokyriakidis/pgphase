@@ -853,3 +853,66 @@ clean single-parent reference set against a mixed one -- so this is a screening
 rule on an existing quantity, not a new threshold on the join. Screening it
 leaves one anchor at the locus, which is the structural property hiphase gets by
 emitting one record.
+
+## Matching hiphase: the parity is decided by four reads, and they are wrong
+
+Two changes were built and measured together -- screening the slippage record so
+the locus has one anchor, and opening both rescue gates -- and the target was one
+block at 100% with read count moving toward hiphase's 587.
+
+| arm | tagged | blocks | concordance | left of 48,204,383 | right of 48,225,786 |
+|---|---:|---:|---|---|---|
+| hiphase (target) | **587** | **1** | **100.00%** | 250/250, hap1=PAT | 243/243, hap1=PAT |
+| shipped | 393 | 2 | 100.00% | -- | 182/182, hap1=PAT |
+| screen only | 393 | 2 | 100.00% | -- | 182/182, hap1=PAT |
+| screen + gates | 472 | **1** | 56.14% | 180, 99.44%, hap1=PAT | 214, 100.00%, **hap1=MAT** |
+
+**Screening the slippage record did not fix the parity**, so the
+contradictory-anchor explanation was wrong. With one record at the locus the
+merged block still inverts its right half, and the rescued reads are not to
+blame: they are 19/19 and 32/32 correct *within* each half, inheriting the
+inversion rather than causing it. The inversion is at site level -- both
+`48,204,383` and `48,225,786 CAAAAAA>C` come out `0|1` when truth puts their alt
+alleles on opposite haplotypes.
+
+**The chain vote that decides it (`--verbose 2`, `pos agree conflict`):**
+
+```
+48204384    0    0      <- no link evidence at all
+48225787    3    1      <- four reads set the parity of a 53-site block
+48229227   21    2
+48230918   52    1
+48183977   41    0
+```
+
+Every other link in the window is carried by 20-65 reads. This one has four, and
+the accepted orientation is the wrong one.
+
+**No vote-quality rule would refuse it.** The acceptance test is
+`support = (a == c) ? 0 : max(a, c)` against `min_block_link_reads` (default 2),
+so `3` passes; the extra repeat-context check requires `|a - c| >= 2` and `3-1`
+meets it exactly. Ratio rules do not help either -- `a > 2c` and `a >= 3c` both
+admit `3` against `1`. Only an arbitrary voter-count floor would refuse it, and
+that is threshold tuning on one window.
+
+**The evidence is not weak, it is wrong.** Of the seven reads spanning the link,
+their net length at `48,204,383` (whose alt is the 1 bp deletion, maternal) is:
+
+| truth | net length at 48,204,383 |
+|---|---|
+| paternal | -1, 0, -1, 0 |
+| maternal | 0, -2, -2 |
+
+The alt-length `-1` appears on **two paternal reads and no maternal read** -- the
+opposite of the site's global behaviour, where it segregates 0.958 over 71 reads.
+These are the same homopolymer-slippage mechanics that produced the phantom
+record at the other end of the link. So the four voters agree with each other and
+with the wrong orientation, and a margin rule cannot separate correlated noise
+from signal.
+
+That places the remaining work on the allele calls for long reads at
+`48,204,383`, not on the link rule: hiphase links the same 21.4 kb across the
+same reads and gets it right, which means its allele assignment on those reads
+differs from ours. Both changes were reverted; the screen is also too blunt as
+written, removing four emitted records across the window including one at
+`48,177,780` where hiphase does call a heterozygote.
