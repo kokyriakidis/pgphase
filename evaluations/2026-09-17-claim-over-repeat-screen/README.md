@@ -113,3 +113,30 @@ assertions that matter do not live in a file at all and cannot drift:
 The switch check places each end of a block independently -- at least five
 scored reads and at least 90% agreement -- and fails when two confidently placed
 ends disagree.
+
+## The closure is now guarded by the sites it rests on
+
+`spans` alone can pass by finding some other way across. So every heterozygote a
+closing arm phases **strictly inside** the gap is recorded in
+`src/test_gap_windows_required.tsv` -- 18 rows over the four windows that close
+-- and each is asserted twice in that arm:
+
+| assertion | what its failure means |
+|---|---|
+| RETRIEVED: a candidate exists at the position (+/-2 bp) | a discovery or injection regression -- we stopped calling the site |
+| USED: that candidate carries a non-zero `PHASE_SET` | an admission regression -- we call it and exclude it from the solve |
+
+For the target window the two rows are `5,315,591 C>CT` (`CLEAN_HET_INDEL`, the
+site the claim fix recovers) and `5,331,265 TAGAC>T` (`NOISY_CAND_HET`, the one
+only the window-scoped retry reaches). Either going missing or going unused
+fails the suite even if the gap still closes by some other route.
+
+The file is written by the test binary during a refresh, from the same run that
+writes the expectations, so it cannot drift from a second implementation of
+"which sites close this gap". The +/-2 bp match is needed because an insertion
+anchors its candidate one base past the position the VCF reports.
+
+Validated by injecting both faults: an invented position reports
+`NOT RETRIEVED`, and requiring `5,331,265` in the **default** arm -- where it is
+retrieved but unphased -- reports `RETRIEVED BUT UNUSED`. Both fail the suite;
+the real file passes at 178 assertions.

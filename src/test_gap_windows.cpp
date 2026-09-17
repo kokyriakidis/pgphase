@@ -133,6 +133,20 @@ struct Outcome {
     /// which the stage-1 mask accepts -- and carry no phase set. A site we hold,
     /// and that the solve is allowed to use, left unused.
     int unused_clean_hets = 0;
+    /// Required sites -- the ones the closing arm phases inside this gap -- that
+    /// the run failed to retrieve at all, and ones it retrieved but left without
+    /// a phase set. The first is a discovery or injection regression, the second
+    /// an admission regression, and a `spans` check alone can pass through both
+    /// by finding some other way across.
+    int required_missing = 0;
+    int required_unused = 0;
+    std::string required_detail;
+    /// Phased heterozygotes strictly inside the gap, as (pos, ref, alt), and the
+    /// category of every in-gap candidate. Together these let the binary WRITE
+    /// the required-sites file it later asserts against, so the file cannot
+    /// drift from a second implementation of "which sites close this gap".
+    std::vector<std::array<std::string, 3>> in_gap_sites;
+    std::map<long long, std::string> gap_cats;
     /// A block that reaches both sides of the gap but puts a different parent on
     /// haplotype 1 at each end. Read-level accuracy cannot see this when no read
     /// crosses the gap, so it is asserted directly.
@@ -233,10 +247,84 @@ void parse_candidates(const std::string& path, const Window& w, Outcome& out) {
         if (f.size() <= static_cast<size_t>(std::max(pos_i, std::max(cat_i, ps_i)))) continue;
         const long long pos = std::stoll(f[static_cast<size_t>(pos_i)]);
         if (pos <= w.gap_left || pos >= w.gap_right) continue;
+        out.gap_cats[pos] = f[static_cast<size_t>(cat_i)];
         if (f[static_cast<size_t>(cat_i)].rfind("CLEAN_HET", 0) != 0) continue;
         const std::string& ps = f[static_cast<size_t>(ps_i)];
         if (ps == "0" || ps.empty() || ps == ".") ++out.unused_clean_hets;
     }
+}
+
+/// The sites a closing arm's chain rests on, keyed by arm and window.
+struct RequiredSite { long long pos = 0; std::string ref, alt, cat; };
+
+std::map<std::string, std::vector<RequiredSite>> load_required(const std::string& path) {
+    std::map<std::string, std::vector<RequiredSite>> out;
+    std::ifstream in(path);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto f = split_tabs(line);
+        if (f.size() < 6 || f[0] == "arm") continue;
+        RequiredSite r;
+        r.pos = std::stoll(f[2]);
+        r.ref = f[3]; r.alt = f[4]; r.cat = f[5];
+        out[f[0] + "\t" + f[1]].push_back(r);
+    }
+    return out;
+}
+
+/// Assert-side of the required list: is each site retrieved, and is it used?
+///
+/// Matching allows +/-2 bp because an insertion's candidate anchors one base
+/// past the position the VCF reports, so an exact match would report a site as
+/// missing that is present under the other convention.
+void check_required_sites(const std::string& candidates_path, const std::string& arm,
+                          const Window& w, Outcome& out) {
+    const char* env = std::getenv("PGPHASE_REQUIRED");
+    const std::string path = env != nullptr ? env : "src/test_gap_windows_required.tsv";
+    if (!file_exists(path)) return;
+    static const auto required = load_required(path);
+    const auto it = required.find(arm + "\t" + std::to_string(w.gap_left));
+    if (it == required.end()) return;
+
+    std::map<long long, std::string> found;  // pos -> phase set
+    std::ifstream in(candidates_path);
+    std::string line;
+    int pos_i = -1, ps_i = -1;
+    bool header = true;
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+        const auto f = split_tabs(line);
+        if (header) {
+            header = false;
+            for (size_t i = 0; i < f.size(); ++i) {
+                if (f[i] == "POS") pos_i = static_cast<int>(i);
+                else if (f[i] == "PHASE_SET") ps_i = static_cast<int>(i);
+            }
+            continue;
+        }
+        if (pos_i < 0 || ps_i < 0) return;
+        if (f.size() <= static_cast<size_t>(std::max(pos_i, ps_i))) continue;
+        found[std::stoll(f[static_cast<size_t>(pos_i)])] = f[static_cast<size_t>(ps_i)];
+    }
+    std::ostringstream detail;
+    for (const RequiredSite& r : it->second) {
+        const std::string* ps = nullptr;
+        for (long long d = -2; d <= 2 && ps == nullptr; ++d) {
+            const auto hit = found.find(r.pos + d);
+            if (hit != found.end()) ps = &hit->second;
+        }
+        if (ps == nullptr) {
+            ++out.required_missing;
+            detail << "\n    NOT RETRIEVED " << r.pos << " " << r.ref << ">" << r.alt
+                   << " (recorded as " << r.cat << ")";
+        } else if (*ps == "0" || ps->empty() || *ps == ".") {
+            ++out.required_unused;
+            detail << "\n    RETRIEVED BUT UNUSED " << r.pos << " " << r.ref << ">"
+                   << r.alt << " (recorded as " << r.cat << ")";
+        }
+    }
+    out.required_detail = detail.str();
 }
 
 void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
@@ -266,7 +354,10 @@ void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
             it->second.first = std::min(it->second.first, pos);
             it->second.second = std::max(it->second.second, pos);
         }
-        if (pos > w.gap_left && pos < w.gap_right) ++out.in_gap_hets;
+        if (pos > w.gap_left && pos < w.gap_right) {
+            ++out.in_gap_hets;
+            out.in_gap_sites.push_back({std::to_string(pos), f[3], f[4]});
+        }
     }
     out.blocks = static_cast<int>(extent.size());
     for (const auto& [ps, span] : extent)
@@ -342,7 +433,7 @@ void score_bam(const std::string& path, const Window& w,
 }
 
 struct Paths {
-    std::string binary, test_data, panel, expectations, truth_map, workdir;
+    std::string binary, test_data, panel, expectations, required, truth_map, workdir;
     bool complete() const {
         const bool emitting = std::getenv("PGPHASE_EMIT_EXPECTATIONS") != nullptr;
         return file_exists(binary) && file_exists(panel) && file_exists(truth_map) &&
@@ -370,6 +461,7 @@ Paths paths() {
     p.test_data = env_or("PGPHASE_TEST_DATA", "test_data");
     p.panel = env_or("PGPHASE_PANEL", "evaluations/2026-09-16-test-panel/panel.tsv");
     p.expectations = env_or("PGPHASE_EXPECT", "src/test_gap_windows_expect.tsv");
+    p.required = env_or("PGPHASE_REQUIRED", "src/test_gap_windows_required.tsv");
     p.truth_map = env_or("PGPHASE_TRUTH_MAP", "test_data/derived/chr20_truth_hap.tsv");
     p.workdir = env_or("PGPHASE_TEST_WORKDIR", "/tmp/pgphase-window-tests");
     return p;
@@ -417,6 +509,7 @@ Outcome measure_uncached(const Paths& p, const Window& w, const std::string& arm
     Outcome out;
     parse_vcf(dir + "/native.vcf", w, out);
     parse_candidates(dir + "/candidates.tsv", w, out);
+    check_required_sites(dir + "/candidates.tsv", arm, w, out);
     score_bam(dir + "/phased.bam", w, truth, out);
     return out;
 }
@@ -451,6 +544,13 @@ void check_against(const Window& w, const std::string& arm, const Outcome& got,
     // Every site in the gap that the solve was allowed to use must be used.
     INFO("clean hets inside the gap left without a phase set: " << got.unused_clean_hets);
     CHECK(got.unused_clean_hets == 0);
+    // Every site the closing arm's chain rests on must still be retrieved and
+    // still be used. A gap that closes some other way while one of these has
+    // gone missing is not the same closure.
+    INFO("required sites: " << got.required_missing << " not retrieved, "
+         << got.required_unused << " retrieved but unused" << got.required_detail);
+    CHECK(got.required_missing == 0);
+    CHECK(got.required_unused == 0);
     // A block reaching both sides of the gap must not switch across it. This is
     // the hazard a read-level number cannot see: when no read crosses the gap,
     // an inverted join scores 100% and only the two ends disagree.
@@ -506,6 +606,45 @@ void emit_expectations(const std::string& out_path, const Paths& p,
     }
     std::fclose(out);
     WARN("wrote expectations to " << out_path);
+
+    // The sites a closing arm's chain rests on, written from the same run that
+    // produced the expectations so the two cannot disagree.
+    std::FILE* req = std::fopen(p.required.c_str(), "w");
+    INFO("cannot write required sites to " << p.required);
+    REQUIRE(req != nullptr);
+    std::fprintf(req, "# Sites whose retrieval and use close a gap.\n#\n");
+    std::fprintf(req, "# Derived, not asserted from memory: for every window the closing arm\n");
+    std::fprintf(req, "# spans, every heterozygote it phases STRICTLY INSIDE the gap is listed.\n");
+    std::fprintf(req, "# Those are the sites the closure rests on -- remove one and the chain\n");
+    std::fprintf(req, "# across the gap loses a step.\n#\n");
+    std::fprintf(req, "# The test asserts two things per row, in the named arm:\n");
+    std::fprintf(req, "#   RETRIEVED -- a candidate exists at the position (+/-2 bp, since an\n");
+    std::fprintf(req, "#                insertion anchors its candidate one base past the VCF\n");
+    std::fprintf(req, "#                position)\n");
+    std::fprintf(req, "#   USED      -- that candidate carries a non-zero PHASE_SET\n#\n");
+    std::fprintf(req, "# A site that stops being retrieved is a discovery or injection\n");
+    std::fprintf(req, "# regression; one retrieved and no longer used is an admission\n");
+    std::fprintf(req, "# regression. Either way the gap has lost the evidence that closes it,\n");
+    std::fprintf(req, "# which a spans check alone can still pass by finding another way across.\n");
+    std::fprintf(req, "arm\twindow\tpos\tref\talt\tcategory_when_recorded\n");
+    for (const auto& [arm, flags] : arms) {
+        for (const auto& w : panel) {
+            const Outcome got = measure(p, w, arm, flags, truth);
+            if (!got.spans) continue;
+            for (const auto& site : got.in_gap_sites) {
+                const long long pos = std::stoll(site[0]);
+                std::string cat = "UNKNOWN";
+                for (long long d = -2; d <= 2; ++d) {
+                    const auto hit = got.gap_cats.find(pos + d);
+                    if (hit != got.gap_cats.end()) { cat = hit->second; break; }
+                }
+                std::fprintf(req, "%s\t%lld\t%lld\t%s\t%s\t%s\n", arm.c_str(), w.gap_left,
+                             pos, site[1].c_str(), site[2].c_str(), cat.c_str());
+            }
+        }
+    }
+    std::fclose(req);
+    WARN("wrote required sites to " << p.required);
 }
 
 TEST_CASE("chr20 gap windows", "[gap][windows]") {
