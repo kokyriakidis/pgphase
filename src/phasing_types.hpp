@@ -377,6 +377,18 @@ struct Options {
     // Off by default; enabled by --gap-fill on collect-hybrid-variation. See
     // CHECKPOINT.md "hybrid-core + gap-fill".
     bool gap_fill = false;
+
+    /// Two-stage solve, as the alignment pipeline does it: the clean k-means
+    /// first, then a second round over the clean sites plus the MSA-VERIFIED
+    /// noisy ones, whose result is adopted for reads AND candidates. This is the
+    /// same kCandGermlineVarCate k-means gap_fill_unphased_reads already runs,
+    /// except that pass harvests haplotypes only for reads the core left
+    /// unphased and then restores every candidate field, so no noisy site ever
+    /// gains a phase set and none can extend or link a block. Restricting the
+    /// second round to msa_verified sites is what makes adopting it defensible:
+    /// the unverified noisy class is the one measured to be mostly
+    /// uninformative in repeat tracts.
+    bool msa_verified_refine = false;
     // Trim graph-only catalog alleles to minimal VCF form before the hybrid
     // indel noise filter, matching apply_graph_noise_filter. Graph catalog
     // alleles are non-minimal (full repeat run on both flanks); trimming shrinks

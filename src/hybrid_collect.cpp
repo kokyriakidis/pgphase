@@ -82,6 +82,8 @@ static void print_hybrid_help() {
         << "      --no-gap-link-by-alleles  Disable additively attaching reads to an already-decided gap join by allele agreement (on by default)\n"
         << "      --gap-allele-attach-join-only  Allele attachment needs a joined gap\n"
         << "      --retry-unphased-with-bam  Re-solve a window the graph sites could not\n"
+        << "      --msa-verified-refine      Second k-means round over the clean sites plus\n"
+        << "                                 the MSA-verified noisy ones, adopted\n"
         << "      --gap-bam-only             In that window, discard the graph catalog sites\n"
         << "                                 and keep only MSA-verified alignment sites\n"
         << "      --joint-het-orientation    Orient both haplotypes jointly at a site the\n"
@@ -186,6 +188,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
     kGapAlleleAttachJoinOnlyOption,
     kRetryUnphasedWithBamOption,
     kGapBamOnlyOption,
+    kMsaVerifiedRefineOption,
     kJointHetOrientationOption,
     kRetryMinUnphasedReadsOption,
     kRetryMinWindowBpOption,
@@ -258,6 +261,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"gap-allele-attach-join-only", no_argument, nullptr, kGapAlleleAttachJoinOnlyOption},
         {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
         {"gap-bam-only", no_argument, nullptr, kGapBamOnlyOption},
+        {"msa-verified-refine", no_argument, nullptr, kMsaVerifiedRefineOption},
         {"joint-het-orientation", no_argument, nullptr, kJointHetOrientationOption},
         {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
         {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
@@ -351,6 +355,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGapAlleleAttachJoinOnlyOption:
             case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
             case kGapBamOnlyOption: opts.gap_bam_only = true; break;
+            case kMsaVerifiedRefineOption: opts.msa_verified_refine = true; break;
             case kJointHetOrientationOption: opts.joint_het_orientation = true; break;
             case kRetryMinUnphasedReadsOption: opts.retry_min_unphased_reads = std::atoi(optarg); break;
             case kRetryMinWindowBpOption: opts.retry_min_window_bp = std::atoll(optarg); break;

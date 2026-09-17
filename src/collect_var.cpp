@@ -2113,6 +2113,63 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
         collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
 
     // Additive gap-fill: recover the reads skip_noisy_kmeans left unphased.
+    // Second round: clean sites plus the MSA-verified noisy ones, adopted.
+    if (opts.msa_verified_refine && !chunk.candidates.empty()) {
+        std::vector<uint32_t> saved(chunk.candidates.size());
+        int verified = 0;
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+            CandidateVariant& c = chunk.candidates[ci];
+            saved[ci] = c.lcd_var_i_to_cate;
+            const bool noisy = (c.lcd_var_i_to_cate &
+                                (kCandNoisyCandHet | kCandNoisyCandHom)) != 0;
+            if (!noisy) continue;
+            // Verification alone is not an admission gate -- measured on
+            // chr20:55,843,827-55,889,113, where all eight sites the retry
+            // admits carry msa_verified = 1 yet only one segregates at or above
+            // 0.90 against read truth and five sit below 0.70. A second round
+            // over every verified site costs 152 concordant-to-discordant reads
+            // on the panel, so the screen has to be narrower.
+            //
+            // What separates them is the event, not the verification. On
+            // chr20:24,105,188-24,142,287 the informative site is a merged
+            // multiallelic insertion whose two alleles split the haplotypes
+            // perfectly, while the phantom is a 1 bp deletion in a homopolymer
+            // whose net lengths (+0 at 17/15, -1 at 14/8, -2 at 6/2) separate
+            // nothing. A homopolymer indel is admitted only when its own allele
+            // depths call it a clear heterozygote, which is the same test the
+            // link list already applies for the same reason.
+            const bool two_allele = c.msa_insertion_alts.size() == 2;
+            bool depths_call_het = false;
+            if (c.counts.alle_covs.size() >= 2) {
+                const int ref_cov = c.counts.alle_covs[0];
+                int alt_cov = 0;
+                for (size_t ai = 1; ai < c.counts.alle_covs.size(); ++ai)
+                    alt_cov += c.counts.alle_covs[ai];
+                const int total = ref_cov + alt_cov;
+                if (total > 0 && ref_cov >= opts.min_alt_depth &&
+                    alt_cov >= opts.min_alt_depth) {
+                    const double af = static_cast<double>(alt_cov) / total;
+                    depths_call_het = af >= opts.min_af && af <= opts.max_af;
+                }
+            }
+            const bool usable = c.msa_verified &&
+                (two_allele || !c.is_homopolymer_indel || depths_call_het);
+            if (usable) ++verified;
+            else c.lcd_var_i_to_cate = 0;
+        }
+        if (verified > 0)
+            assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci)
+            chunk.candidates[ci].lcd_var_i_to_cate = saved[ci];
+        if (opts.verbose >= 1 && verified > 0) {
+            std::fprintf(stderr,
+                "[refine] chunk tid=%d %" PRId64 "-%" PRId64
+                ": second round over %d MSA-verified site(s)\n",
+                chunk.region.tid, static_cast<int64_t>(chunk.region.beg),
+                static_cast<int64_t>(chunk.region.end), verified);
+        }
+    }
+
     if (opts.gap_fill && opts.skip_noisy_kmeans && !chunk.candidates.empty()) {
         gap_fill_unphased_reads(chunk, opts);
     }
