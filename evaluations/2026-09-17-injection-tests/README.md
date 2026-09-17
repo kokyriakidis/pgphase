@@ -364,3 +364,27 @@ other way round:
 - The VCF-convention check required a length-changing ALT to begin with the whole
   REF. That is right only for a simple indel: a complex event shares just the
   anchor base, so `CT>CCG` is valid VCF and the check called it broken.
+
+## Why the duplicate at 55,919,945 is not a `find_matching_candidate` fix
+
+The obvious fix -- let a claim match a merged record that already carries its
+allele -- was written and measured **inert**, and the probe says why. Injection
+adds the claim as its own candidate:
+
+```
+ADD  site.pos=55919944  site.ref=C  vcf_alt=CAA  ->  key pos=55919945 INS ref_len=0 alt=AA
+```
+
+At that moment the alignment record at the locus is still **single-allele**. The
+two-allele record `A,AA` does not exist yet: it is built later by the MSA merge
+during phasing. So matching against `msa_insertion_alts` matches against an
+empty list, and the duplicate is added regardless. The fix has to run **after**
+the merge -- drop a graph-added single-allele candidate whose allele a merged
+record at the same position already carries -- not at injection time.
+
+The claim fix changed this defect's consequence rather than its cause. Before
+it, the duplicate was `REP_HET_INDEL`, screened out of k-means, and the hybrid
+emitted **nothing** at the locus. Now it is promoted to `CLEAN_HET_INDEL`, wins
+emission, and the hybrid emits `55,919,944 C>CAA GT=1|0 AD=13,19` where the
+alignment channel emits the correct `C>CA,CAA GT=2|1 AD=11,26,19`. A silent miss
+became a wrong record, which is more visible and no less wrong.
