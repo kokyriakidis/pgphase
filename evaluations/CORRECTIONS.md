@@ -52,3 +52,32 @@ and `-5` for `REF=CACGC` -- the insertion is `14 - 1 = +13`. The `+34 on 21
 reads` reported for this locus in `evaluations/2026-09-16-best-chain/README.md`
 is a different quantity (the net length truth assigns the haplotype) and is not
 affected.
+
+## The three multiallelic loci do not share one truth verdict
+
+**Claimed**, in commit 80094d3's message: "Truth cannot validate the orientation
+at these three loci: they are 1-base-different deletions inside 14-17 bp
+homopolymers and read net lengths do not segregate (purity 0.536 to 0.615)."
+
+**Actual**, per-allele, from the measurement that sentence summarised:
+
+| locus | ALT1 | ALT2 |
+|---|---|---|
+| 55,795,217 | −14, MAT 13 / PAT 15, purity **0.536** | −15, MAT 9 / PAT 13, purity **0.591** |
+| 55,815,775 | −15, MAT 2 / PAT 0, purity **1.000** | −17, MAT 7 / PAT 1, purity **0.875** |
+| 5,379,662 | −13, MAT 16 / PAT 23, purity **0.590** | −14, MAT 16 / PAT 10, purity **0.615** |
+
+The quoted range covers 55,795,217 and 5,379,662 only. At 55,815,775 the net
+lengths **do** segregate — 1.000 and 0.875 — so "read net lengths do not
+segregate" is false there and the range is wrong.
+
+That locus is unscorable for a different reason, which the commit message should
+have given instead: only 2 and 8 reads carry the two alleles with a truth label,
+and **both alleles map to MATERNAL**, which cannot be right for a heterozygote.
+So its orientation is unvalidated because the truth-scored support is too thin
+to place either allele, not because the alleles fail to separate.
+
+The conclusion the sentence supported is unchanged: at none of the three loci
+does truth establish which haplotype carries which allele, so what the fix
+removes is a genotype contradicted by its own depths — `1|1` while 28 to 31
+reads carry allele 2 — rather than a demonstrably wrong phase.
