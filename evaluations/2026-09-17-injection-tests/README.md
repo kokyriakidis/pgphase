@@ -261,8 +261,8 @@ emitted VCF is checked separately and obeys the VCF convention in every record.
 Two candidates break even that: `12,680,257` and `55,905,390` hold the base at
 their own POS rather than the anchor.
 
-**`[claims]`: a claim whose REF runs past the anchor is emitted with only the
-anchor consumed.** Those two candidates are the candidate-table symptom of it.
+**`[claims]`: a claim whose REF runs past the anchor was emitted with only the
+anchor consumed.** FIXED, see below.
 
 | locus | catalog claims | we emit | left unconsumed |
 |---|---|---|---|
@@ -319,3 +319,48 @@ value as correct, so `[fidelity]` does not: it requires identity for the clean
 classes, forbids demotion everywhere, and reports noisy drift. The bound that
 does apply to those sites -- depth within the reads that overlap them -- is
 asserted in `[counts]`.
+
+
+## Fix: an insertion's REF now includes the bases it consumes
+
+`collect_output.cpp:426` built an insertion's REF as exactly the anchor base and
+ignored `key.ref_len`:
+
+```cpp
+core.ref_seq = std::string(1, anchor_base);
+core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
+```
+
+`ref_len` is normally 0 -- a clean insertion adds sequence and replaces nothing.
+But a graph claim whose REF runs past the anchor describes those extra bases as
+**replaced**, and `vcf_to_variant_key` records that faithfully as `ref_len > 0`
+(`hybrid_inject.cpp:158-164`). So the key was right and the writer dropped it:
+REF lost the consumed bases while ALT kept the whole inserted sequence, and the
+record asserted a longer haplotype than the claim did.
+
+The deletion branch four lines below already did this correctly
+(`core.ref_seq = anchor + del_seq`), which is what made the insertion branch
+identifiable as the inconsistent one.
+
+| locus | catalog claims | emitted before | emitted after |
+|---|---|---|---|
+| 12,680,256 | `AT > AAATAAAATAAAATA` | `A > AAATAAAATAAAATA` | `AT > AAATAAAATAAAATA` |
+| 55,905,389 | `CT > CCG` | `C > CCG` | `CT > CCG` |
+
+Chromosome-wide on stock defaults: **120 records** had their alleles corrected,
+the record count is unchanged at 95,720 (nothing gained or lost -- only REF
+strings widened), and phasing is untouched at 212,320 tagged / 452 blocks /
+0.559% read hamming. An example beyond the panel:
+`70,908 C>CACCCTAACCCTAACCCTA` is now `70,908 CCCTA>CACCCTAACCCTAACCCTA`, where
+four consumed reference bases were being dropped.
+
+Two test assertions were wrong and were corrected by this work rather than the
+other way round:
+
+- `[alleles]` required an insertion candidate's REF to be the anchor at POS-1.
+  An insertion with `ref_len > 0` legitimately holds the CONSUMED reference at
+  POS, so both encodings are accepted; the table carries no `ref_len` column to
+  tell them apart.
+- The VCF-convention check required a length-changing ALT to begin with the whole
+  REF. That is right only for a simple indel: a complex event shares just the
+  anchor base, so `CT>CCG` is valid VCF and the check called it broken.

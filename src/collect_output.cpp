@@ -423,7 +423,19 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
                                          ? static_cast<char>(
                                                "ACGTN"[static_cast<size_t>(candidate.alt_ref_base)])
                                          : anchor_base;
+        // REF is the anchor plus any reference bases the event CONSUMES.
+        // key.ref_len is normally 0 -- a clean insertion adds sequence and
+        // replaces nothing -- but a graph claim whose REF runs past the anchor
+        // describes those extra bases as REPLACED, and vcf_to_variant_key
+        // records that as ref_len > 0. Writing only the anchor drops them from
+        // REF while keeping the whole inserted sequence in ALT, so the record
+        // asserts a haplotype longer than the claim did: at chr20:12,680,256 the
+        // catalog claims AT > AAATAAAATAAAATA and this wrote
+        // A > AAATAAAATAAAATA, leaving the T in place. The other locus on the
+        // panel is 55,905,389, catalog CT > CCG written as C > CCG.
         core.ref_seq = std::string(1, anchor_base);
+        for (int consumed = 0; consumed < key.ref_len; ++consumed)
+            core.ref_seq += ref.base(key.tid, key.pos + consumed, header);
         core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
         if (!candidate.msa_insertion_alts.empty()) {
             core.alt_seq.clear();

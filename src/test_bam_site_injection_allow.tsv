@@ -23,7 +23,3 @@ genotype	5309406	5379662	multiallelic emitted 1|1 with reads on both ALTs; the j
 emitted_multi	5309406	0	hybrid emits 0 of the alignment channel's 2 multiallelic loci; the noisy class is excluded from the hybrid solve by design
 emitted_multi	12717796	0	hybrid emits 0 of the alignment channel's 4 multiallelic loci; the noisy class is excluded from the hybrid solve by design
 emitted_multi	39838293	0	hybrid emits 0 of the alignment channel's 8 multiallelic loci; the noisy class is excluded from the hybrid solve by design
-claim	55843827	55905389	catalog CT>CCG emitted as C>CCG, leaving the T unconsumed, so the record means CCG-T where the claim means CCG
-claim	12717796	12680256	catalog AT>AAATAAAATAAAATA emitted as A>AAATAAAATAAAATA, leaving the T unconsumed
-ref_convention	12717796	12680257	same root cause as the 12,680,256 claim row: the candidate holds REF=T, the base at its own POS, where every other INS candidate holds the anchor at POS-1
-ref_convention	55843827	55905390	same root cause as the 55,905,389 claim row: candidate holds REF=T, the base at its own POS, not the anchor C at POS-1

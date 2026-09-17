@@ -784,12 +784,20 @@ TEST_CASE("retrieval: REF matches the reference sequence", "[injection][alleles]
                 const std::string& ref = std::get<2>(k);
                 const std::string& type = std::get<1>(k);
                 if (ref.empty() || ref == ".") continue;
+                // An insertion has TWO legitimate encodings and the table carries
+                // no ref_len column to tell them apart, so either is accepted:
+                //   ref_len == 0 (a clean insertion, replacing nothing): REF is
+                //       the ANCHOR base, the reference at POS-1.
+                //   ref_len  > 0 (a claim whose REF ran past the anchor, so those
+                //       bases are replaced): REF is the CONSUMED reference, at POS.
                 const long long at = (type == "INS") ? std::get<0>(k) - 1 : std::get<0>(k);
                 const std::string actual = reference_at(p, at, static_cast<int>(ref.size()));
                 if (actual.empty()) continue;
                 ++checked;
-                if (actual != ref &&
-                    allow.ref_convention.count({w.gap_left, std::get<0>(k)}) == 0) {
+                bool ok = (actual == ref);
+                if (!ok && type == "INS")
+                    ok = (reference_at(p, std::get<0>(k), static_cast<int>(ref.size())) == ref);
+                if (!ok) {
                     std::ostringstream o;
                     o << show(k) << " -- reference at " << at << " says " << actual;
                     mismatched.push_back(o.str());
@@ -820,7 +828,13 @@ TEST_CASE("retrieval: REF matches the reference sequence", "[injection][alleles]
                 if (actual != r.ref) why << " REF!=" << actual << ";";
                 for (const std::string& alt : split_char(r.alt, ',')) {
                     if (alt.size() == r.ref.size()) continue;  // substitution
-                    if (alt.rfind(r.ref, 0) != 0 && r.ref.rfind(alt, 0) != 0)
+                    // A length-changing record is anchored: REF and ALT share
+                    // the base at POS. Requiring ALT to begin with the WHOLE REF
+                    // is right only for a simple indel -- a complex event, where
+                    // the claim replaces the bases it consumes, shares just the
+                    // anchor. chr20:55,905,389 CT>CCG is valid VCF and an earlier
+                    // version of this check called it broken.
+                    if (alt.empty() || r.ref.empty() || alt[0] != r.ref[0])
                         why << " ALT " << alt.substr(0, 14) << " shares no anchor with REF;";
                 }
                 if (!why.str().empty())
