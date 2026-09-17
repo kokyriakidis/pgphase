@@ -397,10 +397,42 @@ became a wrong record, which is more visible and no less wrong.
 | MSA-derived candidates carrying no strand tally | **fixed** (211 of 211 filled; all six ceilings held at 0) |
 | an insertion's emitted REF dropping the bases it consumes | **fixed** (120 records corrected, record count unchanged) |
 | multiallelic loci emitted `1\|1` with reads on both ALTs | **fixed** -- 55,795,217, 55,815,775 and 5,379,662 now emit `1\|2`, `2\|1`, `1\|2`; the three `genotype` allowance rows are removed |
-| the duplicate at 55,919,945 | **open** -- needs a post-merge fix, mechanism recorded above |
+| the duplicate at 55,919,945 | **fixed** -- the post-merge supersession pass now covers insertions |
 | depth exceeding overlapping reads at 55,905,752 | **open** -- coverage tested in consensus coordinates, mechanism recorded above |
 
 The `strandless` and `emitted_multi` rows are not defects awaiting a fix: the
 first are ceilings held at zero to catch a regression, the second record that
 the hybrid emits none of the alignment channel's multiallelic loci, which
 follows from the noisy class being excluded from its solve by design.
+
+## The duplicate fix: a post-merge pass, not a reorder
+
+The obvious reading is that injection should run after the MSA, so it can see
+the merged record. The call order says otherwise about what is cheap:
+`inject_graph_sites` runs before `collect_var_build_profiles`, precisely so an
+injected claim gets a read-profile slot and its counts can be derived from the
+profiles; the MSA (`collect_noisy_vars_step4`) runs later, inside
+`collect_var_run_phasing`. Moving injection past the MSA would mean rebuilding
+profiles for the newly added candidates afterwards.
+
+The pipeline already had the right hook, one line below the MSA:
+`drop_superseded_colocated_deletions`, which removes a leftover deletion whose
+allele a merged record at the same position already carries. The duplicate is
+its insertion analogue, so the pass is now
+`drop_superseded_colocated_records` and handles both:
+
+| type | duplicate test |
+|---|---|
+| deletion | `merged.ref_len - other.ref_len` equals zero or one of the merged alleles' retained sizes |
+| insertion | `other.key.alt` **equals** one of the merged alleles |
+
+Only an exact allele match counts, so a record naming an allele the merge did
+not carry is a different event and survives.
+
+Result at `55,919,945`: the hybrid now holds one candidate, the merged
+`INS A,AA` at DP 56, identical to the alignment channel's. The wrong
+single-allele `C>CAA GT=1|0` record is gone. The hybrid still emits nothing
+there -- that is the `emitted_multi` baseline, the noisy class being excluded
+from its solve by design, and a separate question from the duplicate.
+
+Panel: 0 concordant->discordant on both arms, unchanged from before the fix.

@@ -1986,20 +1986,38 @@ static bool active_region_contains(hts_pos_t active_reg_beg,
 // 1|1, a homozygous call at a locus whose two haplotypes are the alleles beside
 // it. Demote the leftover so the prune pass drops it; its allele is not lost, it
 // is allele 1 or 2 of the merged record.
-static void drop_superseded_colocated_deletions(PhasingChunk& chunk) {
+//
+// The same holds for insertions, where the allele is compared directly rather
+// than through a retained length. At chr20:55,919,945 the MSA merges the locus
+// into one record carrying alleles A and AA, emitted C>CA,CAA at 2|1 with 11
+// reference, 26 and 19 reads. Injection has already added the catalog's C>CAA
+// as a separate single-allele candidate with alt "AA", because injection runs
+// BEFORE the MSA -- at that moment the alignment record is still single-allele
+// and there is no allele set to match against, which is why fixing this in
+// find_matching_candidate was measured inert. The leftover can only be
+// recognised here, once the merged record exists.
+static void drop_superseded_colocated_records(PhasingChunk& chunk) {
     for (const CandidateVariant& merged : chunk.candidates) {
-        if (merged.key.type != VariantType::Deletion ||
-            merged.msa_insertion_alts.empty()) continue;
+        if (merged.msa_insertion_alts.empty()) continue;
         for (CandidateVariant& other : chunk.candidates) {
             if (&other == &merged) continue;
-            if (other.key.type != VariantType::Deletion ||
+            if (other.key.type != merged.key.type ||
                 other.key.pos != merged.key.pos ||
                 !other.msa_insertion_alts.empty()) continue;
-            const int retained = merged.key.ref_len - other.key.ref_len;
-            if (retained < 0) continue;
-            bool duplicate = retained == 0;
-            for (const std::string& allele : merged.msa_insertion_alts)
-                if (static_cast<size_t>(retained) == allele.size()) duplicate = true;
+            bool duplicate = false;
+            if (merged.key.type == VariantType::Deletion) {
+                const int retained = merged.key.ref_len - other.key.ref_len;
+                if (retained < 0) continue;
+                duplicate = retained == 0;
+                for (const std::string& allele : merged.msa_insertion_alts)
+                    if (static_cast<size_t>(retained) == allele.size()) duplicate = true;
+            } else {
+                // Only an exact allele match is a duplicate description. A
+                // record naming an allele the merge did not carry is a
+                // different event and must survive.
+                for (const std::string& allele : merged.msa_insertion_alts)
+                    if (allele == other.key.alt) duplicate = true;
+            }
             if (!duplicate) continue;
             other.counts.category = VariantCategory::LowCoverage;
             other.lcd_var_i_to_cate = 0;
@@ -2166,7 +2184,7 @@ static void gap_fill_unphased_reads(PhasingChunk& chunk, const Options& opts) {
 ///      clear, which is what the retry arranges -- re-runs the k-means over the
 ///      WIDER kCandGermlineVarCate mask so those candidates are oriented too.
 ///      This stage runs in both solves; the orientation is what the retry adds.
-///   3. drop_superseded_colocated_deletions -- stage 2 is what creates the
+///   3. drop_superseded_colocated_records -- stage 2 is what creates the
 ///      merged multiallelic records, so a leftover single-allele description of
 ///      the same locus can only be identified after it has run. At
 ///      chr20:55,883,019 the merge produced the correct AATATAT -> AAT,A at
@@ -2200,7 +2218,7 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     derive_msa_candidate_strand_counts(chunk);
     // Step 4 is what creates the merged multiallelic records, so the superseded
     // duplicates can only be identified after it has run.
-    drop_superseded_colocated_deletions(chunk);
+    drop_superseded_colocated_records(chunk);
 
     const hts_pos_t active_reg_beg = chunk.region.beg;
     const hts_pos_t active_reg_end = chunk.region.end;

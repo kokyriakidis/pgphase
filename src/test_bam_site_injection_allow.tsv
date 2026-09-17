@@ -7,7 +7,6 @@
 # in the commit message.
 kind	window	value	reason
 strandless	48183976	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
-duplicate	55843827	55919945	catalog claim C>CAA added as key (55919945, INS, ref_len 0, alt AA) while the alignment record at that locus later becomes the merged two-allele A,AA; injection runs BEFORE the MSA merge so it cannot see the allele set, and since the claim fix the duplicate is promoted CLEAN_HET_INDEL and WINS emission: hybrid emits C>CAA GT=1|0 AD=13,19 where the alignment channel emits C>CA,CAA GT=2|1 AD=11,26,19. Fix belongs POST-merge, not in find_matching_candidate
 strandless	55843827	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
 strandless	24105188	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
 strandless	5309406	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
