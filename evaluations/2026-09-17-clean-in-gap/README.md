@@ -42,3 +42,31 @@ the haplotypes perfectly) and the bridges that invert flanks (`24,131,708` at
 
 A gap in this pipeline is, by this census, precisely an interval where the clean
 class has nothing to say.
+
+## Are both sources' clean sites used? Yes, and all of them participate
+
+Counted over the whole of each panel window, not just the gap interior:
+
+| source of the clean het | candidates | phased (`PHASE_SET != 0`) |
+|---|---:|---:|
+| alignment-only | 65 | **65** |
+| catalog-matched | 450 | **450** |
+| **total** | **515** | **515** |
+
+Every clean heterozygote from either source carries a phase set. Nothing is
+excluded by provenance -- the stage-1 mask is a property of the category, and a
+candidate's category does not record where it came from.
+
+And the union is doing real work rather than duplicating: **37 sites are
+`CLEAN_HET` only because the graph claimed them.** The alignment channel calls
+each of them `NOISY_CAND_HET` at the *same* depth -- 64 against 64 at
+`48,243,387`, 66 against 66 at `48,243,748`, 73 against 73 at `55,895,053` -- so
+the promotion comes from the catalog claim, not from better counts, and all 37
+end up phased. Without the claim they would sit in the noisy class, which the
+hybrid keeps out of its solve.
+
+The qualification that matters: **all 37 are in the flanks, none inside a gap.**
+That is the same census result from the other direction. The union strengthens
+the blocks that already exist on either side; it adds nothing to the intervals
+between them, because inside those intervals there is one clean heterozygote in
+total.
