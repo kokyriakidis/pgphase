@@ -1,0 +1,18 @@
+# Known defects src/test_bam_site_injection.cpp finds and that are not yet fixed.
+#
+# The tests assert "no NEW ones": a duplicate het description at a position not
+# listed here fails, and a strandless count above the ceiling recorded here
+# fails. Mechanisms are in evaluations/2026-09-17-injection-tests/README.md.
+# Removing a row is how a fix gets locked in; raising a ceiling needs a reason
+# in the commit message.
+kind	window	value	reason
+strandless	48183976	33	MSA-derived candidates carry no strand tally
+duplicate	55843827	55919945	catalog claim added beside the alignment call
+strandless	55843827	41	MSA-derived candidates carry no strand tally
+strandless	24105188	33	MSA-derived candidates carry no strand tally
+strandless	5309406	30	MSA-derived candidates carry no strand tally
+strandless	12717796	29	MSA-derived candidates carry no strand tally
+duplicate	39838293	39895615	catalog claim added beside the alignment call
+duplicate	39838293	39896922	catalog claim added beside the alignment call
+strandless	39838293	45	MSA-derived candidates carry no strand tally
+depth	55843827	55905752	DP 57 against 56 reads overlapping the 53 bp span (samtools agrees at any MAPQ)

@@ -181,6 +181,13 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 - Unit test binaries: `test_graph_sites`, `test_graph_bam_adapter`,
   `test_hybrid_inject`, `test_noise_filter`. Standalone `.cpp` files in `src/`,
   hand-rolled `check()` assertions, no framework. Run all: `make unit-tests`.
+- Injection tests: `src/test_bam_site_injection.cpp`, three Catch2 cases over
+  the same panel -- completeness (every alignment-channel site reaches the
+  hybrid), representation (shared sites keep their alleles, no second
+  description added) and counts (internally consistent, and within the reads
+  overlapping the site). Known unfixed defects are listed in
+  `src/test_bam_site_injection_allow.tsv` and the tests gate on "no new ones";
+  the mechanism of each is in `evaluations/2026-09-17-injection-tests/`.
 - Window regression tests: `src/test_gap_windows.cpp`, built against the
   vendored Catch2 single header in `third_party/catch2/`. One test case per arm
   and window over the committed panel
