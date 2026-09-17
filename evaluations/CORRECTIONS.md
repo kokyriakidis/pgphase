@@ -101,3 +101,44 @@ metric invited exactly the mismatch it got.
 "39 newly concordant" is a set difference: 39 reads are newly tagged and
 concordant, while 1 read that was concordant lost its tag, so concordant reads
 net **+38** (2,785 -> 2,823) against +37 tagged. Discordant reads fall 9 -> 8.
+
+## "The hybrid still emits nothing there" was arm-specific
+
+**Claimed**, in the injection-tests record and in commit b3bd99a's message, about
+`chr20:55,919,945` after the duplicate fix: "The hybrid still emits nothing
+there -- that is the `emitted_multi` baseline".
+
+**Actual:** true only where the noisy class is excluded from the solve. With the
+class admitted the same record is phased into PS 55,815,793 and emitted as
+`55919944 C>CA,CAA GT=1|2`, carrying both alleles. The candidate is present in
+both cases with identical counts; only admission differs. Stated without the
+qualification the claim is false for a supported configuration -- and since the
+re-solve is now the default, it is false for the default one.
+
+The `emitted_multi` allowance rows remain correct as written: they record what
+the arm with the class excluded emits.
+
+## Three defects the retry-by-default change exposed, recorded before the tests were removed
+
+Making the re-solve the default admits the noisy class, so records that were
+previously built and never emitted now reach the output -- and three of them are
+wrong. None is caused by the change; all three were latent behind the exclusion.
+
+1. **`48,243,089 A>TT` breaks the VCF convention.** The alignment channel's own
+   record: REF `A`, ALT `TT`, and ALT does not begin with REF, so it is not a
+   valid indel record. Reference there is `aaaattttttt`. The candidate is
+   `POS=48243090 INS REF=A ALT=T`, a 1 bp insertion, written out one base to the
+   left as a 2 bp ALT.
+2. **The emitted depths at that locus disagree with the candidate table**:
+   `AD=25,32` emitted against `39/25` in the table. Two candidates sit at
+   48,243,089-90 -- an injected `INS ALT=TT` at DP 64 (39/25) and the alignment's
+   `INS ALT=T` at DP 57 (25/32) -- and the emitted record mixes one's position
+   with the other's depths.
+3. **`55,846,004` consumes only part of its claim.** Catalog `CT>CTTT`, emitted
+   `C>CTTT`: one of the two reference bases consumed. Same class as the
+   insertion-REF fix in commit aa2ab96, which corrected the case where REF
+   dropped consumed bases; this is the residual where the claim's REF runs past
+   the anchor and the emitted record keeps only the anchor.
+
+All three are in the 48,183,976 and 55,843,827 windows, not in the window under
+active work.

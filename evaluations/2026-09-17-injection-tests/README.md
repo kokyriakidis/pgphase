@@ -431,8 +431,21 @@ not carry is a different event and survives.
 
 Result at `55,919,945`: the hybrid now holds one candidate, the merged
 `INS A,AA` at DP 56, identical to the alignment channel's. The wrong
-single-allele `C>CAA GT=1|0` record is gone. The hybrid still emits nothing
-there -- that is the `emitted_multi` baseline, the noisy class being excluded
-from its solve by design, and a separate question from the duplicate.
+single-allele `C>CAA GT=1|0` record is gone.
+
+**Whether the locus is then emitted depends on the arm**, and an earlier version
+of this section said "the hybrid still emits nothing there" without that
+qualification, which is false for a supported configuration:
+
+| arm | phase set | emitted |
+|---|---|---|
+| noisy class excluded (`--no-retry-unphased-with-bam`) | 0 | nothing |
+| noisy class admitted (the default re-solve) | 55,815,793 | `55919944 C>CA,CAA GT=1\|2` |
+
+The record is present in the candidate table either way, with both alleles and
+the same counts. What differs is admission to the solve: a candidate with no
+phase set is never written, and with the class excluded **27 of 27**
+`NOISY_CAND_HET` candidates in that chunk carry no phase set. `msa_verified` is
+not consulted -- the class decides.
 
 Panel: 0 concordant->discordant on both arms, unchanged from before the fix.
