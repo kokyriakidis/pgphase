@@ -68,3 +68,46 @@ injection tests 127, window tests 178.
 - **No string_view parse.** It would cut allocations, but the loader reads only
   the chunk's own records and is nowhere near the cost of a run, so the change
   would buy nothing measurable and risk the parse.
+
+## Was anything being discarded that should not have been? Yes
+
+The reporting above says this catalog discards nothing -- 977,275 chr20 records,
+**100% eligible**. That makes the counters honest but says nothing about whether
+the *gate* is right, so the gate was checked separately.
+
+`inject_graph_sites` refused any site with `!site.eligible`. That flag is
+entirely a verdict about the `AT` field: whether the allele walks share
+boundaries, number at least two, and are unique. **Injection never reads a
+walk** -- it uses `site.pos`, `site.ref` and `site.alts` and nothing else. So
+the gate discarded a usable claim for a reason that has nothing to do with the
+claim.
+
+Demonstrated rather than argued, by stripping `AT` from the real catalog over
+this window and changing nothing else:
+
+| catalog | eligible | candidates | `CLEAN_HET_INDEL` | in-gap phased hets |
+|---|---:|---:|---:|---:|
+| real | 2,195 | 308 | 3 | 1 |
+| `AT` stripped | **0**, all `too_few_alleles` | 299 | **0** | **0** |
+
+Every `POS/REF/ALT` was intact and injection contributed nothing, losing
+`5,315,591` -- the site whose promotion closes this gap. A plain sites VCF with
+no walk annotations is a reasonable thing to pass to `--graph-sites`, and it
+silently did nothing.
+
+The gate now tests the claim (`alts` and `ref` non-empty). The walk-consuming
+path still gates on eligibility at `graph_bam_adapter.cpp:437`, which is where
+that verdict means something.
+
+| after the fix | candidates | `CLEAN_HET_INDEL` | in-gap phased hets |
+|---|---:|---:|---:|
+| real | 308 -- **byte-identical to pre-fix** | 3 | 1 |
+| `AT` stripped | 305 | **3** | **1** |
+
+The fix is provably inert on real data because every site in this catalog is
+eligible. The walk-less catalog is now phasing-equivalent: the three remaining
+differences are all `CLEAN_HOM` deletions, which carry no phase information.
+
+Regression test in `test_hybrid_inject.cpp`: a site marked
+`eligible = false, skip_reason = "too_few_alleles"` with a valid claim must
+still be injected. Validated by restoring the old gate, which fails it.

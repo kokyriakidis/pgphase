@@ -280,6 +280,48 @@ int main() {
                     "graph-only SNP retains its reference-base encoding");
     }
 
+    // A site the structural validator rejected still carries a usable claim.
+    //
+    // `eligible` is a verdict about the AT field -- whether the allele walks
+    // share boundaries and number at least two. Injection reads pos, ref and
+    // alts and never touches a walk, so refusing the site for a walk defect
+    // throws away a claim for an unrelated reason. Measured: the real catalog
+    // with AT stripped loads as 2,195 sites, 0 eligible, all "too_few_alleles",
+    // and injection then contributed nothing to chr20:5,309,406-5,345,085 --
+    // 0 CLEAN_HET_INDEL against 3 and 0 in-gap phased hets against 1, losing
+    // 5,315,591, the site whose promotion closes that gap.
+    {
+        PhasingChunk walkless_chunk;
+        walkless_chunk.region.tid = 0;
+
+        GraphSiteCatalog walkless;
+        GraphSite no_walks;
+        no_walks.chrom = "chr20";
+        no_walks.pos = 400;
+        no_walks.id = "no_at_field";
+        no_walks.ref = "C";
+        no_walks.alts = {"A"};
+        no_walks.eligible = false;               // as the loader marks a site with no AT
+        no_walks.skip_reason = "too_few_alleles";
+        walkless.sites.push_back(no_walks);
+
+        std::unordered_set<int> graph_only;
+        std::unordered_set<int> all_graph;
+        GraphOnlyVcfAlleles graph_alleles;
+        int bridged = 0;
+        int added = 0;
+        Options walkless_opts;
+        inject_graph_sites(walkless_chunk, walkless.view_all(), {}, walkless_opts,
+                           &bridged, &added, &graph_only, &graph_alleles, &all_graph);
+        ok &= check(added == 1,
+                    "a site with no allele walks still contributes its claim");
+        const auto it = std::find_if(
+            walkless_chunk.candidates.begin(), walkless_chunk.candidates.end(),
+            [](const CandidateVariant& c) { return c.key.pos == 400; });
+        ok &= check(it != walkless_chunk.candidates.end() && it->graph_site,
+                    "the walk-less claim becomes a graph-owned candidate");
+    }
+
     // A BAM-discovered candidate describes reads, so injecting a graph site at
     // the same locus must not change its counts or its category: the hybrid arm
     // is supposed to use the BAM's own evidence for it. Measured on

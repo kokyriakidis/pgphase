@@ -346,8 +346,25 @@ SiteToCandidateMap inject_graph_sites(
 
     for (size_t si = 0; si < graph_sites.size(); ++si) {
         const GraphSite& site = graph_sites[si];
-        if (!site.eligible) continue;
+        // Gate on the CLAIM, not on the walks.
+        //
+        // `site.eligible` is entirely a verdict about the AT field: whether the
+        // allele walks share boundaries, number at least two, and are unique.
+        // Injection never reads a walk -- it uses pos, ref and alts and nothing
+        // else -- so refusing a site for a walk defect discards a usable claim
+        // for a reason that has nothing to do with it. The walk-consuming path
+        // still gates on eligibility (graph_bam_adapter.cpp:437), which is where
+        // that verdict means something.
+        //
+        // Measured: a catalog with the AT field stripped and every POS/REF/ALT
+        // intact loaded as 2,195 sites, 0 eligible, all "too_few_alleles",
+        // because no AT means no walks. Injection then contributed nothing --
+        // 0 CLEAN_HET_INDEL against 3, and 0 phased hets inside
+        // chr20:5,309,406-5,345,085 against 1, losing 5,315,591, the site whose
+        // promotion closes that gap. A plain sites VCF is a reasonable thing to
+        // pass here and it silently did nothing.
         if (site.alts.empty()) continue;
+        if (site.ref.empty()) continue;
 
         // Use the same key format as GraphReadAllele.site_id.
         const std::string site_key = graph_site_key_str(site);
