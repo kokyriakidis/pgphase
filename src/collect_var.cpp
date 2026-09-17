@@ -2007,6 +2007,20 @@ static void drop_superseded_colocated_deletions(PhasingChunk& chunk) {
     }
 }
 
+/// Steps 1-2: build the candidate table for a chunk and classify every entry.
+///
+/// Discovery from the reads' own alignments (X/I/D from the digars), then allele
+/// counts, then the noisy-region pre-pass, then a category per candidate. The
+/// category is what every later stage gates on -- not the position, not the
+/// allele fraction -- so this is where a site becomes eligible or ineligible for
+/// phasing.
+///
+/// NOT part of the retry. The retry re-enters at collect_var_run_phasing with
+/// this table already built, which is why it can only work with candidates that
+/// exist by now: a locus never proposed here cannot be recovered later. One of
+/// the panel's remaining defects is exactly that -- at chr20:5,339,364 read
+/// truth shows +34 against +38 with no read at reference, and the table holds a
+/// 5 bp deletion instead, so no admission or orientation change reaches it.
 void collect_var_classify(PhasingChunk& chunk,
                           const Options& opts,
                           const bam_hdr_t* header) {
@@ -2050,6 +2064,20 @@ void collect_var_classify(PhasingChunk& chunk,
     dump_all_noisy_regions(chunk, opts, header);
 }
 
+/// Step 3.1: record, for every read, which allele it carries at every candidate
+/// it overlaps (its ReadVariantProfile).
+///
+/// The profiles are the substrate everything downstream reads: the k-means
+/// clusters reads by their allele vectors, and
+/// backfill_graph_candidate_counts derives the graph-only candidates' coverage
+/// counts from these same profiles. A slot is 0 for reference, a positive
+/// allele index for an alternate, -1 uninformative, -2 low quality.
+///
+/// NOT re-run by the retry. process_chunk_hybrid calls this once, before the
+/// first solve; the retry re-enters at collect_var_run_phasing, so both solves
+/// read the same profiles. Only the noisy-region MSA adds observations after
+/// this point (add_msa_site_observations), and it writes into these same
+/// profiles rather than rebuilding them.
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts) {
     if (chunk.candidates.empty()) return;
     collect_read_var_profile(opts, chunk);
@@ -2121,6 +2149,36 @@ static void gap_fill_unphased_reads(PhasingChunk& chunk, const Options& opts) {
     }
 }
 
+/// Steps 3.2-4: solve the chunk. THE RETRY'S ENTRY POINT -- called a second
+/// time on the same chunk with retry_opts, and everything it does is idempotent
+/// in the sense that matters: the second call overwrites the first call's read
+/// labels and candidate consensus fields rather than adding to them.
+///
+/// Three stages, in this order, and the order is load-bearing:
+///
+///   1. assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)
+///      -- the clean core. Clean het SNPs, clean het indels, clean hom. This is
+///      the only stage the default hybrid path runs, because the hybrid sets
+///      skip_noisy_kmeans = true and stage 3 below then declines to re-solve.
+///   2. collect_noisy_vars_step4 -- the noisy-region MSA. Recalls the candidates
+///      the per-read pass could not call, and -- only when skip_noisy_kmeans is
+///      clear, which is what the retry arranges -- re-runs the k-means over the
+///      WIDER kCandGermlineVarCate mask so those candidates are oriented too.
+///      This stage runs in both solves; the orientation is what the retry adds.
+///   3. drop_superseded_colocated_deletions -- stage 2 is what creates the
+///      merged multiallelic records, so a leftover single-allele description of
+///      the same locus can only be identified after it has run. At
+///      chr20:55,883,019 the merge produced the correct AATATAT -> AAT,A at
+///      1|2 while a third co-located 4 bp deletion survived beside it,
+///      classified homozygous because it scored the other haplotype's reads
+///      against its own allele (1 reference against 36 alt, AF 0.973), and was
+///      emitted 1|1 next to the correct record.
+///
+/// Reads and candidate orientations must come from the SAME solve. Restoring
+/// only the first pass's read labels would mix independent phase-set
+/// orientations and undo bridges the second solve established; preserving graph
+/// blocks is the block merger's job, and it aligns complete phase sets by shared
+/// reads rather than by trusting labels.
 void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
                              const VariantKeySet* noisy_site_whitelist) {
     if (chunk.candidates.empty() && chunk.noisy_regions.empty()) return;
@@ -2147,6 +2205,11 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     }
 }
 
+/// Profiles then solve, for the alignment-only pipeline
+/// (collect-bam-variation). The hybrid does NOT call this: it calls
+/// collect_var_build_profiles and collect_var_run_phasing separately, because
+/// graph-site injection and the graph-only count derivation have to happen
+/// between the two, and because the retry re-enters at the second one alone.
 void collect_var_phase(PhasingChunk& chunk,
                        const Options& opts) {
     collect_var_build_profiles(chunk, opts);

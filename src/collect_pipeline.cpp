@@ -786,6 +786,22 @@ namespace pgphase_collect {
 /// leaves the same unusable result as one not phased, and it is the shape most of
 /// these gaps actually have. Scattered unphased reads inside an otherwise phased
 /// stretch are not a failure and are left alone.
+///
+/// Step 1 of --retry-unphased-with-bam, and the only step that decides WHERE the
+/// retry applies. Its output becomes `retry_opts.retry_windows`, which
+/// allele_depths_call_het then uses to confine the widened het admission; a
+/// window this function does not report is a window the retry cannot touch.
+///
+/// Parameters, both exposed and both acting as floors on what counts as a
+/// failure worth re-solving:
+///   min_reads -- unphased reads that must pile up in the interval
+///                (--retry-min-unphased-reads, default 5). Below this the
+///                interval is a few stray reads, not a failed window.
+///   min_bp    -- how long the interval must be
+///                (--retry-min-window-bp, default 10000). Below this the solve
+///                did not fail over a span worth re-solving.
+/// Positions are accumulated in 1 kb bins, so both floors are applied to
+/// contiguous runs of bins rather than to individual reads.
 static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
         const PhasingChunk& chunk, int min_reads, hts_pos_t min_bp) {
     constexpr hts_pos_t kBin = 1000;
@@ -1057,34 +1073,81 @@ static PhasingChunk process_chunk_hybrid(
         collect_var_run_phasing(chunk, opts);
     }
 
-    // The solve above saw only catalog sites. Where it left reads unphased, admit
-    // the BAM's own sites IN THOSE WINDOWS and solve again, rather than leaving
-    // the region to a later recovery pass. The admission is confined to the
-    // failed windows because admitting these sites chunk-wide is a bad trade:
-    // chromosome-wide on chr20 it doubled the read Hamming error (0.878% ->
-    // 1.837%, 1,831 -> 3,415 discordant reads) while spanning 14 of 196 gaps.
+    // --retry-unphased-with-bam: the whole mechanism, in order.
+    //
+    // WHAT THE FIRST SOLVE LEFT BEHIND. It ran with the hybrid's own override
+    // `skip_noisy_kmeans = true` (hybrid_collect.cpp), so only the CLEAN class
+    // entered the k-means: clean het SNPs, clean het indels, clean hom. The
+    // noisy-region MSA still ran and still built its candidates -- so the
+    // window is NOT missing candidates. Measured inside
+    // chr20:48,176,831-48,229,447 on stock defaults: 80 candidates, of which 6
+    // are NOISY_CAND_HET and ZERO of those 6 carry a phase set. That is the
+    // whole failure. The class that holds the interior evidence is present and
+    // unoriented.
+    //
+    // And it is the only interior evidence there is. Across the six panel
+    // windows the alignment channel places 266 CLEAN_HOM, 49 NOISY_CAND_HOM,
+    // 24 NOISY_CAND_HET, zero clean het SNPs and exactly one clean het indel
+    // strictly inside a gap; 17 of the 18 heterozygotes a competitor phases
+    // inside these gaps are in our noisy class.
+    //
+    // WHAT THIS RETRY CHANGES, in order:
+    //
+    //   1. collect_unphased_windows -- find the intervals the solve failed on,
+    //      measured from the result (no eligible het carries a phase set, or it
+    //      carries one that does not continue the preceding block) rather than
+    //      predicted from site spacing. These become `retry_windows`.
+    //   2. collect_var_run_phasing  -- re-solve on a COPY of the options with
+    //      three fields changed (see below). The chunk is mutated in place, so
+    //      the second solve replaces the first one's labels.
+    //   3. Inside that re-solve, collect_noisy_vars_step4 runs its k-means over
+    //      the WIDER kCandGermlineVarCate mask, because skip_noisy_kmeans is now
+    //      clear -- this is what orients the candidates the first solve left at
+    //      phase_set 0. Same window after the retry: 82 candidates, 8
+    //      NOISY_CAND_HET, and all 8 carry a phase set.
+    //   4. force_noisy_msa additionally enables split_nested_msa_deletions in
+    //      make_vars_from_msa_cons_aln, which is where those 2 extra candidates
+    //      come from (6 -> 8).
+    //
+    // Measured on the six-window panel: the default spans 0 of 6 at 99.68% read
+    // concordance; this arm spans 4 of 6 at 99.49% with ZERO reads moved from
+    // concordant to discordant. Chromosome-wide it costs accuracy against the
+    // default's 0.559% read Hamming, which is why it is a flag and not a
+    // default -- it helps in the deficit windows and harms elsewhere.
     if (opts.retry_unphased_with_bam) {
         const auto windows = collect_unphased_windows(
             chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
-        // Re-solve whenever a window failed, not only when a category had to be
-        // restored: under stock defaults nothing was zeroed, so `readmitted` is
-        // 0 while the sites are sitting there unphased.
+        // Re-solve whenever a window failed. This used to be gated on a count of
+        // categories restored from a recovery pass, which made the flag a no-op
+        // on its own: with nothing zeroed there was nothing to restore, so the
+        // re-solve below -- the part that actually admits the noisy class --
+        // never ran.
         if (!windows.empty()) {
+            // A COPY, deliberately: the three changes below must apply to this
+            // re-solve and to nothing else in the chunk's remaining work.
             Options retry_opts = opts;
-            // collect_var_run_phasing skips the noisy-region MSA outright while
-            // recover_gaps is set (collect_var.cpp), deferring it to the recovery
-            // pass, so the noisy het class never exists in the first solve: inside
-            // chr20:48,176,831-48,229,447 the chunk holds 1 clean het SNP, 2 clean
-            // het indels and no NoisyCandHet at all, while the BAM channel run on
-            // the same interval calls 8 of them and phases the window into one
-            // block. The retry is the second try the deferral assumes, so it runs
-            // that step here rather than leaving the region to recovery -- and the
-            // noisy k-means with it, since orienting those candidates is the point
-            // of admitting them.
-            // Ask for the MSA step by name. Clearing recover_gaps would also
-            // turn off every other guard gated on it -- it silently disabled
+            // Asking for the MSA step BY NAME is deliberate. An earlier version
+            // reached it by clearing a broader recovery flag, which also turned
+            // off every other guard gated on that flag -- it silently disabled
             // split_nested_msa_deletions, which then emitted both nested forms
-            // of one tandem-repeat deletion as independent hets.
+            // of one tandem-repeat deletion as independent heterozygotes.
+            // What each field does, and why it is this field and not another:
+            //
+            //   force_noisy_msa    -- asks make_vars_from_msa_cons_aln for the
+            //     noisy-region MSA by name, and also enables
+            //     split_nested_msa_deletions inside it.
+            //   skip_noisy_kmeans  -- clears the hybrid's own override, so
+            //     collect_noisy_vars_step4 runs the kCandGermlineVarCate
+            //     k-means (clean | noisy het | noisy hom) after recalling
+            //     candidates. Without this the recalled sites exist but are
+            //     never oriented, and nothing gains a phase set.
+            //   retry_windows      -- the ONLY scoping. It confines
+            //     allele_depths_call_het to these intervals, so the widened
+            //     het admission applies where the solve failed and nowhere
+            //     else. Admitting that class chunk-wide instead is a measured
+            //     bad trade: chromosome-wide it roughly doubled the read
+            //     Hamming error (0.878% -> 1.837%, 1,831 -> 3,415 discordant
+            //     reads) while spanning 14 of 196 gaps.
             retry_opts.force_noisy_msa = true;
             retry_opts.skip_noisy_kmeans = false;
             retry_opts.retry_windows = windows;

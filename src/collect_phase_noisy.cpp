@@ -1246,24 +1246,29 @@ int make_vars_from_msa_cons_aln(
                                             ref_cons_aln_str.aln_len,
                                             false);
     }
+    // Asked for by name by the retry (retry_opts.force_noisy_msa). One tandem
+    // repeat can be described by two nested deletion forms; without this split
+    // both forms are emitted as independent heterozygotes at the same locus.
+    // The retry sets this field rather than clearing a broader flag precisely so
+    // that this guard stays on: an earlier version cleared the whole recovery
+    // flag to reach the MSA and silently disabled this split as a side effect.
     if (opts.force_noisy_msa)
         split_nested_msa_deletions(opts, chunk, hap1_vars, hap2_vars);
     update_cand_var_profile_from_cons_aln_str2(
         opts, chunk, clu_n_seqs, clu_read_ids, aln_strs, noisy_reg_beg,
         hap1_vars, hap2_vars, noisy_vars, noisy_var_cate, noisy_rvp);
     // A locus whose two haplotypes both differ from the reference has to be
-    // emitted once with both alleles, in every arm -- not only under gap
-    // recovery. Kept behind recover_gaps, the merge left the default pipeline
-    // describing such a locus as two competing biallelic records, each scoring
+    // emitted once with both alleles, in every arm. While this merge was gated
+    // on the recovery pass it never ran by default, so the default pipeline
+    // described such a locus as two competing biallelic records, each scoring
     // the other haplotype's reads against its own allele.
     merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
     merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster
-    // alignment, and that is true whether or not gap recovery is enabled: these
-    // counts describe the reads. Gating the refresh on recover_gaps left the
-    // alignment-only channel with the pre-refresh counts, which are wrong --
-    // test_msa_counts_do_not_depend_on_recover_gaps has two clusters of two
-    // reads each carrying their own consensus, so the site is 2 ref / 2 alt, and
+    // alignment, in every arm: these counts describe the reads. While this
+    // refresh was gated on the recovery pass, the alignment-only channel was
+    // left with the pre-refresh counts, which are wrong -- with two clusters of
+    // two reads each carrying their own consensus the site is 2 ref / 2 alt, and
     // without the refresh it was counted 3 ref / 1 alt. It is also why eight of
     // the seventy-six candidates shared with the hybrid arm on
     // chr20:48,176,830-48,229,446 carried different counts.
@@ -1957,6 +1962,31 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
     }
 }
 
+/// Step 4: for each noisy region, rebuild the truth by multiple alignment and
+/// recall the candidates the per-read pass could not call, then re-solve.
+///
+/// Runs in EVERY solve, including the first -- it is not retry-specific, and the
+/// candidates it recalls are in the table by default. What differs is whether
+/// they are ever oriented, and that is decided by the two options below.
+///
+///   - the re-solve at the end of the loop is gated on
+///     `!opts.skip_noisy_kmeans`, and the hybrid sets skip_noisy_kmeans = true
+///     unconditionally. With it set, recalled candidates exist but nothing
+///     orients them: inside chr20:48,176,831-48,229,447 on stock defaults the
+///     chunk holds 6 NOISY_CAND_HET and not one carries a phase set. Clearing
+///     it (what the retry does) leaves all 8 phased. So admitting sites without
+///     clearing that override changes the table and not the phasing.
+///   - split_nested_msa_deletions, inside make_vars_from_msa_cons_aln, is gated
+///     on `force_noisy_msa`; it accounts for the 6 -> 8 difference in that
+///     window.
+///
+/// A caution recorded from measurement: the sites this recalls are the noisy
+/// class, and in these intervals that class holds BOTH the informative sites
+/// and the bridges that invert flanks. MSA verification does not separate them
+/// -- at chr20:55,843,827 all eight admitted sites carry msa_verified = 1, yet
+/// only one segregates at or above 0.90 against read truth and five sit below
+/// 0.70 -- and neither the allele fraction nor the homopolymer flag separates
+/// them either.
 void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
                               const VariantKeySet* site_whitelist) {
     if (chunk.noisy_regions.empty()) return;

@@ -843,6 +843,33 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 /// site must not be collapsed to a homozygous consensus by provisional read
 /// labels; see the call site. Applies inside a window the retry is re-solving,
 /// and everywhere when --joint-het-orientation is set.
+/// Does this candidate's OWN allele depth call it a heterozygote?
+///
+/// The one place `retry_windows` is read, and therefore the only thing the retry
+/// scopes positionally. A site admitted here is put on the LINK list, so its
+/// orientation is decided by spanning reads like any other het instead of by
+/// whatever its own consensus produced in isolation.
+///
+/// Why that matters: a homopolymer indel is normally kept off the link list
+/// because its allele is unreliable for linking, but the emit loop still hands
+/// such a site the running phase set while leaving `parity` unapplied -- so it
+/// joins a block carrying its own unreconciled orientation. On
+/// chr20:48,225,786 (CAAAA>C in an A run, segregating 1.000 against read truth)
+/// that put a maternal-on-hap1 site inside a paternal-on-hap1 block: a switch
+/// invisible in read space, because the reads covering it belong to the NEXT
+/// block, and visible only at site level.
+///
+/// The tests, in order, and each is a real exclusion:
+///   - off unless a retry window exists or --joint-het-orientation is set;
+///   - category must be noisy het or clean het (SNP or indel);
+///   - multiallelic records are excluded -- they are oriented jointly elsewhere;
+///   - both haplotype profiles must hold at least two observations, so a site
+///     with one side empty cannot claim to segregate;
+///   - both reference and alternate depth at or above min_alt_depth;
+///   - allele fraction inside [min_af, max_af].
+/// With --joint-het-orientation the verdict applies chunk-wide; otherwise the
+/// position must fall inside one of `retry_windows`, which is what keeps the
+/// widened admission confined to the intervals the first solve failed on.
 static bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
     if (opts.retry_windows.empty() && !opts.joint_het_orientation) return false;
     if (var.lcd_var_i_to_cate != kCandNoisyCandHet &&
@@ -997,6 +1024,27 @@ bool read_carries_phase_tags(const int mapq, const Options& opts) {
     return mapq >= opts.min_assign_mapq;
 }
 
+/// The solver: cluster the chunk's reads into two haplotypes over the
+/// candidates whose category matches `flags`, then assign each read a haplotype
+/// and a phase set.
+///
+/// `flags` is the whole difference between the two solves in a retry:
+///   kCandGermlineClean   -- clean het SNPs, clean het indels, clean hom. The
+///                           first solve, and the only one the default runs.
+///   kCandGermlineVarCate -- that mask PLUS noisy het and noisy hom. What
+///                           collect_noisy_vars_step4 uses once
+///                           skip_noisy_kmeans is clear.
+///
+/// It is a GLOBAL clustering with NO pairwise evidence test, which is the
+/// property to keep in mind when widening `flags`: any admitted site can act as
+/// a bridge between two components, so one unreliable site can join two blocks
+/// on evidence no pairwise link check would accept. Measured at
+/// chr20:24,105,188, where the chain evidence reads 53/0, 10/1, 9/5, 0/0: a
+/// single near-even repeat-tract site supplied the path, and the entire right
+/// flank -- 13 sites each segregating 1.000 against read truth -- was absorbed
+/// INVERTED. The block linker is not at fault there and cannot be: it correctly
+/// starts a new phase set for a het with no supported link, but by then the
+/// k-means has already merged the components.
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
                                                    const Options& opts,
                                                    uint32_t flags) {
