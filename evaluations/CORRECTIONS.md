@@ -118,27 +118,44 @@ re-solve is now the default, it is false for the default one.
 The `emitted_multi` allowance rows remain correct as written: they record what
 the arm with the class excluded emits.
 
-## Three defects the retry-by-default change exposed, recorded before the tests were removed
+## RETRACTED: the "three defects the retry-by-default change exposed" were my test's false positives
 
-Making the re-solve the default admits the noisy class, so records that were
-previously built and never emitted now reach the output -- and three of them are
-wrong. None is caused by the change; all three were latent behind the exclusion.
+Commit dcc18a0 recorded three defects that making the re-solve the default was
+said to expose. **All three were artifacts of rules in the injection test suite,
+not pipeline defects.** Each was checked against the reads afterwards and the
+pipeline's output is correct in every case.
 
-1. **`48,243,089 A>TT` breaks the VCF convention.** The alignment channel's own
-   record: REF `A`, ALT `TT`, and ALT does not begin with REF, so it is not a
-   valid indel record. Reference there is `aaaattttttt`. The candidate is
-   `POS=48243090 INS REF=A ALT=T`, a 1 bp insertion, written out one base to the
-   left as a 2 bp ALT.
-2. **The emitted depths at that locus disagree with the candidate table**:
-   `AD=25,32` emitted against `39/25` in the table. Two candidates sit at
-   48,243,089-90 -- an injected `INS ALT=TT` at DP 64 (39/25) and the alignment's
-   `INS ALT=T` at DP 57 (25/32) -- and the emitted record mixes one's position
-   with the other's depths.
-3. **`55,846,004` consumes only part of its claim.** Catalog `CT>CTTT`, emitted
-   `C>CTTT`: one of the two reference bases consumed. Same class as the
-   insertion-REF fix in commit aa2ab96, which corrected the case where REF
-   dropped consumed bases; this is the residual where the claim's REF runs past
-   the anchor and the emitted record keeps only the anchor.
+**1. `48,243,089 A>TT` is a correct complex record, not a malformed indel.**
+The test required a length-changing ALT to begin with REF. That is a convention
+for simple indels, not a VCF requirement, and this locus is not a simple indel:
+reads at the anchor split **31 A / 31 T**, a genuine heterozygous substitution.
+So `alt_ref_base = T` is right and the record says what it should -- the alt
+haplotype carries T at the anchor plus an inserted T. The rule flagged a correct
+record.
 
-All three are in the 48,183,976 and 55,843,827 windows, not in the window under
-active work.
+**2. The depths at that locus do not disagree.** Two candidates sit there, and
+each is emitted at its own anchor with its own counts:
+
+| candidate | emitted |
+|---|---|
+| `POS=48243089 INS ALT=TT` DP 64, 39/25 (injected claim) | `48243088 AA>ATT AD=39,25` |
+| `POS=48243090 INS ALT=T` DP 57, 25/32 (alignment) | `48243089 A>TT AD=25,32` |
+
+The test matched an emitted record to a candidate by equal POS. An insertion
+emits at `POS - 1`, so it paired the record with the neighbouring candidate and
+reported its depths as a mismatch.
+
+**3. `55,846,004` is a different event from the claim, not an under-consumed
+one.** The catalog claims `CT>CTTT`, net **+2**. Our record `C>CTTT` is net
+**+3**. Reads: **+3 on 47 of 74 (63.5%)**, +2 on 17 (23.0%). The majority event
+is the one we emit; the claim describes a minority allele. The test's signature
+-- a record carrying the claim's ALT while consuming fewer reference bases --
+conflates two events that happen to share an ALT string, which is easy in a
+homopolymer.
+
+The lesson is about the checks, not the pipeline: two of the three rules encoded
+a convention as a requirement, and the third assumed a coordinate convention the
+emitter does not use. The suite did find real defects earlier -- the spurious
+deletions from substitution claims, the missing strand tallies, the insertion
+REF -- so this is not an argument that it was worthless, only that these three
+entries were wrong and are withdrawn.
