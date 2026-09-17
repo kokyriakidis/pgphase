@@ -2152,8 +2152,20 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
                     depths_call_het = af >= opts.min_af && af <= opts.max_af;
                 }
             }
+            // The depth escape was measured and removed. A homopolymer indel can
+            // have textbook heterozygous depths and still carry no phase
+            // information: chr20:24,131,708 is a 1 bp deletion at 39/29, allele
+            // fraction 0.427, and it segregates at 0.636 against read truth. It
+            // is what glued the left block to the right flank in this window --
+            // its own link evidence is 9 agree against 5 conflict, a net margin
+            // of 4 the link loop's repeat rule would refuse, but the k-means
+            // takes no pairwise evidence and used it as a bridge anyway, which
+            // inverted 13 right-flank sites that each segregate at 1.000. A
+            // record carrying both of the locus' alleles is exempt: its two
+            // alleles are the haplotypes, not one length among many.
             const bool usable = c.msa_verified &&
-                (two_allele || !c.is_homopolymer_indel || depths_call_het);
+                (two_allele || !c.is_homopolymer_indel);
+            (void)depths_call_het;
             if (usable) ++verified;
             else c.lcd_var_i_to_cate = 0;
         }
