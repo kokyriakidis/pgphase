@@ -2158,8 +2158,9 @@ static void gap_fill_unphased_reads(PhasingChunk& chunk, const Options& opts) {
 ///
 ///   1. assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)
 ///      -- the clean core. Clean het SNPs, clean het indels, clean hom. This is
-///      the only stage the default hybrid path runs, because the hybrid sets
-///      skip_noisy_kmeans = true and stage 3 below then declines to re-solve.
+///      the only k-means the default hybrid path runs: the hybrid sets
+///      skip_noisy_kmeans = true, and the second k-means inside stage 2 below
+///      is gated on that field, so it declines to re-solve.
 ///   2. collect_noisy_vars_step4 -- the noisy-region MSA. Recalls the candidates
 ///      the per-read pass could not call, and -- only when skip_noisy_kmeans is
 ///      clear, which is what the retry arranges -- re-runs the k-means over the
