@@ -6,12 +6,17 @@ Three separate test cases, because they fail for different reasons and one
 | test case | tag | asks |
 |---|---|---|
 | the alignment channel's sites all reach the hybrid | `[completeness]` | is every site the alignment channel finds present in the hybrid's table? |
-| shared sites keep their alleles | `[representation]` | is each locus described by the same alleles, with no second description added? |
+| shared sites keep their alleles | `[representation]` | is each locus described by the same alleles, with no second description added, and no multiallelic record genotyped homozygous? |
 | read counts and alleles per site are correct | `[counts]` | are the per-site counts internally consistent and within the reads available? |
+| REF matches the reference sequence | `[alleles]` | does each candidate's REF agree with the FASTA under that type's convention, and does every emitted record obey the VCF convention? |
+| emitted records agree with the candidate table | `[consistency]` | are the emitted depths the candidate's depths, and is every candidate inside the region asked for? |
+| a wider window finds the same interior sites | `[stability]` | does retrieval of an interior site depend on how much flank was requested? |
+| an injected claim's reference bases are consumed whole | `[claims]` | does a record carrying a claim's ALT consume the claim's whole REF? |
 
 `src/test_bam_site_injection.cpp`, Catch2, `make window-tests`. Both channels are
 run once per window and cached, so a test case costs assertions rather than
-pipeline runs: 3 cases, 90 assertions, ~12 s over the six panel windows.
+pipeline runs: 7 cases, 121 assertions, ~35 s over the six panel windows (the
+stability case adds one widened run per window).
 
 ## Representation is more than keeping the alleles
 
@@ -228,3 +233,50 @@ computed against the consensus alignment string using a running
 window a read is tested against is not the span the record names. Establishing
 that is a change to the MSA coordinate mapping, which is why it is recorded
 rather than guessed at. The allowance row stays, with this mechanism.
+
+
+## What the four retrieval cases found
+
+**`[stability]` and `[consistency]` are clean.** A window widened by 20 kb on
+each side finds exactly the same candidates in the shared interior, in all six
+windows -- so retrieval of an interior site does not depend on how much flank
+was asked for. Emitted depths equal the candidate's depths everywhere, and no
+candidate falls outside the requested region.
+
+**`[alleles]` found a convention, then a defect.** The candidate table does not
+use one coordinate convention for all types:
+
+| type | POS is | REF holds |
+|---|---|---|
+| SNP, DEL | the site | the reference string starting at POS |
+| INS | one past the anchor | the ANCHOR base, at POS-1, with ALT holding only the inserted bases |
+
+186 SNP and 21 DEL candidates match the reference at POS; 30 of 36 INS match at
+POS-1, the other 6 ambiguous because the anchor sits in a homopolymer. The first
+version of this test asserted the VCF convention for insertions and failed all
+30 while saying nothing true -- the assertion was wrong, not the pipeline. The
+emitted VCF is checked separately and obeys the VCF convention in every record.
+
+Two candidates break even that: `12,680,257` and `55,905,390` hold the base at
+their own POS rather than the anchor.
+
+**`[claims]`: a claim whose REF runs past the anchor is emitted with only the
+anchor consumed.** Those two candidates are the candidate-table symptom of it.
+
+| locus | catalog claims | we emit | left unconsumed |
+|---|---|---|---|
+| 12,680,256 | `AT > AAATAAAATAAAATA` | `A > AAATAAAATAAAATA` | `T` |
+| 55,905,389 | `CT > CCG` | `C > CCG` | `T` |
+
+A claim whose REF extends past the anchor says those extra bases are
+**replaced**. Emitting the claim's ALT while consuming only the anchor leaves
+them in place, so the record asserts `AAATAAAATAAAATA-T` where the claim said
+`AAATAAAATAAAATA`. The alleles look carried and the sequence is wrong.
+
+The check is deliberately narrow: only a record carrying a claim's ALT
+**verbatim** while consuming fewer reference bases is flagged. Of 298 claims in
+these windows with REF past the anchor and an insertion-like ALT, 11 have a
+record at the same position and only these 2 match that signature -- the rest
+are different events the alignment channel called there, which is not this
+defect. A first, looser version of this measurement flagged 10 of 11 by
+comparing any record at the same position, which conflated the two.
