@@ -120,3 +120,37 @@ with 0 concordant-to-discordant. Suite 5/5. The verifier carries a seventh check
 `add_graph_candidate`, called only from the standalone graph chunk builder and
 not from hybrid injection, so it is untouched here and recorded as the remaining
 instance of the same pattern.
+
+## Is there a fallback left that injection should make unnecessary?
+
+The remaining field an injected candidate does not set is `alle_covs`, the
+per-allele coverage vector, and several readers branch on it being empty --
+`get_var_init_max_cov_allele` falls back to `ref_cov`/`alt_cov`, and the emitter
+writes `core.ad_ref, core.ad_alt` rather than iterating the vector. That reads
+like a fallback injection should remove by filling the vector.
+
+It was filled, measured, and **reverted**, because a probe on the fallback branch
+answers who actually takes it. Across the six panel windows **1,201 candidates
+reach `get_var_init_max_cov_allele` with an empty `alle_covs`**, and in the one
+window examined in detail all 299 of them are alignment-channel candidates and
+**none is injected**.
+
+So the empty vector is not a symptom of incomplete injection. It is the ordinary
+representation of a biallelic candidate everywhere in this pipeline: `ref_cov`
+and `alt_cov` are the primary fields, and `alle_covs` is the extension a record
+acquires when it carries more than two alleles -- which is why the multiallelic
+tests all read `alle_covs.size() == 3`. `allele_depths_call_het`, the joint
+two-haplotype orientation's own gate, likewise reads `ref_cov`/`alt_cov` and
+never touches the vector.
+
+Sizing it on injected candidates therefore makes them the **only** biallelic
+records in the table that carry one, which is a deviation from the alignment
+channel's representation rather than a match to it. The change measured
+byte-identical -- stock and retry emitted exactly the same records, 0 lost and 0
+gained -- so nothing was gained by the deviation either. Reverted.
+
+What that leaves is the honest end state: an injected candidate now carries
+exactly the field set an alignment-derived biallelic candidate carries -- depth,
+reference and alternate counts, strand tallies on both, low-quality depth, allele
+fraction, category -- and no reader has to fall back for a field injection failed
+to provide.

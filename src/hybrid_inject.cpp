@@ -248,6 +248,13 @@ static int add_graph_only_candidate(PhasingChunk& chunk,
         }
     }
     cand.counts.n_uniq_alles = 2;
+    // alle_covs is deliberately left empty, which is what a biallelic candidate
+    // carries everywhere in this pipeline: ref_cov/alt_cov are the primary
+    // fields and alle_covs is the extension a record acquires when it holds
+    // more than two alleles. Measured on the panel: 1,201 candidates reach
+    // get_var_init_max_cov_allele with an empty vector and every one of them is
+    // alignment-derived, none injected. Sizing it here would make injected
+    // candidates the only biallelic records in the table carrying one.
     cand.counts.category = VariantCategory::LowCoverage;
     cand.counts.candvarcate_initial = VariantCategory::LowCoverage;
     cand.lcd_var_i_to_cate = 0;  // excluded from k-means until gated
