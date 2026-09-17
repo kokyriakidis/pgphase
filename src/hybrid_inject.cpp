@@ -886,6 +886,26 @@ void apply_hybrid_noise_filter(
 
         if (is_noisy_site(noisy_pos, vcf_ref, vcf_alt, ref_seq, ref_beg, ref_end,
                           lc, max_xgaps)) {
+            // A site the catalog claims, which classify_graph_only_candidates
+            // has just promoted to a CLEAN het on its own depths, is not
+            // demoted by the repeat screen. The screen asks whether the locus
+            // sits in a repeat tract, which is true of most real indels in
+            // these windows and says nothing about whether this one segregates.
+            //
+            // The demotion is what makes the claim unusable: RepeatHetIndel is
+            // screened out of k-means by construction, and the merge's
+            // replace_repeat rule then lets the MSA's own NOISY_CAND_HET call
+            // displace it, a class the hybrid excludes from its solve.
+            // Measured at chr20:5,315,591, where the catalog claims C>CT,CTT,
+            // the alignment channel measures 68 reads at 37/31 and read truth
+            // segregates it at 1.000 over 69 reads: CLEAN_HET_INDEL after
+            // classification, REP_HET_INDEL after this screen,
+            // NOISY_CAND_HET after the MSA, unphased in the output, and the
+            // competitor bridges the gap with it.
+            if (cand.graph_site &&
+                (cand.lcd_var_i_to_cate == kCandCleanHetSnp ||
+                 cand.lcd_var_i_to_cate == kCandCleanHetIndel))
+                continue;
             cand.counts.category = VariantCategory::RepeatHetIndel;
             cand.counts.candvarcate_initial = VariantCategory::RepeatHetIndel;
             cand.lcd_var_i_to_cate = kLongcalldRepHetVar;
