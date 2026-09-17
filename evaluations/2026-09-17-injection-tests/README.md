@@ -11,7 +11,55 @@ Three separate test cases, because they fail for different reasons and one
 
 `src/test_bam_site_injection.cpp`, Catch2, `make window-tests`. Both channels are
 run once per window and cached, so a test case costs assertions rather than
-pipeline runs: 3 cases, 78 assertions, ~12 s over the six panel windows.
+pipeline runs: 3 cases, 90 assertions, ~12 s over the six panel windows.
+
+## Representation is more than keeping the alleles
+
+Merging co-located records into one multiallelic record is the **default** in
+the alignment channel -- `merge_msa_insertion_alleles` and
+`merge_msa_colocated_deletions` are each called unconditionally -- and it is the
+correct representation, not something to split back into biallelic records. The
+27 multiallelic records the channel emits across the six windows are mostly
+`1|2` or `2|1` with **zero reference depth**:
+
+```
+55,883,019  AATATAT > AAT,A    GT=2|1  AD=0,29,33
+55,896,395  CTTTT…  > CTTT…,C  GT=1|2  AD=0,35,34
+```
+
+Split those into two biallelic records and each allele is measured against a
+reference no read carries: the allele fraction runs to 1 and both classify
+homozygous. That is the hom-at-het defect the merge exists to prevent, and
+`55,883,019` is one of the loci it was diagnosed on.
+
+Two assertions follow from that, added after the first version of these tests
+checked only that the alleles survive into the candidate table.
+
+### A multiallelic record with reads on both alternates is not homozygous
+
+Checked in **both** channels. The alignment channel is where these records are
+built, so a wrong genotype there is the origin; the hybrid is where it would be
+carried. Looking only at the hybrid hides the defect completely whenever the
+hybrid does not emit the record -- which is currently every one of them.
+
+Three are caught and listed in the allowance:
+
+| locus | REF>ALT | GT | AD |
+|---|---|---|---|
+| 55,795,217 | `CAAAA…>CA,C` | `1\|1` | 0, **40**, **28** |
+| 55,815,775 | `CAAAA…>CAA,C` | `1\|1` | 0, **18**, **10** |
+| 5,379,662 | `CTTTT…>CT,C` | `1\|1` | 0, **45**, **31** |
+
+These are the loci the joint two-haplotype orientation branch does not reach.
+
+### How many multiallelic loci the hybrid actually emits
+
+**0 of 27.** Surviving into the candidate table is not the same as reaching the
+output: the hybrid's solve excludes the noisy class (`skip_noisy_kmeans`, a
+hybrid-only override), so a merged `NOISY_CAND_HET` record gets no phase set and
+is never written. Recorded as a per-window floor rather than asserted equal,
+because admitting that class chunk-wide is a measured bad trade -- but recorded,
+so a change in either direction is visible.
 
 ## Threads: a floor of four, not a default
 
