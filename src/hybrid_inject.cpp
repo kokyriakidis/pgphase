@@ -273,7 +273,7 @@ SiteToCandidateMap inject_graph_sites(
     (void)opts;
     (void)chrom_remap;
     SiteToCandidateMap site_to_candidate;
-    int bridged = 0, added = 0;
+    int bridged = 0, added = 0, redundant = 0;
 
     // Track pre-sort indices of graph-only candidates and their original VCF
     // (ref, alt) strings so the noise filter can screen on the catalog
@@ -354,26 +354,28 @@ SiteToCandidateMap inject_graph_sites(
         // claim was added beside it and accumulated 59 of 63 as alt support, and
         // both were emitted.
         //
-        // So the claim is honoured on the record that holds the measurement:
-        // graph_site is set, which is what lets classify_graph_only_candidates
-        // promote the locus, while the allele and counts stay the alignment's.
-        // pre_sort_vcf_alleles is deliberately NOT set here -- it carries the
-        // catalog's own ref/alt for consumers that screen on it, and this
-        // candidate's allele is not the catalog's.
+        // So the catalog's site is dropped at such a locus, and the alignment's
+        // record is left entirely alone -- not even marked graph_site. Marking it
+        // would route it through classify_graph_only_candidates, which re-derives
+        // the category from the allele fraction, and that is the mechanism that
+        // turns a usable NoisyCandHet into CleanHom: at chr20:55,896,396 what
+        // made the record usable in the alignment channel was its category, not
+        // its fraction, and replacing that with an AF-derived CleanHom verdict
+        // dropped the locus from phasing altogether. A claim that cannot name the
+        // allele the reads carry has nothing to add to a record that already
+        // measured it.
         if (fallback_ai >= 0) {
             const VariantKey target = vcf_to_variant_key(
                 chunk_tid, site.pos, site.ref,
                 site.alts[static_cast<size_t>(fallback_ai)]);
             if (target.type != VariantType::Snp) {
                 for (int ci = 0; ci < orig_count; ++ci) {
-                    CandidateVariant& cand = chunk.candidates[static_cast<size_t>(ci)];
+                    const CandidateVariant& cand =
+                        chunk.candidates[static_cast<size_t>(ci)];
                     if (cand.graph_site || cand.key.type != target.type ||
                         cand.key.pos != target.pos) continue;
-                    cand.graph_site = true;
-                    site_to_candidate[site_key] = ci;
-                    all_graph_pre_sort.insert(ci);
-                    ++bridged;
                     fallback_ai = -1;
+                    ++redundant;
                     break;
                 }
             }

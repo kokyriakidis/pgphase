@@ -58,13 +58,22 @@ added -- then counted as though the reads carried it.
 
 The catalog's claim is that the locus varies. *Which* length is present there is
 a read measurement, and the alignment channel has already made it. So before
-adding, the injection now looks for an indel of the same type the alignment
-already called at that position and honours the claim on **that** record:
-`graph_site` is set, which is what lets `classify_graph_only_candidates` promote
-the locus, while the allele and counts stay the alignment's.
-`pre_sort_vcf_alleles` is deliberately not set on such a bridge, since it carries
-the catalog's own ref/alt for consumers that screen on it and this candidate's
-allele is not the catalog's.
+adding, injection looks for an indel of the same type already called at that
+position, and where it finds one the catalog's site is **dropped** -- the
+alignment's record is left entirely alone, not even marked `graph_site`.
+
+Marking it was the first version of this fix and it is the more dangerous one.
+`graph_site` is what routes a record through `classify_graph_only_candidates`,
+which re-derives the category from the allele fraction -- and that is precisely
+the mechanism that turns a usable `NoisyCandHet` into `CleanHom`. At
+`55,896,396` what made the record usable in the alignment channel was its
+category, not its fraction, and replacing it with an AF-derived `CleanHom`
+verdict dropped the locus from phasing altogether. A claim that cannot name the
+allele the reads carry has nothing to add to a record that already measured it.
+
+Both versions measure identically on the panel; the drop is the one without that
+exposure. Verified at the locus: the hybrid's row is `DP=63`, `5/58`,
+`AF=0.920635`, `CLEAN_HOM` -- the alignment channel's row, unmodified.
 
 Result: one record at the locus, `T>TA` at `1|1:63:5,58`, matching the alignment
 channel and matching truth. Panel candidates 1,576 -> 1,575, stock defaults
