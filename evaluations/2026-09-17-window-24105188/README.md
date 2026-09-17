@@ -99,3 +99,43 @@ exclusion there is no read-based evidence left to use. Hiphase spans it from the
 same three sites, so its join across an interval two reads span is not something
 our read-level machinery can reproduce by using more sites -- which is consistent
 with the site-level check that its five spans of this kind were all correct.
+
+## Do the alignment's candidates go through the normal k-means?
+
+No, and this is the structural answer.
+
+`collect_var.cpp:2105` runs `assign_hap_based_on_germline_het_vars_kmeans(chunk,
+opts, kCandGermlineClean)` -- the main pass filters on the **clean** mask. A
+second fill pass at `:2065` uses `kCandGermlineVarCate` and its own comment says
+it is the same k-means "skip_noisy_kmeans disabled (includes recalled noisy
+candidates)". So a `NoisyCandHet` record reaches the k-means only through that
+fill pass, and the hybrid disables it by setting `skip_noisy_kmeans = true`.
+
+Both interior sites in this window are `NoisyCandHet`, so in the hybrid neither
+is ever offered to the k-means. The two boundary `CLEAN_HET_SNP`s are, which is
+exactly why the boundaries phase and the interior does not.
+
+## And even where they do participate, their observations are region-confined
+
+The per-read alleles for an MSA-derived site come from that site's own noisy
+region, and in this window each region holds a single variant with its own
+clustered read subset:
+
+| MSA region | variants | reads clustered |
+|---|---|---:|
+| `24,103,338-24,103,358` | 2 | 55 |
+| `24,121,714` | 1 | **11** |
+| `24,123,429` | 1 | 7 |
+| `24,131,708` | 1 | **29** |
+| `24,148,224` | 1 | 63 |
+
+**The region holding `24,121,714` has 11 reads, the one holding `24,131,708` has
+29, and they share zero.** So the two interior sites carry no read in common in
+the pipeline's own profiles and cannot link to each other whatever the k-means
+does. The site covers 74 reads, but only 11 of them ever receive an observation
+there -- and the two reads that reach the right boundary are not among the 11.
+
+That relocates the limit for this window a third time, and this is the version
+supported by the pipeline's own per-read dump: not the site set, not the
+representation, not the k-means mask alone, but the fact that an MSA site's
+observations are drawn only from its region's clustered subset.
