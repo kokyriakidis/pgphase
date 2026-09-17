@@ -334,6 +334,14 @@ struct Options {
     /// orientation.
     bool joint_het_orientation = false;
     bool retry_unphased_with_bam = false;
+    /// Inside an unphased window, discard the graph catalog's candidates and
+    /// keep only the alignment channel's MSA-verified ones, so the window is
+    /// re-solved on verified alignment evidence alone. Requires
+    /// `retry_unphased_with_bam`, which is what detects and re-solves the
+    /// window. An experiment, not a default: it removes evidence as well as
+    /// noise, so it only makes sense where the graph's sites left the window
+    /// unphased in the first place.
+    bool gap_bam_only = false;
     /// Run the noisy-region MSA even though recover_gaps is set. The retry needs
     /// that step, which collect_var_run_phasing otherwise defers to the recovery
     /// pass, but it must NOT claim recovery is off: other correctness guards are

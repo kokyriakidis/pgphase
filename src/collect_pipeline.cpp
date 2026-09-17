@@ -1085,13 +1085,25 @@ static PhasingChunk process_chunk_hybrid(
         int readmitted = 0;
         if (!windows.empty() && !discovery_flags.empty()) {
             for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
-                if (chunk.candidates[vi].graph_site) continue;
                 const hts_pos_t pos = chunk.candidates[vi].key.pos;
                 bool inside = false;
                 for (const auto& [beg, end] : windows) {
                     if (pos >= beg && pos < end) { inside = true; break; }
                 }
                 if (!inside) continue;
+                if (chunk.candidates[vi].graph_site) {
+                    // The graph's sites are what left this window unphased, so
+                    // the arm asks what the window looks like without them:
+                    // discard them inside it and re-solve on verified alignment
+                    // evidence alone. Zeroing the category removes the candidate
+                    // from every het and link mask, as the second pass does.
+                    if (opts.gap_bam_only) chunk.candidates[vi].lcd_var_i_to_cate = 0;
+                    continue;
+                }
+                if (opts.gap_bam_only && !chunk.candidates[vi].msa_verified) {
+                    chunk.candidates[vi].lcd_var_i_to_cate = 0;
+                    continue;
+                }
                 chunk.candidates[vi].lcd_var_i_to_cate = discovery_flags[vi];
                 ++readmitted;
             }
