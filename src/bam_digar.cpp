@@ -1081,7 +1081,10 @@ bool read_passes_filters(const bam1_t* aln, const Options& opts) {
     if (aln->core.tid < 0 || (aln->core.flag & (BAM_FUNMAP | BAM_FSECONDARY | BAM_FSUPPLEMENTARY))) {
         return false;
     }
-    if (aln->core.qual < opts.min_mapq) return false;
+    // Load down to the recovery floor. Anything between it and min_mapq is
+    // parsed and then marked skipped (see below), so the default solve sees
+    // exactly the read set it saw before this floor existed.
+    if (aln->core.qual < std::min(opts.min_mapq, opts.recovery_min_mapq)) return false;
     if (!opts.include_filtered && (aln->core.flag & (BAM_FQCFAIL | BAM_FDUP))) {
         return false;
     }
@@ -1276,6 +1279,12 @@ std::vector<ReadRecord> load_read_records_for_chunk(const Options& opts,
         read.is_ont_palindrome = detect_ont_palindrome(aln.get(), header, opts);
         build_digars_and_events(aln.get(), header, ref, opts, read);
         read.is_skipped = read_has_too_many_variants(read, opts);
+        if (!read.is_skipped && read.mapq < opts.min_mapq) {
+            // Below the ordinary floor: present in the chunk but inert. Only the
+            // recovery may wake it, and only inside a window nothing could phase.
+            read.is_skipped = true;
+            read.skipped_for_mapq = true;
+        }
         maybe_dump_debug_site(opts, header, read);
         reads.push_back(std::move(read));
     }

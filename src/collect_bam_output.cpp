@@ -408,8 +408,15 @@ int PhasedAlignmentWriter::write_chunks(const std::vector<PhasingChunk>& chunks)
             int read_i = 0;
             int skip_read_i = 0;
             while (sam_itr_next(in_bams_[bi]->get(), iter, read) >= 0) {
+                // This loop walks the BAM and the chunk's read vector in
+                // PARALLEL BY INDEX, so its admission test must be exactly the
+                // one read_passes_filters used at load. The recovery floor lets
+                // reads below min_mapq into the chunk; filtering them out here
+                // would shift every later index and write each read's tags onto
+                // a different read. Measured when the two disagreed: read
+                // concordance fell to 52%, chance.
                 if (read->core.flag & (BAM_FUNMAP | BAM_FSECONDARY | BAM_FSUPPLEMENTARY) ||
-                    read->core.qual < opts_.min_mapq) {
+                    read->core.qual < std::min(opts_.min_mapq, opts_.recovery_min_mapq)) {
                     if (skip_read_i >= chunk.n_up_ovlp_skip_reads[bi]) {
                         strip_hp_ps_tags(read);
                         if (sam_write1(out_, in_header, read) < 0) {

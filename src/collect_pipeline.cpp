@@ -1155,6 +1155,27 @@ static PhasingChunk process_chunk_hybrid(
             //     bad trade: chromosome-wide it roughly doubled the read
             //     Hamming error (0.878% -> 1.837%, 1,831 -> 3,415 discordant
             //     reads) while spanning 14 of 196 gaps.
+            // Wake the reads the ordinary floor excluded, but only inside the
+            // windows nothing could phase. A read below min_mapq was parsed and
+            // marked skipped at load; here it becomes visible to discovery,
+            // allele counting and the k-means for this re-solve. Reads skipped
+            // for their variant load stay skipped -- skipped_for_mapq is what
+            // distinguishes them.
+            size_t woken = 0;
+            for (ReadRecord& read : chunk.reads) {
+                if (!read.skipped_for_mapq || !read.is_skipped) continue;
+                if (read.mapq < opts.recovery_min_mapq) continue;
+                bool in_window = false;
+                for (const auto& w : windows)
+                    if (read.end >= w.first && read.beg <= w.second) { in_window = true; break; }
+                if (!in_window) continue;
+                read.is_skipped = false;
+                ++woken;
+            }
+            if (opts.verbose > 0 && woken > 0)
+                fprintf(stderr, "[retry] woke %zu read(s) below the mapq floor in %zu window(s)\n",
+                        woken, windows.size());
+
             retry_opts.force_noisy_msa = true;
             retry_opts.skip_noisy_kmeans = false;
             retry_opts.retry_windows = windows;

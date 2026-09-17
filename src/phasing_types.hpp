@@ -172,6 +172,20 @@ struct Options {
     // its placement is too ambiguous to own a haplotype call. Equal values
     // reproduce single-floor behavior exactly, which is the default.
     int min_assign_mapq = kDefaultMinMapq;
+    /// Floor for reads the RECOVERY may use. Reads at or above this but below
+    /// min_mapq are parsed into the chunk and immediately marked skipped, so
+    /// every stage behaves as if they were never loaded -- until the re-solve
+    /// un-skips those overlapping a window the first solve left unphased.
+    ///
+    /// The reason this floor exists separately: at chr20:26,029,591-26,088,679
+    /// the reads carry MAPQ 3 and the default floor of 30 excludes them, so the
+    /// pipeline discovers ZERO candidates across 50 kb while a competitor
+    /// phases 120 heterozygotes there, 39 of 40 sampled segregating cleanly
+    /// against read truth. Admitting them everywhere closes the gap but also
+    /// re-solves the flanks: the left flank falls from 100% to 93.3% read
+    /// concordance. Admitting them only where nothing could be phased is the
+    /// point of the separate floor.
+    int recovery_min_mapq = 1;
     int min_bq = kDefaultMinBaseq;
     int min_depth = kDefaultMinDepth;
     int min_alt_depth = kDefaultMinAltDepth;
@@ -599,6 +613,9 @@ struct ReadRecord {
     // Dense-error intervals discovered while building digars; merged into chunk-level noisy regions.
     std::vector<Interval> noisy_regions;
     bool is_skipped = false;
+    /// Skipped solely because mapq < min_mapq, so the recovery may un-skip it.
+    /// A read skipped for its variant load is NOT eligible.
+    bool skipped_for_mapq = false;
     bool is_ont_palindrome = false;
     int n_clean_agree_snps = 0;    // populated during phasing (Step 2)
     int n_clean_conflict_snps = 0; // populated during phasing (Step 2)

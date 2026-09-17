@@ -70,6 +70,9 @@ static void print_hybrid_help() {
         << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
         << "      --private-msa-snp-first   Try MSA SNPs alone before admitting MSA indels per junction\n"
         << "      --min-block-link-reads INT  Spanning reads needed to carry a phase block [2]\n"
+        << "      --recovery-min-mapq INT   Floor for reads the re-solve may use inside an\n"
+        << "                                 unphased window; below --min-mapq they are inert\n"
+        << "                                 everywhere else [1]\n"
         << "      --no-retry-unphased-with-bam  Do NOT re-solve a window the graph sites\n"
         << "                                 could not phase (the re-solve is ON by default)\n"
         << "      --retry-unphased-with-bam  Re-solve a window the graph sites could not\n"
@@ -163,6 +166,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kMinAssignMapqOption,
     kRetryUnphasedWithBamOption,
     kNoRetryUnphasedWithBamOption,
+    kRecoveryMinMapqOption,
     kJointHetOrientationOption,
     kRetryMinUnphasedReadsOption,
     kRetryMinWindowBpOption,
@@ -223,6 +227,7 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"min-block-link-reads", required_argument, nullptr, kMinBlockLinkReadsOption},
         {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
         {"no-retry-unphased-with-bam", no_argument, nullptr, kNoRetryUnphasedWithBamOption},
+        {"recovery-min-mapq", required_argument, nullptr, kRecoveryMinMapqOption},
         {"joint-het-orientation", no_argument, nullptr, kJointHetOrientationOption},
         {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
         {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
@@ -304,6 +309,8 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kMinBlockLinkReadsOption: opts.min_block_link_reads = std::atoi(optarg); break;
             case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
             case kNoRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = false; break;
+            case kRecoveryMinMapqOption:
+                opts.recovery_min_mapq = std::atoi(optarg); break;
             case kJointHetOrientationOption: opts.joint_het_orientation = true; break;
             case kRetryMinUnphasedReadsOption: opts.retry_min_unphased_reads = std::atoi(optarg); break;
             case kRetryMinWindowBpOption: opts.retry_min_window_bp = std::atoll(optarg); break;
