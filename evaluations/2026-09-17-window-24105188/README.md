@@ -139,3 +139,65 @@ That relocates the limit for this window a third time, and this is the version
 supported by the pipeline's own per-read dump: not the site set, not the
 representation, not the k-means mask alone, but the fact that an MSA site's
 observations are drawn only from its region's clustered subset.
+
+## The bug: a record carrying both alleles was invisible to the block linker
+
+The site is discovered, merged into one record with both alleles, given 61
+observations and even a phase set -- and the linker still never sees it. A probe
+on the het list the block linker iterates, over `24.10-24.15 Mb` in the alignment
+channel, returned only `cate=0x004` clean het SNPs:
+
+```
+pos=24,103,779  cate=0x004  multi=0
+pos=24,105,188  cate=0x004  multi=0
+pos=24,142,287  cate=0x004  multi=0        <- the right boundary
+...the right flank's run
+```
+
+`24,121,714` and `24,131,708` are absent, and no record with `multi>0` appears at
+all. The cause is one clause in the het-list test (`collect_phase.cpp:748`):
+
+```cpp
+(var.msa_insertion_alts.empty() || var.gap_link_supported) &&
+```
+
+A record carrying both of the locus' alleles was admitted **only when a gap link
+had vouched for it**, so every merged multiallelic record was invisible to the
+linker outside gap recovery. That is why the right boundary linked back across
+37.1 kb to the gap's left edge and reported `agree = 0, conflict = 0`.
+
+Reads behind both alleles are the warrant instead, exactly as for any other het.
+With that, the site enters the list and links:
+
+```
+24,105,188   agree=53  conflict=0
+24,121,714   agree=10  conflict=1     <- was absent from the list entirely
+24,142,287   agree=0   conflict=0
+```
+
+### Measured
+
+| arm | spanned | in-gap hets | concordance | c -> d |
+|---|---:|---:|---:|---:|
+| stock defaults | 0 of 6 | 12 | 99.68% | **0** (byte-identical) |
+| `--retry-unphased-with-bam` | **4 of 6** (was 3) | 31 | 99.49% | **0** |
+| `--keep-noisy-kmeans` | 4 of 6 | 25 | **92.19%** | **152** |
+
+Inert by default, and with the retry it closes a fourth window with no read
+flipped from correct to incorrect anywhere in the panel. With
+`--keep-noisy-kmeans` it is destructive, and the reason is the difference in
+scope: the retry admits the noisy class only inside a detected unphased window,
+while that flag admits it everywhere, so unreliable repeat-tract records enter
+the linker across the whole region. That flag was already not a default (4.542%
+chromosome-wide against 0.559%); this makes it worse, and the two must not be
+combined.
+
+### What is still unsolved here
+
+This window is still not spanned. `24,121,714 -> 24,142,287` remains
+`agree = 0, conflict = 0`: only two reads span the 20.6 kb, they carry +7 and +1
+where the emitted alleles are +4 and +8, and neither ends up with an observation
+at the site -- `call_local_msa_allele` admits at most one edit, which reaches +7
+but not +1. By read truth both would be assigned correctly by length (+7
+maternal, +1 paternal) and both agree with the right boundary's bases, so the
+orientation is recoverable in principle from exactly two reads.

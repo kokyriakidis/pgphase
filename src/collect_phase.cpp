@@ -743,9 +743,21 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         const bool hp_indel_blocks_link =
             var.is_homopolymer_indel && !gap_hp_link &&
             !allele_depths_call_het(var, opts);
+        // A record carrying both of the locus' alleles was admitted to the link
+        // list only when a gap link had vouched for it, which made every merged
+        // multiallelic record invisible to the linker outside gap recovery. On
+        // chr20:24,121,714 that site has both alleles, 61 observations, and a
+        // phase set, and its two alleles separate the haplotypes perfectly
+        // against read truth (+4 on 13 reads all paternal, +8 on 16 all
+        // maternal) -- yet the linker's het list in 24.10-24.15 Mb held only
+        // clean het SNPs, so the right boundary linked back across 37 kb to the
+        // gap's left edge and reported agree=0 conflict=0. Reads behind both
+        // alleles are the warrant here, exactly as for any other het: its
+        // orientation is then decided by spanning reads rather than inherited.
         if (var.hap_to_cons_alle[1] != -1 && var.hap_to_cons_alle[2] != -1 &&
             var.hap_to_cons_alle[1] != var.hap_to_cons_alle[2] &&
-            (var.msa_insertion_alts.empty() || var.gap_link_supported) &&
+            (var.msa_insertion_alts.empty() || var.gap_link_supported ||
+             two_allele_het(var)) &&
             !hp_indel_blocks_link && !unsupported_gap_indel) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
