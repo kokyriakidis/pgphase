@@ -71,8 +71,18 @@ biallelic record only ever sees the reads whose indel matches its own allele, so
 its allele fraction is computed over a subset that by construction contains no
 reference read.
 
-One root cause therefore accounts for every remaining unspanned window, for the
-starved link votes at full coverage, and for the impossible allele fractions.
+One root cause therefore accounts for the starved link votes at full coverage
+and for the impossible allele fractions, and for the unspanned windows measured
+here.
+
+**Not for all of them, though.** An earlier version of this sentence claimed it
+accounts for *every* remaining unspanned window. The measurement behind it
+establishes the net-length mechanism on the windows examined in this document;
+`55,843,827` was separately diagnosed with a different defect -- of the eight
+sites the retry admits there, all carry `msa_verified = 1` and only one
+segregates at or above 0.90 against read truth, which is a site-quality problem
+rather than an allele-length-matching one. Two mechanisms, not one, and the
+allele-length fix should not be expected to close that window.
 
 ## The fix, and why it is not bolted on here
 

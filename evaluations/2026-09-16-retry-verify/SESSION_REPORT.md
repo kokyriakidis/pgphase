@@ -1,7 +1,7 @@
 # Session report: gap phasing in pgphase, 2026-09-16
 
-16 commits, `281ec0d..ccf74a4`, pushed to `origin/main`. 99 files, 17,363
-insertions; 818 of those in `src/` across 9 files, the rest evaluations. All five
+17 commits, `281ec0d..5b47152`, pushed to `origin/main`. 99 files, 17,363
+insertions; 824 of those in `src/` across 9 files, the rest evaluations. All five
 unit-test binaries pass; every source change is off by default or scoped to a
 window.
 
@@ -96,3 +96,11 @@ artifact export.
 2. Make the retry refuse a link across a spacing with no spanning reads, so the
    output is two honest blocks rather than one unverifiable one.
 3. Re-verify with `verify_retry.py`, then run the 31-gap target list.
+
+**Correction.** This report was written and committed as the session's
+housekeeping summary, and the commit that added it (`5b47152`, help text for
+`src/hybrid_collect.cpp`) is itself a 17th commit that touches `src/`. The
+counts above were originally `16 commits, 281ec0d..ccf74a4` and `818`
+insertions, i.e. the repository state one commit before this file's own commit.
+They now read the span that includes it: 17 commits, `281ec0d..5b47152`, 824
+insertions across the same 9 files in `src`.

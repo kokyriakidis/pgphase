@@ -202,7 +202,8 @@ Two things the verifier still fails on, and what each turned out to be.
 At `48,147,227` two deletion records sit at one position in the same phase set
 with **opposite** haplotype assignments and complementary depths: `GGT>G`
 (`0|1`, 10 ref / 5 alt) and `GGTGTGTGTG>G` (`1|0`, 5 ref / 10 alt). They are the
-2 bp and 8 bp forms of one GT tandem repeat, decomposed into separate biallelic
+2 bp and 9 bp forms of one GT tandem repeat (`GGT>G` deletes 2 bases,
+`GGTGTGTGTG>G` deletes 9; an earlier version of this paragraph said 8 bp), decomposed into separate biallelic
 candidates and then phased independently, which is contradictory as a genotype:
 one locus cannot carry both.
 

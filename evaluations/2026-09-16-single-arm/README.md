@@ -884,15 +884,22 @@ alleles on opposite haplotypes.
 48173318 21  0     48225787  3  1  <- sets a 53-site block's parity
 48173990 21  0     48229227 21  2     48234101 51  0
 48176831 15  0     48229446  0  0  <- also no evidence
-48177726 65  5     48232790 56  0     48235310 36 22
+48177726 65  5     48232790 56  0     48234732 50  0
+48177781 63  5                        48235242 59  0
+                                      48235310 36 22
 ```
+
+All 21 rows the dump contains. A previous version of this block listed 18 and
+omitted `48177781 63 5`, `48234732 50 0` and `48235242 59 0` -- three
+well-supported links, so the omission understated how strongly the rest of the
+window is linked and therefore how unusual the two evidence-free sites are.
 
 **Correction.** An earlier version of this section claimed every other link in
 the window carries 20-65 reads, which this same dump contradicts: `48,149,549`
 has 14, `48,176,831` 15, `48,202,057` 6, `48,162,480` 5, and `48,229,446` is a
 *second* site with no link evidence at all, which the earlier text also failed to
-mention. Agree counts across the window run 0 to 65, so the `48,225,787` link is
-**not** uniquely weak by voter count.
+mention. Agree counts across the window run 0 to 65 over all 21 links, so the
+`48,225,787` link is **not** uniquely weak by voter count.
 
 What does distinguish it is the combination: every other low-count link is
 unanimous or near it -- 14/0, 15/0, 5/0, 6/1 -- whereas `48,225,787` is `3/1`,

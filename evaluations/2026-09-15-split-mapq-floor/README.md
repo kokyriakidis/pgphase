@@ -22,6 +22,27 @@ N50:
 | `-q 1 --min-assign-mapq 30` | 399 / 1 / 0 / 270,669 | 399 / 1 / 0 / 270,669 |
 | `-q 1 --min-assign-mapq 5` | 505 / 1 / 0 / 275,646 | 505 / 1 / 0 / 275,646 |
 
+## The sweep's own auN column says more than its N50
+
+`graph_mapq_sweep.tsv` tracks `phase_block_aun_bp` as well as N50, and the two
+disagree about what `-q 1` did chromosome-wide:
+
+| arm | N50 | auN |
+|---|---:|---:|
+| `-q 30` | 917,428 | 987,490 |
+| `-q 10` | 920,605 | 1,068,205 |
+| `-q 5` | 920,605 | 1,056,615 |
+| **`-q 1`** | **1,011,696** | **15,474,231** |
+
+N50 rises 10.3%, which reads as re-blocking churn. auN rises **15.7x**, which
+does not: auN is length-weighted, so a jump of that size means one block many
+times longer than any other appeared. N50 hides it because N50 is a single
+order statistic. A ~15 Mb block is not evidence of corruption on its own, but it
+is exactly the shape that a join across a low-confidence interval would produce,
+and a summary of this sweep that quotes only N50 -- as the prose and console
+output of the sweep did -- leaves that unexamined. Whether that block is one
+correct block or one coin-flip join was not measured here.
+
 ## It does not generalize to the other two trustworthy gaps
 
 Same arms on the other two gaps whose sub-floor reads were shown to carry

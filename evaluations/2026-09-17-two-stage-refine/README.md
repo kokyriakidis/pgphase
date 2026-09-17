@@ -80,7 +80,8 @@ The second round's damage is not the price of its extra span. Tracing
 24,142,287   agree=0   conflict=0     absorbed with NO evidence
 ```
 
-and by truth the whole right flank -- thirteen sites each segregating at 1.000 --
+and by truth the whole right flank -- thirteen sites, twelve of them segregating
+at 1.000 and the last, 24,148,223, at 0.861 --
 was inverted relative to the left block. The linker itself is not at fault: at
 `collect_phase.cpp:860` a het with no supported link correctly starts a **new**
 phase set. The merge happens inside the k-means, which is a global clustering

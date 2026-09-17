@@ -60,8 +60,24 @@ Comparing candidate tables position by position in the interval:
 
 | | het sites | phased |
 |---|---:|---:|
-| BAM-only | 9 | **9** (all into PS 48147227) |
-| hybrid | 10 | **2** |
+| BAM-only | 9 | **9** (8 into PS 48147227, and 48,229,446 into its own PS 48229446) |
+| hybrid | 10 | **2** (48,176,831 into PS 48162480, 48,229,446 into PS 48229446) |
+
+Of the hybrid's 8 unphased het sites, **6 carry PS = -1** (48,177,789,
+48,202,057, 48,204,384, 48,213,573, 48,225,788, 48,229,227) and **2 carry
+PS = 0** (48,177,726, 48,183,977). An earlier version of this section said all
+eight were at `-1`, and said the BAM-only channel put all nine into one phase
+set.
+
+**On the 9 against the 11 above.** The two counts use the same definition --
+candidate rows whose `CATEGORY` contains `HET` with
+`48,176,830 <= POS <= 48,229,446` -- and the same output directories, but they
+were computed from **different runs**: the directories were deleted and
+recreated between the position-by-position comparison and the arm table above,
+so the 11 belongs to the later run and the 9 to the earlier one. The earlier
+run's exact flags are not recoverable from the record, so the two numbers should
+not be read as a discrepancy in one measurement, and neither should be quoted as
+the count for this window without saying which run it came from.
 
 Same positions, same categories, 7 shared `NOISY_CAND_HET` indels. Two sites
 differ in genotype: `48,177,781` and `48,225,787` are `NOISY_CAND_HET` to the BAM

@@ -57,8 +57,15 @@ existing observation.
 |---|---|---|---:|
 | 39,856,144 `C>T` | DP 16, 5/11, AF 0.688 | **DP 70, 34/36, AF 0.514** | 65 |
 | 39,848,888 | DP 19, 12/7, AF 0.368 | **DP 63, 29/34, AF 0.540** | 32 |
-| 39,848,374 | DP 22, AF 0.590 | **DP 65, 37/28, AF 0.431** | 37 |
-| 39,845,582 | DP 34, AF 0.610 | **DP 66, 25/41, AF 0.621** | 56 |
+| 39,848,374 | DP 22, ratio 0.59 | **DP 65, 37/28, AF 0.431** | 37 |
+| 39,845,582 | DP 34, ratio 0.61 | **DP 66, 25/41, AF 0.621** | 56 |
+
+The `before` column above reports **DP / covering reads**, the ratio the
+discovery pass printed (34/56 and 22/37), not an allele fraction: no ref/alt
+split was computed for these two records before the fix, so they have no
+measured `AF` to compare against. An earlier version of this table labelled both
+columns `AF`, which put two different quantities under one header. The `after`
+column's values are allele fractions.
 
 Panel result: **byte-identical to stock in every window** -- 0
 concordant->discordant, 0 tags lost, 0 new tags, same blocks, same in-gap hets.

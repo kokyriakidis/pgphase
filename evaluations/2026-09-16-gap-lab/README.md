@@ -79,30 +79,6 @@ genotypes are read off the alignment, compared with the read truth, and the
 applied flip is checked against the two sides' truth haplotypes. `--pass`
 requires that check as well as a clean gate.
 
-## Result on chr20:48,176,830-48,229,446 (52.6 kb): CLOSED
-
-The deficit gap hiphase spans at 100.0% over 252 reads.
-
-| stage | result |
-|---|---|
-| gauge | the whole-chr20 pipeline run: 238 blocks, 1,319 tagged reads in the gauge window |
-| flanks | left `48162480` (nearest phased site 48,162,480; **2 sites, 0 tagged reads**), right `48229446` (916 sites, 859 reads) |
-| gap arm | machinery on `48,171,830-48,234,446` -> 2 gap-local blocks: `48173317` (11 sites) and `48229446` (5 sites) |
-| evidence | 11 het sites in the interval, **11 phased by the gap arm**, 7 informative against truth |
-| compose | 42 allele voters, votes **[15, 0, 0, 27]** -- unanimous, 58 reads cross the seam -> flip 0 |
-| link left | **alleles**, 14 voters, **[9, 0, 0, 5]** -- unanimous, 66 reads cross -> flip 0 |
-| link right | **tags**, 71 voters, **[28, 0, 0, 43]** -- unanimous -> flip 0 |
-| link validation | frame hap1 carries PATERNAL over 14 sites; left flank hap1 PATERNAL over 2 sites (**CORRECT**), right flank hap1 PATERNAL over 81 sites (**CORRECT**) |
-| gate | tagged 1,319 -> 1,426, concordant 1,316 -> **1,423**, accuracy 99.77% -> 99.79%, **0** concordant->discordant, **107 newly tagged, all concordant**, 0 lost |
-| verdict | **PASS -- gap CLOSED, both links validated, +107 concordant reads** |
-
-The earlier conclusion that this gap cannot be closed was an artifact of the
-first version's window: the two hard linkage breaks
-(`48,096,582->48,123,657` and `48,123,657->48,147,230`, zero spanning reads at
-72x) lie **outside** the gap, and only became obstacles because the 150 kb window
-pulled the left flank to the far side of them. The gap's own interval is
-bridgeable, and closing it needs nothing the evidence does not already contain.
-
 ## What the link uses from the adjacent blocks
 
 The first version took eight sites nearest the seam. That was wrong twice over,
@@ -138,6 +114,15 @@ sites the left flank offered one site and never linked, at a 10 kb limit the gap
 managed only an extension, and only with its whole 2-site block in view did it
 close.
 
+**Correction to that reading.** The eight-site arm cannot be the reason the left
+flank offered one site: the cap was `sorted(left_sites)[-n_sites:]` with
+`n_sites = 8`, a pure count cap with no distance term, and this flank has only
+**2** sites in total. Two is fewer than eight, so the cap never bound, and
+whatever reduced the flank to a single site in that arm was not it. The cause was
+not established, and the conclusion the sweep is quoted for -- that a fixed
+default would quietly decide outcomes -- rests on the 10 kb arm, where the limit
+does bind.
+
 Sources that fire must not contradict each other. A shared-site comparison and a
 read vote are independent evidence about one orientation, so a conflict means one
 of the two blocks is internally wrong near the seam, and the rig refuses to link
@@ -155,6 +140,13 @@ The deficit gap hiphase spans at 100.0% over 252 reads.
 | compose | 42 allele voters, **[15, 0, 0, 27]** -- unanimous, 58 reads cross the seam -> flip 0 |
 | link left | shared sites **1/1 agree**; alleles **14 of 66** crossing reads -> 2 sources agreeing, flip 0 |
 | link right | shared sites **4/4 agree**; tags **71 reads**; flank tags x gap alleles **71/298** -> 3 sources agreeing, flip 0 |
+
+The two- and three-source rows above are from `gap_lab.py` **after** the
+shared-site vote was added. An earlier background run of the same window,
+dispatched before that code existed, printed a single `alleles` source on the
+left (`n=14 votes=[9, 0, 0, 5] [alleles (66 cross, 2+14 sites)] -> link,
+flip=0`); it is the same verdict reached on one source rather than two, and it
+should not be cited as multi-source agreement.
 | link validation | frame hap1 carries PATERNAL over 14 sites; left flank PATERNAL over 2 sites (**CORRECT**), right flank PATERNAL over 81 sites (**CORRECT**) |
 | gate | tagged 1,319 -> 1,426, concordant 1,316 -> **1,423**, accuracy 99.77% -> 99.79%, **0** concordant->discordant, **107 newly tagged, all concordant**, 0 lost |
 | verdict | **PASS -- gap CLOSED, both links validated, +107 concordant reads** |

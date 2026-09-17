@@ -41,6 +41,16 @@ Measured: stock defaults **byte-identical** on the panel (0 concordant to
 discordant, 0 records lost or gained), `--retry-unphased-with-bam` 4 of 6 spanned
 at 99.49% with 0 concordant to discordant.
 
+**Chromosome-wide, added after the fact.** This change touches the default path,
+and the standing rule for that is a whole-chr20 read-hamming comparison, not a
+panel run -- which was not done at the time this section was written. It is
+covered now, by a later run rather than a contemporaneous one: `67e87a5` is an
+ancestor of `1ef17ab`, and whole-chr20 on stock defaults at `1ef17ab` gives
+**212,320 tagged / 452 blocks / 0.559%** read hamming, exactly the standing
+baseline. So the change is inert chromosome-wide as well as on the panel. Stated
+plainly because the ordering matters: the panel result alone was not sufficient
+evidence for the claim it was attached to.
+
 ## Located, not fixed: the other two
 
 **`5,339,363` -- the emitted alleles are not the locus' alleles.** Truth is +38

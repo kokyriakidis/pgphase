@@ -64,7 +64,10 @@ Three things this says that the single-window work could not:
    missing step is linkage, not discovery, in most of the panel.
 3. **The panel's own cost is negligible** -- nine new discordant reads and one
    flip -- while chromosome-wide the same flag takes read hamming from 0.559% to
-   2.723%, roughly 5,300 extra discordant reads. Six windows cannot produce that,
+   2.723%. That is 0.559% of 212,320 against 2.723% of 218,989, i.e. about
+   1,190 discordant reads against about 5,960: roughly **4,800 extra**
+   discordant reads, not the 5,300 an earlier version of this line stated.
+   Six windows cannot produce that,
    so the chromosome-wide harm comes from windows the detector opens *outside* the
    deficit set. That relocates the next fix from the admission gate to the
    detector's scope, which the single window could not have shown.
