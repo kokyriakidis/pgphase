@@ -1976,6 +1976,37 @@ static bool active_region_contains(hts_pos_t active_reg_beg,
     return !(vcf_pos < active_reg_beg || vcf_pos > active_reg_end);
 }
 
+// A co-located deletion that duplicates an allele of a merged multiallelic
+// record is a second description of the same locus, and the wrong one. The merge
+// runs per noisy region, so a record produced by a different region or an
+// earlier pass survives it: at chr20:55,883,019 the merged record reads
+// AATATAT -> AAT,A at 1|2, matching the competitor, while a leftover 4 bp
+// deletion reported 1 reference against 36 alt at allele fraction 0.973 -- it
+// scores the other haplotype's reads against its own allele -- and was emitted
+// 1|1, a homozygous call at a locus whose two haplotypes are the alleles beside
+// it. Demote the leftover so the prune pass drops it; its allele is not lost, it
+// is allele 1 or 2 of the merged record.
+static void drop_superseded_colocated_deletions(PhasingChunk& chunk) {
+    for (const CandidateVariant& merged : chunk.candidates) {
+        if (merged.key.type != VariantType::Deletion ||
+            merged.msa_insertion_alts.empty()) continue;
+        for (CandidateVariant& other : chunk.candidates) {
+            if (&other == &merged) continue;
+            if (other.key.type != VariantType::Deletion ||
+                other.key.pos != merged.key.pos ||
+                !other.msa_insertion_alts.empty()) continue;
+            const int retained = merged.key.ref_len - other.key.ref_len;
+            if (retained < 0) continue;
+            bool duplicate = retained == 0;
+            for (const std::string& allele : merged.msa_insertion_alts)
+                if (static_cast<size_t>(retained) == allele.size()) duplicate = true;
+            if (!duplicate) continue;
+            other.counts.category = VariantCategory::LowCoverage;
+            other.lcd_var_i_to_cate = 0;
+        }
+    }
+}
+
 void collect_var_classify(PhasingChunk& chunk,
                           const Options& opts,
                           const bam_hdr_t* header) {
@@ -2111,6 +2142,9 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     // graph/hybrid block merger, which aligns complete phase sets by shared reads.
     if (!opts.recover_gaps || opts.force_noisy_msa)
         collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
+    // Step 4 is what creates the merged multiallelic records, so the superseded
+    // duplicates can only be identified after it has run.
+    drop_superseded_colocated_deletions(chunk);
 
     // Additive gap-fill: recover the reads skip_noisy_kmeans left unphased.
     // Second round: clean sites plus the MSA-verified noisy ones, adopted.

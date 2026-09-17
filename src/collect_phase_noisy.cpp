@@ -1085,10 +1085,22 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
     for (size_t i = 0; i + 1 < vars.size(); ++i) {
         auto& first = vars[i];
         const auto& second = vars[i + 1];
+        // A homozygous verdict on one of a co-located pair is the symptom, not a
+        // reason to leave the pair alone: that record scores the other
+        // haplotype's reads against its own allele, so its allele fraction
+        // approaches 1 and the classifier calls it homozygous. Requiring both to
+        // be heterozygous refuses exactly the loci that need merging, so one
+        // heterozygous verdict between them is enough.
+        const auto noisy = [](const CandidateVariant& v) {
+            return v.counts.category == VariantCategory::NoisyCandHet ||
+                   v.counts.category == VariantCategory::NoisyCandHom;
+        };
         if (first.key.type != VariantType::Deletion || second.key.type != VariantType::Deletion ||
             first.key.pos != second.key.pos || first.key.ref_len == second.key.ref_len ||
-            first.counts.category != VariantCategory::NoisyCandHet ||
-            second.counts.category != VariantCategory::NoisyCandHet) continue;
+            !first.msa_insertion_alts.empty() || !second.msa_insertion_alts.empty() ||
+            !noisy(first) || !noisy(second) ||
+            (first.counts.category != VariantCategory::NoisyCandHet &&
+             second.counts.category != VariantCategory::NoisyCandHet)) continue;
         // Two deletions of different length at one position are two alleles of
         // one site, not two sites. Emitted separately, each scores the other
         // haplotype's reads against its own allele, so neither can express the
@@ -1143,6 +1155,30 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         update_variant_depth_fields(first);
         vars.erase(vars.begin() + i + 1);
         categories.erase(categories.begin() + i + 1);
+        // A third co-located deletion can remain, and it duplicates an allele the
+        // merged record now carries. Left in place it is classified from its own
+        // double-counted evidence and emitted as a second record at the same
+        // position: at chr20:55,883,019 the merged record reads
+        // AATATAT -> AAT,A at 1|2, matching the competitor, while a leftover 4 bp
+        // record reported 1 reference against 36 alt at allele fraction 0.973 and
+        // was emitted 1|1 -- a homozygous call at a locus whose two haplotypes
+        // are the alleles beside it. Demote the leftover so the prune pass drops
+        // it; its allele is not lost, it is allele 1 or 2 of the merged record.
+        for (size_t j = 0; j < vars.size(); ++j) {
+            if (j == i) continue;
+            CandidateVariant& other = vars[j];
+            if (other.key.type != VariantType::Deletion ||
+                other.key.pos != first.key.pos ||
+                !other.msa_insertion_alts.empty()) continue;
+            const int retained = first.key.ref_len - other.key.ref_len;
+            bool duplicate = retained == 0;
+            for (const std::string& allele : first.msa_insertion_alts)
+                if (retained > 0 && static_cast<size_t>(retained) == allele.size())
+                    duplicate = true;
+            if (!duplicate) continue;
+            other.counts.category = VariantCategory::LowCoverage;
+            if (j < categories.size()) categories[j] = VariantCategory::LowCoverage;
+        }
     }
 }
 
