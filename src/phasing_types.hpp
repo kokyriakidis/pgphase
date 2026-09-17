@@ -316,7 +316,13 @@ struct Options {
     /// chain links across it with no spanning read and picks an arbitrary
     /// orientation.
     bool joint_het_orientation = false;
-    bool retry_unphased_with_bam = false;
+    /// ON BY DEFAULT. After the first solve, find windows it left unphased and
+    /// re-solve each with the noisy class admitted (force_noisy_msa,
+    /// skip_noisy_kmeans = false, scoped by retry_windows). Measured on the six
+    /// panel windows: 4 of 6 gaps span against 0 without it, 23 heterozygotes
+    /// phased strictly inside gaps against 0, at 99.49% read concordance
+    /// against 99.67%. Disable with --no-retry-unphased-with-bam.
+    bool retry_unphased_with_bam = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.

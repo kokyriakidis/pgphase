@@ -14,7 +14,11 @@ cd "${REPO}"
 # The binary writes the file itself; Catch2 captures stdout, so piping it would
 # yield an indented, unparseable copy.
 PGPHASE_EMIT_EXPECTATIONS="${OUT}.tmp" ./test_gap_windows "[windows]" > /dev/null
+# Both arms must be present, or the file would silently install with one of them
+# missing and its assertions would stop running. The names must track the arms
+# in src/test_gap_windows.cpp: the re-solve is the DEFAULT, and the comparison
+# arm turns it off.
 grep -q '^default' "${OUT}.tmp"
-grep -q '^retry' "${OUT}.tmp"
+grep -q '^noretry' "${OUT}.tmp"
 mv "${OUT}.tmp" "${OUT}"
 echo "wrote ${OUT}: $(grep -vc '^#' "${OUT}") rows"

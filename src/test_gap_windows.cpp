@@ -664,7 +664,7 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     // than being skipped, so the file cannot silently fall behind the panel.
     const std::vector<std::pair<std::string, std::string>> arms = {
         {"default", ""},
-        {"retry", "--retry-unphased-with-bam"},
+        {"noretry", "--no-retry-unphased-with-bam"},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -721,7 +721,7 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     std::map<std::string, Totals> totals;
     const std::vector<std::pair<std::string, std::string>> arms = {
         {"default", ""},
-        {"retry", "--retry-unphased-with-bam"},
+        {"noretry", "--no-retry-unphased-with-bam"},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {
