@@ -342,8 +342,42 @@ SiteToCandidateMap inject_graph_sites(
             fallback_ai = -1;  // matched, nothing to add
             break;
         }
-        // No ALT matched an existing candidate: add the first as graph-only,
-        // which is what the single-ALT path did before.
+        // No ALT matched an existing candidate exactly. Before adding one, look
+        // for an indel the alignment channel already called at this position:
+        // the catalog's claim is that the locus varies, and which length is
+        // present there is a read measurement the alignment has already made.
+        // Adding the catalog's length as a second record puts two descriptions
+        // of one event in the table, and the added one is then counted as though
+        // the reads carried it -- at chr20:55,903,460 the alignment calls a 1 bp
+        // insertion with 58 of 63 reads behind it and read truth agrees (58 of
+        // 61 covering reads at +1, exactly one at +2), yet the catalog's 2 bp
+        // claim was added beside it and accumulated 59 of 63 as alt support, and
+        // both were emitted.
+        //
+        // So the claim is honoured on the record that holds the measurement:
+        // graph_site is set, which is what lets classify_graph_only_candidates
+        // promote the locus, while the allele and counts stay the alignment's.
+        // pre_sort_vcf_alleles is deliberately NOT set here -- it carries the
+        // catalog's own ref/alt for consumers that screen on it, and this
+        // candidate's allele is not the catalog's.
+        if (fallback_ai >= 0) {
+            const VariantKey target = vcf_to_variant_key(
+                chunk_tid, site.pos, site.ref,
+                site.alts[static_cast<size_t>(fallback_ai)]);
+            if (target.type != VariantType::Snp) {
+                for (int ci = 0; ci < orig_count; ++ci) {
+                    CandidateVariant& cand = chunk.candidates[static_cast<size_t>(ci)];
+                    if (cand.graph_site || cand.key.type != target.type ||
+                        cand.key.pos != target.pos) continue;
+                    cand.graph_site = true;
+                    site_to_candidate[site_key] = ci;
+                    all_graph_pre_sort.insert(ci);
+                    ++bridged;
+                    fallback_ai = -1;
+                    break;
+                }
+            }
+        }
         if (fallback_ai >= 0) {
             const std::string& vcf_alt = site.alts[static_cast<size_t>(fallback_ai)];
             const int new_idx = add_graph_only_candidate(

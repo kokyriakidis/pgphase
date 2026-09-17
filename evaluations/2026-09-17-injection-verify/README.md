@@ -23,7 +23,7 @@ at, so a pass means the pipeline reached the right answer on its own evidence.
 | 5,309,406 | 308 | 0 | 0 | 0 | 1 | 3 | 0 |
 | 12,717,796 | 362 | 0 | 0 | 0 | 0 | 1 | 1 |
 | 39,838,293 | 245 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **total** | **1,576** | **0** | **1** | **0** | **3** | **7** | **1** |
+| **total** | **1,575** | **0** | **0** | **0** | **3** | **7** | **1** |
 
 **Injection is complete.** Nothing the alignment channel finds is dropped, and
 every catalog claim read truth calls heterozygous is present. The `dropped`
@@ -40,6 +40,38 @@ description of a two-allele locus, it is the only description available. Flaggin
 those buried the three that are real.
 
 ## The remaining defects, each with its mechanism
+
+## Fixed: the duplicate, and it was not where I said it was
+
+The claim above that this needed the allele-assignment path was wrong, and
+checking the one thing that settles it showed why: the hybrid's copy of the
+alignment channel's record is **byte-identical** -- `DP=63`, `5/58`,
+`AF=0.920635`, `CLEAN_HOM`, the same numbers the alignment channel reports. The
+representation is copied directly and correctly. The defect was purely
+**additive**: a second record beside it.
+
+`augment_chunk_with_graph_sites` tries every catalog ALT for an *exact* key match
+against the existing candidates, and when none matches it adds the first ALT as a
+new graph-only candidate. At this locus the catalog carries a 2 bp insertion and
+the alignment channel called a 1 bp one, so no key matched and the 2 bp claim was
+added -- then counted as though the reads carried it.
+
+The catalog's claim is that the locus varies. *Which* length is present there is
+a read measurement, and the alignment channel has already made it. So before
+adding, the injection now looks for an indel of the same type the alignment
+already called at that position and honours the claim on **that** record:
+`graph_site` is set, which is what lets `classify_graph_only_candidates` promote
+the locus, while the allele and counts stay the alignment's.
+`pre_sort_vcf_alleles` is deliberately not set on such a bridge, since it carries
+the catalog's own ref/alt for consumers that screen on it and this candidate's
+allele is not the catalog's.
+
+Result: one record at the locus, `T>TA` at `1|1:63:5,58`, matching the alignment
+channel and matching truth. Panel candidates 1,576 -> 1,575, stock defaults
+byte-identical, `--retry-unphased-with-bam` 4 of 6 spanned at 99.49% with 0
+concordant-to-discordant.
+
+### The original diagnosis, kept for the record
 
 **`55,903,460` -- duplicated, and the deeper bug is the allele count.** The
 alignment channel emits one record, `T>TA`, a 1 bp insertion, and read truth
