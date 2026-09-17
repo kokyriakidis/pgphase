@@ -913,7 +913,7 @@ void backfill_graph_candidate_counts(
     // (TGGGGATG>T, a 7 bp deletion hiphase phases) backfilled to ref_cov 23,
     // alt_cov 42, total_cov 65 and allele_fraction 0.000, so it never reached
     // the candidate table at all. Same expression the BAM and graph-only paths
-    // use (gap_evidence.cpp:256, graph_bam_adapter.cpp:693).
+    // use (graph_bam_adapter.cpp:693).
     for (const int vi : graph_only_candidates) {
         if (vi < 0 || static_cast<size_t>(vi) >= chunk.candidates.size()) continue;
         VariantCounts& c = chunk.candidates[static_cast<size_t>(vi)].counts;

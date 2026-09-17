@@ -65,25 +65,12 @@ static void print_hybrid_help() {
         << "      --graph-indel-min-alt INT Min alt support for graph het-indel anchor [0]\n"
         << "      --anchor-af-margin F      Max |AF-0.5| for any graph-owned site to vote [0.5]\n"
         << "      --keep-noisy-kmeans       Restore step-4 noisy-candidate k-means re-orientation (off by default)\n"
-        << "      --recover-gaps            Recover remaining gaps with clean, MSA SNP, then MSA indel tiers\n"
-        << "      --no-graph-gap-bam        Disable graph-selected BAM recovery (comparison baseline)\n"
-        << "      --gap-recovery-report FILE  Per-gap tier and stitching outcomes (TSV)\n"
-        << "      --gap-evidence-cache FILE Reuse gap MSA sites/read alleles across runs\n"
-        << "      --gap-decision-audit DIR Export frozen all-tier evidence without changing decisions\n"
         << "      --link-by-alleles         Let untagged reads carry phase-block linking evidence\n"
         << "      --block-link-window INT   Preceding het variants searched for a link [1]\n"
         << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
         << "      --private-msa-snp-first   Try MSA SNPs alone before admitting MSA indels per junction\n"
         << "      --min-block-link-reads INT  Spanning reads needed to carry a phase block [2]\n"
-        << "      --gap-independent-min-reads INT  Min gap-only reads to emit a new block [3]\n"
-        << "      --gap-recovery-max-rounds INT  Max repeat rounds per batch [1]\n"
-        << "      --gap-bridge-independent-blocks  Try bridging new independent blocks to flanks (experimental, off)\n"
-        << "      --gap-bridge-private-snps  Let MSA-verified private het SNPs inside a gap act as block-bridge anchors\n"
-        << "      --no-gap-link-by-alleles  Disable additively attaching reads to an already-decided gap join by allele agreement (on by default)\n"
-        << "      --gap-allele-attach-join-only  Allele attachment needs a joined gap\n"
         << "      --retry-unphased-with-bam  Re-solve a window the graph sites could not\n"
-        << "      --msa-verified-refine      Second k-means round over the clean sites plus\n"
-        << "                                 the MSA-verified noisy ones, adopted\n"
         << "      --joint-het-orientation    Orient both haplotypes jointly at a site the\n"
         << "                                 allele depths call heterozygous\n"
         << "                                 phase, or could not connect to the previous\n"
@@ -92,7 +79,6 @@ static void print_hybrid_help() {
         << "                                 retry fires [5]\n"
         << "      --retry-min-window-bp INT  Width an unphased window must reach [10000]\n"
         << "      --no-hybrid-trim          Disable minimal-VCF trimming of graph-only alleles before noise filter (on by default)\n"
-        << "      --gap-fill                Additively phase reads the clean core left unphased into a disjoint PS namespace (off by default)\n"
         << "      --private-sites FILE      Jointly phase graph sites plus only listed BAM candidates\n"
         << "      --private-msa             Experiment: MSA-validate whitelisted noisy private sites\n"
         << "      --private-msa-margin INT  Min consensus score gap to admit a bridge read [24]\n"
@@ -167,30 +153,17 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kGraphIndelMinAltOption,
         kAnchorAfMarginOption,
         kKeepNoisyKmeansOption,
-        kRecoverGapsOption,
-        kNoGraphGapBamOption,
-        kGapRecoveryReportOption,
-        kGapEvidenceCacheOption,
-        kGapDecisionAuditOption,
         kLinkByAllelesOption,
         kBlockLinkWindowOption,
         kPrivateMsaAdmitAllOption,
         kPrivateMsaSnpFirstOption,
         kMinBlockLinkReadsOption,
-        kGapIndependentMinReadsOption,
-        kGapRecoveryMaxRoundsOption,
-        kGapBridgeIndependentOption,
-        kGapBridgePrivateSnpsOption,
         kMinAssignMapqOption,
-        kNoGapLinkByAllelesOption,
-    kGapAlleleAttachJoinOnlyOption,
     kRetryUnphasedWithBamOption,
-    kMsaVerifiedRefineOption,
     kJointHetOrientationOption,
     kRetryMinUnphasedReadsOption,
     kRetryMinWindowBpOption,
         kNoHybridTrimOption,
-        kGapFillOption,
         kPrivateSitesOption,
         kPrivateMsaOption,
         kPrivateMsaMarginOption,
@@ -240,29 +213,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"graph-indel-min-alt", required_argument, nullptr, kGraphIndelMinAltOption},
         {"anchor-af-margin", required_argument, nullptr, kAnchorAfMarginOption},
         {"keep-noisy-kmeans", no_argument,     nullptr, kKeepNoisyKmeansOption},
-        {"recover-gaps", no_argument, nullptr, kRecoverGapsOption},
-        {"no-graph-gap-bam", no_argument, nullptr, kNoGraphGapBamOption},
-        {"gap-recovery-report", required_argument, nullptr, kGapRecoveryReportOption},
-        {"gap-evidence-cache", required_argument, nullptr, kGapEvidenceCacheOption},
-        {"gap-decision-audit", required_argument, nullptr, kGapDecisionAuditOption},
         {"link-by-alleles",   no_argument,     nullptr, kLinkByAllelesOption},
         {"block-link-window", required_argument, nullptr, kBlockLinkWindowOption},
         {"private-msa-admit-all-in-region", no_argument, nullptr, kPrivateMsaAdmitAllOption},
         {"private-msa-snp-first", no_argument, nullptr, kPrivateMsaSnpFirstOption},
         {"min-block-link-reads", required_argument, nullptr, kMinBlockLinkReadsOption},
-        {"gap-independent-min-reads", required_argument, nullptr, kGapIndependentMinReadsOption},
-        {"gap-recovery-max-rounds", required_argument, nullptr, kGapRecoveryMaxRoundsOption},
-        {"gap-bridge-independent-blocks", no_argument, nullptr, kGapBridgeIndependentOption},
-        {"gap-bridge-private-snps", no_argument, nullptr, kGapBridgePrivateSnpsOption},
-        {"no-gap-link-by-alleles", no_argument, nullptr, kNoGapLinkByAllelesOption},
-        {"gap-allele-attach-join-only", no_argument, nullptr, kGapAlleleAttachJoinOnlyOption},
         {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
-        {"msa-verified-refine", no_argument, nullptr, kMsaVerifiedRefineOption},
         {"joint-het-orientation", no_argument, nullptr, kJointHetOrientationOption},
         {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
         {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
         {"no-hybrid-trim", no_argument,        nullptr, kNoHybridTrimOption},
-        {"gap-fill",        no_argument,       nullptr, kGapFillOption},
         {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
         {"private-msa",      no_argument,       nullptr, kPrivateMsaOption},
         {"private-msa-margin", required_argument, nullptr, kPrivateMsaMarginOption},
@@ -333,30 +293,16 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kGraphIndelMinAltOption: opts.graph_indel_min_alt = std::atoi(optarg); break;
             case kAnchorAfMarginOption: opts.anchor_af_margin = std::atof(optarg); break;
             case kKeepNoisyKmeansOption: opts.skip_noisy_kmeans = false; break;
-            case kRecoverGapsOption: opts.recover_gaps = true; break;
-            case kNoGraphGapBamOption: opts.graph_gap_bam = false; break;
-            case kGapRecoveryReportOption: opts.gap_recovery_report = optarg; break;
-            case kGapEvidenceCacheOption: opts.gap_evidence_cache = optarg; break;
-            case kGapDecisionAuditOption: opts.gap_decision_audit = optarg; break;
             case kLinkByAllelesOption: opts.link_by_alleles = true; break;
             case kBlockLinkWindowOption: opts.block_link_window = std::atoi(optarg); break;
             case kPrivateMsaAdmitAllOption: opts.private_msa_admit_all_in_region = true; break;
             case kPrivateMsaSnpFirstOption: opts.private_msa_snp_first = true; break;
             case kMinBlockLinkReadsOption: opts.min_block_link_reads = std::atoi(optarg); break;
-            case kGapIndependentMinReadsOption: opts.gap_independent_min_reads = std::atoi(optarg); break;
-            case kGapRecoveryMaxRoundsOption: opts.gap_recovery_max_rounds = std::atoi(optarg); break;
-            case kGapBridgeIndependentOption: opts.gap_bridge_independent_blocks = true; break;
-            case kGapBridgePrivateSnpsOption: opts.gap_bridge_private_snps = true; break;
-            case kNoGapLinkByAllelesOption: opts.gap_link_by_alleles = false; break;
-            case kGapAlleleAttachJoinOnlyOption:
             case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
-            case kMsaVerifiedRefineOption: opts.msa_verified_refine = true; break;
             case kJointHetOrientationOption: opts.joint_het_orientation = true; break;
             case kRetryMinUnphasedReadsOption: opts.retry_min_unphased_reads = std::atoi(optarg); break;
             case kRetryMinWindowBpOption: opts.retry_min_window_bp = std::atoll(optarg); break;
-                opts.gap_allele_attach_join_only = true; break;
             case kNoHybridTrimOption: opts.exp_hybrid_trim = false; break;
-            case kGapFillOption:      opts.gap_fill = true; break;
             case kPrivateSitesOption:
                 opts.private_sites_vcf = optarg;
                 break;
@@ -382,22 +328,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         opts.graph_sites_vcf.empty() || opts.gaf_file.empty()) {
         std::cerr << "Error: --ref, --bam, --graph-sites, and --gaf are required\n\n";
         print_hybrid_help();
-        return 1;
-    }
-    if (opts.gap_bridge_private_snps && !opts.recover_gaps) {
-        std::cerr << "Error: --gap-bridge-private-snps requires --recover-gaps\n";
-        return 1;
-    }
-    if ((!opts.gap_recovery_report.empty() || !opts.gap_evidence_cache.empty() ||
-         !opts.gap_decision_audit.empty()) &&
-        !opts.recover_gaps) {
-        std::cerr << "Error: --gap-recovery-report, --gap-evidence-cache and --gap-decision-audit require --recover-gaps\n";
-        return 1;
-    }
-    if (opts.recover_gaps && (!opts.private_sites_vcf.empty() || opts.gap_fill ||
-                              opts.private_msa_snp_first || opts.private_msa_admit_all_in_region)) {
-        std::cerr << "Error: --recover-gaps manages site admission automatically; "
-                     "do not combine it with --private-sites, --gap-fill or private MSA tier flags\n";
         return 1;
     }
     if (opts.private_msa_margin <= 0 || opts.min_block_link_reads <= 0 ||

@@ -2053,12 +2053,6 @@ void collect_var_classify(PhasingChunk& chunk,
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts) {
     if (chunk.candidates.empty()) return;
     collect_read_var_profile(opts, chunk);
-    if (opts.recover_gaps) {
-        for (auto& profile : chunk.read_var_profile) {
-            profile.bam_alleles = profile.alleles;
-            profile.bam_qi = profile.alt_qi;
-        }
-    }
 }
 
 // Recover the reads that skip_noisy_kmeans leaves unphased without disturbing
@@ -2140,85 +2134,10 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     // first-pass read labels would mix independent PS orientations and undo
     // newly established bridges. Graph preservation is handled by the existing
     // graph/hybrid block merger, which aligns complete phase sets by shared reads.
-    if (!opts.recover_gaps || opts.force_noisy_msa)
-        collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
+    collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
     // Step 4 is what creates the merged multiallelic records, so the superseded
     // duplicates can only be identified after it has run.
     drop_superseded_colocated_deletions(chunk);
-
-    // Additive gap-fill: recover the reads skip_noisy_kmeans left unphased.
-    // Second round: clean sites plus the MSA-verified noisy ones, adopted.
-    if (opts.msa_verified_refine && !chunk.candidates.empty()) {
-        std::vector<uint32_t> saved(chunk.candidates.size());
-        int verified = 0;
-        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-            CandidateVariant& c = chunk.candidates[ci];
-            saved[ci] = c.lcd_var_i_to_cate;
-            const bool noisy = (c.lcd_var_i_to_cate &
-                                (kCandNoisyCandHet | kCandNoisyCandHom)) != 0;
-            if (!noisy) continue;
-            // Verification alone is not an admission gate -- measured on
-            // chr20:55,843,827-55,889,113, where all eight sites the retry
-            // admits carry msa_verified = 1 yet only one segregates at or above
-            // 0.90 against read truth and five sit below 0.70. A second round
-            // over every verified site costs 152 concordant-to-discordant reads
-            // on the panel, so the screen has to be narrower.
-            //
-            // What separates them is the event, not the verification. On
-            // chr20:24,105,188-24,142,287 the informative site is a merged
-            // multiallelic insertion whose two alleles split the haplotypes
-            // perfectly, while the phantom is a 1 bp deletion in a homopolymer
-            // whose net lengths (+0 at 17/15, -1 at 14/8, -2 at 6/2) separate
-            // nothing. A homopolymer indel is admitted only when its own allele
-            // depths call it a clear heterozygote, which is the same test the
-            // link list already applies for the same reason.
-            const bool two_allele = c.msa_insertion_alts.size() == 2;
-            bool depths_call_het = false;
-            if (c.counts.alle_covs.size() >= 2) {
-                const int ref_cov = c.counts.alle_covs[0];
-                int alt_cov = 0;
-                for (size_t ai = 1; ai < c.counts.alle_covs.size(); ++ai)
-                    alt_cov += c.counts.alle_covs[ai];
-                const int total = ref_cov + alt_cov;
-                if (total > 0 && ref_cov >= opts.min_alt_depth &&
-                    alt_cov >= opts.min_alt_depth) {
-                    const double af = static_cast<double>(alt_cov) / total;
-                    depths_call_het = af >= opts.min_af && af <= opts.max_af;
-                }
-            }
-            // The depth escape was measured and removed. A homopolymer indel can
-            // have textbook heterozygous depths and still carry no phase
-            // information: chr20:24,131,708 is a 1 bp deletion at 39/29, allele
-            // fraction 0.427, and it segregates at 0.636 against read truth. It
-            // is what glued the left block to the right flank in this window --
-            // its own link evidence is 9 agree against 5 conflict, a net margin
-            // of 4 the link loop's repeat rule would refuse, but the k-means
-            // takes no pairwise evidence and used it as a bridge anyway, which
-            // inverted 13 right-flank sites that each segregate at 1.000. A
-            // record carrying both of the locus' alleles is exempt: its two
-            // alleles are the haplotypes, not one length among many.
-            const bool usable = c.msa_verified &&
-                (two_allele || !c.is_homopolymer_indel);
-            (void)depths_call_het;
-            if (usable) ++verified;
-            else c.lcd_var_i_to_cate = 0;
-        }
-        if (verified > 0)
-            assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
-        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci)
-            chunk.candidates[ci].lcd_var_i_to_cate = saved[ci];
-        if (opts.verbose >= 1 && verified > 0) {
-            std::fprintf(stderr,
-                "[refine] chunk tid=%d %" PRId64 "-%" PRId64
-                ": second round over %d MSA-verified site(s)\n",
-                chunk.region.tid, static_cast<int64_t>(chunk.region.beg),
-                static_cast<int64_t>(chunk.region.end), verified);
-        }
-    }
-
-    if (opts.gap_fill && opts.skip_noisy_kmeans && !chunk.candidates.empty()) {
-        gap_fill_unphased_reads(chunk, opts);
-    }
 
     const hts_pos_t active_reg_beg = chunk.region.beg;
     const hts_pos_t active_reg_end = chunk.region.end;

@@ -1246,7 +1246,7 @@ int make_vars_from_msa_cons_aln(
                                             ref_cons_aln_str.aln_len,
                                             false);
     }
-    if (opts.recover_gaps || opts.force_noisy_msa)
+    if (opts.force_noisy_msa)
         split_nested_msa_deletions(opts, chunk, hap1_vars, hap2_vars);
     update_cand_var_profile_from_cons_aln_str2(
         opts, chunk, clu_n_seqs, clu_read_ids, aln_strs, noisy_reg_beg,

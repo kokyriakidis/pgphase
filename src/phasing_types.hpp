@@ -86,7 +86,6 @@ constexpr int kDefaultStitchRule = kStitchRuleNetMargin;
 // Hamming flat).  --stitch-rule overrides it.
 constexpr int kHybridDefaultStitchRule = kStitchRuleBothStrands;
 
-// Gap-fill (--gap-fill): phase-set id offset applied to reads recovered by the
 // scratch-buffer noisy k-means, so their phase sets occupy a disjoint namespace
 // well above any genomic-coordinate PS id and never collide with core blocks.
 constexpr hts_pos_t kGapFillPsOffset = 1000000000;
@@ -236,16 +235,11 @@ struct Options {
     bool private_msa_snp_first = false;
     // Internal last-resort trial: verified homopolymer links only inside this
     // unresolved gap. Negative bounds disable the trial in ordinary rounds.
-    hts_pos_t gap_hp_link_beg = -1;
-    hts_pos_t gap_hp_link_end = -1;
     // Internal bounds for non-repeat MSA sites admitted for one gap retry.
-    hts_pos_t gap_recovery_beg = -1;
-    hts_pos_t gap_recovery_end = -1;
     // Minimum gap-only reads (no original flank/block assignment at all)
     // sharing one locally-derived phase set before emitting it as a new,
     // independent block. Purely additive: never overwrites an existing
     // assignment. 0 disables independent-block emission entirely.
-    int gap_independent_min_reads = 3;
     // Bound on how many times the bridge/independent-block recovery sequence
     // repeats per batch. Each round can create new, smaller gaps (a fresh
     // independent block now sits between an existing flank and a bridge that
@@ -253,14 +247,12 @@ struct Options {
     // logic reach those, terminating itself on the first round with no
     // progress. 1 reproduces the original single-pass behavior.
     //
-    // Default is 1: only round 0 can use --gap-evidence-cache (its signature
     // is keyed to the gap inventory, which every later round changes), so
     // round >=1 rebuilds raw evidence uncached. On chr20 this was observed to
     // grow resident memory past 47 GB within 10 minutes with no sign of
     // bounding -- not yet safe to enable by default. Raise this only with
     // memory monitored, on a pipeline that has evidence-building costs under
     // control for repeated, partial re-invocation.
-    int gap_recovery_max_rounds = 1;
     // Attempt to bridge each newly-independent block to its own two flanks,
     // reusing its proposal (no re-extraction) against a read index rebuilt
     // post-emission. Off by default: measured on chr20 it added only 6 reads
@@ -272,7 +264,6 @@ struct Options {
     // emit_independent_gap_block), but not worth enabling until the bridge
     // criterion itself is strengthened for this specific, already-once-
     // rejected evidence.
-    bool gap_bridge_independent_blocks = false;
     // Additively attach reads with no committed pre-recovery haplotype/phase-
     // set at all (GapReadIndex::assignments misses them -- e.g. they sat
     // right at a block boundary and the main pass left them unassigned) to a
@@ -307,14 +298,6 @@ struct Options {
     // fewer/larger blocks) because many reads that previously only qualified
     // for a same-PS independent block now attach directly to the correct
     // flank instead.
-    bool gap_link_by_alleles = true;
-    /// Require a gap to have actually joined before allele agreement may attach
-    /// reads to its flanks. Off by default: the allele path is a net gain across
-    /// most windows and only harmful where a one-sided link is unvalidated.
-    bool gap_allele_attach_join_only = false;
-    /// Re-solve a chunk with the BAM's own sites admitted, in the windows where
-    /// the first solve left reads unphased. The first solve sees only catalog
-    /// sites (recover_gaps zeroes every other candidate's category), so where the
     /// catalog is too sparse to phase, nothing is assigned and the region becomes
     /// a gap for a later pass to recover. Admitting the BAM sites there and
     /// solving again keeps the work in the normal pass, and confines the cost:
@@ -334,10 +317,6 @@ struct Options {
     /// orientation.
     bool joint_het_orientation = false;
     bool retry_unphased_with_bam = false;
-    /// Run the noisy-region MSA even though recover_gaps is set. The retry needs
-    /// that step, which collect_var_run_phasing otherwise defers to the recovery
-    /// pass, but it must NOT claim recovery is off: other correctness guards are
-    /// gated on recover_gaps, and clearing it silently disabled
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.
@@ -358,7 +337,6 @@ struct Options {
     // directly in the BAM. The bridge anchor set otherwise admits only exactly
     // clean het SNPs and non-homopolymer MSA indels, which is the evidence a
     // graph gap interior is least likely to contain.
-    bool gap_bridge_private_snps = false;
     // When true (hybrid + skip_noisy_kmeans only), recover the reads that
     // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
     // into a scratch buffer and adopt its haplotype for reads the clean core
@@ -366,21 +344,7 @@ struct Options {
     // namespace (PS += kGapFillPsOffset) so no core phase set is renumbered,
     // merged, or re-oriented. Additive: the clean core is never modified. This
     // is the in-binary form of scripts/gapfill.py (1-source / BAM-pipeline gap).
-    // Off by default; enabled by --gap-fill on collect-hybrid-variation. See
-    // CHECKPOINT.md "hybrid-core + gap-fill".
-    bool gap_fill = false;
 
-    /// Two-stage solve, as the alignment pipeline does it: the clean k-means
-    /// first, then a second round over the clean sites plus the MSA-VERIFIED
-    /// noisy ones, whose result is adopted for reads AND candidates. This is the
-    /// same kCandGermlineVarCate k-means gap_fill_unphased_reads already runs,
-    /// except that pass harvests haplotypes only for reads the core left
-    /// unphased and then restores every candidate field, so no noisy site ever
-    /// gains a phase set and none can extend or link a block. Restricting the
-    /// second round to msa_verified sites is what makes adopting it defensible:
-    /// the unverified noisy class is the one measured to be mostly
-    /// uninformative in repeat tracts.
-    bool msa_verified_refine = false;
     // Trim graph-only catalog alleles to minimal VCF form before the hybrid
     // indel noise filter, matching apply_graph_noise_filter. Graph catalog
     // alleles are non-minimal (full repeat run on both flanks); trimming shrinks
@@ -440,14 +404,6 @@ struct Options {
     // with the read's assigned haplotype, so untagged reads still contribute
     // connectivity.
     bool link_by_alleles = false;
-    /// Automatically rephase unresolved gaps with cumulative BAM/MSA evidence.
-    bool recover_gaps = false;
-    bool graph_gap_bam = true;
-    std::string gap_recovery_report;
-    /// Read-only, all-tier decision and observation export before recovery.
-    std::string gap_decision_audit;
-    /// Optional persistent cache for gap-targeted MSA sites and read alleles.
-    std::string gap_evidence_cache;
     // Emit and phase hets that fail the anchor AF margin instead of discarding
     // them.  They still never anchor k-means; this only restores their output.
     bool emit_nonanchor_hets = false;
@@ -797,7 +753,6 @@ struct PhasingChunk {
     std::vector<int> n_down_ovlp_skip_reads;
     std::vector<int> haps;
     std::vector<hts_pos_t> phase_sets;
-    // Gap-fill (--gap-fill) results, parallel to `haps`/`phase_sets`. Populated
     // only for reads the clean core left unphased (haps[i]==0) and recovered by
     // the scratch-buffer noisy k-means; empty otherwise. Kept separate from
     // `haps` so they never influence cross-chunk stitching (which inspects
