@@ -20,6 +20,40 @@ static const GraphSite* find_site(const GraphSiteCatalog& catalog, const std::st
     return nullptr;
 }
 
+static bool test_loader_rejects_bad_records_without_throwing() {
+    // A catalog is external data: one corrupt record must cost that record, not
+    // the run, and every discard must be counted rather than silent.
+    const char* lines[] = {
+        "chr20\t100\ts1\tA\tG\t60\t.\tAT=>1>2,>1>3\n",          // fine
+        "chr20\tNOTANUMBER\ts2\tA\tG\t60\t.\tAT=>1>2,>1>3\n",   // POS not a number
+        "chr20\t0\ts3\tA\tG\t60\t.\tAT=>1>2,>1>3\n",            // POS not positive
+        "chr20\t300\ts4\tA\t<DEL>\t60\t.\tAT=>1>2,>1>3\n",      // symbolic allele
+        "chr20\t400\ts5\ta\tg\t60\t.\tAT=>1>2,>1>3\n",          // lower case
+        "chr20\t500\ts6\tA\n",                                     // short line
+        "chr20\t600\ts7\tA\tG\t60\t.\tAT=>1>2,>1>3;END=NOPE\n", // END not a number
+    };
+    const std::string path = "/tmp/pgphase_loader_test.vcf";
+    {
+        std::ofstream out(path);
+        out << "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
+        for (const char* l : lines) out << l;
+    }
+    const GraphSiteCatalog cat = load_graph_site_catalog_from_vcf(path, {}, true);
+    bool ok = true;
+    ok &= check(cat.stats.data_lines == 7, "every data line is counted");
+    ok &= check(cat.stats.sites_parsed == 2, "the two well-formed records survive parsing");
+    ok &= check(cat.stats.bad_position == 3, "two bad POS and one bad END are counted");
+    ok &= check(cat.stats.unsupported_allele == 1, "the symbolic allele is rejected");
+    ok &= check(cat.stats.short_line == 1, "the short line is counted");
+    // Case is normalised rather than carried through, so a lower-case allele
+    // still matches a candidate derived from an upper-case reference.
+    bool saw_upper = false;
+    for (const GraphSite& s : cat.sites)
+        if (s.pos == 400) saw_upper = (s.ref == "A" && s.alts.size() == 1 && s.alts[0] == "G");
+    ok &= check(saw_upper, "a lower-case allele is upper-cased at load");
+    return ok;
+}
+
 int main() {
     const std::string path = "/tmp/pgphase_graph_sites_test.vcf";
     {
@@ -116,6 +150,8 @@ int main() {
                 "incompatible boundaries are invalid");
     ok &= check(graph_site_between_query(incompatible).empty(),
                 "incompatible boundaries have no between query");
+
+    ok &= test_loader_rejects_bad_records_without_throwing();
 
     std::remove(path.c_str());
     if (ok) {

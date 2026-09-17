@@ -931,8 +931,15 @@ static PhasingChunk process_chunk_hybrid(
     }
 
     // Load graph sites and GAF reads for this region.
+    // What the catalog load kept and what it discarded. A loader that drops a
+    // record silently looks exactly like one that loaded the file correctly, so
+    // the counts are reported rather than inferred from the downstream effect.
     GraphSiteCatalog chunk_catalog = load_sites_for_region(
         sites_handle, graph_query_contig, region.beg, region.end);
+    if (opts.verbose >= 1) {
+        std::cerr << "[graph-sites] " << graph_query_contig << ':' << region.beg << '-'
+                  << region.end << ": " << chunk_catalog.stats.summary() << '\n';
+    }
     for (GraphSite& s : chunk_catalog.sites) {
         auto it = chrom_remap.find(s.chrom);
         if (it != chrom_remap.end()) s.chrom = it->second;

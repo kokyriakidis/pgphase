@@ -10,6 +10,7 @@
 #include <htslib/tbx.h>
 #include <cstdint>
 #include <iosfwd>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -55,8 +56,32 @@ struct GraphSite {
 
 struct GraphSiteCatalogView;
 
+/// What a load did, including everything it chose not to keep.
+///
+/// A loader that drops a record silently is indistinguishable from one that
+/// loads a file correctly, so every path that discards something counts it
+/// here. `by_skip_reason` covers sites that parsed but failed structural
+/// validation; the other counters cover records that never became sites.
+struct GraphSiteLoadStats {
+    size_t data_lines = 0;         ///< non-header lines seen
+    size_t sites_parsed = 0;       ///< lines that became a GraphSite
+    size_t short_line = 0;         ///< fewer than the 8 mandatory VCF columns
+    size_t bad_position = 0;       ///< POS or END not a positive integer
+    size_t unsupported_allele = 0; ///< symbolic <DEL>, or a character outside ACGTN*.
+    std::map<std::string, size_t> by_skip_reason;  ///< ineligible sites, by reason
+
+    size_t eligible() const {
+        size_t bad = 0;
+        for (const auto& kv : by_skip_reason) bad += kv.second;
+        return sites_parsed >= bad ? sites_parsed - bad : 0;
+    }
+    /// One line for a log or a test failure message.
+    std::string summary() const;
+};
+
 struct GraphSiteCatalog {
     std::vector<GraphSite> sites;
+    GraphSiteLoadStats stats;
 
     // Return a view covering all sites (no copy).
     GraphSiteCatalogView view_all() const;

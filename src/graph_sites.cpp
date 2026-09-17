@@ -1,6 +1,8 @@
 #include "graph_sites.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -132,6 +134,45 @@ void finalize_graph_site_catalog_inplace(GraphSiteCatalog& catalog) {
         site.skip_reason = graph_site_validation_skip_reason(site);
         site.eligible = site.skip_reason.empty();
     }
+    catalog.stats.by_skip_reason.clear();
+    for (const GraphSite& site : catalog.sites)
+        if (!site.eligible) ++catalog.stats.by_skip_reason[site.skip_reason];
+}
+
+/// A positive integer, or nothing. std::stoll throws on malformed input, and a
+/// throw out of the parser aborts the whole run over one bad line with no
+/// indication of which; a catalog is external data and a single corrupt record
+/// should cost that record, not the analysis.
+bool parse_positive(const std::string& text, hts_pos_t& out) {
+    if (text.empty()) return false;
+    errno = 0;
+    char* end = nullptr;
+    const long long v = std::strtoll(text.c_str(), &end, 10);
+    if (errno != 0 || end == text.c_str() || *end != '\0' || v <= 0) return false;
+    out = static_cast<hts_pos_t>(v);
+    return true;
+}
+
+/// Alleles this pipeline can turn into a VariantKey: plain sequence, the
+/// spanning-deletion marker, or the missing-value dot. A symbolic allele
+/// (<DEL>, <INS>) is none of those -- vcf_to_variant_key would treat the angle
+/// brackets as sequence and mint a candidate whose ALT is literally "<DEL>".
+bool allele_is_representable(const std::string& a) {
+    if (a.empty()) return false;
+    if (a == "*" || a == ".") return true;
+    for (const char ch : a) {
+        switch (ch) {
+            case 'A': case 'C': case 'G': case 'T': case 'N':
+                break;
+            default:
+                return false;
+        }
+    }
+    return true;
+}
+
+void upper_in_place(std::string& s) {
+    for (char& ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
 }
 
 // Parse one VCF data line into a GraphSite and append it to the catalog.
@@ -141,9 +182,10 @@ void append_graph_site_from_vcf_data_line(const char* buf,
                                           GraphSiteCatalog& catalog,
                                           bool keep_allele_traversal_strings) {
     if (len == 0 || buf[0] == '#') return;
+    ++catalog.stats.data_lines;
     const std::string line(buf, len);
     std::vector<std::string> fields = split_char(line, '\t');
-    if (fields.size() < 8) return;
+    if (fields.size() < 8) { ++catalog.stats.short_line; return; }
 
     GraphSite site;
     site.chrom = fields[0];
@@ -151,10 +193,20 @@ void append_graph_site_from_vcf_data_line(const char* buf,
     site.ref_contig = (hash_pos != std::string::npos)
                       ? fields[0].substr(hash_pos + 1)
                       : fields[0];
-    site.pos = static_cast<hts_pos_t>(std::stoll(fields[1]));
+    if (!parse_positive(fields[1], site.pos)) { ++catalog.stats.bad_position; return; }
     site.id = fields[2];
     site.ref = fields[3];
     if (fields[4] != ".") site.alts = split_char(fields[4], ',');
+    // Case is not meaning: a soft-masked reference writes acgt, and an allele
+    // that differs from a candidate's only in case would never match it.
+    upper_in_place(site.ref);
+    for (std::string& a : site.alts) upper_in_place(a);
+    if (!allele_is_representable(site.ref)) { ++catalog.stats.unsupported_allele; return; }
+    for (const std::string& a : site.alts) {
+        if (allele_is_representable(a)) continue;
+        ++catalog.stats.unsupported_allele;
+        return;
+    }
     const auto info = parse_info(fields[7]);
     site.allele_traversals = parse_allele_traversals(info);
     bool malformed_walk = false;
@@ -170,7 +222,10 @@ void append_graph_site_from_vcf_data_line(const char* buf,
     site.ref_beg = site.pos;
     site.ref_end = site.pos;
     const std::string end_value = find_first_info_value(info, {"END"});
-    if (!end_value.empty()) site.ref_end = static_cast<hts_pos_t>(std::stoll(end_value));
+    if (!end_value.empty() && !parse_positive(end_value, site.ref_end)) {
+        ++catalog.stats.bad_position;
+        return;
+    }
     site.conditional_parent_alleles =
         parse_optional_int_list(info, {"PA", "PARENT_ALLELE", "PARENT_ALLELES"});
     site.has_spanning_deletion = contains_spanning_deletion(site.alts);
@@ -184,6 +239,7 @@ void append_graph_site_from_vcf_data_line(const char* buf,
     if (!keep_allele_traversal_strings) {
         std::vector<std::string>().swap(site.allele_traversals);
     }
+    ++catalog.stats.sites_parsed;
     catalog.sites.push_back(std::move(site));
 }
 
@@ -351,6 +407,17 @@ reference_step_positions(const GfaWalkRecord& ref,
 }
 
 } // namespace
+
+std::string GraphSiteLoadStats::summary() const {
+    std::ostringstream o;
+    o << data_lines << " data lines, " << sites_parsed << " sites parsed, "
+      << eligible() << " eligible";
+    if (short_line != 0) o << "; " << short_line << " short lines";
+    if (bad_position != 0) o << "; " << bad_position << " bad POS/END";
+    if (unsupported_allele != 0) o << "; " << unsupported_allele << " unsupported alleles";
+    for (const auto& kv : by_skip_reason) o << "; " << kv.second << " " << kv.first;
+    return o.str();
+}
 
 GraphSiteCatalog load_graph_site_catalog_from_vcf(
     const std::string& path,
