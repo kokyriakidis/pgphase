@@ -43,6 +43,52 @@ int main() {
     bool ok = true;
 
     {
+        // The counts on a graph-only candidate are DERIVED from the read
+        // profiles, so the sweep is a pure function of them: running it twice
+        // must give the same answer, and a read must contribute once however
+        // many times it is swept. Before the redesign the sweep accumulated
+        // onto whatever was already there and the injection sites kept counts
+        // of their own, so a second run doubled every field -- and a read whose
+        // low-quality slot was later overwritten by a graph allele was counted
+        // both as low-quality depth and as an allele vote.
+        PhasingChunk c;
+        c.region.tid = 0;
+        c.candidates.push_back(make_graph_snp(100, 0, 0));
+        c.reads.resize(3);
+        c.read_var_profile.resize(3);
+        const int alleles[3] = {0, 1, -2};
+        for (int i = 0; i < 3; ++i) {
+            c.reads[i].qname = "r" + std::to_string(i);
+            c.reads[i].reverse = (i == 1);
+            auto& prof = c.read_var_profile[i];
+            prof.read_id = i;
+            prof.start_var_idx = 0;
+            prof.end_var_idx = 0;
+            prof.alleles = {alleles[i]};
+        }
+        backfill_graph_candidate_counts(c, {0});
+        const VariantCounts first = c.candidates[0].counts;
+        backfill_graph_candidate_counts(c, {0});
+        const VariantCounts& second = c.candidates[0].counts;
+        ok &= check(first.total_cov == 2 && first.ref_cov == 1 && first.alt_cov == 1 &&
+                        first.low_qual_cov == 1 && first.forward_ref == 1 &&
+                        first.reverse_ref == 0 && first.forward_alt == 0 &&
+                        first.reverse_alt == 1,
+                    "the sweep derives depth, allele, strand and low-quality counts");
+        ok &= check(second.total_cov == first.total_cov &&
+                        second.ref_cov == first.ref_cov &&
+                        second.alt_cov == first.alt_cov &&
+                        second.low_qual_cov == first.low_qual_cov &&
+                        second.forward_ref == first.forward_ref &&
+                        second.reverse_alt == first.reverse_alt,
+                    "sweeping twice gives the same counts (derive, not accumulate)");
+        ok &= check(first.forward_ref + first.reverse_ref == first.ref_cov &&
+                        first.forward_alt + first.reverse_alt == first.alt_cov &&
+                        first.ref_cov + first.alt_cov == first.total_cov,
+                    "strand tallies sum to their counts and the counts sum to depth");
+    }
+
+    {
         PhasingChunk c;
         c.region.tid = 0;
         c.candidates.push_back(make_graph_snp(100, 0, 0));
@@ -62,6 +108,11 @@ int main() {
         Options opts;
         int extended = 0;
         inject_graph_reads(c, rows, {{"site", 0}}, {0}, opts, &extended);
+        // Injection writes alleles into the profiles; the counts are derived
+        // from the final profile state by the sweep, which the pipeline runs
+        // after Phase B. The coverage assertion below therefore has to follow
+        // the sweep, as it does in collect_pipeline.cpp.
+        backfill_graph_candidate_counts(c, {0});
         ok &= check(extended == 1 && c.candidates[0].counts.alt_cov == 1 &&
                     c.read_var_profile[0].start_var_idx == -1 &&
                     c.read_var_profile[1].start_var_idx == -1 &&

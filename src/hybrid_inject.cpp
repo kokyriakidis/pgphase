@@ -8,6 +8,11 @@
 #include "fisher_exact.hpp"
 #include "noise_filter.hpp"
 
+namespace {
+// ReadVariantProfile::alleles sentinels: -1 no information, -2 low quality.
+constexpr int kProfileAlleleLowQual = -2;
+}  // namespace
+
 #include <htslib/vcf.h>
 
 #include <algorithm>
@@ -229,6 +234,36 @@ static int find_matching_candidate(const CandidateTable& candidates,
 /// depth/AF/het gates the BAM pipeline uses before any graph site can become a
 /// CleanHet phasing anchor.  Stamping CleanHet here (before counts exist) let
 /// homozygous and low-support graph sites flood k-means and degrade phasing.
+// One observation becomes coverage in exactly one place.
+//
+// Coverage for a graph-only candidate used to be accumulated incrementally at
+// each site that touched a read profile, and each of those sites re-implemented
+// the count update. That is what let the strand tallies go unwritten at every
+// one of them while depth and allele counts were maintained, and it makes double
+// counting a question that has to be re-answered by inspection every time a site
+// is added, because a slot written by one site is also visible to the sweep in
+// another.
+//
+// The rule here instead: profile mutation writes alleles, and nothing else
+// writes counts. Counts are DERIVED from the final profile state by a single
+// sweep that zeroes first, so the result is a pure function of the profiles --
+// idempotent, and double counting is not expressible.
+static void accumulate_observation(VariantCounts& counts, int allele, bool reverse) {
+    if (allele == kProfileAlleleLowQual) {
+        ++counts.low_qual_cov;  // depth, but not a vote for either allele
+        return;
+    }
+    if (allele < 0) return;  // uninformative: the read says nothing here
+    ++counts.total_cov;
+    if (allele == 0) {
+        ++counts.ref_cov;
+        reverse ? ++counts.reverse_ref : ++counts.forward_ref;
+    } else {
+        ++counts.alt_cov;
+        reverse ? ++counts.reverse_alt : ++counts.forward_alt;
+    }
+}
+
 static int add_graph_only_candidate(PhasingChunk& chunk,
                                     const GraphSite& site,
                                     const std::string& vcf_alt,
@@ -564,25 +599,10 @@ static bool extend_bam_profile_with_graph_obs(
         }
     }
 
-    // Update allele counts only for observations that were actually applied.
-    // Each strand tally mirrors the count it accompanies, so forward + reverse
-    // equals the count by construction wherever coverage is accumulated.
-    const bool read_reverse =
-        static_cast<size_t>(read_i) < chunk.reads.size() &&
-        chunk.reads[static_cast<size_t>(read_i)].reverse;
-    for (const auto& [cand_idx, allele] : applied) {
-        CandidateVariant& cand =
-            chunk.candidates[static_cast<size_t>(cand_idx)];
-        if (allele == 0) {
-            ++cand.counts.ref_cov;
-            read_reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
-            ++cand.counts.total_cov;
-        } else {
-            ++cand.counts.alt_cov;
-            read_reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
-            ++cand.counts.total_cov;
-        }
-    }
+    // No counting here: this function writes alleles into the profile, and
+    // backfill_graph_candidate_counts derives every count from the final
+    // profile state. Counting here as well double-counts each slot it writes,
+    // since the sweep sees the same slot.
 
     prof.bam_alleles.assign(prof.alleles.size(), -1);
     prof.bam_qi.assign(prof.alleles.size(), -1);
@@ -722,20 +742,8 @@ int inject_graph_reads(
         chunk.reads.push_back(std::move(read));
         chunk.read_var_profile.push_back(std::move(profile));
 
-        // Update allele counts on candidates, strand tally mirroring each count.
-        for (const ReadObs& obs : obs_vec) {
-            CandidateVariant& cand =
-                chunk.candidates[static_cast<size_t>(obs.candidate_idx)];
-            if (obs.allele == 0) {
-                ++cand.counts.ref_cov;
-                obs.reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
-                ++cand.counts.total_cov;
-            } else {
-                ++cand.counts.alt_cov;
-                obs.reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
-                ++cand.counts.total_cov;
-            }
-        }
+        // No counting here either -- the profile just created is swept by
+        // backfill_graph_candidate_counts, which is the only writer of counts.
 
         ++injected;
     }
@@ -857,34 +865,44 @@ void backfill_graph_candidate_counts(
         const std::unordered_set<int>& graph_only_candidates) {
     if (graph_only_candidates.empty()) return;
 
+    // Derive, do not accumulate. Every count on a graph-only candidate is a
+    // function of the final read profiles, so the sweep zeroes first and then
+    // reads them once. That makes this idempotent and makes double counting
+    // inexpressible: a slot can only be visited once per profile, and no other
+    // code path adds coverage to these candidates.
+    //
+    // It must therefore run after ALL profile mutation -- the BAM profile
+    // builder, the graph-read injection, and the extension of doubly-mapped
+    // profiles -- which is why the call sits after Phase B rather than before
+    // it. Running it earlier is what forced the injection sites to maintain
+    // counts of their own, and those sites each re-implemented the update and
+    // none of them wrote the strand tallies.
+    for (const int vi : graph_only_candidates) {
+        if (vi < 0 || static_cast<size_t>(vi) >= chunk.candidates.size()) continue;
+        VariantCounts& c = chunk.candidates[static_cast<size_t>(vi)].counts;
+        c.total_cov = 0;
+        c.ref_cov = 0;
+        c.alt_cov = 0;
+        c.low_qual_cov = 0;
+        c.forward_ref = 0;
+        c.reverse_ref = 0;
+        c.forward_alt = 0;
+        c.reverse_alt = 0;
+    }
+
     for (const ReadVariantProfile& prof : chunk.read_var_profile) {
         if (prof.start_var_idx < 0) continue;
+        const bool reverse =
+            prof.read_id >= 0 &&
+            static_cast<size_t>(prof.read_id) < chunk.reads.size() &&
+            chunk.reads[static_cast<size_t>(prof.read_id)].reverse;
 
         for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
             if (!graph_only_candidates.count(vi)) continue;
-
             const size_t offset = static_cast<size_t>(vi - prof.start_var_idx);
             if (offset >= prof.alleles.size()) continue;
-            const int allele = prof.alleles[offset];
-
-            CandidateVariant& cand = chunk.candidates[static_cast<size_t>(vi)];
-            if (allele == -2) {  // low quality: depth, but not an allele vote
-                ++cand.counts.low_qual_cov;
-                continue;
-            }
-            if (allele < 0) continue;  // -1: uninformative
-
-            const bool reverse =
-                static_cast<size_t>(prof.read_id) < chunk.reads.size() &&
-                chunk.reads[static_cast<size_t>(prof.read_id)].reverse;
-            if (allele == 0) {
-                ++cand.counts.ref_cov;
-                reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
-            } else {
-                ++cand.counts.alt_cov;
-                reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
-            }
-            ++cand.counts.total_cov;
+            accumulate_observation(chunk.candidates[static_cast<size_t>(vi)].counts,
+                                   prof.alleles[offset], reverse);
         }
     }
 
@@ -905,10 +923,6 @@ void backfill_graph_candidate_counts(
                 : 0.0;
     }
 }
-
-// ────────────────────────────────────────────────────────────────────────────
-// Quality gate for graph-only candidates
-// ────────────────────────────────────────────────────────────────────────────
 
 int classify_graph_only_candidates(
         PhasingChunk& chunk,

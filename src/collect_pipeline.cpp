@@ -984,8 +984,6 @@ static PhasingChunk process_chunk_hybrid(
     // counts; this pass accumulates the missing ref/alt/total coverage.
     if (graph_authoritative)
         clear_bam_evidence_at_graph_candidates(chunk, graph_owned_cands);
-    else
-        backfill_graph_candidate_counts(chunk, graph_only_cands);
 
     // Phase B: inject graph-only reads and extend doubly-mapped profiles.
     const size_t n_bam_reads = chunk.reads.size();
@@ -1003,6 +1001,15 @@ static PhasingChunk process_chunk_hybrid(
         for (size_t i = n_bam_reads; i < chunk.reads.size(); ++i)
             chunk.ordered_read_ids.push_back(static_cast<int>(i));
     }
+
+    // Derive the graph-only candidates' counts from the final read profiles.
+    // This has to follow Phase B: the injected and extended profiles carry
+    // observations that did not exist when the BAM profiles were built, and
+    // deriving the counts in one sweep afterwards is what lets the injection
+    // sites write alleles only. Reading the profiles before Phase B is what
+    // made each of those sites keep counts of its own.
+    if (!graph_authoritative)
+        backfill_graph_candidate_counts(chunk, graph_only_cands);
 
     // Gate graph-only candidates with the BAM pipeline's depth/AF/het
     // thresholds now that counts are final, then run the indel noise filter
