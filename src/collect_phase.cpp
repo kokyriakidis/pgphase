@@ -227,6 +227,21 @@ static void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int 
 
 // Score a read allele against the hap consensus; infers complement when one hap is unknown.
 // Returns +var_score (match), −var_score (mismatch), or 0 (no info).
+// A record with exactly two ALTs and reads behind each describes a locus whose
+// haplotypes both differ from the reference. This decides only how such a record
+// is ORIENTED once it is already being phased -- not whether it may enter the
+// solve. Letting these records in generally was measured and rejected: with the
+// noisy class in the solve it took the panel from 1 concordant-to-discordant
+// read to 31 and one window from 100.00% to 90.94%, because a co-located
+// deletion pair in a repeat tract is usually the uninformative class. Orienting
+// the ones already in the solve is a different matter: independent haplotype
+// majorities can select the same allele twice, which emitted four of the panel's
+// twenty-seven multiallelic loci as 1|1 or 2|2 with reads on both alleles.
+static bool two_allele_het(const CandidateVariant& var) {
+    return var.msa_insertion_alts.size() == 2 && var.counts.alle_covs.size() == 3 &&
+           var.counts.alle_covs[1] > 0 && var.counts.alle_covs[2] > 0;
+}
+
 // Side effect: may set hap_to_cons_alle[hap] or [3-hap] when one is -1.
 // Score a read against consensus alleles: +1 for agreement, -1 for conflict.
 static int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i) {
@@ -1177,7 +1192,8 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
 
     for (int _vi = 0; _vi < n; ++_vi) {
         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
-        if (var.gap_link_supported && var.msa_insertion_alts.size() == 2 && saved[_vi][1] > 0 &&
+        if ((var.gap_link_supported || two_allele_het(var)) &&
+            var.msa_insertion_alts.size() == 2 && saved[_vi][1] > 0 &&
             saved[_vi][2] > 0 && saved[_vi][1] != saved[_vi][2]) {
             const int same = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][2];
             const int flip = var.hap_to_alle_profile[1][2] + var.hap_to_alle_profile[2][1];

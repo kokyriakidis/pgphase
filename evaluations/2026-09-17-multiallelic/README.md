@@ -84,3 +84,49 @@ gap-recovery special case -- one change with one measurement, not eleven. The
 alignment channel already produces that record correctly, so the hybrid's job is
 to carry that representation through, not to re-derive a verdict from a
 recomputed allele fraction.
+
+## Does the hybrid carry the representation? Measured, and what actually discards it
+
+Compared every locus where the alignment channel emits a multiallelic record
+against what the hybrid emits at the same position, over the six panel windows.
+
+| | loci |
+|---|---:|
+| multiallelic loci in the alignment channel | **27** |
+| hybrid, stock defaults: same representation | **0** |
+| hybrid, stock defaults: single-allele record kept | 1 |
+| hybrid, stock defaults: **nothing emitted** | **26** |
+| hybrid with `--keep-noisy-kmeans`: **same representation** | **26** |
+| hybrid with `--keep-noisy-kmeans`: nothing emitted | **0** |
+
+**So the discard is `skip_noisy_kmeans`, not the multiallelic gates.**
+`hybrid_collect.cpp` sets it unconditionally, which keeps the whole
+`NoisyCandHet` class out of the hybrid's solve -- and every merged record is in
+that class, so it earns no haplotype (`PS = 0`, `HAP_ALT = 0`) and is never
+emitted. With the class in the solve the hybrid reproduces the alignment
+channel's record exactly at 26 of the 27 loci.
+
+**And the reason that cannot simply be switched on is measured.** Making a
+two-ALT record a first-class heterozygote everywhere -- scored, seeded, oriented,
+inherited, and winning the same-key merge against a single-allele candidate -- was
+implemented and tested:
+
+| arm, both with `--keep-noisy-kmeans` | c -> d | accuracy | new c / new d |
+|---|---:|---:|---|
+| representation fixes only | **1** | 99.20% | 327 / 15 |
+| plus admitting two-ALT records to the solve | **31** | 95.86% | 374 / 95 |
+
+One window fell from 100.00% to 90.94%. A co-located deletion pair in a repeat
+tract is usually the uninformative class -- the same result the chain search
+reached, where 84% of indel partitions segregated at chance -- so admitting them
+adds noise faster than signal. Reverted.
+
+What is kept is the part that admits nothing: the joint two-haplotype orientation
+now applies to a two-ALT record already in the solve, because independent
+haplotype majorities can otherwise select the same allele twice. That emitted
+four of the twenty-seven loci as `1|1` or `2|2` with reads on both alleles; three
+remain, where the saved allele profile does not satisfy the joint branch's
+precondition.
+
+Default path unchanged: panel 0 concordant -> discordant, 0 tags lost, 0 records
+lost or gained, 2,794 tagged at 99.68%.
