@@ -443,6 +443,16 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         const std::string del_seq = ref.subseq(key.tid, key.pos, key.ref_len, header);
         core.ref_seq = std::string(1, anchor_base) + del_seq;
         core.alt_seq = std::string(1, alt_anchor_base);
+        if (!candidate.msa_insertion_alts.empty()) {
+            // A merged co-located deletion carries one entry per allele holding
+            // the bases that allele retains, so REF spans the longest deletion
+            // and each ALT is the anchor plus what that allele leaves behind.
+            core.alt_seq.clear();
+            for (const auto& allele : candidate.msa_insertion_alts) {
+                if (!core.alt_seq.empty()) core.alt_seq += ',';
+                core.alt_seq += std::string(1, alt_anchor_base) + allele;
+            }
+        }
     }
 
     core.filter = "PASS";

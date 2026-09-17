@@ -1079,6 +1079,73 @@ static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
     }
 }
 
+static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
+    std::vector<CandidateVariant>& vars,
+    std::vector<VariantCategory>& categories, std::vector<ReadVariantProfile>& profiles) {
+    for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        auto& first = vars[i];
+        const auto& second = vars[i + 1];
+        if (first.key.type != VariantType::Deletion || second.key.type != VariantType::Deletion ||
+            first.key.pos != second.key.pos || first.key.ref_len == second.key.ref_len ||
+            first.counts.category != VariantCategory::NoisyCandHet ||
+            second.counts.category != VariantCategory::NoisyCandHet) continue;
+        // Two deletions of different length at one position are two alleles of
+        // one site, not two sites. Emitted separately, each scores the other
+        // haplotype's reads against its own allele, so neither can express the
+        // locus: at chr20:55,896,396 the 3 bp and 16 bp deletions are the
+        // maternal and paternal alleles and no read is reference, which left the
+        // 16 bp record at 0 reference / 30 alt, allele fraction 1.000.
+        //
+        // Merge them the way merge_msa_insertion_alleles merges co-located
+        // insertions: the longer deletion's span becomes REF, ALT 1 deletes all
+        // of it and ALT 2 retains the bases the shorter deletion leaves, so the
+        // writer emits anchor + retained sequence for each allele.
+        const int long_len = std::max(first.key.ref_len, second.key.ref_len);
+        const int short_len = std::min(first.key.ref_len, second.key.ref_len);
+        const bool first_is_long = first.key.ref_len == long_len;
+        const size_t tail_beg = static_cast<size_t>(first.key.pos - chunk.ref_beg) +
+                                static_cast<size_t>(short_len);
+        const size_t tail_len = static_cast<size_t>(long_len - short_len);
+        if (tail_beg + tail_len > chunk.ref_seq.size()) continue;
+        const std::string retained = chunk.ref_seq.substr(tail_beg, tail_len);
+        // Allele order follows record order, so a read's existing vote at each
+        // record maps onto the merged allele without re-deriving it.
+        first.key.ref_len = long_len;
+        first.msa_insertion_alts = first_is_long
+            ? std::vector<std::string>{std::string(), retained}
+            : std::vector<std::string>{retained, std::string()};
+        first.counts.alle_covs.assign(3, 0);
+        first.counts.total_cov = 0;
+        for (auto& profile : profiles) {
+            if (profile.start_var_idx < 0) continue;
+            const auto allele_at = [&](int index) {
+                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
+                       profile.alleles[index - profile.start_var_idx];
+            };
+            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
+            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 :
+                               a == 0 && b == 0 ? 0 : -1;
+            ReadVariantProfile merged;
+            merged.read_id = profile.read_id;
+            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
+                if (vi == static_cast<int>(i + 1)) {
+                    if (profile.start_var_idx == vi)
+                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+                    continue;
+                }
+                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
+                    vi == static_cast<int>(i) ? allele : allele_at(vi),
+                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
+            }
+            profile = std::move(merged);
+            if (allele >= 0) ++first.counts.alle_covs[allele];
+        }
+        update_variant_depth_fields(first);
+        vars.erase(vars.begin() + i + 1);
+        categories.erase(categories.begin() + i + 1);
+    }
+}
+
 static void refresh_assigned_msa_observations(const Options& opts,
     const std::array<int, 2>& clu_n_seqs,
     const std::array<std::vector<int>, 2>& clu_read_ids,
@@ -1148,8 +1215,13 @@ int make_vars_from_msa_cons_aln(
     update_cand_var_profile_from_cons_aln_str2(
         opts, chunk, clu_n_seqs, clu_read_ids, aln_strs, noisy_reg_beg,
         hap1_vars, hap2_vars, noisy_vars, noisy_var_cate, noisy_rvp);
-    if (opts.recover_gaps && opts.private_msa_admit_all_in_region)
-        merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
+    // A locus whose two haplotypes both differ from the reference has to be
+    // emitted once with both alleles, in every arm -- not only under gap
+    // recovery. Kept behind recover_gaps, the merge left the default pipeline
+    // describing such a locus as two competing biallelic records, each scoring
+    // the other haplotype's reads against its own allele.
+    merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
+    merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster
     // alignment, and that is true whether or not gap recovery is enabled: these
     // counts describe the reads. Gating the refresh on recover_gaps left the
@@ -1425,7 +1497,16 @@ static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key
                                  const std::array<MsaSiteSlice, 2>& context,
                                  const std::vector<std::string>* insertion_alts = nullptr) {
     if (insertion_alts != nullptr && !insertion_alts->empty()) {
-        if (site.query.empty()) return 0;
+        // What the reference looks like at a multi-allele site depends on the
+        // event: an insertion site carries no query sequence when the read has
+        // no insertion, while a deletion site carries the whole footprint when
+        // the read deletes nothing. Treating an empty query as reference is
+        // right for insertions and wrong for deletions, where it is the allele
+        // that removes the entire span -- at chr20:55,896,395 that scored 34
+        // reads carrying the 16 bp deletion as reference and left the allele
+        // itself at zero support.
+        const bool deletion = key.type == VariantType::Deletion;
+        if (deletion ? site.query == site.ref : site.query.empty()) return 0;
         for (size_t ai = 0; ai < insertion_alts->size(); ++ai)
             if (site.query == (*insertion_alts)[ai]) return static_cast<int>(ai + 1);
         return -1;
