@@ -388,3 +388,19 @@ emitted **nothing** at the locus. Now it is promoted to `CLEAN_HET_INDEL`, wins
 emission, and the hybrid emits `55,919,944 C>CAA GT=1|0 AD=13,19` where the
 alignment channel emits the correct `C>CA,CAA GT=2|1 AD=11,26,19`. A silent miss
 became a wrong record, which is more visible and no less wrong.
+
+## Ledger
+
+| defect | state |
+|---|---|
+| multi-base substitution claims emitted as spurious deletions | **fixed** (353 records removed chromosome-wide, phasing bit-identical) |
+| MSA-derived candidates carrying no strand tally | **fixed** (211 of 211 filled; all six ceilings held at 0) |
+| an insertion's emitted REF dropping the bases it consumes | **fixed** (120 records corrected, record count unchanged) |
+| multiallelic loci emitted `1\|1` with reads on both ALTs | **fixed** -- 55,795,217, 55,815,775 and 5,379,662 now emit `1\|2`, `2\|1`, `1\|2`; the three `genotype` allowance rows are removed |
+| the duplicate at 55,919,945 | **open** -- needs a post-merge fix, mechanism recorded above |
+| depth exceeding overlapping reads at 55,905,752 | **open** -- coverage tested in consensus coordinates, mechanism recorded above |
+
+The `strandless` and `emitted_multi` rows are not defects awaiting a fix: the
+first are ceilings held at zero to catch a regression, the second record that
+the hybrid emits none of the alignment channel's multiallelic loci, which
+follows from the noisy class being excluded from its solve by design.
