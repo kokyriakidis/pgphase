@@ -169,14 +169,18 @@ windows. The catalog's remaining hundreds of in-gap sites are not heterozygous i
 this sample, and declining them is correct rather than a loss.
 
 **Its verdicts are right where the allele representation is right.** Injection
-changes the record at 128 shared loci, and every change is a promotion:
+changes the record at 128 shared loci. **106 are category changes and 22 are not**
+-- in those 22 the `CATEGORY` field is identical and only `INIT_CAT` moves, 17 of
+them `LOW_COV -> REP_HET_INDEL` with the counts untouched and 5 `LOW_COV ->
+LOW_COV` where only the counts move. Of the 106 category changes, 105 are
+promotions and one is the wrong verdict dissected below:
 
 | transition | loci |
 |---|---:|
 | `NOISY_CAND_HOM` -> `CLEAN_HOM` | 68 |
 | `NOISY_CAND_HET` -> `CLEAN_HET_SNP` | 36 |
-| `NOISY_CAND_HET` -> `NOISY_CAND_HET` (INIT_CAT only) | 17 |
-| `NOISY_CAND_HOM` -> `NOISY_CAND_HOM` (INIT_CAT only) | 5 |
+| `NOISY_CAND_HET` -> `NOISY_CAND_HET` (not a promotion: `INIT_CAT` `LOW_COV` -> `REP_HET_INDEL`) | 17 |
+| `NOISY_CAND_HOM` -> `NOISY_CAND_HOM` (not a promotion: counts only) | 5 |
 | `NOISY_CAND_HET` -> `CLEAN_HET_INDEL` | 1 |
 | `NOISY_CAND_HET` -> `CLEAN_HOM` | **1** |
 
@@ -205,7 +209,9 @@ phasing entirely. The promotion logic is behaving correctly on an allele set tha
 misrepresents the locus.
 
 So: injection is faithful, complete with respect to real heterozygotes, and its
-promotions and depth backfills are correct. It is not the defect. But its verdicts
+promotions and depth backfills are correct -- with the two qualifications above,
+that 22 of its 128 record changes promote nothing (they relabel `INIT_CAT` or move
+counts only) and that one of the 106 category changes is wrong. It is not the defect. But its verdicts
 are only as good as the allele representation handed to it, and where both
 haplotypes are non-reference that representation converts an informative het into
 a homozygote.
