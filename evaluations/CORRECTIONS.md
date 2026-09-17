@@ -159,3 +159,27 @@ emitter does not use. The suite did find real defects earlier -- the spurious
 deletions from substitution claims, the missing strand tallies, the insertion
 REF -- so this is not an argument that it was worthless, only that these three
 entries were wrong and are withdrawn.
+
+## "Gap closed — and at no accuracy cost" was said one step early
+
+Claimed for chr20:26,029,591-26,088,679 the moment the targeted solve first
+bridged the flanking blocks, with a table of span, concordance and flank
+agreement.
+
+**At that moment the gap carried 0 phased heterozygotes inside it.** The stitch
+had merged the two flanking blocks, so `spans` read YES over their sites alone,
+while the interior the whole exercise exists to recover was still empty --
+identical on that measure to the unfixed arm, and against 293 for the global
+`-q 1` that was rejected. The table omitted the in-gap column, so it read as a
+closure.
+
+A block that spans an interval it reports nothing in is not a closed gap. The
+missing step -- importing the targeted solve's own in-gap candidates into the
+parent -- landed in the same commit (9fa6388), and the committed baseline now
+records 37 in-gap heterozygotes over 26,029,671-26,086,807, asserted as a floor
+and with each site checked retrieved and used.
+
+The count is still short of the competitor's 120, and 2 of the 18 scorable
+in-gap SNP calls do not segregate against read truth. Both are recorded in
+evaluations/2026-09-17-mapq-recovery-floor/README.md rather than left to the
+green test to imply otherwise.
