@@ -8,6 +8,7 @@
  */
 
 #include "collect_pipeline.hpp"
+#include <array>
 
 #include "arg_parse.hpp"
 #include "bam_digar.hpp"
@@ -890,6 +891,165 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
     return merged;
 }
 
+// Recover a window the first solve could not phase by running the ordinary
+// alignment pipeline over that region alone, then stitching its answer in.
+//
+// The gap this exists for is a mapping-quality hole: at
+// chr20:26,029,591-26,088,679 every read carries MAPQ 3, the default floor of
+// 30 keeps them out of the chunk, and the pipeline discovers ZERO candidates
+// across 50 kb while a competitor phases 120 heterozygotes there. Lowering the
+// floor for the whole run closes the gap but also re-solves the flanks, where
+// the pipeline was already right: the left flank falls from 100% to 93.3% read
+// concordance. Waking those reads inside the parent chunk instead discovers the
+// sites without hurting the flanks, but the interior fragments into 1-, 2- and
+// 6-site blocks, because it is being solved inside a chunk whose read set is
+// mostly asleep.
+//
+// So the region gets its own chunk, at its own floor, solved by the same code
+// as any other chunk. Measured standalone over this window: one block of 393
+// sites spanning 118.7 kb at 99.54% read concordance, both flanks consistent,
+// sharing 95 reads with the parent's left block and 121 with its right.
+//
+// The stitch is the pipeline's own rule. Reads tagged in both solves vote an
+// n11/n12/n21/n22 table per parent block and select_stitch_orientation decides
+// -- the same function, and the same default net-margin standard, that joins
+// adjacent chunks. Its refusal carries over too: a parent block sharing no read
+// with the targeted solve cannot be merged, which is the guard a bespoke gap
+// link does not have.
+// One read length: beyond it no read reaches the window, so a wider region
+// adds sites the stitch cannot use. Matches the seam span the block-link
+// evidence saturates at.
+constexpr hts_pos_t kTargetedSolveFlank = 30000;
+
+static size_t recover_windows_with_targeted_solve(
+        PhasingChunk& chunk,
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
+        const Options& opts,
+        WorkerContext& context) {
+    if (windows.empty()) return 0;
+
+    // Index the parent's tagged reads once.
+    std::unordered_map<std::string, size_t> parent_by_name;
+    parent_by_name.reserve(chunk.reads.size() * 2u);
+    for (size_t i = 0; i < chunk.reads.size(); ++i)
+        parent_by_name.emplace(chunk.reads[i].qname, i);
+
+    size_t merged_total = 0;
+    size_t imported_total = 0;
+    for (const auto& window : windows) {
+        RegionChunk region;
+        region.tid = chunk.region.tid;
+        region.beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
+        region.end = window.second + kTargetedSolveFlank;
+        region.chunk_id = -1;
+
+        Options sub = opts;
+        sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
+        sub.skip_noisy_kmeans = false;   // the alignment pipeline's own default
+        sub.retry_unphased_with_bam = false;  // no recursion
+        sub.threads = 1;
+        sub.verbose = 0;
+
+        PhasingChunk solved = process_chunk(region, sub, context);
+        if (solved.haps.size() != solved.reads.size()) continue;
+
+        // votes[parent_ps][sub_ps] = n11, n12, n21, n22 over reads tagged in both
+        std::map<std::pair<hts_pos_t, hts_pos_t>, std::array<int, 4>> votes;
+        for (size_t j = 0; j < solved.reads.size(); ++j) {
+            const int sub_hap = solved.haps[j];
+            if (sub_hap != 1 && sub_hap != 2) continue;
+            auto it = parent_by_name.find(solved.reads[j].qname);
+            if (it == parent_by_name.end()) continue;
+            const size_t i = it->second;
+            if (i >= chunk.haps.size()) continue;
+            const int par_hap = chunk.haps[i];
+            if (par_hap != 1 && par_hap != 2) continue;
+            const auto key = std::make_pair(chunk.phase_sets[i], solved.phase_sets[j]);
+            votes[key][(par_hap == 1 ? 0 : 2) + (sub_hap == 1 ? 0 : 1)] += 1;
+        }
+
+        // A parent block joins the targeted solve when the standard says so.
+        // Record, per targeted block, which parent blocks it carries and in
+        // which orientation; two or more is a bridge.
+        std::map<hts_pos_t, std::vector<std::pair<hts_pos_t, bool>>> bridged;
+        for (const auto& kv : votes) {
+            bool do_flip = false;
+            if (!select_stitch_orientation(kv.second, &opts, do_flip)) continue;
+            bridged[kv.first.second].emplace_back(kv.first.first, do_flip);
+        }
+
+        for (const auto& kv : bridged) {
+            if (kv.second.size() < 2) continue;  // nothing bridged
+            const hts_pos_t keep_ps = kv.second.front().first;
+            const bool keep_flip = kv.second.front().second;
+            for (size_t k = 1; k < kv.second.size(); ++k) {
+                const hts_pos_t drop_ps = kv.second[k].first;
+                // Relative orientation of the two parent blocks, via the
+                // targeted solve they both agree with.
+                const bool flip = (kv.second[k].second != keep_flip);
+                for (size_t i = 0; i < chunk.phase_sets.size(); ++i) {
+                    if (chunk.phase_sets[i] != drop_ps) continue;
+                    chunk.phase_sets[i] = keep_ps;
+                    if (flip && (chunk.haps[i] == 1 || chunk.haps[i] == 2))
+                        chunk.haps[i] = 3 - chunk.haps[i];
+                }
+                for (CandidateVariant& cand : chunk.candidates) {
+                    if (cand.phase_set != drop_ps) continue;
+                    cand.phase_set = keep_ps;
+                    if (flip) std::swap(cand.hap_alt, cand.hap_ref);
+                }
+                ++merged_total;
+            }
+
+            // Carry the window's own sites across. The parent never discovered
+            // them -- that is what the mapping-quality hole means -- so without
+            // this the block spans an interval it reports nothing in, and the
+            // heterozygotes the competitor calls there stay invisible. Only
+            // sites strictly inside the window are taken: outside it the parent
+            // has its own, better-supported calls.
+            for (const CandidateVariant& src : solved.candidates) {
+                if (src.phase_set != kv.first) continue;
+                const hts_pos_t pos = src.key.sort_pos();
+                if (pos <= window.first || pos >= window.second) continue;
+                if (src.hap_alt == 0 && src.hap_ref == 0) continue;
+                bool present = false;
+                for (const CandidateVariant& have : chunk.candidates)
+                    if (have.key.pos == src.key.pos && have.key.type == src.key.type &&
+                        have.key.ref_len == src.key.ref_len && have.key.alt == src.key.alt) {
+                        present = true; break;
+                    }
+                if (present) continue;
+                CandidateVariant imported = src;
+                imported.phase_set = keep_ps;
+                if (keep_flip) std::swap(imported.hap_alt, imported.hap_ref);
+                imported.lcd_make_variants_region_pass = true;
+                chunk.candidates.push_back(std::move(imported));
+                ++imported_total;
+            }
+            if (opts.verbose > 0)
+                fprintf(stderr,
+                        "[targeted] %s:%lld-%lld bridged %zu block(s) into PS %lld\n",
+                        context.primary_header() != nullptr &&
+                                chunk.region.tid < context.primary_header()->n_targets
+                            ? context.primary_header()->target_name[chunk.region.tid] : ".",
+                        (long long)region.beg, (long long)region.end,
+                        kv.second.size() - 1, (long long)keep_ps);
+        }
+    }
+    if (imported_total > 0) {
+        std::sort(chunk.candidates.begin(), chunk.candidates.end(),
+                  [](const CandidateVariant& a, const CandidateVariant& b) {
+                      if (a.key.sort_pos() != b.key.sort_pos())
+                          return a.key.sort_pos() < b.key.sort_pos();
+                      return a.key.type < b.key.type;
+                  });
+        if (opts.verbose > 0)
+            fprintf(stderr, "[targeted] imported %zu site(s) the parent never discovered\n",
+                    imported_total);
+    }
+    return merged_total;
+}
+
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
 /// BAM profile build → graph read injection → unified k-means.
 static PhasingChunk process_chunk_hybrid(
@@ -1180,6 +1340,15 @@ static PhasingChunk process_chunk_hybrid(
             retry_opts.skip_noisy_kmeans = false;
             retry_opts.retry_windows = windows;
             collect_var_run_phasing(chunk, retry_opts);
+
+            // Whatever the in-chunk re-solve still could not phase gets its own
+            // chunk. Re-derive the windows first: the re-solve closes some, and
+            // running a targeted solve over a window that is now phased would
+            // re-litigate a settled answer.
+            const auto residual = collect_unphased_windows(
+                chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+            if (!residual.empty())
+                recover_windows_with_targeted_solve(chunk, residual, opts, context);
         }
     }
 

@@ -101,3 +101,51 @@ Closing this gap therefore needs discovery to run again over the woken reads,
 scoped to the window. That is the next step, and it is not a one-line change:
 `collect_candidate_sites_from_records` clears the whole table, so a scoped
 append is required rather than a re-run.
+
+## The fix: run the pipeline on the gap as its own chunk
+
+Waking the recovery reads inside the parent chunk discovered the sites without
+hurting the flanks -- 0 to 292 in-gap candidates at unchanged 99.66% read
+concordance -- but the interior fragmented into 1-, 2- and 6-site blocks,
+because it was being solved inside a chunk whose read set is mostly asleep.
+That approach was reverted.
+
+Instead the window gets **its own chunk**, at its own floor, solved by
+`process_chunk` -- the same function that solves every other chunk -- with
+`min_mapq = recovery_min_mapq`. Then the answer is stitched in using the
+pipeline's own rule: reads tagged in both solves vote an n11/n12/n21/n22 table
+per parent block and `select_stitch_orientation` decides, the same function and
+the same default net-margin standard that joins adjacent chunks. Its refusal
+carries over: a parent block sharing no read with the targeted solve cannot be
+merged, which is the guard a bespoke gap link lacks.
+
+Sites strictly inside the window are imported with the merged phase set, flipped
+if the vote says so. Without that the block spans an interval it reports nothing
+in.
+
+| arm | spans | in-gap hets | tagged | read concordance | left flank | right flank |
+|---|---|---:|---:|---:|---:|---:|
+| default before | no | 0 | 293 | 99.66% | -- | -- |
+| `-q 1` everywhere | YES | 293 | 293 | 97.61% | 0.933 | 0.995 |
+| **targeted solve** | **YES** | **37** | 293 | **99.66%** | **1.000** | 0.995 |
+
+The gap closes with **no read-level cost**: 1 discordant read, the same as
+before, against 7 for the global floor. One block now spans 151.1 kb, correctly
+oriented. Runtime for the window is 3.6 s.
+
+## What is not yet right
+
+**37 in-gap heterozygotes, against the competitor's 120.** The import is
+confined to the detected unphased window and to the one targeted block the vote
+bridged; the gap is wider than that window. The interval actually reported runs
+26,029,671-26,086,807.
+
+**2 of the 18 scorable in-gap SNP calls do not segregate against read truth**
+(16 do; 19 more are indels or too shallow to score). The competitor's calls in
+the same interval were 39 of 40 clean, so the interior calls are noticeably
+worse than its, even though the block they sit in is correctly oriented and the
+reads are tagged as accurately as before.
+
+Neither is a reason to hold the change -- the alternative is reporting nothing
+across 59 kb -- but both are the next work, and the in-gap call quality matters
+more than the count.
