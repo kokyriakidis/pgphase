@@ -86,3 +86,69 @@ which injection keeps the one that looks homozygous.
 Only after that does "do not inject hom" become safe to enforce, because then a
 `CleanHom` verdict will mean the locus really is homozygous rather than meaning
 one allele of a het locus was measured against the other.
+
+## The `0 / 30` records: a het that no allele-fraction test could have called
+
+`0 ref / 30 alt` at AF 1.000 is not a heterozygous call, and it was not made by
+one. Two different mechanisms decide the category and the counts, and they
+disagree.
+
+**The category comes from comparing the two haplotype consensuses, not from an
+allele fraction.** `update_cand_var_profile_from_cons_aln_str2`
+(`collect_phase_noisy.cpp:586`) walks the variant lists of the two MSA cluster
+consensuses in parallel: a variant present in one consensus and absent from the
+other is stamped `NoisyCandHet` outright, because it is what distinguishes the
+haplotypes. That is sound reasoning and strictly better than an AF test -- the
+`-16` deletion at `55,896,39x` really is on one haplotype only.
+
+**The counts are then accumulated only over reads matching that record's own
+allele.** A read carrying the other haplotype's `-3` deletion matches neither the
+`-16` allele nor the reference across that window, so
+`update_cand_var_profile_from_cons_aln_str2` records **no observation** for it
+rather than a reference observation, and it is excluded from `DP` entirely. So
+`DP` becomes the alt count, `REF_COUNT` is 0, and `AF` is identically 1.000.
+
+Chromosome-wide this is not a corner case:
+
+| category | records | with zero ref reads | AF exactly 1.000 |
+|---|---:|---:|---:|
+| `CLEAN_HET_SNP` | 59,787 | **0** | -- |
+| `CLEAN_HET_INDEL` | 2,543 | **0** | -- |
+| `REP_HET_INDEL` | 1,986 | **0** | -- |
+| **`NOISY_CAND_HET`** | 25,518 | **1,769 (6.9%)** | **all 1,769** |
+
+Only the MSA-constructed class is affected, which is consistent with the
+mechanism: the clean classifiers derive the category from AF, so an AF of 1.000
+would have made them `CleanHom` and they can never be in this state.
+
+**The category is usually right; the counts are what is wrong.** Sampling 40 of
+the 1,769 and scoring each against read truth: 31 are scorable at >= 10 ALT reads
+and **22 of those 31 (71%) are real heterozygotes** at purity >= 0.90 -- including
+`24,121,714` (DP 6 against 74 covering reads, 13 ALT reads, purity 1.000), the
+locus the allele-length work was already stuck on. Across the sample the **median
+`DP` is 0.393 of true coverage**: these records see under 40% of the reads that
+cover them.
+
+### Why this is the same defect as the `CLEAN_HOM` promotion
+
+It closes the loop on the previous section. Injection did not turn a homozygote
+into a het. `classify_graph_only_candidates` **re-derives** the category from the
+allele fraction, and the allele fraction is 0.946 because of this counting defect,
+so a consensus-derived het verdict is overwritten with an AF-derived `CleanHom`
+one. Whichever code path touches the record last wins, and the record then carries
+a `CleanHom` category with a `0|1` genotype.
+
+Every AF-gated consumer is exposed the same way: the graph-only classifier, the
+noise filter, and any threshold on `allele_fraction` sees a homozygote at 1,769
+sites that are mostly real hets.
+
+### The fix, and it is smaller than the multiallelic one
+
+A read that **covers** the record's window but carries a different event should be
+counted -- as reference in a biallelic record, or as the other ALT in a
+multiallelic one -- not dropped. Counting it as reference at `55,896,395` gives
+roughly 30 alt / 68 covered, AF ~0.44, which agrees with the consensus-derived het
+verdict instead of contradicting it. That alone makes `AF` usable for
+MSA-constructed sites and stops the `CleanHom` overwrite, and it is separable from
+(and a prerequisite for) multiallelic emission. It changes `DP`/`AF` on 1,769
+chr20 records, so it needs the panel and the 0.559% chromosome-wide gate.
