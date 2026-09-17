@@ -1,6 +1,6 @@
 # Is every site injected, and represented correctly, on stock defaults?
 
-`verify_injection.py` runs six independent checks per panel window. Truth is
+`verify_injection.py` runs seven independent checks per panel window. Truth is
 applied only to decide what a site **is**, never to select which sites to look
 at, so a pass means the pipeline reached the right answer on its own evidence.
 
@@ -12,6 +12,7 @@ at, so a pass means the pipeline reached the right answer on its own evidence.
 | allele set | a locus with two clean parental modes and no reference read, described by one allele |
 | depth | a record whose DP is under half the reads covering its window |
 | verdict | a record classified homozygous that read truth calls heterozygous |
+| attributes | an injected candidate whose own fields are inconsistent -- DP against its counts, AF against its counts, or a strand tally that does not sum to the count it accompanies. Added after the first six: the table can be complete while the candidates in it carry unpopulated fields, and the ONT strand-bias screen reads exactly those fields |
 
 ## Result over the six panel windows, 1,575 candidates
 

@@ -67,3 +67,34 @@ The historical evaluation directories still name the removed flags. They are
 records of what was run at the time and are deliberately left as they are; the
 measurements that justified each removal live beside them, in
 `evaluations/2026-09-17-gap-bam-only/` and `evaluations/2026-09-17-two-stage-refine/`.
+
+## A correction to how the removal went
+
+The prose in the session that produced this removal explained one false positive
+wrongly, and the diagnostic run at the time already contradicted it. Recorded
+here rather than left standing.
+
+A heuristic pass deleted functions whose body mentioned a recovery symbol, and
+it removed `filter_hybrid_small_phase_sets`, which is a default-path function.
+The explanation given was that the function merely mentioned a recovery symbol
+in a comment. It does not: grepping the 14-symbol list against that function's
+committed body returns nothing.
+
+The real cause is a boundary bug in the heuristic. It took each function's body
+to run from its signature to the line before the next *detected* signature, and
+its regex matches function signatures only. At `collect_pipeline.cpp:1276` in
+`1ef17ab~1` the function truly ends at line 1306, but the next detected
+signature was 7 lines further on, because the lines between are `static
+constexpr` VARIABLE declarations -- and those particular constants are
+`kGapRecoveryFlank`, `kGapRecoveryMsaFlank`, `kGapRecoveryMaxMsaSpan`,
+`kGapEvidenceCacheVersion` and `kGapEvidenceCacheMagic`. Five recovery-symbol
+hits, all of them outside the function, in a span the heuristic attributed to
+it.
+
+The same boundary bug is why a later pass orphaned a `template` line: a
+template-prefixed signature is not matched either, so the body span drifts
+across it. Both were caught by the compiler and fixed before anything was
+committed, and the removal itself is verified behaviour-neutral above -- but the
+stated cause was wrong, and a boundary bug is a different lesson from a comment
+mention: a name-matching sweep over source needs brace-balanced bounds, not
+next-match bounds.
