@@ -35,6 +35,13 @@ void add_msa_site_observations(const Options& opts,
                                 std::vector<ReadVariantProfile>& profiles,
                                 const std::array<AlnStr, 2>* consensuses = nullptr);
 
+/// Fill the strand tallies of candidates whose counts the MSA path built,
+/// derived in one sweep from the read profiles. update_variant_depth_fields
+/// derives ref_cov/alt_cov from alle_covs and leaves the strand fields at zero,
+/// which exempts those candidates from the strand-bias screen. Only a record
+/// whose derivation reproduces its own ref_cov/alt_cov is filled.
+void derive_msa_candidate_strand_counts(PhasingChunk& chunk);
+
 /// Fill missing observations at admitted MSA sites from every overlapping BAM read.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);

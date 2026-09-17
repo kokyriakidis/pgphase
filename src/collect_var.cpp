@@ -2194,6 +2194,10 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     // newly established bridges. Graph preservation is handled by the existing
     // graph/hybrid block merger, which aligns complete phase sets by shared reads.
     collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
+    // The MSA path derives ref_cov/alt_cov from alle_covs and never writes the
+    // strand tallies, so its candidates reach the strand-bias screen with 0+0
+    // and are exempted from it. One sweep fills them from the read profiles.
+    derive_msa_candidate_strand_counts(chunk);
     // Step 4 is what creates the merged multiallelic records, so the superseded
     // duplicates can only be identified after it has run.
     drop_superseded_colocated_deletions(chunk);

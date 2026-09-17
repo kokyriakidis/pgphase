@@ -25,6 +25,7 @@ namespace pgphase_collect {
 
 namespace {
 
+
 constexpr uint8_t kGapBase = 5;
 constexpr const char* kNt4Bases = "ACGTN";
 
@@ -753,6 +754,68 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
 }
 
 } // namespace
+
+/// Fill in the strand tallies for candidates whose counts the MSA path built.
+///
+/// update_variant_depth_fields derives ref_cov and alt_cov from alle_covs and
+/// leaves forward_ref/reverse_ref/forward_alt/reverse_alt untouched, so a
+/// candidate discovered or re-counted by the MSA carries coverage with no
+/// strand at all -- measured at 29 to 45 candidates per panel window, for
+/// example chr20:48,147,225 (SNP C>G) at 44 reference and 7 alternate with
+/// 0+0 on both. That is not merely a reporting gap: the ONT strand-bias screen
+/// computes its expected value from forward_alt + reverse_alt and declines to
+/// test when the sum is not positive, so those candidates are silently exempt
+/// from a screen every initially-discovered candidate faces.
+///
+/// Derived in one sweep from the read profiles rather than accumulated at each
+/// site that touches a count, which is the same contract the graph-only
+/// backfill follows: one writer, and the result a pure function of the
+/// profiles.
+///
+/// A record is filled only when the derivation reproduces the record's OWN
+/// ref_cov and alt_cov. The counts pass through several stages after the
+/// profiles are written, so a disagreement means the two no longer describe
+/// the same set of observations, and apportioning a strand split across counts
+/// it does not match would be inventing the tally rather than measuring it.
+/// Such a record keeps its zeros and stays visible as an unfilled one.
+
+void derive_msa_candidate_strand_counts(PhasingChunk& chunk) {
+    const size_t n_cands = chunk.candidates.size();
+    if (n_cands == 0 || chunk.read_var_profile.empty()) return;
+    std::vector<std::array<int, 4>> tally(n_cands, {0, 0, 0, 0});  // fwdRef revRef fwdAlt revAlt
+
+    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.read_id < 0 ||
+            static_cast<size_t>(profile.read_id) >= chunk.reads.size()) continue;
+        if (profile.start_var_idx < 0) continue;
+        const bool reverse = chunk.reads[static_cast<size_t>(profile.read_id)].reverse;
+        for (size_t i = 0; i < profile.alleles.size(); ++i) {
+            const int allele = profile.alleles[i];
+            if (allele < 0) continue;
+            const size_t vi = static_cast<size_t>(profile.start_var_idx) + i;
+            if (vi >= n_cands) break;
+            if (allele == 0) tally[vi][reverse ? 1 : 0] += 1;
+            else tally[vi][reverse ? 3 : 2] += 1;
+        }
+    }
+
+    for (size_t vi = 0; vi < n_cands; ++vi) {
+        VariantCounts& c = chunk.candidates[vi].counts;
+        const bool ref_missing = c.ref_cov > 0 && c.forward_ref + c.reverse_ref == 0;
+        const bool alt_missing = c.alt_cov > 0 && c.forward_alt + c.reverse_alt == 0;
+        if (!ref_missing && !alt_missing) continue;
+        const auto& t = tally[vi];
+        if (ref_missing) {
+            if (t[0] + t[1] != c.ref_cov) continue;
+        }
+        if (alt_missing) {
+            if (t[2] + t[3] != c.alt_cov) continue;
+        }
+        if (ref_missing) { c.forward_ref = t[0]; c.reverse_ref = t[1]; }
+        if (alt_missing) { c.forward_alt = t[2]; c.reverse_alt = t[3]; }
+    }
+}
+
 
 static bool bam_aligned_base_quality(const bam1_t* bam, hts_pos_t target, int min_bq,
                                      int* query_index = nullptr) {

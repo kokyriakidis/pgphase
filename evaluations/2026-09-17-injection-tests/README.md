@@ -92,3 +92,57 @@ Python check over the same BAM, and `samtools view -c` over the span at any
 MAPQ and primary-only. The mechanism was not established; one record in six
 windows, and the bound is tight enough that it would have gone unnoticed
 without this check.
+
+## Fixes
+
+### 1. Multi-base substitution claims are no longer injected (fixed)
+
+`augment_chunk_with_graph_sites` now drops a claim whose REF and ALT are the
+same length and longer than one base when **every** differing offset already
+carries the matching SNP in the alignment channel. The existing redundant-site
+drop could not see these: it keys on `TYPE`, and `vcf_to_variant_key` types an
+equal-length substitution as `DEL`, which never matches a `SNP`.
+
+Dropped only when every offset is already called. A partially covered claim
+still names a base the alignment channel did not call, and discarding it would
+lose that base, so those keep the previous behaviour.
+
+Measured: `39,895,614 CGC>C` and `39,896,921 TTG>T` are gone from the emitted
+VCF and the two SNP pairs they sat beside are unchanged, down to their depths
+and genotypes. Panel 0 concordant->discordant.
+
+### 2. MSA-derived candidates now carry strand tallies (fixed)
+
+`update_variant_depth_fields` derives `ref_cov`/`alt_cov` from `alle_covs` and
+leaves the four strand fields alone, so every candidate the MSA path built or
+re-counted carried coverage with no strand. `derive_msa_candidate_strand_counts`
+fills them in one sweep from the read profiles and `ReadRecord::reverse`, called
+once after `collect_noisy_vars_step4` -- derived, not accumulated at each site
+that touches a count, which is the contract the graph-only backfill already
+follows.
+
+A record is filled only when the derivation reproduces its **own** `ref_cov` and
+`alt_cov`. The counts pass through several stages after the profiles are
+written, and apportioning a strand split across counts it does not match would
+be inventing the tally rather than measuring it.
+
+Measured across the six panel windows: **211 of 211** strandless candidates
+filled, none skipped, so the derivation agreed with every record's own counts.
+The allowance ceilings are now 0.
+
+### 3. The over-counted record is not a double count (diagnosed, not fixed)
+
+A probe on both per-read accumulation sites shows `55,905,752` receives **57
+increments from 57 distinct reads**, all through the with-phase-set consensus
+path. No read is counted twice, so the "accumulate onto existing counts"
+hypothesis is wrong -- a guard against re-counting a read that already has an
+observation was written, measured inert, and reverted.
+
+What remains is narrower and still a defect: 57 distinct reads are credited with
+an allele at a site only **56** reads overlap, at any MAPQ and primary-only, by
+three independent counts. One credited read cannot see the site. `full_cover` is
+computed against the consensus alignment string using a running
+`delta_ref_alt` offset rather than against the record's reference span, so the
+window a read is tested against is not the span the record names. Establishing
+that is a change to the MSA coordinate mapping, which is why it is recorded
+rather than guessed at. The allowance row stays, with this mechanism.

@@ -421,6 +421,44 @@ SiteToCandidateMap inject_graph_sites(
                 }
             }
         }
+        // A claim whose REF and ALT are the same length and longer than one base
+        // is a MULTI-BASE SUBSTITUTION: it asserts a substitution at each offset
+        // where the two differ, and deletes nothing. vcf_to_variant_key types it
+        // as a deletion all the same, so the type test above cannot see that the
+        // alignment channel has already described the very same event as
+        // individual SNPs -- and the claim is then added, left-shifted by the
+        // emitter, and written out as a heterozygous deletion at a locus that
+        // carries no deletion.
+        //
+        // Measured at chr20:39,895,615, where the alignment channel calls G>A
+        // (DP 61, 31/30) and C>A (DP 59, 31/28) at consecutive positions, which
+        // is the correct description, and the catalog's GC>AA claim was emitted
+        // beside them as `39895614 CGC>C 0|1:60:31,29`. chr20:39,896,922 is the
+        // same case (TG>CT against SNPs T>C and G>T).
+        //
+        // Dropped only when EVERY differing offset already carries the matching
+        // SNP. A partially covered claim still names a base the alignment channel
+        // did not call, and discarding it would lose that base; such a claim
+        // keeps the existing behaviour rather than being silently thrown away.
+        if (fallback_ai >= 0) {
+            const std::string& alt = site.alts[static_cast<size_t>(fallback_ai)];
+            if (alt.size() == site.ref.size() && site.ref.size() > 1) {
+                bool every_offset_called = true;
+                bool any_offset_differs = false;
+                for (size_t off = 0; off < site.ref.size(); ++off) {
+                    if (site.ref[off] == alt[off]) continue;
+                    any_offset_differs = true;
+                    const VariantKey sub = vcf_to_variant_key(
+                        chunk_tid, site.pos + static_cast<hts_pos_t>(off),
+                        std::string(1, site.ref[off]), std::string(1, alt[off]));
+                    if (find_matching_candidate(chunk.candidates, sub, orig_count) < 0) {
+                        every_offset_called = false;
+                        break;
+                    }
+                }
+                if (any_offset_differs && every_offset_called) fallback_ai = -1;
+            }
+        }
         if (fallback_ai >= 0) {
             const std::string& vcf_alt = site.alts[static_cast<size_t>(fallback_ai)];
             const int new_idx = add_graph_only_candidate(
