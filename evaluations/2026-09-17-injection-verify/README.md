@@ -107,3 +107,47 @@ representation fix reaches it, because neither allele was ever proposed.
 0 reference to 22), but the het/hom verdict still reads homozygous: re-deriving it
 from the corrected counts is measured to cost 380 concordant-to-discordant reads
 on the panel and was reverted.
+
+## Is the alignment channel's record the right one to copy? Measured both ways
+
+The record does survive injection intact -- that is now verified rather than
+assumed. But "intact" and "right" are different claims, so the same six checks
+were run against the **alignment channel's own candidates**, with no graph
+channel involved at all:
+
+| check | alignment channel alone | hybrid, after injection |
+|---|---:|---:|
+| candidates | 1,517 | 1,575 |
+| dropped | -- | **0** |
+| missing | 0 | **0** |
+| duplicated | **8** | **0** |
+| allele set | **3** | **3** |
+| depth | **21** | **7** |
+| verdict | **1** | **1** |
+
+Two things follow, and they pull in opposite directions.
+
+**Injection is not the problem any more; it is a net improvement.** The hybrid
+carries *fewer* duplicated positions than the channel it copies from (0 against
+8) and *fewer* starved records (7 against 21). The graph claim is what does it:
+a claim promotes a locus and its counts are backfilled from the graph reads, so
+records the alignment channel left at a fraction of their coverage reach it. On
+the two checks where the hybrid is not better it is exactly equal.
+
+**And the three remaining allele-set failures are the alignment channel's own**
+-- the same loci, `55,890,331` (INS) and (DEL), and `5,339,364`. So is the one
+wrong verdict, `12,735,895`. Copying the alignment channel more faithfully cannot
+fix any of them, because at those loci its own record is the wrong description:
+a single allele where read truth shows two non-reference modes, and a 5 bp
+deletion where truth is +34 against +38.
+
+That relocates the remaining work. It is not in the transfer and not in the
+catalog -- it is upstream, in how the alignment channel constructs a site in a
+repeat tract:
+
+- `55,890,331` needs one locus with two alleles of opposite sign, where it
+  currently produces an insertion record and a deletion record.
+- `5,339,364` needs the alleles the reads actually carry to be proposed at all.
+- `12,735,895` needs its het/hom verdict re-derived from counts this session
+  already corrected, which as a blanket rule costs 380 concordant-to-discordant
+  reads and so waits on a bridge gate.
