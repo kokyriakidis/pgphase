@@ -1,0 +1,7 @@
+gap_left	gap_bp	usable_sites	edges	chain_found	bottleneck	chain_sites	in_gap_chain_sites	from_catalog_only	min_segregation	orientation
+48183976	45470	624	10302	0	0	0	0	0	0.0	no chain
+55843827	45286	641	15679	0	0	0	0	0	0.0	no chain
+24105188	37099	353	5920	0	0	0	0	0	0.0	no chain
+5309406	35679	453	5892	1	6	4	4	1	0.9865	CORRECT
+12717796	34495	534	6652	0	0	0	0	0	0.0	no chain
+39838293	30518	771	26393	1	14	4	4	1	0.9846	CORRECT

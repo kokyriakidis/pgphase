@@ -1,0 +1,6 @@
+pos	ref	alt	provenance	category	how	reads	scored	segregation	hap1_is	in_gap
+24105188	A	G	candidate	CLEAN_HET_SNP	base	61	61	1.0	MATERNAL	1
+24125663	GG	GC	catalog	-	net	68	68	0.5882	PATERNAL	1
+24148223	GA	G	catalog	-	net	63	63	0.8889	PATERNAL	0
+24153146	T	C	both	CLEAN_HET_SNP	base	63	63	1.0	PATERNAL	0
+24142287	A	G	both	CLEAN_HET_SNP	base	76	76	1.0	PATERNAL	1

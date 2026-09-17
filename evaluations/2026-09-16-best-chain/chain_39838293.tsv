@@ -1,0 +1,5 @@
+pos	ref	alt	provenance	category	how	reads	scored	segregation	hap1_is	in_gap
+39838293	A	G	both	CLEAN_HET_SNP	base	64	64	1.0	MATERNAL	1
+39846780	G	GTATA	catalog	-	net	67	67	1.0	MATERNAL	1
+39856144	C	T	candidate	NOISY_CAND_HET	base	65	65	0.9846	MATERNAL	1
+39868811	T	C	both	CLEAN_HET_SNP	base	63	63	1.0	MATERNAL	1

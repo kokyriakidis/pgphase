@@ -1,0 +1,7 @@
+gap_left	gap_bp	usable_sites	edges	chain_found	bottleneck	chain_sites	in_gap_chain_sites	from_catalog_only	min_consistency	weakest_link	weakest_shared	weakest_cons	longest_link_bp	min_segregation	orientation
+48183976	45470	163	1775	0	0	0	0	0	0.0	-	0	0.0	0	0.0	no chain
+55843827	45286	159	1377	1	2	7	5	3	1.0	55850521-55871836	2	1.0	21315	0.5294	SWITCHED
+24105188	37099	113	909	0	0	0	0	0	0.0	-	0	0.0	0	0.0	no chain
+5309406	35679	184	4117	1	6	4	4	1	0.9767	5309406-5315591	43	0.9767	15675	0.9865	CORRECT
+12717796	34495	187	2218	0	0	0	0	0	0.0	-	0	0.0	0	0.0	no chain
+39838293	30518	292	10330	1	14	4	4	1	1.0	39856144-39868811	14	1.0	12667	0.9846	CORRECT
