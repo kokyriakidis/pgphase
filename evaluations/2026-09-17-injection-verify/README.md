@@ -13,12 +13,12 @@ at, so a pass means the pipeline reached the right answer on its own evidence.
 | depth | a record whose DP is under half the reads covering its window |
 | verdict | a record classified homozygous that read truth calls heterozygous |
 
-## Result over the six panel windows, 1,576 candidates
+## Result over the six panel windows, 1,575 candidates
 
 | window | candidates | dropped | duplicated | missing | alleleSet | depth | verdict |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | 48,183,976 | 154 | 0 | 0 | 0 | 0 | 1 | 0 |
-| 55,843,827 | 246 | 0 | 1 | 0 | 2 | 2 | 0 |
+| 55,843,827 | 245 | 0 | 0 | 0 | 2 | 2 | 0 |
 | 24,105,188 | 261 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 5,309,406 | 308 | 0 | 0 | 0 | 1 | 3 | 0 |
 | 12,717,796 | 362 | 0 | 0 | 0 | 0 | 1 | 1 |
