@@ -15,9 +15,9 @@ panel.
 | `CLEAN_HOM` | -- | -- |
 | `NOISY_CAND_HET` | 2 | the only interior evidence |
 
-Provenance: 11 of the 19 are catalog-matched, 8 are alignment-only. **Every one of
-the four heterozygotes is alignment-derived**, including both boundaries by
-sequence -- the catalog claims `24,142,287` but not the others.
+Provenance: **13 of the 19 are catalog-matched, 6 are alignment-only**. Of the
+four heterozygotes, **three are alignment-only and one -- the right boundary
+`24,142,287` -- is catalog-matched**.
 
 Hiphase's phased heterozygotes inside the gap are exactly three:
 `24,105,188`, `24,121,713` (`C>CTTTT,CTTTTTTT,CTTTTTTTT` at `3|1`) and
