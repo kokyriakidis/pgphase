@@ -1685,7 +1685,18 @@ void add_msa_site_observations(const Options& opts,
                                 const std::array<AlnStr, 2>* consensuses) {
     for (size_t vi = 0; vi < vars.size(); ++vi) {
         auto& var = vars[vi];
-        if (var.counts.category != VariantCategory::NoisyCandHet ||
+        // A homozygous verdict must not block the correction that would overturn
+        // it. This pass existed to raise a site's depth toward its true coverage
+        // where the MSA clustering had placed only some of the reads, but it
+        // accepted only NoisyCandHet records -- and a record whose missing
+        // reference observations are exactly what made it read homozygous is
+        // NoisyCandHom, so it was skipped and its counts could never be
+        // corrected. Measured on chr20:12,735,895, a 1 bp deletion the
+        // competitor phases: 22 of the 75 covering reads sit at reference length
+        // and 36 carry the deletion, yet the record reported DP 8 with 0
+        // reference, allele fraction 1, and was classified homozygous.
+        const bool was_hom = var.counts.category == VariantCategory::NoisyCandHom;
+        if ((var.counts.category != VariantCategory::NoisyCandHet && !was_hom) ||
             (snp_only && var.key.type != VariantType::Snp)) continue;
         std::vector<std::pair<int, int>> observations;
         auto counts = var.counts.alle_covs;
@@ -1716,6 +1727,13 @@ void add_msa_site_observations(const Options& opts,
             const double second_af = static_cast<double>(counts[2]) / total;
             if (second_af < opts.min_af || second_af > opts.max_af) continue;
         }
+        // Promoting such a record to heterozygous on these corrected counts was
+        // measured and rejected: it admits enough additional noisy heterozygotes
+        // to take the panel from 0 concordant-to-discordant reads to 380 and
+        // 83.87% concordance with the retry, the same way every other broad
+        // admission of that class has. The counts are corrected regardless,
+        // which is what every allele-fraction-gated consumer downstream reads.
+        (void)was_hom;
         for (const auto& [read_id, allele] : observations)
             update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1,
                                                 profiles[read_id]);

@@ -62,3 +62,47 @@ per-cluster pass assigns reference to any read whose cluster consensus lacks the
 variant, which is itself false at a multiallelic locus, and a unit test asserts
 that a third allele must be recorded as unknown rather than as an invented
 reference vote.
+
+## Fixed: the verdict that blocked its own correction, at 12,735,894
+
+`add_msa_site_observations` exists to compose the observations the MSA clustering
+never made, raising a site's depth toward its true coverage. It accepted only
+`NoisyCandHet` records -- and a record whose **missing reference observations are
+exactly what made it read homozygous** is `NoisyCandHom`, so it was skipped and
+its counts could never be corrected. A probe at the locus printed nothing at all,
+which is how the circularity showed up.
+
+Truth there is 22 of 75 reads at reference length against 36 carrying the
+deletion -- a reference haplotype genuinely exists, so this is not the
+multiallelic case. The record reported:
+
+```
+before   DP=8    0 ref / 8 alt    AF=1.000    NOISY_CAND_HOM
+after    DP=61   22 ref / 39 alt  AF=0.639    NOISY_CAND_HOM
+```
+
+Letting the pass reach homozygous records corrects the counts. Across the six
+panel windows it corrects **9 records**, one of them from `DP 7` to `DP 72`
+(`48,210,485`, ref/alt 1/6 -> 19/53).
+
+| arm | spanned | concordance | c -> d |
+|---|---:|---:|---:|
+| stock defaults | 0 of 6 | 99.68% | **0** (byte-identical) |
+| `--retry-unphased-with-bam` | **4 of 6** | **99.49%** | **0** |
+
+### The promotion is a separate question, and it fails
+
+Re-deriving the het/hom call from the corrected counts does finish the job at
+this locus -- the record becomes `NOISY_CAND_HET` and is emitted
+`12,735,894 TA>T 0|1`, matching hiphase exactly and matching truth. But as a
+blanket rule it admits enough additional noisy heterozygotes to take the panel
+from 0 concordant-to-discordant reads to **380**, at 83.87% concordance with the
+retry, and it loses 3 concordant tags. Reverted.
+
+That is the same wall every broad admission of this class has hit today, and it
+is consistent with the census: the noisy class in these intervals contains both
+the informative sites and the bridges, and no threshold tested so far separates
+them. So the counts ship corrected -- which is what every allele-fraction-gated
+consumer downstream reads, including the graph-only classifier that re-derives
+the category -- and the verdict does not change until the bridge problem has a
+gate.
