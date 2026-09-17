@@ -82,6 +82,14 @@ bool file_exists(const std::string& path) {
     return in.good();
 }
 
+std::vector<std::string> split_char(const std::string& s, char sep) {
+    std::vector<std::string> out;
+    std::string field;
+    std::istringstream in(s);
+    while (std::getline(in, field, sep)) out.push_back(field);
+    return out;
+}
+
 std::vector<std::string> split_tabs(const std::string& line) {
     std::vector<std::string> out;
     std::string field;
@@ -145,6 +153,52 @@ std::map<Key, Candidate> load_candidates(const std::string& path) {
     return out;
 }
 
+/// One emitted VCF record, reduced to what these tests judge: where it is, what
+/// alleles it names, the genotype, and the per-allele depths.
+struct Record {
+    long long pos = 0;
+    std::string ref, alt, gt;
+    std::vector<int> ad;
+    bool multiallelic() const { return alt.find(',') != std::string::npos; }
+    /// Both genotype calls are the same allele.
+    bool homozygous_call() const {
+        const size_t bar = gt.find_first_of("|/");
+        return bar != std::string::npos && gt.substr(0, bar) == gt.substr(bar + 1);
+    }
+    /// Reads behind two or more ALTs, which no homozygous call can describe.
+    int alts_with_reads() const {
+        int n = 0;
+        for (size_t i = 1; i < ad.size(); ++i) if (ad[i] > 0) ++n;
+        return n;
+    }
+};
+
+std::vector<Record> load_records(const std::string& path) {
+    std::vector<Record> out;
+    std::ifstream in(path);
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto f = split_tabs(line);
+        if (f.size() < 10) continue;
+        Record r;
+        r.pos = std::stoll(f[1]);
+        r.ref = f[3];
+        r.alt = f[4];
+        const auto sample = split_char(f[9], ':');
+        if (sample.empty()) continue;
+        r.gt = sample[0];
+        // AD is the third sub-field of the sample column in this writer's layout
+        // (GT:DP:AD:...); parsed positionally because the FORMAT string is fixed.
+        if (sample.size() > 2)
+            for (const std::string& v : split_char(sample[2], ','))
+                r.ad.push_back(v.empty() || !isdigit(static_cast<unsigned char>(v[0])) ? 0
+                                                                                       : std::stoi(v));
+        out.push_back(std::move(r));
+    }
+    return out;
+}
+
 struct Window { long long gap_left = 0, gap_right = 0, gap_bp = 0; };
 
 /// Known, documented defects these tests find and that are not yet fixed.
@@ -158,6 +212,8 @@ struct Window { long long gap_left = 0, gap_right = 0, gap_bp = 0; };
 struct Allowance {
     std::set<std::pair<long long, long long>> duplicates;   // (window, position)
     std::set<std::pair<long long, long long>> overdepth;    // (window, position)
+    std::set<std::pair<long long, long long>> genotype;     // (window, position)
+    std::map<long long, int> emitted_multiallelic;          // window -> floor
     std::map<long long, int> strandless_ceiling;            // window -> count
 };
 
@@ -171,6 +227,8 @@ Allowance load_allowance(const std::string& path) {
         if (f.size() < 3 || f[0] == "kind") continue;
         if (f[0] == "duplicate") a.duplicates.insert({std::stoll(f[1]), std::stoll(f[2])});
         else if (f[0] == "depth") a.overdepth.insert({std::stoll(f[1]), std::stoll(f[2])});
+        else if (f[0] == "genotype") a.genotype.insert({std::stoll(f[1]), std::stoll(f[2])});
+        else if (f[0] == "emitted_multi") a.emitted_multiallelic[std::stoll(f[1])] = std::stoi(f[2]);
         else if (f[0] == "strandless") a.strandless_ceiling[std::stoll(f[1])] = std::stoi(f[2]);
     }
     return a;
@@ -217,6 +275,7 @@ struct Paths {
 /// graph channel at all, which is the reference the injection has to preserve.
 struct Pair {
     std::map<Key, Candidate> alignment, hybrid;
+    std::vector<Record> alignment_records, hybrid_records;
 };
 
 bool run(const Paths& p, const std::string& subcommand, const Window& w,
@@ -262,6 +321,8 @@ const Pair& channels(const Paths& p, const Window& w) {
     Pair pr;
     pr.alignment = load_candidates(dir_a + "/candidates.tsv");
     pr.hybrid = load_candidates(dir_h + "/candidates.tsv");
+    pr.alignment_records = load_records(dir_a + "/native.vcf");
+    pr.hybrid_records = load_records(dir_h + "/native.vcf");
     REQUIRE(!pr.alignment.empty());
     REQUIRE(!pr.hybrid.empty());
     return cache.emplace(w.gap_left, std::move(pr)).first->second;
@@ -437,6 +498,61 @@ TEST_CASE("injection: shared sites keep their alleles", "[injection][representat
             // The doubled list is kept for the message above; every entry in it
             // that is allowed is a known defect, not a passing case.
             (void)doubled;
+
+            // A record naming two alternates with reads behind both cannot be
+            // genotyped homozygous. Keeping the alleles is only half of correct
+            // representation: 55,883,019 carries 29 reads on one alternate and
+            // 33 on the other with ZERO reference, and a homozygous call there
+            // describes neither haplotype. This is the half the merge exists for
+            // -- split into two biallelic records, each allele would be measured
+            // against a reference no read carries, its allele fraction would run
+            // to 1, and both would classify homozygous.
+            //
+            // Checked in BOTH channels. The alignment channel is where these
+            // records are built, so a wrong genotype there is the origin; the
+            // hybrid is where it would be carried. Looking only at the hybrid
+            // hides the defect entirely whenever the hybrid does not emit the
+            // record at all, which is currently every one of them.
+            std::vector<std::string> hom_at_multiallelic;
+            for (const auto& [channel, records] :
+                 {std::make_pair("alignment", &ch.alignment_records),
+                  std::make_pair("hybrid", &ch.hybrid_records)}) {
+                for (const Record& r : *records) {
+                    if (!r.multiallelic() || !r.homozygous_call()) continue;
+                    if (r.alts_with_reads() < 2) continue;
+                    if (allow.genotype.count({w.gap_left, r.pos}) > 0) continue;
+                    std::ostringstream o;
+                    o << channel << " " << r.pos << " " << r.ref.substr(0, 18) << ">"
+                      << r.alt.substr(0, 22) << " GT=" << r.gt << " AD=";
+                    for (size_t i = 0; i < r.ad.size(); ++i) o << (i ? "," : "") << r.ad[i];
+                    hom_at_multiallelic.push_back(o.str());
+                }
+            }
+
+            // How many of the alignment channel's multiallelic loci the hybrid
+            // also EMITS. Surviving into the candidate table is not the same as
+            // reaching the output: the hybrid's solve excludes the noisy class
+            // (skip_noisy_kmeans, a hybrid-only override), so a merged
+            // NOISY_CAND_HET record gets no phase set and is never written. The
+            // count is recorded rather than asserted to be equal, because
+            // admitting that class chunk-wide is a measured bad trade -- but it
+            // is recorded so that a change in either direction is visible.
+            int align_multi = 0, hybrid_multi = 0;
+            for (const Record& r : ch.alignment_records) if (r.multiallelic()) ++align_multi;
+            for (const Record& r : ch.hybrid_records) if (r.multiallelic()) ++hybrid_multi;
+            const auto emitted = allow.emitted_multiallelic.find(w.gap_left);
+            INFO("multiallelic records emitted: alignment " << align_multi << ", hybrid "
+                 << hybrid_multi << " (recorded " 
+                 << (emitted == allow.emitted_multiallelic.end() ? -1 : emitted->second) << ")");
+            CHECK(emitted != allow.emitted_multiallelic.end());
+            if (emitted != allow.emitted_multiallelic.end())
+                CHECK(hybrid_multi >= emitted->second);
+            if (!hom_at_multiallelic.empty()) {
+                std::ostringstream o;
+                for (const auto& x : hom_at_multiallelic) o << "\n    " << x;
+                FAIL("multiallelic record(s) genotyped homozygous with reads on both "
+                     "alternates: " << hom_at_multiallelic.size() << o.str());
+            }
         }
     }
 }

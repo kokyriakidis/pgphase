@@ -14,3 +14,12 @@ strandless	5309406	0	filled by derive_msa_candidate_strand_counts; ceiling held 
 strandless	12717796	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
 strandless	39838293	0	filled by derive_msa_candidate_strand_counts; ceiling held at 0
 depth	55843827	55905752	57 increments from 57 DISTINCT reads at a site only 56 reads overlap; not a double count, the consensus full_cover window is not the record's span
+emitted_multi	48183976	0	hybrid emits 0 of the alignment channel's 4 multiallelic loci; the noisy class is excluded from the hybrid solve by design
+genotype	55843827	55795217	multiallelic emitted 1|1 with reads on both ALTs; the joint two-haplotype branch precondition does not reach it
+genotype	55843827	55815775	multiallelic emitted 1|1 with reads on both ALTs; the joint two-haplotype branch precondition does not reach it
+emitted_multi	55843827	0	hybrid emits 0 of the alignment channel's 7 multiallelic loci; the noisy class is excluded from the hybrid solve by design
+emitted_multi	24105188	0	hybrid emits 0 of the alignment channel's 2 multiallelic loci; the noisy class is excluded from the hybrid solve by design
+genotype	5309406	5379662	multiallelic emitted 1|1 with reads on both ALTs; the joint two-haplotype branch precondition does not reach it
+emitted_multi	5309406	0	hybrid emits 0 of the alignment channel's 2 multiallelic loci; the noisy class is excluded from the hybrid solve by design
+emitted_multi	12717796	0	hybrid emits 0 of the alignment channel's 4 multiallelic loci; the noisy class is excluded from the hybrid solve by design
+emitted_multi	39838293	0	hybrid emits 0 of the alignment channel's 8 multiallelic loci; the noisy class is excluded from the hybrid solve by design

@@ -24,12 +24,19 @@ checkable rather than assumed.
 Four rather than more, because that is where the scaling stops paying. Measured
 on `chr20:30,000,000-35,000,000`, varying only `-t`:
 
-| threads | real | user | avg parallelism | speedup |
-|---:|---:|---:|---:|---:|
-| 1 | 161.6 s | 149.8 s | 1.00 | 1.00x |
-| 4 | 46.7 s | 155.5 s | 3.68 | 3.46x |
-| 12 | 43.6 s | 163.7 s | 4.17 | 3.70x |
-| 20 | 44.0 s | 164.1 s | 4.16 | 3.67x |
+| threads | real | user | sys | avg parallelism `(user+sys)/real` | speedup `real_1/real_n` |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 161.6 s | 149.8 s | 12.3 s | 1.00 | 1.00x |
+| 4 | 46.7 s | 155.5 s | 16.2 s | 3.68 | 3.46x |
+| 12 | 43.6 s | 163.7 s | 18.4 s | 4.18 | 3.71x |
+| 20 | 44.0 s | 164.1 s | 18.6 s | 4.15 | 3.67x |
+
+An earlier version of this table omitted the `sys` column, which made the
+parallelism figures impossible to reconstruct from the row they sit in and look
+inflated by 8-12%: they are `(user+sys)/real`, not `user/real`. Both definitions
+are given above. The useful number for how long a run takes is the speedup
+column, which tops out at **3.7x**; the parallelism column includes system time
+and reads ~4.2.
 
 Total CPU work is flat and the VCF is byte-identical at every thread count, so
 this is wall time only. The ceiling is structural: `collect_pipeline.cpp:618`
