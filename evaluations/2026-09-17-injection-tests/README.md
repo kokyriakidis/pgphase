@@ -13,6 +13,33 @@ Three separate test cases, because they fail for different reasons and one
 run once per window and cached, so a test case costs assertions rather than
 pipeline runs: 3 cases, 78 assertions, ~12 s over the six panel windows.
 
+## Threads: a floor of four, not a default
+
+Every pipeline run these tests make uses at least four threads.
+`PGPHASE_TEST_THREADS` can raise it; a lower value is clamped up rather than
+honoured, so a test run cannot be made accidentally serial. Each invocation is
+written to `cmd.txt` beside its logs, so the thread count actually used is
+checkable rather than assumed.
+
+Four rather than more, because that is where the scaling stops paying. Measured
+on `chr20:30,000,000-35,000,000`, varying only `-t`:
+
+| threads | real | user | avg parallelism | speedup |
+|---:|---:|---:|---:|---:|
+| 1 | 161.6 s | 149.8 s | 1.00 | 1.00x |
+| 4 | 46.7 s | 155.5 s | 3.68 | 3.46x |
+| 12 | 43.6 s | 163.7 s | 4.17 | 3.70x |
+| 20 | 44.0 s | 164.1 s | 4.16 | 3.67x |
+
+Total CPU work is flat and the VCF is byte-identical at every thread count, so
+this is wall time only. The ceiling is structural: `collect_pipeline.cpp:618`
+caps workers at the number of chunks in a batch and joins between batches, and
+chunk costs are uneven.
+
+At panel-window size the suite is short enough that the thread count barely
+shows -- the full run is 12.4 s wall against 12.3 s user, so the floor is a
+guarantee about how the tests run rather than a speed-up here.
+
 ## What the counts test compares against, and what it does not
 
 It does **not** compare the hybrid's counts against the alignment channel's.

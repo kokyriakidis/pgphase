@@ -61,6 +61,23 @@ std::string env_or(const char* key, const std::string& fallback) {
     return (v != nullptr && *v != '\0') ? std::string(v) : fallback;
 }
 
+/// Threads for every pipeline run these tests make, never fewer than four.
+/// PGPHASE_TEST_THREADS may raise it; a lower value is clamped up, so a test run
+/// cannot be made accidentally serial. Four is where the scaling stops paying:
+/// on chr20:30-35 Mb, 161.6 s at 1 thread against 46.7 s at 4, and 43.6 s at 12.
+int test_threads() {
+    constexpr int kFloor = 4;
+    const char* v = std::getenv("PGPHASE_TEST_THREADS");
+    if (v == nullptr || *v == '\0') return kFloor;
+    int requested = 0;
+    try {
+        requested = std::stoi(v);
+    } catch (const std::exception&) {
+        return kFloor;
+    }
+    return std::max(kFloor, requested);
+}
+
 bool file_exists(const std::string& path) {
     std::ifstream in(path);
     return in.good();
@@ -307,7 +324,7 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
         << " --graph-sites '" << p.test_data << "/chr20.sites.striped.vcf.gz'"
         << " --gaf '" << p.test_data << "/HG002.chr20.annotated.coord.gaf.gz'"
         << " -r 'CHM13#0#chr20:" << (w.gap_left - 50000) << "-" << (w.gap_right + 50000) << "'"
-        << " -t " << env_or("PGPHASE_TEST_THREADS", "4") << " " << flags
+        << " -t " << test_threads() << " " << flags
         << " -o '" << outdir << "/candidates.tsv'"
         << " --phased-vcf-out '" << outdir << "/native.vcf'"
         << " -b '" << outdir << "/phased.bam'"

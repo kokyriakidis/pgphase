@@ -52,6 +52,31 @@ std::string env_or(const char* key, const std::string& fallback) {
     return (v != nullptr && *v != '\0') ? std::string(v) : fallback;
 }
 
+/// Threads for every pipeline run these tests make, never fewer than four.
+///
+/// Four is a floor rather than a default because below it these tests get
+/// slower for no reason, and above it they gain nothing. Measured on
+/// chr20:30,000,000-35,000,000, varying only -t: 161.6 s at 1 thread, 46.7 s at
+/// 4 (3.46x), 43.6 s at 12 and 44.0 s at 20 -- the ceiling is ~4.2x because
+/// collect_pipeline.cpp caps workers at the chunks in a batch and joins between
+/// batches, and chunk costs are uneven. Total CPU work is flat across all four
+/// and the VCF is byte-identical, so this affects only wall time.
+///
+/// PGPHASE_TEST_THREADS can raise it; a lower value is clamped up rather than
+/// honoured, so a run of these tests cannot be made accidentally serial.
+int test_threads() {
+    constexpr int kFloor = 4;
+    const char* v = std::getenv("PGPHASE_TEST_THREADS");
+    if (v == nullptr || *v == '\0') return kFloor;
+    int requested = 0;
+    try {
+        requested = std::stoi(v);
+    } catch (const std::exception&) {
+        return kFloor;
+    }
+    return std::max(kFloor, requested);
+}
+
 bool file_exists(const std::string& path) {
     std::ifstream in(path);
     return in.good();
@@ -199,17 +224,25 @@ bool run(const Paths& p, const std::string& subcommand, const Window& w,
     std::ostringstream dir;
     dir << p.workdir << "/" << subcommand << "/w" << w.gap_left;
     outdir = dir.str();
+    std::system(("mkdir -p '" + outdir + "'").c_str());
     std::ostringstream cmd;
     cmd << "mkdir -p '" << outdir << "' && '" << p.binary << "' " << subcommand
         << " --ref '" << p.test_data << "/chm13v2.0.chr20.renamed.fa'"
         << " --bam '" << p.test_data
         << "/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam'" << extra
         << " -r 'CHM13#0#chr20:" << (w.gap_left - 50000) << "-" << (w.gap_right + 50000) << "'"
-        << " -t " << env_or("PGPHASE_TEST_THREADS", "4")
+        << " -t " << test_threads()
         << " -o '" << outdir << "/candidates.tsv'"
         << " --phased-vcf-out '" << outdir << "/native.vcf'"
         << " -b '" << outdir << "/phased.bam'"
         << " > '" << outdir << "/stdout.log' 2> '" << outdir << "/stderr.log'";
+    // The exact invocation is written beside its logs: a failure message names
+    // the directory, and the first thing worth seeing there is the command that
+    // produced it -- including the thread count actually used.
+    {
+        std::ofstream rec(outdir + "/cmd.txt");
+        rec << cmd.str() << "\n";
+    }
     return std::system(cmd.str().c_str()) == 0;
 }
 
