@@ -58,3 +58,25 @@ in the panel. The fixes that moved it are the ones in
 `evaluations/2026-09-17-multiallelic/`: merging a co-located pair into one record
 with both alleles, the event-aware reference test, and the joint two-haplotype
 orientation.
+
+
+## Retired
+
+The flag is removed (its measurement stands, above). It was an exact null: in all
+six panel windows, discarding the graph catalog's candidates inside an unphased
+window and keeping only the MSA-verified alignment ones produced output
+byte-identical to the plain retry -- and not for want of material, since the
+great majority of candidates inside those windows are graph sites and removing
+all of them changed nothing.
+
+That result is worth keeping and the code is not. What it cost to keep was four
+pieces of CLI surface, an `Options` field, and two conditionals inside the
+window-readmission loop, all of which a future reader has to reason about when
+changing that loop. The loop now reads as what it does with the flag off, which
+is the only way it ever ran: a graph site keeps whatever category the recovery
+pass gave it, and only the alignment channel's candidates are readmitted.
+
+Removal verified behaviour-neutral: panel stock defaults and
+`--retry-unphased-with-bam` both emit records identical to the build before the
+removal -- 0 lost, 0 gained -- suite 5/5, no references left in the tree, and
+`--gap-bam-only` is now rejected as an unrecognized option.

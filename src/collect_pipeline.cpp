@@ -1099,19 +1099,11 @@ static PhasingChunk process_chunk_hybrid(
                     if (pos >= beg && pos < end) { inside = true; break; }
                 }
                 if (!inside) continue;
-                if (chunk.candidates[vi].graph_site) {
-                    // The graph's sites are what left this window unphased, so
-                    // the arm asks what the window looks like without them:
-                    // discard them inside it and re-solve on verified alignment
-                    // evidence alone. Zeroing the category removes the candidate
-                    // from every het and link mask, as the second pass does.
-                    if (opts.gap_bam_only) chunk.candidates[vi].lcd_var_i_to_cate = 0;
-                    continue;
-                }
-                if (opts.gap_bam_only && !chunk.candidates[vi].msa_verified) {
-                    chunk.candidates[vi].lcd_var_i_to_cate = 0;
-                    continue;
-                }
+                // A graph site keeps whatever category the recovery pass gave
+                // it; only the alignment channel's candidates are readmitted
+                // here, which is what makes the window's re-solve differ from
+                // the pass that left it unphased.
+                if (chunk.candidates[vi].graph_site) continue;
                 chunk.candidates[vi].lcd_var_i_to_cate = discovery_flags[vi];
                 ++readmitted;
             }
