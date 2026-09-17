@@ -1388,7 +1388,26 @@ int merge_var_profile(PhasingChunk& chunk,
                 (old_vars[old_i].counts.category == VariantCategory::LowCoverage ||
                  old_vars[old_i].counts.category == VariantCategory::LowAlleleFraction) &&
                 admissible_type(new_vars[new_i]);
-            if (replace_repeat || replace_selected || replace_pruned) {
+            // A record carrying both of the locus' alleles describes a locus
+            // whose haplotypes are those two alleles. A single-allele record at
+            // the same key cannot describe it: whichever allele it names, the
+            // other haplotype's reads are scored against that one, so the depth
+            // collapses and the allele fraction runs to 1. Measured at
+            // chr20:55,896,396, a 16 bp homopolymer deletion the competitor
+            // phases and read truth confirms at purity 1.000 over 28 reads: the
+            // alignment channel merges it to REF=T(16) with alleles retaining 13
+            // and 0 bases at DP 69, and the catalog claims the locus, so the
+            // hybrid kept the graph-claimed single-allele version at DP 37, 2/35,
+            // allele fraction 0.946, classified CleanHom -- the one candidate
+            // injection lost across the whole panel. The claim is still honoured:
+            // graph_site and the initial category carry over as for any other
+            // replacement. Only the allele set is preserved.
+            const bool replace_single_allele =
+                new_vars[new_i].msa_insertion_alts.size() == 2 &&
+                old_vars[old_i].msa_insertion_alts.empty() &&
+                admissible_type(new_vars[new_i]);
+            if (replace_repeat || replace_selected || replace_pruned ||
+                replace_single_allele) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
                 new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =
