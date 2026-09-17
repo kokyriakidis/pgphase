@@ -939,15 +939,34 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
     for (int _vi = 0; _vi < n; ++_vi) {
         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
         if ((var.gap_link_supported || two_allele_het(var)) &&
-            var.msa_insertion_alts.size() == 2 && saved[_vi][1] > 0 &&
-            saved[_vi][2] > 0 && saved[_vi][1] != saved[_vi][2]) {
+            var.msa_insertion_alts.size() == 2) {
             const int same = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][2];
             const int flip = var.hap_to_alle_profile[1][2] + var.hap_to_alle_profile[2][1];
             // Optimize the orientation of the verified allele pair jointly.
             // Independent haplotype majorities can select the same allele twice.
+            //
+            // The condition reads the CURRENT read evidence, not `saved`. It
+            // previously also required saved[1] > 0, saved[2] > 0 and
+            // saved[1] != saved[2] -- that is, the pair had to ALREADY be a
+            // het in the previous iteration before this branch would orient it.
+            // `saved` is the previous iteration's consensus, kept for the
+            // convergence check below, and when that iteration had collapsed
+            // both haplotypes onto one allele -- the exact failure this branch
+            // exists to fix -- the guard refused and the collapse became
+            // permanent. It left three of the panel's twenty-seven multiallelic
+            // loci emitted 1|1 with reads on both alternates: 55,795,217
+            // (AD 0,40,28), 55,815,775 (0,18,10) and 5,379,662 (0,45,31).
+            // two_allele_het already establishes from the counts that reads sit
+            // behind both alternates, which is the precondition that matters.
             if (same != flip) {
                 var.hap_to_cons_alle[1] = same > flip ? 1 : 2;
                 var.hap_to_cons_alle[2] = same > flip ? 2 : 1;
+            } else {
+                // No preference either way: seed a het, for the reason the
+                // biallelic branch below gives -- an arbitrary orientation is
+                // resolvable by the link votes, a collapsed one is not.
+                var.hap_to_cons_alle[1] = 1;
+                var.hap_to_cons_alle[2] = 2;
             }
         } else if (allele_depths_call_het(var, opts)) {
             // Same hazard the branch above guards against, for a plain biallelic
