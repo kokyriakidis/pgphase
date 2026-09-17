@@ -36,18 +36,31 @@ admitting it wholesale injects about three phantoms per real site.
 
 ## Panel, stock defaults
 
-| | before | after |
-|---|---:|---:|
-| in-gap phased hets | 12 | **14** |
-| reads tagged | 2,794 | **2,831** |
-| read concordance | 99.68% | **99.72%** |
-| concordant -> discordant | | **0** |
+| | before | after | convention |
+|---|---:|---:|---|
+| in-gap phased hets (`score_panel.py`) | 12 | **14** | gap bounds INCLUSIVE, so the two flank anchors of each window are counted |
+| in-gap phased hets (`test_gap_windows`) | 0 | **2** | STRICTLY inside, `pos > gap_left && pos < gap_right` |
+| reads tagged | 2,794 | **2,831** | |
+| read concordance | 99.68% | **99.72%** | |
+| discordant reads | 9 | **8** | |
+| concordant -> discordant | | **0** | |
+
+The two het rows are the same measurement under different boundary conventions
+and agree on the delta, **+2**: the sites gained are `5,315,591` in window
+5,309,406 and `12,721,112` in window 12,717,796, one each, both strictly inside
+their gap. The inclusive count starts at 12 because every window already phases
+its two flank anchors.
 
 39 newly concordant reads, 0 newly discordant, and one concordant tag lost: a
 9.7 kb read at `48,169,957-48,179,694` (truth PATERNAL) in window 48,183,976,
 which was concordant in block `48,162,480` and is now untagged. That window
 gains nothing, so its `min_tagged` floor drops 393 -> 392; the retry floors for
 window 5,309,406 and the retry panel total drop by the same one read.
+
+Those two counts are set differences, not a net: 39 reads are newly tagged AND
+concordant, 1 read was concordant and lost its tag, so concordant reads net
+**+38** (2,785 -> 2,823) while tagged reads net +37. Discordant reads fall 9 ->
+8, so the fix removes a discordant read as well as adding correct coverage.
 
 ## The target gap: what closes it, and what does not
 

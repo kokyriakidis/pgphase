@@ -81,3 +81,23 @@ The conclusion the sentence supported is unchanged: at none of the three loci
 does truth establish which haplotype carries which allele, so what the fix
 removes is a genotype contradicted by its own depths — `1|1` while 28 to 31
 reads carry allele 2 — rather than a demonstrably wrong phase.
+
+## Two panel figures were stated without their convention
+
+**Claimed**, in the claim-over-repeat-screen record and commit 1b89d06: "in-gap
+phased hets 12 -> 14" and "39 newly concordant reads", under "Panel, stock
+defaults".
+
+**Actual:** both numbers are real but measured two different ways, and neither
+was labelled.
+
+`score_panel.py` counts hets with the gap bounds **inclusive**, so each window's
+two flank anchors count and the panel total starts at 12. `test_gap_windows`
+counts **strictly** inside, `pos > gap_left && pos < gap_right`, and reads 0.
+The delta is **+2** either way -- `5,315,591` and `12,721,112`, one per window.
+Quoting 12 -> 14 next to a harness that reports 0 -> 2 for the same-sounding
+metric invited exactly the mismatch it got.
+
+"39 newly concordant" is a set difference: 39 reads are newly tagged and
+concordant, while 1 read that was concordant lost its tag, so concordant reads
+net **+38** (2,785 -> 2,823) against +37 tagged. Discordant reads fall 9 -> 8.
