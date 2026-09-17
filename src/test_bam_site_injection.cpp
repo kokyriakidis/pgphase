@@ -1004,3 +1004,75 @@ TEST_CASE("retrieval: an injected claim's reference bases are consumed whole",
         }
     }
 }
+
+
+// 8. A site the alignment channel already had must arrive as it was.
+//
+// "As they are" is not one rule for every site, because injection legitimately
+// re-measures some of them. Measured across the panel on 1,517 shared keys:
+//
+//   clean classes (CLEAN_HET_SNP, CLEAN_HET_INDEL, CLEAN_HOM): 1,201 sites,
+//       ZERO count changes and ZERO demotions. Injection does not touch them.
+//   noisy classes: 80 of 316 sites have their counts re-measured, and 105 are
+//       promoted to a clean class by the graph claim.
+//
+// The noisy re-measurement is a repair, not damage, which is why this test does
+// not demand identity there. At the four largest changes the alignment channel
+// reports DP 7-11 where 71-78 reads overlap -- the depth-starvation signature --
+// and the hybrid reports 69-77. Requiring identity would pin the starved value.
+// The bound that does apply to them, DP within the overlapping reads, is
+// asserted in [counts].
+//
+// So: clean sites must be byte-identical and must never be demoted; noisy drift
+// is reported, and its direction is held to promotions only.
+TEST_CASE("retrieval: a site the alignment channel had arrives unchanged",
+          "[injection][fidelity]") {
+    const Paths p;
+    if (!inputs_ready(p)) { SUCCEED("skipped: inputs absent"); return; }
+    static const char* kCountFields[] = {"DP",          "REF_COUNT",   "ALT_COUNT",
+                                         "LOW_QUAL_COUNT", "FORWARD_REF", "REVERSE_REF",
+                                         "FORWARD_ALT", "REVERSE_ALT", "AF"};
+    auto is_clean = [](const std::string& c) { return c.rfind("CLEAN", 0) == 0; };
+    for (const auto& w : load_panel(p.panel)) {
+        DYNAMIC_SECTION("window " << w.gap_left) {
+            const Pair& ch = channels(p, w);
+            int clean = 0, noisy = 0, promoted = 0, noisy_recounted = 0;
+            std::vector<std::string> altered, demoted;
+            for (const auto& [k, a] : ch.alignment) {
+                const auto it = ch.hybrid.find(k);
+                if (it == ch.hybrid.end()) continue;  // absence is [completeness]'s job
+                const Candidate& h = it->second;
+                const std::string acat = a.get("CATEGORY"), hcat = h.get("CATEGORY");
+                std::string changed;
+                for (const char* f : kCountFields)
+                    if (a.get(f) != h.get(f))
+                        changed += std::string(" ") + f + " " + a.get(f) + "->" + h.get(f) + ";";
+                if (is_clean(acat)) {
+                    ++clean;
+                    if (!changed.empty()) altered.push_back(show(k) + " [" + acat + "] --" + changed);
+                    if (!is_clean(hcat))
+                        demoted.push_back(show(k) + " " + acat + " -> " + hcat);
+                } else {
+                    ++noisy;
+                    if (!changed.empty()) ++noisy_recounted;
+                    if (is_clean(hcat)) ++promoted;
+                    else if (hcat != acat)
+                        demoted.push_back(show(k) + " " + acat + " -> " + hcat);
+                }
+            }
+            INFO("clean-class shared sites " << clean << "; noisy-class " << noisy
+                 << ", of which " << noisy_recounted << " re-measured and " << promoted
+                 << " promoted");
+            REQUIRE(clean > 0);
+            auto report = [](const char* what, const std::vector<std::string>& v) {
+                if (v.empty()) return;
+                std::ostringstream o;
+                for (size_t i = 0; i < v.size() && i < 10; ++i) o << "\n    " << v[i];
+                if (v.size() > 10) o << "\n    ... " << (v.size() - 10) << " more";
+                FAIL(what << ": " << v.size() << o.str());
+            };
+            report("clean-class site(s) whose counts injection changed", altered);
+            report("site(s) injection demoted", demoted);
+        }
+    }
+}

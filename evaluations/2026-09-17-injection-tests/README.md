@@ -12,10 +12,11 @@ Three separate test cases, because they fail for different reasons and one
 | emitted records agree with the candidate table | `[consistency]` | are the emitted depths the candidate's depths, and is every candidate inside the region asked for? |
 | a wider window finds the same interior sites | `[stability]` | does retrieval of an interior site depend on how much flank was requested? |
 | an injected claim's reference bases are consumed whole | `[claims]` | does a record carrying a claim's ALT consume the claim's whole REF? |
+| a site the alignment channel had arrives unchanged | `[fidelity]` | are clean-class sites carried byte-identically, and is nothing demoted? |
 
 `src/test_bam_site_injection.cpp`, Catch2, `make window-tests`. Both channels are
 run once per window and cached, so a test case costs assertions rather than
-pipeline runs: 7 cases, 121 assertions, ~35 s over the six panel windows (the
+pipeline runs: 8 cases, 127 assertions, ~35 s over the six panel windows (the
 stability case adds one widened run per window).
 
 ## Representation is more than keeping the alleles
@@ -280,3 +281,41 @@ record at the same position and only these 2 match that signature -- the rest
 are different events the alignment channel called there, which is not this
 defect. A first, looser version of this measurement flagged 10 of 11 by
 comparing any record at the same position, which conflated the two.
+
+
+## Are the alignment channel's sites injected "as they are"?
+
+Measured over the 1,517 candidate keys the two channels share:
+
+| the site's class in the alignment channel | shared | counts changed | promoted | demoted |
+|---|---:|---:|---:|---:|
+| `CLEAN_HET_SNP` | 461 | **0** | - | **0** |
+| `CLEAN_HOM` | 727 | **0** | - | **0** |
+| `CLEAN_HET_INDEL` | 13 | **0** | - | **0** |
+| `NOISY_CAND_HET` | 173 | 16 | 37 | 0 |
+| `NOISY_CAND_HOM` | 143 | 64 | 68 | 0 |
+
+**A clean-class site is carried byte-identically** -- all nine count fields, in
+1,201 of 1,201 -- and nothing is demoted anywhere. Every one of the 105 category
+changes is a promotion to a clean class, which is what honouring a graph claim
+on an existing record is supposed to do.
+
+**Noisy-class sites are re-measured, and that is a repair.** 80 of 316 have
+their counts recomputed, mostly upward. At the four largest changes the reads
+settle which value is right:
+
+| locus | alignment channel | hybrid | reads overlapping |
+|---|---|---|---:|
+| 12,732,381 | DP 11 (0/11) | DP 77 (0/77) | 78 |
+| 12,735,985 | DP 8 (1/7) | DP 72 (0/72) | 75 |
+| 5,325,616 | DP 7 (0/7) | DP 70 (0/70) | 72 |
+| 24,123,429 | DP 7 (0/7) | DP 69 (0/69) | 71 |
+
+The alignment channel shows the depth-starvation signature -- a count a tenth of
+the coverage -- and the hybrid lands within a few reads of it. The hybrid has
+more sites in the region, so the noisy-region MSA has more to work with and
+assigns an allele to more reads. Asserting identity here would pin the starved
+value as correct, so `[fidelity]` does not: it requires identity for the clean
+classes, forbids demotion everywhere, and reports noisy drift. The bound that
+does apply to those sites -- depth within the reads that overlap them -- is
+asserted in `[counts]`.
