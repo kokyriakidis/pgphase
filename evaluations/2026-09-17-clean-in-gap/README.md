@@ -70,3 +70,44 @@ That is the same census result from the other direction. The union strengthens
 the blocks that already exist on either side; it adds nothing to the intervals
 between them, because inside those intervals there is one clean heterozygote in
 total.
+
+## What class does the competitor's in-gap evidence fall into?
+
+Every heterozygote hiphase phases strictly inside a panel gap, matched to our
+candidate at the same locus (indel anchors differ by a base or two, so matching
+is by locus):
+
+| our category at that locus | n |
+|---|---:|
+| `NOISY_CAND_HET` | **14** |
+| `NOISY_CAND_HOM` | **3** |
+| `CLEAN_HET_INDEL` | 1 |
+| `CLEAN_HET_SNP` | **0** |
+| no candidate at all | **0** |
+
+**18 sites, and not one of them is a clean heterozygous substitution.** The
+single clean record is `48,183,977`, the one clean in-gap heterozygote the census
+found, and it sits on a gap boundary. Discovery is not the difference either --
+we hold a candidate at all 18.
+
+So the competitor's interior evidence *is* the class this pipeline excludes. That
+is the same conclusion the census reaches from the supply side: there is nothing
+clean in these intervals to use, so anything that crosses them crosses on noisy
+candidates.
+
+### Three of them we call homozygous
+
+| locus | hiphase | our category | our DP |
+|---|---|---|---:|
+| `55,883,019` | `A,AAT` at `2\|1` | `NOISY_CAND_HOM` | 37 |
+| `5,339,363` | `GTGTGTGT...` at `2\|1` | `NOISY_CAND_HOM` | 40 |
+| `12,735,894` | `TA>T` at `0\|1` | `NOISY_CAND_HOM` | **8** |
+
+The first two are multiallelic in hiphase and genotyped `2|1` -- both haplotypes
+non-reference, the case a single biallelic record cannot describe and the one the
+merge work addresses. The third is the depth signature: DP 8 where the locus
+carries roughly 70-fold coverage.
+
+And `24,121,713` is the only one of the 18 still at `PHASE_SET = 0` in the retry
+arm -- hiphase emits it with three ALTs at `3|1`, we hold it as one merged record
+with two, and it is excluded from the solve rather than mis-measured.
