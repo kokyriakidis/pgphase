@@ -148,3 +148,64 @@ true modes -- but with DP 6 and 2 against 13 and 16 reads actually carrying them
 each as a separate biallelic record claiming AF 1.000 with no reference read.
 Every gap's chain depends on indels for its widest steps, which is why this
 matters more than the substitution result suggests.
+
+## Does the injection work correctly, and inject in the right way?
+
+Compared the hybrid arm against `collect-bam-variation` run standalone over the
+same six windows, so the only differences are the catalog claim and what follows
+from it. The hybrid arm is the `--keep-noisy-kmeans` one, which matches the
+alignment channel's noisy handling; without that flag the comparison would also
+carry the hybrid-only `skip_noisy_kmeans` override and would not isolate
+injection.
+
+**Faithful in what it adds.** Injection adds 6-16 candidates per window
+(152->158, 245->252, 254->263, 302->311, 350->366, 242->253) and no locus the
+alignment already had is dropped.
+
+**Complete with respect to real heterozygotes.** Each gap holds 636-896 catalog
+sites and only 2-130 are injected -- but of the catalog SNPs inside the gaps that
+read truth confirms as heterozygous, **none is missing** in any of the six
+windows. The catalog's remaining hundreds of in-gap sites are not heterozygous in
+this sample, and declining them is correct rather than a loss.
+
+**Its verdicts are right where the allele representation is right.** Injection
+changes the record at 128 shared loci, and every change is a promotion:
+
+| transition | loci |
+|---|---:|
+| `NOISY_CAND_HOM` -> `CLEAN_HOM` | 68 |
+| `NOISY_CAND_HET` -> `CLEAN_HET_SNP` | 36 |
+| `NOISY_CAND_HET` -> `NOISY_CAND_HET` (INIT_CAT only) | 17 |
+| `NOISY_CAND_HOM` -> `NOISY_CAND_HOM` (INIT_CAT only) | 5 |
+| `NOISY_CAND_HET` -> `CLEAN_HET_INDEL` | 1 |
+| `NOISY_CAND_HET` -> `CLEAN_HOM` | **1** |
+
+**All 36 het promotions are true heterozygotes** -- purity of the ALT-carrying
+reads is 1.000 at 35 of them and 0.967 at `24,169,753`. And where injection
+changes DP it usually corrects it: of 80 DP changes, **58 move closer to true
+coverage** and several dramatically so (`5,325,566` 7 -> 69 against 71 covering
+reads, `5,323,528` 12 -> 68 against 70, `5,319,294` 27 -> 70 against 70,
+`5,335,995` 30 -> 74 against 74), 21 move farther by 1-2 reads, and one is
+unchanged in distance.
+
+**The single wrong verdict is the multiallelic defect again, with a worse
+consequence.** At `55,896,396` (`TTTTTTTTTTTTTT>.`, a 14 bp deletion in a T
+homopolymer) the alignment channel says `DP 30, 0/30, NOISY_CAND_HET` and the
+hybrid says `DP 37, 2/35, AF 0.946, CLEAN_HOM`. By truth the locus is one of the
+cleanest heterozygotes in that window:
+
+| net length | MAT | PAT |
+|---:|---:|---:|
+| -16 / -17 | 0 | **32** |
+| -3 / -4 | **32** | 0 |
+
+Both haplotypes are non-reference, so a single `-14` record sees 35 alt against 2
+reference reads and is promoted to homozygous -- and a homozygote is dropped from
+phasing entirely. The promotion logic is behaving correctly on an allele set that
+misrepresents the locus.
+
+So: injection is faithful, complete with respect to real heterozygotes, and its
+promotions and depth backfills are correct. It is not the defect. But its verdicts
+are only as good as the allele representation handed to it, and where both
+haplotypes are non-reference that representation converts an informative het into
+a homozygote.
