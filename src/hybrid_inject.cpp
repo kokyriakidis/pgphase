@@ -229,8 +229,8 @@ static int find_matching_candidate(const CandidateTable& candidates,
 /// Add a new CandidateVariant from a graph site.
 ///
 /// The candidate is added UNCLASSIFIED (category LowCoverage, flag 0) so it is
-/// excluded from k-means until its allele counts have been accumulated from
-/// BAM and graph reads.  classify_graph_only_candidates() then applies the same
+/// excluded from k-means until its allele counts have been derived from the
+/// read profiles by backfill_graph_candidate_counts.  classify_graph_only_candidates() then applies the same
 /// depth/AF/het gates the BAM pipeline uses before any graph site can become a
 /// CleanHet phasing anchor.  Stamping CleanHet here (before counts exist) let
 /// homozygous and low-support graph sites flood k-means and degrade phasing.
@@ -315,7 +315,7 @@ SiteToCandidateMap inject_graph_sites(
     (void)opts;
     (void)chrom_remap;
     SiteToCandidateMap site_to_candidate;
-    int bridged = 0, added = 0, redundant = 0;
+    int bridged = 0, added = 0;
 
     // Track pre-sort indices of graph-only candidates and their original VCF
     // (ref, alt) strings so the noise filter can screen on the catalog
@@ -417,7 +417,6 @@ SiteToCandidateMap inject_graph_sites(
                     if (cand.graph_site || cand.key.type != target.type ||
                         cand.key.pos != target.pos) continue;
                     fallback_ai = -1;
-                    ++redundant;
                     break;
                 }
             }

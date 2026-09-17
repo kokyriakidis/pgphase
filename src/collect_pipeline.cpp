@@ -979,9 +979,10 @@ static PhasingChunk process_chunk_hybrid(
     // Step 3.1: build BAM read profiles against augmented candidate table.
     collect_var_build_profiles(chunk, opts);
 
-    // Backfill allele counts on graph-only candidates from BAM profiles.
-    // The BAM profile builder records alleles but doesn't update candidate
-    // counts; this pass accumulates the missing ref/alt/total coverage.
+    // When the graph owns these sites, the BAM's observations at them are
+    // discarded rather than counted, so the graph's own evidence is not diluted
+    // by an alignment call at the same position. The counts for the
+    // non-authoritative case are derived after Phase B, below.
     if (graph_authoritative)
         clear_bam_evidence_at_graph_candidates(chunk, graph_owned_cands);
 

@@ -132,14 +132,26 @@ void apply_hybrid_noise_filter(
     const GraphOnlyVcfAlleles* graph_only_vcf_alleles = nullptr,
     bool trim_minimal = false);
 
-/// Backfill allele counts on graph-only candidates from BAM read profiles.
+/// Derive the coverage counts on graph-only candidates from the read profiles.
 ///
-/// After collect_var_build_profiles, BAM reads have allele observations at
-/// graph-only candidate positions (typically ref=0) but the candidate's
-/// ref_cov/alt_cov/total_cov were never updated.  This function scans
-/// existing BAM profiles and accumulates the missing counts.
+/// The profile builders record allele observations at graph-only candidate
+/// positions but never touch the candidate's counts.  This function is the ONLY
+/// writer of those counts: it zeroes depth, the reference and alternate counts,
+/// the four strand tallies and the low-quality depth on every candidate in
+/// `graph_only_candidates`, then derives them in one sweep over the final
+/// profiles and publishes the allele fraction they imply.
 ///
-/// Call AFTER collect_var_build_profiles, BEFORE inject_graph_reads.
+/// Being a zero-then-derive pass rather than an accumulation makes it a pure
+/// function of the profiles: it is idempotent, and a read cannot be counted
+/// twice however many passes have run.  That is why the injection sites write
+/// alleles only and keep no counts of their own.
+///
+/// Call AFTER every pass that mutates a profile -- collect_var_build_profiles
+/// AND inject_graph_reads, which injects graph-only reads and extends
+/// doubly-mapped profiles -- and BEFORE classify_graph_only_candidates, which
+/// gates on the counts.  Sweeping before injection is what previously forced
+/// each injection site to maintain counts, and none of them wrote the strand
+/// tallies.
 void backfill_graph_candidate_counts(
     PhasingChunk& chunk,
     const std::unordered_set<int>& graph_only_candidates);
@@ -148,7 +160,7 @@ void backfill_graph_candidate_counts(
 /// pipeline applies, now that their allele counts are final.
 ///
 /// add_graph_only_candidate adds sites unclassified (flag 0) so they stay out
-/// of k-means until their support has been accumulated from BAM and graph
+/// of k-means until their support has been derived from BAM and graph
 /// reads.  This function runs classify_variant_initial on each graph-only
 /// candidate and assigns the matching bitmask via category_to_flag.  Only
 /// candidates passing the het band (min_depth, min_alt_depth,

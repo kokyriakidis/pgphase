@@ -91,3 +91,37 @@ The new unit test asserts the contract rather than a value: the sweep derives
 depth, allele, strand and low-quality counts from three profiles carrying `0`,
 `1` and `-2`; sweeping twice gives the same counts; and the strand tallies sum to
 their counts which sum to depth.
+
+## Cleaning the stale parts of the hybrid path
+
+Done on evidence rather than intuition -- the compiler and the call graph decide
+what is dead, and every cited reference was checked rather than assumed.
+
+**Removed or corrected:**
+
+| item | why it was stale |
+|---|---|
+| `hybrid_inject.hpp` contract for `backfill_graph_candidate_counts` | said *"Call AFTER collect_var_build_profiles, BEFORE inject_graph_reads"* -- the opposite of what the code now requires, and the most dangerous kind of stale comment, since it would lead the next change straight back into the bug |
+| its description "scans existing BAM profiles and accumulates the missing counts" | it no longer accumulates and no longer reads BAM profiles alone; it zeroes and derives from every profile |
+| `collect_pipeline.cpp:982` comment | described the backfill but was left sitting above `clear_bam_evidence_at_graph_candidates` when the call moved |
+| `redundant` counter in `augment_chunk_with_graph_sites` | set but never read (`-Wunused-but-set-variable`); the behaviour it counted is covered by the verifier's candidate totals |
+| two doc comments saying support is "accumulated" from BAM and graph reads | the mechanism is now a derivation |
+
+**Checked and left alone, with the evidence:**
+
+- `-Wall -Wextra -Wunused` on both hybrid translation units: **0 warnings** after the
+  counter went, so there is no other dead code or unused parameter there.
+- Every function declared in `hybrid_inject.hpp` has callers.
+  `clear_bam_evidence_at_graph_candidates` looks unreachable but is not -- it is
+  the `graph_authoritative` branch, and that option does have a CLI setter
+  (`hybrid_collect.cpp:370`).
+- `graph_only_pre_sort`, `all_graph_pre_sort` and `pre_sort_vcf_alleles` are all
+  read; so is every field of the local `ReadObs`, including the `reverse` field
+  added with the strand fix.
+- All three `file.cpp:NNN` references cited in the hybrid sources still point at
+  the code they claim: the two allele-fraction expressions and the homopolymer
+  flag assignment.
+
+Behaviour-neutral, as a cleanup should be: suite 5/5, and both arms emit
+**identical records** to the pre-cleanup build -- 0 lost and 0 gained on stock
+defaults and on `--retry-unphased-with-bam`.
