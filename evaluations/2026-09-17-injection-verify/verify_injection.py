@@ -151,9 +151,22 @@ def main():
                 agg, total = window_composition(reads, truth, pos, ref_len)
                 if total >= 20:
                     at_ref = sum(agg.get(0, collections.Counter()).values())
-                    if at_ref < 0.10 * total and ',' not in r['ALT'] and \
-                       not r['ALT'].endswith(','):
-                        single.append((key[0], vtype, r['CATEGORY']))
+                    # Two clean parental modes are required before this counts as
+                    # a representation failure. Without them the locus has no
+                    # allele pair to express: in a repeat tract the reads scatter
+                    # across many net lengths and neither haplotype has a modal
+                    # one, so a single-allele record is not the wrong description
+                    # of a two-allele locus, it is the only description available.
+                    # Measured over the panel, 48 of 51 loci that carry no
+                    # reference read are of that kind, and flagging them buries
+                    # the 3 that are real.
+                    clean_modes = [d for d, c in agg.items()
+                                   if d != 0 and sum(c.values()) >= 8 and
+                                   max(c.values()) / sum(c.values()) >= 0.90]
+                    if at_ref < 0.10 * total and len(clean_modes) >= 2 and \
+                       ',' not in r['ALT'] and not r['ALT'].endswith(','):
+                        single.append((key[0], vtype, r['CATEGORY'],
+                                       sorted(clean_modes)))
             purity, n = alt_reads_by_parent(reads, truth, pos, vtype, ref, alt)
             if n >= a.min_truth_reads:
                 is_het = purity >= 0.90
