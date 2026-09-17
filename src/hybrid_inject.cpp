@@ -558,14 +558,21 @@ static bool extend_bam_profile_with_graph_obs(
     }
 
     // Update allele counts only for observations that were actually applied.
+    // Each strand tally mirrors the count it accompanies, so forward + reverse
+    // equals the count by construction wherever coverage is accumulated.
+    const bool read_reverse =
+        static_cast<size_t>(read_i) < chunk.reads.size() &&
+        chunk.reads[static_cast<size_t>(read_i)].reverse;
     for (const auto& [cand_idx, allele] : applied) {
         CandidateVariant& cand =
             chunk.candidates[static_cast<size_t>(cand_idx)];
         if (allele == 0) {
             ++cand.counts.ref_cov;
+            read_reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
             ++cand.counts.total_cov;
         } else {
             ++cand.counts.alt_cov;
+            read_reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
             ++cand.counts.total_cov;
         }
     }
@@ -611,6 +618,13 @@ int inject_graph_reads(
         int candidate_idx;
         int allele;
         int mapq;
+        // GraphReadAllele reports whether the read traverses the snarl in
+        // reverse-complement. Dropping it here left every strand tally on an
+        // injected candidate at zero, which silently disables the ONT
+        // strand-bias screen in classify_graph_only_candidates: that screen
+        // computes expected = (forward_alt + reverse_alt) / 2 and declines to
+        // test when it is not positive.
+        bool reverse;
     };
     std::unordered_map<std::string, std::vector<ReadObs>> read_observations;
 
@@ -626,7 +640,7 @@ int inject_graph_reads(
         const int cand_idx = it->second;
         const int allele = row.allele;
         read_observations[row.read_name].push_back(
-            ReadObs{cand_idx, allele, row.mapq});
+            ReadObs{cand_idx, allele, row.mapq, row.reverse});
     }
 
     int injected = 0;
@@ -667,6 +681,9 @@ int inject_graph_reads(
         const int read_id = static_cast<int>(chunk.reads.size());
 
         ReadRecord read;
+        // The graph reports the traversal orientation; without it an injected
+        // read defaults to forward and biases every strand tally it touches.
+        read.reverse = obs_vec.front().reverse;
         read.tid = chunk_tid;
         read.input_index = 0;
         read.qname = read_name;
@@ -698,15 +715,17 @@ int inject_graph_reads(
         chunk.reads.push_back(std::move(read));
         chunk.read_var_profile.push_back(std::move(profile));
 
-        // Update allele counts on candidates.
+        // Update allele counts on candidates, strand tally mirroring each count.
         for (const ReadObs& obs : obs_vec) {
             CandidateVariant& cand =
                 chunk.candidates[static_cast<size_t>(obs.candidate_idx)];
             if (obs.allele == 0) {
                 ++cand.counts.ref_cov;
+                obs.reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
                 ++cand.counts.total_cov;
             } else {
                 ++cand.counts.alt_cov;
+                obs.reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
                 ++cand.counts.total_cov;
             }
         }
@@ -841,13 +860,22 @@ void backfill_graph_candidate_counts(
             if (offset >= prof.alleles.size()) continue;
             const int allele = prof.alleles[offset];
 
-            if (allele < 0) continue;  // -1 (uninformative) or -2 (low qual)
-
             CandidateVariant& cand = chunk.candidates[static_cast<size_t>(vi)];
+            if (allele == -2) {  // low quality: depth, but not an allele vote
+                ++cand.counts.low_qual_cov;
+                continue;
+            }
+            if (allele < 0) continue;  // -1: uninformative
+
+            const bool reverse =
+                static_cast<size_t>(prof.read_id) < chunk.reads.size() &&
+                chunk.reads[static_cast<size_t>(prof.read_id)].reverse;
             if (allele == 0) {
                 ++cand.counts.ref_cov;
+                reverse ? ++cand.counts.reverse_ref : ++cand.counts.forward_ref;
             } else {
                 ++cand.counts.alt_cov;
+                reverse ? ++cand.counts.reverse_alt : ++cand.counts.forward_alt;
             }
             ++cand.counts.total_cov;
         }

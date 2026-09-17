@@ -14,6 +14,12 @@ sites, so a pass means the pipeline got there on its own evidence.
   5 depth        a record whose DP is under half the reads covering its window
   6 verdict      a record classified homozygous that read truth calls
                  heterozygous, or the reverse
+  7 attributes   an injected candidate whose own fields are inconsistent --
+                 DP against its counts, AF against its counts, or a strand
+                 tally that does not sum to the count it accompanies. The
+                 strand fields are load-bearing: the ONT strand-bias screen in
+                 classify_graph_only_candidates declines to test when
+                 forward_alt + reverse_alt is zero.
 """
 import argparse, collections, csv, os, subprocess, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '2026-09-16-best-chain'))
@@ -174,13 +180,33 @@ def main():
                 if is_het and called_hom:
                     verdict.append((key[0], vtype, r['CATEGORY'], round(purity, 3), n))
 
+        attrs = []
+        for key in set(hyb) - set(bam):
+            r = hyb[key]
+            dp, rc, ac = int(r['DP']), int(r['REF_COUNT']), int(r['ALT_COUNT'])
+            fr, rr = int(r['FORWARD_REF']), int(r['REVERSE_REF'])
+            fa, ra = int(r['FORWARD_ALT']), int(r['REVERSE_ALT'])
+            why = []
+            if dp != rc + ac:
+                why.append('DP != ref+alt')
+            if abs(float(r['AF']) - (ac / (rc + ac) if rc + ac else 0.0)) > 1e-6:
+                why.append('AF != alt/(ref+alt)')
+            if fa + ra != ac:
+                why.append('alt strand %d+%d != %d' % (fa, ra, ac))
+            if fr + rr != rc:
+                why.append('ref strand %d+%d != %d' % (fr, rr, rc))
+            if why:
+                attrs.append((key[0], key[1], '; '.join(why)))
+
         for name, lst in (('dropped', dropped), ('duplicated', dup), ('missing', missing),
-                          ('allele_set', single), ('depth', thin), ('verdict', verdict)):
+                          ('allele_set', single), ('depth', thin), ('verdict', verdict),
+                          ('attributes', attrs)):
             for item in lst:
                 findings[name].append((gl, item))
         rows.append(dict(gap_left=gl, candidates=len(hyb), dropped=len(dropped),
                          duplicated=len(dup), missing=len(missing),
-                         allele_set=len(single), depth=len(thin), verdict=len(verdict)))
+                         allele_set=len(single), depth=len(thin), verdict=len(verdict),
+                         attributes=len(attrs)))
 
     with open(a.output, 'w', newline='') as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()), delimiter='\t',
@@ -188,18 +214,19 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
 
-    print('%-11s %10s %8s %10s %8s %10s %6s %8s' % (
+    cols = ('candidates', 'dropped', 'duplicated', 'missing', 'allele_set',
+            'depth', 'verdict', 'attributes')
+    print('%-11s %10s %8s %10s %8s %10s %6s %8s %11s' % (
         'gap_left', 'candidates', 'dropped', 'duplicated', 'missing',
-        'alleleSet', 'depth', 'verdict'))
+        'alleleSet', 'depth', 'verdict', 'attributes'))
     for r in rows:
-        print('%-11d %10d %8d %10d %8d %10d %6d %8d' % (
-            r['gap_left'], r['candidates'], r['dropped'], r['duplicated'],
-            r['missing'], r['allele_set'], r['depth'], r['verdict']))
-    print('%-11s %10d %8d %10d %8d %10d %6d %8d' % ('TOTAL',
-        *[sum(r[k] for r in rows) for k in
-          ('candidates', 'dropped', 'duplicated', 'missing', 'allele_set', 'depth', 'verdict')]))
+        print('%-11d %10d %8d %10d %8d %10d %6d %8d %11d' % (
+            r['gap_left'], *[r[c] for c in cols]))
+    print('%-11s %10d %8d %10d %8d %10d %6d %8d %11d' % ('TOTAL',
+        *[sum(r[c] for r in rows) for c in cols]))
     print()
-    for name in ('dropped', 'duplicated', 'missing', 'allele_set', 'depth', 'verdict'):
+    for name in ('dropped', 'duplicated', 'missing', 'allele_set', 'depth',
+                 'verdict', 'attributes'):
         items = findings[name]
         print('%s: %d' % (name.upper(), len(items)))
         for gl, item in items[:8]:

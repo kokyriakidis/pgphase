@@ -15,15 +15,15 @@ at, so a pass means the pipeline reached the right answer on its own evidence.
 
 ## Result over the six panel windows, 1,575 candidates
 
-| window | candidates | dropped | duplicated | missing | alleleSet | depth | verdict |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 48,183,976 | 154 | 0 | 0 | 0 | 0 | 1 | 0 |
-| 55,843,827 | 245 | 0 | 0 | 0 | 2 | 2 | 0 |
-| 24,105,188 | 261 | 0 | 0 | 0 | 0 | 0 | 0 |
-| 5,309,406 | 308 | 0 | 0 | 0 | 1 | 3 | 0 |
-| 12,717,796 | 362 | 0 | 0 | 0 | 0 | 1 | 1 |
-| 39,838,293 | 245 | 0 | 0 | 0 | 0 | 0 | 0 |
-| **total** | **1,575** | **0** | **0** | **0** | **3** | **7** | **1** |
+| window | candidates | dropped | duplicated | missing | alleleSet | depth | verdict | attributes |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 48,183,976 | 154 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| 55,843,827 | 245 | 0 | 0 | 0 | 2 | 2 | 0 | 0 |
+| 24,105,188 | 261 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| 5,309,406 | 308 | 0 | 0 | 0 | 1 | 3 | 0 | 0 |
+| 12,717,796 | 362 | 0 | 0 | 0 | 0 | 1 | 1 | 0 |
+| 39,838,293 | 245 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| **total** | **1,575** | **0** | **0** | **0** | **3** | **7** | **1** | **0** |
 
 **Injection is complete.** Nothing the alignment channel finds is dropped, and
 every catalog claim read truth calls heterozygous is present. The `dropped`
