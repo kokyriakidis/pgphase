@@ -69,6 +69,12 @@ all: pgphase
 check: pgphase
 	bash scripts/validate_collect_gates.sh
 
+# The window tests are integration tests: they need test_data/ and the derived
+# truth map, and they run the pipeline on real windows (about 1.2 s each), so
+# they are a separate target from the hermetic unit tests.
+window-tests: test_gap_windows
+	./test_gap_windows
+
 unit-tests: test_graph_sites test_graph_bam_adapter test_hybrid_inject test_noise_filter
 	./test_graph_sites
 	./test_graph_bam_adapter
@@ -164,8 +170,12 @@ test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o s
 test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ src/cgranges.o src/kalloc.o src/sdust.o $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
+# Catch2 v2 is a single vendored header; -O1 keeps its compile time tolerable.
+test_gap_windows: src/test_gap_windows.cpp third_party/catch2/catch.hpp
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(LDFLAGS)
+
 test_hybrid_inject: src/test_hybrid_inject.cpp src/hybrid_inject.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $< src/hybrid_inject.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 clean:
-	rm -f pgphase test_graph_sites test_graph_bam_adapter test_hybrid_inject test_noise_filter src/*.o src/*.d
+	rm -f pgphase test_gap_windows test_graph_sites test_graph_bam_adapter test_hybrid_inject test_noise_filter src/*.o src/*.d

@@ -22,6 +22,12 @@ pgphase is a C++17/Rust tool for variant calling and haplotype phasing from long
 
 - `make check` — validation gates (requires `test_data/`).
 - `make unit-tests` — builds and runs unit test binaries.
+- `make window-tests` — Catch2 regression tests over the chr20 gap windows.
+  Integration tests: they run the pipeline on real windows (~1.2 s each, ~25 s
+  for the panel) and score the output against parental truth, so they need
+  `test_data/` and the derived truth map:
+  `./scripts/make_truth_hap_map.sh` (once, ~12 s). Without those inputs they
+  report a skip naming what is missing rather than failing.
 
 ## Key Files
 
@@ -172,9 +178,22 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 
 ### Testing
 
-- Test binaries: `test_phase_block_stitch`, `test_graph_sites`, `test_graph_bam_adapter`.
-- Tests are standalone `.cpp` files in `src/` (e.g., `src/test_phase_block_stitch.cpp`).
-- Run all: `make unit-tests`.
+- Unit test binaries: `test_graph_sites`, `test_graph_bam_adapter`,
+  `test_hybrid_inject`, `test_noise_filter`. Standalone `.cpp` files in `src/`,
+  hand-rolled `check()` assertions, no framework. Run all: `make unit-tests`.
+- Window regression tests: `src/test_gap_windows.cpp`, built against the
+  vendored Catch2 single header in `third_party/catch2/`. One test case per arm
+  and window over the committed panel
+  (`evaluations/2026-09-16-test-panel/panel.tsv`), asserting spanning, in-gap
+  phased heterozygotes, tagged reads, read concordance and the absolute
+  discordant count against `src/test_gap_windows_expect.tsv`.
+  Run: `make window-tests`.
+- The expectations are floors and ceilings, except `spans`, which is asserted
+  exactly in both directions: a span appearing where none is expected is a join
+  across an interval no read crosses, not an improvement. Regenerate with
+  `./scripts/refresh_gap_window_expectations.sh` only when an improvement is
+  intended, and say in the commit which arm moved — refreshing the file to turn
+  a red test green is how a regression gets committed.
 - When adding a new `.o` dependency, update both the main `pgphase` target and any test targets that link the dependent object.
 
 ---

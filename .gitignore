@@ -120,3 +120,7 @@ test_phase_block_stitch
 # diploid assembly, shared by every pipeline, margin and later experiment -- but
 # they are ~2 GB each, so they are kept on disk and never committed.
 /test_data/bam_eval_chr*/
+
+# Derived from the committed truth BAM by scripts/make_truth_hap_map.sh.
+# ~9 MB and reproducible, so it is generated rather than committed.
+test_data/derived/

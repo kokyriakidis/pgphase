@@ -1,0 +1,21 @@
+# Expected outcome per arm and window for src/test_gap_windows.cpp.
+# Floors and ceilings, not equalities, EXCEPT the spans column, which is
+# asserted exactly per window (a span appearing where none is expected is
+# a join across an interval no read crosses, not an improvement) and read
+# as a count of spanned windows on the TOTAL rows.
+# Regenerate with scripts/refresh_gap_window_expectations.sh.
+arm	window	spans	min_in_gap_hets	min_tagged	min_concordance	max_discordant
+default	48183976	0	0	393	1.0000	0
+default	55843827	0	0	413	0.9975	1
+default	24105188	0	0	495	1.0000	0
+default	5309406	0	0	442	0.9954	2
+default	12717796	0	0	529	0.9886	6
+default	39838293	0	0	522	1.0000	0
+default	TOTAL	0	0	2794	0.9967	9
+retry	48183976	0	5	476	1.0000	0
+retry	55843827	1	8	504	0.9960	2
+retry	24105188	0	0	495	1.0000	0
+retry	5309406	1	2	545	0.9853	8
+retry	12717796	1	2	543	0.9889	6
+retry	39838293	1	6	586	1.0000	0
+retry	TOTAL	4	23	3149	0.9949	16
