@@ -279,3 +279,29 @@ account of how they arrived was not.
 The rule this sits under: an action claimed in prose must correspond to a tool
 call in the same turn. Ending a background cell is `host.exec_interrupt(exec_id)`
 in the repl tool, and the exec_id is in the dispatch result.
+
+## A cause published from a truncated display
+
+Commit cc5bf58 concluded that `chr20:55,883,019` was misrepresented -- that the
+record declared net -3 and -2 while the reads carried -6 and -4, so no read
+matched either allele and the site was inert. The record is `AATATAT>AAT,A`,
+i.e. net **-4 and -6**, emitted `2|1` with `AD=0,29,33`, matching the reads' 28
+and 31. The wrong alleles came from my own print format,
+`ref[:4]+'>'+alt[:4]`, which rendered `AATATAT>AAT,A` as `AATA>A,AA`; I then
+"confirmed" the finding by testing exactly those misread lengths, which of
+course matched almost nothing.
+
+Two further errors in the same message. "Zero reads match either declared
+allele" was false even for the misread alleles -- one read carries net -2 --
+and the published distribution dropped the -7 and -5 rows from a six-row table.
+
+The finding that replaces it: with full allele strings the parity divergence is
+at 55,883,019 and the chain's 20.75 kb step into it is observed by only 2 reads,
+while the 6.1 kb step after it has 37 and both tools agree on it. The defect is
+a phase set emitted across a step with no read linkage. A minimum-link split
+does not gate it: a correct join sits at 3 linking reads while the 76% failure
+sits at 5, and the 52% failure's weakest link has 9.
+
+Lesson: never compute on, or publish, values read from a truncated display. The
+cell that prints a record for inspection and the cell that scores it must use
+the same full strings.

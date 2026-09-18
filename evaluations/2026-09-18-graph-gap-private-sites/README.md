@@ -148,26 +148,80 @@ both `55,883,019` and `55,889,113`:
 Zero contradicting reads. So the orientation *rule* is not at fault: the
 decision was not made on this evidence at all.
 
-**The cause is the representation of `55,883,019`.** The record is
-`AATA>A,AA` -- ALT1 is net -3, ALT2 is net -2. The reads carry neither:
+**RETRACTED: the cause is not the representation of `55,883,019`.** The
+paragraph that stood here said the record declares net -3 and -2 while the reads
+carry -6 and -4, so no read matches either declared allele and the site is
+inert. That was wrong, and wrong because of my own display: the strings were
+printed through `ref[:4]+'>'+alt[:4]`, which turned `AATATAT>AAT,A` into
+`AATA>A,AA`. The record's alleles are **net -4 (`AAT`) and net -6 (`A`)** -- 
+exactly the two events the reads carry -- and it is emitted `2|1` with
+`AD=0,29,33`. The claim was also false on its own terms even for the misread
+alleles: one read does carry net -2, so "zero reads match either declared
+allele" was never true, and the table as published dropped the -7 and -5 rows.
+
+The full distribution at the locus, reads covering the window:
 
 | net length | reads | MAT | PAT |
 |---:|---:|---:|---:|
 | **-6** | 31 (46.3%) | 26 | 5 |
 | **-4** | 28 (41.8%) | 1 | 27 |
-| -8 | 4 | 4 | 0 |
-| -2 | 1 | 0 | 1 |
+| -8 | 4 (6.0%) | 4 | 0 |
+| -7 | 2 (3.0%) | 2 | 0 |
+| -2 | 1 (1.5%) | 0 | 1 |
+| -5 | 1 (1.5%) | 0 | 1 |
 
-**No read matches either declared allele**, so every read scores REF there and
-the site carries no phase information -- which is why both ALTs give an
-identical link table above. The locus is a tandem-repeat deletion whose two
-haplotypes are -6 (maternal, 26/31) and -4 (paternal, 27/28): informative if
-represented correctly, and both non-reference, which is the multiallelic class
-whose representation was the subject of the earlier session work. Represented as
--3/-2 against REF it is inert, the chain has nothing at that step, and the
-parity across the last 6.1 kb is then decided by something weaker.
+So the site is well represented and informative: -6 is maternal (26/31) and -4
+is paternal (27/28).
 
-So this seam is a **representation** defect, not a k-means or stitching defect.
-The two measurements that would close it: emit the locus with its real alleles
-(-6 and -4) and re-check that the link resolves to the flip truth requires, and
-confirm that the sub-solve's parity at `55,889,113` follows.
+**The real cause is an unlinked step.** Re-walking the parity with full allele
+strings -- resolving each tool's GT to the actual allele on each haplotype
+rather than to "the first ALT", which is a different allele in the two tools --
+puts the divergence at `55,883,019` and it persists to the endpoint:
+
+| site | hiphase hap1 | parent | ours hap1 | parent | |
+|---|---|---|---|---|---|
+| 55,843,827 | G (ref) | PAT 1.000 | G | PAT 1.000 | agree |
+| 55,862,239 | T | PAT 1.000 | T | PAT 1.000 | agree |
+| 55,862,269 | TCAGTAAAT | PAT 1.000 | TCAGTAAAT | PAT 1.000 | agree |
+| 55,883,019 | AAT (-4) | PAT 0.964 | A (-6) | MAT 0.839 | diverge |
+| 55,889,113 | T | PAT 1.000 | A (ref) | MAT 1.000 | diverge |
+
+And the chain's consecutive links:
+
+| step | kb | reads observing both | verdict |
+|---|---:|---:|---|
+| 55,862,269 -> 55,883,019 | 20.8 | **2** | no link |
+| 55,883,019 -> 55,889,113 | 6.1 | 37 | no flip (30 same / 7 cross) |
+
+**Both tools agree on the 6.1 kb link.** The divergence is entirely across the
+20.75 kb step that only 2 reads observe -- median read length there is 17.7 kb,
+so almost nothing spans it. Those 2 reads say no flip, which is hiphase's
+answer; we chose flip. (The earlier "FLIP, 15/22, zero contradictions" table for
+that 6.1 kb link was computed against the misread allele; with the record's real
+ALT1 it is 30 same / 7 cross, no flip.)
+
+So the defect is not the orientation rule -- it had 2 reads -- and not the
+representation. It is that one phase set is emitted across a step with no read
+linkage, where an unsupported parity costs a whole block's reads while splitting
+would cost only contiguity. That is the rule this session established for
+zero-spanning-read intervals, applied one level down: to consecutive sites
+within a solve rather than to a seam between blocks.
+
+**A minimum-link split does not separate the cases, though.** Minimum
+consecutive-link support along each sub-solve's chain across the seam:
+
+| seam | verdict | sites | min link | weakest step |
+|---|---|---:|---:|---|
+| 45,347,748 | BAD 52% | 8 | 9 | 13.2 kb |
+| 55,843,827 | BAD 76% | 11 | 5 | 17.4 kb |
+| 12,717,796 | ok 100% | 16 | **3** | 18.9 kb |
+| 41,866,917 | ok 100% | 13 | 11 | 13.6 kb |
+| 12,411,075 | ok 100% | 11 | 5 | 17.0 kb |
+| 22,625,517 | ok 96% | 8 | 27 | 9.7 kb |
+
+A threshold that rejects the 76% seam at 5 also rejects two correct joins at 3
+and 5, and the 52% seam passes at 9. So minimum link support is not the gate
+either, and the 52% seam must fail for a different reason than the 76% one --
+its weakest link has 9 reads, so its sub-solve being at chance throughout
+(0.54/0.68) is not explained by linkage at all.
+
