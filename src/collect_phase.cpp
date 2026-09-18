@@ -517,7 +517,7 @@ static int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, 
     return (h1 == h2) ? 1 : 0;
 }
 
-static bool allele_depths_call_het(const CandidateVariant& var,
+bool allele_depths_call_het(const CandidateVariant& var,
                                   const Options& opts);
 
 // Phase-set assignment + flip for one k-means iteration.
@@ -716,7 +716,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 /// With --joint-het-orientation the verdict applies chunk-wide; otherwise the
 /// position must fall inside one of `retry_windows`, which is what keeps the
 /// widened admission confined to the intervals the first solve failed on.
-static bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
+bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
     if (opts.retry_windows.empty() && !opts.joint_het_orientation) return false;
     if (var.lcd_var_i_to_cate != kCandNoisyCandHet &&
         var.lcd_var_i_to_cate != kCandCleanHetSnp &&

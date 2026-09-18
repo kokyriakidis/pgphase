@@ -74,6 +74,16 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
 bool select_stitch_orientation(const std::array<int, 4>& votes,
                                const Options* opts, bool& do_flip);
 
+/// Do this site's own allele depths call it a clear heterozygote? Gates the
+/// widened link-list admission, and is the one place `retry_windows` is read.
+/// Exclusions, in order: off unless a retry window exists or
+/// joint_het_orientation is set; category must be noisy het or clean het;
+/// multiallelic records excluded (oriented jointly elsewhere); both haplotype
+/// profiles must hold >= 2 observations; ref and alt depth >= min_alt_depth;
+/// allele fraction within [min_af, max_af]; and unless joint_het_orientation,
+/// the position must fall inside a retry window.
+bool allele_depths_call_het(const CandidateVariant& var, const Options& opts);
+
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,

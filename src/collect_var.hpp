@@ -38,6 +38,23 @@ struct CrangesOwner {
 // Total order on VariantKey: negative if *var1 < *var2, zero if equal, positive if greater.
 int exact_comp_var_site(const VariantKey* var1, const VariantKey* var2);
 
+/// True if a short indel sits inside or beside a homopolymer or tandem repeat
+/// run, judged from the REFERENCE context alone: repeat unit 1-6 bp, three
+/// copies, checked forward from the indel end and backward from its start.
+/// Ported from longcallD `var_is_homopolymer` (collect_var.c:306). Reads the
+/// reference through nt4 and is therefore case-insensitive. Indels longer than
+/// `xid` are not judged and return false.
+bool var_is_homopolymer_pg(const VariantKey& var, const std::string& ref_seq,
+                           hts_pos_t ref_beg, hts_pos_t ref_end, int xid);
+
+/// Complementary to `var_is_homopolymer_pg`: true when the flanking reference
+/// matches three tandem copies of the indel's own motif, i.e. the breakpoint
+/// could be shifted at equal edit cost. Ported from longcallD
+/// `var_is_repeat_region` (collect_var.c:361). Indels longer than `xid` return
+/// false. Declared here for the predicate tests.
+bool var_is_repeat_region_pg(const VariantKey& var, const std::string& ref_seq,
+                             hts_pos_t ref_beg, hts_pos_t ref_end, int xid);
+
 // Total order on CandidateVariant via canonical VariantKey encoding.
 int exact_comp_cand_var(const CandidateVariant* var1, const CandidateVariant* var2);
 

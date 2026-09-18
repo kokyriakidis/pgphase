@@ -1166,7 +1166,7 @@ static int ref_nt4_at(const std::string& ref_seq, hts_pos_t ref_beg, hts_pos_t a
  * @param ref_end Unused (reserved for future use).
  * @param xid Maximum indel span to check; variants larger than this return false.
  */
-static bool var_is_homopolymer_pg(const VariantKey& var,
+bool var_is_homopolymer_pg(const VariantKey& var,
                                   const std::string& ref_seq,
                                   hts_pos_t ref_beg,
                                   hts_pos_t ref_end,
@@ -1261,7 +1261,7 @@ static bool var_is_homopolymer_pg(const VariantKey& var,
  * @param xid Maximum indel span to check; variants larger than this return false.
  * @return True if the flanking reference matches 3 tandem copies of the indel motif.
  */
-static bool var_is_repeat_region_pg(const VariantKey& var,
+bool var_is_repeat_region_pg(const VariantKey& var,
                                     const std::string& ref_seq,
                                     hts_pos_t ref_beg,
                                     hts_pos_t ref_end,
@@ -1277,7 +1277,16 @@ static bool var_is_repeat_region_pg(const VariantKey& var,
         const size_t off2 = static_cast<size_t>(pos + del_len - ref_beg);
         if (off + static_cast<size_t>(len) > ref_seq.size() ||
             off2 + static_cast<size_t>(len) > ref_seq.size()) return false;
-        return std::memcmp(ref_seq.data() + off, ref_seq.data() + off2, static_cast<size_t>(len)) == 0;
+        // Compare through nt4 rather than with memcmp: the reference is
+        // soft-masked in exactly the tandem repeats this asks about, and the two
+        // windows can straddle a mask boundary. An ambiguous base is not a
+        // match, so a run of N cannot pass as a tandem repeat.
+        for (int i = 0; i < len; ++i) {
+            const int a = ref_nt4_at(ref_seq, ref_beg, pos + i);
+            const int b = ref_nt4_at(ref_seq, ref_beg, pos + del_len + i);
+            if (a > 3 || b > 3 || a != b) return false;
+        }
+        return true;
     }
     if (var.type == VariantType::Insertion) {
         const int ins_len = static_cast<int>(var.alt.size());
@@ -1286,15 +1295,27 @@ static bool var_is_repeat_region_pg(const VariantKey& var,
         if (pos < ref_beg || pos + len > ref_end) return false;
         const size_t off = static_cast<size_t>(pos - ref_beg);
         if (off + static_cast<size_t>(len) > ref_seq.size()) return false;
-        std::string ref_b = ref_seq.substr(off, static_cast<size_t>(len));
-        std::string alt_b = ref_b;
-        for (int j = ins_len; j < len; ++j) {
+        // Both sides are normalised to nt4 before comparison. A byte-exact
+        // `ref_b == alt_b` compared an UPPERCASE alt (candidate bases are
+        // uppercased at bam_digar.cpp:323) against raw reference bytes, so an
+        // insertion inside a soft-masked tandem repeat -- which is most of them
+        // in CHM13 -- never matched and was never classified RepeatHetIndel.
+        // The sibling predicate var_is_homopolymer_pg reads the reference through
+        // nt4 and is case-insensitive, so the OR at the call site gave different
+        // answers for the same locus depending on which branch reached it.
+        std::vector<int> ref_b(static_cast<size_t>(len));
+        for (int j = 0; j < len; ++j)
+            ref_b[static_cast<size_t>(j)] = ref_nt4_at(ref_seq, ref_beg, pos + j);
+        std::vector<int> alt_b = ref_b;
+        for (int j = ins_len; j < len; ++j)
             alt_b[static_cast<size_t>(j)] = alt_b[static_cast<size_t>(j - ins_len)];
+        for (int j = 0; j < ins_len; ++j)
+            alt_b[static_cast<size_t>(j)] = nt4_from_ref_char(var.alt[static_cast<size_t>(j)]);
+        for (int j = 0; j < len; ++j) {
+            if (ref_b[static_cast<size_t>(j)] > 3 || alt_b[static_cast<size_t>(j)] > 3) return false;
+            if (ref_b[static_cast<size_t>(j)] != alt_b[static_cast<size_t>(j)]) return false;
         }
-        for (int j = 0; j < ins_len; ++j) {
-            alt_b[static_cast<size_t>(j)] = var.alt[static_cast<size_t>(j)];
-        }
-        return ref_b == alt_b;
+        return true;
     }
     return false;
 }

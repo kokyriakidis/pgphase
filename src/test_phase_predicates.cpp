@@ -13,6 +13,7 @@
 
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
+#include "collect_var.hpp"
 #include "phasing_types.hpp"
 
 using namespace pgphase_collect;
@@ -33,6 +34,40 @@ bool hp_ins(const PhasingChunk& c, hts_pos_t pos, const std::string& alt) {
 }
 bool hp_del(const PhasingChunk& c, hts_pos_t pos, int ref_len) {
     return var_is_homopolymer_indel(c, pos, VariantType::Deletion, ref_len, {});
+}
+
+
+/// A minimal indel key. `alt` holds the inserted bases for an insertion.
+VariantKey ins_key(hts_pos_t pos, const std::string& alt) {
+    VariantKey k;
+    k.pos = pos;
+    k.type = VariantType::Insertion;
+    k.ref_len = 0;
+    k.alt = alt;
+    return k;
+}
+VariantKey del_key(hts_pos_t pos, int ref_len) {
+    VariantKey k;
+    k.pos = pos;
+    k.type = VariantType::Deletion;
+    k.ref_len = ref_len;
+    return k;
+}
+
+/// A candidate that passes every allele_depths_call_het test, so each SECTION
+/// can break exactly one of them.
+CandidateVariant het_candidate(hts_pos_t pos) {
+    CandidateVariant v;
+    v.key.pos = pos;
+    v.key.type = VariantType::Snp;
+    v.key.ref_len = 1;
+    v.lcd_var_i_to_cate = kCandCleanHetSnp;
+    v.hap_to_alle_profile[1].assign(2, 10);
+    v.hap_to_alle_profile[2].assign(2, 10);
+    v.counts.ref_cov = 15;
+    v.counts.alt_cov = 15;
+    v.counts.allele_fraction = 0.5;
+    return v;
 }
 
 } // namespace
@@ -230,5 +265,182 @@ TEST_CASE("select_stitch_orientation: literal and both-strands-margin rules") {
         CHECK_FALSE(select_stitch_orientation({4, 5, 3, 4}, &opts, flip));
         // Net is large but one crossed link is empty.
         CHECK_FALSE(select_stitch_orientation({0, 20, 0, 0}, &opts, flip));
+    }
+}
+
+
+TEST_CASE("var_is_homopolymer_pg: reference-only STR detection") {
+    // 1000            1015
+    const std::string up = "CCCCCAAAAAAAAAAGGGGGGGGGG";
+    const hts_pos_t beg = 1000, end = beg + static_cast<hts_pos_t>(up.size());
+
+    SECTION("a deletion inside a long run is detected") {
+        CHECK(var_is_homopolymer_pg(del_key(1007, 1), up, beg, end, 5));
+    }
+    SECTION("soft-masked reference is detected too (nt4 comparison)") {
+        std::string lower = up;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        CHECK(var_is_homopolymer_pg(del_key(1007, 1), lower, beg, end, 5));
+    }
+    SECTION("a multi-base repeat unit is detected") {
+        // AT x 6 is a unit-2 STR with more than three copies.
+        const std::string str2 = "CCCCCATATATATATATCCCCC";
+        CHECK(var_is_homopolymer_pg(del_key(1007, 2), str2, beg,
+                                    beg + static_cast<hts_pos_t>(str2.size()), 5));
+    }
+    SECTION("a non-repeat context is not") {
+        const std::string mixed = "ACGTACGGTTAACCGGTTACGT";
+        CHECK_FALSE(var_is_homopolymer_pg(del_key(1010, 1), mixed, beg,
+                                          beg + static_cast<hts_pos_t>(mixed.size()), 5));
+    }
+    SECTION("an indel longer than xid is not judged") {
+        CHECK_FALSE(var_is_homopolymer_pg(del_key(1007, 6), up, beg, end, 5));
+        CHECK_FALSE(var_is_homopolymer_pg(ins_key(1007, "AAAAAA"), up, beg, end, 5));
+    }
+    SECTION("an empty reference slice") {
+        CHECK_FALSE(var_is_homopolymer_pg(del_key(1007, 1), "", beg, end, 5));
+    }
+}
+
+TEST_CASE("var_is_repeat_region_pg: three tandem copies of the indel motif") {
+    // The documented example: delete "AT" where the reference continues ATATAT.
+    const std::string str2 = "GGGGG" "ATATATATATATATAT" "GGGGG";
+    const hts_pos_t beg = 1000, end = beg + static_cast<hts_pos_t>(str2.size());
+
+    SECTION("a deletion whose motif repeats three times downstream") {
+        CHECK(var_is_repeat_region_pg(del_key(1005, 2), str2, beg, end, 5));
+    }
+    SECTION("an insertion consistent with the tandem repeat") {
+        CHECK(var_is_repeat_region_pg(ins_key(1005, "AT"), str2, beg, end, 5));
+    }
+    SECTION("an insertion of a different motif is not") {
+        CHECK_FALSE(var_is_repeat_region_pg(ins_key(1005, "GC"), str2, beg, end, 5));
+    }
+    SECTION("a non-repeat context is not") {
+        const std::string mixed = "GGGGG" "ACGTTGCAACGTTGCA" "GGGGG";
+        CHECK_FALSE(var_is_repeat_region_pg(del_key(1005, 2), mixed, beg,
+                                            beg + static_cast<hts_pos_t>(mixed.size()), 5));
+    }
+    SECTION("an indel longer than xid is not judged") {
+        CHECK_FALSE(var_is_repeat_region_pg(del_key(1005, 6), str2, beg, end, 5));
+        CHECK_FALSE(var_is_repeat_region_pg(ins_key(1005, "ATATAT"), str2, beg, end, 5));
+    }
+    SECTION("a motif whose three copies run past the slice is not judged") {
+        CHECK_FALSE(var_is_repeat_region_pg(del_key(end - 3, 2), str2, beg, end, 5));
+        CHECK_FALSE(var_is_repeat_region_pg(ins_key(end - 3, "AT"), str2, beg, end, 5));
+    }
+    SECTION("a position before the slice") {
+        CHECK_FALSE(var_is_repeat_region_pg(del_key(999, 2), str2, beg, end, 5));
+    }
+
+    SECTION("a deletion whose two windows straddle a soft-mask boundary") {
+        // Half the tract masked: a byte comparison would call this no-repeat.
+        std::string half = "GGGGG" "ATATAT" "atatatatat" "GGGGG";
+        CHECK(var_is_repeat_region_pg(del_key(1005, 2), half, beg,
+                                      beg + static_cast<hts_pos_t>(half.size()), 5));
+    }
+    SECTION("the call site's OR is insensitive to the insertion branch here") {
+        // collect_var.cpp:1490-1492 classifies RepeatHetIndel on
+        //   var_is_homopolymer_pg(...) || var_is_repeat_region_pg(...)
+        // and the first is a unit-1..6 STR test read through nt4. For a tandem
+        // repeat like this one it already returns true, case-insensitively, so
+        // the insertion branch's case bug was LATENT at the call site: fixing it
+        // left chr20 output byte-identical. This pins the redundancy, so a future
+        // change that narrows var_is_homopolymer_pg cannot silently expose it.
+        std::string lower = str2;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        CHECK(var_is_homopolymer_pg(ins_key(1005, "AT"), lower, beg, end, 5));
+        CHECK(var_is_homopolymer_pg(del_key(1005, 2), lower, beg, end, 5));
+    }
+
+    SECTION("a run of N is not a tandem repeat") {
+        const std::string ns = "GGGGG" "NNNNNNNNNNNNNNNN" "GGGGG";
+        CHECK_FALSE(var_is_repeat_region_pg(del_key(1005, 2), ns, beg,
+                                            beg + static_cast<hts_pos_t>(ns.size()), 5));
+        CHECK_FALSE(var_is_repeat_region_pg(ins_key(1005, "NN"), ns, beg,
+                                            beg + static_cast<hts_pos_t>(ns.size()), 5));
+    }
+
+    SECTION("soft-masked reference must be judged the same as uppercase") {
+        // The reference is lowercase in exactly the tandem repeats this asks
+        // about, and candidate alt bases are uppercased upstream
+        // (bam_digar.cpp:323). Its sibling var_is_homopolymer_pg compares
+        // through nt4 and is case-insensitive, so the OR at
+        // collect_var.cpp:1490-1492 must not depend on which of the two answers.
+        std::string lower = str2;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        CHECK(var_is_repeat_region_pg(del_key(1005, 2), lower, beg, end, 5));
+        CHECK(var_is_repeat_region_pg(ins_key(1005, "AT"), lower, beg, end, 5));
+    }
+}
+
+TEST_CASE("allele_depths_call_het: every exclusion in order") {
+    Options opts;
+    opts.min_alt_depth = 2;
+    opts.min_af = 0.2;
+    opts.max_af = 0.8;
+    opts.retry_windows = {{1000, 2000}};
+
+    SECTION("a clear het inside a retry window is admitted") {
+        CHECK(allele_depths_call_het(het_candidate(1500), opts));
+    }
+    SECTION("off entirely with no window and no joint flag") {
+        Options none = opts;
+        none.retry_windows.clear();
+        CHECK_FALSE(allele_depths_call_het(het_candidate(1500), none));
+    }
+    SECTION("the position must fall inside a window") {
+        CHECK_FALSE(allele_depths_call_het(het_candidate(2500), opts));
+        // The window is half-open: [beg, end).
+        CHECK(allele_depths_call_het(het_candidate(1000), opts));
+        CHECK_FALSE(allele_depths_call_het(het_candidate(2000), opts));
+    }
+    SECTION("joint orientation makes the verdict chunk-wide") {
+        Options joint = opts;
+        joint.retry_windows.clear();
+        joint.joint_het_orientation = true;
+        CHECK(allele_depths_call_het(het_candidate(999999), joint));
+    }
+    SECTION("category must be a het class") {
+        CandidateVariant v = het_candidate(1500);
+        v.lcd_var_i_to_cate = kCandCleanHom;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.lcd_var_i_to_cate = kCandNoisyCandHom;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.lcd_var_i_to_cate = kCandNoisyCandHet;
+        CHECK(allele_depths_call_het(v, opts));
+    }
+    SECTION("a multiallelic record is excluded, being oriented jointly") {
+        CandidateVariant v = het_candidate(1500);
+        v.msa_insertion_alts = {"A", "AA"};
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+    }
+    SECTION("both haplotype profiles need at least two observations") {
+        CandidateVariant v = het_candidate(1500);
+        v.hap_to_alle_profile[2].assign(1, 10);
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.hap_to_alle_profile[2].clear();
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+    }
+    SECTION("reference and alternate depth must both reach min_alt_depth") {
+        CandidateVariant v = het_candidate(1500);
+        v.counts.ref_cov = 1;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.counts.ref_cov = 15;
+        v.counts.alt_cov = 1;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+    }
+    SECTION("allele fraction must sit inside [min_af, max_af]") {
+        CandidateVariant v = het_candidate(1500);
+        v.counts.allele_fraction = 0.1;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.counts.allele_fraction = 0.95;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        // A homopolymer indel at a textbook fraction still passes: this
+        // predicate asks only about depths, which is why it re-admits
+        // chance-level repeat sites to the link list.
+        v.counts.allele_fraction = 0.5;
+        v.is_homopolymer_indel = true;
+        CHECK(allele_depths_call_het(v, opts));
     }
 }
