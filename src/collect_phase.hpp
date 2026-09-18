@@ -108,7 +108,13 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 // `flags` is a bitmask of kCand* constants selecting which candidate categories
 // participate.  Masking uses lcd_var_i_to_cate, not counts.category.
 // read_var_profile and read_var_cr must be populated before calling.
-void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Options& opts, uint32_t flags);
+/// @param anchored Keep the incoming read labels and the consensus alleles a
+///                 previous round decided, pinning them through the iteration,
+///                 so this round refines that solution instead of resetting and
+///                 re-solving. Off by default: the shipped second round discards
+///                 the first one.
+void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Options& opts,
+                                                  uint32_t flags, bool anchored = false);
 
 /// True when a read is mapped confidently enough to carry a haplotype call
 /// into the output. Reads that fail this still supply allele evidence, so

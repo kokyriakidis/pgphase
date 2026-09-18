@@ -226,6 +226,20 @@ struct Options {
     // Defaults true for hybrid (set in collect_hybrid_variation), false for the
     // BAM pipeline. See CHECKPOINT.md "Hybrid step-4 re-orientation".
     bool skip_noisy_kmeans = false;
+
+    /// Anchored stage 2: the second k-means KEEPS stage 1's read labels and the
+    /// consensus alleles stage 1 decided, and refines within that gauge instead
+    /// of resetting and re-solving over the wider site set.
+    ///
+    /// As shipped, stage 2 discards stage 1 entirely -- collect_phase.cpp clears
+    /// every read's haplotype and phase set and re-initialises every
+    /// participating site's consensus, then sweeps outward from a pivot chosen
+    /// over the NEW site set. A noisy site can therefore overturn the parity the
+    /// clean sites established. longcallD resets the same way (assign_hap.c:491)
+    /// while its own comment (collect_var.c:2939) says a round should use the
+    /// previously obtained phasing as initialization, so anchoring is a knowing
+    /// divergence from upstream in the direction upstream documented.
+    bool anchored_stage2 = true;
     // Minimum WFA score gap between the two haplotype consensuses before an
     // excluded read is admitted as bridge evidence.  1 is "strictly better
     // wins", which measured +139 discordant reads on chr20; 24 (4x the

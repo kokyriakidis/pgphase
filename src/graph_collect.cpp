@@ -1001,6 +1001,8 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
+        << "      --no-anchored-stage2      Let stage 2 reset and re-solve over the wider site\n"
+        << "                                set, instead of refining stage 1 (pre-2026-09-18)\n"
         << "                                 sites could not phase: each unphased window and\n"
         << "                                 each seam between blocks is re-solved from the\n"
         << "                                 alignment as its own chunk and stitched in\n"
@@ -1075,6 +1077,7 @@ static void print_graph_collect_help() {
 
 enum GraphCollectOption {
     kGcRecoveryBam = 2000,
+    kGcAnchoredStage2,
     kGcMinAltDepth = 1000,
     kGcMinAf,
     kGcMaxAf,
@@ -1144,6 +1147,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
+        {"no-anchored-stage2", no_argument,      nullptr, kGcAnchoredStage2},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
@@ -1208,6 +1212,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
+            case kGcAnchoredStage2: opts.anchored_stage2 = false; break;
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;

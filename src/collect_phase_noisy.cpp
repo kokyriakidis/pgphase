@@ -2051,7 +2051,8 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
             }
         }
         if (any_new_var && !opts.skip_noisy_kmeans)
-            assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate);
+            assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate,
+                                                         opts.anchored_stage2);
         if (!any_done) break;
     }
 }

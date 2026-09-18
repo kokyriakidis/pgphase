@@ -137,7 +137,8 @@ static int get_var_init_max_cov_allele(bool is_ont, const CandidateVariant& var)
 // Var_init_hap_profile_cons_allele.
 static void var_init_hap_profile_cons_allele(bool is_ont,
                                               CandidateTable& variants,
-                                              const std::vector<int>& valid_var_idx) {
+                                              const std::vector<int>& valid_var_idx,
+                                              bool preserve_decided = false) {
     for (int vi : valid_var_idx) {
         CandidateVariant& var = variants[vi];
         const int na = variant_allele_slots(var);
@@ -148,6 +149,13 @@ static void var_init_hap_profile_cons_allele(bool is_ont,
         var.hap_to_alle_profile[1].assign(na, 0);
         var.hap_to_alle_profile[2].assign(na, 0);
         var.hap_to_cons_alle[0] = get_var_init_max_cov_allele(is_ont, var);
+        // Anchored: a site the previous round already decided keeps its
+        // consensus. The per-iteration vote tallies above are still zeroed --
+        // those are scratch -- but hap_to_cons_alle IS the gauge, and clearing it
+        // is what let the second round re-decide the first round's parity.
+        if (preserve_decided &&
+            (var.hap_to_cons_alle[1] != -1 || var.hap_to_cons_alle[2] != -1))
+            continue;
         const uint32_t vic = var.lcd_var_i_to_cate;
         if (vic == kCandNoisyCandHom || vic == kCandCleanHom) {
             var.hap_to_cons_alle[1] = 1;
@@ -737,7 +745,8 @@ bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
 
 static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
                                              const std::vector<int>& valid_var_idx,
-                                             uint32_t flags, const Options& opts) {
+                                             uint32_t flags, const Options& opts,
+                                             const std::vector<char>* pinned = nullptr) {
     const int n = (int)valid_var_idx.size();
 
     // Save current consensus for convergence check.
@@ -784,6 +793,11 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
 
     for (int _vi = 0; _vi < n; ++_vi) {
         CandidateVariant& var = chunk.candidates[valid_var_idx[_vi]];
+        // Anchored: a pinned site keeps the consensus the previous round gave it.
+        // Pinning must SKIP the write rather than revert it afterwards: the
+        // convergence check below compares against a snapshot taken at entry, so a
+        // revert-after would keep reporting 'changed' and never converge.
+        if (pinned != nullptr && (*pinned)[static_cast<size_t>(valid_var_idx[_vi])]) continue;
         if ((var.gap_link_supported || two_allele_het(var)) &&
             var.msa_insertion_alts.size() == 2) {
             const int same = var.hap_to_alle_profile[1][1] + var.hap_to_alle_profile[2][2];
@@ -912,7 +926,8 @@ bool read_carries_phase_tags(const int mapq, const Options& opts) {
 /// k-means has already merged the components.
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
                                                    const Options& opts,
-                                                   uint32_t flags) {
+                                                   uint32_t flags,
+                                                   bool anchored) {
     const int n_cands = (int)chunk.candidates.size();
     std::vector<int> valid_var_idx;
     valid_var_idx.reserve(n_cands);
@@ -930,13 +945,30 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     const bool is_ont = opts.is_ont();
     const size_t n_reads = chunk.reads.size();
 
-    chunk.haps.assign(n_reads, 0);
-    chunk.phase_sets.assign(n_reads, -1);
-    read_init_hap_phase_set(chunk);
-    var_init_hap_profile_cons_allele(is_ont, chunk.candidates, valid_var_idx);
+    // Anchored: keep the incoming read labels and the consensuses already
+    // decided, so this round refines the previous one instead of replacing it.
+    // The pin list is taken BEFORE the init call, which is what decides the
+    // gauge; preserving read labels alone anchors nothing, because Phase 3 below
+    // recomputes every read's haplotype from the consensus.
+    std::vector<char> pinned;
+    if (anchored) {
+        pinned.assign(chunk.candidates.size(), 0);
+        for (int vi : valid_var_idx) {
+            const auto& cons = chunk.candidates[vi].hap_to_cons_alle;
+            if (cons[1] != -1 || cons[2] != -1) pinned[static_cast<size_t>(vi)] = 1;
+        }
+    } else {
+        chunk.haps.assign(n_reads, 0);
+        chunk.phase_sets.assign(n_reads, -1);
+        read_init_hap_phase_set(chunk);
+    }
+    var_init_hap_profile_cons_allele(is_ont, chunk.candidates, valid_var_idx, anchored);
 
     // Phase 1: initial sweep from highest-confidence pivot variant outward.
-    const int init_vi = select_init_var(chunk.candidates, valid_var_idx);
+    // Phase 1 sweeps outward from a pivot chosen over THIS round's site set, and
+    // that is how a noisy site can carry a parity across the chunk. Anchored,
+    // the incoming consensuses are the gauge, so there is nothing to seed.
+    const int init_vi = anchored ? -1 : select_init_var(chunk.candidates, valid_var_idx);
     if (init_vi != -1) {
         const int nv = (int)valid_var_idx.size();
 
@@ -972,7 +1004,8 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     // Phase 2: iterative k-means (up to 10 rounds, stop on convergence).
     for (int iter = 0; iter < 10; ++iter) {
         const int c1 = iter_update_var_hap_cons_phase_set(chunk, valid_var_idx, opts);
-        const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags, opts);
+        const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags, opts,
+                                        anchored ? &pinned : nullptr);
         if (c1 == 0 && c2 == 0) break;
     }
 
