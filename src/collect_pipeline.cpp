@@ -1211,6 +1211,25 @@ static PhasingChunk process_chunk_hybrid(
     // keys here was silently dropping every non-whitelisted clean BAM
     // candidate inside the region -- including ones already trustworthy on
     // their own -- which is the opposite of "add extra sites".
+    // Graph-first: the catalog's sites drive the first pass, so the alignment
+    // channel's own discoveries do not enter it. Clearing here rather than
+    // after injection is deliberate -- and necessary. Gating on ownership after
+    // the claim pass does not work: measured over
+    // chr20:25,979,591-26,138,679, injection claims 3,741 of 3,743 candidates,
+    // whether tested by the graph_site flag or by its all_graph_cands index
+    // set, so an ownership filter withholds 2 sites and the mode is inert. The
+    // catalog's sites are added by inject_graph_sites immediately below, and
+    // recover_windows_with_targeted_solve puts alignment sites back inside
+    // every window the first pass could not phase.
+    if (opts.graph_first) {
+        const size_t discarded = chunk.candidates.size();
+        chunk.candidates.clear();
+        if (opts.verbose > 0)
+            fprintf(stderr,
+                    "[graph-first] withheld %zu alignment-discovered candidate(s)"
+                    " from the first pass\n", discarded);
+    }
+
     if (private_keys != nullptr && !opts.private_msa_admit_all_in_region) {
         CandidateTable retained;
         retained.reserve(chunk.candidates.size());

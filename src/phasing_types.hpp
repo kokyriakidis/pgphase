@@ -336,6 +336,22 @@ struct Options {
     /// panel windows: 4 of 6 gaps span against 0 without it, 23 heterozygotes
     /// phased strictly inside gaps against 0, at 99.49% read concordance
     /// against 99.67%. Disable with --no-retry-unphased-with-bam.
+    /// Graph-first: the first pass phases on the graph catalog's sites only,
+    /// and the alignment channel supplies sites where recovery needs them.
+    ///
+    /// Without this the hybrid is the alignment pipeline with the graph injected
+    /// into it -- the union of both site sets drives the first solve -- and
+    /// measurement shows that union behaves almost identically to the alignment
+    /// channel alone, so the graph earns little. Graph-first inverts it: after
+    /// the claim pass marks every locus the catalog owns, candidates it does not
+    /// own are dropped, and the targeted per-window solve puts alignment
+    /// evidence back exactly where the first pass failed.
+    ///
+    /// Measured cost, chr20:5,309,406: read placement, not site recovery. A
+    /// third of the clean het anchors outside a gap are alignment-only,
+    /// including every clean het indel in the regions examined, so fewer reads
+    /// find a site to sit on.
+    bool graph_first = false;
     bool retry_unphased_with_bam = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that

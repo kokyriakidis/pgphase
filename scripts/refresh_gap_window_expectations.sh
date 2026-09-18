@@ -20,5 +20,6 @@ PGPHASE_EMIT_EXPECTATIONS="${OUT}.tmp" ./test_gap_windows "[windows]" > /dev/nul
 # arm turns it off.
 grep -q '^default' "${OUT}.tmp"
 grep -q '^noretry' "${OUT}.tmp"
+grep -q '^graphfirst' "${OUT}.tmp"
 mv "${OUT}.tmp" "${OUT}"
 echo "wrote ${OUT}: $(grep -vc '^#' "${OUT}") rows"
