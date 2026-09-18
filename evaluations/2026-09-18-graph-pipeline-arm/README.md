@@ -102,3 +102,36 @@ are the index-coupling blocker above, with `allow_import = false`. Until a
 `GraphSiteMeta` is synthesized per appended candidate, this arm can bridge a gap
 but cannot report a variant inside one -- which is most of what closing a gap is
 for.
+
+## Judged on phasing alone, not variant yield
+
+Variant count set aside, the question is whether reads get phased and blocks
+reach across. Scored on those terms only:
+
+| window | arm | blocks | largest block | reads tagged | concordance | discordant |
+|---|---|---:|---:|---:|---:|---:|
+| 5,309,406 | graph + recovery | 2 | 92.5 kb | 422 | **99.53%** | **2** |
+| | hybrid (default) | **1** | **131.2 kb** | **544** | 98.71% | 7 |
+| 26,029,591 | graph + recovery | **1** | 150.6 kb | 293 | 99.66% | 1 |
+| | hybrid (default) | 2 | **151.1 kb** | 293 | 99.66% | 1 |
+
+**On chr20:26,029,591 the graph arm is as good or better.** Identical reads
+tagged, concordance and discordant count -- and one block where the hybrid
+leaves two, with the same reach. The hybrid's 436 phased heterozygotes against
+103 buy nothing here in phasing terms. On this window the yield difference is
+genuinely irrelevant.
+
+**On chr20:5,309,406 it is not, and the deficit is in phasing terms, not yield
+terms.** The arm leaves 124 reads untagged that the hybrid tags, and **118 of
+those 124 (95.2%) are correctly placed by the hybrid** against read truth -- so
+they are real coverage, not noise the graph arm is wisely declining. It also
+returns two blocks with a 92.5 kb reach where the hybrid returns one at 131.2 kb.
+Only 2 reads go the other way.
+
+So variant yield matters exactly insofar as it becomes read placement: a read
+with no phased site on it cannot be tagged, whatever the site count is called.
+On one window that conversion costs nothing; on the other it costs 118 correctly
+phaseable reads and the larger block.
+
+Against the arm's favour: higher purity where it does place reads -- 99.53% with
+2 discordant against 98.71% with 7 on chr20:5,309,406.
