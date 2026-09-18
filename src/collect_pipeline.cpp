@@ -878,17 +878,20 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
     return seams;
 }
 
-/// `solve_tid` is the contig's id in the BAM header, which need not be the
-/// chunk's own: the graph pipeline builds a synthetic header in reference-index
-/// order, so the same contig has a different id there. Regions handed to
-/// process_chunk must use the BAM's id.
+/// The region handed to process_chunk uses the chunk's own contig id, which is
+/// the BAM's because the hybrid is the only caller. A caller whose header is not
+/// the BAM's -- the graph pipeline built a synthetic one in reference-index
+/// order -- must translate by contig NAME rather than pass its tid through;
+/// passing it through targeted a different contig outright.
+///
+/// Every site the sub-solve phases is imported. A caller whose output table is
+/// index-parallel to per-site metadata cannot accept that: appending candidates,
+/// and the reorder that follows, decouples the arrays and mispairs records.
 static size_t recover_windows_with_targeted_solve(
         PhasingChunk& chunk,
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
         const Options& opts,
-        WorkerContext& context,
-        int solve_tid,
-        bool allow_import) {
+        WorkerContext& context) {
     if (windows.empty()) return 0;
 
     // Parent block extents, first to last phased site, so the import interval
@@ -918,7 +921,7 @@ static size_t recover_windows_with_targeted_solve(
     size_t adopted_total = 0;
     for (const auto& window : windows) {
         RegionChunk region;
-        region.tid = solve_tid;
+        region.tid = chunk.region.tid;
         region.beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
         region.end = window.second + kTargetedSolveFlank;
         region.chunk_id = -1;
@@ -1085,7 +1088,6 @@ static size_t recover_windows_with_targeted_solve(
                     ++adopted_total;
                     continue;
                 }
-                if (!allow_import) continue;
                 CandidateVariant imported = src;
                 imported.phase_set = keep_ps;
                 if (keep_flip) std::swap(imported.hap_alt, imported.hap_ref);
@@ -1122,44 +1124,6 @@ static size_t recover_windows_with_targeted_solve(
                     imported_total);
     }
     return merged_total;
-}
-
-/// Both kinds of first-pass failure, recovered from the alignment channel.
-///
-/// The entry point for a caller that has a solved PhasingChunk and a BAM, and
-/// wants what the solve could not phase fixed from alignment evidence. Two
-/// window sources, because there are two failure modes and they do not overlap:
-/// collect_unphased_windows reports where reads were left unphased -- what an
-/// alignment-driven solve produces -- and collect_block_seams reports intervals
-/// between consecutive blocks, which is what a graph-driven solve produces,
-/// every read placed but the blocks unjoined.
-///
-/// Used by the graph pipeline, which has no alignment pass of its own: it phases
-/// the catalog's sites from GAF evidence, and this then solves each interval it
-/// could not phase as its own chunk at the recovery mapq floor and stitches the
-/// result in on shared reads.
-size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
-                                        WorkerContext& context,
-                                        const char* contig_name,
-                                        bool allow_import) {
-    // Resolve the contig in the BAM's OWN header. Passing the chunk's tid
-    // straight through silently targeted a different contig: the graph
-    // pipeline's synthetic header is in reference-index order, so its tid 0 was
-    // the BAM's chr10 rather than chr20 and the run died fetching the wrong
-    // reference.
-    const int solve_tid =
-        contig_name != nullptr
-            ? sam_hdr_name2tid(context.primary_header(), contig_name)
-            : chunk.region.tid;
-    if (solve_tid < 0) return 0;
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
-        chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
-    for (const auto& seam : collect_block_seams(chunk))
-        windows.push_back(seam);
-    if (windows.empty()) return 0;
-    std::sort(windows.begin(), windows.end());
-    return recover_windows_with_targeted_solve(chunk, windows, opts, context, solve_tid,
-                                              allow_import);
 }
 
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
@@ -1205,7 +1169,7 @@ static PhasingChunk process_chunk_hybrid(
     // chr20:25,979,591-26,138,679: 31% faster (4.05 s to 2.78 s) for a collapse
     // from 447 phased heterozygotes to 137. So discovery runs, its candidates
     // are withheld here, and the alignment returns in the gaps through
-    // recover_unphased_windows_from_bam.
+    // recover_windows_with_targeted_solve.
     {
         const size_t withheld = chunk.candidates.size();
         chunk.candidates.clear();
@@ -1454,8 +1418,7 @@ static PhasingChunk process_chunk_hybrid(
                 if (!covered) residual.push_back(seam);
             }
             if (!residual.empty())
-                recover_windows_with_targeted_solve(chunk, residual, opts, context,
-                                                   chunk.region.tid, true);
+                recover_windows_with_targeted_solve(chunk, residual, opts, context);
         }
     }
 

@@ -238,3 +238,25 @@ ran to completion.
 
 Restored in 56f5d84 with the renamed option; each of the three knobs is now
 rejected at 0 with exit 1, and both panel windows are unchanged.
+
+## A removal claimed in 2a9a33d that only half happened
+
+The commit message and dead_code.md both stated that
+`recover_unphased_windows_from_bam` was removed and that
+`recover_windows_with_targeted_solve` had dropped its `solve_tid` and
+`allow_import` parameters. Neither was true of that commit. Three patch attempts
+asserted out before their `write_text`, and the fourth removed only the header
+declaration -- leaving an externally-linked definition with no declaration and
+the old six-parameter signature in place.
+
+Two things made the error survive. The token check ran *before* the write, so a
+failed assert left the file untouched while the message about what had been
+removed was already written. And a second wave of unused-function warnings
+appeared in the same cell -- `clone_cached_read`, `merge_cached_allele`,
+`remap_cached_allele` -- which read as evidence that the entry point had gone;
+they had actually been orphaned by removing `build_cached_gap_proposal` in the
+previous cell.
+
+Fixed properly in the follow-up commit: definition and both parameters removed,
+the stale comment reference updated, and the token check moved after the write.
+Zero warnings, both panel windows identical, 49 further lines deleted.

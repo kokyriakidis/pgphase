@@ -29,14 +29,26 @@ removed modes, so its loss is by design and not a silent regression.
 ## Orphaned by removing the graph pipeline's recovery entry
 
 `recover_unphased_windows_from_bam` had no caller once the graph arm went -- it
-has external linkage, so the compiler stayed silent about it. Removing it
-exposed a second wave that only it reached: `clone_cached_read`,
-`merge_cached_allele`, `remap_cached_allele`, `bam_base_quality_at`,
-`equivalent_shifted_insertion`. Two rounds of build-and-remove were needed to
-reach zero warnings, which is the argument for looping rather than sweeping once.
+has external linkage, so the compiler stayed silent about it.
+
+**Correction: 2a9a33d did not remove it.** Three attempts asserted out before
+their write, and the fourth deleted only the header declaration -- leaving an
+externally-linked definition with no declaration, and the six-parameter
+signature of `recover_windows_with_targeted_solve` untouched. The commit message
+and the first version of this document claimed both were done. What made the
+error look plausible was a second wave of warnings appearing in the same cell:
+`clone_cached_read`, `merge_cached_allele` and `remap_cached_allele` had in fact
+been orphaned by removing `build_cached_gap_proposal` in the *previous* cell, not
+by removing this entry point. Actually removed in the follow-up commit, with the
+token check now run after the write rather than before it.
+
+`bam_base_quality_at` and `equivalent_shifted_insertion` were genuine
+second-wave orphans. Two rounds of build-and-remove were needed to reach zero
+warnings, which is the argument for looping rather than sweeping once.
 
 With one caller left, `recover_windows_with_targeted_solve` no longer needs its
 `solve_tid` or `allow_import` parameters -- both took a single constant value.
+(Also landed only in the follow-up commit, for the same reason.)
 The reasons they existed are kept as comments where the region is built: a caller
 whose header is not the BAM's must translate by contig **name**, and appending
 candidates to a table that is index-parallel to per-site metadata mispairs it.
