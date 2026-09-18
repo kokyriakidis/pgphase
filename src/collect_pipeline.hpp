@@ -8,6 +8,10 @@
 
 #include "collect_types.hpp"
 
+#include <map>
+#include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace pgphase_collect {
@@ -73,6 +77,46 @@ void run_collect_bam_variation(const Options& opts);
  */
 void run_collect_hybrid_variation(const Options& opts);
 
+
+/// Recover what a solve could not phase from alignment evidence: both the
+/// windows where reads were left unphased and the seams between blocks are
+/// re-solved as their own chunks and stitched in on shared reads. See the
+/// definition for `contig_name` and `allow_import`.
+/// What the recovery's apply phase needs from a targeted sub-solve: read names
+/// with their haplotype and phase set, and the phased candidates. Sequences and
+/// alignments are deliberately dropped -- caching whole chunks for a
+/// chromosome's worth of regions costs gigabytes and nothing downstream reads
+/// them.
+struct TargetedSolveResult {
+    std::vector<std::string> qnames;
+    std::vector<int> haps;
+    std::vector<hts_pos_t> phase_sets;
+    std::vector<CandidateVariant> candidates;
+};
+
+/// Region key (tid, beg, end) -> solved result.
+using TargetedSolveCache =
+    std::map<std::tuple<int, hts_pos_t, hts_pos_t>, TargetedSolveResult>;
+
+/// Solve the recovery regions of EVERY listed chunk in one parallel batch.
+///
+/// Without this, recovery runs once per chunk and each call parallelises only
+/// its own windows: measured on the graph arm over the first 10 Mb of chr20, 18
+/// invocations with 1-4 merged regions each, a mean parallel width of 2.3 of 16
+/// threads, run one after another. The regions are disjoint after merging, so
+/// there is no ordering constraint between them. Results land in `cache`, and
+/// the per-chunk entry point below finds its regions already solved; the regions
+/// and the order they are applied in are unchanged, so this only widens the
+/// parallelism.
+void prewarm_targeted_solves(
+        const std::vector<std::pair<PhasingChunk*, const char*>>& chunks,
+        const Options& opts, WorkerContext& context, TargetedSolveCache& cache);
+
+size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
+                                        WorkerContext& context,
+                                        const char* contig_name = nullptr,
+                                        bool allow_import = true,
+                                        TargetedSolveCache* cache = nullptr);
 
 } // namespace pgphase_collect
 

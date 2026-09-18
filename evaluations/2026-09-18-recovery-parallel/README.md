@@ -78,3 +78,37 @@ discordant reads, same 0.265%. It is not free: two bridges are lost and the
 block count goes 43 -> 44, so the cost is contiguity rather than misplacement.
 A merged region is solved as one chunk, so its k-means sees every site in the
 group instead of one window's worth.
+
+## Round three: one batch for the whole chromosome
+
+Recovery was called once per chunk, from a serial loop over the chunks
+(`graph_collect.cpp:865`), and each call parallelised only its own windows. Over
+the first 10 Mb of chr20 that was **18 sequential invocations** with 1-4 merged
+regions each -- a mean parallel width of **2.3 of 16 threads**.
+
+The merged regions are disjoint, so nothing orders them. `prewarm_targeted_solves`
+now collects every chunk's windows, merges them with the same
+`build_targeted_groups` the per-chunk path uses, deduplicates region keys (two
+chunks can see the same seam at their shared boundary), and solves them all in
+one batch across the full thread pool, largest region first so the biggest does
+not start last. The per-chunk entry point then finds its regions already solved
+and applies them in region order exactly as before.
+
+Two things keep this a pure speedup rather than a behaviour change: the regions
+and their application order are unchanged, and the cache holds a
+`TargetedSolveResult` -- read names, haplotypes, phase sets, candidates -- rather
+than whole `PhasingChunk`s, so a chromosome's worth of solves fits in memory
+without keeping sequences and alignments nothing downstream reads.
+
+| graph + recovery | 10 Mb | whole chr20 |
+|---|---:|---:|
+| per-window, serial recovery | 155.4 s | -- |
+| per-window, parallel | -- | 443 s |
+| grouped, parallel per chunk | 36.8 s | -- |
+| grouped, one global batch | **16.8 s** | **137 s** |
+
+The 10 Mb output is **byte-identical** to the grouped per-chunk run, and whole
+chr20 emits the same 56,032 records. Bridged blocks chromosome-wide go 132 ->
+126, which is the merged-region cost recorded above, not the batching.
+
+Suites: unit 4/4, window 66/66, predicate 130/130.

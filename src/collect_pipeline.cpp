@@ -887,13 +887,120 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
 /// Every site the sub-solve phases is imported. A caller whose output table is
 /// index-parallel to per-site metadata cannot accept that: appending candidates,
 /// and the reorder that follows, decouples the arrays and mispairs records.
+/// Sub-solve options: the recovery MAPQ floor, the alignment pipeline's own
+/// noisy-k-means default, no recursion, and one thread because the caller
+/// parallelises across regions instead.
+static Options targeted_solve_options(const Options& opts) {
+    Options sub = opts;
+    sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
+    sub.skip_noisy_kmeans = false;
+    sub.retry_unphased_with_bam = false;
+    sub.threads = 1;
+    sub.verbose = 0;
+    return sub;
+}
+
+struct TargetedWindowGroup {
+    RegionChunk region;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> members;
+};
+
+/// Windows padded by kTargetedSolveFlank and merged where the padded regions
+/// touch, so one region is one piece of work. Shared by the per-chunk path and
+/// the batch prewarm so both derive identical region keys.
+static std::vector<TargetedWindowGroup> build_targeted_groups(
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows, int solve_tid) {
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
+    std::sort(window_list.begin(), window_list.end());
+    std::vector<TargetedWindowGroup> groups;
+    groups.reserve(window_list.size());
+    for (const auto& window : window_list) {
+        const hts_pos_t beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
+        const hts_pos_t end = window.second + kTargetedSolveFlank;
+        if (!groups.empty() && beg <= groups.back().region.end) {
+            groups.back().region.end = std::max(groups.back().region.end, end);
+            groups.back().members.push_back(window);
+            continue;
+        }
+        TargetedWindowGroup group;
+        group.region.tid = solve_tid;
+        group.region.beg = beg;
+        group.region.end = end;
+        group.region.chunk_id = -1;
+        group.members.push_back(window);
+        groups.push_back(std::move(group));
+    }
+    return groups;
+}
+
+/// Keep only what the apply phase reads, so a chromosome's worth of solved
+/// regions can be held at once.
+static TargetedSolveResult slim_targeted_result(PhasingChunk&& solved) {
+    TargetedSolveResult out;
+    if (solved.haps.size() != solved.reads.size()) return out;
+    out.qnames.reserve(solved.reads.size());
+    for (const auto& read : solved.reads) out.qnames.push_back(read.qname);
+    out.haps = std::move(solved.haps);
+    out.phase_sets = std::move(solved.phase_sets);
+    out.candidates = std::move(solved.candidates);
+    return out;
+}
+
+/// Solve the given regions in parallel, largest first.
+///
+/// Largest-first matters because the regions are very uneven -- a merged group
+/// can hold twenty windows -- and taking them in coordinate order routinely
+/// leaves the biggest one starting last with every other thread idle. Each
+/// worker builds its own WorkerContext: htslib file handles are not shareable,
+/// and this is what collect_chunk_batch_parallel does for the main chunk loop.
+static std::vector<TargetedSolveResult> solve_targeted_regions(
+        const std::vector<RegionChunk>& regions, const Options& sub, int threads) {
+    std::vector<TargetedSolveResult> out(regions.size());
+    if (regions.empty()) return out;
+
+    std::vector<size_t> order(regions.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return (regions[a].end - regions[a].beg) > (regions[b].end - regions[b].beg);
+    });
+
+    const size_t worker_count = std::min<size_t>(
+        std::max<size_t>(1, static_cast<size_t>(threads)), regions.size());
+    std::atomic<size_t> next_region{0};
+    std::exception_ptr first_error;
+    std::mutex error_mutex;
+    std::vector<std::thread> workers;
+    workers.reserve(worker_count);
+    for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
+        workers.emplace_back([&]() {
+            try {
+                WorkerContext local_context(sub);
+                while (true) {
+                    const size_t k = next_region.fetch_add(1);
+                    if (k >= order.size()) break;
+                    const size_t ri = order[k];
+                    out[ri] = slim_targeted_result(
+                        process_chunk(regions[ri], sub, local_context));
+                }
+            } catch (...) {
+                std::lock_guard<std::mutex> lock(error_mutex);
+                if (!first_error) first_error = std::current_exception();
+            }
+        });
+    }
+    for (std::thread& worker : workers) worker.join();
+    if (first_error) std::rethrow_exception(first_error);
+    return out;
+}
+
 static size_t recover_windows_with_targeted_solve(
         PhasingChunk& chunk,
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
         const Options& opts,
         WorkerContext& context,
         int solve_tid,
-        bool allow_import) {
+        bool allow_import,
+        TargetedSolveCache* cache) {
     if (windows.empty()) return 0;
 
     // Parent block extents, first to last phased site, so the import interval
@@ -922,109 +1029,54 @@ static size_t recover_windows_with_targeted_solve(
     size_t imported_total = 0;
     size_t adopted_total = 0;
     // The sub-solve options do not depend on the window.
-    Options sub = opts;
-    sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
-    sub.skip_noisy_kmeans = false;   // the alignment pipeline's own default
-    sub.retry_unphased_with_bam = false;  // no recursion
-    sub.threads = 1;
-    sub.verbose = 0;
-
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
-    std::sort(window_list.begin(), window_list.end());
-
-    // One solve per GROUP of windows, not per window. Each window is padded by
-    // kTargetedSolveFlank on both sides so the sub-solve shares reads with the
-    // parent blocks it must vote against, and that padding is what makes
-    // neighbouring windows overlap: measured on the first 10 Mb of chr20, 188
-    // windows spanning 4.25 Mb of actual gap and seam became 15.53 Mb of padded
-    // region -- more sequence than the region being recovered. 54 of the 188 also
-    // overlapped before any padding, because the unphased-window list and the
-    // block-seam list describe some of the same neighbourhoods.
-    //
-    // Windows whose padded regions touch are therefore one piece of work. Merging
-    // them takes those 188 solves to 36 and the solved span to 6.24 Mb. A merged
-    // region is solved as a single chunk, so its k-means sees every site in the
-    // group rather than one window's worth; that is a real behaviour change and
-    // is measured against the arm baseline, not assumed free.
-    struct WindowGroup {
-        RegionChunk region;
-        std::vector<std::pair<hts_pos_t, hts_pos_t>> members;
-    };
-    std::vector<WindowGroup> groups;
-    groups.reserve(window_list.size());
-    for (const auto& window : window_list) {
-        const hts_pos_t beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
-        const hts_pos_t end = window.second + kTargetedSolveFlank;
-        if (!groups.empty() && beg <= groups.back().region.end) {
-            groups.back().region.end = std::max(groups.back().region.end, end);
-            groups.back().members.push_back(window);
-            continue;
-        }
-        WindowGroup group;
-        group.region.tid = solve_tid;
-        group.region.beg = beg;
-        group.region.end = end;
-        group.region.chunk_id = -1;
-        group.members.push_back(window);
-        groups.push_back(std::move(group));
-    }
-
+    const Options sub = targeted_solve_options(opts);
+    std::vector<TargetedWindowGroup> groups = build_targeted_groups(windows, solve_tid);
     std::vector<RegionChunk> regions;
     regions.reserve(groups.size());
-    for (const WindowGroup& group : groups) regions.push_back(group.region);
+    for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
     if (opts.verbose > 0)
         fprintf(stderr, "[targeted] %zu window(s) -> %zu merged region(s)\n",
-                window_list.size(), groups.size());
+                windows.size(), groups.size());
 
-    // Solve every window first, in parallel, then apply the results in window
-    // order. Each sub-solve is independent and single-threaded, so the serial
-    // loop this replaces left `opts.threads - 1` cores idle for the whole step:
-    // measured on a 10 Mb slice at -t 16, the recovery added 214.8 s to a 31.9 s
-    // run over 196 windows. Applying in the original order keeps the outcome
-    // identical to solving them one at a time. Each worker builds its own
-    // WorkerContext, owning its BAM/FAI handles, exactly as
-    // collect_chunk_batch_parallel does -- htslib file handles are not shareable.
-    std::vector<PhasingChunk> solved_chunks(regions.size());
-    if (!regions.empty()) {
-        const size_t worker_count = std::min<size_t>(
-            std::max<size_t>(1, static_cast<size_t>(opts.threads)), regions.size());
-        std::atomic<size_t> next_window{0};
-        std::exception_ptr first_error;
-        std::mutex error_mutex;
-        std::vector<std::thread> workers;
-        workers.reserve(worker_count);
-        for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
-            workers.emplace_back([&]() {
-                try {
-                    WorkerContext local_context(sub);
-                    while (true) {
-                        const size_t wi = next_window.fetch_add(1);
-                        if (wi >= regions.size()) break;
-                        solved_chunks[wi] = process_chunk(regions[wi], sub, local_context);
-                    }
-                } catch (...) {
-                    std::lock_guard<std::mutex> lock(error_mutex);
-                    if (!first_error) first_error = std::current_exception();
-                }
-            });
+    // Regions already solved by a batch prewarm are taken from the cache; the
+    // rest are solved here, still in parallel. Either way the apply loop below
+    // runs in region order, so the outcome does not depend on where a solve came
+    // from or on which one finished first.
+    std::vector<TargetedSolveResult> solved_results(regions.size());
+    std::vector<RegionChunk> to_solve;
+    std::vector<size_t> to_solve_idx;
+    for (size_t ri = 0; ri < regions.size(); ++ri) {
+        if (cache != nullptr) {
+            auto it = cache->find(std::make_tuple(regions[ri].tid, regions[ri].beg,
+                                                  regions[ri].end));
+            if (it != cache->end()) {
+                solved_results[ri] = std::move(it->second);
+                continue;
+            }
         }
-        for (std::thread& worker : workers) worker.join();
-        if (first_error) std::rethrow_exception(first_error);
+        to_solve.push_back(regions[ri]);
+        to_solve_idx.push_back(ri);
+    }
+    if (!to_solve.empty()) {
+        std::vector<TargetedSolveResult> fresh =
+            solve_targeted_regions(to_solve, sub, opts.threads);
+        for (size_t k = 0; k < fresh.size(); ++k)
+            solved_results[to_solve_idx[k]] = std::move(fresh[k]);
     }
 
     for (size_t window_i = 0; window_i < regions.size(); ++window_i) {
         const RegionChunk& region = regions[window_i];
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& group_windows =
             groups[window_i].members;
-        PhasingChunk solved = std::move(solved_chunks[window_i]);
-        if (solved.haps.size() != solved.reads.size()) continue;
+        const TargetedSolveResult& solved = solved_results[window_i];
+        if (solved.haps.size() != solved.qnames.size()) continue;
 
         // votes[parent_ps][sub_ps] = n11, n12, n21, n22 over reads tagged in both
         std::map<std::pair<hts_pos_t, hts_pos_t>, std::array<int, 4>> votes;
-        for (size_t j = 0; j < solved.reads.size(); ++j) {
+        for (size_t j = 0; j < solved.qnames.size(); ++j) {
             const int sub_hap = solved.haps[j];
             if (sub_hap != 1 && sub_hap != 2) continue;
-            auto it = parent_by_name.find(solved.reads[j].qname);
+            auto it = parent_by_name.find(solved.qnames[j]);
             if (it == parent_by_name.end()) continue;
             const size_t i = it->second;
             if (i >= chunk.haps.size()) continue;
@@ -1229,7 +1281,8 @@ static size_t recover_windows_with_targeted_solve(
 size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
                                         WorkerContext& context,
                                         const char* contig_name,
-                                        bool allow_import) {
+                                        bool allow_import,
+                                        TargetedSolveCache* cache) {
     const int solve_tid =
         contig_name != nullptr
             ? sam_hdr_name2tid(context.primary_header(), contig_name)
@@ -1242,7 +1295,49 @@ size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opt
     if (windows.empty()) return 0;
     std::sort(windows.begin(), windows.end());
     return recover_windows_with_targeted_solve(chunk, windows, opts, context, solve_tid,
-                                              allow_import);
+                                              allow_import, cache);
+}
+
+void prewarm_targeted_solves(
+        const std::vector<std::pair<PhasingChunk*, const char*>>& chunks,
+        const Options& opts, WorkerContext& context, TargetedSolveCache& cache) {
+    std::vector<RegionChunk> regions;
+    for (const auto& entry : chunks) {
+        PhasingChunk* chunk = entry.first;
+        if (chunk == nullptr) continue;
+        const int solve_tid = entry.second != nullptr
+                                  ? sam_hdr_name2tid(context.primary_header(), entry.second)
+                                  : chunk->region.tid;
+        if (solve_tid < 0) continue;
+        std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
+            *chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+        for (const auto& seam : collect_block_seams(*chunk)) windows.push_back(seam);
+        if (windows.empty()) continue;
+        for (const TargetedWindowGroup& group : build_targeted_groups(windows, solve_tid))
+            regions.push_back(group.region);
+    }
+    if (regions.empty()) return;
+
+    // Regions from different chunks can still be duplicates of each other at a
+    // chunk boundary, where both sides see the same seam. Solve each key once.
+    std::sort(regions.begin(), regions.end(), [](const RegionChunk& a, const RegionChunk& b) {
+        return std::make_tuple(a.tid, a.beg, a.end) < std::make_tuple(b.tid, b.beg, b.end);
+    });
+    regions.erase(std::unique(regions.begin(), regions.end(),
+                              [](const RegionChunk& a, const RegionChunk& b) {
+                                  return a.tid == b.tid && a.beg == b.beg && a.end == b.end;
+                              }),
+                  regions.end());
+
+    if (opts.verbose > 0)
+        fprintf(stderr, "[targeted] prewarming %zu region(s) across %d thread(s)\n",
+                regions.size(), opts.threads);
+
+    const Options sub = targeted_solve_options(opts);
+    std::vector<TargetedSolveResult> solved = solve_targeted_regions(regions, sub, opts.threads);
+    for (size_t ri = 0; ri < regions.size(); ++ri)
+        cache.emplace(std::make_tuple(regions[ri].tid, regions[ri].beg, regions[ri].end),
+                      std::move(solved[ri]));
 }
 
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
@@ -1538,7 +1633,8 @@ static PhasingChunk process_chunk_hybrid(
             }
             if (!residual.empty())
                 recover_windows_with_targeted_solve(chunk, residual, opts, context,
-                                                   chunk.region.tid, /*allow_import=*/true);
+                                                   chunk.region.tid, /*allow_import=*/true,
+                                                   /*cache=*/nullptr);
         }
     }
 

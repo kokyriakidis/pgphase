@@ -715,6 +715,13 @@ void run_collect_graph_variation(const Options& opts) {
 
     // 6. Tile genome into RegionChunks using the resolved region_filters (which may have
     //    contig names like "CHM13#0#chr20" resolved from a user-supplied "chr20").
+    // Alignment recovery, when a BAM is given. One context for the whole run:
+    // it owns the BAM handles the targeted sub-solves reopen per window.
+    std::unique_ptr<WorkerContext> bam_recovery_ctx;
+    if (!opts.bam_files.empty()) {
+        bam_recovery_ctx = std::make_unique<WorkerContext>(opts);
+        std::cerr << "Alignment recovery enabled from " << opts.primary_bam_file() << "\n";
+    }
     const std::vector<RegionChunk> chunks =
         build_region_chunks(opts, header.get(), fai.get(), region_filters);
     if (chunks.empty()) {
@@ -848,6 +855,35 @@ void run_collect_graph_variation(const Options& opts) {
                       header.get(), qconfig, ref_sample, fai_full_to_suffix,
                       chrom_remap, opts, pgbam_sidecar.get());
 
+        // Recover from the alignment what the catalog's sites could not phase.
+        // import is OFF here: this path's output table is index-parallel to
+        // per-site metadata (site_meta, site_ids, site_allele_orig_idx), so an
+        // appended candidate has no metadata and is skipped at output. Adoption
+        // and the stitch are index-safe: they mutate in place and add nothing.
+        if (bam_recovery_ctx != nullptr) {
+            size_t bridged_total = 0;
+            // Solve every chunk's recovery regions in ONE parallel batch first.
+            // Called per chunk, each recovery parallelises only its own windows:
+            // over the first 10 Mb of chr20 that was 18 sequential invocations
+            // with 1-4 merged regions each, a mean parallel width of 2.3 of 16
+            // threads. The regions are disjoint, so nothing orders them.
+            std::vector<std::pair<PhasingChunk*, const char*>> prewarm_list;
+            prewarm_list.reserve(graph_chunks.size());
+            for (GraphChunkBuildResult& gc : graph_chunks)
+                prewarm_list.emplace_back(
+                    &gc.chunk, sam_hdr_tid2name(header.get(), gc.chunk.region.tid));
+            TargetedSolveCache targeted_cache;
+            prewarm_targeted_solves(prewarm_list, opts, *bam_recovery_ctx, targeted_cache);
+            for (GraphChunkBuildResult& gc : graph_chunks)
+                bridged_total += recover_unphased_windows_from_bam(
+                    gc.chunk, opts, *bam_recovery_ctx,
+                    sam_hdr_tid2name(header.get(), gc.chunk.region.tid),
+                    /*allow_import=*/false, &targeted_cache);
+            if (bridged_total > 0)
+                std::cerr << "[graph+recovery] bridged " << bridged_total
+                          << " block(s) from the alignment\n";
+        }
+
         if (emit_phase_reads) {
             for (const GraphChunkBuildResult& gc : graph_chunks) {
                 const PhasingChunk& pc = gc.chunk;
@@ -964,6 +1000,10 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
+        << "                                 sites could not phase: each unphased window and\n"
+        << "                                 each seam between blocks is re-solved from the\n"
+        << "                                 alignment as its own chunk and stitched in\n"
         << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
         << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
         << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
@@ -1034,6 +1074,7 @@ static void print_graph_collect_help() {
 }
 
 enum GraphCollectOption {
+    kGcRecoveryBam = 2000,
     kGcMinAltDepth = 1000,
     kGcMinAf,
     kGcMaxAf,
@@ -1102,6 +1143,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
+        {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
@@ -1163,6 +1205,9 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
+            // Recovery only. The graph pass never reads this BAM; it is used to
+            // re-solve the intervals the catalog's sites could not phase.
+            case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;
