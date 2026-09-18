@@ -689,10 +689,6 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
         // targeted per-window solve fixes what it could not phase.
         {"default", ""},
         {"noretry", "--no-retry-unphased-with-bam"},
-        // The union first pass, kept as a comparison arm so the cost of letting
-        // the alignment channel's own candidates into the first pass stays
-        // visible. Measured identical to the default on both windows.
-        {"nographfirst", "--no-graph-first"},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -752,10 +748,6 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
         // targeted per-window solve fixes what it could not phase.
         {"default", ""},
         {"noretry", "--no-retry-unphased-with-bam"},
-        // The union first pass, kept as a comparison arm so the cost of letting
-        // the alignment channel's own candidates into the first pass stays
-        // visible. Measured identical to the default on both windows.
-        {"nographfirst", "--no-graph-first"},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {

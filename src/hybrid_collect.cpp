@@ -70,10 +70,6 @@ static void print_hybrid_help() {
         << "      --private-msa-admit-all-in-region  Trust whole noisy region, not exact whitelist key\n"
         << "      --private-msa-snp-first   Try MSA SNPs alone before admitting MSA indels per junction\n"
         << "      --min-block-link-reads INT  Spanning reads needed to carry a phase block [2]\n"
-        << "      --no-graph-first          Let the alignment channel's own candidates into\n"
-        << "                                 the first pass too (the graph drives it by\n"
-        << "                                 default; the targeted re-solve supplies\n"
-        << "                                 alignment sites where it failed)\n"
         << "      --recovery-min-mapq INT   Floor for reads the re-solve may use inside an\n"
         << "                                 unphased window; below --min-mapq they are inert\n"
         << "                                 everywhere else [1]\n"
@@ -170,8 +166,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
     kRetryUnphasedWithBamOption,
     kNoRetryUnphasedWithBamOption,
     kRecoveryMinMapqOption,
-    kGraphFirstOption,
-    kNoGraphFirstOption,
     kJointHetOrientationOption,
     kRetryMinUnphasedReadsOption,
     kRetryMinWindowBpOption,
@@ -232,8 +226,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"retry-unphased-with-bam", no_argument, nullptr, kRetryUnphasedWithBamOption},
         {"no-retry-unphased-with-bam", no_argument, nullptr, kNoRetryUnphasedWithBamOption},
         {"recovery-min-mapq", required_argument, nullptr, kRecoveryMinMapqOption},
-        {"graph-first", no_argument, nullptr, kGraphFirstOption},
-        {"no-graph-first", no_argument, nullptr, kNoGraphFirstOption},
         {"joint-het-orientation", no_argument, nullptr, kJointHetOrientationOption},
         {"retry-min-unphased-reads", required_argument, nullptr, kRetryMinUnphasedReadsOption},
         {"retry-min-window-bp", required_argument, nullptr, kRetryMinWindowBpOption},
@@ -314,8 +306,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
             case kMinBlockLinkReadsOption: opts.min_block_link_reads = std::atoi(optarg); break;
             case kRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = true; break;
             case kNoRetryUnphasedWithBamOption: opts.retry_unphased_with_bam = false; break;
-            case kGraphFirstOption: opts.graph_first = true; break;
-            case kNoGraphFirstOption: opts.graph_first = false; break;
             case kRecoveryMinMapqOption:
                 opts.recovery_min_mapq = std::atoi(optarg); break;
             case kJointHetOrientationOption: opts.joint_het_orientation = true; break;

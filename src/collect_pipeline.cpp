@@ -1289,13 +1289,22 @@ static PhasingChunk process_chunk_hybrid(
     // catalog's sites are added by inject_graph_sites immediately below, and
     // recover_windows_with_targeted_solve puts alignment sites back inside
     // every window the first pass could not phase.
-    if (opts.graph_first) {
-        const size_t discarded = chunk.candidates.size();
+    // The catalog's sites are the phasing anchors: the alignment channel's own
+    // candidates do not enter the first solve. They are not wasted -- the
+    // discovery that produced them also built chunk.noisy_regions, which scopes
+    // the noisy-region MSA that supplies most of this chunk's phased sites.
+    // Measured by skipping discovery outright on
+    // chr20:25,979,591-26,138,679: 31% faster (4.05 s to 2.78 s) for a collapse
+    // from 447 phased heterozygotes to 137. So discovery runs, its candidates
+    // are withheld here, and the alignment returns in the gaps through
+    // recover_unphased_windows_from_bam.
+    {
+        const size_t withheld = chunk.candidates.size();
         chunk.candidates.clear();
         if (opts.verbose > 0)
             fprintf(stderr,
-                    "[graph-first] withheld %zu alignment-discovered candidate(s)"
-                    " from the first pass\n", discarded);
+                    "[hybrid] withheld %zu alignment-discovered candidate(s) from the"
+                    " first solve; the catalog's sites phase it\n", withheld);
     }
 
     if (private_keys != nullptr && !opts.private_msa_admit_all_in_region) {
