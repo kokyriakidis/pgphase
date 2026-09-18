@@ -149,3 +149,63 @@ reads are tagged as accurately as before.
 Neither is a reason to hold the change -- the alternative is reporting nothing
 across 59 kb -- but both are the next work, and the in-gap call quality matters
 more than the count.
+
+## The bug that hid the recovered sites
+
+The targeted solve phased the gap and the block spanned, but the interval
+reported 35 records where the solve had 405 to give. Instrumenting the import
+loop located it precisely:
+
+```
+IMPORT sub_cands=405 wrong_ps=0 outside=121 unphased=2 present=244 spans=1
+```
+
+**244 of the sites were already in the parent's table.** The graph catalog is
+injected over the whole region, so inside a mapping-quality hole the parent
+carries the sites -- with almost no read support, because the reads are below
+the floor -- and leaves them unphased. The import treated "already present" as
+"already handled" and skipped them, so they stayed unphased and unemitted.
+
+Two changes fix it.
+
+**Adopt rather than skip.** A present site with `phase_set == 0` takes the
+targeted solve's phasing and its counts; the parent's counts are the starved
+ones the hole produced, the solve's come from reads that can see the site. A
+present site the parent *did* phase is left alone.
+
+**Copy the consensus alleles.** Setting `hap_alt`/`hap_ref` was not enough: the
+emitter derives the genotype from `hap_to_cons_alle[1]` and `[2]` via
+`derive_hap_alt_ref_from_consensus`, so 244 adopted sites carried a phase set, a
+clean category and DP near 80 and the VCF still dropped every one. They are
+copied now, swapped when the stitch vote says flip.
+
+**Also widened:** the import bound is the space between the blocks the vote
+joined, not the detected window. The detected window is where reads were left
+unphased, or a seam, and is routinely narrower than the unreported span.
+
+### Result on chr20:26,029,591-26,088,679, default arm
+
+| | before | after |
+|---|---:|---:|
+| in-gap records | 35 | **276** |
+| in-gap SNPs scored against truth | 17 | **246** |
+| of those, wrong | 2 (12%) | **3 (1%)** |
+| spans the gap | YES | YES |
+| reads tagged | 293 | 293 |
+| read concordance | 99.66% | 99.66% |
+| discordant reads | 1 | 1 |
+
+longphase scores 120 SNPs in the same interval with 1 wrong. So the default arm
+now reports **twice the competitor's scorable SNP count at the same 1% error**,
+with read-level accuracy unchanged.
+
+chr20:5,309,406 is unchanged: 1 block, spans, 2 in-gap hets, 544 tagged,
+98.71%, 7 discordant.
+
+This also closes the gap between the default and graph-first arms on in-gap
+recovery -- both now report 276 -- while the default keeps the better read
+numbers (293 tagged at 99.66% with 1 discordant, against 254 at 99.21% with 2).
+The remaining graph-first cost is read placement, not site recovery.
+
+Not measured: chromosome-wide effect. Chromosome-wide runs are on hold by
+instruction.

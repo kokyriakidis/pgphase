@@ -975,6 +975,22 @@ static size_t recover_windows_with_targeted_solve(
         WorkerContext& context) {
     if (windows.empty()) return 0;
 
+    // Parent block extents, first to last phased site, so the import interval
+    // can be the space between the blocks actually being joined.
+    std::map<hts_pos_t, std::pair<hts_pos_t, hts_pos_t>> parent_extent;
+    for (const CandidateVariant& cand : chunk.candidates) {
+        if (cand.phase_set == 0) continue;
+        if (cand.hap_alt == 0 && cand.hap_ref == 0) continue;
+        const hts_pos_t pos = cand.key.sort_pos();
+        auto it = parent_extent.find(cand.phase_set);
+        if (it == parent_extent.end())
+            parent_extent.emplace(cand.phase_set, std::make_pair(pos, pos));
+        else {
+            it->second.first = std::min(it->second.first, pos);
+            it->second.second = std::max(it->second.second, pos);
+        }
+    }
+
     // Index the parent's tagged reads once.
     std::unordered_map<std::string, size_t> parent_by_name;
     parent_by_name.reserve(chunk.reads.size() * 2u);
@@ -983,6 +999,7 @@ static size_t recover_windows_with_targeted_solve(
 
     size_t merged_total = 0;
     size_t imported_total = 0;
+    size_t adopted_total = 0;
     for (const auto& window : windows) {
         RegionChunk region;
         region.tid = chunk.region.tid;
@@ -1057,24 +1074,82 @@ static size_t recover_windows_with_targeted_solve(
                 ++merged_total;
             }
 
-            // Carry the window's own sites across. The parent never discovered
-            // them -- that is what the mapping-quality hole means -- so without
-            // this the block spans an interval it reports nothing in, and the
-            // heterozygotes the competitor calls there stay invisible. Only
-            // sites strictly inside the window are taken: outside it the parent
-            // has its own, better-supported calls.
+            // Carry across the sites in the space being joined. The parent never
+            // discovered them -- that is what a mapping-quality hole means -- so
+            // without this the block spans an interval it reports nothing in and
+            // the heterozygotes the competitor calls there stay invisible.
+            //
+            // The bound is the space between the blocks the vote just joined,
+            // not the detected window. The detected window is where the solve
+            // left READS unphased, or a seam, and it is routinely narrower than
+            // the unreported span: on chr20:26,029,591 the narrow bound imported
+            // 38 sites where the same solve had 282 to give, which cost 241
+            // in-gap records. Outside the joined blocks the parent has its own,
+            // better-supported calls, so the bound stays closed there.
+            std::vector<std::pair<hts_pos_t, hts_pos_t>> import_spans;
+            {
+                std::vector<std::pair<hts_pos_t, hts_pos_t>> joined;
+                for (const auto& entry : kv.second) {
+                    auto pe = parent_extent.find(entry.first);
+                    if (pe != parent_extent.end()) joined.push_back(pe->second);
+                }
+                std::sort(joined.begin(), joined.end());
+                for (size_t j = 1; j < joined.size(); ++j)
+                    if (joined[j].first > joined[j - 1].second)
+                        import_spans.emplace_back(joined[j - 1].second, joined[j].first);
+                if (import_spans.empty())
+                    import_spans.emplace_back(window.first, window.second);
+            }
             for (const CandidateVariant& src : solved.candidates) {
                 if (src.phase_set != kv.first) continue;
                 const hts_pos_t pos = src.key.sort_pos();
-                if (pos <= window.first || pos >= window.second) continue;
+                bool inside = false;
+                for (const auto& span : import_spans)
+                    if (pos > span.first && pos < span.second) { inside = true; break; }
+                if (!inside) continue;
                 if (src.hap_alt == 0 && src.hap_ref == 0) continue;
-                bool present = false;
-                for (const CandidateVariant& have : chunk.candidates)
+
+                // A site the parent already holds but could not phase is the
+                // common case here, not the exception: the graph catalog is
+                // injected over the whole region, so inside a mapping-quality
+                // hole the parent carries the sites with almost no read support
+                // and leaves them unphased. Measured on chr20:26,029,591 -- of
+                // 405 candidates the targeted solve phased in the joined
+                // interval, 244 were already present. Skipping them as
+                // duplicates left them unphased and unemitted, which is why the
+                // interval reported 35 records instead of 276.
+                //
+                // So adopt rather than skip: take the targeted solve's phasing
+                // and its counts, because the parent's counts are the starved
+                // ones the hole produced and the solve's come from reads that
+                // can actually see the site.
+                CandidateVariant* existing = nullptr;
+                for (CandidateVariant& have : chunk.candidates)
                     if (have.key.pos == src.key.pos && have.key.type == src.key.type &&
                         have.key.ref_len == src.key.ref_len && have.key.alt == src.key.alt) {
-                        present = true; break;
+                        existing = &have; break;
                     }
-                if (present) continue;
+                if (existing != nullptr) {
+                    if (existing->phase_set != 0) continue;  // the parent's own call stands
+                    existing->counts = src.counts;
+                    existing->lcd_var_i_to_cate = src.lcd_var_i_to_cate;
+                    existing->hap_alt = keep_flip ? src.hap_ref : src.hap_alt;
+                    existing->hap_ref = keep_flip ? src.hap_alt : src.hap_ref;
+                    // The emitter derives the genotype from the CONSENSUS
+                    // alleles, not from hap_alt/hap_ref: is_alt_genotype calls
+                    // derive_hap_alt_ref_from_consensus, which reads
+                    // hap_to_cons_alle[1] and [2]. Setting hap_alt/hap_ref alone
+                    // left 244 adopted sites carrying a phase set, a clean
+                    // category and DP near 80 that the VCF still dropped.
+                    existing->hap_to_cons_alle = src.hap_to_cons_alle;
+                    if (keep_flip)
+                        std::swap(existing->hap_to_cons_alle[1],
+                                  existing->hap_to_cons_alle[2]);
+                    existing->phase_set = keep_ps;
+                    existing->lcd_make_variants_region_pass = true;
+                    ++adopted_total;
+                    continue;
+                }
                 CandidateVariant imported = src;
                 imported.phase_set = keep_ps;
                 if (keep_flip) std::swap(imported.hap_alt, imported.hap_ref);
@@ -1092,6 +1167,9 @@ static size_t recover_windows_with_targeted_solve(
                         kv.second.size() - 1, (long long)keep_ps);
         }
     }
+    if (adopted_total > 0 && opts.verbose > 0)
+        fprintf(stderr, "[targeted] adopted phasing for %zu site(s) the parent held unphased\n",
+                adopted_total);
     if (imported_total > 0) {
         std::sort(chunk.candidates.begin(), chunk.candidates.end(),
                   [](const CandidateVariant& a, const CandidateVariant& b) {
