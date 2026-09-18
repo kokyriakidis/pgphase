@@ -76,3 +76,52 @@ The test that would answer the general question is a chromosome-wide
 empty-catalog arm against the standing 212,320 tagged / 452 blocks / 0.559%
 baseline. It has not been run -- chromosome-wide runs are on hold by
 instruction.
+
+## Can we use the graph sites and inject BAM sites only in the gap?
+
+It needs no new architecture -- the mode already exists. `--private-sites FILE`
+restricts the table to graph sites plus a whitelist, and
+`--bam-authoritative-bed FILE` lets clean BAM sites back in inside given
+intervals. Passing a header-only whitelist and a BED holding just the gap is
+exactly "graph sites everywhere, BAM sites in the gap".
+
+Measured on both windows, with the targeted recovery active in every arm.
+
+### chr20:26,029,591-26,088,679 -- graph-first wins on structure and sites
+
+| arm | blocks | spans | hets | in-gap | in-gap SNPs | wrong | tagged | concordance | discordant |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| **graph + BAM in gap only** | **1** | YES | 338 | **276** | 246 | 3 | 254 | 99.21% | 2 |
+| current default (union) | 2 | YES | 198 | 35 | 17 | 2 | 293 | 99.66% | 1 |
+| empty catalog (BAM only) | 2 | YES | 430 | 276 | 246 | 3 | 293 | 99.66% | 1 |
+
+One block instead of two, and the full in-gap set at the competitor's 1% error
+rate -- but 39 fewer reads tagged and one more discordant.
+
+### chr20:5,309,406-5,345,085 -- graph-first loses clearly
+
+| arm | blocks | spans | hets | in-gap | tagged | concordance | discordant |
+|---|---:|---|---:|---:|---:|---:|---:|
+| graph + BAM in gap only | 3 | YES | 21 | 2 | 437 | **96.80%** | **14** |
+| current default (union) | **1** | YES | 37 | 2 | **544** | **98.71%** | 7 |
+
+Three blocks instead of one, 107 fewer reads tagged, and **twice the discordant
+reads**. The cause is the provenance measurement above: outside the gap a third
+of the clean het anchors are alignment-only, including every clean het indel in
+these regions, so excluding them costs read placement -- which is what read
+concordance measures.
+
+### Conclusion
+
+The architecture is implementable today and is not a clear win: it buys block
+structure and in-gap site recovery on one window and costs read-level accuracy
+on both, badly on one.
+
+The better route is to take what graph-first bought without its cost. The
+in-gap recovery it achieved -- 276 records, 246 scorable SNPs at 1% error -- is
+the same figure the empty-catalog arm reached **while keeping the union first
+pass and its 99.66% / 1 discordant**. So the gain is not coming from removing
+BAM sites in the flanks; it is coming from the recovery importing the whole gap
+rather than the narrow detected window. Widening that import scope gets the
+benefit with the flanks untouched, and it is a change to one predicate rather
+than to the pipeline's shape.
