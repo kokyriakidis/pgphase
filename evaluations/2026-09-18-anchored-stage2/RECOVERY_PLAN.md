@@ -158,3 +158,112 @@ plus the stale-label fix, and the effort moves to admission instead.
 If merging sites in-chunk improves nothing on accuracy, the value was never in
 the reconciliation; it is in which sites are admitted, and Phase 4 is the whole
 project.
+
+---
+
+# Revision: the design longcallD's own structure implies
+
+Read upstream at `23e369d`. Its reconciliation is much smaller than ours, and the
+reason is structural rather than a matter of care.
+
+## What upstream does, and why it needs so little
+
+| stage | upstream | where |
+|---|---|---|
+| chunks | adjacent 500 kb / 4,000-read regions, NO padding | `bam_utils.h:9-10` |
+| shared material | reads that straddle the boundary, recorded at load by interval test into `up_ovlp_read_i` / `down_ovlp_read_i` | `bam_utils.c:1584-1596, 1690-1695` |
+| within-chunk blocks | running parity over adjacent het pairs: new phase set when `n_agree < 2 && n_conflict < 2`, `flip ^= 1` when `n_conflict > n_agree` | `assign_hap.c:398-418` |
+| cross-chunk | one majority vote over overlap reads with a haplotype on both sides; `flip_hap_score == 0` -> no join | `collect_var.c:1656-1690` |
+| apply | swap `hap_to_cons_alle[1]/[2]` for the ONE block being joined, then relabel that block's phase set to the previous chunk's | `collect_var.c:1615-1635` |
+| order | serial, ascending, pairwise over the region group | `collect_var.c:2983-2989`, `call_var_main.c:783` |
+
+Two properties follow, and both matter for us:
+
+**Upstream joins two peers.** Each side of a boundary is a complete solve of its
+own region, and the same physical read was phased independently by both. There is
+no third party in the middle, so a single vote is sufficient: it compares two
+solutions directly.
+
+**Upstream propagates left to right, one block per side.** Because the pass is
+serial and ascending, and each step relabels the current chunk into the previous
+chunk's phase set, a label is never referenced after it has been retired. That is
+why upstream has no equivalent of our stale-label defect -- not because it checks
+for it, but because the shape makes it impossible.
+
+## Why our recovery cannot simply copy it
+
+A recovery region is not a boundary between peers. It is an interval INSIDE a
+solve that the solve failed on, and the reads in it are exactly the ones that
+were left unphased -- so the free overlap upstream relies on does not exist and
+has to be manufactured, which is what the site-anchored flank does.
+
+Worse, the recovery inserts a **third party**: the two parent blocks are not
+compared with each other, they are each compared with the sub-solve, and their
+relative orientation is DERIVED through it (`collect_pipeline.cpp:1171-1190`,
+where the relative flip is `kv.second[k].second != keep_flip`). So the sub-solve's
+own internal parity is load-bearing, and nothing checks it. Both seam votes can be
+individually strong and the derived answer still wrong -- which is exactly the
+76.06% seam: the sub-solve chained through two phantoms segregating at 0.525 and
+0.571, and both votes then faithfully reported its incorrect local orientation.
+
+## The design
+
+**1. Keep the manufactured overlap as-is.** Site-anchored flank, three parent
+phased sites per side, clamped. This is the deliberate replacement for upstream's
+straddling reads and it is already measured: 39.55 Mb -> 29.78 Mb solved, +1
+bridge, accuracy unchanged.
+
+**2. Corroborate the derived orientation against a direct parent-to-parent link.**
+Where reads carry a haplotype in BOTH parent blocks, they compare the two peers
+directly, exactly as upstream's vote does, with no third party. Those reads are
+decisive: when they disagree with the orientation derived through the sub-solve,
+do not bridge -- leave the seam open. An unjoined seam costs contiguity; an
+inverted one costs a block of reads.
+
+This is the check upstream does not need and we do, and it is the one that would
+have refused the 76.06% merge: the direct link across that step carried 2 reads
+saying no-flip while the phantom chain said flip.
+
+**3. Adopt upstream's 2-read floor for the seam vote, and no more than that.**
+`n_agree < 2 && n_conflict < 2` is upstream's own break rule. Our own measurement
+says not to go higher: at a minimum of 5 linking reads the panel gives 2 spans for
+1 flip where the retry alone gives 4 spans for 0, and a correct join sits at 3
+linking reads while the 76% failure sat at 5. So a floor of 2 matches upstream and
+the evidence; a higher floor is a measured regression.
+
+**4. Relabel in ONE serial ascending pass with alias resolution.** Votes stay
+parallel per region, decisions are collected, then applied in a single ordered
+pass over all chunks, resolving every `keep_ps` / `drop_ps` through an alias map so
+a label retired earlier in the pass is never referenced again. This is upstream's
+left-to-right propagation, and it removes the stale-label defect by construction
+rather than by patching: the observed case -- parent PS 195305 ending as
+`{130540: 558 sites, 195305: 11}` and a later merge joining 545002 onto the 11
+leftovers -- cannot arise when the relabel is ordered and alias-resolved, and the
+per-chunk restriction that split that block in the first place goes away because
+the pass spans chunks.
+
+**5. Flip through `hap_to_cons_alle`.** Already fixed in `cc0dc05`, and upstream
+confirms the field choice: `update_chunk_var_hap_phase_set1` swaps exactly that.
+
+## What NOT to copy
+
+- **The no-margin vote.** Upstream flips on any nonzero majority
+  (`flip_hap_score > 0`). We keep `stitch_min_margin` and the rule variants.
+- **One block per side.** Upstream joins only `max_pre_read_PS` to
+  `min_cur_read_PS`, so a boundary holding several blocks on one side leaves the
+  rest unjoined. Our per-(parent, sub) vote map is strictly better and should be
+  kept -- it is only the APPLY order that needs upstream's discipline.
+
+## Work order and gates
+
+| # | change | expected effect | risk |
+|---|---|---|---|
+| 4 | ordered relabel + aliases | contiguity up, accuracy flat | low; no orientation logic touched |
+| 3 | 2-read floor on the seam vote | near-inert | low |
+| 2 | direct-link corroboration | bridges down slightly, hamming down | medium; it can only refuse joins |
+
+Gate at each step: `chr20:1-10,000,000` (16.3 s, 36 bridged, 44 read blocks, 97
+discordant, 0.265%) then whole chr20 (118 s, 126 bridged, 281 blocks, 2,732
+discordant, 1.341%). Steps 2-4 make the CURRENT architecture correct and stay
+necessary for cross-chunk seams even if the in-chunk retry lands later, because a
+cross-chunk seam has no in-chunk form.
