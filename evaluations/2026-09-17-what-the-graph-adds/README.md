@@ -125,3 +125,49 @@ BAM sites in the flanks; it is coming from the recovery importing the whole gap
 rather than the narrow detected window. Widening that import scope gets the
 benefit with the flanks untouched, and it is a change to one predicate rather
 than to the pipeline's shape.
+
+## Why graph-first fragmented, and a correction to the verdict above
+
+The verdict "graph-first loses clearly" on chr20:5,309,406 needs qualifying.
+
+Graph-first produced three blocks with 34.6 kb and 12.0 kb seams. The recovery
+never touched them, and the reason is a gap in the trigger, not in the solve:
+`collect_unphased_windows` reports where the solve left READS unphased. At a
+seam the reads are phased -- into different blocks -- so no window is reported
+and the targeted solve never sees it. The alignment-driven pipeline mostly
+produces the first failure mode; a graph-first pipeline produces the second.
+
+`collect_block_seams` now adds every interval between consecutive blocks as a
+recovery window, taken from candidate positions rather than read starts because
+a block's extent is first to last phased site. With it the fragmented window
+runs seven targeted solves instead of two, and the new per-window report shows
+what each one found.
+
+**And the seam turns out to be unbridgeable.** For the 34.6 kb seam:
+
+```
+[targeted] 5315085-5421703: 2 vote pair(s), 2 parent block(s) linked,
+                            2 targeted block(s) carrying links
+```
+
+Each parent block linked to a *different* targeted block -- the targeted solve
+breaks at the same place. Directly measured: **0 reads span 5,345,085-5,379,675**.
+No read-based method can join it, so the refusal is correct.
+
+The union arm *does* join across it, in one block of 37 sites, and by truth the
+join is right: left PAT-on-1 at 0.981 over 323 reads, right PAT-on-1 at 1.000
+over 54. But with no read crossing the interval that orientation is a coin flip
+that landed correctly -- the same pattern recorded for chr20:48,176,830 earlier
+in this work, where an identical-looking join was wrong and no read-level gate
+could see it.
+
+So part of graph-first's higher block count is **honesty, not weakness**: it
+refuses a join the union arm makes on no evidence. What remains a genuine cost
+is read placement -- 437 reads tagged against 544, and 14 discordant against 7 --
+which follows from a third of the clean het anchors outside the gap being
+alignment-only. That is a separate axis from the seam question and is where the
+work would go next for a graph-first hybrid.
+
+Seam recovery is inert on the current default on both windows -- identical
+blocks, sites, tags and concordance -- because the union pipeline's seams are
+either already joined or, as here, unbridgeable.

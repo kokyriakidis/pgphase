@@ -921,6 +921,53 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
 // evidence saturates at.
 constexpr hts_pos_t kTargetedSolveFlank = 30000;
 
+/// Intervals between consecutive phase blocks -- the other kind of failure.
+///
+/// collect_unphased_windows finds where the solve left READS unphased. That is
+/// one failure mode, and it is the one the alignment-driven pipeline produces:
+/// a stretch with no usable site leaves its reads untagged. But a solve can
+/// also place every read and still not join, leaving two blocks whose relative
+/// phase is unknown. The reads there are phased, so no unphased-read window is
+/// reported, and the targeted solve never sees the seam.
+///
+/// That distinction decides whether a graph-first hybrid can work. Measured on
+/// chr20:5,309,406 with graph sites only outside the gap: three blocks with
+/// 34.6 kb and 12.0 kb seams between them, the retry reporting 3 unphased-read
+/// windows, none at a seam, and no targeted solve running. The blocks stayed
+/// apart because nothing asked about the interval between them.
+///
+/// Seams are taken from the candidates rather than the reads because a block's
+/// extent is first to last phased SITE; read starts understate it by up to a
+/// read length at each end, a mistake made earlier in this work.
+static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
+        const PhasingChunk& chunk) {
+    std::map<hts_pos_t, std::pair<hts_pos_t, hts_pos_t>> extent;
+    for (const CandidateVariant& cand : chunk.candidates) {
+        if (cand.phase_set == 0) continue;
+        if (cand.hap_alt == 0 && cand.hap_ref == 0) continue;
+        const hts_pos_t pos = cand.key.sort_pos();
+        auto it = extent.find(cand.phase_set);
+        if (it == extent.end()) extent.emplace(cand.phase_set, std::make_pair(pos, pos));
+        else {
+            it->second.first = std::min(it->second.first, pos);
+            it->second.second = std::max(it->second.second, pos);
+        }
+    }
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
+    spans.reserve(extent.size());
+    for (const auto& kv : extent) spans.push_back(kv.second);
+    std::sort(spans.begin(), spans.end());
+
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> seams;
+    for (size_t i = 1; i < spans.size(); ++i) {
+        const hts_pos_t beg = spans[i - 1].second;
+        const hts_pos_t end = spans[i].first;
+        if (end <= beg) continue;   // overlapping or touching blocks
+        seams.emplace_back(beg, end);
+    }
+    return seams;
+}
+
 static size_t recover_windows_with_targeted_solve(
         PhasingChunk& chunk,
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
@@ -978,6 +1025,15 @@ static size_t recover_windows_with_targeted_solve(
             bridged[kv.first.second].emplace_back(kv.first.first, do_flip);
         }
 
+        if (opts.verbose > 0) {
+            size_t linked = 0;
+            for (const auto& kv : bridged) linked += kv.second.size();
+            fprintf(stderr,
+                    "[targeted] %lld-%lld: %zu vote pair(s), %zu parent block(s) linked,"
+                    " %zu targeted block(s) carrying links\n",
+                    (long long)region.beg, (long long)region.end,
+                    votes.size(), linked, bridged.size());
+        }
         for (const auto& kv : bridged) {
             if (kv.second.size() < 2) continue;  // nothing bridged
             const hts_pos_t keep_ps = kv.second.front().first;
@@ -1345,8 +1401,18 @@ static PhasingChunk process_chunk_hybrid(
             // chunk. Re-derive the windows first: the re-solve closes some, and
             // running a targeted solve over a window that is now phased would
             // re-litigate a settled answer.
-            const auto residual = collect_unphased_windows(
+            auto residual = collect_unphased_windows(
                 chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+            // Both kinds of failure, not just one. A seam between two blocks is
+            // a window the solve could not phase ACROSS even though it phased
+            // the reads on either side, and no unphased-read window is ever
+            // reported there.
+            for (const auto& seam : collect_block_seams(chunk)) {
+                bool covered = false;
+                for (const auto& w : residual)
+                    if (seam.first >= w.first && seam.second <= w.second) { covered = true; break; }
+                if (!covered) residual.push_back(seam);
+            }
             if (!residual.empty())
                 recover_windows_with_targeted_solve(chunk, residual, opts, context);
         }
