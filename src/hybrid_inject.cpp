@@ -45,49 +45,7 @@ static int resolve_private_vcf_tid(const std::string& contig,
     return matched_tid;
 }
 
-VariantKeySet load_private_variant_keys(const std::string& path,
-                                        const bam_hdr_t* bam_header) {
-    using BcfFilePtr = std::unique_ptr<htsFile, decltype(&hts_close)>;
-    using BcfHeaderPtr = std::unique_ptr<bcf_hdr_t, decltype(&bcf_hdr_destroy)>;
-    using BcfRecordPtr = std::unique_ptr<bcf1_t, decltype(&bcf_destroy)>;
 
-    BcfFilePtr fp(bcf_open(path.c_str(), "r"), hts_close);
-    if (!fp) throw std::runtime_error("failed to open private-sites VCF: " + path);
-    BcfHeaderPtr header(bcf_hdr_read(fp.get()), bcf_hdr_destroy);
-    if (!header)
-        throw std::runtime_error("failed to read private-sites VCF header: " + path);
-    BcfRecordPtr record(bcf_init(), bcf_destroy);
-    if (!record)
-        throw std::runtime_error("failed to allocate private-sites VCF record");
-
-    VariantKeySet keys;
-    int read_status = 0;
-    while ((read_status = bcf_read(fp.get(), header.get(), record.get())) == 0) {
-        bcf_unpack(record.get(), BCF_UN_STR);
-        if (record->n_allele != 2) continue;
-        const char* contig = bcf_hdr_id2name(header.get(), record->rid);
-        if (contig == nullptr) continue;
-        const int tid = resolve_private_vcf_tid(contig, bam_header);
-        if (tid < 0) continue;
-        keys.insert(vcf_to_variant_key(
-            tid, record->pos + 1, record->d.allele[0], record->d.allele[1]));
-    }
-    if (read_status < -1)
-        throw std::runtime_error("failed while reading private-sites VCF: " + path);
-    return keys;
-}
-
-size_t retain_private_bam_candidates(PhasingChunk& chunk,
-                                     const VariantKeySet& private_keys) {
-    CandidateTable retained;
-    retained.reserve(std::min(chunk.candidates.size(), private_keys.size()));
-    for (CandidateVariant& candidate : chunk.candidates) {
-        if (private_keys.find(candidate.key) != private_keys.end())
-            retained.push_back(std::move(candidate));
-    }
-    chunk.candidates = std::move(retained);
-    return chunk.candidates.size();
-}
 
 
 // ────────────────────────────────────────────────────────────────────────────

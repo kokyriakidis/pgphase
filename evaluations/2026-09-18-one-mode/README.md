@@ -58,3 +58,45 @@ Whether the refinement is load-bearing is the measurement to take, and it is not
 taken here.
 
 Not measured: chromosome-wide.
+
+## Removing what one mode made dead
+
+Three leftovers were flagged after the consolidation. Two were real.
+
+**`--retry-unphased-with-bam` was redundant** -- the recovery is the default, so
+the positive flag selected the default. Removed. `--no-retry-unphased-with-bam`
+stays: it is the `noretry` window-test arm, which is how a regression gets
+attributed to the recovery rather than the first pass.
+
+**The whitelist mode was dead or destructive, not merely unused.** Under one mode
+the alignment channel's candidates are cleared before injection, and the
+retention filter ran *after* that clear -- on an empty table, so it could retain
+nothing. `--bam-authoritative-bed` excluded catalog sites inside its intervals so
+the alignment would own them; with the alignment's candidates already withheld,
+that left the interval with no sites at all, so the option only deleted
+evidence. And `--private-sites` reached a phasing branch that set
+`max_noisy_reg_len = 0`, silently disabling the noisy-region model that supplies
+most of the chunk's phased sites.
+
+Removed: `--private-sites`, `--private-msa`,
+`--private-msa-admit-all-in-region`, `--private-msa-snp-first`,
+`--bam-authoritative-bed`, and with them `load_private_variant_keys`,
+`retain_private_bam_candidates`, `is_bam_authoritative_position`,
+`load_bam_authority_intervals`, the `BamAuthorityIntervals` type, the
+`private_keys` and `bam_authority` parameters threaded through the chunk path,
+three CLI validation blocks whose only job was rejecting combinations of these
+options, and the unit-test block covering the whitelist. **284 lines removed, 29
+added.** The two MSA booleans the removal left behind were default-false, so
+their use sites now read `false` with the reason recorded.
+
+`--private-msa-margin` is **renamed `--msa-ambiguity-margin`**, not removed: it
+governs the MSA consensus rescoring in `align.cpp` for every noisy region and was
+never specific to the whitelist.
+
+**The third leftover was not a defect.** Five flags appeared twice in the help --
+`--ref`, `--bam`, `--gaf`, `--graph-sites`, `--phased-vcf-out`. The second
+occurrence of each is the usage example at the end of the help text, which is
+correct; the duplication was an artifact of the grep that found it. Withdrawn.
+
+Behaviour is unchanged: both panel windows emit a VCF identical to the
+pre-removal default. Window tests 66 assertions, unit 4/4.

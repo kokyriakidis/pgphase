@@ -226,27 +226,16 @@ struct Options {
     // Defaults true for hybrid (set in collect_hybrid_variation), false for the
     // BAM pipeline. See CHECKPOINT.md "Hybrid step-4 re-orientation".
     bool skip_noisy_kmeans = false;
-    // Experimental graph+private mode: run noisy-region MSA only around
-    // whitelisted private sites, admit exact-key MSA calls, and re-phase with
-    // those calls plus the clean graph core. Off by default pending a stronger
-    // bridge-support gate; the first chr20 test preserved N50 but added errors.
-    bool private_msa = false;
     // Minimum WFA score gap between the two haplotype consensuses before an
     // excluded read is admitted as bridge evidence.  1 is "strictly better
     // wins", which measured +139 discordant reads on chr20; 24 (4x the
     // mismatch cost) was the only setting that beat the baseline on both
     // accuracy and contiguity.  See evaluations/.../chr20_15019294_15130077.md.
-    int private_msa_margin = 24;
-    // Trust the whole noisy region once it overlaps a whitelisted window,
-    // instead of requiring the MSA call to land on an exact whitelist key.
-    // Use this when the whitelist marks WHERE to look (e.g. a phase-block
-    // junction) rather than WHAT to expect -- the point of running MSA there
-    // is to discover a position no one already knows.
-    bool private_msa_admit_all_in_region = false;
-    // Try phasing a junction with MSA SNP calls alone before admitting MSA
-    // indel calls in the same region. Only meaningful together with
-    // private_msa_admit_all_in_region.
-    bool private_msa_snp_first = false;
+    //
+    // Renamed when the private-whitelist mode was removed: the margin was never
+    // specific to it, and governs the MSA consensus rescoring in align.cpp for
+    // every noisy region.
+    int msa_ambiguity_margin = 24;
     // Internal last-resort trial: verified homopolymer links only inside this
     // unresolved gap. Negative bounds disable the trial in ordinary rounds.
     // Internal bounds for non-repeat MSA sites admitted for one gap retry.
@@ -485,10 +474,8 @@ struct Options {
     /** Optional precomputed vg deconstruct VCF used as a development/debug graph-site catalog. */
     std::string graph_sites_vcf;
     /** Optional whitelist of BAM-derived sites added to graph+private joint phasing. */
-    std::string private_sites_vcf;
     /** Keep GAF as the sole evidence source at every graph-represented site. */
     /** BED intervals where clean BAM candidates replace graph/GAF evidence. */
-    std::string bam_authoritative_bed;
     /** Suppress output assignments from phase sets with fewer phased reads. */
     int min_phase_set_reads = 0;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr

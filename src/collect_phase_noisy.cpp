@@ -1966,7 +1966,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
 
     return merge_var_profile(
         chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,
-        opts.private_msa_admit_all_in_region, snp_only_admission);
+        /*admit_all_in_region=*/false, snp_only_admission);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2061,8 +2061,9 @@ void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
     // Escalation is only meaningful in region-trust mode: without it, admission
     // already requires an exact whitelist-key match, which is a stronger gate
     // than "SNP only" and makes the tiering moot.
-    const bool escalate =
-        opts.private_msa_admit_all_in_region && opts.private_msa_snp_first;
+    // Both operands were options of the removed private-whitelist mode and
+    // defaulted to false, so this escalation never ran.
+    const bool escalate = false;
 
     std::vector<bool> done(static_cast<size_t>(n_regs), false);
     run_noisy_pass(chunk, opts, site_whitelist, sorted, escalate, done);

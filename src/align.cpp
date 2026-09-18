@@ -1849,7 +1849,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             // winning consensus to win by a real margin.  Committing on any
             // non-zero score is the same failure mode --min-read-margin exists
             // to fix in the k-means path.
-            if (std::abs(scores[0] - scores[1]) < opts.private_msa_margin) {
+            if (std::abs(scores[0] - scores[1]) < opts.msa_ambiguity_margin) {
                 if (unassigned != nullptr) {
                     UnassignedMsaRead read;
                     read.read_id = info.noisy_read_ids[static_cast<size_t>(i)];

@@ -17,11 +17,7 @@
 
 namespace pgphase_collect {
 
-VariantKeySet load_private_variant_keys(const std::string& path,
-                                        const bam_hdr_t* bam_header);
 
-size_t retain_private_bam_candidates(PhasingChunk& chunk,
-                                     const VariantKeySet& private_keys);
 
 
 /// Maps graph site keys to candidate indices in the augmented table.

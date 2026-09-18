@@ -384,39 +384,6 @@ int main() {
                     "the graph-only count backfill does not touch a BAM candidate");
     }
 
-    // --private-sites must remove every BAM candidate not explicitly listed
-    // before graph candidates and read profiles are added.
-    {
-        PhasingChunk private_chunk;
-        CandidateVariant keep = make_graph_snp(100, 5, 5);
-        keep.key.alt = "T";
-        CandidateVariant drop = make_graph_snp(200, 5, 5);
-        drop.key.alt = "G";
-        drop.counts.low_qual_cov = 3;
-        drop.counts.forward_ref = 2;
-        drop.counts.reverse_ref = 3;
-        drop.counts.forward_alt = 4;
-        drop.counts.reverse_alt = 1;
-        private_chunk.candidates.push_back(keep);
-        private_chunk.candidates.push_back(drop);
-
-        VariantKeySet private_keys;
-        private_keys.insert(keep.key);
-        const size_t retained =
-            retain_private_bam_candidates(private_chunk, private_keys);
-        ok &= check(retained == 1 && private_chunk.candidates.size() == 1,
-                    "private whitelist retains exactly one BAM candidate");
-        ok &= check(exact_comp_var_site(
-                        &private_chunk.candidates[0].key, &keep.key) == 0,
-                    "private whitelist retains the requested normalized key");
-
-        // The assertions that used to follow covered the authoritative mode --
-        // clearing the alignment channel's alleles and counts at graph-owned
-        // sites. That mode is removed, so there is nothing left to assert here;
-        // a whitelist now scopes retention only, which the two checks above
-        // cover.
-    }
-
     // Chunk with a reference slice long enough for the candidate positions.
     PhasingChunk chunk;
     chunk.ref_beg = 1;
