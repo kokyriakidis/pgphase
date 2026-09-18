@@ -65,3 +65,34 @@ insertions sit in a reference run of >= 5 and were all flagged 0 before, against
 12 of 19 deletions correctly flagged. So it was systematic, not one site.
 
 Unit tests 4/4, window tests 66/66, both unchanged.
+
+## The test that would have caught it
+
+`make predicate-tests` -> `src/test_phase_predicates.cpp`, Catch2 against the
+vendored v2.13.10 header, 65 assertions in 7 test cases, ~2 s. It needs no BAM
+and no reference file: each case builds a `PhasingChunk` carrying only
+`ref_beg`/`ref_end`/`ref_seq`, which is the entire input this predicate reads.
+
+Coverage:
+
+| function | cases |
+|---|---|
+| `base_to_nt4` | both cases of ACGT, `U`, and that `N`/`n`/`-` land outside 0..3 so callers can reject them |
+| `var_is_homopolymer_indel`, insertions | single and multi-base into a run; mixed alt rejected; alt not matching the run rejected; run shorter than 5 rejected; no run rejected; empty alt rejected |
+| `var_is_homopolymer_indel`, deletions | single and multi-base inside a run; span crossing a base boundary rejected; soft-masked run accepted |
+| `var_is_homopolymer_indel`, guards | SNP, position before the slice, context running off the end, ambiguous base in context, empty slice |
+| `select_stitch_orientation` | all four rules: net-margin (clear/tie/margin/null opts), both-strands (one empty link, both qualifying, equal abstain), literal, both-strands-margin |
+
+Two cases are regressions for the bug above: a lowercase run, and the literal
+chr20:55,871,832 context `gtctcaaaaaaaaa` with the insertion at 55,871,837.
+
+Fault injection: restoring the raw-byte comparison fails **6 assertions in 1
+test case** -- lines 63, 66, 67, 93, 94 and 103, i.e. every insertion case
+including both regressions -- while the other 59 still pass. Restored by file
+copy rather than `git checkout`, and re-run through `make predicate-tests` so
+the binary actually relinks: `make -j20` alone rebuilds the object but leaves a
+stale test binary, which made a first injection attempt report a false pass.
+
+Exposing the two predicates required moving them out of the anonymous namespace
+in `collect_phase_noisy.cpp` to namespace scope, declared in
+`collect_phase_noisy.hpp`. They have no other callers outside that file.

@@ -42,6 +42,23 @@ void add_msa_site_observations(const Options& opts,
 /// whose derivation reproduces its own ref_cov/alt_cov is filled.
 void derive_msa_candidate_strand_counts(PhasingChunk& chunk);
 
+/// nt4 code (A=0, C=1, G=2, T/U=3) for an ASCII base, case-insensitive; 4 for
+/// anything else, including 'N'. Declared here so the predicate tests can
+/// exercise it directly.
+uint8_t base_to_nt4(char base);
+
+/// Is this indel in a homopolymer context? Both branches compare in nt4 and are
+/// therefore case-insensitive, which matters because the reference is
+/// soft-masked in exactly the repeat tracts this asks about. `alt` is the
+/// inserted bases in ASCII for an insertion, and is ignored for a deletion.
+/// Returns false for a SNP, for an out-of-range position, and for a context
+/// containing a non-ACGT base.
+bool var_is_homopolymer_indel(const PhasingChunk& chunk,
+                              hts_pos_t ref_pos,
+                              VariantType type,
+                              int ref_len,
+                              const std::string& alt);
+
 /// Fill missing observations at admitted MSA sites from every overlapping BAM read.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);

@@ -62,26 +62,6 @@ char nt4_to_base(uint8_t b) {
     return b < 4 ? kNt4Bases[b] : 'N';
 }
 
-uint8_t base_to_nt4(char base) {
-    switch (base) {
-        case 'A':
-        case 'a':
-            return 0;
-        case 'C':
-        case 'c':
-            return 1;
-        case 'G':
-        case 'g':
-            return 2;
-        case 'T':
-        case 't':
-        case 'U':
-        case 'u':
-            return 3;
-        default:
-            return 4;
-    }
-}
 
 int alt_len_for_key(const VariantKey& key) {
     return key.type == VariantType::Deletion ? 0 : static_cast<int>(key.alt.size());
@@ -160,61 +140,6 @@ std::vector<ReadVariantProfile> init_read_profiles(size_t n_reads) {
     return profiles;
 }
 
-bool var_is_homopolymer_indel(const PhasingChunk& chunk,
-                              hts_pos_t ref_pos,
-                              VariantType type,
-                              int ref_len,
-                              const std::string& alt) {
-    // Is this indel in a homopolymer context?
-    //
-    // Both branches compare in nt4 and are therefore case-insensitive. The
-    // insertion branch previously compared the reference as a RAW FASTA byte
-    // against an nt4-coded alt base, so `'a'` (97) was tested against 0 and the
-    // branch could never return true: no insertion was ever flagged as a
-    // homopolymer indel, while deletions -- whose branch compares raw bytes on
-    // both sides -- were. longcallD carries the same mismatch (collect_var.c:1730
-    // tests an ASCII `chunk->ref_seq` against an nt4 abPOA consensus base), so
-    // this is a knowing divergence from upstream rather than a port error.
-    //
-    // Measured on chr20:55,871,837, a 1 bp insertion in an 8 bp A-run that
-    // segregates at 0.525 against read truth: flagged 0 before, 1 after. The
-    // flag gates four separate consumers -- read scoring in init_assign_read_hap,
-    // the link list in iter_update_var_hap_cons_phase_set, phase-set eligibility
-    // in update_read_phase_set, and pivot choice in select_init_var -- so an
-    // under-detected insertion leaks into all four.
-    //
-    // The reference here is soft-masked (this locus reads `gtctcaaaaaaaaa`), which
-    // the raw-byte comparison would also have failed on even with matching
-    // encodings.
-    if (type == VariantType::Snp) return false;
-    const hts_pos_t off = ref_pos - chunk.ref_beg;
-    if (off < 0) return false;
-    const size_t idx0 = static_cast<size_t>(off);
-    if (type == VariantType::Insertion) {
-        if (alt.empty()) return false;
-        if (idx0 + 5 > chunk.ref_seq.size()) return false;
-        const uint8_t ins_base0 = base_to_nt4(alt[0]);
-        if (ins_base0 > 3) return false;
-        for (size_t i = 1; i < alt.size(); ++i) {
-            if (base_to_nt4(alt[i]) != ins_base0) return false;
-        }
-        for (int i = 0; i < 5; ++i) {
-            if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ins_base0) return false;
-        }
-        return true;
-    }
-    const size_t span = static_cast<size_t>(ref_len > 5 ? ref_len : 5);
-    if (idx0 + span > chunk.ref_seq.size()) return false;
-    const uint8_t ref_base0 = base_to_nt4(chunk.ref_seq[idx0]);
-    if (ref_base0 > 3) return false;
-    for (int i = 1; i < ref_len; ++i) {
-        if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ref_base0) return false;
-    }
-    for (int i = 0; i < 5; ++i) {
-        if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ref_base0) return false;
-    }
-    return true;
-}
 
 CandidateVariant make_noisy_candidate(const PhasingChunk& chunk,
                                       hts_pos_t ref_pos,
@@ -777,6 +702,89 @@ void merge_read_var_profile_entries(const ReadVariantProfile* old_profile,
 }
 
 } // namespace
+
+// ---------------------------------------------------------------------------
+// Predicates with external linkage: declared in collect_phase_noisy.hpp so the
+// Catch2 predicate tests can exercise them directly. Kept out of the anonymous
+// namespace for that reason alone; they have no other callers outside this file.
+// ---------------------------------------------------------------------------
+
+uint8_t base_to_nt4(char base) {
+    switch (base) {
+        case 'A':
+        case 'a':
+            return 0;
+        case 'C':
+        case 'c':
+            return 1;
+        case 'G':
+        case 'g':
+            return 2;
+        case 'T':
+        case 't':
+        case 'U':
+        case 'u':
+            return 3;
+        default:
+            return 4;
+    }
+}
+
+bool var_is_homopolymer_indel(const PhasingChunk& chunk,
+                              hts_pos_t ref_pos,
+                              VariantType type,
+                              int ref_len,
+                              const std::string& alt) {
+    // Is this indel in a homopolymer context?
+    //
+    // Both branches compare in nt4 and are therefore case-insensitive. The
+    // insertion branch previously compared the reference as a RAW FASTA byte
+    // against an nt4-coded alt base, so `'a'` (97) was tested against 0 and the
+    // branch could never return true: no insertion was ever flagged as a
+    // homopolymer indel, while deletions -- whose branch compares raw bytes on
+    // both sides -- were. longcallD carries the same mismatch (collect_var.c:1730
+    // tests an ASCII `chunk->ref_seq` against an nt4 abPOA consensus base), so
+    // this is a knowing divergence from upstream rather than a port error.
+    //
+    // Measured on chr20:55,871,837, a 1 bp insertion in an 8 bp A-run that
+    // segregates at 0.525 against read truth: flagged 0 before, 1 after. The
+    // flag gates four separate consumers -- read scoring in init_assign_read_hap,
+    // the link list in iter_update_var_hap_cons_phase_set, phase-set eligibility
+    // in update_read_phase_set, and pivot choice in select_init_var -- so an
+    // under-detected insertion leaks into all four.
+    //
+    // The reference here is soft-masked (this locus reads `gtctcaaaaaaaaa`), which
+    // the raw-byte comparison would also have failed on even with matching
+    // encodings.
+    if (type == VariantType::Snp) return false;
+    const hts_pos_t off = ref_pos - chunk.ref_beg;
+    if (off < 0) return false;
+    const size_t idx0 = static_cast<size_t>(off);
+    if (type == VariantType::Insertion) {
+        if (alt.empty()) return false;
+        if (idx0 + 5 > chunk.ref_seq.size()) return false;
+        const uint8_t ins_base0 = base_to_nt4(alt[0]);
+        if (ins_base0 > 3) return false;
+        for (size_t i = 1; i < alt.size(); ++i) {
+            if (base_to_nt4(alt[i]) != ins_base0) return false;
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ins_base0) return false;
+        }
+        return true;
+    }
+    const size_t span = static_cast<size_t>(ref_len > 5 ? ref_len : 5);
+    if (idx0 + span > chunk.ref_seq.size()) return false;
+    const uint8_t ref_base0 = base_to_nt4(chunk.ref_seq[idx0]);
+    if (ref_base0 > 3) return false;
+    for (int i = 1; i < ref_len; ++i) {
+        if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ref_base0) return false;
+    }
+    for (int i = 0; i < 5; ++i) {
+        if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ref_base0) return false;
+    }
+    return true;
+}
 
 /// Fill in the strand tallies for candidates whose counts the MSA path built.
 ///
