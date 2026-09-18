@@ -138,3 +138,31 @@ Arms are now `default` (graph-first), `noretry`, `nographfirst` and `graphauth`;
 Not measured: chromosome-wide. Those runs are on hold by instruction, and this
 changes the default path, so it is the number to take before calling the flip
 settled.
+
+## Does the graph channel phase what graphauth hands it?
+
+`--graph-authoritative` discards the alignment channel's read evidence at every
+claimed site and keeps the graph's. Whether that is a trade or a loss depends on
+whether the graph's own evidence phases those sites. Measured on
+chr20:5,309,406-5,345,085, all three over the same region and the same reads
+(639 GAF records, 639 BAM reads):
+
+| arm | phased hets | blocks | spans | in-gap hets |
+|---|---:|---:|---|---:|
+| graph channel alone (`collect-graph-variation`) | **23** | 3 | **no** | **0** |
+| hybrid + `--graph-authoritative` | **23** | 3 | yes | 3 |
+| hybrid default | **36** | 1 | yes | 2 |
+
+The graph channel alone does **not** phase this gap. Its largest block is
+5,272,413-5,309,406, stopping exactly on the gap's left bound, and it phases
+nothing inside.
+
+And the hybrid under `--graph-authoritative` lands on the same 23 phased hets as
+the graph channel alone. That is the flag's effect stated as a number: at claimed
+sites it reduces the hybrid to the graph channel's own phasing power. Its span
+comes entirely from the targeted alignment recovery, not from the graph
+evidence it substituted in.
+
+So the evidence swap is a loss here, not a trade -- it discards 13 phased
+heterozygotes' worth of alignment evidence and gains nothing the graph could
+phase on its own. That is the measurement behind keeping it out of the default.
