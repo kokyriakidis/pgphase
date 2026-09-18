@@ -64,3 +64,61 @@ still-fixed binary -- both arms ran identical code, caught only by an explicit
 logic blocks by string replacement and keeps the signatures.
 
 Suites: unit 4/4, window 66/66, predicate 105/105.
+
+## Round three: the noise filter, and a third copy of the same logic
+
+A mechanical scan for the bug class -- functions that touch reference bytes or
+base encodings without normalising case -- returned a short list, and one entry
+was a real defect. `is_repeat_indel` (`noise_filter.cpp:175`) was asymmetric
+inside a single function: its insertion branch already compared nt4, with a
+comment saying why, while its deletion branch used `memcmp` on raw reference
+bytes. Both branches now compare through nt4 and reject ambiguous bases.
+
+`make predicate-tests` is now **130 assertions in 13 test cases**, adding the
+noise filter's exported API:
+
+| function | cases |
+|---|---|
+| `is_repeat_indel` | deletion and insertion of one repeat unit, VCF-anchored; SNP rejected; different motif rejected; over `max_xgaps` not judged; empty slice; soft-masked reference on both branches; a deletion straddling a mask boundary; a run of N rejected |
+| `find_low_complexity_intervals` / `pos_in_low_complexity` | a long homopolymer is reported; soft-masked input gives identical intervals (pinning that sdust's `seq_nt4_table` maps lowercase acgt to 0..3); empty slice |
+| `trim_to_minimal_vcf` | right-trimmable deletion, left-trimmable insertion keeping one anchor, SNP untouched |
+
+Fault injection: restoring the `memcmp` fails the two new regression sections
+(the mask-boundary deletion and the N run) and leaves the other 128 passing.
+
+### Also latent, for a different reason than round two
+
+chr20 VCFs are byte-identical again (116,292 records each), but here the cause
+is input rarity rather than redundancy. Over 500 sampled chr20 deletions from
+12,194:
+
+| | |
+|---|---:|
+| windows with a case mismatch between the two compared spans | 3 |
+| windows containing N | 0 |
+| `is_repeat_indel` deletion verdict changed by the fix | 1 (0.2%) |
+
+and `is_noisy_site` tests `pos_in_low_complexity` first, then the homopolymer
+branch, before ever reaching the repeat branch -- so a tandem repeat has usually
+already been called noisy by sdust.
+
+### The structural finding
+
+Five separate implementations of "is this indel in a repeat" now exist:
+
+| implementation | role |
+|---|---|
+| `var_is_homopolymer_indel` (`collect_phase_noisy.cpp:733`) | the MSA-time flag that gates read scoring, links, phase-set eligibility and pivot choice |
+| `var_is_homopolymer_pg` (`collect_var.cpp:1169`) | classification, STR unit 1-6 x3 copies |
+| `var_is_repeat_region_pg` (`collect_var.cpp:1264`) | classification, tandem motif x3 |
+| `is_homopolymer_indel` (`noise_filter.cpp:98`) | noise filter |
+| `is_repeat_indel` (`noise_filter.cpp:175`) | noise filter |
+
+plus three ASCII-to-nt4 maps (`base_to_nt4`, `nt4_from_ref_char`,
+`nt4_from_char`, and sdust's own table) and two copies of `ref_nt4_at`.
+
+All three bugs found today were the same mistake -- comparing reference bytes
+without normalising encoding or case -- each in a different copy, each with a
+different consequence: one cost 3.007 points of chr20 read hamming, two are
+latent. That is the argument for consolidating onto one predicate; the 130
+assertions are what make the consolidation checkable.

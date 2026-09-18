@@ -14,6 +14,7 @@
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
 #include "collect_var.hpp"
+#include "noise_filter.hpp"
 #include "phasing_types.hpp"
 
 using namespace pgphase_collect;
@@ -442,5 +443,107 @@ TEST_CASE("allele_depths_call_het: every exclusion in order") {
         v.counts.allele_fraction = 0.5;
         v.is_homopolymer_indel = true;
         CHECK(allele_depths_call_het(v, opts));
+    }
+}
+
+
+TEST_CASE("is_repeat_indel: VCF-anchored tandem repeat test") {
+    // Anchor at `pos`; indel content starts at pos+1.
+    // 1000  1005
+    const std::string str2 = "GGGGG" "ATATATATATATATAT" "GGGGG";
+    const hts_pos_t beg = 1000, end = beg + static_cast<hts_pos_t>(str2.size());
+
+    SECTION("a deletion of one repeat unit") {
+        // anchor G at 1004, delete the AT at 1005-1006
+        CHECK(is_repeat_indel(1004, "GAT", "G", str2, beg, end, 5));
+    }
+    SECTION("an insertion of one repeat unit") {
+        CHECK(is_repeat_indel(1004, "G", "GAT", str2, beg, end, 5));
+    }
+    SECTION("a SNP is not an indel") {
+        CHECK_FALSE(is_repeat_indel(1004, "G", "A", str2, beg, end, 5));
+    }
+    SECTION("a different motif is not a repeat here") {
+        CHECK_FALSE(is_repeat_indel(1004, "G", "GCC", str2, beg, end, 5));
+    }
+    SECTION("longer than max_xgaps is not judged") {
+        CHECK_FALSE(is_repeat_indel(1004, "G", "GATATATATATAT", str2, beg, end, 5));
+    }
+    SECTION("an empty reference slice") {
+        CHECK_FALSE(is_repeat_indel(1004, "GAT", "G", "", beg, end, 5));
+    }
+
+    SECTION("REGRESSION: soft-masked reference, both branches") {
+        std::string lower = str2;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        CHECK(is_repeat_indel(1004, "gat", "g", lower, beg, end, 5));
+        CHECK(is_repeat_indel(1004, "G", "GAT", lower, beg, end, 5));
+    }
+    SECTION("REGRESSION: a deletion straddling a soft-mask boundary") {
+        // The deletion branch compared raw bytes, so a masked/unmasked join
+        // read as no-repeat while the insertion branch (already nt4) did not.
+        const std::string half = "GGGGG" "ATATAT" "atatatatat" "GGGGG";
+        CHECK(is_repeat_indel(1004, "GAT", "G", half, beg,
+                              beg + static_cast<hts_pos_t>(half.size()), 5));
+    }
+    SECTION("REGRESSION: a run of N is not a tandem repeat") {
+        // memcmp compared N to N and returned equal.
+        const std::string ns = "GGGGG" "NNNNNNNNNNNNNNNN" "GGGGG";
+        CHECK_FALSE(is_repeat_indel(1004, "GNN", "G", ns, beg,
+                                    beg + static_cast<hts_pos_t>(ns.size()), 5));
+    }
+}
+
+TEST_CASE("find_low_complexity_intervals and pos_in_low_complexity") {
+    const hts_pos_t beg = 1000;
+    const std::string run = "ACGTCAGGTCAGT" + std::string(60, 'A') + "TGACTGCATGCAT";
+
+    SECTION("a long homopolymer is reported as low complexity") {
+        const auto iv = find_low_complexity_intervals(run, beg);
+        REQUIRE_FALSE(iv.empty());
+        CHECK(pos_in_low_complexity(beg + 40, iv));
+        CHECK_FALSE(pos_in_low_complexity(beg + 1, iv));
+    }
+    SECTION("soft-masked input gives the same intervals") {
+        // sdust's seq_nt4_table maps lowercase acgt to 0..3, so masking must not
+        // change the verdict. This pins that assumption.
+        std::string lower = run;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const auto a = find_low_complexity_intervals(run, beg);
+        const auto b = find_low_complexity_intervals(lower, beg);
+        REQUIRE(a.size() == b.size());
+        for (size_t i = 0; i < a.size(); ++i) {
+            CHECK(a[i].beg == b[i].beg);
+            CHECK(a[i].end == b[i].end);
+        }
+    }
+    SECTION("an empty slice yields nothing") {
+        CHECK(find_low_complexity_intervals("", beg).empty());
+        CHECK_FALSE(pos_in_low_complexity(beg, {}));
+    }
+}
+
+TEST_CASE("trim_to_minimal_vcf") {
+    SECTION("a right-trimmable deletion") {
+        hts_pos_t pos = 100;
+        std::string ref = "ATTTT", alt = "ATTT";
+        trim_to_minimal_vcf(pos, ref, alt);
+        CHECK(ref.size() > alt.size());
+        CHECK(ref.size() - alt.size() == 1);
+    }
+    SECTION("a left-trimmable insertion keeps one anchor base") {
+        hts_pos_t pos = 100;
+        std::string ref = "GGA", alt = "GGAA";
+        trim_to_minimal_vcf(pos, ref, alt);
+        CHECK(alt.size() - ref.size() == 1);
+        CHECK(pos >= 100);
+    }
+    SECTION("a SNP is left alone") {
+        hts_pos_t pos = 100;
+        std::string ref = "A", alt = "G";
+        trim_to_minimal_vcf(pos, ref, alt);
+        CHECK(ref == "A");
+        CHECK(alt == "G");
+        CHECK(pos == 100);
     }
 }

@@ -197,9 +197,16 @@ bool is_repeat_indel(
         const size_t off2 = static_cast<size_t>(content_pos + del_len - ref_beg);
         if (off + static_cast<size_t>(len) > ref_seq.size() ||
             off2 + static_cast<size_t>(len) > ref_seq.size()) return false;
-        return std::memcmp(ref_seq.data() + off,
-                           ref_seq.data() + off2,
-                           static_cast<size_t>(len)) == 0;
+        // Compare nt4-encoded, matching the insertion branch below. A memcmp
+        // here is case-sensitive, so a deletion whose two windows straddle a
+        // soft-mask boundary read as no-repeat, and a run of N compared equal
+        // to itself and passed as a tandem repeat.
+        for (int j = 0; j < len; ++j) {
+            const int a = ref_nt4_at(ref_seq, ref_beg, content_pos + j);
+            const int b = ref_nt4_at(ref_seq, ref_beg, content_pos + del_len + j);
+            if (a > 3 || b > 3 || a != b) return false;
+        }
+        return true;
     }
 
     if (kind == VarKind::Insertion) {
