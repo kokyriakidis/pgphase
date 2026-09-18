@@ -968,11 +968,17 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
     return seams;
 }
 
+/// `solve_tid` is the contig's id in the BAM header, which need not be the
+/// chunk's own: the graph pipeline builds a synthetic header in reference-index
+/// order, so the same contig has a different id there. Regions handed to
+/// process_chunk must use the BAM's id.
 static size_t recover_windows_with_targeted_solve(
         PhasingChunk& chunk,
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
         const Options& opts,
-        WorkerContext& context) {
+        WorkerContext& context,
+        int solve_tid,
+        bool allow_import) {
     if (windows.empty()) return 0;
 
     // Parent block extents, first to last phased site, so the import interval
@@ -1002,7 +1008,7 @@ static size_t recover_windows_with_targeted_solve(
     size_t adopted_total = 0;
     for (const auto& window : windows) {
         RegionChunk region;
-        region.tid = chunk.region.tid;
+        region.tid = solve_tid;
         region.beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
         region.end = window.second + kTargetedSolveFlank;
         region.chunk_id = -1;
@@ -1131,8 +1137,27 @@ static size_t recover_windows_with_targeted_solve(
                     }
                 if (existing != nullptr) {
                     if (existing->phase_set != 0) continue;  // the parent's own call stands
-                    existing->counts = src.counts;
-                    existing->lcd_var_i_to_cate = src.lcd_var_i_to_cate;
+                    // Take the targeted solve's COUNTS only where the parent's
+                    // are unusable. That overwrite exists for the
+                    // mapping-quality hole, where the parent holds injected
+                    // catalog sites with almost no read support and its depths
+                    // are starved -- there the solve's counts are the real ones.
+                    //
+                    // Applied unconditionally it destroys good calls. Measured
+                    // when the graph pipeline drives the first pass, whose
+                    // counts come from GAF evidence and are not starved:
+                    // chr20:5,393,876 went from CLEAN_HET_SNP at DP 67, 27/40 to
+                    // LOW_AF at DP 45, 1/44, and nine such candidates were then
+                    // pruned outright -- 33 candidates down to 24, 23 phased
+                    // heterozygotes down to 14. The phasing is always adopted;
+                    // the evidence is not.
+                    const bool parent_starved =
+                        existing->counts.category == VariantCategory::LowCoverage ||
+                        existing->counts.total_cov < opts.min_depth;
+                    if (parent_starved) {
+                        existing->counts = src.counts;
+                        existing->lcd_var_i_to_cate = src.lcd_var_i_to_cate;
+                    }
                     existing->hap_alt = keep_flip ? src.hap_ref : src.hap_alt;
                     existing->hap_ref = keep_flip ? src.hap_alt : src.hap_ref;
                     // The emitter derives the genotype from the CONSENSUS
@@ -1150,10 +1175,15 @@ static size_t recover_windows_with_targeted_solve(
                     ++adopted_total;
                     continue;
                 }
+                if (!allow_import) continue;
                 CandidateVariant imported = src;
                 imported.phase_set = keep_ps;
                 if (keep_flip) std::swap(imported.hap_alt, imported.hap_ref);
                 imported.lcd_make_variants_region_pass = true;
+                // Relabel to the chunk's contig id. The solve ran in the BAM's
+                // header, which is not the caller's when the graph pipeline is
+                // driving -- its synthetic header is in reference-index order.
+                imported.key.tid = chunk.region.tid;
                 chunk.candidates.push_back(std::move(imported));
                 ++imported_total;
             }
@@ -1182,6 +1212,44 @@ static size_t recover_windows_with_targeted_solve(
                     imported_total);
     }
     return merged_total;
+}
+
+/// Both kinds of first-pass failure, recovered from the alignment channel.
+///
+/// The entry point for a caller that has a solved PhasingChunk and a BAM, and
+/// wants what the solve could not phase fixed from alignment evidence. Two
+/// window sources, because there are two failure modes and they do not overlap:
+/// collect_unphased_windows reports where reads were left unphased -- what an
+/// alignment-driven solve produces -- and collect_block_seams reports intervals
+/// between consecutive blocks, which is what a graph-driven solve produces,
+/// every read placed but the blocks unjoined.
+///
+/// Used by the graph pipeline, which has no alignment pass of its own: it phases
+/// the catalog's sites from GAF evidence, and this then solves each interval it
+/// could not phase as its own chunk at the recovery mapq floor and stitches the
+/// result in on shared reads.
+size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
+                                        WorkerContext& context,
+                                        const char* contig_name,
+                                        bool allow_import) {
+    // Resolve the contig in the BAM's OWN header. Passing the chunk's tid
+    // straight through silently targeted a different contig: the graph
+    // pipeline's synthetic header is in reference-index order, so its tid 0 was
+    // the BAM's chr10 rather than chr20 and the run died fetching the wrong
+    // reference.
+    const int solve_tid =
+        contig_name != nullptr
+            ? sam_hdr_name2tid(context.primary_header(), contig_name)
+            : chunk.region.tid;
+    if (solve_tid < 0) return 0;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
+        chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+    for (const auto& seam : collect_block_seams(chunk))
+        windows.push_back(seam);
+    if (windows.empty()) return 0;
+    std::sort(windows.begin(), windows.end());
+    return recover_windows_with_targeted_solve(chunk, windows, opts, context, solve_tid,
+                                              allow_import);
 }
 
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
@@ -1502,7 +1570,8 @@ static PhasingChunk process_chunk_hybrid(
                 if (!covered) residual.push_back(seam);
             }
             if (!residual.empty())
-                recover_windows_with_targeted_solve(chunk, residual, opts, context);
+                recover_windows_with_targeted_solve(chunk, residual, opts, context,
+                                                   chunk.region.tid, true);
         }
     }
 

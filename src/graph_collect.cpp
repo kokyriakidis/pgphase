@@ -715,6 +715,17 @@ void run_collect_graph_variation(const Options& opts) {
 
     // 6. Tile genome into RegionChunks using the resolved region_filters (which may have
     //    contig names like "CHM13#0#chr20" resolved from a user-supplied "chr20").
+    // One context for the whole run, not one per batch: it opens the BAM, its
+    // index and the reference. Absent when no --bam was given, in which case the
+    // graph pass stands on its own.
+    std::unique_ptr<WorkerContext> bam_recovery_ctx;
+    if (!opts.bam_files.empty()) {
+        bam_recovery_ctx = std::make_unique<WorkerContext>(opts);
+        if (opts.verbose >= 1)
+            std::cerr << "Alignment recovery enabled: " << opts.bam_files.front()
+                      << " (used only where the graph sites could not phase)\n";
+    }
+
     const std::vector<RegionChunk> chunks =
         build_region_chunks(opts, header.get(), fai.get(), region_filters);
     if (chunks.empty()) {
@@ -848,6 +859,24 @@ void run_collect_graph_variation(const Options& opts) {
                       header.get(), qconfig, ref_sample, fai_full_to_suffix,
                       chrom_remap, opts, pgbam_sidecar.get());
 
+        // Recover from the alignment channel what the graph sites could not
+        // phase. This is the whole of the alignment channel's role here: the
+        // pass above phased the catalog's sites from GAF evidence, and each
+        // interval it left unphased -- a window where reads went untagged, or a
+        // seam between two blocks -- is re-solved as its own chunk from the
+        // alignment at the recovery mapq floor and stitched in on shared reads.
+        if (bam_recovery_ctx != nullptr) {
+            size_t bridged_total = 0;
+            for (GraphChunkBuildResult& gc : graph_chunks)
+                bridged_total += recover_unphased_windows_from_bam(
+                    gc.chunk, opts, *bam_recovery_ctx,
+                    sam_hdr_tid2name(header.get(), gc.chunk.region.tid),
+                    /*allow_import=*/false);
+            if (opts.verbose >= 1 && bridged_total > 0)
+                std::cerr << "[graph+recovery] bridged " << bridged_total
+                          << " block(s) from the alignment\n";
+        }
+
         if (emit_phase_reads) {
             for (const GraphChunkBuildResult& gc : graph_chunks) {
                 const PhasingChunk& pc = gc.chunk;
@@ -964,6 +993,10 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
+        << "                                sites could not phase: each unphased window and\n"
+        << "                                each seam between blocks is re-solved from the\n"
+        << "                                alignment as its own chunk and stitched in\n"
         << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
         << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
         << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
@@ -1034,6 +1067,7 @@ static void print_graph_collect_help() {
 }
 
 enum GraphCollectOption {
+    kGcRecoveryBam = 2000,
     kGcMinAltDepth = 1000,
     kGcMinAf,
     kGcMaxAf,
@@ -1102,6 +1136,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
+        {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
@@ -1163,6 +1198,10 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
+            // Recovery only. The graph pass never reads this BAM: it phases the
+            // catalog's sites from GAF evidence, and the alignment is used
+            // afterwards, per interval the pass could not phase.
+            case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;

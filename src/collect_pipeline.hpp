@@ -73,6 +73,27 @@ void run_collect_bam_variation(const Options& opts);
  */
 void run_collect_hybrid_variation(const Options& opts);
 
+
+/// Recover what a solve could not phase, from the alignment channel: both the
+/// windows where reads were left unphased and the seams between blocks are
+/// re-solved as their own chunks at the recovery mapq floor and stitched in on
+/// shared reads. Returns the number of parent blocks bridged. Requires a
+/// WorkerContext, so the caller must have supplied a BAM.
+/// `contig_name` names the chunk's contig so the BAM's own tid can be resolved;
+/// pass nullptr when the caller's header IS the BAM's.
+/// `allow_import` adds sites the caller's pass never discovered. It must be
+/// FALSE for the graph pipeline: that path's output table is index-parallel to
+/// per-site metadata (GraphChunkBuildResult::site_meta, site_ids,
+/// site_allele_orig_idx), so appending candidates -- and the reorder that
+/// follows -- decouples the arrays and silently mispairs or drops records.
+/// Measured with it on: 33 candidates down to 24 and 23 phased heterozygotes
+/// down to 14 on chr20:5,309,406. Adoption alone is index-safe: it mutates
+/// candidates in place and adds none.
+size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
+                                        WorkerContext& context,
+                                        const char* contig_name = nullptr,
+                                        bool allow_import = true);
+
 } // namespace pgphase_collect
 
 /**
