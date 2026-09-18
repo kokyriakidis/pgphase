@@ -97,12 +97,19 @@ The architecture is single: the catalog drives the first pass, and the alignment
 channel is a recovery mechanism that fixes what the first pass could not phase,
 per window, at the recovery mapq floor.
 
+The committed baseline, `src/test_gap_windows_expect.tsv`. Its columns are
+`spans` (a flag, not a block count), `min_in_gap_hets` and `min_concordance`:
+
 | arm | 5,309,406 | 26,029,591 |
 |---|---|---|
-| **default (graph-first)** | 1 blk, spans, 2 in-gap, floor 0.98 | 1 blk, spans, 278 in-gap, floor 0.99 |
-| `nographfirst` (union) | 1 blk, spans, 2 in-gap, floor 0.98 | 1 blk, spans, 278 in-gap, floor 0.99 |
+| **default (graph-first)** | spans, 2 in-gap, floor 0.98 | spans, 278 in-gap, floor 0.99 |
+| `nographfirst` (union) | spans, 2 in-gap, floor 0.98 | spans, 278 in-gap, floor 0.99 |
 | `noretry` | no span, 1 in-gap, floor 0.99 | no span, 0 in-gap, floor 0.99 |
-| `graphauth` | 1 blk, spans, 3 in-gap, floor **0.94** | 1 blk, spans, 278 in-gap, floor 0.99 |
+| `graphauth` | spans, 3 in-gap, floor **0.94** | spans, 278 in-gap, floor 0.99 |
+
+An earlier version of this table printed the `spans` flag as a block count, so
+every row read "1 blk". Block counts are not in the expectations file; where one
+is quoted below it is measured directly.
 
 **The flip costs nothing on the panel and is not a behaviour change there** --
 the default and the union arm agree on every recorded quantity, because the
@@ -113,9 +120,17 @@ the catalog's call stands.
 
 **Evidence ownership stays opt-in and separate.** `--graph-authoritative`
 replaces the alignment channel's read evidence with the graph's at every claimed
-site. It is the axis that costs accuracy -- floor 0.94 against the default's 0.98
-on chr20:5,309,406, with 3 blocks and 22 discordant reads -- so it is an arm
-with its own recorded floor, not part of the default.
+site. It is the axis that costs accuracy. Measured directly on
+chr20:5,309,406, default against `--graph-authoritative`:
+
+| arm | blocks | spans | in-gap hets | reads tagged | read concordance | discordant |
+|---|---:|---|---:|---:|---:|---:|
+| default | **1** | yes | 2 | 544 | 98.71% | 7 |
+| `graphauth` | **3** | yes | 3 | 369 | **94.04%** | 22 |
+
+It spans in both arms, so `spans` alone does not separate them -- the block
+count, the reads tagged and the concordance do. Hence an arm with its own
+recorded floor rather than part of the default.
 
 Arms are now `default` (graph-first), `noretry`, `nographfirst` and `graphauth`;
 132 assertions.

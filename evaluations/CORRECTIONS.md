@@ -201,3 +201,20 @@ injection claims 3,741 of 3,743 at the ownership-filter point, and
 `--graph-first` withholds 102 alignment-discovered candidates before injection,
 against a final table of 451 rows. The same mixed figure was in the window-test
 arm comment and is corrected there too.
+
+## A spans flag printed as a block count
+
+`evaluations/2026-09-17-graph-first/README.md` rendered the committed
+expectations as "1 blk, spans, ..." on every arm. The expectations file has no
+block-count column: `spans` is a flag, 1 or 0, and printing it as "1 blk" made
+four arms look like one-block results and contradicted the prose two paragraphs
+later, which said the `graphauth` arm has 3 blocks.
+
+The prose was right. Measured directly on chr20:5,309,406: default gives 1
+block, 544 reads tagged, 98.71% concordance, 7 discordant; `--graph-authoritative`
+gives 3 blocks, 369 tagged, 94.04%, 22 discordant. Both span, so the `spans`
+flag does not separate them -- which is exactly why reading it as a block count
+hid the difference.
+
+The table now names its columns as the file defines them, and block counts are
+quoted only from direct measurement.
