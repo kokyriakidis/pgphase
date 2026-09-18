@@ -28,26 +28,6 @@ extern "C" {
 
 namespace pgphase_collect {
 
-static int resolve_private_vcf_tid(const std::string& contig,
-                                   const bam_hdr_t* bam_header) {
-    int matched_tid = -1;
-    for (int tid = 0; tid < bam_header->n_targets; ++tid) {
-        const std::string name = bam_header->target_name[tid];
-        if (name == contig) return tid;
-        const size_t hash = name.rfind('#');
-        const std::string suffix = hash == std::string::npos
-                                       ? name
-                                       : name.substr(hash + 1);
-        if (suffix != contig) continue;
-        if (matched_tid >= 0) return -1;
-        matched_tid = tid;
-    }
-    return matched_tid;
-}
-
-
-
-
 // ────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ────────────────────────────────────────────────────────────────────────────

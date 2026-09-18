@@ -1591,13 +1591,22 @@ int abpoa_partial_aln_msa_cons(const Options& opts, int sampling_reads,
 // WFA2 alignment of noisy-region reads without haplotype separation.
 // ════════════════════════════════════════════════════════════════════════════
 
+// No `unassigned` out-parameter here, unlike the with-phase-set sibling. That
+// list is filled by rescoring reads the clustering left unplaced against the two
+// haplotype consensuses; this variant runs when no phase set carries reads from
+// both haplotypes, and it builds its consensuses from full-cover reads only, so
+// there is no haplotype labelling to rescore against. The parameter existed for
+// signature symmetry and no caller ever passed one.
+//
+// Partial-cover reads are therefore not used by this branch. Measured on the two
+// panel windows: the branch runs 12 and 6 times against the sibling's 262 and
+// 255, leaving 8 and 2 partial reads unused in total.
 int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info,
                                          const uint8_t* ref_seq, int ref_seq_len,
                                          bool collect_ref_read_aln_str,
                                          std::array<int, 2>& clu_n_seqs,
                                          std::array<std::vector<int>, 2>& clu_read_ids,
-                                         std::array<std::vector<AlnStr>, 2>& aln_strs,
-                                         std::vector<UnassignedMsaRead>* unassigned) {
+                                         std::array<std::vector<AlnStr>, 2>& aln_strs) {
     // Collect full-cover reads.
     std::vector<int>       full_ids;
     std::vector<uint8_t*>  full_seqs;
