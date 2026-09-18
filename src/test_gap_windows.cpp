@@ -693,12 +693,6 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
         // the alignment channel's own candidates into the first pass stays
         // visible. Measured identical to the default on both windows.
         {"nographfirst", "--no-graph-first"},
-        // Evidence ownership on top of the default: the graph's observations
-        // replace the alignment channel's at every claimed site. A separate axis
-        // from site selection and the one that costs accuracy, so it is an arm
-        // rather than a default -- its recorded concordance floor is 0.94 where
-        // the default's is 0.98.
-        {"graphauth", "--graph-authoritative"},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -762,12 +756,6 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
         // the alignment channel's own candidates into the first pass stays
         // visible. Measured identical to the default on both windows.
         {"nographfirst", "--no-graph-first"},
-        // Evidence ownership on top of the default: the graph's observations
-        // replace the alignment channel's at every claimed site. A separate axis
-        // from site selection and the one that costs accuracy, so it is an arm
-        // rather than a default -- its recorded concordance floor is 0.94 where
-        // the default's is 0.98.
-        {"graphauth", "--graph-authoritative"},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {

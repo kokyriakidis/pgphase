@@ -1293,32 +1293,24 @@ static PhasingChunk process_chunk_hybrid(
             &graph_only_cands, &graph_only_vcf_alleles, &all_graph_cands);
     }
 
-    // In authoritative mode, graph observations own every catalog-matched
-    // candidate, including exact BAM/graph matches, and BAM's OWN read
-    // evidence at those matches is discarded in favor of the graph's
-    // (clear_bam_evidence_at_graph_candidates below). That is a real,
-    // chromosome-wide change to how every graph/BAM match is resolved, not
-    // something implied by merely supplying a whitelist -- in additive mode
-    // (private_msa_admit_all_in_region) the whitelist exists only to scope
-    // MSA and must not silently switch every other candidate's evidence
-    // source too. Confirmed by measurement: enabling it unconditionally here
-    // was clearing BAM evidence chromosome-wide and cost +720 discordant
-    // reads on chr20 for a change that was supposed to be purely additive.
-    const bool graph_authoritative =
-        opts.graph_authoritative ||
-        (private_keys != nullptr && !opts.private_msa_admit_all_in_region);
-    const std::unordered_set<int>& graph_owned_cands =
-        graph_authoritative ? all_graph_cands : graph_only_cands;
+    // The graph owns the candidates it contributed and the alignment channel
+    // does not have. A catalog-MATCHED candidate is not owned: the alignment
+    // channel measured it from reads, and a claim only promotes its category.
+    //
+    // An authoritative mode used to sit here, making every matched candidate
+    // graph-owned and discarding the alignment channel's read evidence at each
+    // one. Removed after measurement on chr20:5,309,406-5,345,085: it reduced
+    // the hybrid to the graph channel's own phasing power -- the same 23 phased
+    // heterozygotes collect-graph-variation reaches alone, against 36 by
+    // default -- for 175 fewer reads tagged, 22 discordant against 7, and one
+    // block fragmented into three. It discarded evidence and gained nothing the
+    // graph could phase by itself. A whitelist (--private-sites) used to enable
+    // it implicitly, which is what made that route look like a site-selection
+    // change when it was an evidence change.
+    const std::unordered_set<int>& graph_owned_cands = graph_only_cands;
 
     // Step 3.1: build BAM read profiles against augmented candidate table.
     collect_var_build_profiles(chunk, opts);
-
-    // When the graph owns these sites, the BAM's observations at them are
-    // discarded rather than counted, so the graph's own evidence is not diluted
-    // by an alignment call at the same position. The counts for the
-    // non-authoritative case are derived after Phase B, below.
-    if (graph_authoritative)
-        clear_bam_evidence_at_graph_candidates(chunk, graph_owned_cands);
 
     // Phase B: inject graph-only reads and extend doubly-mapped profiles.
     const size_t n_bam_reads = chunk.reads.size();
@@ -1343,8 +1335,7 @@ static PhasingChunk process_chunk_hybrid(
     // deriving the counts in one sweep afterwards is what lets the injection
     // sites write alleles only. Reading the profiles before Phase B is what
     // made each of those sites keep counts of its own.
-    if (!graph_authoritative)
-        backfill_graph_candidate_counts(chunk, graph_only_cands);
+    backfill_graph_candidate_counts(chunk, graph_only_cands);
 
     // Gate graph-only candidates with the BAM pipeline's depth/AF/het
     // thresholds now that counts are final, then run the indel noise filter

@@ -91,7 +91,6 @@ static void print_hybrid_help() {
         << "      --private-sites FILE      Jointly phase graph sites plus only listed BAM candidates\n"
         << "      --private-msa             Experiment: MSA-validate whitelisted noisy private sites\n"
         << "      --private-msa-margin INT  Min consensus score gap to admit a bridge read [24]\n"
-        << "      --graph-authoritative     Use all non-graph BAM sites; replace graph-site BAM evidence with GAF\n"
         << "      --bam-authoritative-bed F Use clean BAM sites only inside BED intervals\n"
         << "      --min-read-margin INT     Min clean-SNP agree-conflict margin for output reads [0]\n"
         << "      --min-phase-set-reads INT Min phased reads required to emit a phase set [0]\n"
@@ -180,7 +179,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         kPrivateSitesOption,
         kPrivateMsaOption,
         kPrivateMsaMarginOption,
-        kGraphAuthoritativeOption,
         kBamAuthoritativeBedOption,
         kMinReadMarginOption,
         kMinPhaseSetReadsOption,
@@ -243,7 +241,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         {"private-sites",    required_argument, nullptr, kPrivateSitesOption},
         {"private-msa",      no_argument,       nullptr, kPrivateMsaOption},
         {"private-msa-margin", required_argument, nullptr, kPrivateMsaMarginOption},
-        {"graph-authoritative", no_argument,    nullptr, kGraphAuthoritativeOption},
         {"bam-authoritative-bed", required_argument, nullptr, kBamAuthoritativeBedOption},
         {"min-read-margin",  required_argument, nullptr, kMinReadMarginOption},
         {"min-phase-set-reads", required_argument, nullptr, kMinPhaseSetReadsOption},
@@ -330,7 +327,6 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
                 break;
             case kPrivateMsaOption: opts.private_msa = true; break;
             case kPrivateMsaMarginOption: opts.private_msa_margin = std::atoi(optarg); break;
-            case kGraphAuthoritativeOption: opts.graph_authoritative = true; break;
             case kBamAuthoritativeBedOption: opts.bam_authoritative_bed = optarg; break;
             case kMinReadMarginOption: opts.min_read_hap_margin = std::atoi(optarg); break;
             case kMinPhaseSetReadsOption: opts.min_phase_set_reads = std::atoi(optarg); break;

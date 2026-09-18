@@ -21,6 +21,5 @@ PGPHASE_EMIT_EXPECTATIONS="${OUT}.tmp" ./test_gap_windows "[windows]" > /dev/nul
 grep -q '^default' "${OUT}.tmp"
 grep -q '^noretry' "${OUT}.tmp"
 grep -q '^nographfirst' "${OUT}.tmp"
-grep -q '^graphauth' "${OUT}.tmp"
 mv "${OUT}.tmp" "${OUT}"
 echo "wrote ${OUT}: $(grep -vc '^#' "${OUT}") rows"

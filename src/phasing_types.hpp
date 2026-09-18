@@ -365,12 +365,11 @@ struct Options {
     /// mechanism rather than a co-equal source, so a region the catalog covers
     /// is phased from the catalog.
     ///
-    /// NOT bundled with graph_authoritative, which is a different axis --
-    /// evidence ownership rather than site selection -- and is the one that
-    /// costs accuracy: it drops the alignment channel's read evidence at every
-    /// claimed site, measured at 293 -> 254 reads tagged and 99.66% -> 99.21%
-    /// on chr20:26,029,591, and 94.04% with 22 discordant on
-    /// chr20:5,309,406. It stays opt-in.
+    /// Site selection only. The evidence-ownership mode that used to sit
+    /// alongside this -- the graph's observations replacing the alignment
+    /// channel's at every claimed site -- was removed after measurement: it
+    /// reduced the hybrid to the graph channel's own phasing power and cost
+    /// reads, discarding evidence for nothing the graph could phase itself.
     bool graph_first = true;
     bool retry_unphased_with_bam = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
@@ -508,7 +507,6 @@ struct Options {
     /** Optional whitelist of BAM-derived sites added to graph+private joint phasing. */
     std::string private_sites_vcf;
     /** Keep GAF as the sole evidence source at every graph-represented site. */
-    bool graph_authoritative = false;
     /** BED intervals where clean BAM candidates replace graph/GAF evidence. */
     std::string bam_authoritative_bed;
     /** Suppress output assignments from phase sets with fewer phased reads. */

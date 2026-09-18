@@ -89,34 +89,6 @@ size_t retain_private_bam_candidates(PhasingChunk& chunk,
     return chunk.candidates.size();
 }
 
-void clear_bam_evidence_at_graph_candidates(
-        PhasingChunk& chunk,
-        const std::unordered_set<int>& graph_only_candidates) {
-    for (const int candidate_i : graph_only_candidates) {
-        if (candidate_i < 0 || candidate_i >= static_cast<int>(chunk.candidates.size()))
-            continue;
-        CandidateVariant& candidate = chunk.candidates[static_cast<size_t>(candidate_i)];
-        candidate.counts.ref_cov = 0;
-        candidate.counts.alt_cov = 0;
-        candidate.counts.total_cov = 0;
-        candidate.counts.low_qual_cov = 0;
-        candidate.counts.forward_ref = 0;
-        candidate.counts.reverse_ref = 0;
-        candidate.counts.forward_alt = 0;
-        candidate.counts.reverse_alt = 0;
-        candidate.counts.alle_covs.clear();
-    }
-
-    for (ReadVariantProfile& profile : chunk.read_var_profile) {
-        if (profile.start_var_idx < 0) continue;
-        for (const int candidate_i : graph_only_candidates) {
-            if (candidate_i < profile.start_var_idx || candidate_i > profile.end_var_idx)
-                continue;
-            const size_t offset = static_cast<size_t>(candidate_i - profile.start_var_idx);
-            if (offset < profile.alleles.size()) profile.alleles[offset] = -1;
-        }
-    }
-}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Internal helpers

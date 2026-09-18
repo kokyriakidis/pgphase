@@ -23,12 +23,6 @@ VariantKeySet load_private_variant_keys(const std::string& path,
 size_t retain_private_bam_candidates(PhasingChunk& chunk,
                                      const VariantKeySet& private_keys);
 
-/// Remove all BAM-derived alleles and count fields at graph-owned candidates.
-/// Graph GAF injection then repopulates these slots, keeping graph evidence
-/// authoritative while preserving BAM evidence at non-graph candidates.
-void clear_bam_evidence_at_graph_candidates(
-    PhasingChunk& chunk,
-    const std::unordered_set<int>& graph_only_candidates);
 
 /// Maps graph site keys to candidate indices in the augmented table.
 using SiteToCandidateMap = std::unordered_map<std::string, int>;

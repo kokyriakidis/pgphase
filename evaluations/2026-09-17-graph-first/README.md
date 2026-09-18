@@ -166,3 +166,54 @@ evidence it substituted in.
 So the evidence swap is a loss here, not a trade -- it discards 13 phased
 heterozygotes' worth of alignment evidence and gains nothing the graph could
 phase on its own. That is the measurement behind keeping it out of the default.
+
+## --graph-authoritative is removed
+
+The mechanism is gone, not merely defaulted off: the `Options` field, the CLI
+flag, `clear_bam_evidence_at_graph_candidates` and its declaration, the
+`graph_owned_cands` switch, and the unit-test assertions that covered the
+clearing. `graph_owned_cands` is now always `graph_only_cands` -- the candidates
+the graph contributed and the alignment channel does not have -- and
+`backfill_graph_candidate_counts` is no longer conditional.
+
+A whitelist (`--private-sites`) used to enable the mode implicitly unless
+`--private-msa-admit-all-in-region` was also given. That is what made the
+whitelist route look like a site-selection change when it was an evidence
+change, and it is the mis-attribution corrected earlier in this document. A
+whitelist now scopes retention only.
+
+Default unchanged: `spans`, 2 in-gap hets, floor 0.98 on chr20:5,309,406 and
+`spans`, 278 in-gap, floor 0.99 on chr20:26,029,591. Arms are `default`,
+`noretry`, `nographfirst`; 99 assertions, unit 4/4.
+
+## Is the hybrid's first pass already the graph channel's result?
+
+That was the goal stated for the architecture, so it is worth measuring rather
+than assuming. On chr20:5,309,406-5,345,085:
+
+| arm | phased hets | blocks | spans |
+|---|---:|---:|---|
+| graph channel alone (`collect-graph-variation`) | 23 | 3 | no |
+| hybrid, first pass only (`--no-retry-unphased-with-bam`) | **26** | 3 | no |
+| hybrid, default (first pass + recovery) | **36** | **1** | **yes** |
+
+As position sets, the first pass against the graph channel: **22 shared, 4 the
+hybrid phases and the graph does not, 1 the graph phases and the hybrid does
+not.** All 4 of the extra sites are in the graph catalog -- so the first pass is
+working the graph's site set, and simply phases more of it, because the
+alignment reads carry the evidence at those sites rather than the GAF records.
+
+That is the shape asked for, with one qualification worth stating: the first
+pass is not *identical* to the graph channel and should not be. Forcing identity
+means substituting the graph's read evidence at every claimed site, which is the
+mode just removed -- it costs 13 phased heterozygotes and 175 reads here.
+"Same sites, better evidence" is the achievable version.
+
+**The one divergence is a disagreement, not a miss.** At 5,293,282 the graph
+channel phases `C>A`; the hybrid holds a different event at that locus, an
+insertion `C>ACACAA` at DP 80 and 40/40, classed noisy and so unphased in the
+first pass. Same position, two representations.
+
+**Then recovery does exactly what it should:** 26 phased hets to 36, three
+blocks to one, and the gap spans. The added sites are alignment-derived and
+arrive only inside the windows the first pass could not phase.

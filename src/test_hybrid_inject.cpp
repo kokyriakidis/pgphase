@@ -410,27 +410,11 @@ int main() {
                         &private_chunk.candidates[0].key, &keep.key) == 0,
                     "private whitelist retains the requested normalized key");
 
-        private_chunk.candidates.push_back(drop);
-        ReadVariantProfile profile;
-        profile.read_id = 0;
-        profile.start_var_idx = 0;
-        profile.end_var_idx = 1;
-        profile.alleles = {1, 1};
-        profile.alt_qi = {0, 0};
-        private_chunk.read_var_profile.push_back(profile);
-        const std::unordered_set<int> graph_owned = {1};
-        clear_bam_evidence_at_graph_candidates(private_chunk, graph_owned);
-        ok &= check(private_chunk.read_var_profile[0].alleles[0] == 1 &&
-                        private_chunk.read_var_profile[0].alleles[1] == -1,
-                    "private mode clears BAM alleles only at graph-owned sites");
-        ok &= check(private_chunk.candidates[0].counts.total_cov == 10 &&
-                        private_chunk.candidates[1].counts.total_cov == 0,
-                    "private mode clears counts only at graph-owned sites");
-        const VariantCounts& cleared = private_chunk.candidates[1].counts;
-        ok &= check(cleared.low_qual_cov == 0 && cleared.forward_ref == 0 &&
-                        cleared.reverse_ref == 0 && cleared.forward_alt == 0 &&
-                        cleared.reverse_alt == 0,
-                    "authoritative clearing removes all BAM-derived count fields");
+        // The assertions that used to follow covered the authoritative mode --
+        // clearing the alignment channel's alleles and counts at graph-owned
+        // sites. That mode is removed, so there is nothing left to assert here;
+        // a whitelist now scopes retention only, which the two checks above
+        // cover.
     }
 
     // Chunk with a reference slice long enough for the candidate positions.
