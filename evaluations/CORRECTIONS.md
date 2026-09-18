@@ -218,3 +218,23 @@ hid the difference.
 
 The table now names its columns as the file defines them, and block counts are
 quoted only from direct measurement.
+
+## A validation block deleted by a regex sweep, and described as whitelist-scoped
+
+Commit 4abf46f removed the private-whitelist mode and its record said the
+deletion took "three CLI validation blocks whose only job was rejecting
+combinations of these options". Two were. The third, at
+`hybrid_collect.cpp:341`, asserted that `--private-msa-margin`,
+`--min-block-link-reads` and `--block-link-window` are positive; two of those
+three knobs survive the removal, so the check was not whitelist-scoped.
+
+It was matched and deleted by a `while` loop over
+`if \([^\n]*private_msa[\s\S]*?\n *\}\n` -- the margin's old name contains
+`private_msa` as a substring. The assertion written to confirm the block had
+merely been renamed reported `AssertionError: 0`, which says the block is
+absent; it was misread as confirmation and attention moved to an unrelated build
+failure. The shipped binary therefore accepted `--msa-ambiguity-margin 0` and
+ran to completion.
+
+Restored in 56f5d84 with the renamed option; each of the three knobs is now
+rejected at 0 with exit 1, and both panel windows are unchanged.

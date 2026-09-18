@@ -84,7 +84,7 @@ Removed: `--private-sites`, `--private-msa`,
 `retain_private_bam_candidates`, `is_bam_authoritative_position`,
 `load_bam_authority_intervals`, the `BamAuthorityIntervals` type, the
 `private_keys` and `bam_authority` parameters threaded through the chunk path,
-three CLI validation blocks whose only job was rejecting combinations of these
+**two** CLI validation blocks whose only job was rejecting combinations of these
 options, and the unit-test block covering the whitelist. **284 lines removed, 29
 added.** The two MSA booleans the removal left behind were default-false, so
 their use sites now read `false` with the reason recorded.
@@ -100,3 +100,25 @@ correct; the duplication was an artifact of the grep that found it. Withdrawn.
 
 Behaviour is unchanged: both panel windows emit a VCF identical to the
 pre-removal default. Window tests 66 assertions, unit 4/4.
+
+### A third validation block was deleted by mistake, and is restored
+
+The removal was described above as taking "three CLI validation blocks whose
+only job was rejecting combinations of these options". Only two were. The third,
+at `hybrid_collect.cpp:341`, checked that `--private-msa-margin`,
+`--min-block-link-reads` and `--block-link-window` are all positive -- nothing to
+do with the whitelist, and two of its three knobs survive.
+
+It was deleted by a `while` loop over the regex
+`if \([^\n]*private_msa[\s\S]*?\n *\}\n`, which matched it because the
+margin's old name contained the substring `private_msa`. The follow-up assertion
+written to confirm the block had merely been renamed reported
+`AssertionError: 0` -- the block was absent, not renamed -- and that signal was
+misread as confirmation while attention moved to an unrelated build failure. The
+deletion shipped in 4abf46f, so all three knobs accepted non-positive values:
+`--msa-ambiguity-margin 0` ran to completion instead of erroring.
+
+Restored with the renamed option, and each knob now rejected at 0 with exit 1.
+Both panel windows remain identical. Lesson for the next sweep: a regex over
+"blocks mentioning X" matches blocks where X is only a substring of a longer
+identifier, and a deletion loop gives no signal when it over-matches.

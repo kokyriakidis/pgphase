@@ -313,6 +313,18 @@ int pgphase_collect::collect_hybrid_variation(int argc, char* argv[]) {
         return 1;
     }
 
+    // Restored: this check has nothing to do with the removed private-whitelist
+    // mode. It was deleted by a regex sweep over blocks mentioning
+    // "private_msa" -- which matched here only because the old name of
+    // --msa-ambiguity-margin was private_msa_margin -- and the deletion shipped
+    // in 4abf46f, leaving all three knobs unvalidated.
+    if (opts.msa_ambiguity_margin <= 0 || opts.min_block_link_reads <= 0 ||
+        opts.block_link_window <= 0) {
+        std::cerr << "Error: --msa-ambiguity-margin, --min-block-link-reads and "
+                     "--block-link-window must be positive\n";
+        return 1;
+    }
+
     try {
         run_collect_hybrid_variation(opts);
     } catch (const std::exception& e) {
