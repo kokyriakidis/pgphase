@@ -89,3 +89,37 @@ accuracy. Recovering placement outside gaps without re-admitting the full
 alignment site set is the work.
 
 Not measured: chromosome-wide. Those runs are on hold by instruction.
+
+## Graph-first is now the default
+
+`graph_first = true`, with `--no-graph-first` to get the union first pass back.
+The architecture is single: the catalog drives the first pass, and the alignment
+channel is a recovery mechanism that fixes what the first pass could not phase,
+per window, at the recovery mapq floor.
+
+| arm | 5,309,406 | 26,029,591 |
+|---|---|---|
+| **default (graph-first)** | 1 blk, spans, 2 in-gap, floor 0.98 | 1 blk, spans, 278 in-gap, floor 0.99 |
+| `nographfirst` (union) | 1 blk, spans, 2 in-gap, floor 0.98 | 1 blk, spans, 278 in-gap, floor 0.99 |
+| `noretry` | no span, 1 in-gap, floor 0.99 | no span, 0 in-gap, floor 0.99 |
+| `graphauth` | 1 blk, spans, 3 in-gap, floor **0.94** | 1 blk, spans, 278 in-gap, floor 0.99 |
+
+**The flip costs nothing on the panel and is not a behaviour change there** --
+the default and the union arm agree on every recorded quantity, because the
+catalog's sites carry the first pass either way and the targeted solve supplies
+the rest. What changed is which channel is primary, and therefore what happens
+in a region the catalog covers but the alignment channel would also have called:
+the catalog's call stands.
+
+**Evidence ownership stays opt-in and separate.** `--graph-authoritative`
+replaces the alignment channel's read evidence with the graph's at every claimed
+site. It is the axis that costs accuracy -- floor 0.94 against the default's 0.98
+on chr20:5,309,406, with 3 blocks and 22 discordant reads -- so it is an arm
+with its own recorded floor, not part of the default.
+
+Arms are now `default` (graph-first), `noretry`, `nographfirst` and `graphauth`;
+132 assertions.
+
+Not measured: chromosome-wide. Those runs are on hold by instruction, and this
+changes the default path, so it is the number to take before calling the flip
+settled.

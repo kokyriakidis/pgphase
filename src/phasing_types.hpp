@@ -351,7 +351,27 @@ struct Options {
     /// third of the clean het anchors outside a gap are alignment-only,
     /// including every clean het indel in the regions examined, so fewer reads
     /// find a site to sit on.
-    bool graph_first = false;
+    /// ON BY DEFAULT. The catalog drives the first pass; the alignment channel
+    /// fixes what the first pass could not phase, per window, via
+    /// recover_windows_with_targeted_solve.
+    ///
+    /// Measured cost on the two panel windows: none. Withholding the alignment
+    /// channel's own candidates from the first pass is byte-equivalent to the
+    /// union on both -- 2 blocks / 278 in-gap / 293 tagged / 99.66% / 1
+    /// discordant on chr20:26,029,591 and 1 block / 2 in-gap / 544 tagged /
+    /// 98.71% / 7 discordant on chr20:5,309,406 -- because the catalog's sites
+    /// carry the first pass either way and the targeted solve supplies the rest.
+    /// What it changes is the architecture: the alignment channel is a recovery
+    /// mechanism rather than a co-equal source, so a region the catalog covers
+    /// is phased from the catalog.
+    ///
+    /// NOT bundled with graph_authoritative, which is a different axis --
+    /// evidence ownership rather than site selection -- and is the one that
+    /// costs accuracy: it drops the alignment channel's read evidence at every
+    /// claimed site, measured at 293 -> 254 reads tagged and 99.66% -> 99.21%
+    /// on chr20:26,029,591, and 94.04% with 22 discordant on
+    /// chr20:5,309,406. It stays opt-in.
+    bool graph_first = true;
     bool retry_unphased_with_bam = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that

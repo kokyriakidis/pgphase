@@ -685,16 +685,20 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     // expectations file; a window with no row for an arm fails loudly rather
     // than being skipped, so the file cannot silently fall behind the panel.
     const std::vector<std::pair<std::string, std::string>> arms = {
+        // The default IS graph-first: the catalog drives the first pass and the
+        // targeted per-window solve fixes what it could not phase.
         {"default", ""},
         {"noretry", "--no-retry-unphased-with-bam"},
-        // The graph-first configuration: the catalog's sites drive the first
-        // pass and own the evidence at every site it claims, and the targeted
-        // per-window solve supplies alignment evidence where that failed. Both
-        // flags are needed -- measured on chr20:26,029,591, restricting the site
-        // set alone is inert (it withholds 102 alignment-discovered candidates
-        // and the catalog's sites carry the first pass either way), and the
-        // read-tagging difference comes from evidence ownership.
-        {"graphfirst", "--graph-first --graph-authoritative"},
+        // The union first pass, kept as a comparison arm so the cost of letting
+        // the alignment channel's own candidates into the first pass stays
+        // visible. Measured identical to the default on both windows.
+        {"nographfirst", "--no-graph-first"},
+        // Evidence ownership on top of the default: the graph's observations
+        // replace the alignment channel's at every claimed site. A separate axis
+        // from site selection and the one that costs accuracy, so it is an arm
+        // rather than a default -- its recorded concordance floor is 0.94 where
+        // the default's is 0.98.
+        {"graphauth", "--graph-authoritative"},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -750,16 +754,20 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     };
     std::map<std::string, Totals> totals;
     const std::vector<std::pair<std::string, std::string>> arms = {
+        // The default IS graph-first: the catalog drives the first pass and the
+        // targeted per-window solve fixes what it could not phase.
         {"default", ""},
         {"noretry", "--no-retry-unphased-with-bam"},
-        // The graph-first configuration: the catalog's sites drive the first
-        // pass and own the evidence at every site it claims, and the targeted
-        // per-window solve supplies alignment evidence where that failed. Both
-        // flags are needed -- measured on chr20:26,029,591, restricting the site
-        // set alone is inert (it withholds 102 alignment-discovered candidates
-        // and the catalog's sites carry the first pass either way), and the
-        // read-tagging difference comes from evidence ownership.
-        {"graphfirst", "--graph-first --graph-authoritative"},
+        // The union first pass, kept as a comparison arm so the cost of letting
+        // the alignment channel's own candidates into the first pass stays
+        // visible. Measured identical to the default on both windows.
+        {"nographfirst", "--no-graph-first"},
+        // Evidence ownership on top of the default: the graph's observations
+        // replace the alignment channel's at every claimed site. A separate axis
+        // from site selection and the one that costs accuracy, so it is an arm
+        // rather than a default -- its recorded concordance floor is 0.94 where
+        // the default's is 0.98.
+        {"graphauth", "--graph-authoritative"},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {
