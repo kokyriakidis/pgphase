@@ -188,9 +188,10 @@ Parity of each `flip = 1` merge against read truth, hap1's parent per half:
 | 5239260 <- 5272413 | ANTI-PHASED | CONSISTENT |
 | 8106314 <- 8176552 | ANTI-PHASED | CONSISTENT |
 
-All six were anti-phased before; five are consistent after. Whole chr20: 1,808
-of 55,907 phased records re-oriented (3.2%), with bridged blocks, record count,
-block count and read accuracy all unchanged -- 127 bridged, 56,032 records, 281
+All six were anti-phased before; five are consistent after. Whole chr20: **6,168
+of the 55,804 phased records present in both runs were re-oriented (11.1%)**,
+with zero phase-set label changes, and bridged blocks, record count, block count
+and read accuracy all unchanged -- 127 bridged, 56,032 records, 281
 blocks, 203,751 tagged, 2,851 discordant, 1.399% -- because the reads were always
 flipped correctly and only the VCF was wrong.
 
@@ -212,3 +213,12 @@ contiguity -- a block reported as two, and a join that lands on the wrong label 
 not orientation, since each final label is internally consistent. The fix is
 alias resolution: follow `keep_ps` to its current label before merging, and
 relabel across chunks rather than within one. Not attempted here.
+
+### Correction
+
+The commit message of cc0dc05 states "1,808 of 55,907 phased records
+re-oriented (3.2%)". That figure was never computed -- the measurement returned
+in the same cell as the commit and says **6,168 of 55,804 compared records,
+11.1%**, with 49,636 unchanged and 0 phase-set label changes. The scale of the
+fix is therefore three and a half times what that message claims. The table
+above carries the measured values.

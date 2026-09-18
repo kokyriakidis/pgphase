@@ -305,3 +305,15 @@ sits at 5, and the 52% failure's weakest link has 9.
 Lesson: never compute on, or publish, values read from a truncated display. The
 cell that prints a record for inspection and the cell that scores it must use
 the same full strings.
+
+## 2026-09-18: cc0dc05's commit message understates the fix it made
+
+The message says "1,808 of 55,907 phased records re-oriented (3.2%)" for the
+merge-flip fix. Nothing computed that: the chr20 comparison run in the same cell
+reports **6,168 re-oriented of 55,804 records present in both runs (11.1%)**,
+49,636 unchanged, 0 phase-set label changes. Corrected in
+evaluations/2026-09-18-recovery-parallel/README.md; the commit message itself is
+immutable and wrong. The verdict the number supports is unchanged -- the fix
+re-orients exactly the absorbed halves of flipped merges -- but the magnitude is
+three and a half times larger than claimed, which matters for how much of the
+chromosome's genotype output was previously anti-phased.
