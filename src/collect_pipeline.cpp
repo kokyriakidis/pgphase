@@ -831,6 +831,62 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
 // evidence saturates at.
 constexpr hts_pos_t kTargetedSolveFlank = 30000;
 
+/// How far a targeted region reaches past its window, measured in PARENT PHASED
+/// SITES rather than base pairs.
+///
+/// The extension exists so the sub-solve's phase set shares tagged reads with
+/// the parent blocks on either side: `select_stitch_orientation` votes on reads
+/// carrying BOTH a parent haplotype and a sub-solve haplotype, and the reads
+/// inside a window are precisely the ones the parent left unphased. The main
+/// chunk loop needs no such padding because a read straddling a chunk boundary
+/// is already in both chunks (`initialize_chunk_overlap_state`); a window has no
+/// equivalent, so it has to reach out to where the parent did phase.
+///
+/// A fixed 30 kb was wrong in both directions. Measured over the first 10 Mb of
+/// chr20 (9,813 parent phased sites, 41 merged regions), reaching three parent
+/// sites on both sides needs a median of 5.6 kb and a p90 of 16.9 kb -- so 30 kb
+/// was 5x more than needed in the median case -- while ONE region needed 47.3 kb
+/// and therefore had no parent site to vote against at all.
+constexpr int kTargetedSolveFlankSites = 3;
+constexpr hts_pos_t kTargetedSolveFlankMin = 2000;
+constexpr hts_pos_t kTargetedSolveFlankMax = 60000;
+
+/// Sorted positions of the parent's phased sites, the anchors a targeted region
+/// must reach. Same admission test as the parent-extent map below.
+static std::vector<hts_pos_t> parent_phased_positions(const PhasingChunk& chunk) {
+    std::vector<hts_pos_t> out;
+    out.reserve(chunk.candidates.size());
+    for (const CandidateVariant& cand : chunk.candidates) {
+        if (cand.phase_set == 0) continue;
+        if (cand.hap_alt == 0 && cand.hap_ref == 0) continue;
+        out.push_back(cand.key.sort_pos());
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+/// Distance from `edge` to the `n`-th parent phased site in `direction`, clamped
+/// into [kTargetedSolveFlankMin, kTargetedSolveFlankMax]. Falls back to the
+/// maximum when there are not `n` sites that way: nothing to anchor against
+/// nearby, so reach as far as allowed rather than solve a region that cannot
+/// vote.
+static hts_pos_t targeted_flank_for(const std::vector<hts_pos_t>& sites,
+                                    hts_pos_t edge, int direction, int n) {
+    if (sites.empty()) return kTargetedSolveFlankMax;
+    const auto it = std::lower_bound(sites.begin(), sites.end(), edge);
+    hts_pos_t distance = kTargetedSolveFlankMax;
+    if (direction < 0) {
+        const auto index = static_cast<long>(it - sites.begin()) - n;
+        if (index >= 0) distance = edge - sites[static_cast<size_t>(index)];
+    } else {
+        const auto index = static_cast<long>(it - sites.begin()) + n - 1;
+        if (index < static_cast<long>(sites.size()))
+            distance = sites[static_cast<size_t>(index)] - edge;
+    }
+    return std::min(kTargetedSolveFlankMax,
+                    std::max(kTargetedSolveFlankMin, distance));
+}
+
 /// Intervals between consecutive phase blocks -- the other kind of failure.
 ///
 /// collect_unphased_windows finds where the solve left READS unphased. That is
@@ -909,14 +965,19 @@ struct TargetedWindowGroup {
 /// touch, so one region is one piece of work. Shared by the per-chunk path and
 /// the batch prewarm so both derive identical region keys.
 static std::vector<TargetedWindowGroup> build_targeted_groups(
-        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows, int solve_tid) {
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows, int solve_tid,
+        const std::vector<hts_pos_t>& parent_sites) {
     std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
     std::sort(window_list.begin(), window_list.end());
     std::vector<TargetedWindowGroup> groups;
     groups.reserve(window_list.size());
     for (const auto& window : window_list) {
-        const hts_pos_t beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
-        const hts_pos_t end = window.second + kTargetedSolveFlank;
+        const hts_pos_t beg = std::max<hts_pos_t>(
+            1, window.first - targeted_flank_for(parent_sites, window.first, -1,
+                                                 kTargetedSolveFlankSites));
+        const hts_pos_t end =
+            window.second + targeted_flank_for(parent_sites, window.second, +1,
+                                               kTargetedSolveFlankSites);
         if (!groups.empty() && beg <= groups.back().region.end) {
             groups.back().region.end = std::max(groups.back().region.end, end);
             groups.back().members.push_back(window);
@@ -1030,7 +1091,9 @@ static size_t recover_windows_with_targeted_solve(
     size_t adopted_total = 0;
     // The sub-solve options do not depend on the window.
     const Options sub = targeted_solve_options(opts);
-    std::vector<TargetedWindowGroup> groups = build_targeted_groups(windows, solve_tid);
+    const std::vector<hts_pos_t> parent_sites = parent_phased_positions(chunk);
+    std::vector<TargetedWindowGroup> groups =
+        build_targeted_groups(windows, solve_tid, parent_sites);
     std::vector<RegionChunk> regions;
     regions.reserve(groups.size());
     for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
@@ -1313,7 +1376,9 @@ void prewarm_targeted_solves(
             *chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
         for (const auto& seam : collect_block_seams(*chunk)) windows.push_back(seam);
         if (windows.empty()) continue;
-        for (const TargetedWindowGroup& group : build_targeted_groups(windows, solve_tid))
+        const std::vector<hts_pos_t> parent_sites = parent_phased_positions(*chunk);
+        for (const TargetedWindowGroup& group :
+             build_targeted_groups(windows, solve_tid, parent_sites))
             regions.push_back(group.region);
     }
     if (regions.empty()) return;

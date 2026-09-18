@@ -112,3 +112,44 @@ chr20 emits the same 56,032 records. Bridged blocks chromosome-wide go 132 ->
 126, which is the merged-region cost recorded above, not the batching.
 
 Suites: unit 4/4, window 66/66, predicate 130/130.
+
+## Round four: the flank measured in sites, not base pairs
+
+Why a flank at all, given the main pipeline stitches chunks without one: a chunk
+boundary is straddled by reads, so `initialize_chunk_overlap_state` already has
+the same read in both chunks and the stitch can vote on it. A window has no
+equivalent -- the reads inside it are exactly the ones the parent left unphased,
+so they carry no parent haplotype. `select_stitch_orientation` needs reads
+carrying BOTH a parent haplotype and a sub-solve haplotype, so the region has to
+reach out to where the parent did phase.
+
+How far, measured over the first 10 Mb of chr20 (9,813 parent phased sites, 41
+merged regions) -- the extension needed to reach parent sites on **both** sides:
+
+| sites reached | median | p90 | max |
+|---|---:|---:|---:|
+| 1 | 0.8 kb | 7.3 kb | 46.2 kb |
+| 2 | 3.4 kb | 16.7 kb | 46.8 kb |
+| 3 | 5.6 kb | 16.9 kb | 47.3 kb |
+
+A fixed 30 kb is therefore wrong in both directions: 5x more than needed in the
+median case, and not enough for one of the 41 regions, which had no parent site
+to vote against at all.
+
+The flank now reaches `kTargetedSolveFlankSites` = 3 parent phased sites per
+side, clamped to [2 kb, 60 kb], with the clamp maximum used when there are not
+three sites that way -- nothing to anchor against nearby, so reach as far as
+allowed rather than solve a region that cannot vote.
+
+| chr20 | wall | regions | bp solved | bridged | tagged | blocks | discordant | hamming |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| fixed 30 kb | 137 s | 236 | 39.55 Mb | 126 | 203,751 | 283 | 2,851 | 1.399% |
+| site-based | **120 s** | 356 | **29.78 Mb** | **127** | 203,751 | 281 | 2,851 | 1.399% |
+
+25% less sequence solved, one more block bridged -- the region that could not
+reach a parent site before -- two fewer blocks, and read accuracy identical to
+the read: same 203,751 tagged, same 2,851 discordant, same 1.399%. The same 10 Mb
+comparison gives 6.38 -> 3.98 Mb solved at 36 bridged and 0.265% both ways.
+
+Region count rises (236 -> 356) because smaller extensions overlap less, so
+fewer windows merge -- more solves, each much smaller.
