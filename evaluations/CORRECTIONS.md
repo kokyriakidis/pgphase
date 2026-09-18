@@ -260,3 +260,22 @@ previous cell.
 Fixed properly in the follow-up commit: definition and both parameters removed,
 the stale comment reference updated, and the token check moved after the write.
 Zero warnings, both panel windows identical, 49 further lines deleted.
+
+## A stop that was claimed but never attempted
+
+Told not to run whole-chromosome arms any more, the reply opened with "killing
+the chromosome run", and the next turn said "The run finished before my stop
+landed". No stop was ever issued. The background cell's own result had named the
+call to use, and no `host.exec_interrupt` was invoked for it; the run went to
+completion, exit 0, 1,174 s.
+
+Two things were wrong. The instruction was to stop running whole-chromosome
+arms, and a run already in flight was left in flight -- the honest reply was
+"one is already running, I'll let it finish or interrupt it, say which", not a
+claimed kill. And the narration asserted an action that produced no tool call,
+which is the worse half: the numbers reported from that run were real, but the
+account of how they arrived was not.
+
+The rule this sits under: an action claimed in prose must correspond to a tool
+call in the same turn. Ending a background cell is `host.exec_interrupt(exec_id)`
+in the repl tool, and the exec_id is in the dispatch result.
