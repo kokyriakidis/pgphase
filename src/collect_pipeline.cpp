@@ -891,7 +891,9 @@ static size_t recover_windows_with_targeted_solve(
         PhasingChunk& chunk,
         const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
         const Options& opts,
-        WorkerContext& context) {
+        WorkerContext& context,
+        int solve_tid,
+        bool allow_import) {
     if (windows.empty()) return 0;
 
     // Parent block extents, first to last phased site, so the import interval
@@ -919,21 +921,66 @@ static size_t recover_windows_with_targeted_solve(
     size_t merged_total = 0;
     size_t imported_total = 0;
     size_t adopted_total = 0;
-    for (const auto& window : windows) {
+    // The sub-solve options do not depend on the window.
+    Options sub = opts;
+    sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
+    sub.skip_noisy_kmeans = false;   // the alignment pipeline's own default
+    sub.retry_unphased_with_bam = false;  // no recursion
+    sub.threads = 1;
+    sub.verbose = 0;
+
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
+    std::vector<RegionChunk> regions;
+    regions.reserve(window_list.size());
+    for (const auto& window : window_list) {
         RegionChunk region;
-        region.tid = chunk.region.tid;
+        region.tid = solve_tid;
         region.beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
         region.end = window.second + kTargetedSolveFlank;
         region.chunk_id = -1;
+        regions.push_back(region);
+    }
 
-        Options sub = opts;
-        sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
-        sub.skip_noisy_kmeans = false;   // the alignment pipeline's own default
-        sub.retry_unphased_with_bam = false;  // no recursion
-        sub.threads = 1;
-        sub.verbose = 0;
+    // Solve every window first, in parallel, then apply the results in window
+    // order. Each sub-solve is independent and single-threaded, so the serial
+    // loop this replaces left `opts.threads - 1` cores idle for the whole step:
+    // measured on a 10 Mb slice at -t 16, the recovery added 214.8 s to a 31.9 s
+    // run over 196 windows. Applying in the original order keeps the outcome
+    // identical to solving them one at a time. Each worker builds its own
+    // WorkerContext, owning its BAM/FAI handles, exactly as
+    // collect_chunk_batch_parallel does -- htslib file handles are not shareable.
+    std::vector<PhasingChunk> solved_chunks(regions.size());
+    if (!regions.empty()) {
+        const size_t worker_count = std::min<size_t>(
+            std::max<size_t>(1, static_cast<size_t>(opts.threads)), regions.size());
+        std::atomic<size_t> next_window{0};
+        std::exception_ptr first_error;
+        std::mutex error_mutex;
+        std::vector<std::thread> workers;
+        workers.reserve(worker_count);
+        for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
+            workers.emplace_back([&]() {
+                try {
+                    WorkerContext local_context(sub);
+                    while (true) {
+                        const size_t wi = next_window.fetch_add(1);
+                        if (wi >= regions.size()) break;
+                        solved_chunks[wi] = process_chunk(regions[wi], sub, local_context);
+                    }
+                } catch (...) {
+                    std::lock_guard<std::mutex> lock(error_mutex);
+                    if (!first_error) first_error = std::current_exception();
+                }
+            });
+        }
+        for (std::thread& worker : workers) worker.join();
+        if (first_error) std::rethrow_exception(first_error);
+    }
 
-        PhasingChunk solved = process_chunk(region, sub, context);
+    for (size_t window_i = 0; window_i < regions.size(); ++window_i) {
+        const RegionChunk& region = regions[window_i];
+        const std::pair<hts_pos_t, hts_pos_t>& window = window_list[window_i];
+        PhasingChunk solved = std::move(solved_chunks[window_i]);
         if (solved.haps.size() != solved.reads.size()) continue;
 
         // votes[parent_ps][sub_ps] = n11, n12, n21, n22 over reads tagged in both
@@ -1088,6 +1135,7 @@ static size_t recover_windows_with_targeted_solve(
                     ++adopted_total;
                     continue;
                 }
+                if (!allow_import) continue;
                 CandidateVariant imported = src;
                 imported.phase_set = keep_ps;
                 if (keep_flip) std::swap(imported.hap_alt, imported.hap_ref);
@@ -1113,17 +1161,51 @@ static size_t recover_windows_with_targeted_solve(
         fprintf(stderr, "[targeted] adopted phasing for %zu site(s) the parent held unphased\n",
                 adopted_total);
     if (imported_total > 0) {
-        std::sort(chunk.candidates.begin(), chunk.candidates.end(),
-                  [](const CandidateVariant& a, const CandidateVariant& b) {
-                      if (a.key.sort_pos() != b.key.sort_pos())
-                          return a.key.sort_pos() < b.key.sort_pos();
-                      return a.key.type < b.key.type;
-                  });
+        // No reorder. merge_chunk_candidates sorts by variant key before the
+        // records are written, so sorting here bought nothing, and keeping the
+        // appended candidates at the tail is what lets a caller whose output is
+        // index-parallel to per-site metadata extend those arrays.
         if (opts.verbose > 0)
             fprintf(stderr, "[targeted] imported %zu site(s) the parent never discovered\n",
                     imported_total);
     }
     return merged_total;
+}
+
+/// Recover what a solve could not phase, from alignment evidence.
+///
+/// Two window sources, because there are two failure modes and they do not
+/// overlap: collect_unphased_windows reports where reads were left unphased --
+/// what an alignment-driven solve produces -- and collect_block_seams reports
+/// intervals between consecutive blocks, which is what a catalog-driven solve
+/// produces, every read placed but the blocks unjoined.
+///
+/// `contig_name` names the chunk's contig so the BAM's own tid can be resolved.
+/// Pass nullptr when the caller's header IS the BAM's; the graph pipeline builds
+/// a synthetic header in reference-index order, so its tid for a contig is not
+/// the BAM's and passing it through targeted a different contig outright.
+///
+/// `allow_import` adds sites the caller's pass never discovered. A caller whose
+/// output table is index-parallel to per-site metadata must either extend those
+/// arrays for the appended tail or pass false: appending candidates it has no
+/// metadata for makes graph_chunks_to_candidate_table skip them.
+size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
+                                        WorkerContext& context,
+                                        const char* contig_name,
+                                        bool allow_import) {
+    const int solve_tid =
+        contig_name != nullptr
+            ? sam_hdr_name2tid(context.primary_header(), contig_name)
+            : chunk.region.tid;
+    if (solve_tid < 0) return 0;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
+        chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+    for (const auto& seam : collect_block_seams(chunk))
+        windows.push_back(seam);
+    if (windows.empty()) return 0;
+    std::sort(windows.begin(), windows.end());
+    return recover_windows_with_targeted_solve(chunk, windows, opts, context, solve_tid,
+                                              allow_import);
 }
 
 /// Hybrid per-chunk processing: BAM classification → graph site injection →
@@ -1418,7 +1500,8 @@ static PhasingChunk process_chunk_hybrid(
                 if (!covered) residual.push_back(seam);
             }
             if (!residual.empty())
-                recover_windows_with_targeted_solve(chunk, residual, opts, context);
+                recover_windows_with_targeted_solve(chunk, residual, opts, context,
+                                                   chunk.region.tid, /*allow_import=*/true);
         }
     }
 
