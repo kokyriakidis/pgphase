@@ -691,9 +691,9 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
         // pass and own the evidence at every site it claims, and the targeted
         // per-window solve supplies alignment evidence where that failed. Both
         // flags are needed -- measured on chr20:26,029,591, restricting the site
-        // set alone is inert because the catalog already supplies 3,641 of 3,743
-        // candidates, and the read-tagging difference comes from evidence
-        // ownership.
+        // set alone is inert (it withholds 102 alignment-discovered candidates
+        // and the catalog's sites carry the first pass either way), and the
+        // read-tagging difference comes from evidence ownership.
         {"graphfirst", "--graph-first --graph-authoritative"},
     };
 
@@ -756,9 +756,9 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
         // pass and own the evidence at every site it claims, and the targeted
         // per-window solve supplies alignment evidence where that failed. Both
         // flags are needed -- measured on chr20:26,029,591, restricting the site
-        // set alone is inert because the catalog already supplies 3,641 of 3,743
-        // candidates, and the read-tagging difference comes from evidence
-        // ownership.
+        // set alone is inert (it withholds 102 alignment-discovered candidates
+        // and the catalog's sites carry the first pass either way), and the
+        // read-tagging difference comes from evidence ownership.
         {"graphfirst", "--graph-first --graph-authoritative"},
     };
     for (const auto& [arm, flags] : arms) {

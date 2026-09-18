@@ -183,3 +183,21 @@ The count is still short of the competitor's 120, and 2 of the 18 scorable
 in-gap SNP calls do not segregate against read truth. Both are recorded in
 evaluations/2026-09-17-mapq-recovery-floor/README.md rather than left to the
 green test to imply otherwise.
+
+## Two different candidate counts written as one
+
+`evaluations/2026-09-17-graph-first/README.md` stated that the catalog "supplies
+3,641 of the 3,743 candidates" two paragraphs after stating that injection
+"claims 3,741 of 3,743" -- the same region, and read as a self-contradiction.
+
+Neither figure was fabricated, but the 3,641 was arithmetic across two different
+stages: 3,743 is the candidate count at the point the ownership filter was tried
+(post-injection, pre-prune), while the 102 alignment-discovered candidates
+`--graph-first` withholds are counted before injection. Subtracting one from the
+other does not describe anything the pipeline reports.
+
+Replaced with the two measured quantities, each labelled with its stage:
+injection claims 3,741 of 3,743 at the ownership-filter point, and
+`--graph-first` withholds 102 alignment-discovered candidates before injection,
+against a final table of 451 rows. The same mixed figure was in the window-test
+arm comment and is corrected there too.

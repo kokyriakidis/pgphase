@@ -42,10 +42,17 @@ So the withholding happens **before** injection, which is also where the
 
 **This corrects the attribution recorded earlier.** The BED arm's behaviour was
 credited to phasing on graph sites only. It is not: restricting the site set is
-**inert on its own**, because the catalog supplies 3,641 of the 3,743 candidates
-in that region anyway. The read-tagging difference comes from
-`--graph-authoritative`, which replaces the alignment channel's read evidence
-with the graph's at every claimed site. The block merge needs both.
+**inert on its own**. What `--graph-first` withholds is small -- measured,
+`[graph-first] withheld 102 alignment-discovered candidate(s) from the first
+pass` over this region, against a final candidate table of 451 rows -- and the
+catalog's own sites carry the first pass either way. The read-tagging difference
+comes from `--graph-authoritative`, which replaces the alignment channel's read
+evidence with the graph's at every claimed site. The block merge needs both.
+
+(The 3,741-of-3,743 figure above is a different quantity at a different stage:
+candidates claimed by injection at the point the ownership filter was tried,
+before pruning. It is not the catalog's share of the emitted table, and an
+earlier version of this document mixed the two.)
 
 Which means the hybrid's first pass is already graph-driven in the site sense.
 What "graph-first" adds beyond that is evidence ownership.
