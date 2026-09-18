@@ -317,3 +317,11 @@ immutable and wrong. The verdict the number supports is unchanged -- the fix
 re-orients exactly the absorbed halves of flipped merges -- but the magnitude is
 three and a half times larger than claimed, which matters for how much of the
 chromosome's genotype output was previously anti-phased.
+
+## 2026-09-18: a source comment in cc0dc05 carried an uncomputed candidate count
+
+The comment added to the merge loop in src/collect_pipeline.cpp said the six
+flip = 1 merges cover "1,626 candidates". Nothing computed that. The probe sum
+over the same log gives **1,987**, which is the figure the session then used and
+reconciled against 1,964 re-oriented records (the 23-record gap being candidates
+not emitted as phased VCF records). Corrected in place.

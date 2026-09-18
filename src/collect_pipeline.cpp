@@ -1197,7 +1197,7 @@ static size_t recover_windows_with_targeted_solve(
                     // every flipped merge came out anti-phased, and the phased BAM
                     // disagreed with the VCF because chunk.haps above does flip.
                     // Measured over the first 10 Mb of chr20: 6 of 18 merges carry
-                    // flip = 1, covering 1,626 candidates, and all 9,801
+                    // flip = 1, covering 1,987 candidates, and all 9,801
                     // parent-phased records were emitted with an unchanged
                     // genotype. The adoption path below already handled this.
                     if (cand.hap_to_cons_alle.size() > 2)
