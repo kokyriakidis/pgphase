@@ -40,7 +40,11 @@ Everything below is measured on the one arm of record, `collect-graph-variation
    phase-set relabel. Two defects came out of exactly that machinery today: a
    merge flip that never reached the emitted genotypes (6,168 chr20 records were
    anti-phased, fixed in `cc0dc05`), and a merge chaining onto a phase-set label
-   another chunk had already retired (open -- 6 parent blocks split in 10 Mb).
+   another chunk had already retired (open -- 6 parent blocks split across more
+   than one phase set in 10 Mb, counted by destination label in the env-gated
+   A/B that skips only the recovery block, so same binary and same inputs; not
+   to be confused with the six flip = 1 merges of the fixed orientation bug,
+   which is a different quantity that happens to equal 6).
 
 5. **Merging the sites into the chunk is nearly sound; re-solving it naively is
    not.** With the alignment's in-gap sites merged into the graph chunk and NO
