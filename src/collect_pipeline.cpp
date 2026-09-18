@@ -1186,7 +1186,22 @@ static size_t recover_windows_with_targeted_solve(
                 for (CandidateVariant& cand : chunk.candidates) {
                     if (cand.phase_set != drop_ps) continue;
                     cand.phase_set = keep_ps;
-                    if (flip) std::swap(cand.hap_alt, cand.hap_ref);
+                    if (!flip) continue;
+                    std::swap(cand.hap_alt, cand.hap_ref);
+                    // The emitter does NOT read hap_alt/hap_ref: is_alt_genotype
+                    // calls derive_hap_alt_ref_from_consensus, which reads
+                    // hap_to_cons_alle[1] and [2] (collect_output.cpp:383, :574).
+                    // Swapping the pair alone therefore relabelled the absorbed
+                    // block into the kept phase set while leaving its emitted
+                    // genotypes in the ORIGINAL orientation -- the two halves of
+                    // every flipped merge came out anti-phased, and the phased BAM
+                    // disagreed with the VCF because chunk.haps above does flip.
+                    // Measured over the first 10 Mb of chr20: 6 of 18 merges carry
+                    // flip = 1, covering 1,626 candidates, and all 9,801
+                    // parent-phased records were emitted with an unchanged
+                    // genotype. The adoption path below already handled this.
+                    if (cand.hap_to_cons_alle.size() > 2)
+                        std::swap(cand.hap_to_cons_alle[1], cand.hap_to_cons_alle[2]);
                 }
                 ++merged_total;
             }

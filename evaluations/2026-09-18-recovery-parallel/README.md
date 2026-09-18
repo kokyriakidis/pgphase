@@ -153,3 +153,62 @@ comparison gives 6.38 -> 3.98 Mb solved at 36 bridged and 0.265% both ways.
 
 Region count rises (236 -> 356) because smaller extensions overlap less, so
 fewer windows merge -- more solves, each much smaller.
+
+## A bug the invariant check found: a merge flip never reached the VCF
+
+Asked whether the recovery leaves already-computed phase sets alone, the answer
+from the code is yes -- adoption is guarded on `existing->phase_set != 0` ("the
+parent's own call stands"), import only adds, and a block merge rewrites a whole
+block uniformly. Checking it against output found something else.
+
+Comparing the arm against itself with the recovery loop skipped (an env-gated
+probe, same binary and inputs, so only the recovery differs) over the first
+10 Mb of chr20: all **9,801** parent-phased records came out with an **identical**
+genotype, 0 flipped. But a probe on the merge itself reports **6 of 18 merges
+carry `flip = 1`**, covering 1,987 candidates.
+
+The cause: the merge path swapped `hap_alt`/`hap_ref`, and the emitter does not
+read that pair. `is_alt_genotype` calls `derive_hap_alt_ref_from_consensus`
+(`collect_output.cpp:383`, `:574`), which reads `hap_to_cons_alle[1]` and `[2]`.
+So a flipped merge relabelled the absorbed block into the kept phase set while
+leaving its emitted genotypes in the original orientation -- the two halves came
+out anti-phased -- and the phased BAM disagreed with the VCF, because
+`chunk.haps` above does flip. The adoption path 90 lines below already handled
+this, with a comment recording that setting the pair alone left 244 adopted sites
+dropped by the VCF.
+
+Parity of each `flip = 1` merge against read truth, hap1's parent per half:
+
+| merge | before | after |
+|---|---|---|
+| 130540 <- 195305 | ANTI-PHASED | CONSISTENT |
+| 195305 <- 545002 | ANTI-PHASED | (separate blocks, see below) |
+| 1690618 <- 1907095 | ANTI-PHASED | CONSISTENT |
+| 2342132 <- 2550439 | ANTI-PHASED | CONSISTENT |
+| 5239260 <- 5272413 | ANTI-PHASED | CONSISTENT |
+| 8106314 <- 8176552 | ANTI-PHASED | CONSISTENT |
+
+All six were anti-phased before; five are consistent after. Whole chr20: 1,808
+of 55,907 phased records re-oriented (3.2%), with bridged blocks, record count,
+block count and read accuracy all unchanged -- 127 bridged, 56,032 records, 281
+blocks, 203,751 tagged, 2,851 discordant, 1.399% -- because the reads were always
+flipped correctly and only the VCF was wrong.
+
+## Still open: a merge can chain onto a stale phase-set label
+
+The sixth row above is a different defect. Recovery runs per chunk, so a merge
+relabels only the candidates in the chunk being processed, and a block spanning a
+chunk boundary is relabelled in one chunk and not the other:
+
+```
+parent PS=130540  -> final {130540: 6}
+parent PS=195305  -> final {130540: 558, 195305: 11}    <- split
+parent PS=545002  -> final {195305: 379}
+```
+
+`195305` lost 558 sites to `130540` and kept 11, and a later merge then joined
+`545002` onto that stale `195305` label instead of onto `130540`. The cost is
+contiguity -- a block reported as two, and a join that lands on the wrong label --
+not orientation, since each final label is internally consistent. The fix is
+alias resolution: follow `keep_ps` to its current label before merging, and
+relabel across chunks rather than within one. Not attempted here.
