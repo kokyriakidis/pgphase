@@ -117,3 +117,57 @@ them private to the alignment.
 Not measured: whether the other three verified seams behave the same way, and
 whether the bridge survives being stitched into the graph pass's blocks rather
 than standing alone.
+
+## Why a seam with every site present still inverts
+
+`chr20:55,843,827-55,889,113`, which graph+recovery merges at **76.06%** while
+hiphase spans it at **99.83%** (both flanks consistent, 0.99/1.00).
+
+**Site supply is not the problem.** Hiphase phases 5 heterozygotes inside the
+seam; we hold a candidate for **5 of 5** and our sub-solve phases **5 of 5** --
+3 from the catalog, 2 private to the alignment. Only 2 of the 5 are informative
+by read truth (the two endpoints, both at 1.000).
+
+**The failure is one link.** Scoring each site's parity against truth, our
+output agrees with hiphase at the left endpoint (hap1 = PAT) and at all three
+interior sites, then disagrees at the right endpoint `55,889,113` -- hiphase
+`1|0` (hap1 = PAT), ours `0|1` (hap1 = MAT). That site is the right flanking
+block's terminal site, so the whole right parent block goes with it, which is
+the ~24% of misplaced reads. Read hamming counts reads, so one bad edge at a
+block boundary costs a block's worth of reads while the site count looks
+perfect.
+
+**And the link's read evidence is unanimous the other way.** 37 reads observe
+both `55,883,019` and `55,889,113`:
+
+| 55,883,019 | 55,889,113 | reads | parent |
+|---|---|---:|---|
+| REF | REF | 15 | all MATERNAL |
+| REF | ALT | 22 | all PATERNAL |
+
+Zero contradicting reads. So the orientation *rule* is not at fault: the
+decision was not made on this evidence at all.
+
+**The cause is the representation of `55,883,019`.** The record is
+`AATA>A,AA` -- ALT1 is net -3, ALT2 is net -2. The reads carry neither:
+
+| net length | reads | MAT | PAT |
+|---:|---:|---:|---:|
+| **-6** | 31 (46.3%) | 26 | 5 |
+| **-4** | 28 (41.8%) | 1 | 27 |
+| -8 | 4 | 4 | 0 |
+| -2 | 1 | 0 | 1 |
+
+**No read matches either declared allele**, so every read scores REF there and
+the site carries no phase information -- which is why both ALTs give an
+identical link table above. The locus is a tandem-repeat deletion whose two
+haplotypes are -6 (maternal, 26/31) and -4 (paternal, 27/28): informative if
+represented correctly, and both non-reference, which is the multiallelic class
+whose representation was the subject of the earlier session work. Represented as
+-3/-2 against REF it is inert, the chain has nothing at that step, and the
+parity across the last 6.1 kb is then decided by something weaker.
+
+So this seam is a **representation** defect, not a k-means or stitching defect.
+The two measurements that would close it: emit the locus with its real alleles
+(-6 and -4) and re-check that the link resolves to the flip truth requires, and
+confirm that the sub-solve's parity at `55,889,113` follows.
