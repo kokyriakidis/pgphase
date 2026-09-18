@@ -930,16 +930,51 @@ static size_t recover_windows_with_targeted_solve(
     sub.verbose = 0;
 
     std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
-    std::vector<RegionChunk> regions;
-    regions.reserve(window_list.size());
-    for (const auto& window : window_list) {
+    std::sort(window_list.begin(), window_list.end());
+
+    // One solve per GROUP of windows, not per window. Each window is padded by
+    // kTargetedSolveFlank on both sides so the sub-solve shares reads with the
+    // parent blocks it must vote against, and that padding is what makes
+    // neighbouring windows overlap: measured on the first 10 Mb of chr20, 188
+    // windows spanning 4.25 Mb of actual gap and seam became 15.53 Mb of padded
+    // region -- more sequence than the region being recovered. 54 of the 188 also
+    // overlapped before any padding, because the unphased-window list and the
+    // block-seam list describe some of the same neighbourhoods.
+    //
+    // Windows whose padded regions touch are therefore one piece of work. Merging
+    // them takes those 188 solves to 36 and the solved span to 6.24 Mb. A merged
+    // region is solved as a single chunk, so its k-means sees every site in the
+    // group rather than one window's worth; that is a real behaviour change and
+    // is measured against the arm baseline, not assumed free.
+    struct WindowGroup {
         RegionChunk region;
-        region.tid = solve_tid;
-        region.beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
-        region.end = window.second + kTargetedSolveFlank;
-        region.chunk_id = -1;
-        regions.push_back(region);
+        std::vector<std::pair<hts_pos_t, hts_pos_t>> members;
+    };
+    std::vector<WindowGroup> groups;
+    groups.reserve(window_list.size());
+    for (const auto& window : window_list) {
+        const hts_pos_t beg = std::max<hts_pos_t>(1, window.first - kTargetedSolveFlank);
+        const hts_pos_t end = window.second + kTargetedSolveFlank;
+        if (!groups.empty() && beg <= groups.back().region.end) {
+            groups.back().region.end = std::max(groups.back().region.end, end);
+            groups.back().members.push_back(window);
+            continue;
+        }
+        WindowGroup group;
+        group.region.tid = solve_tid;
+        group.region.beg = beg;
+        group.region.end = end;
+        group.region.chunk_id = -1;
+        group.members.push_back(window);
+        groups.push_back(std::move(group));
     }
+
+    std::vector<RegionChunk> regions;
+    regions.reserve(groups.size());
+    for (const WindowGroup& group : groups) regions.push_back(group.region);
+    if (opts.verbose > 0)
+        fprintf(stderr, "[targeted] %zu window(s) -> %zu merged region(s)\n",
+                window_list.size(), groups.size());
 
     // Solve every window first, in parallel, then apply the results in window
     // order. Each sub-solve is independent and single-threaded, so the serial
@@ -979,7 +1014,8 @@ static size_t recover_windows_with_targeted_solve(
 
     for (size_t window_i = 0; window_i < regions.size(); ++window_i) {
         const RegionChunk& region = regions[window_i];
-        const std::pair<hts_pos_t, hts_pos_t>& window = window_list[window_i];
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& group_windows =
+            groups[window_i].members;
         PhasingChunk solved = std::move(solved_chunks[window_i]);
         if (solved.haps.size() != solved.reads.size()) continue;
 
@@ -1064,7 +1100,8 @@ static size_t recover_windows_with_targeted_solve(
                     if (joined[j].first > joined[j - 1].second)
                         import_spans.emplace_back(joined[j - 1].second, joined[j].first);
                 if (import_spans.empty())
-                    import_spans.emplace_back(window.first, window.second);
+                    for (const auto& member : group_windows)
+                        import_spans.emplace_back(member.first, member.second);
             }
             for (const CandidateVariant& src : solved.candidates) {
                 if (src.phase_set != kv.first) continue;

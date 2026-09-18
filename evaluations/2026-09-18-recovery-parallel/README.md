@@ -44,3 +44,37 @@ behaviour-preserving. A merged region is solved as one chunk, so its k-means
 sees a different site set and can reach a different orientation; the flank is
 what gives the stitch enough overlapping reads to vote. Both therefore need
 measuring against the arm baseline, unlike this change.
+
+## Round two: one solve per merged region
+
+Each window is padded by `kTargetedSolveFlank` = 30 kb per side, and that
+padding is what makes neighbouring windows overlap. Measured on the graph +
+recovery arm over `CHM13#0#chr20:1-10000000`:
+
+| | |
+|---|---:|
+| windows | 188 |
+| raw windows (padding removed), median span | 18.0 kb |
+| raw windows -> disjoint groups | 188 -> 134, so **54 overlap before any padding** |
+| exact duplicate raw windows | 0 |
+| disjoint raw pairs closer than 60 kb | 98 (overlap created purely by the flank) |
+| bp of raw windows alone | 4.25 Mb |
+| bp actually solved, padded | 15.53 Mb |
+| after merging | 6.24 Mb, 41 regions |
+
+The 54 pre-padding overlaps come from the window list being the concatenation of
+`collect_unphased_windows` and `collect_block_seams`, which describe some of the
+same neighbourhoods. Windows whose padded regions touch are one piece of work,
+so they are now merged and solved once, with the import-span fallback covering
+every member window of the group.
+
+| 10 Mb, graph + recovery | wall | bridged | tagged | blocks | discordant | read hamming |
+|---|---:|---:|---:|---:|---:|---:|
+| per-window, serial recovery | 155.4 s | 38 | 36,645 | 43 | 97 | 0.265% |
+| grouped + parallel | **36.8 s** | 36 | 36,645 | 44 | 97 | 0.265% |
+
+**4.2x end to end with read accuracy unchanged** -- same tagged count, same 97
+discordant reads, same 0.265%. It is not free: two bridges are lost and the
+block count goes 43 -> 44, so the cost is contiguity rather than misplacement.
+A merged region is solved as one chunk, so its k-means sees every site in the
+group instead of one window's worth.
