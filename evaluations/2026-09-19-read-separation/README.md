@@ -77,3 +77,26 @@ for three different reasons that need three different fixes.
 Class 1 on 4,766,934: we hold a CLEAN_HET_INDEL at a position hiphase phases,
 inside a gap where we emit no records at all. Follow that candidate from the
 table to the writer and find where it is lost.
+
+## The shipped default is the bad configuration
+
+Found while A/B-ing the emission fix. Every in-chunk measurement in this
+project was taken with `--no-anchored-stage2`; the flag defaults ON, so the
+configuration a user gets is not the one that was measured. Whole chr20, same
+binary, only that flag differing:
+
+| arm | tagged | read blocks | discordant | read hamming | VCF blocks |
+|---|---:|---:|---:|---:|---:|
+| `--in-chunk-recovery` (anchored stage 2 ON, the default) | 219,247 | 422 | 9,497 | **4.332%** | 491 |
+| `--in-chunk-recovery --no-anchored-stage2` | 219,059 | 323 | 2,543 | **1.161%** | 324 |
+
+Anchoring stage 2 costs 6,954 extra misplaced reads and 99 extra read blocks
+here -- it is worse on both axes, contiguity and correctness. This also means
+the window panel, whose `inchunk` arm passes only `--in-chunk-recovery`, has
+been scoring the 4.332% configuration: its separated() floors of 0.23-0.53
+against hiphase's 0.86-0.98 are measured on the arm nobody should run.
+
+Not yet fixed, because which way to fix it is a real decision: turn the default
+off for this path, or find why anchoring hurts when recovery merges sites. The
+anchored round was adopted on the evidence that it helps the graph arm WITHOUT
+recovery, and that evidence has not been re-examined against these numbers.
