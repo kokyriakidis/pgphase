@@ -678,6 +678,20 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             graph_chunks[offset], opts, *thread_recovery_ctx,
                             batch_contig.c_str());
                         if (merged > 0) {
+                            // The re-solve needs the recovery windows: allele_depths_call_het
+                            // is scoped by them, and without it each haplotype takes its own
+                            // majority allele and a genuine het collapses to one side.
+                            Options solve_opts = opts;
+                            // Only under the experimental flag: carrying the
+                            // windows into the parent re-solve enables the
+                            // depth-based het escape there, and on whole chr20
+                            // that costs 1.153% -> 2.067% read hamming with
+                            // 339 -> 498 blocks. It is what lets the injected
+                            // insertion at 55,336,460 be emitted at all, so it
+                            // stays reachable for the work in progress.
+                            if (opts.graph_noisy_msa)
+                                solve_opts.retry_windows =
+                                    graph_chunks[offset].recovery_windows;
                             // Two rounds, as the alignment pipeline solves: the
                             // clean sites set the gauge, then the merged in-gap
                             // sites -- NOISY_CAND_HET, which the clean mask does
@@ -701,7 +715,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // because the parity that has to change is the chunk's,
                             // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, opts, kCandGermlineClean);
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean);
 
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
@@ -713,7 +727,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // The seeded regions go to the recovery instead, whose sub-solve
                             // re-reads the BAM through process_chunk and does build digars.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);
                         }
                     }
@@ -881,6 +895,20 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             graph_chunks[offset], opts, *thread_recovery_ctx,
                             batch_contig_gaf.c_str());
                         if (merged > 0) {
+                            // The re-solve needs the recovery windows: allele_depths_call_het
+                            // is scoped by them, and without it each haplotype takes its own
+                            // majority allele and a genuine het collapses to one side.
+                            Options solve_opts = opts;
+                            // Only under the experimental flag: carrying the
+                            // windows into the parent re-solve enables the
+                            // depth-based het escape there, and on whole chr20
+                            // that costs 1.153% -> 2.067% read hamming with
+                            // 339 -> 498 blocks. It is what lets the injected
+                            // insertion at 55,336,460 be emitted at all, so it
+                            // stays reachable for the work in progress.
+                            if (opts.graph_noisy_msa)
+                                solve_opts.retry_windows =
+                                    graph_chunks[offset].recovery_windows;
                             // Two rounds, as the alignment pipeline solves: the
                             // clean sites set the gauge, then the merged in-gap
                             // sites -- NOISY_CAND_HET, which the clean mask does
@@ -904,7 +932,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // because the parity that has to change is the chunk's,
                             // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, opts, kCandGermlineClean);
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean);
 
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
@@ -916,7 +944,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // The seeded regions go to the recovery instead, whose sub-solve
                             // re-reads the BAM through process_chunk and does build digars.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);
                         }
                     }
@@ -1328,6 +1356,8 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --graph-noisy-msa         Run the alignment pipeline's noisy-region MSA\n"
+        << "      --recovery-audit-out FILE One row per candidate the recovery sub-solve\n"
+        << "                                found, and what the merge did with it\n"
         << "                                over repeat-context loci (stage 2)\n"
         << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
         << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
@@ -1426,6 +1456,7 @@ enum GraphCollectOption {
     kGcPhasedBam,
     kGcLinkEarnedRepeatIndels,
     kGcGraphNoisyMsa,
+    kGcRecoveryAuditOut,
     kGcRef,
     kGcSites,
     kGcPgbamFile,
@@ -1480,6 +1511,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
         {"graph-noisy-msa", no_argument, nullptr, kGcGraphNoisyMsa},
+        {"recovery-audit-out", required_argument, nullptr, kGcRecoveryAuditOut},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1544,6 +1576,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
             case kGcGraphNoisyMsa: opts.graph_noisy_msa = true; break;
+            case kGcRecoveryAuditOut: opts.recovery_audit_out = optarg; break;
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;

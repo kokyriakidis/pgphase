@@ -214,6 +214,9 @@ struct Options {
     // as NoisyCandHet. The graph arm never ran that pass, so the same label was
     // a dead end there -- 17 sites per 130 kb that the alignment arm recovers.
     bool graph_noisy_msa = false;
+    /// Path for the recovery audit TSV: one row per candidate the sub-solve
+    /// found inside a recovery window, with the merge's decisions about it.
+    std::string recovery_audit_out;
     bool link_earned_repeat_indels = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;
@@ -744,6 +747,16 @@ struct CandidateVariant {
     bool hp_gap_scorable = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
+    /// Discovered by the recovery sub-solve from the alignment and injected
+    /// into this chunk, carrying the allele depths and per-read alleles the
+    /// solve that saw the reads measured.
+    ///
+    /// Its haplotype consensus is deliberately NOT carried: hap_to_cons_alle is
+    /// expressed in the sub-solve's own haplotype labels, and the parent resets
+    /// reads to its own gauge, so pinning it asserts an arbitrary orientation
+    /// as fact. Measured on chr20:55,290,000-55,380,000: pinning dropped the
+    /// emitted records from 56 to 46 and collapsed the window to one site.
+    bool bam_injected = false;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
     // True when the variant's VCF POS falls inside the chunk's active region.

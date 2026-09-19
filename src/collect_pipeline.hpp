@@ -127,6 +127,39 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
 
 
 
+
+/// One candidate the recovery sub-solve found inside a recovery window, with
+/// every decision the merge made about it.
+///
+/// The merge translates keys, matches them against the parent, appends the new
+/// ones and synthesises per-site metadata -- and the writer skips any candidate
+/// whose metadata is missing, silently. Measured on chr20:55,336,460, where the
+/// sub-solve finds the two candidates carrying the window's only informative
+/// signal, both are merged into the chunk as NoisyCandHet, and both are dropped
+/// at emission because site_meta does not extend to their indices. This record
+/// makes each step observable, so completeness is checked rather than probed.
+struct RecoveredCandidate {
+    hts_pos_t pos = 0;
+    int type = 0;
+    int ref_len = 0;
+    std::string alt;
+    int category = 0;
+    hts_pos_t win_beg = 0;
+    hts_pos_t win_end = 0;
+    bool known_raw = false;          ///< parent holds this exact key
+    bool known_translated = false;   ///< parent holds it via its VCF form
+    bool inside_window = false;
+    bool category_admitted = false;
+    bool appended = false;           ///< reached the merged candidate table
+    bool meta_built = false;         ///< per-site metadata synthesised for it
+    size_t meta_alts = 0;
+    std::string meta_ref;
+};
+
+/// Append one TSV row per recovered candidate. Thread-safe.
+void write_recovery_audit(const std::string& path,
+                          const std::vector<RecoveredCandidate>& rows);
+
 } // namespace pgphase_collect
 
 /**

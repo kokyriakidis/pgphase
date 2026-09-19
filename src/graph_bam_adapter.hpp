@@ -57,6 +57,18 @@ struct GraphSiteMeta {
 // Output of build_graph_chunk: a PhasingChunk ready for k-means phasing,
 // plus graph-specific bookkeeping for VCF output and diagnostics.
 struct GraphChunkBuildResult {
+    /// Windows the in-chunk recovery solved, in reference coordinates.
+    ///
+    /// The parent chunk re-solves after the merge, and its consensus step takes
+    /// each haplotype's majority allele independently -- which collapses a
+    /// genuine heterozygote to one allele when both majorities land on the same
+    /// side. Measured at chr20:55,336,460, where the recovery injects the two
+    /// candidates carrying the window's only informative signal, both correctly
+    /// phased, and the re-solve returns hap_to_cons_alle (0,0) and (1,1) so the
+    /// writer skips both. allele_depths_call_het guards against exactly that,
+    /// and reads retry_windows to decide where it applies, so the parent needs
+    /// the same window list the sub-solve had.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> recovery_windows;
     PhasingChunk chunk;
     // Snarl site ID per candidate (parallel to chunk.candidates).
     std::vector<std::string> site_ids;

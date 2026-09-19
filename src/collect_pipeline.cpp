@@ -1085,6 +1085,28 @@ using AlleleByCand = std::map<CandKey, std::pair<int, int>>;  // -> (allele, alt
 
 }  // namespace
 
+void write_recovery_audit(const std::string& path,
+                          const std::vector<RecoveredCandidate>& rows) {
+    if (path.empty() || rows.empty()) return;
+    static std::mutex audit_mu;
+    std::lock_guard<std::mutex> lock(audit_mu);
+    const bool fresh = !std::ifstream(path).good();
+    std::ofstream out(path, std::ios::app);
+    if (!out) return;
+    if (fresh)
+        out << "POS\tTYPE\tREF_LEN\tALT\tCATEGORY\tWIN_BEG\tWIN_END\tKNOWN_RAW\t"
+               "KNOWN_TRANSLATED\tINSIDE_WINDOW\tCATEGORY_OK\tAPPENDED\tMETA_BUILT\t"
+               "META_REF\tMETA_ALTS\n";
+    for (const RecoveredCandidate& r : rows)
+        out << r.pos << '\t' << r.type << '\t' << r.ref_len << '\t'
+            << (r.alt.empty() ? "." : r.alt) << '\t' << r.category << '\t'
+            << r.win_beg << '\t' << r.win_end << '\t' << (r.known_raw ? 1 : 0) << '\t'
+            << (r.known_translated ? 1 : 0) << '\t' << (r.inside_window ? 1 : 0) << '\t'
+            << (r.category_admitted ? 1 : 0) << '\t' << (r.appended ? 1 : 0) << '\t'
+            << (r.meta_built ? 1 : 0) << '\t'
+            << (r.meta_ref.empty() ? "." : r.meta_ref) << '\t' << r.meta_alts << '\n';
+}
+
 size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
@@ -1149,6 +1171,9 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     for (const TargetedWindowGroup& group : groups)
         for (const auto& member : group.members)
             sub.retry_windows.emplace_back(member.first, member.second);
+    // The parent re-solves over the merged sites and collapses them unless it
+    // applies the same depth-based het test, which is scoped by this list.
+    graph_chunk.recovery_windows = sub.retry_windows;
     std::vector<PhasingChunk> discovered;
     discovered.reserve(regions.size());
     for (const RegionChunk& region : regions)
@@ -1189,6 +1214,11 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     }
 
     size_t adopted = 0;
+    // Every sub-solve candidate and what the merge decided about it, so a
+    // site that is found and then silently dropped is visible in output
+    // rather than only under a probe.
+    std::vector<RecoveredCandidate> audit;
+    std::map<CandKey, size_t> audit_of;
     std::map<CandKey, CandidateVariant> new_cands;
     std::map<std::string, AlleleByCand> observed;
     std::map<std::string, int> observed_mapq;
@@ -1202,6 +1232,21 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         };
         for (const CandidateVariant& cand : src.candidates) {
             const CandKey key = cand_key_of(cand);
+            RecoveredCandidate rec;
+            rec.pos = key.pos; rec.type = key.type; rec.ref_len = key.ref_len;
+            rec.alt = key.alt; rec.category = static_cast<int>(cand.counts.category);
+            rec.known_raw = parent_cand_index.count(key) != 0;
+            rec.known_translated = !rec.known_raw && parent_seq_index.count(key) != 0;
+            rec.inside_window = inside_window(key.pos);
+            rec.category_admitted = (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+            for (const auto& member : groups[gi].members)
+                if (key.pos > member.first && key.pos < member.second) {
+                    rec.win_beg = member.first; rec.win_end = member.second; break;
+                }
+            if (!opts.recovery_audit_out.empty() && audit_of.count(key) == 0) {
+                audit_of.emplace(key, audit.size());
+                audit.push_back(rec);
+            }
             if (parent_keys.count(key) != 0) {
                 // The parent may hold this locus as RepeatHetIndel, which the
                 // graph arm's noise filter assigns from the REFERENCE CONTEXT
@@ -1275,6 +1320,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             // deliverables; a read tagged with a phase set the VCF does not
             // describe is a cosmetic inconsistency.
             new_cands.emplace(key, cand);
+            { auto ai = audit_of.find(key);
+              if (ai != audit_of.end()) audit[ai->second].appended = true; }
         }
         for (size_t ri = 0; ri < src.reads.size(); ++ri) {
             const ReadVariantProfile& prof = src.read_var_profile[ri];
@@ -1364,6 +1411,9 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         // synthesized alt, orig index {0, 1}), so the two depths ARE the allele
         // depth vector.
         CandidateVariant merged_cand = cand;
+        // Injected as discovered: the counts and the consensus below are the
+        // sub-solve's own, and the flag keeps the parent from re-deriving them.
+        merged_cand.bam_injected = true;
         if (merged_cand.counts.alle_covs.size() < 2)
             merged_cand.counts.alle_covs = {merged_cand.counts.ref_cov,
                                             merged_cand.counts.alt_cov};
@@ -1554,9 +1604,23 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
 
     const size_t added = new_cands.size();
     chunk.candidates = std::move(merged_cands);
-    chunk.read_var_profile = std::move(merged_profiles);
+        chunk.read_var_profile = std::move(merged_profiles);
     graph_chunk.site_ids = std::move(merged_ids);
     graph_chunk.site_meta = std::move(merged_meta);
+    if (!opts.recovery_audit_out.empty()) {
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+            auto ai = audit_of.find(cand_key_of(chunk.candidates[ci]));
+            if (ai == audit_of.end()) continue;
+            RecoveredCandidate& r = audit[ai->second];
+            if (ci < graph_chunk.site_meta.size()) {
+                r.meta_built = !graph_chunk.site_meta[ci].ref.empty() &&
+                               !graph_chunk.site_meta[ci].alts.empty();
+                r.meta_ref = graph_chunk.site_meta[ci].ref;
+                r.meta_alts = graph_chunk.site_meta[ci].alts.size();
+            }
+        }
+        write_recovery_audit(opts.recovery_audit_out, audit);
+    }
     graph_chunk.site_allele_orig_idx = std::move(merged_orig);
 
     // Every read-indexed vector grows with the reads. Appending without this
