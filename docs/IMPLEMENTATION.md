@@ -36,10 +36,11 @@ the machinery it described now lives in `graph_bam_adapter.cpp` behind
 `collect-graph-variation`, and its old description is kept as history in
 `docs/phase_graph_implementation.md`. `collect-hybrid-variation` -- BAM calling
 with graph read augmentation -- was removed with its injection machinery once
-the graph arm plus recovery superseded it. The shipped path was checked across
-the removal on `chr20:1-10,000,000`, where the graph arm's phased VCF is
-byte-identical before and after; that is a 10 Mb slice, not the whole
-chromosome.
+the graph arm plus recovery superseded it. The shipped path was checked across the
+removal by building the pre-removal commit (`8b3e2ce`) in a worktree and
+running both arms over the WHOLE of chr20: the phased VCF is byte-identical
+before and after on the default arm (56,032 records) and on
+`--in-chunk-recovery` (61,869 records).
 
 `collect-bam-variation` is not a competitor to the graph arm: besides being the
 comparison baseline, it is the **engine the recovery runs**. A recovery window

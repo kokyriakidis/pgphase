@@ -426,3 +426,13 @@ sixth of the chromosome, and the doc now says so.
 
 The overstatement also reached 33e5bf6's commit message, which cannot be
 amended.
+
+### Follow-up: the whole-chromosome check was then actually run
+
+The scope correction above stood for two commits. The check it describes has
+since been performed properly -- pre-removal commit 8b3e2ce built in a git
+worktree, both arms run over the whole of chr20 -- and both are byte-identical
+across the removal (default 56,032 records, --in-chunk-recovery 61,869). The
+doc now states that result. The sequence is worth keeping: the claim was made
+before the evidence existed, narrowed to what had been measured, and only then
+earned.
