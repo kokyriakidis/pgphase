@@ -233,3 +233,43 @@ deletion is already gone by then.
 
 Default byte-identical over whole chr20. Unit 3/3, predicate 151/151,
 window 125/125.
+
+## Fixing step 1: resolve imported sites jointly, AFTER the solve
+
+The round that owns the imported sites resets reads to a fresh gauge, so
+nothing can be constrained into it. Three forms were measured on
+`chr20:55,290,000-55,380,000`:
+
+| form | window records | chr20 |
+|---|---:|---|
+| nothing (stitch alone) | 54 | 4.188% |
+| pin the imported consensus during the round | **46** | -- |
+| anchor the whole round | 56 | 6.160% |
+| **resolve jointly after the round** | **55** | **4.188%** |
+
+Pinning fails for a structural reason, not a tuning one: the round resets read
+labels, so a carried consensus is fixed in a gauge that no longer exists by the
+time it is consulted. Anchoring the round avoids that by not resetting, but it
+pins every site in the chunk and costs 4.188% -> 6.160%.
+
+`resolve_injected_consensus_jointly` runs after the round has converged and
+touches only imported sites, so by construction it cannot move a read label.
+For an imported site the solve COLLAPSED (`hap_to_cons_alle[1] == [2]`), it
+picks the orientation that maximises agreement with the labels the solve
+settled on -- `profile[1][0] + profile[2][1]` against
+`profile[1][1] + profile[2][0]` -- requiring at least 4 observations, a margin
+of 2 reads and a 60% majority. Sites the solve resolved heterozygous are left
+alone, and so are genuinely homozygous ones: an earlier version that forced an
+orientation on every imported site cost two records and split the window.
+
+**Result.** On the window: 54 -> 55 records, the insertion at 55,336,460 is
+emitted as `C>CGT 0|1` and joins `PS 55,331,014`, and the window becomes ONE
+8-site block instead of two. Whole chr20: **+483 emitted records (69,423 ->
+69,906) with read hamming unchanged at 4.188%** and VCF blocks 350 -> 351 --
+the neutrality is the point, since a post-pass that moved reads would be doing
+something it has no business doing. Default byte-identical.
+
+Step 2 remains open: the deletion half of the pair is still absent. The
+exemption for imported records in `drop_superseded_colocated_records` is in
+place and correct, but inert here -- the deletion disappears before that rule
+runs, and the probe that would localise it did not apply cleanly this session.

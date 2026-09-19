@@ -934,6 +934,45 @@ bool read_carries_phase_tags(const int mapq, const Options& opts) {
 /// INVERTED. The block linker is not at fault there and cannot be: it correctly
 /// starts a new phase set for a het with no supported link, but by then the
 /// k-means has already merged the components.
+/// Resolve an imported site's haplotype consensus JOINTLY, after the solve.
+///
+/// The round that owns these sites resets reads to a fresh gauge, so nothing
+/// can be pinned into it -- a carried consensus is fixed in a gauge that no
+/// longer exists, and pinning measured 54 -> 46 emitted records on
+/// chr20:55,290,000-55,380,000. Run afterwards instead, against the labels the
+/// solve settled on, and choose the orientation that maximises agreement
+/// rather than taking each haplotype's majority independently. Independent
+/// majorities are what turned the complementary pair at chr20:55,336,460 --
+/// (0,1) for the insertion and (1,0) for the deletion -- into (0,0) and (1,1),
+/// which the writer skips.
+///
+/// This cannot perturb the solve: it runs after convergence and touches only
+/// the consensus of sites the recovery imported.
+void resolve_injected_consensus_jointly(PhasingChunk& chunk) {
+    for (CandidateVariant& c : chunk.candidates) {
+        if (!c.bam_injected) continue;
+        if (c.hap_to_alle_profile[1].size() < 2 || c.hap_to_alle_profile[2].size() < 2)
+            continue;
+        // Only rescue a site the solve COLLAPSED. Where it produced a
+        // heterozygous call its answer stands, and a site that is genuinely
+        // homozygous must stay homozygous -- forcing an orientation on every
+        // imported site cost two records and split the window in two.
+        if (c.hap_to_cons_alle[1] != c.hap_to_cons_alle[2]) continue;
+        const int ref_alt = c.hap_to_alle_profile[1][0] + c.hap_to_alle_profile[2][1];
+        const int alt_ref = c.hap_to_alle_profile[1][1] + c.hap_to_alle_profile[2][0];
+        const int total = c.hap_to_alle_profile[1][0] + c.hap_to_alle_profile[1][1] +
+                          c.hap_to_alle_profile[2][0] + c.hap_to_alle_profile[2][1];
+        const int win = std::max(ref_alt, alt_ref);
+        const int lose = std::min(ref_alt, alt_ref);
+        // A split the reads actually support: both haplotypes observed, a
+        // margin of at least two reads, and a clear majority for the winning
+        // orientation. Anything weaker leaves the collapsed call alone.
+        if (total < 4 || win - lose < 2 || win * 5 < total * 3) continue;
+        c.hap_to_cons_alle[1] = ref_alt > alt_ref ? 0 : 1;
+        c.hap_to_cons_alle[2] = ref_alt > alt_ref ? 1 : 0;
+    }
+}
+
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
                                                    const Options& opts,
                                                    uint32_t flags,

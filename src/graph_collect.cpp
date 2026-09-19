@@ -745,6 +745,8 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);
+                            if (opts.stitch_recovered)
+                                resolve_injected_consensus_jointly(graph_chunks[offset].chunk);
                         }
                     }
                 }
@@ -978,6 +980,8 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);
+                            if (opts.stitch_recovered)
+                                resolve_injected_consensus_jointly(graph_chunks[offset].chunk);
                         }
                     }
                 }

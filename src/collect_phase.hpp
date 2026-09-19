@@ -135,6 +135,9 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 ///                 so this round refines that solution instead of resetting and
 ///                 re-solving. Off by default: the shipped second round discards
 ///                 the first one.
+/// Resolve imported sites' consensus jointly, after the solve has converged.
+void resolve_injected_consensus_jointly(PhasingChunk& chunk);
+
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Options& opts,
                                                   uint32_t flags, bool anchored = false);
 
