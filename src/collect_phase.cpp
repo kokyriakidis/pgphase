@@ -739,6 +739,14 @@ bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
     if (var.counts.allele_fraction < opts.min_af || var.counts.allele_fraction > opts.max_af)
         return false;
     if (opts.joint_het_orientation) return true;
+    // A site injected from the recovery sub-solve qualifies wherever it sits.
+    // It was discovered by a solve that read the alignment at this locus, and
+    // the parent's independent per-haplotype majorities are what collapse it:
+    // measured at chr20:55,336,460, a 32/17 insertion returns (0,0) and a 3/26
+    // deletion returns (1,1), so the writer drops both. Scoping by window
+    // instead admits every site in the window and cost 1.153% -> 2.067% read
+    // hamming chromosome-wide; the provenance flag is the narrower key.
+    if (var.bam_injected) return true;
     const hts_pos_t pos = var.key.sort_pos();
     for (const auto& [beg, end] : opts.retry_windows)
         if (pos >= beg && pos < end) return true;

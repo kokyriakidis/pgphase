@@ -682,16 +682,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // is scoped by them, and without it each haplotype takes its own
                             // majority allele and a genuine het collapses to one side.
                             Options solve_opts = opts;
-                            // Only under the experimental flag: carrying the
-                            // windows into the parent re-solve enables the
-                            // depth-based het escape there, and on whole chr20
-                            // that costs 1.153% -> 2.067% read hamming with
-                            // 339 -> 498 blocks. It is what lets the injected
-                            // insertion at 55,336,460 be emitted at all, so it
-                            // stays reachable for the work in progress.
-                            if (opts.graph_noisy_msa)
-                                solve_opts.retry_windows =
-                                    graph_chunks[offset].recovery_windows;
+                            // The depth-based het escape is keyed on the
+                            // candidate's own provenance now
+                            // (CandidateVariant::bam_injected), not on a window
+                            // list, so nothing needs to be carried here. Window
+                            // keying admitted every site in the window and cost
+                            // 1.153% -> 2.067% read hamming on the default path.
                             // Two rounds, as the alignment pipeline solves: the
                             // clean sites set the gauge, then the merged in-gap
                             // sites -- NOISY_CAND_HET, which the clean mask does
@@ -899,16 +895,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // is scoped by them, and without it each haplotype takes its own
                             // majority allele and a genuine het collapses to one side.
                             Options solve_opts = opts;
-                            // Only under the experimental flag: carrying the
-                            // windows into the parent re-solve enables the
-                            // depth-based het escape there, and on whole chr20
-                            // that costs 1.153% -> 2.067% read hamming with
-                            // 339 -> 498 blocks. It is what lets the injected
-                            // insertion at 55,336,460 be emitted at all, so it
-                            // stays reachable for the work in progress.
-                            if (opts.graph_noisy_msa)
-                                solve_opts.retry_windows =
-                                    graph_chunks[offset].recovery_windows;
+                            // The depth-based het escape is keyed on the
+                            // candidate's own provenance now
+                            // (CandidateVariant::bam_injected), not on a window
+                            // list, so nothing needs to be carried here. Window
+                            // keying admitted every site in the window and cost
+                            // 1.153% -> 2.067% read hamming on the default path.
                             // Two rounds, as the alignment pipeline solves: the
                             // clean sites set the gauge, then the merged in-gap
                             // sites -- NOISY_CAND_HET, which the clean mask does

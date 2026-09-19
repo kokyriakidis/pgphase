@@ -81,3 +81,50 @@ length, so every depth-based het test rejects it, while hiphase's record at the
 same locus splits 15/19 and is informative.
 
 Unit 3/3, predicate 151/151, window 125/125.
+
+## Do we need a redesign? One specific part, and the evidence says which
+
+The BAM sites ARE usable in the graph gap region, and nothing rejects them:
+discovery inside a recovery window is BAM-only by construction, 90 of 90
+appended candidates carry usable metadata, and all 90 round-trip. The problem
+is downstream of injection, and every patch applied to it has been measured:
+
+| what was tried | default path | flagged arm |
+|---|---|---|
+| baseline | **1.153%** (corrected 0.967%), 339 blocks | -- |
+| carry recovery windows into the parent re-solve | 2.067% (1.883%), 498 blocks | 4.205% |
+| key the escape on `bam_injected` provenance instead | **byte-identical** | 4.843%, 501 blocks |
+| pin the sub-solve's `hap_to_cons_alle` | -- | window records 56 -> 46 |
+| admit repeat indels by link purity (earlier) | 1.435% / 1.886% / 2.038% | -- |
+| stage 2 with a chunk-wide round 2 (earlier) | -- | 4.197% |
+
+Six different admission mechanisms, one shared failure: each lets the injected
+sites participate in a chunk-wide re-solve whose read labels are re-derived
+from scratch, and the solve gets worse rather than better.
+
+Provenance keying is kept because it is the narrowest key and leaves the
+default byte-identical; the window list is removed.
+
+### What the evidence actually points at
+
+The merge keeps the sub-solve's candidates and per-read alleles and THROWS AWAY
+its phase sets, then asks the parent to re-derive phase for those sites. That
+is the one structural choice all six failures share:
+
+- Pinning failed for a specific, diagnosable reason -- `hap_to_cons_alle` is
+  expressed in the SUB-SOLVE's haplotype labels while the parent resets reads
+  to its own gauge -- and nothing in the merge supplies the map between the two
+  gauges.
+- That map is exactly what the cross-chunk stitch already computes:
+  `select_stitch_orientation` votes with reads two blocks share and flips one.
+
+So the redesign that follows from the measurements is bounded: treat a
+recovery sub-solve's result as a BLOCK TO STITCH rather than as sites to
+re-solve. Keep its phase sets, orient them against the parent block by the
+shared-read vote, relabel, and do not re-run the parent k-means over them. That
+supplies the gauge pinning lacked, and it stops the injected sites perturbing
+every read's label, which is the mechanism behind all six regressions above.
+
+Not implemented. It should be measured on chr20:55,313,902-55,358,363, where
+hiphase spans one block at 100.0% over 66 reads and we place 20 of 46 wrong,
+against the default's 1.153% / 0.967% corrected.
