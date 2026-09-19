@@ -1220,11 +1220,43 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     std::vector<RecoveredCandidate> audit;
     std::map<CandKey, size_t> audit_of;
     std::map<CandKey, CandidateVariant> new_cands;
+    /// Per candidate: did its group's orientation vote decide, and did it flip.
+    std::map<CandKey, std::pair<bool, bool>> orient_of;
     std::map<std::string, AlleleByCand> observed;
     std::map<std::string, int> observed_mapq;
+    // Parent haplotype per read, for the orientation vote below. The parent
+    // chunk was solved before recovery ran, so these labels are the gauge every
+    // imported block has to be expressed in.
+    std::map<std::string, int> parent_hap;
+    if (opts.stitch_recovered && chunk.haps.size() == chunk.reads.size())
+        for (size_t ri = 0; ri < chunk.reads.size(); ++ri)
+            if (chunk.haps[ri] != 0) parent_hap.emplace(chunk.reads[ri].qname, chunk.haps[ri]);
+
     for (size_t gi = 0; gi < discovered.size(); ++gi) {
         const PhasingChunk& src = discovered[gi];
         if (src.read_var_profile.size() != src.reads.size()) continue;
+        // Orient this sub-solve against the parent on the reads they share --
+        // the same vote select_stitch_orientation runs between chunks. Without
+        // it a carried consensus is an arbitrary orientation asserted as fact,
+        // which is why pinning alone made things worse.
+        bool flip_group = false;
+        int vote_same = 0, vote_cross = 0;
+        if (opts.stitch_recovered && src.haps.size() == src.reads.size()) {
+            for (size_t ri = 0; ri < src.reads.size(); ++ri) {
+                if (src.haps[ri] == 0) continue;
+                auto ph = parent_hap.find(src.reads[ri].qname);
+                if (ph == parent_hap.end()) continue;
+                if (src.haps[ri] == ph->second) ++vote_same;
+                else ++vote_cross;
+            }
+            flip_group = vote_cross > vote_same;
+            if (getenv("PGPHASE_VOTE") != nullptr)
+                fprintf(stderr, "VOTE group=%zu same=%d cross=%d flip=%d shared=%d\n",
+                        gi, vote_same, vote_cross, (int)flip_group, vote_same + vote_cross);
+        }
+        const bool orient_ok = opts.stitch_recovered &&
+                               (vote_same + vote_cross) >= 2 &&
+                               vote_same != vote_cross;
         auto inside_window = [&](hts_pos_t pos) {
             for (const auto& member : groups[gi].members)
                 if (pos > member.first && pos < member.second) return true;
@@ -1320,6 +1352,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             // deliverables; a read tagged with a phase set the VCF does not
             // describe is a cosmetic inconsistency.
             new_cands.emplace(key, cand);
+            orient_of.emplace(key, std::make_pair(orient_ok, flip_group));
             { auto ai = audit_of.find(key);
               if (ai != audit_of.end()) audit[ai->second].appended = true; }
         }
@@ -1414,6 +1447,23 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         // Injected as discovered: the counts and the consensus below are the
         // sub-solve's own, and the flag keeps the parent from re-deriving them.
         merged_cand.bam_injected = true;
+        // Carry the sub-solve's consensus THROUGH the orientation, or drop it
+        // and let the parent derive one. A consensus without a vote behind it
+        // is worse than none.
+        const auto oit = orient_of.find(slot.key);
+        const bool o_ok = oit != orient_of.end() && oit->second.first;
+        const bool o_flip = oit != orient_of.end() && oit->second.second;
+        // Measured, and it did not work: carrying the sub-solve's per-site
+        // consensus hurts even when the orientation vote is decisive and says
+        // no flip is needed (same=157, cross=14 over the shared reads of
+        // chr20:55,290,000-55,380,000), with emitted records falling 54 -> 46.
+        // The consensus is defined against the sub-solve's own read set, so as
+        // a fixed constraint in the parent it contradicts reads the sub-solve
+        // never saw. Only the orientation itself is applied.
+        if (o_ok && o_flip) {
+            std::swap(merged_cand.hap_to_cons_alle[1], merged_cand.hap_to_cons_alle[2]);
+            std::swap(merged_cand.hap_alt, merged_cand.hap_ref);
+        }
         if (merged_cand.counts.alle_covs.size() < 2)
             merged_cand.counts.alle_covs = {merged_cand.counts.ref_cov,
                                             merged_cand.counts.alt_cov};

@@ -484,3 +484,15 @@ Worth keeping: the diagnosis of 29,309,711 that exposed this. Every one of the
 no_reads_in_chunk -- with the high_af ones showing REF_COV=0 against ALT_COV
 19-20. The graph channel sees one haplotype's path there. That is not a
 stitching defect and no recovery change addresses it.
+
+## 2026-09-19 -- 7a77ed1 credited an emission to the wrong mechanism
+
+The commit message for 7a77ed1 says provenance keying has the "same effect
+where it matters (the injected insertion at chr20:55,336,460 is emitted; window
+records 54 -> 56)". That measurement was taken while the window list was STILL
+being carried into the parent re-solve, so both mechanisms were active. With
+the window list removed -- which the same commit does -- the flagged arm emits
+54 records on that window and the insertion is NOT emitted. Provenance keying
+is the narrower key and leaves the default byte-identical, which is why it is
+kept, but it does not by itself recover that site. The commit message cannot be
+amended; recorded here and in the evaluation.

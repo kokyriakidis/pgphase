@@ -128,3 +128,49 @@ every read's label, which is the mechanism behind all six regressions above.
 Not implemented. It should be measured on chr20:55,313,902-55,358,363, where
 hiphase spans one block at 100.0% over 66 reads and we place 20 of 46 wrong,
 against the default's 1.153% / 0.967% corrected.
+
+## The stitch design, implemented and measured
+
+`--stitch-recovered` (off by default) does what the previous section proposed:
+
+1. **Orient** each recovery sub-solve against the parent on the reads they
+   share -- the vote `select_stitch_orientation` runs between chunks. On
+   `chr20:55,290,000-55,380,000` it is decisive: **same 157, cross 14, no flip**
+   over 171 shared reads, so the sub-solve's gauge already matched the parent's.
+2. **Import as a block**: the parent keeps the read labels it already has and
+   only incorporates the imported sites (`anchored`), instead of re-solving
+   from scratch.
+
+### Whole chr20
+
+| arm | tagged | read blk | disc | hamming | corrected | VCF blk |
+|---|---:|---:|---:|---:|---:|---:|
+| default | 219,055 | 326 | 2,526 | **1.153%** | **0.967%** | 339 |
+| `--graph-noisy-msa` | 225,718 | 369 | 10,931 | 4.843% | 4.691% | 501 |
+| `--graph-noisy-msa --stitch-recovered` | 225,645 | 336 | 9,451 | **4.188%** | 4.043% | **350** |
+
+The stitch import is the best of every recovery-import variant tried: it cuts
+the flagged arm's misplaced reads by 1,480 and takes VCF blocks from 501 back
+to 350, almost the default's 339 -- so importing rather than re-solving does
+repair the fragmentation the re-solve caused. It does not make the arm usable:
+4.188% against the default's 1.153%. The flag stays off and the default path is
+byte-identical over whole chr20.
+
+### What the measurements refuted
+
+- **Gauge mismatch was NOT the reason pinning failed.** The vote says the two
+  gauges already agree (157 vs 14, no flip), and carrying the sub-solve's
+  per-site consensus still cost 8 emitted records on the window (54 -> 46). A
+  consensus is defined against the read set it was derived from; as a fixed
+  constraint in the parent it contradicts reads the sub-solve never saw. Only
+  the orientation is applied now, never the consensus.
+- **Anchored incorporation alone is inert** on the window (54 records, same
+  block structure as the flag alone); its value is chromosome-wide, in the
+  block count.
+
+The target window `chr20:55,313,902-55,358,363` is still not closed: the
+insertion at 55,336,460 is not emitted by any arm that does not also carry the
+recovery windows into the parent re-solve, and that costs 1.153% -> 2.067% on
+the default path. What blocks it is representation, not import -- our biallelic
+deletion record splits 3 ref / 26 alt in a GT tract where hiphase's record at
+the same locus splits 15/19.

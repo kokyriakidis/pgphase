@@ -961,12 +961,14 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     // gauge; preserving read labels alone anchors nothing, because Phase 3 below
     // recomputes every read's haplotype from the consensus.
     std::vector<char> pinned;
+    bool any_pinned = false;
     if (anchored) {
         pinned.assign(chunk.candidates.size(), 0);
         for (int vi : valid_var_idx) {
             const auto& cons = chunk.candidates[vi].hap_to_cons_alle;
             if (cons[1] != -1 || cons[2] != -1) pinned[static_cast<size_t>(vi)] = 1;
         }
+        any_pinned = true;
     } else {
         chunk.haps.assign(n_reads, 0);
         chunk.phase_sets.assign(n_reads, -1);
@@ -1015,7 +1017,7 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     for (int iter = 0; iter < 10; ++iter) {
         const int c1 = iter_update_var_hap_cons_phase_set(chunk, valid_var_idx, opts);
         const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags, opts,
-                                        anchored ? &pinned : nullptr);
+                                        any_pinned && !pinned.empty() ? &pinned : nullptr);
         if (c1 == 0 && c2 == 0) break;
     }
 

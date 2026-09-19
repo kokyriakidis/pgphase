@@ -217,6 +217,17 @@ struct Options {
     /// Path for the recovery audit TSV: one row per candidate the sub-solve
     /// found inside a recovery window, with the merge's decisions about it.
     std::string recovery_audit_out;
+    /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
+    /// sites for the parent to re-solve.
+    ///
+    /// The sub-solve already phased its window; the merge threw that away and
+    /// asked the parent to re-derive phase for exactly the loci the parent was
+    /// worst at. Six admission mechanisms were measured on that arrangement and
+    /// all degraded the solve. This orients the sub-solve's haplotype labels
+    /// against the parent's with the vote the cross-chunk stitch already uses,
+    /// carries its per-site consensus through that orientation, and leaves the
+    /// parent's own labels alone.
+    bool stitch_recovered = false;
     bool link_earned_repeat_indels = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;

@@ -710,8 +710,14 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // pin to the recovered intervals does NOT help (same 840),
                             // because the parity that has to change is the chunk's,
                             // not the gap's.
+                            // Block import: the parent keeps the read labels it
+                            // already has and only incorporates the imported
+                            // sites. Re-solving from scratch is what every
+                            // earlier admission mechanism did, and all of them
+                            // degraded the result.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean);
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean,
+                                opts.stitch_recovered);
 
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
@@ -923,8 +929,14 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // pin to the recovered intervals does NOT help (same 840),
                             // because the parity that has to change is the chunk's,
                             // not the gap's.
+                            // Block import: the parent keeps the read labels it
+                            // already has and only incorporates the imported
+                            // sites. Re-solving from scratch is what every
+                            // earlier admission mechanism did, and all of them
+                            // degraded the result.
                             assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean);
+                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean,
+                                opts.stitch_recovered);
 
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
@@ -1348,6 +1360,9 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --graph-noisy-msa         Run the alignment pipeline's noisy-region MSA\n"
+        << "      --stitch-recovered        Import a recovery sub-solve as a block: orient it\n"
+        << "                                against the parent on shared reads and keep its\n"
+        << "                                per-site consensus instead of re-solving\n"
         << "      --recovery-audit-out FILE One row per candidate the recovery sub-solve\n"
         << "                                found, and what the merge did with it\n"
         << "                                over repeat-context loci (stage 2)\n"
@@ -1449,6 +1464,7 @@ enum GraphCollectOption {
     kGcLinkEarnedRepeatIndels,
     kGcGraphNoisyMsa,
     kGcRecoveryAuditOut,
+    kGcStitchRecovered,
     kGcRef,
     kGcSites,
     kGcPgbamFile,
@@ -1504,6 +1520,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
         {"graph-noisy-msa", no_argument, nullptr, kGcGraphNoisyMsa},
         {"recovery-audit-out", required_argument, nullptr, kGcRecoveryAuditOut},
+        {"stitch-recovered", no_argument, nullptr, kGcStitchRecovered},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1569,6 +1586,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
             case kGcGraphNoisyMsa: opts.graph_noisy_msa = true; break;
             case kGcRecoveryAuditOut: opts.recovery_audit_out = optarg; break;
+            case kGcStitchRecovered: opts.stitch_recovered = true; break;
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
