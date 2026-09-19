@@ -839,15 +839,11 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     // The two arms that exist. Adding a third means adding its rows to the
     // expectations file; a window with no row for an arm fails loudly rather
     // than being skipped, so the file cannot silently fall behind the panel.
+    // One arm. Recovery is not a mode any more: it runs inside every chunk's
+    // own first solve, so there is nothing to switch on and nothing to compare
+    // against but the competitor and the committed expectations.
     const std::vector<std::pair<std::string, std::string>> arms = {
-        // The catalog drives the first pass; the BAM is consulted only to recover
-        // what it could not phase. The two arms are the two recovery PLACEMENTS,
-        // which is the live design choice on this pipeline:
-        //   default  -- post-hoc, a sub-solve grafted on after the pass
-        //   inchunk  -- merged into the chunk before the stitch
-        // Both run the shipped defaults otherwise (stage 2 anchored).
-        {"default", ""},
-        {"inchunk", "--in-chunk-recovery"},
+        {"graph", ""},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -902,15 +898,11 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
         bool switched = false;
     };
     std::map<std::string, Totals> totals;
+    // One arm. Recovery is not a mode any more: it runs inside every chunk's
+    // own first solve, so there is nothing to switch on and nothing to compare
+    // against but the competitor and the committed expectations.
     const std::vector<std::pair<std::string, std::string>> arms = {
-        // The catalog drives the first pass; the BAM is consulted only to recover
-        // what it could not phase. The two arms are the two recovery PLACEMENTS,
-        // which is the live design choice on this pipeline:
-        //   default  -- post-hoc, a sub-solve grafted on after the pass
-        //   inchunk  -- merged into the chunk before the stitch
-        // Both run the shipped defaults otherwise (stage 2 anchored).
-        {"default", ""},
-        {"inchunk", "--in-chunk-recovery"},
+        {"graph", ""},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {

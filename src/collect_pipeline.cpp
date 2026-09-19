@@ -1408,7 +1408,7 @@ using AlleleByCand = std::map<CandKey, std::pair<int, int>>;  // -> (allele, alt
 size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
-                                      const char* contig_name) {
+                                       const char* contig_name) {
     PhasingChunk& chunk = graph_chunk.chunk;
     if (chunk.candidates.empty() || chunk.reads.empty()) return 0;
 
@@ -1444,6 +1444,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     std::vector<RegionChunk> regions;
     regions.reserve(groups.size());
     for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
+
 
     const Options sub = targeted_solve_options(opts);
     std::vector<PhasingChunk> discovered;

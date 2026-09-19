@@ -40,7 +40,7 @@ the graph arm plus recovery superseded it. The shipped path was checked across t
 removal by building the pre-removal commit (`8b3e2ce`) in a worktree and
 running both arms over the WHOLE of chr20: the phased VCF is byte-identical
 before and after on the default arm (56,032 records) and on
-`--in-chunk-recovery` (61,869 records).
+in-chunk recovery (61,869 records).
 
 `collect-bam-variation` is not a competitor to the graph arm: besides being the
 comparison baseline, it is the **engine the recovery runs**. A recovery window
@@ -74,7 +74,7 @@ holding its own FAI handle:
 | 2 | `build_graph_chunk` | the catalog's sites become the candidate table and the GAF rows become read profiles; allele identity is a **graph-walk identity**, not a realignment decision |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
-| 5 | **recovery, when `--in-chunk-recovery`** | `retry_unphased_windows_in_place` merges the alignment's in-gap candidates into this chunk, then both k-means rounds re-run over the union (below) |
+| 5 | **recovery, when in-chunk recovery** | `retry_unphased_windows_in_place` merges the alignment's in-gap candidates into this chunk, then both k-means rounds re-run over the union (below) |
 
 Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
 straddle each boundary, `stitch_chunk_haps` joins adjacent chunks on those shared
@@ -113,6 +113,28 @@ Each window is treated twice, in order:
    blocks instead of a coin flip. Sites the parent holds unphased **adopt** the
    sub-solve's phasing; sites it never discovered are **imported**.
 
+### Recovery has one placement
+
+Recovery is not a mode. Inside each chunk, after the noise filter and the first
+clean solve, `retry_unphased_windows_in_place` finds the windows the solve left
+unphased plus the seams between its blocks, re-solves them from the alignment,
+and merges what it finds into the chunk. Both k-means rounds then run again
+over the union, and NEITHER is anchored: the chunk is solved once, with every
+site it will ever have.
+
+Anchoring those rounds was measured and removed. On
+chr20:42,500,000-43,000,000, where recovery merges 6 sites across 3 windows,
+pinning the pre-merge consensus left 840 of 2,008 reads misplaced inside a
+single block; unanchored places all 2,008 correctly. Restricting the pin to the
+recovered intervals gives the same 840, because the parity that has to change
+is the chunk's, not the gap's. `Options::anchored_stage2` still governs the
+noisy-region round in the shared alignment machinery
+(`collect_phase_noisy.cpp`), which is a different round and is unaffected.
+
+Whole chr20 against the post-hoc pass this replaced: 219,059 tagged reads
+against 203,751, 2,543 misplaced against 2,732, read hamming 1.161% against
+1.341%, 62,485 records against 56,032.
+
 ### How the arms relate
 
 `collect-bam-variation` and `collect-graph-variation` are separate tools, not
@@ -123,8 +145,8 @@ the solver its recovery calls into.
 ### What is not a mode
 
 The graph arm has exactly two switches that change behaviour rather than a
-threshold or an output path: `--in-chunk-recovery` (where recovery runs) and
-`--no-anchored-stage2` (whether stage 2 refines or resets). Everything else is
+threshold or an output path: in-chunk recovery (where recovery runs) and
+the unanchored recovery rounds (whether stage 2 refines or resets). Everything else is
 a threshold or a path.
 
 Removed as modes, and not coming back: `--recover-gaps`,
@@ -141,12 +163,12 @@ join, and where that recovery runs is a real choice:
 | | where | flag |
 |---|---|---|
 | post-hoc (default) | after the pass, as its own sub-solve grafted onto the parent blocks | -- |
-| in-chunk | inside each chunk, before the stitch | `--in-chunk-recovery` |
+| in-chunk | inside each chunk, before the stitch | in-chunk recovery |
 
 In-chunk recovery merges the alignment's in-gap candidates into the LIVE chunk
 and re-runs both solve rounds over the union, so the recovered sites are ordinary
 members of the chunk's own solve rather than a graft whose internal parity
-nothing checks. `--no-anchored-stage2` makes stage 2 reset and re-solve over the
+nothing checks. the unanchored recovery rounds makes stage 2 reset and re-solve over the
 wider site set instead of refining stage 1; on this path the resetting form
 measures better, which is the reverse of the alignment arm and is not explained.
 
@@ -155,7 +177,7 @@ chr20 at `-t 16`, scored against read-level parental truth:
 | | wall | tagged | read blocks | discordant | read hamming | VCF records | phased | hom |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | post-hoc | -- | 203,751 | 281 | 2,732 | 1.341% | 56,032 | 55,907 | 125 |
-| in-chunk, `--no-anchored-stage2` | 114 s | 219,059 | 323 | **2,543** | **1.161%** | 61,789 | **61,650** | 139 |
+| in-chunk, the unanchored recovery rounds | 114 s | 219,059 | 323 | **2,543** | **1.161%** | 61,789 | **61,650** | 139 |
 
 #### What the merge must preserve
 
@@ -1572,7 +1594,7 @@ exactly one call site passes it -- `run_noisy_pass`
 the graph arm) take the parameter's own default of `false`, correctly: a first
 round has nothing to anchor to.
 
-`--no-anchored-stage2` restores the resetting form. It is registered on
+the unanchored recovery rounds restores the resetting form. It is registered on
 `collect-graph-variation` only (`graph_collect.cpp:1340`); the alignment arm has
 no switch and always runs anchored. Which form phases better is
 not uniform across the arms -- see Part I and the dated records in

@@ -540,11 +540,27 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // not admit -- join it. Anchored, so the noisy sites
                             // can extend a block without re-deciding the parity
                             // the catalog's clean sites already established.
+                            // The merged sites belong to the FIRST solve, not to a
+                            // correction applied after one. Both rounds run again
+                            // over the union and neither is anchored: the chunk is
+                            // solved once, with every site it will ever have.
+                            //
+                            // Anchoring here was measured and removed. On
+                            // chr20:42,500,000-43,000,000, where recovery merges 6
+                            // sites across 3 windows, pinning the pre-merge
+                            // consensus left 840 of 2,008 reads misplaced inside a
+                            // single block -- a switch, not an inversion: the pinned
+                            // flank keeps one parity while the merged sites decide
+                            // the other. Re-running both rounds unanchored places
+                            // every read correctly (0 misplaced). Restricting the
+                            // pin to the recovered intervals does NOT help (same 840),
+                            // because the parity that has to change is the chunk's,
+                            // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineClean);
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
-                                opts.anchored_stage2);
+                                false);
                         }
                     }
                 }
@@ -701,11 +717,27 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // not admit -- join it. Anchored, so the noisy sites
                             // can extend a block without re-deciding the parity
                             // the catalog's clean sites already established.
+                            // The merged sites belong to the FIRST solve, not to a
+                            // correction applied after one. Both rounds run again
+                            // over the union and neither is anchored: the chunk is
+                            // solved once, with every site it will ever have.
+                            //
+                            // Anchoring here was measured and removed. On
+                            // chr20:42,500,000-43,000,000, where recovery merges 6
+                            // sites across 3 windows, pinning the pre-merge
+                            // consensus left 840 of 2,008 reads misplaced inside a
+                            // single block -- a switch, not an inversion: the pinned
+                            // flank keeps one parity while the merged sites decide
+                            // the other. Re-running both rounds unanchored places
+                            // every read correctly (0 misplaced). Restricting the
+                            // pin to the recovered intervals does NOT help (same 840),
+                            // because the parity that has to change is the chunk's,
+                            // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineClean);
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
-                                opts.anchored_stage2);
+                                false);
                         }
                     }
                 }
@@ -1144,9 +1176,7 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
-        << "      --in-chunk-recovery       Recover inside each chunk before stitching, instead\n"
         << "                                of grafting a sub-solve on afterwards\n"
-        << "      --no-anchored-stage2      Let stage 2 reset and re-solve over the wider site\n"
         << "                                set, instead of refining stage 1 (pre-2026-09-18)\n"
         << "                                 sites could not phase: each unphased window and\n"
         << "                                 each seam between blocks is re-solved from the\n"
@@ -1359,8 +1389,9 @@ int collect_graph_variation(int argc, char* argv[]) {
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
-            case kGcInChunkRecovery: opts.in_pass_recovery = true; break;
-            case kGcAnchoredStage2: opts.anchored_stage2 = false; break;
+            case kGcInChunkRecovery: break;  // retired: recovery is always in-chunk
+            case kGcAnchoredStage2: break;  // retired: the recovery rounds never anchor
+
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;

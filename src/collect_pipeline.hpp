@@ -123,7 +123,7 @@ using TargetedSolveCache =
 size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
-                                      const char* contig_name);
+                                       const char* contig_name);
 
 void prewarm_targeted_solves(
         const std::vector<std::pair<PhasingChunk*, const char*>>& chunks,

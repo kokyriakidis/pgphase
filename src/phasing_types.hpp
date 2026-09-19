@@ -361,7 +361,11 @@ struct Options {
     /// its phase sets onto the parent's. The second pass is what needs a merge,
     /// an orientation vote and a phase-set relabel; none of that exists when the
     /// sites join the chunk before it is solved.
-    bool in_pass_recovery = false;
+    /// Recovery runs inside the chunk's own first solve, which is the only
+    /// placement there is. The post-hoc pass it replaced re-solved windows
+    /// after the stitch and then grafted the answer back with a vote and a
+    /// relabel; merging before the chunk is solved removes that layer.
+    bool in_pass_recovery = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.
