@@ -1214,7 +1214,19 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             }
         }
     }
-    if (new_cands.empty()) return 0;
+    // A seam whose two sides are already called has nothing NEW between them --
+    // and bailing here threw away the alignment's read evidence for the sites
+    // that are already there, which is the evidence the linker was short of.
+    // Measured at the 505 bp break chr20:26,624,496-26,625,001: the chunk holds
+    // 13 observations at the left site and NONE at the right, while the BAM has
+    // 114 and 100 reads across them. The transfer below already merges an
+    // alignment allele onto a candidate the parent owns and adds reads the
+    // parent never had; only this early return kept it from running.
+    size_t refreshed = 0;
+    for (const auto& per_read : observed)
+        for (const auto& obs : per_read.second)
+            if (parent_keys.count(obs.first) != 0) ++refreshed;
+    if (new_cands.empty() && refreshed == 0) return 0;
 
     // Re-index. The candidates must stay position-sorted: the solve's outward
     // sweep walks them in INDEX order, so appending in-gap sites at the tail
@@ -1548,7 +1560,10 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     if (opts.verbose > 0)
         fprintf(stderr, "[in-pass] %zu window(s) -> %zu region(s), merged %zu alignment site(s)\n",
                 windows.size(), regions.size(), added);
-    return added;
+    // Refreshed evidence on a site the parent already owned is as much a reason
+    // for the caller to re-solve as a new site: it is what lets the linker see
+    // the alignment's reads at a seam whose two sides were already called.
+    return added + (refreshed > 0 ? 1 : 0);
 }
 
 
