@@ -81,7 +81,17 @@ static CandidateTable graph_chunks_to_candidate_table(
             // phased, not a variant call set.
             if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty()) {
                 const auto& h = mcand.hap_to_cons_alle;
-                if (h.size() < 3 || h[1] == -1 || h[2] == -1 || h[1] == h[2]) continue;
+                const int n_alleles = static_cast<int>(mcand.counts.alle_covs.size());
+                // Both haplotype consensus alleles must be VALID INDICES for this
+                // site's allele set as merged, and they must differ. A merged site
+                // is collapsed to biallelic (alle_covs = {ref_cov, alt_cov}), so a
+                // consensus index of 2 survives from a wider alignment
+                // representation and has no allele here; such sites were emitted
+                // 1|1 -- 186 of them on chr20, carrying hap_to_cons_alle (2,1) or
+                // (1,2).
+                if (h.size() < 3 || h[1] < 0 || h[2] < 0 || h[1] >= n_alleles ||
+                    h[2] >= n_alleles || h[1] == h[2])
+                    continue;
             }
 
             auto tid_it = contig_to_tid.find(meta.chrom);
@@ -236,6 +246,25 @@ static CandidateTable graph_chunks_to_candidate_table(
                 }
                 cand.alt_ref_base = 4;  // use FASTA anchor (BAM-path default)
                 cand.lcd_make_variants_region_pass = true;
+
+                // A site merged in by the in-chunk recovery is written only when
+                // this writer's own classification calls it a het. Two reasons.
+                // The reclassification above sets CleanHom whenever ref_cov == 0
+                // (is_hom_alt, line ~196), and an alignment candidate merged from
+                // a gap often carries ref_cov = 0 -- measured, ref_cov 0 against
+                // alt_cov 57 -- so the depth synthesis manufactures hom calls:
+                // 408 extra 1|1 records on chr20 against 125 in the default. And
+                // a hom site carries no phase information in any case, so a VCF
+                // whose contract is the catalog's sites plus what recovery phased
+                // has no reason to gain hom calls that appear only inside
+                // recovery windows.
+                if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty()) {
+                    const VariantCategory c = cand.counts.category;
+                    if (c != VariantCategory::CleanHetSnp &&
+                        c != VariantCategory::CleanHetIndel &&
+                        c != VariantCategory::NoisyCandHet)
+                        continue;
+                }
 
                 result.push_back(std::move(cand));
             }

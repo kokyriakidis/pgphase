@@ -233,3 +233,52 @@ predicate 130/130.
 
 Still open: 4 read-only blocks, and 547 hom records against the default's 125 --
 422 more than expected once merged hom sites are excluded, which is unexplained.
+
+## Third round: the two items left open
+
+**The 422 extra hom records were manufactured by the depth synthesis.** The
+writer reclassifies every record from depth (`graph_collect.cpp:196`):
+`is_hom_alt = (ref_cov == 0 && alt_cov >= min_alt_depth)` -> `CleanHom` -> `1|1`.
+An alignment candidate merged from a gap frequently carries `ref_cov = 0`
+(measured: `ref_cov 0, alt_cov 57`), so filling `alle_covs = {ref_cov, alt_cov}`
+made the writer call it homozygous. Suppressing merged sites entirely confirmed
+the attribution -- hom fell 547 -> 139, against 125 for the default -- after two
+wrong theories had been tested and discarded: that the sites failed an allele
+index check (they pass; the GT construction at `graph_collect.cpp:240-245`
+handles an out-of-range consensus index correctly), and that the records came
+from catalog sites sharing a position.
+
+A merged site is now written only when the writer's own classification calls it
+a het. chr20: records 62,197 -> 61,789, hom **547 -> 139**, phased records
+(61,650), tagged reads, blocks and read accuracy all unchanged.
+
+**The read-only phase sets are accepted, with the cost of removing them
+measured.** All 17 candidates behind them are merged sites, 16 of them LOW_COV or
+LOW_AF -- sites the writer never publishes, which still take a phase set and tag
+reads. Excluding them at admission (predicting the writer's own depth rule, since
+the category carried at merge time is not the one the writer uses) does remove
+them, and costs more than it buys:
+
+| | read-only blocks | VCF blocks | discordant | read hamming |
+|---|---:|---:|---:|---:|
+| merged sites admitted | 4 | 324 | 2,543 | 1.161% |
+| unpublishable ones withheld | 1 | 335 | 2,557 | 1.168% |
+
+Three fewer read-only phase sets for 11 blocks of contiguity and 14 more
+misplaced reads. Contiguity and accuracy are the deliverables and a read tagged
+with a phase set no record describes is a cosmetic inconsistency, so the sites
+stay in and the four blocks stay. The filter is left in the source as a comment
+recording the measurement.
+
+## State at the end of the audit, chr20 at -t 16
+
+| | tagged | read blk | discordant | read hamming | VCF records | phased | blocks | hom |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| post-hoc | 203,751 | 281 | 2,732 | 1.341% | 56,032 | 55,907 | 285 | 125 |
+| in-chunk | 219,059 | 323 | **2,543** | **1.161%** | 61,789 | **61,650** | 324 | 139 |
+
+Six bugs found and fixed across three rounds (unclamped regions, missing
+reference source, wrong allele form, absent allele depths, unscoped emission,
+manufactured hom calls), plus one introduced and caught (metadata desync). One
+item accepted with its cost measured (4 read-only phase sets). Default path
+byte-identical with the flag off; unit 4/4, window 66/66, predicate 130/130.

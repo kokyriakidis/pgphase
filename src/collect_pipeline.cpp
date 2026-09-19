@@ -1502,6 +1502,21 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             // Admit what the solve itself would admit; the emitter's own
             // category gate runs later and independently.
             if ((cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            // ... but not a category the writer will never publish. A LOW_COV or
+            // LOW_AF merged site still takes part in the solve, receives a phase
+            // set and tags reads, while the emitter drops it -- which leaves
+            // reads carrying a phase set no record describes. Measured on chr20:
+            // all 17 candidates behind the five such phase sets were merged
+            // sites, 16 of them LOW_COV or LOW_AF.
+            // Deliberately NOT filtered here on what the writer will publish. A
+            // site the writer calls LOW_COV or LOW_AF still carries evidence the
+            // solve uses, and withholding those costs more than the tidiness it
+            // buys: measured on chr20, excluding them removes 3 of the 4 phase
+            // sets whose reads no record describes, and costs 11 blocks of
+            // contiguity (324 -> 335) and 14 more misplaced reads (2,543 ->
+            // 2,557, hamming 1.161% -> 1.168%). Contiguity and accuracy are the
+            // deliverables; a read tagged with a phase set the VCF does not
+            // describe is a cosmetic inconsistency.
             new_cands.emplace(key, cand);
         }
         for (size_t ri = 0; ri < src.reads.size(); ++ri) {
