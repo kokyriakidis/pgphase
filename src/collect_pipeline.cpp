@@ -1100,6 +1100,15 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
         chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
     for (const auto& seam : collect_block_seams(chunk)) windows.push_back(seam);
+    // Repeat-context loci the graph arm demoted. The noisy-region MSA cannot
+    // run on the graph chunk itself -- collect_noisy_reg_reads skips every read
+    // with no digars (collect_phase_noisy.cpp:1042) and graph-only reads have
+    // none -- but the sub-solve re-reads the BAM through process_chunk, which
+    // builds them, so routing the seeded regions through here gives those loci
+    // the same stage 2 the alignment arm gives them.
+    if (opts.graph_noisy_msa)
+        for (const Interval& iv : chunk.noisy_regions)
+            windows.emplace_back(iv.beg, iv.end);
     if (windows.empty()) return 0;
 
     const std::vector<hts_pos_t> parent_sites = parent_phased_positions(chunk);
@@ -1148,7 +1157,9 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     std::set<CandKey> parent_keys;
     std::map<CandKey, size_t> parent_seq_index;
     const bool have_meta = graph_chunk.site_meta.size() == chunk.candidates.size();
+    std::map<CandKey, size_t> parent_cand_index;
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        parent_cand_index.emplace(cand_key_of(chunk.candidates[ci]), ci);
         parent_keys.insert(cand_key_of(chunk.candidates[ci]));
         if (!have_meta) continue;
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
@@ -1164,6 +1175,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         }
     }
 
+    size_t adopted = 0;
     std::map<CandKey, CandidateVariant> new_cands;
     std::map<std::string, AlleleByCand> observed;
     std::map<std::string, int> observed_mapq;
@@ -1177,7 +1189,59 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         };
         for (const CandidateVariant& cand : src.candidates) {
             const CandKey key = cand_key_of(cand);
-            if (parent_keys.count(key) != 0) continue;
+            if (parent_keys.count(key) != 0) {
+                // The parent may hold this locus as RepeatHetIndel, which the
+                // graph arm's noise filter assigns from the REFERENCE CONTEXT
+                // alone -- it asks whether the locus is a homopolymer or STR,
+                // never whether the reads separate there. The sub-solve just
+                // answered that question with the reads: it ran the alignment
+                // pipeline over this window, including the noisy-region MSA
+                // that reconstructs exactly these loci (the pass the graph
+                // chunk cannot run itself, because its reads carry no digars).
+                // Where that verdict is usable, it supersedes the context one.
+                if (opts.graph_noisy_msa) {
+                    // Two ways a parent candidate answers to this key. A
+                    // graph-derived candidate stores the catalog's ALLELE WALK
+                    // in key.alt (">115859261>115859263"), not a sequence, so
+                    // the raw key never matches what the alignment discovers;
+                    // it matches only through the VCF form in site_meta, which
+                    // parent_seq_index records. Looking only at the raw keys
+                    // silently found nothing.
+                    size_t pidx = chunk.candidates.size();
+                    const auto raw_it = parent_cand_index.find(key);
+                    if (raw_it != parent_cand_index.end()) {
+                        pidx = raw_it->second;
+                    } else {
+                        const auto seq_it = parent_seq_index.find(key);
+                        if (seq_it != parent_seq_index.end()) pidx = seq_it->second;
+                    }
+                    if (pidx < chunk.candidates.size()) {
+                        CandidateVariant& parent_cand = chunk.candidates[pidx];
+                        const bool parent_demoted =
+                            parent_cand.counts.category == VariantCategory::RepeatHetIndel;
+                        const bool sub_usable =
+                            cand.counts.category == VariantCategory::NoisyCandHet ||
+                            cand.counts.category == VariantCategory::CleanHetIndel ||
+                            cand.counts.category == VariantCategory::CleanHetSnp;
+                        if (parent_demoted && sub_usable &&
+                            (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) {
+                            // Keep the sub-solve's own category. Forcing the
+                            // clean indel class instead was measured worse on
+                            // whole chr20 -- 2.369% against 1.124% -- and did
+                            // not reduce fragmentation either (1,689 blocks
+                            // against 1,655).
+                            parent_cand.counts.category = cand.counts.category;
+                            parent_cand.counts.candvarcate_initial = cand.counts.category;
+                            parent_cand.lcd_var_i_to_cate = cand.lcd_var_i_to_cate;
+                            parent_cand.msa_verified = cand.msa_verified;
+                            if (!cand.msa_insertion_alts.empty())
+                                parent_cand.msa_insertion_alts = cand.msa_insertion_alts;
+                            ++adopted;
+                        }
+                    }
+                }
+                continue;
+            }
             if (!inside_window(key.pos)) continue;
             // Admit what the solve itself would admit; the emitter's own
             // category gate runs later and independently.
@@ -1226,7 +1290,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     for (const auto& per_read : observed)
         for (const auto& obs : per_read.second)
             if (parent_keys.count(obs.first) != 0) ++refreshed;
-    if (new_cands.empty() && refreshed == 0) return 0;
+    if (new_cands.empty() && refreshed == 0 && adopted == 0) return 0;
 
     // Re-index. The candidates must stay position-sorted: the solve's outward
     // sweep walks them in INDEX order, so appending in-gap sites at the tail

@@ -104,3 +104,55 @@ two new functions lived in `graph_bam_adapter.cpp` and call
 `test_graph_bam_adapter` does not link. Moved both definitions to
 `graph_collect.cpp`, the only caller and a translation unit that links the full
 set. A zero from a counting check has to be read as a failure, not a number.
+
+## Routing the seeded regions through the recovery: it works, and it regresses
+
+The MSA cannot run on the graph chunk, but the recovery's sub-solve re-reads the
+BAM through `process_chunk`, which builds digars -- and `process_chunk` consults
+NO catalog (no `load_sites_for_region`, no `inject_graph_sites`), so everything
+it finds in a gap window is BAM-discovered. Routing the seeded noisy regions
+into `retry_unphased_windows_in_place`'s window list therefore gives exactly the
+alignment pipeline's stage 2, on BAM evidence only.
+
+Two fixes were needed to make it land:
+
+1. **The sub-solve's verdict was discarded for loci the parent already held.**
+   The merge skips any key in `parent_keys`, transferring only read
+   observations, so a parent `REP_HET_INDEL` kept a label derived from the
+   reference context while the sub-solve had just answered the same question
+   with reads. It now adopts the sub-solve's category for demoted loci.
+2. **The adoption lookup silently found nothing.** A graph-derived candidate
+   stores the catalog's ALLELE WALK in `key.alt`
+   (`">115859261>115859263"`), not a sequence, so the alignment's key never
+   matches the raw parent key -- only the translated VCF form in `site_meta`,
+   which `parent_seq_index` records. Looking only at raw keys matched zero
+   times.
+
+On the motivating window this is exactly the intended effect: `23,007,537 TA>T`
+is admitted, phased, and pulls `23,008,891` and `23,009,196` into a block with
+it; repeat-class candidates drop 17 -> 12 and records rise 63 -> 70.
+
+Whole chr20, against the shipped arm at 1.161% / 333 VCF blocks:
+
+| arm | tagged | misplaced | hamming | VCF blocks |
+|---|---:|---:|---:|---:|
+| off (shipped) | 219,061 | 2,543 | **1.161%** | 333 |
+| stage 2, sub-solve category adopted | 225,650 | 9,471 | 4.197% | 343 |
+| stage 2, forced CLEAN adoption | 221,702 | 5,253 | 2.369% | 1,689 |
+| stage 2, **no second round anywhere** | 219,533 | 2,468 | **1.124%** | **1,655** |
+
+The third row was initially mislabelled as "without the added round 2". It is
+not: the ablation guard matched SIX k-means call sites, including the two the
+pipeline already shipped, so that arm disables the second round entirely. It is
+the only arm that improves accuracy (75 fewer misplaced reads, +472 tagged) and
+it fragments the VCF fivefold while the READ blocks barely move (323 -> 371) --
+the admitted sites keep the sub-solve's phase-set ids and are never reconciled
+with the parent's blocks.
+
+So every configuration that lets these loci into a chunk-wide solve costs 2-4x
+the read accuracy, exactly as the historical `--retry-unphased-with-bam`
+measurement did (0.559% -> 2.723% for +6,669 reads; here +6,589 reads for
++6,928 misplaced). The recovery mechanism is now correct and the sites are
+reachable; what is missing is that admitting them re-solves the chunk.
+
+Off by default, flag-off byte-identical over whole chr20.

@@ -654,17 +654,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     // Stage 2, as the alignment arm runs it: the noisy-region MSA
                     // reconstructs the demoted loci, then the second round solves over
                     // clean plus the rebuilt noisy sites.
-                    if (opts.graph_noisy_msa &&
-                        !graph_chunks[offset].chunk.noisy_regions.empty()) {
-                        collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
-                        derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
-                        // Round 2 over clean plus the rebuilt noisy sites. Without it the
-                        // reconstructed loci carry no phase set and are never emitted.
-                        assign_hap_based_on_germline_het_vars_kmeans(
-                            graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
-                        synthesize_meta_for_appended_candidates(graph_chunks[offset],
-                                                                batch_contig);
-                    }
+                    // The noisy-region MSA cannot run on the graph chunk itself:
+                    // collect_noisy_reg_reads skips every read with no digars
+                    // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
+                    // a seeded region has zero reads and the MSA has nothing to align.
+                    // The seeded regions go to the recovery instead, whose sub-solve
+                    // re-reads the BAM through process_chunk and does build digars.
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -711,17 +706,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
                             // clean plus the rebuilt noisy sites.
-                            if (opts.graph_noisy_msa &&
-                                !graph_chunks[offset].chunk.noisy_regions.empty()) {
-                                collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
-                                derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
-                                // Round 2 over clean plus the rebuilt noisy sites. Without it the
-                                // reconstructed loci carry no phase set and are never emitted.
-                                assign_hap_based_on_germline_het_vars_kmeans(
-                                    graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
-                                synthesize_meta_for_appended_candidates(graph_chunks[offset],
-                                                                        batch_contig);
-                            }
+                            // The noisy-region MSA cannot run on the graph chunk itself:
+                            // collect_noisy_reg_reads skips every read with no digars
+                            // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
+                            // a seeded region has zero reads and the MSA has nothing to align.
+                            // The seeded regions go to the recovery instead, whose sub-solve
+                            // re-reads the BAM through process_chunk and does build digars.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
                                 false);
@@ -867,17 +857,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     // Stage 2, as the alignment arm runs it: the noisy-region MSA
                     // reconstructs the demoted loci, then the second round solves over
                     // clean plus the rebuilt noisy sites.
-                    if (opts.graph_noisy_msa &&
-                        !graph_chunks[offset].chunk.noisy_regions.empty()) {
-                        collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
-                        derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
-                        // Round 2 over clean plus the rebuilt noisy sites. Without it the
-                        // reconstructed loci carry no phase set and are never emitted.
-                        assign_hap_based_on_germline_het_vars_kmeans(
-                            graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
-                        synthesize_meta_for_appended_candidates(graph_chunks[offset],
-                                                                batch_contig_gaf);
-                    }
+                    // The noisy-region MSA cannot run on the graph chunk itself:
+                    // collect_noisy_reg_reads skips every read with no digars
+                    // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
+                    // a seeded region has zero reads and the MSA has nothing to align.
+                    // The seeded regions go to the recovery instead, whose sub-solve
+                    // re-reads the BAM through process_chunk and does build digars.
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -924,17 +909,12 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // Stage 2, as the alignment arm runs it: the noisy-region MSA
                             // reconstructs the demoted loci, then the second round solves over
                             // clean plus the rebuilt noisy sites.
-                            if (opts.graph_noisy_msa &&
-                                !graph_chunks[offset].chunk.noisy_regions.empty()) {
-                                collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
-                                derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
-                                // Round 2 over clean plus the rebuilt noisy sites. Without it the
-                                // reconstructed loci carry no phase set and are never emitted.
-                                assign_hap_based_on_germline_het_vars_kmeans(
-                                    graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
-                                synthesize_meta_for_appended_candidates(graph_chunks[offset],
-                                                                        batch_contig_gaf);
-                            }
+                            // The noisy-region MSA cannot run on the graph chunk itself:
+                            // collect_noisy_reg_reads skips every read with no digars
+                            // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
+                            // a seeded region has zero reads and the MSA has nothing to align.
+                            // The seeded regions go to the recovery instead, whose sub-solve
+                            // re-reads the BAM through process_chunk and does build digars.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
                                 false);
