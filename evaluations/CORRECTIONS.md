@@ -374,3 +374,26 @@ predicate) were run in every case -- but the four-suite line overstated what was
 checked. The live gates are `make unit-tests`, `make window-tests` and
 `make predicate-tests`.
 
+
+## 2026-09-19 -- a correction that was itself wrong (3ef97d8)
+
+The identifier sweep in 3ef97d8 reported that
+`intervals_from_cr_lcd_chunk_noisy_post_merge` /
+`intervals_to_cr_lcd_chunk_noisy_post_merge` were absent from the source, and
+rewrote sections 12.4 and 27.6 to say the dedicated post-merge conversions "no
+longer exist", pointing them at the generic `intervals_to_cr` /
+`intervals_from_cr` instead.
+
+The dedicated conversions do exist. They are named
+`intervals_from_cr_noisy_post_merge` and `intervals_to_cr_noisy_post_merge`
+(`collect_var.cpp:613` and `:626`, applied at `:999` and `:1020`) -- the doc's
+names carried an extra `_lcd_chunk_` infix, and a literal search for the doc's
+spelling therefore missed the real functions. The sweep searched for the cited
+string rather than for the mechanism, which is exactly the failure mode it was
+meant to catch, and it converted a stale NAME into a false STATEMENT.
+
+Both sections are restored to the real names in this commit. 3ef97d8's commit
+message still carries the wrong claim and cannot be amended.
+
+Lesson: when a cited identifier is absent, search for the mechanism before
+concluding it was removed -- a near-miss name is more likely than a deletion.
