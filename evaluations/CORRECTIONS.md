@@ -415,3 +415,14 @@ Both sentences are corrected here. e826eb9's message cannot be amended.
 Lesson: when several findings land in neighbouring sentences, tick them off
 individually against the finding list -- fixing one and reading the paragraph
 as done is how the other survives.
+
+## 2026-09-19 -- 33e5bf6 overstated the scope of its byte-identity check
+
+The commit and the doc edit both said the graph arm's "whole-chromosome output
+was byte-identical across the removal". The check that was actually run covered
+chr20:1-10,000,000 -- a 10 Mb slice. The conclusion (the removal did not touch
+the shipped path) is unaffected in kind, but the evidence behind it was a
+sixth of the chromosome, and the doc now says so.
+
+The overstatement also reached 33e5bf6's commit message, which cannot be
+amended.
