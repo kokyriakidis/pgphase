@@ -1,21 +1,17 @@
-# Two selection bases, both recorded so a reader can tell them apart.
-# competitor-validated: 5,309,406 only. 26,029,591 is the closed guard.
-# truth-selected (no competitor involved): the gap sits in real sequence
-#   (truth hets <= 4/kb) and every consecutive truth-het pair across it is
-#   covered by >= 3 reads, so a chain exists.
+# competitor_acc is hiphase's SEPARATED fraction: of the reads in the window that
+# truth can score, the share one hiphase block places correctly. Same definition
+# as min_separated in the expectations, so the two are directly comparable and
+# the difference is the headroom. 'none_spanning' = no hiphase block spans it.
 #
-# competitor_acc is hiphase's READ-LEVEL orientation purity over reads in the
-# window that carry HP/PS and appear in the parental truth map -- NOT site-level
-# agreement, which ran on 2-4 shared sites here and disagreed with the read-level
-# answer on two of the six windows. 'none_spanning' means no hiphase block spans
-# the gap. Context for a failure message; nothing asserts on it.
+# 3,852,321: hiphase spans it in one 875 kb block at 63.1% read purity -- a wrong
+# join, so its 0.543 is not a target to match.
 #
-# 3,852,321 is the case worth remembering: hiphase spans it in one 875 kb block
-# at 63.1% read purity -- a wrong join. Do not treat its span as a target to match.
+# Windows were selected as gaps we leave open where reads are separable; the
+# truth-het chain test is what established separability, not a goal in itself.
 gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scored
-3852321	3890461	38140	230	hiphase	0.6310	198
-4766928	4792960	26032	175	hiphase	1.0000	154
-5309406	5345085	35679	226	hiphase	0.9950	221
-22980600	23008891	28291	195	hiphase	0.9940	169
+3852321	3890461	38140	230	hiphase	0.5430	198
+4766928	4792960	26032	175	hiphase	0.8800	154
+5309406	5345085	35679	226	hiphase	0.9770	221
+22980600	23008891	28291	195	hiphase	0.8620	169
 26029591	26088679	59088	313	none_spanning	0.0000	0
-60033052	60058235	25183	170	hiphase	0.9940	160
+60033052	60058235	25183	170	hiphase	0.9350	160

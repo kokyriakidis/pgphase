@@ -132,6 +132,10 @@ struct Expectation {
     /// its measured floor states that deficit in the baseline instead of either
     /// hiding it behind a loose global bound or letting it block the suite.
     double min_concordance = 0.0;
+    /// Floor on Outcome::separated() -- the fraction of the window's scorable
+    /// reads that ONE block places correctly. The headline quantity: a change
+    /// that splits a window keeps concordance at 1.00 and drops this.
+    double min_separated = 0.0;
 };
 
 /// What one run of the pipeline produced on one window.
@@ -143,6 +147,13 @@ struct Outcome {
     int scored = 0;
     int correct = 0;
     int blocks = 0;
+    /// Reads correctly separated into ONE block, over every read in the window
+    /// that truth can score. This is the product the pipeline exists to make:
+    /// purity alone hides fragmentation (two immaculate half-blocks separate
+    /// nobody), and block count alone hides switches. Measured on the largest
+    /// phase set touching the window.
+    int dominant_correct = 0;
+    int window_scorable = 0;
     /// Candidates inside the gap that are in an admitted class -- a CLEAN het,
     /// which the stage-1 mask accepts -- and carry no phase set. A site we hold,
     /// and that the solve is allowed to use, left unused.
@@ -169,6 +180,13 @@ struct Outcome {
         return scored > 0 ? static_cast<double>(correct) / scored : 0.0;
     }
     int discordant() const { return scored - correct; }
+    /// Fraction of the window's truth-scorable reads that one block places
+    /// correctly. Contiguity and correctness in one number.
+    double separated() const {
+        return window_scorable > 0
+                   ? static_cast<double>(dominant_correct) / window_scorable
+                   : 0.0;
+    }
 };
 
 std::vector<Window> load_panel(const std::string& path) {
@@ -214,6 +232,7 @@ std::map<std::string, Expectation> load_expectations(const std::string& path) {
         else e.spans = (f[2] == "1" || f[2] == "yes" || f[2] == "true");
         e.min_in_gap_hets = std::stoi(f[3]);
         e.min_concordance = f.size() > 4 ? std::stod(f[4]) : 0.0;
+        e.min_separated = f.size() > 5 ? std::stod(f[5]) : 0.0;
         out[f[0] + "\t" + f[1]] = e;
     }
     return out;
@@ -412,6 +431,10 @@ void score_bam(const std::string& path, const Window& w,
     // the same tally restricted to reads wholly on one side of the gap, so a
     // block reaching both sides can be checked for an internal switch
     std::unordered_map<long long, std::pair<int, int>> left_votes, right_votes;
+    // Restricted to reads overlapping the WINDOW itself. `votes` spans the whole
+    // flanked run, so using it as the numerator against a window-sized
+    // denominator produced separated() above 1.0.
+    std::unordered_map<long long, std::pair<int, int>> win_votes;
     while (sam_read1(fp, hdr, rec) >= 0) {
         if ((rec->core.flag & BAM_FUNMAP) && spans.empty()) continue;
         const uint8_t* hp = bam_aux_get(rec, "HP");
@@ -436,6 +459,10 @@ void score_bam(const std::string& path, const Window& w,
             beg = sp->second.first;
             end = sp->second.second;
         }
+        if (end >= w.gap_left && beg <= w.gap_right) {
+            auto& wv = win_votes[set_id];
+            if (mat_on_hap1) ++wv.first; else ++wv.second;
+        }
         std::pair<int, int>* side = nullptr;
         if (end <= w.gap_left) side = &left_votes[set_id];
         else if (beg >= w.gap_right) side = &right_votes[set_id];
@@ -446,6 +473,24 @@ void score_bam(const std::string& path, const Window& w,
     // A side counts as placed only when it is confident: at least five scored
     // reads and at least 90% of them agreeing. Two confidently placed ends that
     // disagree are a switch inside one block.
+    // The dominant block: the phase set scoring the most reads in this window,
+    // and how many of those it places on the right parent.
+    {
+        int best_n = 0;
+        for (const auto& kv : win_votes) {
+            const int n = kv.second.first + kv.second.second;
+            if (n > best_n) {
+                best_n = n;
+                out.dominant_correct = std::max(kv.second.first, kv.second.second);
+            }
+        }
+        out.window_scorable = 0;
+        for (const auto& [name, se] : spans) {
+            if (se.second < w.gap_left || se.first > w.gap_right) continue;
+            if (truth.count(name)) ++out.window_scorable;
+        }
+    }
+
     const auto placed = [](const std::pair<int, int>& v) -> int {
         const int n = v.first + v.second;
         if (n < 5) return -1;
@@ -643,7 +688,9 @@ void check_against(const Window& w, const std::string& arm, const Outcome& got,
     INFO("measured: spans=" << (got.spans ? "yes" : "no")
          << " in_gap_hets=" << got.in_gap_hets << " blocks=" << got.blocks
          << " tagged=" << got.tagged << " scored=" << got.scored
-         << " concordance=" << got.concordance() << " discordant=" << got.discordant());
+         << " concordance=" << got.concordance() << " discordant=" << got.discordant()
+         << " separated=" << got.separated()
+         << " (" << got.dominant_correct << "/" << got.window_scorable << ")");
 
     // Spanning is an equality, in both directions: a span that appears where the
     // expectation says there is none is the coin-flip join, not an improvement.
@@ -673,6 +720,9 @@ void check_against(const Window& w, const std::string& arm, const Outcome& got,
     // decision that shifts a handful of reads. Per arm, because the arms are not
     // equally mature -- see Expectation::min_concordance.
     CHECK(got.concordance() >= want.min_concordance);
+    // Reads correctly separated into one block: contiguity and correctness at
+    // once, and the number to move.
+    CHECK(got.separated() >= want.min_separated);
 }
 
 }  // namespace
@@ -710,20 +760,26 @@ void emit_expectations(const std::string& out_path, const Paths& p,
     std::fprintf(out, "# floor states that in the baseline rather than hiding it behind a loose\n");
     std::fprintf(out, "# global bound or letting it block the suite.\n");
     std::fprintf(out, "# Regenerate with scripts/refresh_gap_window_expectations.sh.\n");
-    std::fprintf(out, "arm\twindow\tspans\tmin_in_gap_hets\tmin_concordance\n");
+    std::fprintf(out, "# min_separated is the headline: the fraction of the window's truth-scorable\n");
+    std::fprintf(out, "# reads that ONE block places correctly. Purity alone hides fragmentation --\n");
+    std::fprintf(out, "# two immaculate half-blocks separate nobody -- and block count alone hides\n");
+    std::fprintf(out, "# switches. Rounded DOWN, like the concordance floor.\n");
+    std::fprintf(out, "arm\twindow\tspans\tmin_in_gap_hets\tmin_concordance\tmin_separated\n");
     for (const auto& [arm, flags] : arms) {
         int spanned = 0, hets = 0;
-        double worst = 1.0;
+        double worst = 1.0, worst_sep = 1.0;
         for (const auto& w : panel) {
             const Outcome got = measure(p, w, arm, flags, truth);
-            std::fprintf(out, "%s\t%lld\t%d\t%d\t%.2f\n", arm.c_str(), w.gap_left,
-                        got.spans ? 1 : 0, got.in_gap_hets, floor2(got.concordance()));
+            std::fprintf(out, "%s\t%lld\t%d\t%d\t%.2f\t%.2f\n", arm.c_str(), w.gap_left,
+                        got.spans ? 1 : 0, got.in_gap_hets, floor2(got.concordance()),
+                        floor2(got.separated()));
             spanned += got.spans ? 1 : 0;
             hets += got.in_gap_hets;
             worst = std::min(worst, got.concordance());
+            worst_sep = std::min(worst_sep, got.separated());
         }
-        std::fprintf(out, "%s\tTOTAL\t%d\t%d\t%.2f\n", arm.c_str(), spanned, hets,
-                     floor2(worst));
+        std::fprintf(out, "%s\tTOTAL\t%d\t%d\t%.2f\t%.2f\n", arm.c_str(), spanned, hets,
+                     floor2(worst), floor2(worst_sep));
     }
     std::fclose(out);
     WARN("wrote expectations to " << out_path);

@@ -15,18 +15,22 @@
 # floor states that in the baseline rather than hiding it behind a loose
 # global bound or letting it block the suite.
 # Regenerate with scripts/refresh_gap_window_expectations.sh.
-arm	window	spans	min_in_gap_hets	min_concordance
-default	3852321	0	0	0.99
-default	4766928	0	0	0.99
-default	5309406	0	0	0.99
-default	22980600	0	0	1.00
-default	26029591	1	0	0.99
-default	60033052	0	1	0.89
-default	TOTAL	1	1	0.89
-inchunk	3852321	0	1	0.99
-inchunk	4766928	0	0	0.99
-inchunk	5309406	0	1	0.99
-inchunk	22980600	0	1	1.00
-inchunk	26029591	1	277	0.99
-inchunk	60033052	0	0	0.99
-inchunk	TOTAL	1	280	0.99
+# min_separated is the headline: the fraction of the window's truth-scorable
+# reads that ONE block places correctly. Purity alone hides fragmentation --
+# two immaculate half-blocks separate nobody -- and block count alone hides
+# switches. Rounded DOWN, like the concordance floor.
+arm	window	spans	min_in_gap_hets	min_concordance	min_separated
+default	3852321	0	0	0.99	0.23
+default	4766928	0	0	0.99	0.41
+default	5309406	0	0	0.99	0.32
+default	22980600	0	0	1.00	0.36
+default	26029591	1	0	0.99	0.03
+default	60033052	0	1	0.89	0.38
+default	TOTAL	1	1	0.89	0.03
+inchunk	3852321	0	1	0.99	0.23
+inchunk	4766928	0	0	0.99	0.41
+inchunk	5309406	0	1	0.99	0.53
+inchunk	22980600	0	1	1.00	0.36
+inchunk	26029591	1	277	0.99	0.99
+inchunk	60033052	0	0	0.99	0.40
+inchunk	TOTAL	1	280	0.99	0.23
