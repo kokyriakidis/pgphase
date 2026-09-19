@@ -381,9 +381,20 @@ void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
 /// Score the phased BAM per phase set: a phase set's HP labels are arbitrary up
 /// to a global flip, so the orientation truth prefers is chosen per phase set
 /// and the reads that disagree with it are the discordant ones.
+/// Read spans by qname, taken from the INPUT alignment.
+///
+/// The graph arm writes its phased BAM UNALIGNED -- every record has flag 4, no
+/// reference and no position -- because the haplotype call belongs to the read,
+/// not to a placement. Scoring still needs coordinates: concordance needs to
+/// know a read is in the window, and the switch check needs to know which side
+/// of the gap it sits on. Those come from the input BAM, matched by name, which
+/// is also the only source that cannot disagree with what the pipeline read.
+using ReadSpans = std::unordered_map<std::string, std::pair<long long, long long>>;
+
+
 void score_bam(const std::string& path, const Window& w,
                const std::unordered_map<std::string, char>& truth,
-               Outcome& out) {
+               const ReadSpans& spans, Outcome& out) {
     samFile* fp = sam_open(path.c_str(), "r");
     REQUIRE(fp != nullptr);
     bam_hdr_t* hdr = sam_hdr_read(fp);
@@ -396,7 +407,7 @@ void score_bam(const std::string& path, const Window& w,
     // block reaching both sides can be checked for an internal switch
     std::unordered_map<long long, std::pair<int, int>> left_votes, right_votes;
     while (sam_read1(fp, hdr, rec) >= 0) {
-        if (rec->core.flag & BAM_FUNMAP) continue;
+        if ((rec->core.flag & BAM_FUNMAP) && spans.empty()) continue;
         const uint8_t* hp = bam_aux_get(rec, "HP");
         if (hp == nullptr) continue;
         ++out.tagged;
@@ -411,8 +422,14 @@ void score_bam(const std::string& path, const Window& w,
         const bool mat_on_hap1 =
             (hap1 && found->second == 'M') || (!hap1 && found->second == 'P');
         if (mat_on_hap1) ++v.first; else ++v.second;
-        const long long beg = rec->core.pos;
-        const long long end = bam_endpos(rec);
+        long long beg = rec->core.pos;
+        long long end = bam_endpos(rec);
+        if (rec->core.flag & BAM_FUNMAP) {
+            const auto sp = spans.find(bam_get_qname(rec));
+            if (sp == spans.end()) continue;
+            beg = sp->second.first;
+            end = sp->second.second;
+        }
         std::pair<int, int>* side = nullptr;
         if (end <= w.gap_left) side = &left_votes[set_id];
         else if (beg >= w.gap_right) side = &right_votes[set_id];
@@ -481,6 +498,36 @@ Paths paths() {
     return p;
 }
 
+ReadSpans& input_read_spans(const Paths& p, const Window& w) {
+    static std::map<hts_pos_t, ReadSpans> cache;
+    auto it = cache.find(w.gap_left);
+    if (it != cache.end()) return it->second;
+    ReadSpans spans;
+    const std::string bam = p.test_data +
+        "/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam";
+    samFile* fp = sam_open(bam.c_str(), "r");
+    REQUIRE(fp != nullptr);
+    bam_hdr_t* hdr = sam_hdr_read(fp);
+    REQUIRE(hdr != nullptr);
+    hts_idx_t* idx = sam_index_load(fp, bam.c_str());
+    REQUIRE(idx != nullptr);
+    std::ostringstream reg;
+    reg << "CHM13#0#chr20:" << (w.gap_left - 50000) << "-" << (w.gap_right + 50000);
+    hts_itr_t* itr = sam_itr_querys(idx, hdr, reg.str().c_str());
+    REQUIRE(itr != nullptr);
+    bam1_t* rec = bam_init1();
+    while (sam_itr_next(fp, itr, rec) >= 0) {
+        if (rec->core.flag & (BAM_FUNMAP | BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        spans[bam_get_qname(rec)] = {rec->core.pos, bam_endpos(rec)};
+    }
+    bam_destroy1(rec);
+    hts_itr_destroy(itr);
+    hts_idx_destroy(idx);
+    bam_hdr_destroy(hdr);
+    sam_close(fp);
+    return cache.emplace(w.gap_left, std::move(spans)).first->second;
+}
+
 /// Run one arm over one window. Returns false when the binary failed, leaving
 /// its stderr on disk for the failure message.
 bool run_arm(const Paths& p, const Window& w, const std::string& arm,
@@ -489,17 +536,17 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
     dir << p.workdir << "/" << arm << "/w" << w.gap_left;
     outdir = dir.str();
     std::ostringstream cmd;
-    cmd << "mkdir -p '" << outdir << "' && '" << p.binary << "' collect-hybrid-variation"
+    cmd << "mkdir -p '" << outdir << "' && '" << p.binary << "' collect-graph-variation"
         << " --ref '" << p.test_data << "/chm13v2.0.chr20.renamed.fa'"
         << " --bam '" << p.test_data
         << "/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam'"
-        << " --graph-sites '" << p.test_data << "/chr20.sites.striped.vcf.gz'"
+        << " --sites '" << p.test_data << "/chr20.sites.striped.vcf.gz'"
         << " --gaf '" << p.test_data << "/HG002.chr20.annotated.coord.gaf.gz'"
         << " -r 'CHM13#0#chr20:" << (w.gap_left - 50000) << "-" << (w.gap_right + 50000) << "'"
         << " -t " << test_threads() << " " << flags
         << " -o '" << outdir << "/candidates.tsv'"
         << " --phased-vcf-out '" << outdir << "/native.vcf'"
-        << " -b '" << outdir << "/phased.bam'"
+        << " --phased-bam-out '" << outdir << "/phased.bam'"
         << " > '" << outdir << "/stdout.log' 2> '" << outdir << "/stderr.log'";
     return std::system(cmd.str().c_str()) == 0;
 }
@@ -524,7 +571,7 @@ Outcome measure_uncached(const Paths& p, const Window& w, const std::string& arm
     parse_vcf(dir + "/native.vcf", w, out);
     parse_candidates(dir + "/candidates.tsv", w, out);
     check_required_sites(dir + "/candidates.tsv", arm, w, out);
-    score_bam(dir + "/phased.bam", w, truth, out);
+    score_bam(dir + "/phased.bam", w, truth, input_read_spans(p, w), out);
     return out;
 }
 
@@ -685,10 +732,14 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     // expectations file; a window with no row for an arm fails loudly rather
     // than being skipped, so the file cannot silently fall behind the panel.
     const std::vector<std::pair<std::string, std::string>> arms = {
-        // The default IS graph-first: the catalog drives the first pass and the
-        // targeted per-window solve fixes what it could not phase.
+        // The catalog drives the first pass; the BAM is consulted only to recover
+        // what it could not phase. The two arms are the two recovery PLACEMENTS,
+        // which is the live design choice on this pipeline:
+        //   default  -- post-hoc, a sub-solve grafted on after the pass
+        //   inchunk  -- merged into the chunk before the stitch
+        // Both run the shipped defaults otherwise (stage 2 anchored).
         {"default", ""},
-        {"noretry", "--no-retry-unphased-with-bam"},
+        {"inchunk", "--in-chunk-recovery"},
     };
 
     // PGPHASE_EMIT_EXPECTATIONS holds the path to write; "1" means the default.
@@ -744,10 +795,14 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     };
     std::map<std::string, Totals> totals;
     const std::vector<std::pair<std::string, std::string>> arms = {
-        // The default IS graph-first: the catalog drives the first pass and the
-        // targeted per-window solve fixes what it could not phase.
+        // The catalog drives the first pass; the BAM is consulted only to recover
+        // what it could not phase. The two arms are the two recovery PLACEMENTS,
+        // which is the live design choice on this pipeline:
+        //   default  -- post-hoc, a sub-solve grafted on after the pass
+        //   inchunk  -- merged into the chunk before the stitch
+        // Both run the shipped defaults otherwise (stage 2 anchored).
         {"default", ""},
-        {"noretry", "--no-retry-unphased-with-bam"},
+        {"inchunk", "--in-chunk-recovery"},
     };
     for (const auto& [arm, flags] : arms) {
         for (const auto& w : panel) {

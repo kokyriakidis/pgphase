@@ -16,9 +16,9 @@
 # global bound or letting it block the suite.
 # Regenerate with scripts/refresh_gap_window_expectations.sh.
 arm	window	spans	min_in_gap_hets	min_concordance
-default	5309406	1	2	0.98
-default	26029591	1	278	0.99
-default	TOTAL	2	280	0.98
-noretry	5309406	0	1	0.99
-noretry	26029591	0	0	0.99
-noretry	TOTAL	0	1	0.99
+default	5309406	0	0	0.99
+default	26029591	1	0	0.99
+default	TOTAL	1	0	0.99
+inchunk	5309406	0	1	0.99
+inchunk	26029591	1	277	0.99
+inchunk	TOTAL	1	278	0.99
