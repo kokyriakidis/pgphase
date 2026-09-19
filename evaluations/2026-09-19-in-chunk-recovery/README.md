@@ -318,5 +318,10 @@ showed in output; the anchored solve does not, so it was live corruption waiting
 on a flag. Both vectors now grow with the reads.
 
 chr20 with the verifier live: 114 s, exit 0, zero violations, VCF identical to
-the run before it was added. Unit 4/4, window 66/66, predicate 141/141,
-injection 127.
+the run before it was added. Unit 4/4, window 66/66, predicate 141/141.
+
+The "injection 127" figure quoted elsewhere in this session is not a live gate:
+`src/test_bam_site_injection.cpp` was deleted in c092785 when the tests were
+narrowed to the window under work, and the compiled binary survived untracked in
+the working tree. Running it exercises Sep 17 expectations against today's
+pipeline; it is not a build target and no longer has source.

@@ -352,3 +352,25 @@ probe.
 The overstatement also reached the commit message of 694e11e, which cannot be
 amended, and durable memory, which has been corrected.
 
+## 2026-09-19 -- a retired test suite reported as passing
+
+Several records and commit messages from 2026-09-18 and 2026-09-19 close with
+"injection 127" (or "injection tests 127") alongside the unit, window and
+predicate suites, as though all four had been run. That suite has no source:
+`src/test_bam_site_injection.cpp` was deleted in c092785 (2026-09-17) when the
+tests were narrowed to the window under work. What survived was the compiled
+binary, untracked in the working tree and dated Sep 17, with its source path
+baked into the Catch2 output -- so `./test_bam_site_injection` kept running and
+kept reporting, and was quoted as a gate.
+
+Run against today's pipeline it now reports 43 assertions, 33 passed, 10 failed.
+Those failures are not evidence of a regression: they are Sep 17 expectations
+about the hybrid arm, an arm since excluded from the work on instruction, and
+checks deliberately retired by c092785. But neither were the earlier "127"s
+evidence of anything passing today.
+
+Nothing shipped depends on the figure -- the three live suites (unit, window,
+predicate) were run in every case -- but the four-suite line overstated what was
+checked. The live gates are `make unit-tests`, `make window-tests` and
+`make predicate-tests`.
+
