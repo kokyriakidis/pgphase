@@ -1,5 +1,13 @@
 # pgphase — project state, findings, and next steps
 
+> **Status: a snapshot of 2026-09-12, kept for its findings, not as current
+> state.** For how the pipeline runs today see `docs/PIPELINE.md`; for work
+> after that date see `evaluations/` by date and `CHECKPOINT.md`. Known drift in
+> this file: it still names `--graph-authoritative` (removed in 4298ffa),
+> `--private-sites` and `--bam-authoritative-bed`, none of which exist as modes
+> any more, and it predates the in-chunk recovery, the homopolymer-detector fix
+> and the chunk-invariant verifier.
+
 Self-contained handoff. Everything below was measured on HG002 chr20 unless
 stated otherwise. Numbers that were later found wrong are marked **RETRACTED**
 with the correction, because several of them circulated before being corrected.

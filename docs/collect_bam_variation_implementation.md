@@ -1,5 +1,16 @@
 # `collect-bam-variation` Implementation Description
 
+> **Status: accurate as an architecture reference, last revised 2026-05-05.**
+> It describes the alignment arm file by file and cites longcallD symbols for
+> parity, so names like `flip_variant_hap` or `collect_cand_vars` are upstream's
+> and are expected to be absent from `src/`. It predates three changes worth
+> knowing about when reading it: the homopolymer detector was fixed in 510f865
+> (its insertion branch compared a raw reference byte against an nt4 code, so it
+> never fired; upstream has the same defect, making our behaviour a knowing
+> divergence), stage 2 was changed to refine stage 1 rather than reset in
+> 0cd9e7f, and the repeat/homopolymer predicates it describes exist in several
+> copies across the sources, which is tracked as a consolidation item.
+
 This document describes the implementation of the `pgphase collect-bam-variation` command from command-line input to final candidate output. The goal of this command is to collect and classify germline, non-mosaic candidate variation from one or more indexed BAM/CRAM files, then emit longcallD-parity projected VCF outputs (`--vcf-output`, `--phased-vcf-output`) from that internal state. The primary internal surface is still a structured candidate table (TSV) with read-level support counts, strand tallies, and quality categories aligned with longcallD’s candidate stage; this table is intended for downstream analysis and parity checks. After initial classification, each chunk runs longcallD-shaped **read profiling** and **k-means haplotype clustering** (§18), then longcallD Step 4-style noisy-region MSA recall and a follow-up germline-var-category k-means update (Step 4 subsection in §18). Adjacent chunks are stitched (§19) to merge phase blocks across boundaries.
 
 The implementation is organized as a **staged pipeline** so that memory stays bounded on whole-genome runs and so each stage has a clear responsibility:
