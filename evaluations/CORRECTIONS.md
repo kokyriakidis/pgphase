@@ -496,3 +496,13 @@ the window list removed -- which the same commit does -- the flagged arm emits
 is the narrower key and leaves the default byte-identical, which is why it is
 kept, but it does not by itself recover that site. The commit message cannot be
 amended; recorded here and in the evaluation.
+
+## 2026-09-19 -- corrected-accuracy figure quoted without its cutoff
+
+A summary quoted 'excluding them, chr20 is 0.967%, not the reported 1.153%'
+while the saved record for the same computation said 0.988%. Both are correct
+and both are mine: 0.988% excludes the 18 single-parent blocks with >= 20
+scored reads (949 reads), the set the record's table was built from, and
+0.967% excludes all 35 single-parent blocks (1,105 reads). Recomputed on the
+same run to confirm. The fault was quoting one convention beside a table built
+on the other; both now appear with their cutoffs.

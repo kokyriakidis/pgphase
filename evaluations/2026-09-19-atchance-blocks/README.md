@@ -31,7 +31,8 @@ chr20 read hamming, scoped-escape arm:
 | measurement | value |
 |---|---:|
 | as reported all session | 1.153% |
-| excluding single-parent blocks | **0.988%** |
+| excluding single-parent blocks with >= 20 scored reads (18 blocks, 949 reads) | **0.988%** |
+| excluding ALL single-parent blocks (35 blocks, 1,105 reads) | **0.967%** |
 
 `PS=26896221` was the worst-looking block on the chromosome at 48.6% minority.
 Its reads are 68 maternal against 4 paternal. It is not a defect.
@@ -99,3 +100,19 @@ any site in the block partitions the assigned reads by allele -- which is
 computable from the phased BAM alone.
 
 Not yet implemented; no code change in this record.
+
+## Which correction figure to quote
+
+Both figures come from the same run and the same rule -- a block more than 90%
+one parent cannot be scored by read hamming -- and differ only in the
+block-size cutoff, so a quoted figure has to name it:
+
+| set excluded | blocks | reads | corrected chr20 |
+|---|---:|---:|---:|
+| single-parent blocks with >= 20 scored reads | 18 | 949 | **0.988%** |
+| all single-parent blocks | 35 | 1,105 | **0.967%** |
+
+The table above was built from the >= 20-read block list, so 0.988% is the
+figure that belongs beside it; 0.967% is the correction with no size cutoff.
+Same metric-naming hazard already recorded for 'in-gap phased hets': the
+convention travels with the number.
