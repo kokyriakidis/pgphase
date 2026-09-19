@@ -436,3 +436,20 @@ across the removal (default 56,032 records, --in-chunk-recovery 61,869). The
 doc now states that result. The sequence is worth keeping: the claim was made
 before the evidence existed, narrowed to what had been measured, and only then
 earned.
+
+## 2026-09-19 -- a30b729 swapped the two concordance floors it flagged
+
+The commit message says "the concordance floor recorded for 29,309,711 is 0.53
+default / 0.70 inchunk". The expectations file it committed says the reverse:
+
+    default   29309711  spans 0  min_in_gap_hets 0  min_concordance 0.70
+    inchunk   29309711  spans 0  min_in_gap_hets 0  min_concordance 0.53
+
+So the arm that places reads at chance in that window is the IN-CHUNK arm, at
+0.53, and the post-hoc default is better there at 0.70. That inverts what the
+message implies about which placement is hurting: in-chunk recovery is the one
+degrading this window, which makes it a sharper target than the message
+suggested, not a vaguer one.
+
+The point being made -- that the floor documents a broken state rather than
+endorsing it -- is unaffected. a30b729's message cannot be amended.
