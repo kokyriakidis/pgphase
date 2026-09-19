@@ -1,5 +1,10 @@
 # Hybrid BAM+Graph Phasing: Design Document
 
+> **History: this is the pre-implementation plan (2026-06-10), kept for its
+> rationale.** It ends in an implementation plan whose 'functions to
+> implement' now exist, and its opening figures are June measurements. For
+> how the hybrid actually runs see `docs/IMPLEMENTATION.md`.
+
 ## Goal
 
 Combine BAM pipeline's de novo variant calling (83k het sites, 97% accuracy)

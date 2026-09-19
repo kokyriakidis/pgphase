@@ -250,3 +250,17 @@ Before submitting changes:
 - [ ] Const correctness maintained.
 - [ ] Thread safety considered (no shared mutable state without synchronization).
 - [ ] htslib handles wrapped in RAII (`std::unique_ptr` with custom deleter).
+
+## Documentation
+
+`docs/IMPLEMENTATION.md` is the single living description of how the code works.
+**A commit that changes behaviour updates it in the same commit.** Part I is
+current behaviour and is authoritative; Part II is per-component detail carrying
+its own revision date.
+
+Measurements, findings and history do NOT go there -- they go in `evaluations/`
+by date and in `CHECKPOINT.md`. Keeping them out is what lets the implementation
+doc be trusted without checking its date. `docs/HANDOFF.md`,
+`docs/hybrid_design.md` and `docs/phase_graph_implementation.md` are history and
+say so in their own banners.
+

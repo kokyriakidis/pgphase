@@ -1,5 +1,13 @@
 # `phase-graph` implementation description
 
+> **History, not current state: `phase-graph` is no longer a subcommand.**
+> `pgphase --help` registers collect-bam-variation, collect-graph-variation,
+> collect-hybrid-variation and build-snarl-catalog. The machinery described
+> here -- joining tiled graph-site VCF windows and indexed GAF ranges into
+> chunk scaffolds -- now lives in `graph_bam_adapter.cpp` behind
+> `collect-graph-variation`. For current behaviour see
+> `docs/IMPLEMENTATION.md`.
+
 This document is an **in-depth** description of `pgphase phase-graph`: how tiled **tabix-indexed** graph-site VCF windows and **tabix-indexed pggaf GAF** ranges are joined into `BamChunk` scaffolds, how phasing and stitching reuse `collect_phase.cpp`, and how **streaming** outputs preserve bounded memory on whole-genome runs.
 
 For BAM alignment semantics shared with this path (k-means internals, `stitch_chunk_haps` voting/propagation), see **`docs/collect_bam_variation_implementation.md`**.
