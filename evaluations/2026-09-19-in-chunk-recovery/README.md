@@ -241,12 +241,15 @@ writer reclassifies every record from depth (`graph_collect.cpp:196`):
 `is_hom_alt = (ref_cov == 0 && alt_cov >= min_alt_depth)` -> `CleanHom` -> `1|1`.
 An alignment candidate merged from a gap frequently carries `ref_cov = 0`
 (measured: `ref_cov 0, alt_cov 57`), so filling `alle_covs = {ref_cov, alt_cov}`
-made the writer call it homozygous. Suppressing merged sites entirely confirmed
-the attribution -- hom fell 547 -> 139, against 125 for the default -- after two
-wrong theories had been tested and discarded: that the sites failed an allele
-index check (they pass; the GT construction at `graph_collect.cpp:240-245`
-handles an out-of-range consensus index correctly), and that the records came
-from catalog sites sharing a position.
+made the writer call it homozygous. One wrong theory was tested first and discarded: that the sites failed an
+allele index check, since `hap_to_cons_alle` can hold an index of 2 on a site
+collapsed to biallelic. Gating on index validity produced byte-identical
+output, and the GT construction at `graph_collect.cpp:240-245` turns out to
+handle an out-of-range consensus index correctly, so that was not the cause.
+The attribution was then settled by an env-gated probe suppressing every
+merged site at emission: hom fell 547 -> 139, against 125 for the default,
+which locates the records in the merged sites and leaves no contribution from
+catalog candidates at the same positions.
 
 A merged site is now written only when the writer's own classification calls it
 a het. chr20: records 62,197 -> 61,789, hom **547 -> 139**, phased records
