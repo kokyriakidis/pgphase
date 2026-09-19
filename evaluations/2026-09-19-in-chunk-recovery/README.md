@@ -112,3 +112,79 @@ records into the catalog-shaped VCF. So the extra read blocks are recovered
 coverage the VCF does not describe, not fragmentation. Whether those sites should
 also be emitted is a separate question: they are alignment-discovered and absent
 from the catalog the graph arm's VCF is built from.
+
+## Audit of the merge: three more bugs, one of them older than this work
+
+Asked to check what the recovery fires on, what it changes, and whether the
+merged sites are represented and used correctly, with the requirement that the
+cross-chunk stitch stay invariant. Probing the merge before and after, per chunk,
+over `chr20:1-5,000,000`:
+
+| quantity | before merge | after (as shipped in bb34e9b) |
+|---|---:|---:|
+| candidates | 6,208 | 7,584 |
+| positions carrying more than one candidate | 246 | 260 |
+| reads whose span lies entirely outside the chunk | **0** | **693** |
+| merged sites with usable metadata | -- | **0 of 1,377** |
+
+**1. Recovery regions were not clamped to the chunk.** A group's extension can
+reach past the chunk's own span, and discovering there pulls in reads belonging
+to the neighbour -- 693 of them over 5 Mb, from zero. Those reads then enter the
+cross-chunk stitch's merge-join as though they straddled the boundary, changing
+the evidence it votes on. Regions are now clamped to `[chunk.ref_beg,
+chunk.ref_end]`; the neighbour recovers its own territory. Reads outside: 0.
+
+**2. The merged sites never reached the VCF, and that predates this work.**
+`build_graph_chunk` never fills `chunk.ref_seq` -- it passes a reference slice to
+the noise filter and keeps nothing -- while the alignment path does
+(`bam_digar.cpp:1336`). The metadata synthesis read the graph chunk's empty
+slice, so every merged site got an empty REF, and an empty REF makes the writer
+skip that record (`graph_collect.cpp:99`). All 1,377 merged sites over 5 Mb were
+affected. This is the mechanism behind the 54 phase sets carrying 3,259 tagged
+reads and no records reported above. Reference bases now come from the discovered
+alignment chunks, which carry them.
+
+**3. The synthesized alleles were not in VCF form.** A `VariantKey` is the
+TRIMMED form: an insertion has `ref_len = 0` with the anchor base at `key.pos - 1`
+and `alt` = the inserted bases only; a pure deletion has `alt = ""`. Pairing a
+reference slice at `key.pos` with `key.alt` describes an insertion as a
+substitution and gives a deletion an empty ALT. The synthesis now builds the
+anchored VCF form per type and keeps only what round-trips back through
+`vcf_to_variant_key` to the key it came from. Merged sites with malformed indel
+alleles: 0 of 1,377.
+
+A fourth issue was introduced and caught during the audit: skipping a site that
+failed the round-trip desynchronised `site_meta` from `candidates` (6,208 against
+7,584), and since the writer addresses metadata BY CANDIDATE INDEX that shifts
+every later site's metadata onto the wrong candidate. An unusable site now gets
+an EMPTY metadata entry instead, which the writer skips on its own while the
+arrays stay parallel.
+
+## Result, chr20 at -t 16
+
+| | tagged | read blocks | discordant | read hamming | VCF records (phased / blocks) | read-only blocks |
+|---|---:|---:|---:|---:|---|---:|
+| post-hoc | 203,751 | 281 | 2,732 | 1.341% | 56,032 (55,907 / 285) | 0 |
+| in-chunk, pre-audit | 213,877 | 310 | 2,456 | 1.148% | 56,006 (55,867 / 265) | 54 |
+| in-chunk, audited | 219,059 | 323 | 2,543 | **1.161%** | **63,897 (59,948 / 316)** | 12 |
+
+Against the post-hoc default: 15,308 more reads phased, 189 fewer misplaced,
+read hamming 1.341% -> 1.161%, and 4,041 more phased records -- the in-gap sites
+appearing in the VCF for the first time. The VCF block count rises 285 -> 316
+because those in-gap phase sets are now visible as records rather than existing
+only as read tags; read-only blocks fall 54 -> 12.
+
+Against the pre-audit in-chunk run the accuracy is slightly worse (1.148% ->
+1.161%) and that is the clamp: confining discovery to the chunk removes evidence
+the unclamped version was using. It is kept because the alternative is feeding
+the cross-chunk stitch reads that never straddled the boundary, which is the
+invariant the audit was asked to protect.
+
+On `chr20:1-10,000,000`: 37,939 tagged, 40 read blocks, 102 discordant, 0.269%,
+10,322 records (9,932 phased / 42 blocks), 0 read-only blocks. The default path
+remains byte-identical with the flag off. Unit 4/4, window 66/66, predicate
+130/130.
+
+Still open: 12 read-only blocks chromosome-wide, and the 14 extra position
+collisions the merge introduces (246 -> 260 over 5 Mb), which are positions where
+a catalog site and a merged alignment site coexist.

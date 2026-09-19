@@ -1426,6 +1426,22 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     const std::vector<hts_pos_t> parent_sites = parent_phased_positions(chunk);
     std::vector<TargetedWindowGroup> groups =
         build_targeted_groups(windows, solve_tid, parent_sites);
+    // Keep the regions inside this chunk. A group's extension can reach past the
+    // chunk's own span, and discovering there pulls in reads that belong to the
+    // neighbouring chunk -- measured over chr20:1-5,000,000, 693 reads whose span
+    // lies entirely outside the chunk, from zero before the merge. Those reads
+    // then enter the cross-chunk stitch's merge-join as if they straddled the
+    // boundary, which changes the evidence it votes on. The neighbour recovers
+    // its own territory.
+    for (TargetedWindowGroup& g : groups) {
+        g.region.beg = std::max(g.region.beg, chunk.ref_beg);
+        g.region.end = std::min(g.region.end, chunk.ref_end);
+    }
+    groups.erase(std::remove_if(groups.begin(), groups.end(),
+                                [](const TargetedWindowGroup& g) {
+                                    return g.region.beg >= g.region.end;
+                                }),
+                 groups.end());
     std::vector<RegionChunk> regions;
     regions.reserve(groups.size());
     for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
@@ -1562,16 +1578,78 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         // skipped at output (graph_collect.cpp:71) even though it phased.
         // VariantKey stores ref_len, not the reference bases, so REF comes from
         // the chunk's own reference slice.
+        // The metadata must be in VCF form, because that is what the emitter
+        // writes and what vcf_to_variant_key reads back. A VariantKey is the
+        // TRIMMED form: an insertion carries ref_len = 0 with the anchor base at
+        // key.pos - 1 and alt = the inserted bases only, and a pure deletion
+        // carries alt = "". Pairing a reference slice at key.pos with key.alt
+        // therefore emitted an insertion as a substitution -- measured over
+        // chr20:1-5,000,000, 17 of 260 merged records had REF and ALT sharing no
+        // anchor base (REF=G ALT=CTC for an insertion of CTC after G) -- and gave
+        // a pure deletion an empty ALT.
         GraphSiteMeta meta;
         meta.chrom = contig_name != nullptr ? contig_name : std::string();
-        meta.pos = cand.key.pos;
-        const hts_pos_t ref_off = cand.key.pos - chunk.ref_beg;
-        const int ref_len = std::max(1, cand.key.ref_len);
-        if (ref_off >= 0 &&
-            static_cast<size_t>(ref_off + ref_len) <= chunk.ref_seq.size())
-            meta.ref = chunk.ref_seq.substr(static_cast<size_t>(ref_off),
-                                            static_cast<size_t>(ref_len));
-        meta.alts.push_back(cand.key.alt);
+        // Reference bases come from the DISCOVERED alignment chunks, not from the
+        // graph chunk: build_graph_chunk never fills chunk.ref_seq (it passes a
+        // slice to the noise filter and keeps nothing), while process_chunk does
+        // (bam_digar.cpp:1336). Reading the graph chunk's empty slice is why every
+        // merged site ended up with an empty REF, which makes the writer skip it
+        // (graph_collect.cpp:99) -- so until now the in-gap sites phased reads in
+        // the BAM and never appeared in the VCF at all. That is the mechanism
+        // behind the 54 phase sets carrying 3,259 tagged reads and no records.
+        const auto ref_at = [&](hts_pos_t pos, int len) -> std::string {
+            if (len <= 0) return std::string();
+            for (const PhasingChunk& src : discovered) {
+                if (src.ref_seq.empty()) continue;
+                const hts_pos_t off = pos - src.ref_beg;
+                if (off < 0) continue;
+                if (static_cast<size_t>(off) + static_cast<size_t>(len) > src.ref_seq.size())
+                    continue;
+                return src.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(len));
+            }
+            return std::string();
+        };
+        std::string vcf_ref, vcf_alt;
+        hts_pos_t vcf_pos = cand.key.pos;
+        if (cand.key.type == VariantType::Snp) {
+            vcf_ref = ref_at(cand.key.pos, std::max(1, cand.key.ref_len));
+            vcf_alt = cand.key.alt;
+        } else if (cand.key.type == VariantType::Insertion && cand.key.ref_len == 0) {
+            vcf_pos = cand.key.pos - 1;
+            vcf_ref = ref_at(vcf_pos, 1);
+            vcf_alt = vcf_ref + cand.key.alt;
+        } else if (cand.key.type == VariantType::Insertion) {
+            vcf_ref = ref_at(cand.key.pos, cand.key.ref_len);
+            vcf_alt = cand.key.alt;
+        } else {  // Deletion: anchor one base to the left so ALT is never empty.
+            vcf_pos = cand.key.pos - 1;
+            const std::string anchor = ref_at(vcf_pos, 1);
+            vcf_ref = anchor + ref_at(cand.key.pos, cand.key.ref_len);
+            vcf_alt = anchor + cand.key.alt;
+        }
+        // Emit only what round-trips: if the VCF form does not convert back to
+        // the key it came from, the record would describe a different variant
+        // than the one that was phased, so the site is dropped instead.
+        //
+        // A site whose VCF form cannot be built, or that does not convert back to
+        // the key it came from, gets an EMPTY meta rather than being skipped:
+        // site_meta is addressed BY CANDIDATE INDEX
+        // (graph_chunks_to_candidate_table, graph_collect.cpp:68-72), so dropping
+        // an entry shifts every later site's metadata onto the wrong candidate.
+        // An empty ref makes the writer skip that one record by itself
+        // (graph_collect.cpp:99) while the arrays stay parallel.
+        bool usable = !vcf_ref.empty() && !vcf_alt.empty();
+        if (usable) {
+            const VariantKey round_trip =
+                vcf_to_variant_key(cand.key.tid, vcf_pos, vcf_ref, vcf_alt);
+            usable = round_trip.type == cand.key.type && round_trip.pos == cand.key.pos &&
+                     round_trip.ref_len == cand.key.ref_len && round_trip.alt == cand.key.alt;
+        }
+        if (usable) {
+            meta.pos = vcf_pos;
+            meta.ref = vcf_ref;
+            meta.alts.push_back(vcf_alt);
+        }
         merged_meta.push_back(std::move(meta));
         merged_orig.push_back(std::vector<int>{0, 1});
     }
