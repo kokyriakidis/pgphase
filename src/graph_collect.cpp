@@ -182,6 +182,101 @@ static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
 
 // Converts phased multi-allelic graph candidates to biallelic CandidateVariants compatible
 // with the existing TSV/VCF writers. One output row per passing alt allele per site.
+/// In-chunk recovery for one chunk: re-solve its unphased windows and seams
+/// from the alignment, merge what that finds, and re-run the chunk's rounds.
+///
+/// This lived twice, once in the GAF path and once beside it, identical but for
+/// the contig variable. Every fix here had to be applied to both copies, and a
+/// probe added to one of them silently measured nothing -- which is how the
+/// duplication was found.
+static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
+                                  const Options& opts,
+                                  WorkerContext& ctx,
+                                  const char* contig) {
+                    
+    const size_t merged = retry_unphased_windows_in_place(
+        gc, opts, ctx,
+        contig);
+    if (merged > 0) {
+        // The re-solve needs the recovery windows: allele_depths_call_het
+        // is scoped by them, and without it each haplotype takes its own
+        // majority allele and a genuine het collapses to one side.
+        Options solve_opts = opts;
+        // The depth-based het escape is keyed on the
+        // candidate's own provenance now
+        // (CandidateVariant::bam_injected), not on a window
+        // list, so nothing needs to be carried here. Window
+        // keying admitted every site in the window and cost
+        // 1.153% -> 2.067% read hamming on the default path.
+        // Two rounds, as the alignment pipeline solves: the
+        // clean sites set the gauge, then the merged in-gap
+        // sites -- NOISY_CAND_HET, which the clean mask does
+        // not admit -- join it. Anchored, so the noisy sites
+        // can extend a block without re-deciding the parity
+        // the catalog's clean sites already established.
+        // The merged sites belong to the FIRST solve, not to a
+        // correction applied after one. Both rounds run again
+        // over the union and neither is anchored: the chunk is
+        // solved once, with every site it will ever have.
+        //
+        // Anchoring here was measured and removed. On
+        // chr20:42,500,000-43,000,000, where recovery merges 6
+        // sites across 3 windows, pinning the pre-merge
+        // consensus left 840 of 2,008 reads misplaced inside a
+        // single block -- a switch, not an inversion: the pinned
+        // flank keeps one parity while the merged sites decide
+        // the other. Re-running both rounds unanchored places
+        // every read correctly (0 misplaced). Restricting the
+        // pin to the recovered intervals does NOT help (same 840),
+        // because the parity that has to change is the chunk's,
+        // not the gap's.
+        // Block import: the parent keeps the read labels it
+        // already has and only incorporates the imported
+        // sites. Re-solving from scratch is what every
+        // earlier admission mechanism did, and all of them
+        // degraded the result.
+        // Round 1 is the ordinary solve. Anchoring it under the
+        // flag was pointless: round 2 below resets reads anyway
+        // (as upstream does at the top of every clustering
+        // call), so the anchoring was overridden a few lines
+        // later. The flag's work is the orientation vote in the
+        // merge and the joint resolution after round 2.
+        assign_hap_based_on_germline_het_vars_kmeans(
+            gc.chunk, solve_opts, kCandGermlineClean,
+            false);
+
+        // Stage 2, as the alignment arm runs it: the noisy-region MSA
+        // reconstructs the demoted loci, then the second round solves over
+        // clean plus the rebuilt noisy sites.
+        // The noisy-region MSA cannot run on the graph chunk itself:
+        // collect_noisy_reg_reads skips every read with no digars
+        // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
+        // a seeded region has zero reads and the MSA has nothing to align.
+        // The seeded regions go to the recovery instead, whose sub-solve
+        // re-reads the BAM through process_chunk and does build digars.
+        // The imported sites are NoisyCandHet, so THIS is the
+        // round that recomputes them: it turns the complementary
+        // pair the alignment produced at chr20:55,336,460 --
+        // cons (0,1) for the insertion and (1,0) for the
+        // deletion, exactly what the BAM pipeline emits -- into
+        // (0,0) and (1,1), and the writer skips a site whose two
+        // consensus alleles are equal.
+        //
+        // Anchoring it fixes that window (the insertion is
+        // emitted and joins PS 55,331,014, and the window becomes
+        // one 9-site block) and is a chromosome-wide regression:
+        // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
+        // window result does not generalise, so the round stays
+        // unanchored and the loss is recorded rather than traded.
+        assign_hap_based_on_germline_het_vars_kmeans(
+            gc.chunk, solve_opts, kCandGermlineVarCate,
+            false);
+        if (opts.stitch_recovered)
+            resolve_injected_consensus_jointly(gc.chunk);
+    }
+                    
+}
+
 static CandidateTable graph_chunks_to_candidate_table(
     const std::vector<GraphChunkBuildResult>& graph_chunks,
     const std::unordered_map<std::string, int>& contig_to_tid,
@@ -673,82 +768,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     // part of a better first solve rather than an answer grafted
                     // on with a vote and a relabel. The same merge run after the
                     // stitch fragmented the output into 4,624 blocks against 47.
-                    if (thread_recovery_ctx != nullptr) {
-                        const size_t merged = retry_unphased_windows_in_place(
-                            graph_chunks[offset], opts, *thread_recovery_ctx,
-                            batch_contig.c_str());
-                        if (merged > 0) {
-                            // The re-solve needs the recovery windows: allele_depths_call_het
-                            // is scoped by them, and without it each haplotype takes its own
-                            // majority allele and a genuine het collapses to one side.
-                            Options solve_opts = opts;
-                            // The depth-based het escape is keyed on the
-                            // candidate's own provenance now
-                            // (CandidateVariant::bam_injected), not on a window
-                            // list, so nothing needs to be carried here. Window
-                            // keying admitted every site in the window and cost
-                            // 1.153% -> 2.067% read hamming on the default path.
-                            // Two rounds, as the alignment pipeline solves: the
-                            // clean sites set the gauge, then the merged in-gap
-                            // sites -- NOISY_CAND_HET, which the clean mask does
-                            // not admit -- join it. Anchored, so the noisy sites
-                            // can extend a block without re-deciding the parity
-                            // the catalog's clean sites already established.
-                            // The merged sites belong to the FIRST solve, not to a
-                            // correction applied after one. Both rounds run again
-                            // over the union and neither is anchored: the chunk is
-                            // solved once, with every site it will ever have.
-                            //
-                            // Anchoring here was measured and removed. On
-                            // chr20:42,500,000-43,000,000, where recovery merges 6
-                            // sites across 3 windows, pinning the pre-merge
-                            // consensus left 840 of 2,008 reads misplaced inside a
-                            // single block -- a switch, not an inversion: the pinned
-                            // flank keeps one parity while the merged sites decide
-                            // the other. Re-running both rounds unanchored places
-                            // every read correctly (0 misplaced). Restricting the
-                            // pin to the recovered intervals does NOT help (same 840),
-                            // because the parity that has to change is the chunk's,
-                            // not the gap's.
-                            // Block import: the parent keeps the read labels it
-                            // already has and only incorporates the imported
-                            // sites. Re-solving from scratch is what every
-                            // earlier admission mechanism did, and all of them
-                            // degraded the result.
-                            assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean,
-                                opts.stitch_recovered);
-
-                            // Stage 2, as the alignment arm runs it: the noisy-region MSA
-                            // reconstructs the demoted loci, then the second round solves over
-                            // clean plus the rebuilt noisy sites.
-                            // The noisy-region MSA cannot run on the graph chunk itself:
-                            // collect_noisy_reg_reads skips every read with no digars
-                            // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
-                            // a seeded region has zero reads and the MSA has nothing to align.
-                            // The seeded regions go to the recovery instead, whose sub-solve
-                            // re-reads the BAM through process_chunk and does build digars.
-                            // The imported sites are NoisyCandHet, so THIS is the
-                            // round that recomputes them: it turns the complementary
-                            // pair the alignment produced at chr20:55,336,460 --
-                            // cons (0,1) for the insertion and (1,0) for the
-                            // deletion, exactly what the BAM pipeline emits -- into
-                            // (0,0) and (1,1), and the writer skips a site whose two
-                            // consensus alleles are equal.
-                            //
-                            // Anchoring it fixes that window (the insertion is
-                            // emitted and joins PS 55,331,014, and the window becomes
-                            // one 9-site block) and is a chromosome-wide regression:
-                            // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
-                            // window result does not generalise, so the round stays
-                            // unanchored and the loss is recorded rather than traded.
-                            assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
-                                false);
-                            if (opts.stitch_recovered)
-                                resolve_injected_consensus_jointly(graph_chunks[offset].chunk);
-                        }
-                    }
+                    if (thread_recovery_ctx != nullptr)
+                        run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
+                                              batch_contig.c_str());
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -908,82 +930,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     // part of a better first solve rather than an answer grafted
                     // on with a vote and a relabel. The same merge run after the
                     // stitch fragmented the output into 4,624 blocks against 47.
-                    if (thread_recovery_ctx != nullptr) {
-                        const size_t merged = retry_unphased_windows_in_place(
-                            graph_chunks[offset], opts, *thread_recovery_ctx,
-                            batch_contig_gaf.c_str());
-                        if (merged > 0) {
-                            // The re-solve needs the recovery windows: allele_depths_call_het
-                            // is scoped by them, and without it each haplotype takes its own
-                            // majority allele and a genuine het collapses to one side.
-                            Options solve_opts = opts;
-                            // The depth-based het escape is keyed on the
-                            // candidate's own provenance now
-                            // (CandidateVariant::bam_injected), not on a window
-                            // list, so nothing needs to be carried here. Window
-                            // keying admitted every site in the window and cost
-                            // 1.153% -> 2.067% read hamming on the default path.
-                            // Two rounds, as the alignment pipeline solves: the
-                            // clean sites set the gauge, then the merged in-gap
-                            // sites -- NOISY_CAND_HET, which the clean mask does
-                            // not admit -- join it. Anchored, so the noisy sites
-                            // can extend a block without re-deciding the parity
-                            // the catalog's clean sites already established.
-                            // The merged sites belong to the FIRST solve, not to a
-                            // correction applied after one. Both rounds run again
-                            // over the union and neither is anchored: the chunk is
-                            // solved once, with every site it will ever have.
-                            //
-                            // Anchoring here was measured and removed. On
-                            // chr20:42,500,000-43,000,000, where recovery merges 6
-                            // sites across 3 windows, pinning the pre-merge
-                            // consensus left 840 of 2,008 reads misplaced inside a
-                            // single block -- a switch, not an inversion: the pinned
-                            // flank keeps one parity while the merged sites decide
-                            // the other. Re-running both rounds unanchored places
-                            // every read correctly (0 misplaced). Restricting the
-                            // pin to the recovered intervals does NOT help (same 840),
-                            // because the parity that has to change is the chunk's,
-                            // not the gap's.
-                            // Block import: the parent keeps the read labels it
-                            // already has and only incorporates the imported
-                            // sites. Re-solving from scratch is what every
-                            // earlier admission mechanism did, and all of them
-                            // degraded the result.
-                            assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineClean,
-                                opts.stitch_recovered);
-
-                            // Stage 2, as the alignment arm runs it: the noisy-region MSA
-                            // reconstructs the demoted loci, then the second round solves over
-                            // clean plus the rebuilt noisy sites.
-                            // The noisy-region MSA cannot run on the graph chunk itself:
-                            // collect_noisy_reg_reads skips every read with no digars
-                            // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
-                            // a seeded region has zero reads and the MSA has nothing to align.
-                            // The seeded regions go to the recovery instead, whose sub-solve
-                            // re-reads the BAM through process_chunk and does build digars.
-                            // The imported sites are NoisyCandHet, so THIS is the
-                            // round that recomputes them: it turns the complementary
-                            // pair the alignment produced at chr20:55,336,460 --
-                            // cons (0,1) for the insertion and (1,0) for the
-                            // deletion, exactly what the BAM pipeline emits -- into
-                            // (0,0) and (1,1), and the writer skips a site whose two
-                            // consensus alleles are equal.
-                            //
-                            // Anchoring it fixes that window (the insertion is
-                            // emitted and joins PS 55,331,014, and the window becomes
-                            // one 9-site block) and is a chromosome-wide regression:
-                            // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
-                            // window result does not generalise, so the round stays
-                            // unanchored and the loss is recorded rather than traded.
-                            assign_hap_based_on_germline_het_vars_kmeans(
-                                graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
-                                false);
-                            if (opts.stitch_recovered)
-                                resolve_injected_consensus_jointly(graph_chunks[offset].chunk);
-                        }
-                    }
+                    if (thread_recovery_ctx != nullptr)
+                        run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
+                                              batch_contig_gaf.c_str());
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
