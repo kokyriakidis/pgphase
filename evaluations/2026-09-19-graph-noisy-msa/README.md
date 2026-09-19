@@ -92,3 +92,15 @@ duplicate digar construction.
 
 Default path byte-identical with the flag off; unit 3/3, predicate 151/151,
 window 125/125.
+
+## A build lesson from this change
+
+`0ac38e2` was committed with `make unit-tests` broken and the failure misread
+as passing: the check counts `ALL PASS` lines, and a suite that fails to LINK
+prints none, so "ALL PASS=0/3" looks like the same shape as a pass count. The
+two new functions lived in `graph_bam_adapter.cpp` and call
+`vcf_to_variant_key`, `populate_low_complexity_intervals` and
+`variant_genomic_span`, which live in `collect_var.o` -- an object
+`test_graph_bam_adapter` does not link. Moved both definitions to
+`graph_collect.cpp`, the only caller and a translation unit that links the full
+set. A zero from a counting check has to be read as a failure, not a number.
