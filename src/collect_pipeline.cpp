@@ -1135,7 +1135,20 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
 
 
-    const Options sub = targeted_solve_options(opts);
+    Options sub = targeted_solve_options(opts);
+    // Scope the depth-based het escape to the windows actually being recovered.
+    // allele_depths_call_het is the one reader of retry_windows, and nothing
+    // has filled that list since the post-hoc retry path was removed -- so the
+    // escape it guards (admitting a depth-clear homopolymer indel to the link
+    // list, and keeping a genuine het from collapsing to 1|1) has been dead in
+    // every run. Enabling it chromosome-wide was measured at 1.161% -> 4.502%
+    // read hamming with 333 -> 526 blocks, so it is not a latent win: it was
+    // tuned for exactly this scoped use, inside a window the first pass could
+    // not phase.
+    sub.retry_windows.clear();
+    for (const TargetedWindowGroup& group : groups)
+        for (const auto& member : group.members)
+            sub.retry_windows.emplace_back(member.first, member.second);
     std::vector<PhasingChunk> discovered;
     discovered.reserve(regions.size());
     for (const RegionChunk& region : regions)
