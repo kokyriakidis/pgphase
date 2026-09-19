@@ -65,3 +65,50 @@ detail, the measurement is unambiguous and the arm runs with
 
 Not yet explained: read blocks rise 281 -> 312 chromosome-wide while VCF blocks
 fall 285 -> 267, and records fall by 24.
+
+## Two follow-ups: a broken precondition, and the read-block anomaly explained
+
+**The merge violated an invariant the cross-chunk stitch depends on.** The stitch
+pairs reads between adjacent chunks with a MERGE-JOIN over their read vectors
+(`populate_graph_chunk_pair_overlap_impl`, `graph_bam_adapter.cpp:1112-1120`):
+two indices advancing on `qname.compare`, which is correct only if both vectors
+are sorted by qname. `build_graph_chunk` produces them that way; appending the
+alignment-only reads left exactly **one** inversion per chunk (measured), at the
+junction between the original block and the appended one. A merge-join does not
+fail on that -- it silently stops matching past the inversion, so those reads
+never pair and the stitch loses the overlap evidence it votes on.
+
+The merge now restores the qname ordering before rebuilding the index, moving
+`read_var_profile` (and each `read_id`), `haps` and `phase_sets` with the reads.
+
+chr20: discordant 2,482 -> 2,456, read hamming 1.160% -> 1.148%, VCF blocks
+267 -> 265, tagged 213,905 -> 213,877, wall 138 s -> 126 s.
+
+This is the second invariant of the same family, so they are worth listing
+together. Merging into a LIVE chunk means restoring everything derived from it:
+
+| invariant | depended on by | how it failed |
+|---|---|---|
+| candidates sorted by position | the solve's sweep walks by index | handled in the merge |
+| `site_ids` / `site_meta` / `site_allele_orig_idx` parallel to candidates | the VCF emitter | handled in the merge |
+| `read_var_cr` keyed by candidate index | the solve finds each site's reads through it | 4,635 blocks against 47 |
+| `reads` sorted by qname | the cross-chunk stitch's merge-join | lost overlap votes, silently |
+
+None are asserted or documented where a chunk would be mutated, so each was found
+by its symptom.
+
+**The read-block rise is not a defect.** Read blocks go 281 -> 310 while VCF
+blocks fall 285 -> 265, and the ordering fix does not account for it (312 -> 310).
+Counting phase sets that carry tagged reads against those carrying phased VCF
+records:
+
+| | read blocks | VCF blocks | blocks with tagged reads but NO VCF record |
+|---|---:|---:|---:|
+| post-hoc | 281 | 285 | 0 (0 reads) |
+| in-chunk | 310 | 265 | **54 (3,259 reads)** |
+
+The recovered in-gap sites tag reads in the phased BAM without emitting phased
+records into the catalog-shaped VCF. So the extra read blocks are recovered
+coverage the VCF does not describe, not fragmentation. Whether those sites should
+also be emitted is a separate question: they are alignment-discovered and absent
+from the catalog the graph arm's VCF is built from.

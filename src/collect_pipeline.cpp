@@ -1654,6 +1654,51 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     graph_chunk.site_meta = std::move(merged_meta);
     graph_chunk.site_allele_orig_idx = std::move(merged_orig);
 
+    // Restore the qname ordering of chunk.reads. The cross-chunk stitch pairs
+    // reads with a MERGE-JOIN over the two chunks' read vectors
+    // (populate_graph_chunk_pair_overlap_impl, graph_bam_adapter.cpp:1112-1120),
+    // which walks both with single advancing indices and therefore requires both
+    // to be sorted by qname. Appending the alignment-only reads leaves exactly
+    // one inversion at the junction -- measured, one out-of-order pair per chunk
+    // -- and that is enough for the join to skip every read past it, costing the
+    // stitch the overlap evidence it votes on. Everything indexed by read id
+    // moves with the reads.
+    {
+        std::vector<size_t> order(chunk.reads.size());
+        for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            return chunk.reads[a].qname < chunk.reads[b].qname;
+        });
+        bool already_sorted = true;
+        for (size_t i = 0; i < order.size(); ++i)
+            if (order[i] != i) { already_sorted = false; break; }
+        if (!already_sorted) {
+            std::vector<ReadRecord> reads_sorted;
+            std::vector<ReadVariantProfile> profiles_sorted;
+            reads_sorted.reserve(order.size());
+            profiles_sorted.reserve(order.size());
+            const bool have_haps = chunk.haps.size() == chunk.reads.size();
+            const bool have_ps = chunk.phase_sets.size() == chunk.reads.size();
+            std::vector<int> haps_sorted;
+            std::vector<hts_pos_t> ps_sorted;
+            if (have_haps) haps_sorted.reserve(order.size());
+            if (have_ps) ps_sorted.reserve(order.size());
+            for (size_t new_i = 0; new_i < order.size(); ++new_i) {
+                const size_t old_i = order[new_i];
+                reads_sorted.push_back(std::move(chunk.reads[old_i]));
+                ReadVariantProfile prof = std::move(chunk.read_var_profile[old_i]);
+                prof.read_id = static_cast<int>(new_i);
+                profiles_sorted.push_back(std::move(prof));
+                if (have_haps) haps_sorted.push_back(chunk.haps[old_i]);
+                if (have_ps) ps_sorted.push_back(chunk.phase_sets[old_i]);
+            }
+            chunk.reads = std::move(reads_sorted);
+            chunk.read_var_profile = std::move(profiles_sorted);
+            if (have_haps) chunk.haps = std::move(haps_sorted);
+            if (have_ps) chunk.phase_sets = std::move(ps_sorted);
+        }
+    }
+
     // The read<->variant interval tree is keyed by CANDIDATE INDEX, and the
     // solve looks every site's reads up through it (collect_phase.cpp:589, 983).
     // Re-indexing the candidates invalidates it, so it has to be rebuilt exactly
