@@ -76,5 +76,81 @@ are what the hybrid is measured against; neither takes the other's input.
 attribution, not as a supported configuration. Everything else on the hybrid is
 a threshold or an output path. Removed as modes: `--recover-gaps`,
 `--msa-verified-refine`, `--gap-bam-only`, `--graph-first`/`--no-graph-first`,
-`--graph-authoritative`, `--private-sites`, `--bam-authoritative-bed`, and
-`collect-graph-variation --bam`.
+`--graph-authoritative`, `--private-sites` and `--bam-authoritative-bed`.
+
+## The graph arm with `--bam`
+
+`collect-graph-variation --bam` is the arm under active work, and it is not the
+hybrid: the catalog's sites are phased from GAF evidence, and the alignment is
+consulted ONLY to recover what those sites could not join.
+
+```
+pgphase collect-graph-variation \
+  --ref chm13.fa --sites sites.vcf.gz --gaf reads.coord.gaf.gz --bam reads.bam \
+  -r 'CHM13#0#chr20' -o candidates.tsv \
+  --phased-vcf-out phased.vcf --phased-bam-out phased.bam
+```
+
+Two recovery placements, and they are a real choice:
+
+| | where | flag |
+|---|---|---|
+| post-hoc (default) | after the pass, as its own sub-solve grafted onto the parent blocks | -- |
+| in-chunk | inside each chunk, before the stitch | `--in-chunk-recovery` |
+
+In-chunk recovery merges the alignment's in-gap candidates into the LIVE chunk
+and re-runs both solve rounds over the union, so the recovered sites are ordinary
+members of the chunk's own solve rather than a graft whose internal parity
+nothing checks. `--no-anchored-stage2` makes stage 2 reset and re-solve over the
+wider site set instead of refining stage 1; on this path the resetting form
+measures better, which is the reverse of the alignment arm and is not explained.
+
+chr20 at `-t 16`, scored against read-level parental truth:
+
+| | wall | tagged | read blocks | discordant | read hamming | VCF records | phased | hom |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| post-hoc | -- | 203,751 | 281 | 2,732 | 1.341% | 56,032 | 55,907 | 125 |
+| in-chunk, `--no-anchored-stage2` | 114 s | 219,059 | 323 | **2,543** | **1.161%** | 61,789 | **61,650** | 139 |
+
+### What the merge must preserve
+
+Mutating a live chunk means restoring every property the rest of the pass
+assumes, and six defects shipped because nothing checked them.
+`verify_chunk_invariants` (`collect_phase.cpp`) runs at the end of the merge and
+throws, naming the first violation:
+
+- the three per-site arrays (`site_ids`, `site_meta`, `site_allele_orig_idx`) as
+  long as `candidates` -- the writer addresses metadata BY CANDIDATE INDEX;
+- `read_var_profile`, `haps` and `phase_sets` as long as `reads`;
+- `candidates` position-sorted, and `read_var_profile[i].read_id == i`;
+- `reads` qname-sorted -- the cross-chunk stitch pairs them with a merge-join,
+  so one inversion makes it skip everything past that point;
+- the re-solved region inside `[chunk.ref_beg, chunk.ref_end]` -- discovering
+  outside pulls in the neighbour's reads, which then enter the stitch's vote.
+
+### What a merged site contributes
+
+A merged site takes part in the solve like any other, but it is WRITTEN only
+when this writer's own classification (`graph_collect.cpp:196-223`, which
+reclassifies from depth) calls it a het. Two reasons: the alignment's in-gap
+discovery also calls homozygous variants, and a merged candidate often carries
+`ref_cov = 0`, which that reclassification reads as homozygous. Emitting either
+would add calls that appear only inside recovery windows -- a biased subset of
+the genome -- to a VCF whose contract is the catalog's sites plus what recovery
+phased.
+
+Four phase sets chromosome-wide still tag reads without a record describing
+them. Their sites are merged candidates the writer classifies LOW_COV or LOW_AF;
+withholding those at admission removes three of the four and costs 11 blocks of
+contiguity and 14 more misplaced reads, so they are left in deliberately.
+
+## Test gates
+
+`make unit-tests` (4 binaries), `make window-tests` (the committed chr20 gap
+windows) and `make predicate-tests` (the phasing predicates and the chunk
+invariants). All three must pass before a commit.
+
+There is no injection suite: `src/test_bam_site_injection.cpp` was deleted in
+c092785 when the tests were narrowed to the window under work. A compiled binary
+outlived it in some working trees and kept printing pass/fail counts from
+retired expectations; it is not a build target and its output means nothing.

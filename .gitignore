@@ -124,3 +124,6 @@ test_phase_block_stitch
 # Derived from the committed truth BAM by scripts/make_truth_hap_map.sh.
 # ~9 MB and reproducible, so it is generated rather than committed.
 test_data/derived/
+/test_gap_windows
+/test_phase_predicates
+/test_bam_site_injection
