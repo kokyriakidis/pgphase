@@ -1571,7 +1571,19 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             continue;
         }
         const CandidateVariant& cand = new_cands.at(slot.key);
-        merged_cands.push_back(cand);
+        // The graph writer emits one record per entry of counts.alle_covs
+        // (graph_chunks_to_candidate_table loops new_a = 1 .. alle_covs.size()),
+        // but the alignment path reports depth as ref_cov/alt_cov and leaves
+        // alle_covs empty on most candidates -- measured, 952 of 1,377 merged
+        // sites over chr20:1-5,000,000. Those sites were phased and tagged reads
+        // while emitting no record at all. A merged site is biallelic here (one
+        // synthesized alt, orig index {0, 1}), so the two depths ARE the allele
+        // depth vector.
+        CandidateVariant merged_cand = cand;
+        if (merged_cand.counts.alle_covs.size() < 2)
+            merged_cand.counts.alle_covs = {merged_cand.counts.ref_cov,
+                                            merged_cand.counts.alt_cov};
+        merged_cands.push_back(std::move(merged_cand));
         merged_ids.push_back(std::string());
         // Synthesized metadata, so the emitter's index-parallel lookup finds an
         // entry for a site the catalog never held. Without it the merged site is

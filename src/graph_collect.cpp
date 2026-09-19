@@ -71,6 +71,19 @@ static CandidateTable graph_chunks_to_candidate_table(
             if (ci >= graph_chunk.site_meta.size()) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
 
+            // A site merged in by the in-chunk recovery (no catalog id) is
+            // written only when it carries phase information. The alignment's
+            // in-gap discovery also calls homozygous variants, and emitting
+            // those would add ~12,850 hom records to chr20 -- a 23% larger VCF
+            // whose extra content is alignment-discovered calls appearing ONLY
+            // inside recovery windows, which is a biased subset of the genome.
+            // The arm's output is the catalog's sites plus what recovery
+            // phased, not a variant call set.
+            if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty()) {
+                const auto& h = mcand.hap_to_cons_alle;
+                if (h.size() < 3 || h[1] == -1 || h[2] == -1 || h[1] == h[2]) continue;
+            }
+
             auto tid_it = contig_to_tid.find(meta.chrom);
             if (tid_it == contig_to_tid.end()) continue;
             const int fai_tid = tid_it->second;

@@ -188,3 +188,48 @@ remains byte-identical with the flag off. Unit 4/4, window 66/66, predicate
 Still open: 12 read-only blocks chromosome-wide, and the 14 extra position
 collisions the merge introduces (246 -> 260 over 5 Mb), which are positions where
 a catalog site and a merged alignment site coexist.
+
+## Second audit round: two more bugs, one non-bug
+
+**4. Most merged sites emitted nothing, because the writer reads a depth vector
+they did not have.** `graph_chunks_to_candidate_table` emits one record per entry
+of `counts.alle_covs` (`for new_a = 1 .. alle_covs.size()`), which is the graph
+path's per-allele depth vector. The alignment path reports depth as
+`ref_cov`/`alt_cov` and leaves `alle_covs` empty on most candidates: **952 of
+1,377** merged sites over `chr20:1-5,000,000`. Those sites were phased, tagged
+reads, and produced no record. A merged site is biallelic here -- one synthesized
+alt, orig index `{0, 1}` -- so the two depths are exactly that vector, and it is
+now filled in. All 1,377 have it; chromosome-wide phased records rose 59,948 ->
+61,659 and read-only blocks fell 12 -> 4.
+
+**5. Emitting every merged site turned the arm into a variant caller.** With the
+depths filled in, chr20 produced **74,630 records against 56,032** -- and the
+extra 12,846 were `1|1` homozygous calls with no phase set (125 such records
+before, 12,971 after). They come from the alignment's in-gap discovery, which
+calls hom variants too. Writing them is worse than not: they would appear ONLY
+inside recovery windows, a biased subset of the genome, in a VCF whose contract
+is the catalog's sites plus what recovery phased. A merged site is now written
+only when it carries phase (`hap_to_cons_alle[1]` and `[2]` both set and
+different). Records 74,630 -> 62,197, hom 12,971 -> 547, phased records and read
+accuracy unchanged.
+
+**Not a bug: the duplicate candidates.** Identical-key duplicates -- same
+position, type, ref_len and alt -- measured before and after the merge in each
+chunk: **166 -> 166** over 5 Mb. The merge introduces none; they are a
+pre-existing property of the catalog's own decomposition. The position-level
+collisions counted in the first audit round (246 -> 260) are distinct variants
+sharing a position, not duplicate representations.
+
+## Final state, chr20 at -t 16
+
+| | tagged | read blk | discordant | read hamming | VCF records | phased | blocks | hom | read-only blk |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| post-hoc | 203,751 | 281 | 2,732 | 1.341% | 56,032 | 55,907 | 285 | 125 | 0 |
+| in-chunk | 219,059 | 323 | 2,543 | **1.161%** | 62,197 | **61,650** | 324 | 547 | 4 |
+
+15,308 more reads phased, 189 fewer misplaced, 5,743 more phased records. The
+default path stays byte-identical with the flag off. Unit 4/4, window 66/66,
+predicate 130/130.
+
+Still open: 4 read-only blocks, and 547 hom records against the default's 125 --
+422 more than expected once merged hom sites are excluded, which is unexplained.
