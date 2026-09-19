@@ -91,7 +91,7 @@ together. Merging into a LIVE chunk means restoring everything derived from it:
 |---|---|---|
 | candidates sorted by position | the solve's sweep walks by index | handled in the merge |
 | `site_ids` / `site_meta` / `site_allele_orig_idx` parallel to candidates | the VCF emitter | handled in the merge |
-| `read_var_cr` keyed by candidate index | the solve finds each site's reads through it | 4,635 blocks against 47 |
+| `read_var_cr` keyed by candidate index | the solve finds each site's reads through it | 4,635 blocks; 84 after the rebuild |
 | `reads` sorted by qname | the cross-chunk stitch's merge-join | lost overlap votes, silently |
 
 None are asserted or documented where a chunk would be mutated, so each was found

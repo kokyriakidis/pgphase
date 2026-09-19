@@ -325,3 +325,16 @@ flip = 1 merges cover "1,626 candidates". Nothing computed that. The probe sum
 over the same log gives **1,987**, which is the figure the session then used and
 reconciled against 1,964 re-oriented records (the 23-record gap being candidates
 not emitted as phased VCF records). Corrected in place.
+
+## 2026-09-19 -- a mislabelled figure in the in-chunk invariant table
+
+`evaluations/2026-09-19-in-chunk-recovery/README.md` described the stale
+`read_var_cr` failure as "4,635 blocks against 47". 47 is the POST-HOC path's VCF
+block count on `chr20:1-10,000,000`, quoted earlier in the same document for a
+different comparison; it is not the outcome of the index rebuild. The document's
+own prose has the right number a few paragraphs above: the rebuild took the slice
+from 4,635 blocks to 84. The cell now reads "4,635 blocks; 84 after the rebuild".
+
+The wrong figure reached the commit message of 33aa478, which cannot be amended,
+and durable memory, which has been corrected.
+
