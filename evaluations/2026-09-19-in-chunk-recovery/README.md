@@ -285,3 +285,38 @@ reference source, wrong allele form, absent allele depths, unscoped emission,
 manufactured hom calls), plus one introduced and caught (metadata desync). One
 item accepted with its cost measured (4 read-only phase sets). Default path
 byte-identical with the flag off; unit 4/4, window 66/66, predicate 130/130.
+
+## The invariants, asserted
+
+Every bug in the three audit rounds was a property of the chunk the merge failed
+to preserve, or a convention of the channel it borrows from -- and nothing
+checked either, so each surfaced as a block count or a missing record runs
+later. `verify_chunk_invariants` (`collect_phase.cpp`) now runs at the end of the
+merge and throws, naming the first violation:
+
+| invariant | what depends on it |
+|---|---|
+| `site_ids`, `site_meta`, `site_allele_orig_idx` each as long as `candidates` | the graph writer addresses metadata BY CANDIDATE INDEX, so a short array shifts every later site's metadata onto the wrong candidate |
+| `read_var_profile`, `haps`, `phase_sets` each as long as `reads` | every read-indexed vector must keep the same length and ordering |
+| `candidates` position-sorted | the solve's sweep and the read-to-variant index assume it |
+| `reads` qname-sorted | the cross-chunk stitch pairs reads with a merge-join; one inversion makes it skip everything past that point |
+| `read_var_profile[i].read_id == i` | the index is keyed by slot, not by identity |
+| the re-solved region inside `[chunk.ref_beg, chunk.ref_end]` | discovering outside pulls in the neighbour's reads, which then enter the stitch's vote |
+
+Six of these correspond to a defect that shipped. Fifteen assertions in
+`test_phase_predicates.cpp` cover the verifier itself: one case that a consistent
+chunk passes, and one section per invariant that breaks it and requires a throw.
+Removing the read-sort check fails exactly the read-sort section, so the tests
+bite.
+
+**It found a seventh bug on its first live run:** `chunk invariant violated: haps
+has 1950 entries for 1967 reads`. Appending reads never grew `haps` or
+`phase_sets`, and the qname re-sort only reorders vectors whose length matches --
+so it was silently SKIPPING them, leaving each read's label attached to a
+different read. The resetting solve overwrites both, which is why this never
+showed in output; the anchored solve does not, so it was live corruption waiting
+on a flag. Both vectors now grow with the reads.
+
+chr20 with the verifier live: 114 s, exit 0, zero violations, VCF identical to
+the run before it was added. Unit 4/4, window 66/66, predicate 141/141,
+injection 127.

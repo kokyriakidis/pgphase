@@ -4,6 +4,8 @@
  */
 
 #include "collect_phase.hpp"
+
+#include <stdexcept>
 #include "collect_phase_pgbam.hpp"
 
 #include <algorithm>
@@ -1280,6 +1282,54 @@ static void propagate_overlap_read_phase_to_output_owner(PhasingChunk& pre, cons
             pre.haps[static_cast<size_t>(pre_read_i)] = cur_hap;
             pre.phase_sets[static_cast<size_t>(pre_read_i)] = cur_ps;
         }
+    }
+}
+
+void verify_chunk_invariants(const PhasingChunk& chunk,
+                             size_t site_ids_size,
+                             size_t site_meta_size,
+                             size_t site_orig_size,
+                             hts_pos_t region_lo,
+                             hts_pos_t region_hi) {
+    const size_t n_cand = chunk.candidates.size();
+    const size_t n_reads = chunk.reads.size();
+    auto fail = [](const std::string& what) {
+        throw std::runtime_error("chunk invariant violated: " + what);
+    };
+    if (site_ids_size != n_cand)
+        fail("site_ids has " + std::to_string(site_ids_size) + " entries for " +
+             std::to_string(n_cand) + " candidates");
+    if (site_meta_size != n_cand)
+        fail("site_meta has " + std::to_string(site_meta_size) + " entries for " +
+             std::to_string(n_cand) + " candidates");
+    if (site_orig_size != n_cand)
+        fail("site_allele_orig_idx has " + std::to_string(site_orig_size) +
+             " entries for " + std::to_string(n_cand) + " candidates");
+    if (chunk.read_var_profile.size() != n_reads)
+        fail("read_var_profile has " + std::to_string(chunk.read_var_profile.size()) +
+             " entries for " + std::to_string(n_reads) + " reads");
+    if (!chunk.haps.empty() && chunk.haps.size() != n_reads)
+        fail("haps has " + std::to_string(chunk.haps.size()) + " entries for " +
+             std::to_string(n_reads) + " reads");
+    if (!chunk.phase_sets.empty() && chunk.phase_sets.size() != n_reads)
+        fail("phase_sets has " + std::to_string(chunk.phase_sets.size()) +
+             " entries for " + std::to_string(n_reads) + " reads");
+    for (size_t i = 1; i < n_cand; ++i)
+        if (chunk.candidates[i - 1].key.sort_pos() > chunk.candidates[i].key.sort_pos())
+            fail("candidates are not position-sorted at index " + std::to_string(i));
+    for (size_t i = 1; i < n_reads; ++i)
+        if (chunk.reads[i - 1].qname > chunk.reads[i].qname)
+            fail("reads are not qname-sorted at index " + std::to_string(i) +
+                 " (the cross-chunk stitch pairs them with a merge-join)");
+    for (size_t i = 0; i < chunk.read_var_profile.size(); ++i)
+        if (chunk.read_var_profile[i].read_id != static_cast<int>(i))
+            fail("read_var_profile[" + std::to_string(i) + "].read_id is " +
+                 std::to_string(chunk.read_var_profile[i].read_id));
+    if (region_hi > region_lo) {
+        if (region_lo < chunk.ref_beg || region_hi > chunk.ref_end)
+            fail("re-solved region " + std::to_string(region_lo) + "-" +
+                 std::to_string(region_hi) + " reaches outside the chunk " +
+                 std::to_string(chunk.ref_beg) + "-" + std::to_string(chunk.ref_end));
     }
 }
 

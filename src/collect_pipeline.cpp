@@ -1759,6 +1759,17 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     graph_chunk.site_meta = std::move(merged_meta);
     graph_chunk.site_allele_orig_idx = std::move(merged_orig);
 
+    // Every read-indexed vector grows with the reads. Appending without this
+    // leaves haps and phase_sets short -- caught by verify_chunk_invariants on
+    // its first live run, "haps has 1950 entries for 1967 reads" -- and the
+    // re-sort below then SKIPS reordering them, because it only moves vectors
+    // whose length matches, so a read's label would no longer belong to that
+    // read. The resetting solve happens to overwrite both, which is why this
+    // stayed invisible; the anchored solve does not.
+    if (chunk.haps.size() != chunk.reads.size()) chunk.haps.resize(chunk.reads.size(), 0);
+    if (chunk.phase_sets.size() != chunk.reads.size())
+        chunk.phase_sets.resize(chunk.reads.size(), -1);
+
     // Restore the qname ordering of chunk.reads. The cross-chunk stitch pairs
     // reads with a MERGE-JOIN over the two chunks' read vectors
     // (populate_graph_chunk_pair_overlap_impl, graph_bam_adapter.cpp:1112-1120),
@@ -1811,6 +1822,17 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // reads the wrong reads for every site and the chunk comes apart: 4,635
     // phase-set blocks over the first 10 Mb of chr20 against a baseline of 47.
     rebuild_read_var_cr(chunk);
+
+    // Fail loudly here rather than as a block count three runs later.
+    hts_pos_t region_lo = 0, region_hi = 0;
+    for (const RegionChunk& r : regions) {
+        region_lo = region_lo == 0 ? r.beg : std::min(region_lo, r.beg);
+        region_hi = std::max(region_hi, r.end);
+    }
+    verify_chunk_invariants(chunk, graph_chunk.site_ids.size(),
+                            graph_chunk.site_meta.size(),
+                            graph_chunk.site_allele_orig_idx.size(),
+                            region_lo, region_hi);
 
     if (opts.verbose > 0)
         fprintf(stderr, "[in-pass] %zu window(s) -> %zu region(s), merged %zu alignment site(s)\n",

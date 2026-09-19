@@ -66,6 +66,28 @@ uint32_t category_to_flag(VariantCategory c);
 //
 // When pgbam_sidecar is provided, annotated-BAM thread IDs are used to merge
 // phase blocks that lack decisive common-read overlap.
+/// Check the invariants a chunk must satisfy after candidates or reads have been
+/// inserted into it, and throw std::runtime_error naming the first violation.
+///
+/// Every one of these is depended on silently somewhere else, and each was found
+/// on 2026-09-19 by its symptom rather than by a diagnostic:
+///   - the per-site arrays are addressed BY CANDIDATE INDEX by the graph writer,
+///     so a short one shifts metadata onto the wrong site;
+///   - the solve finds a site's reads through an index keyed by candidate index,
+///     so candidates must stay position-sorted and the index rebuilt;
+///   - the cross-chunk stitch pairs reads with a merge-join, so reads must stay
+///     sorted by qname;
+///   - every read-indexed vector must keep the same length and ordering.
+///
+/// `region_lo`/`region_hi` are the span that was re-solved; pass 0/0 to skip the
+/// containment check.
+void verify_chunk_invariants(const PhasingChunk& chunk,
+                             size_t site_ids_size,
+                             size_t site_meta_size,
+                             size_t site_orig_size,
+                             hts_pos_t region_lo,
+                             hts_pos_t region_hi);
+
 void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                        const Options* opts = nullptr,
                        const PgbamSidecarData* pgbam_sidecar = nullptr);

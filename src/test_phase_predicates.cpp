@@ -547,3 +547,82 @@ TEST_CASE("trim_to_minimal_vcf") {
         CHECK(pos == 100);
     }
 }
+
+// ---------------------------------------------------------------------------
+// verify_chunk_invariants: the properties a chunk must still satisfy after the
+// in-chunk recovery inserts candidates and reads into it. Each case here
+// corresponds to a defect that shipped and was found by its symptom -- a phase
+// block count, a missing record -- rather than by a check.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+PhasingChunk three_site_chunk() {
+    PhasingChunk chunk;
+    chunk.ref_beg = 1000;
+    chunk.ref_end = 2000;
+    for (int i = 0; i < 3; ++i) {
+        CandidateVariant cand;
+        cand.key.tid = 0;
+        cand.key.pos = 1000 + 10 * i;
+        cand.key.type = VariantType::Snp;
+        cand.key.ref_len = 1;
+        cand.key.alt = "A";
+        chunk.candidates.push_back(cand);
+        ReadRecord read;
+        read.qname = std::string("read") + static_cast<char>('a' + i);
+        read.beg = 1000;
+        read.end = 1100;
+        chunk.reads.push_back(std::move(read));
+        ReadVariantProfile prof;
+        prof.read_id = i;
+        chunk.read_var_profile.push_back(prof);
+    }
+    chunk.haps.assign(3, 0);
+    chunk.phase_sets.assign(3, -1);
+    return chunk;
+}
+
+}  // namespace
+
+TEST_CASE("verify_chunk_invariants accepts a consistent chunk", "[invariants]") {
+    const PhasingChunk chunk = three_site_chunk();
+    CHECK_NOTHROW(verify_chunk_invariants(chunk, 3, 3, 3, 0, 0));
+    // A re-solved region inside the chunk is fine.
+    CHECK_NOTHROW(verify_chunk_invariants(chunk, 3, 3, 3, 1200, 1400));
+}
+
+TEST_CASE("verify_chunk_invariants catches the defects that shipped", "[invariants]") {
+    SECTION("a short per-site array shifts metadata onto the wrong candidate") {
+        const PhasingChunk chunk = three_site_chunk();
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 2, 3, 0, 0), std::runtime_error);
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 2, 3, 3, 0, 0), std::runtime_error);
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 2, 0, 0), std::runtime_error);
+    }
+    SECTION("reads out of qname order break the cross-chunk stitch's merge-join") {
+        PhasingChunk chunk = three_site_chunk();
+        std::swap(chunk.reads[0].qname, chunk.reads[2].qname);
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 0, 0), std::runtime_error);
+    }
+    SECTION("candidates out of position order break the solve's sweep") {
+        PhasingChunk chunk = three_site_chunk();
+        std::swap(chunk.candidates[0].key.pos, chunk.candidates[2].key.pos);
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 0, 0), std::runtime_error);
+    }
+    SECTION("a read-indexed vector of the wrong length") {
+        PhasingChunk chunk = three_site_chunk();
+        chunk.read_var_profile.pop_back();
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 0, 0), std::runtime_error);
+    }
+    SECTION("a profile whose read_id no longer matches its slot") {
+        PhasingChunk chunk = three_site_chunk();
+        chunk.read_var_profile[1].read_id = 7;
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 0, 0), std::runtime_error);
+    }
+    SECTION("a re-solved region reaching outside the chunk") {
+        const PhasingChunk chunk = three_site_chunk();
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 900, 1400), std::runtime_error);
+        CHECK_THROWS_AS(verify_chunk_invariants(chunk, 3, 3, 3, 1200, 2400), std::runtime_error);
+    }
+}
+
