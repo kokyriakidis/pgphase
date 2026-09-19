@@ -83,3 +83,43 @@ than overlap the locus: every link around chr20:26,624,4xx is decided on
 BAM has 114 and 100 reads across those positions. DP is not that number -- a read
 counts for a link only if it carries a CALLED ALLELE at both sites, and in the
 graph channel most reads covering a site do not.
+
+## The experiment: would BAM allele calls at existing sites close these breaks?
+
+Tested directly from the alignment, without implementing anything: for each
+bridgeable break, call every read at the two flanking sites from the VCF's own
+REF/ALT, build the 2x2 allele-combination table, and score the implied join
+against the parental read truth.
+
+**No.** Of the 20 breaks with the most spanning reads, 7 produce a table clean
+enough to imply a link; against truth only 1 survives. Rescoring with the full
+allele list (our multiallelic records are emitted as separate biallelic rows,
+so reading one row per position loses alleles) takes it to 2 of 7, and collapses
+the read counts, because the alleles at these loci cannot be told apart per
+read: at 44,778,041 they are `ATTTT>A` and `ATTTTT>A`, two deletions in one
+tandem repeat differing by a single base.
+
+Classifying all 212 flanking sites of the 106 breaks:
+
+| flank | count | share |
+|---|---:|---:|
+| SNP | 97 | 46% |
+| indel | 79 | 37% |
+| indel whose alleles differ by <= 1 bp | 36 | 17% |
+
+35 of the 106 breaks have at least one repeat-tract flank of the last kind. But
+the decisive subset is the 14 breaks where BOTH flanks are clean SNPs, where
+per-read calling is reliable: **0 of 14 are joins the read truth supports.**
+Most have only 1-9 callable reads despite the interval being spanned -- the
+break is 16-18 kb wide in several cases -- and 26,624,496-26,625,001, the 505 bp
+break with 91 callable reads, has every callable read paternal (11: M1/P41,
+10: M3/P15), the signature of a locus where one haplotype is divergent rather
+than one that is merely unlinked.
+
+So the earlier "106 bridgeable breaks, upper bound 333 -> 227" was wrong, and
+the error was in the word bridgeable: it counted reads whose start and end
+straddle the interval, which is necessary for a link and nowhere near
+sufficient. A read links two sites only if it carries a distinguishable allele
+at both. On this chromosome, backfilling the alignment's allele calls onto the
+sites we already hold would buy nothing measurable, and the fragmentation at
+these breaks is a property of the loci, not of the evidence we chose to use.
