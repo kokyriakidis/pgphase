@@ -1773,7 +1773,14 @@ static void refresh_assigned_msa_observations(const Options& opts,
             ref_read.target_beg = ref_read.query_beg = 0;
             ref_read.target_end = ref_read.query_end = ref_read.aln_len - 1;
             if (opts.gap_aln == kLeftGapAlignment) left_normalize_msa_alignment(ref_read);
-            auto& profile = profiles[clu_read_ids[ci][ri]];
+            const int rid_ = clu_read_ids[ci][ri];
+            if (rid_ < 0 || static_cast<size_t>(rid_) >= profiles.size()) {
+                if (getenv("PGPHASE_UBPROBE") != nullptr)
+                    fprintf(stderr, "UB profiles.size=%zu index=%d clu=%d/%d\n",
+                            profiles.size(), rid_, ci, ri);
+                continue;
+            }
+            auto& profile = profiles[static_cast<size_t>(rid_)];
             for (size_t vi = 0; vi < vars.size(); ++vi) {
                 if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
                 const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses, &vars[vi].msa_insertion_alts);
