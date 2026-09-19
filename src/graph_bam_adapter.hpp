@@ -101,6 +101,27 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
 /// the reads separate there. This pass gives such a site one way back: take the
 /// reads that observe both it and a nearby clean het SNP, and admit it when
 /// they agree. Returns the number of sites promoted.
+/// Give the graph chunk the alignment pipeline's stage 2.
+///
+/// Seeds `chunk.noisy_regions` from the repeat-context candidates the noise
+/// filter demoted (the same loci `classify_cand_vars_pgphase` seeds from in the
+/// alignment arm), so the noisy-region MSA can reconstruct them. Needs the
+/// reference slice the caller already fetched for the noise filter.
+/// Give the MSA-reconstructed candidates the per-site metadata the writer needs.
+///
+/// `graph_chunks_to_candidate_table` looks metadata up BY CANDIDATE INDEX and
+/// skips any candidate past the end of `site_meta`, so a site the noisy pass
+/// appends is phased but never emitted. Same anchored-VCF rules as the
+/// in-chunk merge (`collect_pipeline.cpp`, around the `GraphSiteMeta` build);
+/// the duplication is deliberate for now and flagged there.
+size_t synthesize_meta_for_appended_candidates(GraphChunkBuildResult& result,
+                                               const std::string& contig);
+
+void seed_graph_noisy_regions(GraphChunkBuildResult& result,
+                              const std::string& ref_seq,
+                              hts_pos_t ref_beg,
+                              hts_pos_t ref_end);
+
 size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
                                             const Options& opts);
 

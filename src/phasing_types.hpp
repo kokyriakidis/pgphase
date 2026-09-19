@@ -207,6 +207,13 @@ struct Options {
     // with an already-trusted neighbour on enough reads -- 86% of the sites
     // admitted that way are informative, against 65% for a read-concentration
     // test and 0% recall for rejecting all of them.
+    // The alignment pipeline treats a repeat-context het indel as a POINTER to
+    // a noisy region, not as a verdict: classify_cand_vars_pgphase adds every
+    // RepeatHetIndel locus to the noisy set (collect_var.cpp:1690-1694), the
+    // MSA reconstructs the locus, and the rebuilt site enters the second round
+    // as NoisyCandHet. The graph arm never ran that pass, so the same label was
+    // a dead end there -- 17 sites per 130 kb that the alignment arm recovers.
+    bool graph_noisy_msa = false;
     bool link_earned_repeat_indels = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;

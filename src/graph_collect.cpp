@@ -1,4 +1,5 @@
 #include "graph_collect.hpp"
+#include "collect_phase_noisy.hpp"
 #include "collect_pipeline.hpp"
 
 #include "arg_parse.hpp"
@@ -511,6 +512,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                                 graph_chunks[offset], ref_slice,
                                 region.beg, region.beg + ref_len - 1,
                                 opts.noisy_reg_max_xgaps);
+                            if (opts.graph_noisy_msa)
+                                seed_graph_noisy_regions(graph_chunks[offset], ref_slice,
+                                                         region.beg, region.beg + ref_len - 1);
                         } else {
                             std::free(ref_raw);
                         }
@@ -521,6 +525,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                    // Stage 2, as the alignment arm runs it: the noisy-region MSA
+                    // reconstructs the demoted loci, then the second round solves over
+                    // clean plus the rebuilt noisy sites.
+                    if (opts.graph_noisy_msa &&
+                        !graph_chunks[offset].chunk.noisy_regions.empty()) {
+                        collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
+                        derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
+                        // Round 2 over clean plus the rebuilt noisy sites. Without it the
+                        // reconstructed loci carry no phase set and are never emitted.
+                        assign_hap_based_on_germline_het_vars_kmeans(
+                            graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
+                        synthesize_meta_for_appended_candidates(graph_chunks[offset],
+                                                                batch_contig);
+                    }
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -563,6 +582,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                            // Stage 2, as the alignment arm runs it: the noisy-region MSA
+                            // reconstructs the demoted loci, then the second round solves over
+                            // clean plus the rebuilt noisy sites.
+                            if (opts.graph_noisy_msa &&
+                                !graph_chunks[offset].chunk.noisy_regions.empty()) {
+                                collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
+                                derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
+                                // Round 2 over clean plus the rebuilt noisy sites. Without it the
+                                // reconstructed loci carry no phase set and are never emitted.
+                                assign_hap_based_on_germline_het_vars_kmeans(
+                                    graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
+                                synthesize_meta_for_appended_candidates(graph_chunks[offset],
+                                                                        batch_contig);
+                            }
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
                                 false);
@@ -691,6 +725,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                                 graph_chunks[offset], ref_slice,
                                 region.beg, region.beg + ref_len - 1,
                                 opts.noisy_reg_max_xgaps);
+                            if (opts.graph_noisy_msa)
+                                seed_graph_noisy_regions(graph_chunks[offset], ref_slice,
+                                                         region.beg, region.beg + ref_len - 1);
                         } else {
                             std::free(ref_raw);
                         }
@@ -701,6 +738,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                    // Stage 2, as the alignment arm runs it: the noisy-region MSA
+                    // reconstructs the demoted loci, then the second round solves over
+                    // clean plus the rebuilt noisy sites.
+                    if (opts.graph_noisy_msa &&
+                        !graph_chunks[offset].chunk.noisy_regions.empty()) {
+                        collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
+                        derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
+                        // Round 2 over clean plus the rebuilt noisy sites. Without it the
+                        // reconstructed loci carry no phase set and are never emitted.
+                        assign_hap_based_on_germline_het_vars_kmeans(
+                            graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
+                        synthesize_meta_for_appended_candidates(graph_chunks[offset],
+                                                                batch_contig_gaf);
+                    }
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -743,6 +795,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // not the gap's.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                            // Stage 2, as the alignment arm runs it: the noisy-region MSA
+                            // reconstructs the demoted loci, then the second round solves over
+                            // clean plus the rebuilt noisy sites.
+                            if (opts.graph_noisy_msa &&
+                                !graph_chunks[offset].chunk.noisy_regions.empty()) {
+                                collect_noisy_vars_step4(graph_chunks[offset].chunk, opts, nullptr);
+                                derive_msa_candidate_strand_counts(graph_chunks[offset].chunk);
+                                // Round 2 over clean plus the rebuilt noisy sites. Without it the
+                                // reconstructed loci carry no phase set and are never emitted.
+                                assign_hap_based_on_germline_het_vars_kmeans(
+                                    graph_chunks[offset].chunk, opts, kCandGermlineVarCate);
+                                synthesize_meta_for_appended_candidates(graph_chunks[offset],
+                                                                        batch_contig_gaf);
+                            }
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
                                 false);
@@ -1155,6 +1222,8 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --graph-noisy-msa         Run the alignment pipeline's noisy-region MSA\n"
+        << "                                over repeat-context loci (stage 2)\n"
         << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
         << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
         << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
@@ -1251,6 +1320,7 @@ enum GraphCollectOption {
     kGcStrandBiasPval,
     kGcPhasedBam,
     kGcLinkEarnedRepeatIndels,
+    kGcGraphNoisyMsa,
     kGcRef,
     kGcSites,
     kGcPgbamFile,
@@ -1304,6 +1374,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
+        {"graph-noisy-msa", no_argument, nullptr, kGcGraphNoisyMsa},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1367,6 +1438,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
+            case kGcGraphNoisyMsa: opts.graph_noisy_msa = true; break;
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
