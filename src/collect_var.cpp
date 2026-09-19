@@ -12,6 +12,8 @@
 #include "sdust.h"
 
 #include <algorithm>
+#include <set>
+#include <map>
 #include <array>
 #include <cfloat>
 #include <cinttypes>
@@ -2264,6 +2266,87 @@ void collect_var_main(PhasingChunk& chunk,
                       const bam_hdr_t* header) {
     collect_var_classify(chunk, opts, header);
     collect_var_phase(chunk, opts);
+}
+
+// One haplotype cannot carry two different alleles at one position, and we
+// were emitting exactly that: 106 positions on chr20 where a SNP and the
+// insertion that CONTAINS it were both called on the same haplotype --
+// T>G together with T>GAG at 288,018, T>A with T>AC at 890,261. Applying
+// both is incoherent; one of the pair has to go.
+//
+// The reads decide which, and they say KEEP THE LONGER. Classifying every
+// read at five of these loci against both forms: at 288,018, 40 reads carry
+// the reference and 24 carry GAG, with none carrying a bare G; at 890,261,
+// 32 carry AC against 25 reference and none carry a bare A; at 764,862 and
+// 1,474,295 the short form appears on 6 of 54 and 14 of 79 reads, all on the
+// same parent as the long form, i.e. the same event aligned two ways. The
+// alt-carrying reads carry the whole insertion, so dropping it and keeping
+// the SNP would report an allele no read has and lose the inserted bases.
+//
+// Allele depth cannot arbitrate here -- both records score the same reads,
+// 38,21 against 29,18 -- and neither can the alignment arm, which emits the
+// SNP alone at these loci (at 890,261 a T>A plus a separate T>C at 890,262);
+// its representation splits the event across records rather than showing
+// that the bare SNP is what the haplotype carries. So the rule is
+// containment resolved towards the complete allele: when one ALT is a prefix
+// of the other on a haplotype already claimed at that position, the
+// contained (shorter) record is dropped.
+void drop_conflicting_haplotype_alleles(CandidateTable& result) {
+    std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
+    for (size_t i = 0; i < result.size(); ++i)
+        by_pos[{result[i].key.tid, result[i].key.sort_pos()}].push_back(i);
+    std::vector<bool> drop(result.size(), false);
+    for (const auto& group : by_pos) {
+        if (group.second.size() < 2) continue;
+        for (int hap = 1; hap <= 2; ++hap) {
+            std::vector<size_t> carriers;
+            for (size_t i : group.second) {
+                const auto& h = result[i].hap_to_cons_alle;
+                if (h.size() > static_cast<size_t>(hap) && h[hap] == 1) carriers.push_back(i);
+            }
+            if (carriers.size() < 2) continue;
+            std::sort(carriers.begin(), carriers.end(), [&](size_t a, size_t b) {
+                return result[a].key.alt.size() < result[b].key.alt.size();
+            });
+            // carriers is sorted shortest ALT first; a shorter allele that the
+            // longest one contains is the contained form and is dropped.
+            const std::string& longest = result[carriers.back()].key.alt;
+            bool resolved = false;
+            for (size_t k = 0; k + 1 < carriers.size(); ++k) {
+                const std::string& other = result[carriers[k]].key.alt;
+                if (other.size() < longest.size() &&
+                    longest.compare(0, other.size(), other) == 0) {
+                    drop[carriers[k]] = true;
+                    resolved = true;
+                }
+            }
+            if (resolved) continue;
+            // Neither allele contains the other -- an insertion anchored on the
+            // reference base together with a SNP changing that same base, which
+            // is equally incoherent on one haplotype and cannot be settled by
+            // containment. Here the two records do NOT score the same reads, so
+            // allele depth separates them (at 1,907,006 the insertion carries 10
+            // against the SNP's 5); keep the better supported one, breaking a
+            // tie on the shorter allele so the choice is deterministic.
+            auto alt_depth = [](const CandidateVariant& c) {
+                return c.counts.alle_covs.size() > 1 ? c.counts.alle_covs[1] : 0;
+            };
+            size_t best = carriers.front();
+            for (size_t i : carriers) {
+                if (alt_depth(result[i]) > alt_depth(result[best]) ||
+                    (alt_depth(result[i]) == alt_depth(result[best]) &&
+                     result[i].key.alt.size() < result[best].key.alt.size()))
+                    best = i;
+            }
+            for (size_t i : carriers)
+                if (i != best) drop[i] = true;
+        }
+    }
+    CandidateTable kept;
+    kept.reserve(result.size());
+    for (size_t i = 0; i < result.size(); ++i)
+        if (!drop[i]) kept.push_back(std::move(result[i]));
+    result = std::move(kept);
 }
 
 } // namespace pgphase_collect

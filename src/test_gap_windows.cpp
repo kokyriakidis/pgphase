@@ -49,6 +49,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -141,6 +142,9 @@ struct Expectation {
 /// What one run of the pipeline produced on one window.
 struct Outcome {
     std::string diagnosis;  // why a red span check is red; see explain_gap
+    /// Positions whose records put two DIFFERENT alleles on the SAME haplotype.
+    /// Asserted at zero, not floored: one haplotype carries one allele.
+    int hap_allele_conflicts = 0;
     bool spans = false;
     int in_gap_hets = 0;
     int tagged = 0;
@@ -417,6 +421,30 @@ void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
 using ReadSpans = std::unordered_map<std::string, std::pair<long long, long long>>;
 
 
+/// Count positions whose records claim the same haplotype with two different
+/// alleles. No truth needed: one haplotype carries one allele, so a SNP and the
+/// insertion containing it (T>G with T>GAG) contradict each other on their face.
+/// Asserted at zero rather than floored -- it is never acceptable.
+int count_hap_allele_conflicts(const std::string& vcf_path) {
+    std::ifstream in(vcf_path);
+    if (!in) return 0;
+    std::string line;
+    std::map<long long, std::array<std::set<std::string>, 3>> claimed;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto f = split_tabs(line);
+        if (f.size() < 10) continue;
+        const std::string gt = f[9].substr(0, f[9].find(':'));
+        const long long pos = std::stoll(f[1]);
+        if (gt == "1|0") claimed[pos][1].insert(f[4]);
+        else if (gt == "0|1") claimed[pos][2].insert(f[4]);
+    }
+    int bad = 0;
+    for (const auto& kv : claimed)
+        if (kv.second[1].size() > 1 || kv.second[2].size() > 1) ++bad;
+    return bad;
+}
+
 void score_bam(const std::string& path, const Window& w,
                const std::unordered_map<std::string, char>& truth,
                const ReadSpans& spans, Outcome& out) {
@@ -664,6 +692,7 @@ Outcome measure_uncached(const Paths& p, const Window& w, const std::string& arm
     parse_candidates(dir + "/candidates.tsv", w, out);
     check_required_sites(dir + "/candidates.tsv", arm, w, out);
     score_bam(dir + "/phased.bam", w, truth, input_read_spans(p, w), out);
+    out.hap_allele_conflicts = count_hap_allele_conflicts(dir + "/native.vcf");
     out.diagnosis = explain_gap(p, w, out);
     return out;
 }
@@ -698,6 +727,12 @@ void check_against(const Window& w, const std::string& arm, const Outcome& got,
     // cannot be closed by anyone is a different fact from one whose sites were
     // refused, and iterating on recovery needs that distinction immediately.
     INFO(got.diagnosis);
+    // Never acceptable, and cheap to notice: one haplotype with two alleles at
+    // one position. Not floored against a recorded baseline -- asserted at zero.
+    INFO("arm '" << arm << "' window " << w.gap_left << ": positions putting two "
+         "alleles on one haplotype = " << got.hap_allele_conflicts);
+    CHECK(got.hap_allele_conflicts == 0);
+
     CHECK(got.spans == want.spans);
     // Sites phased INSIDE the gap -- a count of sites, not of reads.
     CHECK(got.in_gap_hets >= want.min_in_gap_hets);

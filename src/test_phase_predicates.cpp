@@ -626,3 +626,104 @@ TEST_CASE("verify_chunk_invariants catches the defects that shipped", "[invarian
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// drop_conflicting_haplotype_alleles
+//
+// One haplotype carries one allele. Chromosome 20 emitted 106 positions that
+// broke that: 96 a SNP together with the longer allele containing it, 9 an
+// insertion anchored on the reference base together with a SNP changing it.
+// Read counts at those loci (288,018: 40 reference, 24 GAG, none carrying a
+// bare G) say the alt-carrying reads carry the whole insertion, so the
+// contained record is the one to drop.
+//
+// The records are built the way the pipeline holds them, confirmed by probing a
+// real run at 288,018: both are VariantType::Snp at the SAME key.pos, differing
+// in ref_len (1 against 3) and alt ('G' against 'GAG'). That matters, because
+// grouping is by VariantKey::sort_pos(), which subtracts one for a non-SNP --
+// building the longer allele as an Insertion at the same pos puts the two in
+// DIFFERENT groups and nothing is compared.
+// ---------------------------------------------------------------------------
+namespace {
+
+pgphase_collect::CandidateVariant conflict_record(hts_pos_t pos, int ref_len,
+                                                  const std::string& alt, int hap,
+                                                  int alt_depth,
+                                                  pgphase_collect::VariantType type =
+                                                      pgphase_collect::VariantType::Snp) {
+    pgphase_collect::CandidateVariant c;
+    c.key.tid = 0;
+    c.key.pos = pos;
+    c.key.ref_len = ref_len;
+    c.key.alt = alt;
+    c.key.type = type;
+    c.hap_to_cons_alle = {0, 0, 0};
+    c.hap_to_cons_alle[static_cast<size_t>(hap)] = 1;
+    c.counts.alle_covs = {10, alt_depth};
+    return c;
+}
+
+std::vector<std::string> alts_of(const pgphase_collect::CandidateTable& t) {
+    std::vector<std::string> out;
+    for (const auto& c : t) out.push_back(c.key.alt);
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("a contained allele loses to the complete one on the same haplotype",
+          "[conflict]") {
+    pgphase_collect::CandidateTable t{conflict_record(288018, 1, "G", 1, 21),
+                                      conflict_record(288018, 3, "GAG", 1, 18)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"GAG"});
+}
+
+TEST_CASE("the same two alleles on OPPOSITE haplotypes are both kept",
+          "[conflict]") {
+    // 1|2 is a real genotype: each haplotype has one allele and neither
+    // contradicts the other, so this must survive untouched.
+    pgphase_collect::CandidateTable t{conflict_record(288018, 1, "G", 1, 21),
+                                      conflict_record(288018, 3, "GAG", 2, 18)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    CHECK(t.size() == 2);
+}
+
+TEST_CASE("when neither allele contains the other, allele depth decides",
+          "[conflict]") {
+    // 1,907,006: the insertion carries 10 against the SNP's 5.
+    pgphase_collect::CandidateTable t{conflict_record(1907006, 1, "ATCCATCC", 2, 10),
+                                      conflict_record(1907006, 1, "G", 2, 5)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"ATCCATCC"});
+}
+
+TEST_CASE("equal depth breaks towards the shorter allele, deterministically",
+          "[conflict]") {
+    pgphase_collect::CandidateTable t{conflict_record(500, 1, "ATT", 1, 7),
+                                      conflict_record(500, 1, "G", 1, 7)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"G"});
+}
+
+TEST_CASE("records at different positions are never compared", "[conflict]") {
+    pgphase_collect::CandidateTable t{conflict_record(100, 1, "G", 1, 9),
+                                      conflict_record(200, 1, "GAG", 1, 9)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    CHECK(t.size() == 2);
+}
+
+TEST_CASE("an indel anchors one base earlier, and still groups with its SNP",
+          "[conflict]") {
+    // sort_pos() subtracts one for a non-SNP, so the insertion recorded at
+    // pos+1 shares a group with the SNP at pos -- the real pairing in the data.
+    pgphase_collect::CandidateTable t{
+        conflict_record(700, 1, "G", 1, 12),
+        conflict_record(701, 0, "GA", 1, 9, pgphase_collect::VariantType::Insertion)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"GA"});
+}

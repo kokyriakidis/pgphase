@@ -18,6 +18,12 @@ extern "C" {
 
 namespace pgphase_collect {
 
+/// Drop records that put two DIFFERENT alleles on the SAME haplotype at one
+/// position. Contained alleles lose to the complete one (a SNP against the
+/// insertion containing it); when neither contains the other, the better
+/// supported by allele depth wins, ties going to the shorter allele.
+void drop_conflicting_haplotype_alleles(CandidateTable& records);
+
 // Move-only RAII owner for heap-allocated cgranges_t.
 struct CrangesOwner {
     cgranges_t* cr = nullptr;

@@ -60,3 +60,33 @@ variants there is nothing to write, which is why it neither crashed nor changed
 output -- but the reference binding is undefined and the guard is one line.
 
 Fixed with a bounds check; chr20 output byte-identical with it in place.
+
+## Gating it
+
+The resolution is now `drop_conflicting_haplotype_alleles` in `collect_var.cpp`,
+declared in `collect_var.hpp` and called from the graph writer, so it can be
+tested directly. Six cases in `test_phase_predicates.cpp`; disabling the
+function fails four of them.
+
+Writing those tests corrected a misreading of the record shape. The first
+version built the longer allele as a `VariantType::Insertion` at the same
+`key.pos` as the SNP and failed: grouping is by `VariantKey::sort_pos()`, which
+subtracts one for a non-SNP, so the two landed in different groups and nothing
+was compared. Probing a real run at 288,018 shows what the pipeline actually
+holds -- both records are `VariantType::Snp` at the same `key.pos`, differing in
+`ref_len` (1 against 3) and alt (`G` against `GAG`). The tests are built that
+way now, with one further case pinning the indel anchor convention: an
+insertion recorded at pos+1 does group with the SNP at pos.
+
+A panel-level assertion (`hap_allele_conflicts == 0`, asserted rather than
+floored) was added to the window tests as well, but it is inert on this panel --
+disabling the fix leaves it green, because none of the panel windows contains
+one of the 106 positions, and a 100 kb region run around 288,018 does not
+reproduce the pair either; the conflict needs whole-chromosome chunking. It is
+kept as a cheap invariant, not counted as the gate.
+
+Also recorded, since it cost a confusing half hour: building with sanitizers
+leaves instrumented objects in `src/`, and a later plain `make` relinks them
+WITHOUT the runtime, producing a binary that dies at startup with "ASan runtime
+does not come first". Every run then fails and the window suite silently
+collapses to 2 assertions. `make -B` after a sanitizer build.
