@@ -317,7 +317,6 @@ max_noisy_frac_per_read = 0.5
 noisy_reg_merge_dis = 500
 min_sv_len = 30
 noisy_reg_max_xgaps = 5
-min_noisy_reg_total_depth = 0 (0 = no extra minimum on overlapping reads; use 5 for the published “total coverage” rule)
 verbose = 0 (use 2 for longcallD style AllNoisyRegions output)
 HiFi noisy slide window = 100 bp
 ONT noisy slide window = 25 bp
@@ -478,7 +477,6 @@ close streams; coordinate-sort refined alignment output if requested; index BAM/
 
 **Workers:** Inside a batch, each worker owns a `WorkerContext`, claims the next chunk index with `fetch_add`, runs `process_chunk` (load reads → full per-chunk `collect_var_main` workflow: sites, allele counts, noisy prep, classification, noisy post-process/containment/pruning, read profiling, k-means, Step 4 noisy MSA recall), and stores a `BamChunk` in a **fixed offset** so completion order does not scramble indices.
 
-**`collect_chunks_parallel`:** A small helper still exists for “all chunks in one shot” (e.g. tests); the default CLI path uses the streaming loop above. It calls `stitch_chunk_haps(..., nullptr)`, so CLI-only `--pgbam-file` sidecar stitching is not active through this helper.
 
 Example (same contig, five chunks, two threads inside one batch):
 
@@ -1115,15 +1113,14 @@ n_noisy >= min_alt_depth
 n_noisy / n_total >= min_af
 ```
 
-If `min_noisy_reg_total_depth` is greater than zero, the implementation also requires:
+Those two are the whole test (`pre_process_noisy_regs_pgphase`,
+`collect_var.cpp:934-943`, where `min_noisy_reg_reads` is `opts.min_alt_depth`
+and `min_noisy_reg_ratio` is `opts.min_af`). There is no third
+total-coverage gate: the published longcallD methods description mentions a
+minimum total overlapping read count, and this implementation does not have
+one -- no such option exists on any subcommand.
 
-```text
-n_total >= min_noisy_reg_total_depth
-```
-
-The default is `0`, which does **not** add an extra check (this matches the longcallD `pre_process_noisy_regs` logic, which only uses the two conditions above with `n_noisy` and the ratio of `n_noisy` to `n_total`). The published LongcallD methods description also lists a **minimum total overlapping read count**; set `--min-noisy-reg-total-depth 5` to enforce that third gate. When `0`, there is no separate “total read coverage” minimum.
-
-With defaults (when `min_noisy_reg_total_depth` is 0 or unset in code):
+With defaults:
 
 ```text
 min_alt_depth = 2
@@ -1160,7 +1157,7 @@ Because this support check occurs after low-complexity extension and noisy-regio
 
 ###### 12.4 Coordinate Convention Used by Later Noisy MSA (Step 4)
 
-`chunk.noisy_regions` is stored in C++ as `Interval{beg,end}` while longcallD Step 4 noisy calling starts from the `cr_start(...)` value held in its `cgranges` interval. For finalized chunk noisy regions, pgPhase preserves that longcallD start value through the dedicated `intervals_from_cr_lcd_chunk_noisy_post_merge` / `intervals_to_cr_lcd_chunk_noisy_post_merge` conversions. Consequently `collect_noisy_vars1` uses `noisy_reg_beg = reg.beg` and `noisy_reg_end = reg.end` on entry. This avoids the 1 bp insertion-anchor drift that appears if the generic `Interval` 1-based conversion is applied a second time after longcallD-style post-processing.
+`chunk.noisy_regions` is stored in C++ as `Interval{beg,end}` while longcallD Step 4 noisy calling starts from the `cr_start(...)` value held in its `cgranges` interval. For finalized chunk noisy regions, pgPhase preserves that longcallD start value through the plain `intervals_to_cr` / `intervals_from_cr` conversions (`collect_var.cpp:573` and `:598`, applied at `:961` and `:1666`); the separately named post-merge variants this section used to cite no longer exist. Consequently `collect_noisy_vars1` uses `noisy_reg_beg = reg.beg` and `noisy_reg_end = reg.end` on entry. This avoids the 1 bp insertion-anchor drift that appears if the generic `Interval` 1-based conversion is applied a second time after longcallD-style post-processing.
 
 ##### 13. Initial Variant Classification
 
@@ -2866,7 +2863,7 @@ choice), `update_var_hap_to_cons_alle` (ONT consensus veto), `init_assign_read_h
 - `collect_noisy_vars1` call order now matches longcallD:
   1) clip region via `collect_reg_ref_bseq`, then 2) collect noisy-region reads.
 - Final Step 4 coordinate parity fix: finalized chunk noisy regions now use the dedicated
-  `intervals_from_cr_lcd_chunk_noisy_post_merge` / `intervals_to_cr_lcd_chunk_noisy_post_merge`
+  `intervals_from_cr` / `intervals_to_cr` (`collect_var.cpp:598` / `:573`)
   conversions, preserving longcallD `cr_start` semantics through post-processing.
 - `collect_noisy_vars1` therefore enters noisy calling with `noisy_reg_beg = reg.beg`; adding another
   `-1` or `+1` at this point reintroduces 1 bp insertion-anchor drift.
