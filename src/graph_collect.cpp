@@ -377,6 +377,14 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                 std::unique_ptr<faidx_t, FaiDeleter> thread_fai(
                     load_reference_index(opts.ref_fasta));
 
+                // Per-thread recovery context. htslib handles are not shareable,
+                // which is why the parent pipeline opens a set per worker, and it
+                // is the only reason recovery could not already live here. Built
+                // once per thread rather than per chunk.
+                std::unique_ptr<WorkerContext> thread_recovery_ctx;
+                if (opts.in_pass_recovery && !opts.bam_files.empty())
+                    thread_recovery_ctx = std::make_unique<WorkerContext>(opts);
+
                 while (true) {
                     const size_t offset = next_offset.fetch_add(1);
                     if (offset >= batch_size) break;
@@ -443,6 +451,37 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                    // Recovery, in the chunk, while this chunk is still the unit
+                    // of work. Each chunk's windows are its own, so this needs no
+                    // batching and no cross-chunk coordination -- the worker pool
+                    // already provides the parallelism the post-hoc path had to
+                    // rebuild for itself.
+                    //
+                    // Running it HERE, before populate_graph_chunk_overlaps and
+                    // stitch_chunk_haps, is what removes the reconciliation
+                    // layer: phase sets are not final yet, so merged sites are
+                    // part of a better first solve rather than an answer grafted
+                    // on with a vote and a relabel. The same merge run after the
+                    // stitch fragmented the output into 4,624 blocks against 47.
+                    if (thread_recovery_ctx != nullptr) {
+                        const size_t merged = retry_unphased_windows_in_place(
+                            graph_chunks[offset], opts, *thread_recovery_ctx,
+                            batch_contig.c_str());
+                        if (merged > 0) {
+                            // Two rounds, as the alignment pipeline solves: the
+                            // clean sites set the gauge, then the merged in-gap
+                            // sites -- NOISY_CAND_HET, which the clean mask does
+                            // not admit -- join it. Anchored, so the noisy sites
+                            // can extend a block without re-deciding the parity
+                            // the catalog's clean sites already established.
+                            assign_hap_based_on_germline_het_vars_kmeans(
+                                graph_chunks[offset].chunk, opts, kCandGermlineClean);
+                            assign_hap_based_on_germline_het_vars_kmeans(
+                                graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
+                                opts.anchored_stage2);
+                        }
+                    }
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -508,6 +547,14 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                 std::unique_ptr<faidx_t, FaiDeleter> thread_fai(
                     load_reference_index(opts.ref_fasta));
 
+                // Per-thread recovery context. htslib handles are not shareable,
+                // which is why the parent pipeline opens a set per worker, and it
+                // is the only reason recovery could not already live here. Built
+                // once per thread rather than per chunk.
+                std::unique_ptr<WorkerContext> thread_recovery_ctx;
+                if (opts.in_pass_recovery && !opts.bam_files.empty())
+                    thread_recovery_ctx = std::make_unique<WorkerContext>(opts);
+
                 while (true) {
                     const size_t offset = next_offset.fetch_add(1);
                     if (offset >= batch_size) break;
@@ -565,6 +612,37 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
+
+                    // Recovery, in the chunk, while this chunk is still the unit
+                    // of work. Each chunk's windows are its own, so this needs no
+                    // batching and no cross-chunk coordination -- the worker pool
+                    // already provides the parallelism the post-hoc path had to
+                    // rebuild for itself.
+                    //
+                    // Running it HERE, before populate_graph_chunk_overlaps and
+                    // stitch_chunk_haps, is what removes the reconciliation
+                    // layer: phase sets are not final yet, so merged sites are
+                    // part of a better first solve rather than an answer grafted
+                    // on with a vote and a relabel. The same merge run after the
+                    // stitch fragmented the output into 4,624 blocks against 47.
+                    if (thread_recovery_ctx != nullptr) {
+                        const size_t merged = retry_unphased_windows_in_place(
+                            graph_chunks[offset], opts, *thread_recovery_ctx,
+                            batch_contig_gaf.c_str());
+                        if (merged > 0) {
+                            // Two rounds, as the alignment pipeline solves: the
+                            // clean sites set the gauge, then the merged in-gap
+                            // sites -- NOISY_CAND_HET, which the clean mask does
+                            // not admit -- join it. Anchored, so the noisy sites
+                            // can extend a block without re-deciding the parity
+                            // the catalog's clean sites already established.
+                            assign_hap_based_on_germline_het_vars_kmeans(
+                                graph_chunks[offset].chunk, opts, kCandGermlineClean);
+                            assign_hap_based_on_germline_het_vars_kmeans(
+                                graph_chunks[offset].chunk, opts, kCandGermlineVarCate,
+                                opts.anchored_stage2);
+                        }
+                    }
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -860,7 +938,7 @@ void run_collect_graph_variation(const Options& opts) {
         // per-site metadata (site_meta, site_ids, site_allele_orig_idx), so an
         // appended candidate has no metadata and is skipped at output. Adoption
         // and the stitch are index-safe: they mutate in place and add nothing.
-        if (bam_recovery_ctx != nullptr) {
+        if (bam_recovery_ctx != nullptr && !opts.in_pass_recovery) {
             size_t bridged_total = 0;
             // Solve every chunk's recovery regions in ONE parallel batch first.
             // Called per chunk, each recovery parallelises only its own windows:
@@ -1001,6 +1079,8 @@ static void print_graph_collect_help() {
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
+        << "      --in-chunk-recovery       Recover inside each chunk before stitching, instead\n"
+        << "                                of grafting a sub-solve on afterwards\n"
         << "      --no-anchored-stage2      Let stage 2 reset and re-solve over the wider site\n"
         << "                                set, instead of refining stage 1 (pre-2026-09-18)\n"
         << "                                 sites could not phase: each unphased window and\n"
@@ -1077,6 +1157,7 @@ static void print_graph_collect_help() {
 
 enum GraphCollectOption {
     kGcRecoveryBam = 2000,
+    kGcInChunkRecovery,
     kGcAnchoredStage2,
     kGcMinAltDepth = 1000,
     kGcMinAf,
@@ -1147,6 +1228,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
+        {"in-chunk-recovery", no_argument,      nullptr, kGcInChunkRecovery},
         {"no-anchored-stage2", no_argument,      nullptr, kGcAnchoredStage2},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1212,6 +1294,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
+            case kGcInChunkRecovery: opts.in_pass_recovery = true; break;
             case kGcAnchoredStage2: opts.anchored_stage2 = false; break;
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;

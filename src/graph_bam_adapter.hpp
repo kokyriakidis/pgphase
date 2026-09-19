@@ -72,6 +72,11 @@ struct GraphChunkBuildResult {
 // Convert graph-space allele observations into a PhasingChunk for phasing.
 // Applies parent-snarl gating, multi-allelic→biallelic decomposition,
 // and three-phase depth/AF filtering.
+/// Rebuild the read<->variant interval tree from chunk.read_var_profile. The
+/// tree is keyed by CANDIDATE INDEX, so anything that inserts, removes or
+/// reorders candidates must call this before the chunk is solved again.
+void rebuild_read_var_cr(PhasingChunk& chunk);
+
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                                const std::vector<GraphReadAllele>& rows,
                                                const std::string& contig,

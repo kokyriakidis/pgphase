@@ -355,6 +355,13 @@ struct Options {
     /// including every clean het indel in the regions examined, so fewer reads
     /// find a site to sit on.
     bool retry_unphased_with_bam = true;
+
+    /// In-pass recovery: bring the alignment's in-gap sites INTO the chunk and
+    /// re-solve it once, instead of solving a detached sub-chunk and stitching
+    /// its phase sets onto the parent's. The second pass is what needs a merge,
+    /// an orientation vote and a phase-set relabel; none of that exists when the
+    /// sites join the chunk before it is solved.
+    bool in_pass_recovery = false;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.

@@ -7,6 +7,7 @@
  */
 
 #include "collect_types.hpp"
+#include "graph_bam_adapter.hpp"
 
 #include <map>
 #include <string>
@@ -108,6 +109,23 @@ using TargetedSolveCache =
 /// the per-chunk entry point below finds its regions already solved; the regions
 /// and the order they are applied in are unchanged, so this only widens the
 /// parallelism.
+/// In-pass recovery for a graph chunk: merge the alignment's in-gap candidates
+/// into the chunk in position order and re-solve it, rather than solving a
+/// detached sub-chunk and stitching.
+///
+/// The second-pass design needs a block merge, an orientation vote and a
+/// phase-set relabel to graft its answer onto already-finalised state, and both
+/// defects found on 2026-09-18 live in that machinery: a flip that never reached
+/// the emitted genotypes, and a merge chaining onto a phase-set label another
+/// chunk had already retired. Sites that join the chunk BEFORE it is solved need
+/// none of it -- the k-means produces one gauge across the gap.
+///
+/// Returns the number of alignment candidates merged in.
+size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
+                                      const Options& opts,
+                                      WorkerContext& context,
+                                      const char* contig_name);
+
 void prewarm_targeted_solves(
         const std::vector<std::pair<PhasingChunk*, const char*>>& chunks,
         const Options& opts, WorkerContext& context, TargetedSolveCache& cache);

@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -1374,6 +1375,297 @@ size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opt
     std::sort(windows.begin(), windows.end());
     return recover_windows_with_targeted_solve(chunk, windows, opts, context, solve_tid,
                                               allow_import, cache);
+}
+
+namespace {
+
+/// Identity of a candidate, for matching the alignment's calls against the
+/// catalog's. Same fields exact_comp_var_site compares.
+struct CandKey {
+    hts_pos_t pos;
+    int type;
+    int ref_len;
+    std::string alt;
+    bool operator<(const CandKey& other) const {
+        return std::tie(pos, type, ref_len, alt) <
+               std::tie(other.pos, other.type, other.ref_len, other.alt);
+    }
+    bool operator==(const CandKey& other) const {
+        return pos == other.pos && type == other.type && ref_len == other.ref_len &&
+               alt == other.alt;
+    }
+};
+
+CandKey cand_key_of(const CandidateVariant& cand) {
+    return CandKey{cand.key.sort_pos(), static_cast<int>(cand.key.type), cand.key.ref_len,
+                   cand.key.alt};
+}
+
+/// One read's allele at each merged candidate, keyed by read name.
+using AlleleByCand = std::map<CandKey, std::pair<int, int>>;  // -> (allele, alt_qi)
+
+}  // namespace
+
+size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
+                                      const Options& opts,
+                                      WorkerContext& context,
+                                      const char* contig_name) {
+    PhasingChunk& chunk = graph_chunk.chunk;
+    if (chunk.candidates.empty() || chunk.reads.empty()) return 0;
+
+    const int solve_tid = contig_name != nullptr
+                              ? sam_hdr_name2tid(context.primary_header(), contig_name)
+                              : chunk.region.tid;
+    if (solve_tid < 0) return 0;
+
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
+        chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
+    for (const auto& seam : collect_block_seams(chunk)) windows.push_back(seam);
+    if (windows.empty()) return 0;
+
+    const std::vector<hts_pos_t> parent_sites = parent_phased_positions(chunk);
+    std::vector<TargetedWindowGroup> groups =
+        build_targeted_groups(windows, solve_tid, parent_sites);
+    std::vector<RegionChunk> regions;
+    regions.reserve(groups.size());
+    for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
+
+    const Options sub = targeted_solve_options(opts);
+    std::vector<PhasingChunk> discovered;
+    discovered.reserve(regions.size());
+    for (const RegionChunk& region : regions)
+        discovered.push_back(process_chunk(region, sub, context));
+
+    // What the alignment found INSIDE the windows, plus every read's allele at
+    // those sites and at the catalog sites the alignment also called. The second
+    // part is what lets a read the catalog never saw link across the gap: it
+    // carries alleles at sites on both sides, so one solve places it.
+    // A catalog candidate is identified by its ALLELE WALK (key.alt is
+    // ">114849551>114849554"), while the alignment identifies the same variant by
+    // SEQUENCE ("T"). Matching the raw keys therefore never succeeds -- measured
+    // on chr20:1-3,000,000, 0 of 198 sub-solve candidates matched a parent key,
+    // including 0 of 152 SNPs -- which left the two channels' sites disjoint, so
+    // consecutive sites had no read in common and the VCF came out in 4,680
+    // blocks instead of 47. The sequence-level identity lives in the parallel
+    // site_meta array, and vcf_to_variant_key applies the same anchor trimming
+    // inject_graph_sites uses in the other direction.
+    std::set<CandKey> parent_keys;
+    std::map<CandKey, size_t> parent_seq_index;
+    const bool have_meta = graph_chunk.site_meta.size() == chunk.candidates.size();
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        parent_keys.insert(cand_key_of(chunk.candidates[ci]));
+        if (!have_meta) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        if (meta.ref.empty()) continue;
+        for (const std::string& alt : meta.alts) {
+            if (alt.empty()) continue;
+            const VariantKey translated =
+                vcf_to_variant_key(solve_tid, meta.pos, meta.ref, alt);
+            const CandKey key{translated.sort_pos(), static_cast<int>(translated.type),
+                              translated.ref_len, translated.alt};
+            parent_keys.insert(key);
+            parent_seq_index.emplace(key, ci);
+        }
+    }
+
+    std::map<CandKey, CandidateVariant> new_cands;
+    std::map<std::string, AlleleByCand> observed;
+    std::map<std::string, int> observed_mapq;
+    for (size_t gi = 0; gi < discovered.size(); ++gi) {
+        const PhasingChunk& src = discovered[gi];
+        if (src.read_var_profile.size() != src.reads.size()) continue;
+        auto inside_window = [&](hts_pos_t pos) {
+            for (const auto& member : groups[gi].members)
+                if (pos > member.first && pos < member.second) return true;
+            return false;
+        };
+        for (const CandidateVariant& cand : src.candidates) {
+            const CandKey key = cand_key_of(cand);
+            if (parent_keys.count(key) != 0) continue;
+            if (!inside_window(key.pos)) continue;
+            // Admit what the solve itself would admit; the emitter's own
+            // category gate runs later and independently.
+            if ((cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            new_cands.emplace(key, cand);
+        }
+        for (size_t ri = 0; ri < src.reads.size(); ++ri) {
+            const ReadVariantProfile& prof = src.read_var_profile[ri];
+            if (prof.start_var_idx < 0) continue;
+            AlleleByCand& per_read = observed[src.reads[ri].qname];
+            observed_mapq[src.reads[ri].qname] = src.reads[ri].mapq;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+                if (ci >= src.candidates.size()) break;
+                if (prof.alleles[k] < 0) continue;
+                per_read.emplace(cand_key_of(src.candidates[ci]),
+                                 std::make_pair(prof.alleles[k],
+                                                k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
+            }
+        }
+    }
+    if (new_cands.empty()) return 0;
+
+    // Re-index. The candidates must stay position-sorted: the solve's outward
+    // sweep walks them in INDEX order, so appending in-gap sites at the tail
+    // would make them adjacent to the chunk's last site instead of to their
+    // positional neighbours. So the merged table is rebuilt in key order and
+    // every index-parallel array is rebuilt with it -- the read profiles and the
+    // graph arm's site_ids / site_meta / site_allele_orig_idx.
+    struct Slot {
+        CandKey key;
+        long old_index;  // -1 for an alignment candidate
+    };
+    std::vector<Slot> slots;
+    slots.reserve(chunk.candidates.size() + new_cands.size());
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci)
+        slots.push_back(Slot{cand_key_of(chunk.candidates[ci]), static_cast<long>(ci)});
+    for (const auto& entry : new_cands) slots.push_back(Slot{entry.first, -1});
+    std::stable_sort(slots.begin(), slots.end(),
+                     [](const Slot& a, const Slot& b) { return a.key < b.key; });
+
+    CandidateTable merged_cands;
+    std::vector<std::string> merged_ids;
+    std::vector<GraphSiteMeta> merged_meta;
+    std::vector<std::vector<int>> merged_orig;
+    merged_cands.reserve(slots.size());
+    merged_ids.reserve(slots.size());
+    merged_meta.reserve(slots.size());
+    merged_orig.reserve(slots.size());
+    std::vector<long> old_to_new(chunk.candidates.size(), -1);
+    std::map<CandKey, size_t> index_of;
+    const bool had_meta = graph_chunk.site_meta.size() == chunk.candidates.size();
+    std::map<size_t, CandKey> seq_key_of_parent;
+    for (const auto& entry : parent_seq_index) seq_key_of_parent.emplace(entry.second, entry.first);
+    for (const Slot& slot : slots) {
+        index_of.emplace(slot.key, merged_cands.size());
+        if (slot.old_index >= 0) {
+            auto seq = seq_key_of_parent.find(static_cast<size_t>(slot.old_index));
+            if (seq != seq_key_of_parent.end()) index_of.emplace(seq->second, merged_cands.size());
+        }
+        if (slot.old_index >= 0) {
+            const size_t ci = static_cast<size_t>(slot.old_index);
+            old_to_new[ci] = static_cast<long>(merged_cands.size());
+            merged_cands.push_back(chunk.candidates[ci]);
+            merged_ids.push_back(ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci]
+                                                                 : std::string());
+            merged_meta.push_back(had_meta ? graph_chunk.site_meta[ci] : GraphSiteMeta{});
+            merged_orig.push_back(ci < graph_chunk.site_allele_orig_idx.size()
+                                      ? graph_chunk.site_allele_orig_idx[ci]
+                                      : std::vector<int>{});
+            continue;
+        }
+        const CandidateVariant& cand = new_cands.at(slot.key);
+        merged_cands.push_back(cand);
+        merged_ids.push_back(std::string());
+        // Synthesized metadata, so the emitter's index-parallel lookup finds an
+        // entry for a site the catalog never held. Without it the merged site is
+        // skipped at output (graph_collect.cpp:71) even though it phased.
+        // VariantKey stores ref_len, not the reference bases, so REF comes from
+        // the chunk's own reference slice.
+        GraphSiteMeta meta;
+        meta.chrom = contig_name != nullptr ? contig_name : std::string();
+        meta.pos = cand.key.pos;
+        const hts_pos_t ref_off = cand.key.pos - chunk.ref_beg;
+        const int ref_len = std::max(1, cand.key.ref_len);
+        if (ref_off >= 0 &&
+            static_cast<size_t>(ref_off + ref_len) <= chunk.ref_seq.size())
+            meta.ref = chunk.ref_seq.substr(static_cast<size_t>(ref_off),
+                                            static_cast<size_t>(ref_len));
+        meta.alts.push_back(cand.key.alt);
+        merged_meta.push_back(std::move(meta));
+        merged_orig.push_back(std::vector<int>{0, 1});
+    }
+
+    // Reads the catalog never had. They are the ones that carry the gap: the
+    // alignment sees them and the GAF does not, so without them the merged
+    // in-gap sites have almost no observing read and each one starts its own
+    // phase set. Measured on the first 10 Mb of chr20 with them omitted: 2,844
+    // sites merged but the VCF came out in 4,680 blocks instead of 47.
+    std::set<std::string> have_read;
+    for (const ReadRecord& read : chunk.reads) have_read.insert(read.qname);
+    for (const auto& entry : observed) {
+        if (have_read.count(entry.first) != 0) continue;
+        if (entry.second.empty()) continue;
+        hts_pos_t beg = std::numeric_limits<hts_pos_t>::max();
+        hts_pos_t end = 0;
+        for (const auto& obs : entry.second) {
+            beg = std::min(beg, obs.first.pos);
+            end = std::max(end, obs.first.pos);
+        }
+        ReadRecord read;
+        read.tid = chunk.region.tid;
+        read.input_index = 0;
+        read.qname = entry.first;
+        auto mq = observed_mapq.find(entry.first);
+        read.mapq = mq != observed_mapq.end() ? mq->second : opts.min_mapq;
+        read.is_skipped = false;
+        read.beg = beg;
+        read.end = std::max(beg, end);
+        chunk.reads.push_back(std::move(read));
+        chunk.read_var_profile.push_back(ReadVariantProfile{});
+    }
+
+    // Rebuild each read's profile over the new index space, filling in the
+    // alignment's alleles where it observed the read.
+    std::vector<ReadVariantProfile> merged_profiles;
+    merged_profiles.reserve(chunk.reads.size());
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        const ReadVariantProfile& old_prof = chunk.read_var_profile[ri];
+        std::map<size_t, std::pair<int, int>> alleles;
+        if (old_prof.start_var_idx >= 0) {
+            for (size_t k = 0; k < old_prof.alleles.size(); ++k) {
+                const size_t ci = static_cast<size_t>(old_prof.start_var_idx) + k;
+                if (ci >= old_to_new.size() || old_to_new[ci] < 0) continue;
+                if (old_prof.alleles[k] < 0) continue;
+                alleles.emplace(static_cast<size_t>(old_to_new[ci]),
+                                std::make_pair(old_prof.alleles[k],
+                                               k < old_prof.alt_qi.size() ? old_prof.alt_qi[k] : 0));
+            }
+        }
+        auto it = observed.find(chunk.reads[ri].qname);
+        if (it != observed.end())
+            for (const auto& entry : it->second) {
+                auto idx = index_of.find(entry.first);
+                if (idx != index_of.end()) alleles.emplace(idx->second, entry.second);
+            }
+        ReadVariantProfile prof;
+        prof.read_id = static_cast<int>(ri);
+        if (alleles.empty()) {
+            merged_profiles.push_back(std::move(prof));
+            continue;
+        }
+        prof.start_var_idx = static_cast<int>(alleles.begin()->first);
+        prof.end_var_idx = static_cast<int>(alleles.rbegin()->first);
+        const size_t span = static_cast<size_t>(prof.end_var_idx - prof.start_var_idx + 1);
+        prof.alleles.assign(span, -1);
+        prof.alt_qi.assign(span, 0);
+        for (const auto& entry : alleles) {
+            const size_t off = entry.first - static_cast<size_t>(prof.start_var_idx);
+            prof.alleles[off] = entry.second.first;
+            prof.alt_qi[off] = entry.second.second;
+        }
+        merged_profiles.push_back(std::move(prof));
+    }
+
+    const size_t added = new_cands.size();
+    chunk.candidates = std::move(merged_cands);
+    chunk.read_var_profile = std::move(merged_profiles);
+    graph_chunk.site_ids = std::move(merged_ids);
+    graph_chunk.site_meta = std::move(merged_meta);
+    graph_chunk.site_allele_orig_idx = std::move(merged_orig);
+
+    // The read<->variant interval tree is keyed by CANDIDATE INDEX, and the
+    // solve looks every site's reads up through it (collect_phase.cpp:589, 983).
+    // Re-indexing the candidates invalidates it, so it has to be rebuilt exactly
+    // as build_graph_chunk and the injection path do. Without this the sweep
+    // reads the wrong reads for every site and the chunk comes apart: 4,635
+    // phase-set blocks over the first 10 Mb of chr20 against a baseline of 47.
+    rebuild_read_var_cr(chunk);
+
+    if (opts.verbose > 0)
+        fprintf(stderr, "[in-pass] %zu window(s) -> %zu region(s), merged %zu alignment site(s)\n",
+                windows.size(), regions.size(), added);
+    return added;
 }
 
 void prewarm_targeted_solves(

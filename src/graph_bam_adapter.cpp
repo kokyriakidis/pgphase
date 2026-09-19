@@ -184,16 +184,6 @@ void add_read_profile(GraphChunkBuildResult& out,
 
 // Build the cgranges interval index over read profiles so that
 // k-means phasing can quickly find reads overlapping each candidate.
-void rebuild_read_var_cr(PhasingChunk& chunk) {
-    cgranges_t* cr = cr_init();
-    if (cr == nullptr) throw std::runtime_error("failed to allocate graph read profile cgranges");
-    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
-        if (profile.start_var_idx < 0 || profile.end_var_idx < profile.start_var_idx) continue;
-        cr_add(cr, "cr", profile.start_var_idx, profile.end_var_idx + 1, profile.read_id);
-    }
-    cr_index(cr);
-    chunk.read_var_cr.reset(cr);
-}
 
 // Record a read's allele at a site.  If the same site was already seen with
 // a different allele (from an overlapping chunk), mark it conflicted (-1).
@@ -333,6 +323,19 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
 }
 
 } // namespace
+
+// Defined at namespace scope so callers that reorder candidates (the in-chunk
+// recovery merge) can rebuild the index; it was file-local until then.
+void rebuild_read_var_cr(PhasingChunk& chunk) {
+    cgranges_t* cr = cr_init();
+    if (cr == nullptr) throw std::runtime_error("failed to allocate graph read profile cgranges");
+    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.start_var_idx < 0 || profile.end_var_idx < profile.start_var_idx) continue;
+        cr_add(cr, "cr", profile.start_var_idx, profile.end_var_idx + 1, profile.read_id);
+    }
+    cr_index(cr);
+    chunk.read_var_cr.reset(cr);
+}
 
 void apply_graph_noise_filter(GraphChunkBuildResult& result,
                               const std::string& ref_seq,
