@@ -338,3 +338,17 @@ from 4,635 blocks to 84. The cell now reads "4,635 blocks; 84 after the rebuild"
 The wrong figure reached the commit message of 33aa478, which cannot be amended,
 and durable memory, which has been corrected.
 
+## 2026-09-19 -- an untested theory described as tested
+
+The in-chunk record said the homozygous-record cause was found "after two wrong
+theories had been tested and discarded", the second being "that the records came
+from catalog sites sharing a position". Only one theory was actually tested: the
+allele-index check, whose fix produced byte-identical output. The
+catalog-position idea was never proposed as an experiment or measured on its
+own; what excluded it was the merged-site suppression probe, the same run that
+confirmed the real cause. The text now claims one tested theory and credits the
+probe.
+
+The overstatement also reached the commit message of 694e11e, which cannot be
+amended, and durable memory, which has been corrected.
+
