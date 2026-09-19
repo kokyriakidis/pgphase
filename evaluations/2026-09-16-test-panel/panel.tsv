@@ -1,6 +1,13 @@
+# Two selection bases, both recorded so a reader can tell them apart.
+# competitor != none: a competitor block spans the gap AND agrees with truth
+#   on orientation. Only 5,309,406 still qualifies; 26,029,591 is the closed guard.
+# competitor == none: selected from TRUTH, no competitor involved -- the gap sits in
+#   real sequence (truth hets present, density <= 4/kb so not satellite) and every
+#   consecutive truth-het pair across it is covered by >= 3 reads, so a chain exists.
 gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scored
+3852321	3890461	38140	230	none	0.0000	0
+4766928	4792960	26032	175	none	0.0000	0
 5309406	5345085	35679	226	whatshap_opt	1.0000	214
+22980600	23008891	28291	195	none	0.0000	0
 26029591	26088679	59088	313	longphase	0.9968	313
-29309711	29350786	41075	138	longphase	1.0000	25
-32181324	32204477	23153	117	hiphase	1.0000	17
-32234664	32246127	11463	51	hiphase	1.0000	25
+60033052	60058235	25183	170	none	0.0000	0

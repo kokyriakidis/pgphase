@@ -453,3 +453,34 @@ suggested, not a vaguer one.
 
 The point being made -- that the floor documents a broken state rather than
 endorsing it -- is unaffected. a30b729's message cannot be amended.
+
+## 2026-09-19 -- a30b729 selected three bad panel windows
+
+That commit added 29,309,711, 32,181,324 and 32,234,664 as "validated open
+targets", on the strength of a competitor spanning them at >=99% orientation
+agreement with truth, with a density check meant to exclude satellite regions.
+The density check was computed over competitor-truth SHARED sites rather than
+over truth hets, which under-counts by 5-20x. Recomputed properly:
+
+    window      truth hets/kb   competitor phases
+    29309711        12.3             4.9% of the truth hets
+    32181324         7.7             9.6%
+    32234664        14.7            17.2%
+
+against a chromosome average of 1.70 hets/kb. All three are divergent regions
+where the competitor's "100%" is agreement on the handful of sites it chose to
+call, not evidence it phased the window. Re-running the whole scan with the
+metric fixed and a requirement that the competitor cover >= 50% of the truth
+hets leaves ZERO qualifying windows on chr20: the competitor-validated deficit
+is exhausted.
+
+The three windows are removed. Targets are now selected from truth instead,
+which needs no competitor: real sequence (truth hets present, <= 4/kb), and
+every consecutive truth-het pair across the gap covered by >= 3 reads, so a
+chain demonstrably exists. 11 gaps qualify; four are in the panel.
+
+Worth keeping: the diagnosis of 29,309,711 that exposed this. Every one of the
+814 catalog sites inside it is dropped -- 472 ref_only, 181 high_af, 158
+no_reads_in_chunk -- with the high_af ones showing REF_COV=0 against ALT_COV
+19-20. The graph channel sees one haplotype's path there. That is not a
+stitching defect and no recovery change addresses it.

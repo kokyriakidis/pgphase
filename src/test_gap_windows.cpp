@@ -177,6 +177,11 @@ std::vector<Window> load_panel(const std::string& path) {
     std::string line;
     bool header = true;
     while (std::getline(in, line)) {
+        // Comments precede the header, so skip them BEFORE consuming it --
+        // otherwise the first '#' line is eaten as the header and the real
+        // header line reaches std::stoll. The panel documents its own two
+        // selection bases in that block, so it has to survive the parse.
+        if (!line.empty() && line[0] == '#') continue;
         if (header) { header = false; continue; }
         if (line.empty()) continue;
         const auto f = split_tabs(line);
