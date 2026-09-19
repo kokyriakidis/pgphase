@@ -768,6 +768,20 @@ struct CandidateVariant {
     /// as fact. Measured on chr20:55,290,000-55,380,000: pinning dropped the
     /// emitted records from 56 to 46 and collapsed the window to one site.
     bool bam_injected = false;
+    /// The alignment path vouched for this site: it came back from a solve over
+    /// the reads as a clean heterozygote, or as a noisy candidate the MSA
+    /// reconstructed and verified.
+    ///
+    /// This is the distinction the graph arm was missing. In the alignment
+    /// pipeline RepeatHetIndel is a POINTER to a noisy region, not a verdict --
+    /// classify_cand_vars_pgphase adds the locus to noisy_var_cr, the MSA
+    /// rebuilds it, and it re-enters as NoisyCandHet. In the graph arm the same
+    /// label is terminal: over chr20:22,930,000-23,060,000 the alignment arm
+    /// has 17 NoisyCandHet and 0 RepeatHetIndel where the graph arm has 0 and
+    /// 17, the same loci. A site carrying this tag has been through the
+    /// alignment's own verification and is not screened out again on reference
+    /// context alone.
+    bool alignment_verified = false;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
     // True when the variant's VCF POS falls inside the chunk's active region.

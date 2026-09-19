@@ -151,7 +151,11 @@ struct RecoveredCandidate {
     bool inside_window = false;
     bool category_admitted = false;
     bool appended = false;           ///< reached the merged candidate table
-    bool meta_built = false;         ///< per-site metadata synthesised for it
+    bool meta_built = false;
+    /// The alignment path vouched for this candidate: clean, or noisy with the
+    /// MSA's verification. Recorded so a demoted locus that came back usable is
+    /// visible in the audit rather than only inferable from its new category.
+    bool alignment_verified = false;         ///< per-site metadata synthesised for it
     size_t meta_alts = 0;
     std::string meta_ref;
 };

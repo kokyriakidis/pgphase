@@ -1096,7 +1096,7 @@ void write_recovery_audit(const std::string& path,
     if (fresh)
         out << "POS\tTYPE\tREF_LEN\tALT\tCATEGORY\tWIN_BEG\tWIN_END\tKNOWN_RAW\t"
                "KNOWN_TRANSLATED\tINSIDE_WINDOW\tCATEGORY_OK\tAPPENDED\tMETA_BUILT\t"
-               "META_REF\tMETA_ALTS\n";
+               "META_REF\tMETA_ALTS\tALN_VERIFIED\n";
     for (const RecoveredCandidate& r : rows)
         out << r.pos << '\t' << r.type << '\t' << r.ref_len << '\t'
             << (r.alt.empty() ? "." : r.alt) << '\t' << r.category << '\t'
@@ -1104,7 +1104,8 @@ void write_recovery_audit(const std::string& path,
             << (r.known_translated ? 1 : 0) << '\t' << (r.inside_window ? 1 : 0) << '\t'
             << (r.category_admitted ? 1 : 0) << '\t' << (r.appended ? 1 : 0) << '\t'
             << (r.meta_built ? 1 : 0) << '\t'
-            << (r.meta_ref.empty() ? "." : r.meta_ref) << '\t' << r.meta_alts << '\n';
+            << (r.meta_ref.empty() ? "." : r.meta_ref) << '\t' << r.meta_alts << '\t'
+            << (r.alignment_verified ? 1 : 0) << '\n';
 }
 
 size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
@@ -1324,6 +1325,12 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                             parent_cand.counts.candvarcate_initial = cand.counts.category;
                             parent_cand.lcd_var_i_to_cate = cand.lcd_var_i_to_cate;
                             parent_cand.msa_verified = cand.msa_verified;
+                            // The alignment path vouched for it: this locus was
+                            // demoted here on reference context and came back
+                            // from a solve over the reads as a usable het.
+                            parent_cand.alignment_verified =
+                                cand.counts.category != VariantCategory::NoisyCandHet ||
+                                cand.msa_verified;
                             if (!cand.msa_insertion_alts.empty())
                                 parent_cand.msa_insertion_alts = cand.msa_insertion_alts;
                             ++adopted;
@@ -1447,6 +1454,10 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         // Injected as discovered: the counts and the consensus below are the
         // sub-solve's own, and the flag keeps the parent from re-deriving them.
         merged_cand.bam_injected = true;
+        merged_cand.alignment_verified =
+            cand.counts.category == VariantCategory::CleanHetSnp ||
+            cand.counts.category == VariantCategory::CleanHetIndel ||
+            (cand.counts.category == VariantCategory::NoisyCandHet && cand.msa_verified);
         // Carry the sub-solve's consensus THROUGH the orientation, or drop it
         // and let the parent derive one. A consensus without a vote behind it
         // is worse than none.
@@ -1667,6 +1678,12 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                !graph_chunk.site_meta[ci].alts.empty();
                 r.meta_ref = graph_chunk.site_meta[ci].ref;
                 r.meta_alts = graph_chunk.site_meta[ci].alts.size();
+                const CandidateVariant& mc = chunk.candidates[ci];
+                r.alignment_verified =
+                    mc.alignment_verified ||
+                    mc.counts.category == VariantCategory::CleanHetSnp ||
+                    mc.counts.category == VariantCategory::CleanHetIndel ||
+                    (mc.counts.category == VariantCategory::NoisyCandHet && mc.msa_verified);
             }
         }
         write_recovery_audit(opts.recovery_audit_out, audit);

@@ -316,3 +316,47 @@ What is needed next is a probe that cannot lie: a counter incremented at each
 `continue` and dumped at the end of the function, rather than conditional
 prints keyed on a candidate predicate that has already proved inconsistent
 between builds.
+
+## "Allow all sites that are clean or MSA-verified" -- measured, and refined
+
+The proposal: a site the alignment path accepts should not be screened out
+again in the graph arm, and should carry a tag saying so.
+
+**The mechanism already exists, under a different name.** When the recovery
+routes a demoted locus to the alignment sub-solve, the merge does not tag it --
+it REPLACES its category with the sub-solve's verdict. `chr20:23,007,537 TA>T`
+goes from a terminal `REP_HET_INDEL` to `CLEAN_HET_INDEL`, is emitted
+`GT=1|0`, and phases into `PS 23,007,536`. That is a stronger form of the
+proposal, and it is what admits the site.
+
+**An additional `alignment_verified` tag was implemented and is inert.** Set on
+adoption and injection, and honoured in the link-list gate, it produced output
+byte-identical to the build without it -- on the motivating window (69 records
+either way, same genotype and phase set at 23,007,537) and on whole chr20 in
+both arms. The gate it would have opened is already open, because
+`allele_depths_call_het` returns true for an injected candidate. So the tag
+does not ship as a gate input; it is recorded in the recovery audit
+(`ALN_VERIFIED`) where it is observable, and both arms stay byte-identical.
+
+**And the criterion needs refining, because it would miss its own motivating
+case.** The audit row for the blocking site:
+
+```
+POS       TYPE REF_LEN ALT CATEGORY KNOWN_TRANSLATED INSIDE_WINDOW APPENDED ALN_VERIFIED
+23007537  2    1       .   6        1                1             0        0
+```
+
+Category 6 is `NoisyCandHet` and `msa_verified` is 0 -- so "clean or
+MSA-verified" does NOT cover `23,007,537`, the very site that carries the join
+and segregates 0.875 against read truth. Only 8 of the 85 candidates the
+sub-solve found in this window's recovery windows qualify under that rule.
+
+The criterion that works is provenance, not verification: a solve that read the
+alignment at this locus returned it in a usable het class. That is consistent
+with the earlier finding that `msa_verified` is an unconditional stamp set at
+construction, not a quality signal -- it is set before any counts exist.
+
+What still keeps this window open is no longer admission. The site is in, and
+it forms a block with the right flank; the 27 kb step to the left has the weak
+evidence measured earlier (15 against 12, impure), so the block does not extend
+across it.
