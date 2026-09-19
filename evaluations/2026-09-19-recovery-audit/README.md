@@ -273,3 +273,46 @@ Step 2 remains open: the deletion half of the pair is still absent. The
 exemption for imported records in `drop_superseded_colocated_records` is in
 place and correct, but inert here -- the deletion disappears before that rule
 runs, and the probe that would localise it did not apply cleanly this session.
+
+## Step 2, traced: the pair is never removed, and the loss is inside the writer
+
+Instrumenting the single recovery path (after the duplicate block was factored
+out) gives the whole life of the locus in one run:
+
+```
+before-merge   only the catalog site          pos 55336458 cate 9  cons [-1,-1]
+after-merge    + insertion                    pos 55336460 cate 6  cons [0,1]
+               + deletion                     pos 55336460 cate 6  cons [1,0]
+after-round2     insertion                                         cons [0,0]
+                 deletion                                          cons [1,1]
+```
+
+Two things this settles:
+
+- **Nothing removes the deletion.** It is a candidate from the merge through to
+  the writer. The earlier note that `drop_superseded_colocated_records` demoted
+  it was wrong, and so was the suspicion of
+  `drop_conflicting_haplotype_alleles`: that rule groups records by which
+  haplotype carries the ALT, and here each haplotype has exactly one carrier,
+  so it never pairs them.
+- **Round 2 collapses BOTH halves**, and the joint post-pass rescues both --
+  at the writer the two rows carry `cons [0,1]` and `cons [1,0]`, complete with
+  metadata and phase sets.
+
+Yet only the insertion is emitted. The loss is inside
+`graph_chunks_to_candidate_table`'s per-allele loop, and instrumentation has
+not localised it reliably: one labelled run reported the deletion hitting the
+merged-site category filter, a second, with every gate labelled by its own
+condition text, reported the deletion never entering the loop at all. Those two
+cannot both be true, so neither is evidence.
+
+A speculative fix was written for the first reading -- admit a merged row whose
+two consensus alleles differ, regardless of the depth-derived category, by the
+same logic as the hom-alt rule above it -- and measured **no change** on the
+window. It is reverted rather than shipped: a change with no measured effect,
+justified by an unreliable probe, is not a fix.
+
+What is needed next is a probe that cannot lie: a counter incremented at each
+`continue` and dumped at the end of the function, rather than conditional
+prints keyed on a candidate predicate that has already proved inconsistent
+between builds.
