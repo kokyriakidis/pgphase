@@ -174,9 +174,23 @@ static CandidateTable graph_chunks_to_candidate_table(
                     }
                 }
 
+                // Heterozygous between two ALTERNATE alleles: the reference is not
+                // one of this site's haplotypes, so every quantity defined against
+                // it is degenerate -- ref_cov is 0, and the allele fraction
+                // alt/(ref+alt) is 1.0 for BOTH alleles, which reads as a
+                // homozygous alt and then as LOW_AF. The site's own coverage is the
+                // denominator that means something: at 4,785,719 that turns two
+                // fractions of 1.00 into 0.34 and 0.66.
+                const auto& hcons = mcand.hap_to_cons_alle;
+                const bool het_by_consensus = hcons.size() > 2 && hcons[1] >= 0 &&
+                                              hcons[2] >= 0 && hcons[1] != hcons[2];
                 const int ref_cov = alle_covs.empty() ? 0 : alle_covs[0];
                 const int alt_cov = alle_covs[static_cast<size_t>(new_a)];
-                const int total_cov = ref_cov + alt_cov;
+                int total_cov = ref_cov + alt_cov;
+                if (het_by_consensus) {
+                    total_cov = 0;
+                    for (const int c : alle_covs) total_cov += c;
+                }
                 cand.counts.ref_cov = ref_cov;
                 cand.counts.alt_cov = alt_cov;
                 cand.counts.total_cov = total_cov;
@@ -193,7 +207,16 @@ static CandidateTable graph_chunks_to_candidate_table(
                 cand.counts.n_uniq_alles = 2;
                 cand.counts.alle_covs = {ref_cov, alt_cov};
 
-                const bool is_hom_alt = (ref_cov == 0 && alt_cov >= opts.min_alt_depth);
+                // A site whose two haplotype consensus alleles DIFFER is
+                // heterozygous even when no read carries the reference: a 1|2
+                // site has ref_cov == 0 by construction. Deciding hom from depth
+                // alone discards exactly the sites that bridge a gap -- measured
+                // in chr20:4,766,928-4,792,960, where 4,785,719 ('ATTTT' at 22
+                // reads against a pure 25 bp deletion at 43) and 4,791,668 (16 T
+                // at 34 against 17 T at 24) are the two heterozygotes the gap
+                // needs and both were called CleanHom here.
+                const bool is_hom_alt = (ref_cov == 0 && alt_cov >= opts.min_alt_depth) &&
+                                        !het_by_consensus;
                 if (alt_cov < opts.min_alt_depth || total_cov < opts.min_depth) {
                     cand.counts.category = VariantCategory::LowCoverage;
                     cand.counts.candvarcate_initial = VariantCategory::LowCoverage;

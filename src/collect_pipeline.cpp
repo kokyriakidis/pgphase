@@ -1637,22 +1637,28 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         };
         std::string vcf_ref, vcf_alt;
         hts_pos_t vcf_pos = cand.key.pos;
+        // Anchoring depends only on the key, so REF and POS are shared by every
+        // allele of the site; only the ALT string varies. Building it per allele
+        // is what lets a multiallelic candidate survive the merge.
+        const auto anchored = [&](const std::string& allele) -> std::string {
+            if (cand.key.type == VariantType::Snp) return allele;
+            if (cand.key.type == VariantType::Insertion && cand.key.ref_len == 0)
+                return ref_at(cand.key.pos - 1, 1) + allele;
+            if (cand.key.type == VariantType::Insertion) return allele;
+            return ref_at(cand.key.pos - 1, 1) + allele;  // deletion: left anchor
+        };
         if (cand.key.type == VariantType::Snp) {
             vcf_ref = ref_at(cand.key.pos, std::max(1, cand.key.ref_len));
-            vcf_alt = cand.key.alt;
         } else if (cand.key.type == VariantType::Insertion && cand.key.ref_len == 0) {
             vcf_pos = cand.key.pos - 1;
             vcf_ref = ref_at(vcf_pos, 1);
-            vcf_alt = vcf_ref + cand.key.alt;
         } else if (cand.key.type == VariantType::Insertion) {
             vcf_ref = ref_at(cand.key.pos, cand.key.ref_len);
-            vcf_alt = cand.key.alt;
         } else {  // Deletion: anchor one base to the left so ALT is never empty.
             vcf_pos = cand.key.pos - 1;
-            const std::string anchor = ref_at(vcf_pos, 1);
-            vcf_ref = anchor + ref_at(cand.key.pos, cand.key.ref_len);
-            vcf_alt = anchor + cand.key.alt;
+            vcf_ref = ref_at(vcf_pos, 1) + ref_at(cand.key.pos, cand.key.ref_len);
         }
+        vcf_alt = anchored(cand.key.alt);
         // Emit only what round-trips: if the VCF form does not convert back to
         // the key it came from, the record would describe a different variant
         // than the one that was phased, so the site is dropped instead.
@@ -1671,13 +1677,38 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             usable = round_trip.type == cand.key.type && round_trip.pos == cand.key.pos &&
                      round_trip.ref_len == cand.key.ref_len && round_trip.alt == cand.key.alt;
         }
-        if (usable) {
+        // A candidate heterozygous between two ALTERNATE alleles -- hap_to_cons_alle
+        // (1,2), no reference reads -- carries both allele strings in
+        // msa_insertion_alts, the same ordered ALT list the alignment writer emits
+        // (collect_output.cpp:117-123), indexed so entry i is consensus allele
+        // i + 1 and matches counts.alle_covs[i + 1]. Keeping only key.alt flattened
+        // those sites to one ALT, and the writer then found consensus index 2
+        // pointing past meta.alts and dropped the record
+        // (graph_collect.cpp:119). Measured in chr20:4,766,928-4,792,960: the two
+        // het sites the gap needs -- 4,785,719 ('ATTTT' at 22 reads against a pure
+        // 25 bp deletion at 43) and 4,791,668 (16 T at 34 against 17 T at 24) --
+        // were both lost this way, leaving the gap with no phased record at all.
+        std::vector<std::string> alts;
+        if (cand.msa_insertion_alts.size() >= 2) {
+            for (const std::string& allele : cand.msa_insertion_alts) {
+                const std::string a = anchored(allele);
+                if (a.empty()) { alts.clear(); break; }
+                alts.push_back(a);
+            }
+        }
+        if (alts.empty() && usable) alts.push_back(vcf_alt);
+
+        if (usable && !alts.empty()) {
             meta.pos = vcf_pos;
             meta.ref = vcf_ref;
-            meta.alts.push_back(vcf_alt);
+            meta.alts = alts;
         }
         merged_meta.push_back(std::move(meta));
-        merged_orig.push_back(std::vector<int>{0, 1});
+        std::vector<int> orig;
+        orig.reserve(alts.size() + 1);
+        for (int i = 0; i <= static_cast<int>(alts.size()); ++i) orig.push_back(i);
+        if (orig.size() < 2) orig = std::vector<int>{0, 1};
+        merged_orig.push_back(std::move(orig));
     }
 
     // Reads the catalog never had. They are the ones that carry the gap: the
