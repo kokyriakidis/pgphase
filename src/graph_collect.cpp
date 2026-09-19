@@ -728,6 +728,20 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                             // a seeded region has zero reads and the MSA has nothing to align.
                             // The seeded regions go to the recovery instead, whose sub-solve
                             // re-reads the BAM through process_chunk and does build digars.
+                            // The imported sites are NoisyCandHet, so THIS is the
+                            // round that recomputes them: it turns the complementary
+                            // pair the alignment produced at chr20:55,336,460 --
+                            // cons (0,1) for the insertion and (1,0) for the
+                            // deletion, exactly what the BAM pipeline emits -- into
+                            // (0,0) and (1,1), and the writer skips a site whose two
+                            // consensus alleles are equal.
+                            //
+                            // Anchoring it fixes that window (the insertion is
+                            // emitted and joins PS 55,331,014, and the window becomes
+                            // one 9-site block) and is a chromosome-wide regression:
+                            // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
+                            // window result does not generalise, so the round stays
+                            // unanchored and the loss is recorded rather than traded.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);
@@ -947,6 +961,20 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             // a seeded region has zero reads and the MSA has nothing to align.
                             // The seeded regions go to the recovery instead, whose sub-solve
                             // re-reads the BAM through process_chunk and does build digars.
+                            // The imported sites are NoisyCandHet, so THIS is the
+                            // round that recomputes them: it turns the complementary
+                            // pair the alignment produced at chr20:55,336,460 --
+                            // cons (0,1) for the insertion and (1,0) for the
+                            // deletion, exactly what the BAM pipeline emits -- into
+                            // (0,0) and (1,1), and the writer skips a site whose two
+                            // consensus alleles are equal.
+                            //
+                            // Anchoring it fixes that window (the insertion is
+                            // emitted and joins PS 55,331,014, and the window becomes
+                            // one 9-site block) and is a chromosome-wide regression:
+                            // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
+                            // window result does not generalise, so the round stays
+                            // unanchored and the loss is recorded rather than traded.
                             assign_hap_based_on_germline_het_vars_kmeans(
                                 graph_chunks[offset].chunk, solve_opts, kCandGermlineVarCate,
                                 false);

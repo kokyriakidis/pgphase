@@ -2107,6 +2107,16 @@ static void drop_superseded_colocated_records(PhasingChunk& chunk) {
                     if (allele == other.key.alt) duplicate = true;
             }
             if (!duplicate) continue;
+            // A record imported from a recovery sub-solve that carries a DECIDED
+            // heterozygous consensus is not a duplicate description of the
+            // merged record -- it describes the other haplotype. At
+            // chr20:55,336,460 the alignment emits the locus as a complementary
+            // pair, C>CGT at 0|1 and CGTGT>C at 1|0, and demoting the deletion
+            // here left the graph arm with half the locus.
+            if (other.bam_injected && other.hap_to_cons_alle.size() > 2 &&
+                other.hap_to_cons_alle[1] >= 0 && other.hap_to_cons_alle[2] >= 0 &&
+                other.hap_to_cons_alle[1] != other.hap_to_cons_alle[2])
+                continue;
             other.counts.category = VariantCategory::LowCoverage;
             other.lcd_var_i_to_cate = 0;
         }

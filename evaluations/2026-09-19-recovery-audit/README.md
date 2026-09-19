@@ -174,3 +174,62 @@ recovery windows into the parent re-solve, and that costs 1.153% -> 2.067% on
 the default path. What blocks it is representation, not import -- our biallelic
 deletion record splits 3 ref / 26 alt in a GT tract where hiphase's record at
 the same locus splits 15/19.
+
+## Is the representation wrong in the BAM pipeline, or only on import?
+
+**Only on import, and not in the import itself.** Traced end to end at
+`chr20:55,336,460`.
+
+**The alignment pipeline's representation is correct and complete.** It emits
+the locus as a complementary pair:
+
+```
+55336460  C     > CGT    GT=0|1  PS=55331014  AD=32,16
+55336460  CGTGT > C      GT=1|0  PS=55331014  AD=3,26
+```
+
+hap2 carries the 2 bp insertion, hap1 the 4 bp deletion -- the right
+description of a GT tract where both haplotypes differ from the reference.
+
+**The import preserves it.** Probing the parent chunk immediately after the
+merge:
+
+```
+PROF pos=55336460 type=1 inj=1 cons=[0,1]
+PROF pos=55336460 type=2 inj=1 cons=[1,0]
+```
+
+Exactly the alignment's pair, in the parent's own candidate table, with
+metadata and phase sets. So neither translation, nor anchoring, nor injection
+damages the record.
+
+**Two steps AFTER the merge destroy it.**
+
+1. The second k-means round (`kCandGermlineVarCate`, unanchored) recomputes the
+   imported sites -- they are `NoisyCandHet`, so this round owns them -- and
+   each haplotype takes its majority allele independently: `(0,1)` and `(1,0)`
+   become `(0,0)` and `(1,1)`. The writer skips a merged site whose two
+   consensus alleles are equal, so the whole locus disappears.
+2. `drop_superseded_colocated_records` demotes the deletion as a duplicate
+   description of a colocated merged record.
+
+**Anchoring that second round fixes the window and does not generalise.** With
+it, the insertion is emitted, joins the existing block `PS 55,331,014`, and the
+target window becomes ONE 9-site block instead of two. Chromosome-wide it costs
+read hamming 4.188% -> 6.160% and blocks 350 -> 568, so it is not kept; the
+round stays unanchored and the loss is recorded rather than traded away.
+
+Exempting an injected record with a decided heterozygous consensus from the
+colocated-record demotion is kept (it is the correct rule -- such a record
+describes the other haplotype, not a duplicate call) but is inert here: the
+deletion is already gone by then.
+
+| arm | tagged | read blk | disc | hamming | corrected | VCF blk |
+|---|---:|---:|---:|---:|---:|---:|
+| default | 219,055 | 326 | 2,526 | **1.153%** | **0.967%** | 339 |
+| `--graph-noisy-msa` | 225,718 | 369 | 10,931 | 4.843% | 4.691% | 501 |
+| `+ --stitch-recovered` | 225,645 | 336 | 9,451 | **4.188%** | 4.043% | **350** |
+| `+ anchored second round` | 225,789 | 450 | 13,909 | 6.160% | 5.888% | 568 |
+
+Default byte-identical over whole chr20. Unit 3/3, predicate 151/151,
+window 125/125.
