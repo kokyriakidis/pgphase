@@ -18,7 +18,13 @@
 arm	window	spans	min_in_gap_hets	min_concordance
 default	5309406	0	0	0.99
 default	26029591	1	0	0.99
-default	TOTAL	1	0	0.99
+default	29309711	0	0	0.70
+default	32181324	0	0	1.00
+default	32234664	0	0	1.00
+default	TOTAL	1	0	0.70
 inchunk	5309406	0	1	0.99
 inchunk	26029591	1	277	0.99
-inchunk	TOTAL	1	278	0.99
+inchunk	29309711	0	0	0.53
+inchunk	32181324	0	0	1.00
+inchunk	32234664	0	0	1.00
+inchunk	TOTAL	1	278	0.53

@@ -136,6 +136,7 @@ struct Expectation {
 
 /// What one run of the pipeline produced on one window.
 struct Outcome {
+    std::string diagnosis;  // why a red span check is red; see explain_gap
     bool spans = false;
     int in_gap_hets = 0;
     int tagged = 0;
@@ -559,6 +560,47 @@ std::map<std::string, Outcome>& outcome_cache() {
     return cache;
 }
 
+/// Why a window failed, in the three terms the cause can take.
+///
+/// A red span check says the gap did not close; it does not say whether the
+/// gap CAN close, which is the first thing anyone iterating on recovery needs
+/// and the thing that used to cost a manual drilldown each time:
+///
+///   UNCLOSEABLE -- some interior position is crossed by no read. No admission
+///                  or linking change can help; a competitor spanning it is
+///                  making a join its own reads do not support.
+///   NO SITES    -- reads cross, but the gap interior holds no phased het, so
+///                  the chain has nothing to step through. Admission.
+///   NOT LINKED  -- reads cross AND interior sites are phased, but they did not
+///                  end up in one phase set. Linking or orientation.
+///
+/// Computed from what the run already wrote, so it costs no extra pipeline run.
+std::string explain_gap(const Paths& p, const Window& w, const Outcome& got) {
+    const ReadSpans& spans = input_read_spans(p, w);
+    // thinnest read coverage strictly inside the gap, sampled on a grid
+    const long long step = std::max<long long>(1, (w.gap_right - w.gap_left) / 200);
+    int thinnest = INT_MAX;
+    long long thinnest_at = w.gap_left;
+    for (long long x = w.gap_left + step; x < w.gap_right; x += step) {
+        int n = 0;
+        for (const auto& [name, se] : spans)
+            if (se.first <= x && se.second >= x) ++n;
+        if (n < thinnest) { thinnest = n; thinnest_at = x; }
+    }
+    std::ostringstream o;
+    o << "gap diagnosis: thinnest interior read coverage " << thinnest
+      << " at " << thinnest_at << "; phased hets inside the gap " << got.in_gap_hets
+      << "; distinct phase sets touching the window " << got.blocks << " -- ";
+    if (thinnest == 0)
+        o << "UNCLOSEABLE (a position inside the gap is crossed by no read)";
+    else if (got.in_gap_hets == 0)
+        o << "NO SITES (reads cross it, but nothing inside is phased: admission)";
+    else
+        o << "NOT LINKED (reads cross and interior sites are phased, but they did"
+             " not join: linking or orientation)";
+    return o.str();
+}
+
 Outcome measure_uncached(const Paths& p, const Window& w, const std::string& arm,
                          const std::string& flags,
                          const std::unordered_map<std::string, char>& truth) {
@@ -572,6 +614,7 @@ Outcome measure_uncached(const Paths& p, const Window& w, const std::string& arm
     parse_candidates(dir + "/candidates.tsv", w, out);
     check_required_sites(dir + "/candidates.tsv", arm, w, out);
     score_bam(dir + "/phased.bam", w, truth, input_read_spans(p, w), out);
+    out.diagnosis = explain_gap(p, w, out);
     return out;
 }
 
@@ -599,6 +642,10 @@ void check_against(const Window& w, const std::string& arm, const Outcome& got,
 
     // Spanning is an equality, in both directions: a span that appears where the
     // expectation says there is none is the coin-flip join, not an improvement.
+    // On a red span check, say WHY in the same breath: a failing window that
+    // cannot be closed by anyone is a different fact from one whose sites were
+    // refused, and iterating on recovery needs that distinction immediately.
+    INFO(got.diagnosis);
     CHECK(got.spans == want.spans);
     // Sites phased INSIDE the gap -- a count of sites, not of reads.
     CHECK(got.in_gap_hets >= want.min_in_gap_hets);
