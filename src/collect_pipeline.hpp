@@ -125,15 +125,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       WorkerContext& context,
                                        const char* contig_name);
 
-void prewarm_targeted_solves(
-        const std::vector<std::pair<PhasingChunk*, const char*>>& chunks,
-        const Options& opts, WorkerContext& context, TargetedSolveCache& cache);
 
-size_t recover_unphased_windows_from_bam(PhasingChunk& chunk, const Options& opts,
-                                        WorkerContext& context,
-                                        const char* contig_name = nullptr,
-                                        bool allow_import = true,
-                                        TargetedSolveCache* cache = nullptr);
 
 } // namespace pgphase_collect
 

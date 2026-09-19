@@ -115,7 +115,10 @@ Each window is treated twice, in order:
 
 ### Recovery has one placement
 
-Recovery is not a mode. Inside each chunk, after the noise filter and the first
+Recovery is not a mode, and there is no flag for it: the post-hoc placement,
+`Options::in_pass_recovery`, `--in-chunk-recovery` and `--no-anchored-stage2`
+were deleted outright (419 lines), and the two flag names are now rejected as
+unrecognised rather than silently ignored. Inside each chunk, after the noise filter and the first
 clean solve, `retry_unphased_windows_in_place` finds the windows the solve left
 unphased plus the seams between its blocks, re-solves them from the alignment,
 and merges what it finds into the chunk. Both k-means rounds then run again
