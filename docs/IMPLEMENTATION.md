@@ -1780,13 +1780,13 @@ For every `CandidateVariant v` in `cur`:
 - If `do_flip` and `v.phase_set == min_cur_ps`: swap `hap_to_cons_alle[1] ↔ [2]`.
 - If `v.phase_set == min_cur_ps` and both anchors are valid: rewrite `v.phase_set = max_pre_ps`.
 
-`apply_chunk_flip_and_merge` (extracted helper) applies both parts: if `do_flip`, it swaps `hap_to_cons_alle[1] ↔ [2]`; when phased alignment output is requested it also flips read `haps` (`3 - hap`) for reads whose `phase_sets` entry equals `min_cur_ps`. If both anchors are valid, it rewrites candidate `phase_set` from `min_cur_ps` to `max_pre_ps` and, when phased alignment output is requested, rewrites matching read `phase_sets` too. Projected phased VCF output derives GT orientation directly from `hap_to_cons_alle`.
+`apply_chunk_flip_and_merge` (`collect_phase.cpp:1082-1108`) applies both parts, and neither is conditional on the output mode -- the helper takes no `Options` and cannot see one. If `do_flip` and `min_cur_ps` is a valid anchor, it swaps `hap_to_cons_alle[1] ↔ [2]` on every candidate carrying `min_cur_ps` AND flips read `haps` (`3 - hap`) for every non-skipped, hap-assigned read whose `phase_sets` entry equals `min_cur_ps` (`:1092-1094`). If both anchors are valid, it rewrites candidate `phase_set` from `min_cur_ps` to `max_pre_ps` and rewrites matching read `phase_sets` the same way, also unconditionally (`:1097-1106`). Candidate and read state are kept in sync by construction, which is what the function's own comment claims. Projected phased VCF output derives GT orientation directly from `hap_to_cons_alle`.
 
 **`stitch_chunk_haps`** iterates pairs `(chunks[0], chunks[1])`, `(chunks[1], chunks[2])`, … left to right, calling `flip_chunk_hap` for each.
 
 ###### 19.2 Phase-Set Anchor Semantics
 
-`min_cur_ps` is the earliest phase-set anchor among boundary-spanning reads in the current chunk; `max_pre_ps` is the latest anchor among the matching reads in the previous chunk. After common-read stitching, all variants that carried `min_cur_ps` carry `max_pre_ps`, effectively **extending the previous chunk’s phase block** into the current one and merging them into a single continuous block. Reads are rewritten by the common-read path only when phased alignment output is requested; `.pgbam` merges always rewrite the matching read hap/phase-set state because later sidecar comparisons depend on live read phase blocks.
+`min_cur_ps` is the earliest phase-set anchor among boundary-spanning reads in the current chunk; `max_pre_ps` is the latest anchor among the matching reads in the previous chunk. After common-read stitching, all variants that carried `min_cur_ps` carry `max_pre_ps`, effectively **extending the previous chunk’s phase block** into the current one and merging them into a single continuous block. The common-read path rewrites the matching read hap/phase-set state unconditionally, not only when phased alignment output is requested; so do `.pgbam` merges, which depend on live read phase blocks for later sidecar comparisons.
 
 ###### 19.3 Worked Example — No Flip Needed
 

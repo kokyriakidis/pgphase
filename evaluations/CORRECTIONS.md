@@ -397,3 +397,21 @@ message still carries the wrong claim and cannot be amended.
 
 Lesson: when a cited identifier is absent, search for the mechanism before
 concluding it was removed -- a near-miss name is more likely than a deletion.
+
+## 2026-09-19 -- e826eb9 overstated its own coverage
+
+That commit says "every flagged discrepancy was then confirmed by hand before
+any edit". One flagged discrepancy was confirmed and then not edited: section
+19.1 said `apply_chunk_flip_and_merge` flips read `haps` and rewrites read
+`phase_sets` "when phased alignment output is requested", and section 19.2
+repeated it. The audit had already pulled the code
+(`collect_phase.cpp:1086-1096`) showing the loops gated only on a phase-set
+match; the helper takes no `Options` and cannot see the output mode. The fix
+applied in that commit corrected the adjacent claim that the flip was global,
+and missed this one.
+
+Both sentences are corrected here. e826eb9's message cannot be amended.
+
+Lesson: when several findings land in neighbouring sentences, tick them off
+individually against the finding list -- fixing one and reading the paragraph
+as done is how the other survives.
