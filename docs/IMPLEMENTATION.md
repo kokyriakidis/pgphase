@@ -28,6 +28,10 @@ with Part I, Part I is right and Part II is stale.
 | `collect-hybrid-variation` | BAM calling plus graph read augmentation, described in this Part |
 | `build-snarl-catalog` | preprocesses a GBZ graph into the phasing site catalog the other two consume |
 
+`collect-graph-variation` additionally offers `--phase-reads-out`, a diagnostic
+TSV of per-read phasing evidence; the equivalent BAM-arm outputs were removed in
+5314801.
+
 `phase-graph` is **not** among them: it was an earlier subcommand, removed, and
 the machinery it described now lives in `graph_bam_adapter.cpp` behind
 `collect-graph-variation`. Its old description is kept as history in
@@ -1378,7 +1382,7 @@ reference context: AAAAAAAAAA
 Add candidate span, extended through the homopolymer, to noisy regions.
 ```
 
-Third, dense overlapping candidate sites are treated as noisy. The code builds an interval index of candidate positions. If a candidate overlaps more than one candidate position, the locus is considered dense.
+Third, dense overlapping candidate sites are treated as noisy. The code builds an interval index of candidate positions (`var_pos_cr`, `collect_var.cpp:1567-1572`), excluding `LowCoverage` candidates always and `StrandBias` candidates in ONT mode, so those never contribute an interval. If a candidate overlaps more than one candidate position, the locus is considered dense.
 
 Example:
 
@@ -1485,7 +1489,7 @@ Phasing runs **only when** `chunk.candidates` is non-empty after classification 
 
 ###### Step 3.1: `collect_read_var_profile` (static, `collect_var.cpp`)
 
-For each non-skipped read, this walks digars and the sorted candidate table in lockstep. The matching behavior is now strict longcallD parity for this stage: overlap is checked by `profile_ovlp_var_site(...)` (`collect_var.cpp:1757`), and allele identity uses `exact_comp_var_site(...)` (strict compare for all variant types, including insertions). It fills:
+For each non-skipped read, this walks digars and the sorted candidate table in lockstep. The matching behavior is now strict longcallD parity for this stage: overlap is checked by `profile_comp_ovlp_var_site(...)` (`collect_var.cpp:1786`, called at `:1873`), which delegates to `profile_ovlp_var_site` (`:1757`), and allele identity uses `exact_comp_var_site(...)` (strict compare for all variant types, including insertions). It fills:
 
 - **`ReadVariantProfile`** on `chunk.read_var_profile[read_i]`: sparse `alleles` / `alt_qi` for variant indices from `start_var_idx` through `end_var_idx`.
 - Allele codes match longcallD profiling: **`0`** = ref, **`1`** = alt (if base quality passes `min_bq` and the digar is not marked low-quality), **`-2`** = low-quality alt observation (skipped in hap scoring), and trailing sites inside the read span with no alt digar match get **ref (`0`)** via the tail loop.
@@ -1579,8 +1583,8 @@ while true:
         ret = collect_noisy_vars1(...)
         if ret >= 0: mark done; if ret > 0: any_new_var = true
         if ret < 0:  leave undone (MSA could not separate reads — retry later)
-    if any_new_var:
-        assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineVarCate)
+    if any_new_var and not skip_noisy_kmeans:
+        assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineVarCate, anchored_stage2)
         ← re-assigns ALL reads using clean + noisy candidates found so far
     if no region made progress this pass: break
 ```
@@ -1898,7 +1902,7 @@ while batch_begin < chunks.size():
     batch = collect_chunk_batch_parallel(batch_begin, batch_end)   ← PARALLEL
     stitch_chunk_haps(batch.chunks, &opts, sidecar.get())          ← SEQUENTIAL
     merge_chunk_candidates(batch.chunks)                            ← exact-site merge, active-region preference
-    write output (TSV / VCF / phased VCF / read-support / phase-read / phased alignment)
+    write output (TSV always; VCF and phased VCF when their paths are set; phased alignment when a writer exists -- `collect_pipeline.cpp:623-632`)
     batch_begin = batch_end
 ```
 
@@ -2318,60 +2322,18 @@ The `GT:PS` fields come from the same `hap_alt`/`hap_ref`/`phase_set` fields tha
 For parity-critical multi-allelic sites, phased GT orientation inherits the strict longcallD-polarized
 `hap_alt`/`hap_ref` mapping (`c != 0` treated as ALT) described in §18 Step 3.2.
 
-##### 23. Optional Read-Support Output
+##### 23. Optional outputs
 
-If `--read-support` is provided, the command writes one row per read-candidate observation:
+Two optional outputs described here were removed from this arm in 5314801:
+`--read-support` (one row per read-candidate observation) and
+`--phase-read-tsv`. Neither flag is registered on any subcommand and neither
+writer remains in the source.
 
-```text
-CHROM
-POS
-TYPE
-REF_LEN
-ALT
-QNAME
-IS_ALT
-LOW_QUAL
-REVERSE
-MAPQ
-CHUNK_BEG
-CHUNK_END
-```
+The per-read phasing diagnostic survives only on the graph arm, as
+`--phase-reads-out` (`Options::output_phase_reads`, `phasing_types.hpp:437`,
+written at `graph_collect.cpp:1077`).
 
-Example:
-
-```text
-chr11  1000  SNP  1  G  read_42  1  0  1  60  1  500000
-```
-
-This indicates that `read_42` supports the alternate allele `G` at `chr11:1000`; the observation is not low-quality, the read is on the reverse strand, and the observation originated from chunk `1-500000`.
-
-For phasing, this file is valuable because it converts the candidate set into read-by-site allele observations.
-
-The read-support output is collected during the allele-counting pass, before final classification pruning. Consequently, it can include observations for sites that are later classified as `LOW_COV`, `STRAND_BIAS`, or `NON_VAR` and therefore do not appear in the final TSV. A downstream consumer should treat this file as an observation log and join against the final TSV when it needs the retained candidate set.
-
-###### 23.1 Optional Phase-Read TSV Output (`--phase-read-tsv`)
-
-If `--phase-read-tsv FILE` is provided, the command writes one row per loaded read after per-contig stitching:
-
-```text
-CHUNK_ID
-REG_CHUNK_I
-CHROM
-CHUNK_BEG
-CHUNK_END
-QNAME
-READ_CHROM
-INPUT_IDX
-READ_BEG
-READ_END
-MAPQ
-REVERSE
-SKIPPED
-HAP
-PHASE_SET
-```
-
-This is a debugging view of `chunk.haps` and `chunk.phase_sets`, not the final candidate table. A subtle implementation detail matters: the common-read stitch path rewrites read-level hap/phase-set arrays only when phased alignment output (`-S`, `-b`, or `-C`) is requested, mirroring longcallD's output-alignment update path. Candidate phase state is still stitched for VCF/TSV projection. `.pgbam` merges always rewrite matching read state because later sidecar stitching relies on live read phase blocks. Therefore, without phased alignment output or `.pgbam` read merges, `--phase-read-tsv` can show per-read boundary state that lags the merged candidate phase-set state at common-read-stitched boundaries.
+What this arm still writes optionally is the phased alignment:
 
 ##### 23.2 Optional Phased Alignment Output (SAM/BAM/CRAM)
 
@@ -2725,7 +2687,8 @@ from CLI entry to final outputs.
 
 33. `collect_read_var_profile` builds per-read sparse allele vectors over candidate index ranges.
 34. Matching behavior follows longcallD parity:
-    - overlap check by `profile_ovlp_var_site(...)`,
+    - overlap check by `profile_comp_ovlp_var_site(...)` (`collect_var.cpp:1786`, called at
+      `:1873`), which delegates the overlap test to `profile_ovlp_var_site` (`:1757`),
     - strict candidate identity by `exact_comp_var_site(...)`.
 35. `read_var_cr` interval index is built for fast “reads covering variant i” overlap queries.
 
