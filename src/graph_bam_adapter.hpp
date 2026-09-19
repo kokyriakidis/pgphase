@@ -94,6 +94,16 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
 // @param ref_beg 1-based start of ref_seq on the chromosome.
 // @param ref_end 1-based end of ref_seq (inclusive).
 // @param max_xgaps Maximum indel span to check (opts.noisy_reg_max_xgaps).
+/// Re-admit repeat-context het indels that agree with a trusted neighbour.
+///
+/// `apply_graph_noise_filter` demotes every het indel in a homopolymer/STR
+/// context, judging the locus by its reference sequence and never by whether
+/// the reads separate there. This pass gives such a site one way back: take the
+/// reads that observe both it and a nearby clean het SNP, and admit it when
+/// they agree. Returns the number of sites promoted.
+size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
+                                            const Options& opts);
+
 void apply_graph_noise_filter(GraphChunkBuildResult& result,
                               const std::string& ref_seq,
                               hts_pos_t ref_beg,

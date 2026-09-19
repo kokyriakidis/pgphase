@@ -201,6 +201,15 @@ struct Options {
     ReadTechnology read_technology = ReadTechnology::Hifi;
     double strand_bias_pval = kDefaultStrandBiasPvalOnt;
     int noisy_reg_max_xgaps = kDefaultNoisyRegMaxXgaps;
+    // A repeat-context het indel is demoted on the reference context alone.
+    // Nearly half of that class is informative (103 of 218 scored against read
+    // truth on chr20:20-25 Mb), so a site may earn its way back by AGREEING
+    // with an already-trusted neighbour on enough reads -- 86% of the sites
+    // admitted that way are informative, against 65% for a read-concentration
+    // test and 0% recall for rejecting all of them.
+    bool link_earned_repeat_indels = false;
+    int link_earned_min_reads = 15;
+    double link_earned_min_purity = 0.90;
     // Chunk-stitch abstain margin (see kDefaultStitchMinMargin).  Adjacent
     // chunks merge only when |flip_hap_score| > stitch_min_margin.
     int stitch_min_margin = kDefaultStitchMinMargin;

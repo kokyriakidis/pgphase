@@ -516,6 +516,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                         }
                     }
 
+                    // A repeat-context indel may earn its way back in before the solve.
+                    promote_link_supported_repeat_indels(graph_chunks[offset], opts);
+
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
 
@@ -692,6 +695,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             std::free(ref_raw);
                         }
                     }
+
+                    // A repeat-context indel may earn its way back in before the solve.
+                    promote_link_supported_repeat_indels(graph_chunks[offset], opts);
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
@@ -1149,6 +1155,8 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
+        << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
         << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
         << "                                of grafting a sub-solve on afterwards\n"
         << "                                set, instead of refining stage 1 (pre-2026-09-18)\n"
@@ -1242,6 +1250,7 @@ enum GraphCollectOption {
     kGcHifi,
     kGcStrandBiasPval,
     kGcPhasedBam,
+    kGcLinkEarnedRepeatIndels,
     kGcRef,
     kGcSites,
     kGcPgbamFile,
@@ -1294,6 +1303,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
+        {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1356,6 +1366,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
+            case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
             // Recovery only. The graph pass never reads this BAM; it is used to
             // re-solve the intervals the catalog's sites could not phase.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;

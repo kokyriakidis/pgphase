@@ -1,3 +1,4 @@
+#include <map>
 #include "graph_bam_adapter.hpp"
 
 #include "collect_phase.hpp"
@@ -335,6 +336,71 @@ void rebuild_read_var_cr(PhasingChunk& chunk) {
     }
     cr_index(cr);
     chunk.read_var_cr.reset(cr);
+}
+
+size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
+                                            const Options& opts) {
+    if (!opts.link_earned_repeat_indels) return 0;
+    PhasingChunk& chunk = result.chunk;
+    const size_t n = chunk.candidates.size();
+    if (n == 0) return 0;
+
+    // Per-candidate read alleles, binarised: 0 reference, 1 any alt. The
+    // profile carries an allele index, and which alt a read carries does not
+    // matter for agreement with a biallelic neighbour.
+    std::vector<std::vector<std::pair<int, int>>> obs(n);  // (read_id, 0|1)
+    for (const ReadVariantProfile& prof : chunk.read_var_profile) {
+        if (prof.start_var_idx < 0) continue;
+        for (size_t k = 0; k < prof.alleles.size(); ++k) {
+            const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+            if (ci >= n) break;
+            const int a = prof.alleles[k];
+            if (a < 0) continue;
+            obs[ci].emplace_back(prof.read_id, a == 0 ? 0 : 1);
+        }
+    }
+
+    std::vector<size_t> trusted;
+    for (size_t i = 0; i < n; ++i)
+        if (chunk.candidates[i].counts.category == VariantCategory::CleanHetSnp)
+            trusted.push_back(i);
+    if (trusted.empty()) return 0;
+
+    size_t promoted = 0;
+    for (size_t i = 0; i < n; ++i) {
+        CandidateVariant& cand = chunk.candidates[i];
+        if (cand.counts.category != VariantCategory::RepeatHetIndel) continue;
+        if (obs[i].size() < static_cast<size_t>(opts.link_earned_min_reads)) continue;
+        std::map<int, int> mine;
+        for (const auto& o : obs[i]) mine[o.first] = o.second;
+
+        // Nearest trusted neighbours on either side, by candidate order.
+        const auto it = std::lower_bound(trusted.begin(), trusted.end(), i);
+        std::vector<size_t> near;
+        for (auto j = it; j != trusted.end() && near.size() < 3; ++j) near.push_back(*j);
+        for (auto j = it; j != trusted.begin() && near.size() < 6;) near.push_back(*--j);
+
+        bool earned = false;
+        for (size_t j : near) {
+            int same = 0, cross = 0;
+            for (const auto& o : obs[j]) {
+                const auto f = mine.find(o.first);
+                if (f == mine.end()) continue;
+                if (f->second == o.second) ++same;
+                else ++cross;
+            }
+            const int total = same + cross;
+            if (total < opts.link_earned_min_reads) continue;
+            const double purity = static_cast<double>(std::max(same, cross)) / total;
+            if (purity >= opts.link_earned_min_purity) { earned = true; break; }
+        }
+        if (!earned) continue;
+        cand.counts.category = VariantCategory::CleanHetIndel;
+        cand.counts.candvarcate_initial = VariantCategory::CleanHetIndel;
+        cand.lcd_var_i_to_cate = kCandCleanHetIndel;
+        ++promoted;
+    }
+    return promoted;
 }
 
 void apply_graph_noise_filter(GraphChunkBuildResult& result,
