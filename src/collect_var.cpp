@@ -198,6 +198,71 @@ static int var_site_alt_len(const VariantKey& v) {
  * @param var2 Second variant key.
  * @return \<0, 0, or \>0 according to total order.
  */
+// Moved here when the hybrid arm was removed: this conversion is used by the
+// graph arm's in-chunk recovery merge (collect_pipeline.cpp:1478, :1670) and
+// has nothing hybrid-specific about it.
+// Declared in hybrid_inject.hpp.
+VariantKey vcf_to_variant_key(int tid, hts_pos_t vcf_pos,
+                              const std::string& vcf_ref,
+                              const std::string& vcf_alt) {
+    VariantKey key;
+    key.tid = tid;
+    size_t substitution_prefix = 0;
+    size_t substitution_suffix = 0;
+    if (vcf_ref.size() == vcf_alt.size()) {
+        while (substitution_prefix < vcf_ref.size() &&
+               vcf_ref[substitution_prefix] == vcf_alt[substitution_prefix])
+            ++substitution_prefix;
+        while (substitution_suffix + substitution_prefix < vcf_ref.size() &&
+               vcf_ref[vcf_ref.size() - substitution_suffix - 1] ==
+                   vcf_alt[vcf_alt.size() - substitution_suffix - 1])
+            ++substitution_suffix;
+    }
+    const size_t substitution_size =
+        vcf_ref.size() - substitution_prefix - substitution_suffix;
+    if (vcf_ref.size() == vcf_alt.size() && substitution_size == 1) {
+        key.type = VariantType::Snp;
+        key.pos = vcf_pos + static_cast<hts_pos_t>(substitution_prefix);
+        key.ref_len = 1;
+        key.alt = vcf_alt.substr(substitution_prefix, 1);
+    } else if (vcf_alt.size() > vcf_ref.size()) {
+        // Strip the full shared prefix, mirroring the deletion branch and the
+        // BAM convention (variant_key_from_digar: ref_len=0, alt=inserted
+        // bases).  A clean left-anchored insertion consumes the entire REF
+        // (shared == ref.size()) and yields ref_len=0; a multi-base anchor like
+        // TA->TAAA reduces to pos after the shared run, alt="A", ref_len=0.  The
+        // previous single-base strip mis-encoded such sites (pos and alt off by
+        // the extra anchor bases).  For a single-base anchor this reduces to the
+        // old result.
+        size_t shared = 0;
+        const size_t max_shared = std::min(vcf_ref.size(), vcf_alt.size());
+        while (shared < max_shared && vcf_ref[shared] == vcf_alt[shared]) ++shared;
+        key.type = VariantType::Insertion;
+        key.pos = vcf_pos + static_cast<hts_pos_t>(shared);
+        key.ref_len = static_cast<int>(vcf_ref.size() - shared);
+        key.alt = vcf_alt.substr(shared);
+    } else {
+        // Strip the full shared prefix so deletions use the same normalized form
+        // as the BAM path (variant_key_from_digar) and the standalone graph path
+        // (graph_collect.cpp): pos = first deleted base, ref_len = deleted span,
+        // alt = "" for a pure deletion.  The previous single-base anchor strip
+        // left a residual base in alt and an inflated ref_len for homopolymer
+        // deletions (e.g. TAA->TA yielded ref_len=2, alt="A"), which (a) blocked
+        // bridging to BAM deletions in find_matching_candidate (alt never matched
+        // BAM's "") and (b) collided with the BAM deletion in
+        // merge_chunk_candidates, silently overwriting the verified BAM call.
+        // For a single-base anchor (shared == 1) this reduces to the old result.
+        size_t shared = 0;
+        const size_t max_shared = std::min(vcf_ref.size(), vcf_alt.size());
+        while (shared < max_shared && vcf_ref[shared] == vcf_alt[shared]) ++shared;
+        key.type = VariantType::Deletion;
+        key.pos = vcf_pos + static_cast<hts_pos_t>(shared);
+        key.ref_len = static_cast<int>(vcf_ref.size() - shared);
+        key.alt = vcf_alt.substr(shared);
+    }
+    return key;
+}
+
 int exact_comp_var_site(const VariantKey* var1, const VariantKey* var2) {
     if (var1->tid != var2->tid) return var1->tid < var2->tid ? -1 : 1;
     const hts_pos_t p1 = var1->type == VariantType::Snp ? var1->pos : var1->pos - 1;

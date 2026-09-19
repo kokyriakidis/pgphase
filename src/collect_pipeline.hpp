@@ -76,7 +76,6 @@ void run_collect_bam_variation(const Options& opts);
  * Requires opts.graph_sites_vcf and opts.gaf_file (or gbz_db+gaf_db) in
  * addition to the standard BAM pipeline inputs.
  */
-void run_collect_hybrid_variation(const Options& opts);
 
 
 /// Recover what a solve could not phase from alignment evidence: both the

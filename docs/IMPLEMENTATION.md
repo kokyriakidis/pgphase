@@ -17,25 +17,33 @@ with Part I, Part I is right and Part II is stale.
 
 ## Part I -- current behaviour
 
-### The four subcommands
+### The three subcommands
 
 `pgphase --help` registers exactly these:
 
 | command | what it is |
 |---|---|
 | `collect-bam-variation` | the alignment arm: candidates and phasing from a BAM alone |
-| `collect-graph-variation` | the catalog's sites phased from GAF evidence; `--bam` adds gap recovery |
-| `collect-hybrid-variation` | BAM calling plus graph read augmentation, described in this Part |
+| `collect-graph-variation` | **the pipeline this Part describes**: the catalog's sites phased from GAF evidence, with `--bam` adding gap recovery |
 | `build-snarl-catalog` | preprocesses a GBZ graph into the phasing site catalog the other two consume |
 
 `collect-graph-variation` additionally offers `--phase-reads-out`, a diagnostic
 TSV of per-read phasing evidence; the equivalent BAM-arm outputs were removed in
 5314801.
 
-`phase-graph` is **not** among them: it was an earlier subcommand, removed, and
+Two subcommands that used to exist are gone. `phase-graph` was removed earlier;
 the machinery it described now lives in `graph_bam_adapter.cpp` behind
-`collect-graph-variation`. Its old description is kept as history in
-`docs/phase_graph_implementation.md`.
+`collect-graph-variation`, and its old description is kept as history in
+`docs/phase_graph_implementation.md`. `collect-hybrid-variation` -- BAM calling
+with graph read augmentation -- was removed with its injection machinery once
+the graph arm plus recovery superseded it; nothing in the shipped path changed
+when it went (the graph arm's whole-chromosome output was byte-identical across
+the removal).
+
+`collect-bam-variation` is not a competitor to the graph arm: besides being the
+comparison baseline, it is the **engine the recovery runs**. A recovery window
+is solved by the alignment pipeline's own `process_chunk`, so Chapter A below
+describes machinery the graph arm depends on.
 
 
 ---
@@ -44,39 +52,38 @@ One mode: **the catalog's sites phase, the alignment recovers the gaps.** There
 is no configuration that selects a different architecture.
 
 ```
-pgphase collect-hybrid-variation \
-  --ref chm13.fa --bam reads.bam \
-  --graph-sites sites.vcf.gz --gaf reads.coord.gaf.gz \
-  -r 'CHM13#0#chr20' -o candidates.tsv --phased-vcf-out phased.vcf -b phased.bam
+pgphase collect-graph-variation \
+  --ref chm13.fa --sites sites.vcf.gz --gaf reads.coord.gaf.gz --bam reads.bam \
+  -r 'CHM13#0#chr20' -o candidates.tsv \
+  --phased-vcf-out phased.vcf --phased-bam-out phased.bam
 ```
+
+`--bam` is optional and is the only thing the alignment is used for: without it
+the catalog's sites phase on GAF evidence alone and gaps stay open.
 
 ### Per chunk, in order
 
+Chunks are processed by a worker pool (`graph_collect.cpp:455-537`), each worker
+holding its own FAI handle:
+
 | step | call | what it contributes |
 |---|---|---|
-| 1 | `load_and_prepare_chunk` | reads and their digars. Loads down to `min(min_mapq, recovery_min_mapq)`; anything below `min_mapq` is parsed and immediately marked skipped, so every stage behaves as if it were absent |
-| 2 | `collect_var_classify` | alignment discovery, allele counts, the **noisy-region model**, classification |
-| 3 | *(withhold)* | `chunk.candidates.clear()` -- the alignment channel's own candidates do not enter the first solve |
-| 4 | `load_sites_for_region` → `inject_graph_sites` | the catalog's sites become the candidate table. These are the phasing anchors |
-| 5 | `collect_var_build_profiles` | each read's allele at each candidate it overlaps |
-| 6 | `inject_graph_reads` | GAF-derived observations for reads the alignment does not carry |
-| 7 | `backfill_graph_candidate_counts` | derives every count on a graph-only candidate from the final profile state. The single writer, so double counting is inexpressible |
-| 8 | `classify_graph_only_candidates` → `apply_hybrid_noise_filter` | category per injected candidate, then the indel noise screen |
-| 9 | `collect_var_run_phasing` | the clean k-means plus the noisy-region MSA. The hybrid's own `skip_noisy_kmeans` keeps the noisy class out of this solve |
-| 10 | **recovery** | below |
-| 11 | `prune_not_candidate_variants` | drop what no longer qualifies |
+| 1 | `query_gbz_interval_gaf_ffi` | the GAF rows overlapping this chunk's interval |
+| 2 | `build_graph_chunk` | the catalog's sites become the candidate table and the GAF rows become read profiles; allele identity is a **graph-walk identity**, not a realignment decision |
+| 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
+| 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
+| 5 | **recovery, when `--in-chunk-recovery`** | `retry_unphased_windows_in_place` merges the alignment's in-gap candidates into this chunk, then both k-means rounds re-run over the union (below) |
 
-Then `stitch_chunk_haps` joins adjacent chunks on shared reads, the read filters
-run, and the outputs are written.
+Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
+straddle each boundary, `stitch_chunk_haps` joins adjacent chunks on those shared
+reads, and `graph_chunks_to_candidate_table` turns the chunks into the output
+table. Post-hoc recovery, when in-chunk recovery is off, runs at that point
+instead.
 
-### Why step 2 survives step 3
-
-Step 3 discards the candidates step 2 produced, which makes the discovery look
-like dead cost. It is not: `chunk.noisy_regions` is derived from those
-candidates, that model scopes the noisy-region MSA, and the MSA supplies most of
-a chunk's phased sites. Skipping discovery outright on
-`chr20:25,979,591-26,138,679` is 31% faster (4.05 s to 2.78 s) and collapses
-phased heterozygotes from **447 to 137**.
+Running recovery inside the chunk is the point of the in-chunk placement: the
+chunk is still the unit of work, so each chunk's windows are its own, needing no
+batching and no cross-chunk coordination -- the worker pool already provides the
+parallelism the post-hoc path had to rebuild for itself.
 
 ### Recovery (step 10), on by default
 
@@ -107,31 +114,27 @@ Each window is treated twice, in order:
 ### How the arms relate
 
 `collect-bam-variation` and `collect-graph-variation` are separate tools, not
-modes of the hybrid. They are what the hybrid is measured against; neither takes
-the other's input.
+modes of one another. The graph arm is what ships and what is under
+development; the alignment arm is both the baseline it is measured against and
+the solver its recovery calls into.
 
 ### What is not a mode
 
-`--no-retry-unphased-with-bam` disables recovery and exists for regression
-attribution, not as a supported configuration. Everything else on the hybrid is
-a threshold or an output path. Removed as modes: `--recover-gaps`,
+The graph arm has exactly two switches that change behaviour rather than a
+threshold or an output path: `--in-chunk-recovery` (where recovery runs) and
+`--no-anchored-stage2` (whether stage 2 refines or resets). Everything else is
+a threshold or a path.
+
+Removed as modes, and not coming back: `--recover-gaps`,
 `--msa-verified-refine`, `--gap-bam-only`, `--graph-first`/`--no-graph-first`,
-`--graph-authoritative`, `--private-sites` and `--bam-authoritative-bed`.
+`--graph-authoritative`, `--private-sites`, `--bam-authoritative-bed`,
+`--read-support`, `--phase-read-tsv`, and the whole
+`collect-hybrid-variation` arm with `--retry-unphased-with-bam`.
 
-### The graph arm with `--bam`
+### The two recovery placements
 
-`collect-graph-variation --bam` is the arm under active work, and it is not the
-hybrid: the catalog's sites are phased from GAF evidence, and the alignment is
-consulted ONLY to recover what those sites could not join.
-
-```
-pgphase collect-graph-variation \
-  --ref chm13.fa --sites sites.vcf.gz --gaf reads.coord.gaf.gz --bam reads.bam \
-  -r 'CHM13#0#chr20' -o candidates.tsv \
-  --phased-vcf-out phased.vcf --phased-bam-out phased.bam
-```
-
-Two recovery placements, and they are a real choice:
+The alignment is consulted ONLY to recover what the catalog's sites could not
+join, and where that recovery runs is a real choice:
 
 | | where | flag |
 |---|---|---|
@@ -186,7 +189,7 @@ contiguity and 14 more misplaced reads, so they are left in deliberately.
 
 ### Test gates
 
-`make unit-tests` (4 binaries), `make window-tests` (the committed chr20 gap
+`make unit-tests` (3 binaries), `make window-tests` (the committed chr20 gap
 windows) and `make predicate-tests` (the phasing predicates and the chunk
 invariants). All three must pass before a commit.
 
@@ -1568,8 +1571,8 @@ the graph arm) take the parameter's own default of `false`, correctly: a first
 round has nothing to anchor to.
 
 `--no-anchored-stage2` restores the resetting form. It is registered on
-`collect-graph-variation` only (`graph_collect.cpp:1340`); the alignment and
-hybrid arms have no switch and always run anchored. Which form phases better is
+`collect-graph-variation` only (`graph_collect.cpp:1340`); the alignment arm has
+no switch and always runs anchored. Which form phases better is
 not uniform across the arms -- see Part I and the dated records in
 `evaluations/` for where each was measured.
 
@@ -1612,11 +1615,11 @@ What *does* decide whether recalled sites matter is a pair of gates:
 
 - `skip_noisy_kmeans` gates the re-solve at the end of the loop
   (`collect_phase_noisy.cpp:2053`). It defaults to `false`
-  (`phasing_types.hpp:228`), but the hybrid sets it `true` unconditionally
-  (`hybrid_collect.cpp:114`), so on that arm the recalled candidates enter the
-  table and nothing ever orients them. `--keep-noisy-kmeans`
-  (`hybrid_collect.cpp:283`) clears it; so do the recovery paths
-  (`collect_pipeline.cpp:953`, `:2158`).
+  (`phasing_types.hpp:228`) and, since the hybrid arm was removed, **nothing
+  sets it true** -- that arm's unconditional override was the only one, and
+  with it went the state where recalled candidates entered the table but
+  nothing oriented them. The recovery sub-solve still clears it explicitly
+  (`collect_pipeline.cpp:952`).
 - `force_noisy_msa` gates `split_nested_msa_deletions` inside
   `make_vars_from_msa_cons_aln`, which is what separates nested deletions the
   plain MSA path merges.
