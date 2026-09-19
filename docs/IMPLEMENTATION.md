@@ -195,7 +195,9 @@ retired expectations; it is not a build target and its output means nothing.
 
 ### Chapter A -- `collect-bam-variation` (alignment arm)
 
-*Last revised 2026-09-18.* An architecture description, file by file. It cites longcallD
+*Architecture description, file by file; body last revised 2026-09-18, with the
+noisy-region model, stage 2 and the repeat predicates re-checked against the
+source on 2026-09-19.* It cites longcallD
 symbols for parity, so names like `flip_variant_hap` or `collect_cand_vars` are
 upstream's and are expected to be absent from `src/`. Two deliberate divergences
 post-date it: the homopolymer detector was fixed in 510f865 (its insertion
@@ -1291,6 +1293,26 @@ Copies:       CA CA CA ...
 Candidate:       insert or delete CA
 ```
 
+> **Current implementation.** The classifier's two tests are
+> `var_is_homopolymer_pg` (`collect_var.cpp:1169`, reference-only STR detection,
+> unit length 1-6 with three copies, checked forward and reverse) and
+> `var_is_repeat_region_pg` (`collect_var.cpp:1264`, three tandem copies of the
+> indel's own motif). They are applied as a disjunction at
+> `collect_var.cpp:1512-1513`, so either one demotes the candidate.
+>
+> Four more implementations of "is this indel in a repeat" exist elsewhere:
+> `var_is_homopolymer_indel` (`collect_phase_noisy.cpp:733`, the MSA-time flag
+> described in §27.4) and the noise filter's own pair, `is_homopolymer_indel`
+> and `is_repeat_indel` (`noise_filter.cpp:98` and `:175`, used at `:250` and
+> `:252`). They do not share code, and three separate ASCII-to-nt4 conversions
+> sit under them. Every defect found in this family has been the same mistake --
+> comparing reference bytes without normalising encoding or case -- in a
+> different copy, so consolidating them onto one predicate is a standing item.
+>
+> All five are covered by `make predicate-tests`
+> (`src/test_phase_predicates.cpp`), which is what makes a consolidation
+> checkable rather than a rewrite on faith.
+
 Second, the repeat-region check compares the reference sequence before and after the indel. For a deletion of length `L`, it compares approximately `3 * L` bases starting at the deletion with `3 * L` bases after the deletion. For an insertion of length `L`, it asks whether inserting the alternate sequence would preserve a local repeated pattern. These tests identify short tandem repeat contexts where equivalent alignments can be shifted left or right.
 
 Example homopolymer:
@@ -1517,7 +1539,38 @@ After the clean-category k-means pass, pgPhase mirrors longcallD step 4 on final
 5. Update noisy coverage/profile fields (`total_cov`, `ref_cov`, `alt_cov`, `LQC`) from full-cover reads.
 6. Re-run read profiling and k-means with `kCandGermlineVarCate` when new variants were added.
 
-Step 4 re-phasing can modify pre-existing within-chunk hap assignments and phase-set structure, not only phase newly recovered sites.
+Step 4 re-phasing can modify pre-existing within-chunk hap assignments and
+phase-set structure, not only phase newly recovered sites -- but how far it may
+modify them is now a choice; see the next subsection.
+
+###### Stage 2 is anchored by default (since 0cd9e7f)
+
+`assign_hap_based_on_germline_het_vars_kmeans` takes a fourth argument,
+`anchored` (`collect_phase.hpp:138`):
+
+- **anchored** -- keep the read labels and per-site consensus alleles the
+  previous round decided, pinning them through the iteration, so this round
+  *refines* that solution;
+- **resetting** -- the historical behaviour: discard both and re-solve over the
+  wider site set, seeding the sweep from a pivot chosen afresh.
+
+The distinction matters because the reset is total. Stage 2 re-derives every
+read's label from the final consensus, so preserving read labels alone anchors
+nothing: the gauge lives in the per-site consensus, which is why both are pinned
+together.
+
+`Options::anchored_stage2` defaults to **true** (`phasing_types.hpp:242`), and
+exactly one call site passes it -- `run_noisy_pass`
+(`collect_phase_noisy.cpp:2054`), which is stage 2. The stage-1 calls
+(`collect_var.cpp:2162` for the alignment arm, `graph_bam_adapter.cpp:1132` for
+the graph arm) take the parameter's own default of `false`, correctly: a first
+round has nothing to anchor to.
+
+`--no-anchored-stage2` restores the resetting form. It is registered on
+`collect-graph-variation` only (`graph_collect.cpp:1340`); the alignment and
+hybrid arms have no switch and always run anchored. Which form phases better is
+not uniform across the arms -- see Part I and the dated records in
+`evaluations/` for where each was measured.
 
 ###### Step 4 Co-Iterative Outer Loop (`collect_noisy_vars_step4`)
 
@@ -1534,6 +1587,43 @@ while true:
         ← re-assigns ALL reads using clean + noisy candidates found so far
     if no region made progress this pass: break
 ```
+
+###### What the loop is wrapped in, and what of it is live
+
+`collect_noisy_vars_step4` (`collect_phase_noisy.cpp:2085`) sorts the regions,
+runs the fixed-point loop above through `run_noisy_pass`, and then has a second
+tier that retries regions whose flanking phase sets still differ, admitting MSA
+indels where a SNP-only pass was not enough. Two parts of that are inert in the
+shipped code and a reader should not spend time on them:
+
+- **The escalation never runs.** `escalate` is `const bool escalate = false`
+  (line 2098). Both operands it was computed from were options of the removed
+  private-whitelist mode, so tier 1 runs with `snp_only_admission = false` --
+  admitting everything, not SNPs only -- and `if (!escalate) return;` makes the
+  tier-2 block below it unreachable.
+- **No caller passes a site whitelist.** `collect_var_run_phasing` takes
+  `noisy_site_whitelist` and forwards it, but all three call sites
+  (`collect_pipeline.cpp:2059` and `:2160`, `collect_var.cpp:2194`) take the
+  `nullptr` default, so every `site_whitelist` branch inside the recall is dead
+  with it.
+
+What *does* decide whether recalled sites matter is a pair of gates:
+
+- `skip_noisy_kmeans` gates the re-solve at the end of the loop
+  (`collect_phase_noisy.cpp:2053`). It defaults to `false`
+  (`phasing_types.hpp:228`), but the hybrid sets it `true` unconditionally
+  (`hybrid_collect.cpp:114`), so on that arm the recalled candidates enter the
+  table and nothing ever orients them. `--keep-noisy-kmeans`
+  (`hybrid_collect.cpp:283`) clears it; so do the recovery paths
+  (`collect_pipeline.cpp:953`, `:2158`).
+- `force_noisy_msa` gates `split_nested_msa_deletions` inside
+  `make_vars_from_msa_cons_aln`, which is what separates nested deletions the
+  plain MSA path merges.
+
+When recovery re-solves in place it does not widen admission chunk-wide: it sets
+`skip_noisy_kmeans = false` and scopes the widened het admission to the failed
+intervals through `Options::retry_windows` (`phasing_types.hpp:373`), read in
+exactly one place (`collect_phase.hpp:100`).
 
 A region returns `-1` when `collect_phase_set_with_both_haps` cannot find a phase set with sufficient reads on both haplotypes — the clean-site assignments did not reach this region with enough depth. Once another region succeeds and its new candidates trigger a k-means re-run, some previously-unphased reads may acquire hap assignments. The retry then finds enough phased reads to run the MSA. This handles dependency chains where adjacent noisy regions cannot bootstrap independently but together resolve each other.
 
@@ -2735,10 +2825,30 @@ pipeline sections above; this log maps each fix class to those sections.
 
 ###### 27.4 Homopolymer Indel Veto Parity
 
-- `var_is_homopolymer_indel` in `collect_phase_noisy.cpp` was replaced with a literal longcallD port.
-- Insertion homopolymer evaluation uses the VCF anchor convention (`ref_pos-1`) as in longcallD
-  downstream behavior.
-- This corrected false homopolymer tagging that previously suppressed phasing for valid noisy indels.
+**No longer a literal port -- a deliberate divergence, since 510f865.**
+
+`var_is_homopolymer_indel` (`collect_phase_noisy.cpp:733`) was a literal
+longcallD port, and the port faithfully reproduced a defect. Its insertion
+branch compared the reference as a raw FASTA byte against an nt4-coded alt base
+-- `'a'` (97) tested against `0` -- so the branch could never return true and
+**no insertion was ever flagged**, while deletions, whose branch compared raw
+bytes on both sides, were. Upstream has the same mismatch
+(`collect_var.c:1730`, an ASCII `chunk->ref_seq` against an nt4 abPOA consensus
+base), so parity here meant inheriting the bug.
+
+Both branches now convert through `base_to_nt4`, which also makes them
+case-insensitive -- load-bearing, because CHM13 soft-masks exactly the repeat
+tracts these indels sit in, and a raw-byte comparison fails on lowercase even
+with matching encodings.
+
+The flag is a field on the candidate (`is_homopolymer_indel`), and five places
+in `collect_phase.cpp` read it, which is why under-detection leaked so widely:
+`get_var_init_max_cov_allele` (ONT allele veto), `select_init_var` (pivot
+choice), `update_var_hap_to_cons_alle` (ONT consensus veto), `init_assign_read_hap`
+(read scoring, together with `hp_gap_scorable`), and
+`iter_update_var_hap_cons_phase_set` (the link list, and the pair rule at line
+623).
+
 - Main text: §13.5, §18 Step 4, §26.12.
 
 ###### 27.5 Noisy MSA Alignment/Boundary Parity (`align.cpp`)
