@@ -76,6 +76,9 @@ window-tests: test_gap_windows
 predicate-tests: test_phase_predicates
 	./test_phase_predicates
 
+parity-tests: test_port_parity
+	./test_port_parity
+
 unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter
 	./test_graph_sites
 	./test_graph_bam_adapter
@@ -180,4 +183,7 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase test_gap_windows test_phase_predicates test_graph_sites test_graph_bam_adapter test_noise_filter src/*.o src/*.d
+	rm -f pgphase test_gap_windows test_phase_predicates test_port_parity test_graph_sites test_graph_bam_adapter test_noise_filter src/*.o src/*.d
+
+test_port_parity: src/test_port_parity.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)

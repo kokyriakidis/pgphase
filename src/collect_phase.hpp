@@ -162,13 +162,13 @@ int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int var1, i
 /// longcallD assign_hap.c:151 -- pick the haplotype whose consensus a read's
 /// alleles match; -1 when the read carries no usable allele.
 int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uint32_t flags,
-                                           std::optional<hts_pos_t> phase_set);
+                                           std::optional<hts_pos_t> phase_set = std::nullopt);
 
 /// longcallD assign_hap.c:292 -- add this read's alleles to the per-haplotype
 /// profile of EVERY variant it covers, under one hap for the whole read.
 void update_var_hap_profile_based_on_read_hap(PhasingChunk& chunk, int read_i, int hap,
                                              uint32_t flags,
-                                             std::optional<hts_pos_t> phase_set);
+                                             std::optional<hts_pos_t> phase_set = std::nullopt);
 
 /// longcallD assign_hap.c:270 -- same, against each variant's consensus allele.
 void update_var_hap_profile_cons_alle_based_on_read_hap(PhasingChunk& chunk, bool is_ont,

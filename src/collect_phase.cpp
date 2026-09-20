@@ -351,7 +351,7 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
 // CleanHom variants contribute to agree/conflict stats but not to hap_scores.
 // Init_assign_read_hap_based_on_cons_alle.
 int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uint32_t flags,
-                                std::optional<hts_pos_t> phase_set = std::nullopt) {
+                                std::optional<hts_pos_t> phase_set) {
     ReadRecord& read = chunk.reads[read_i];
     read.n_clean_agree_snps = 0;
     read.n_clean_conflict_snps = 0;
@@ -462,7 +462,7 @@ void update_var_hap_profile_cons_alle_based_on_read_hap(PhasingChunk& chunk, boo
 // Update allele profile only for all vars a read covers (used in Phase 2).
 // Update_var_hap_profile_based_on_read_hap.
 void update_var_hap_profile_based_on_read_hap(PhasingChunk& chunk, int read_i, int hap, uint32_t flags,
-                                   std::optional<hts_pos_t> phase_set = std::nullopt) {
+                                   std::optional<hts_pos_t> phase_set) {
     const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
     if (prof.start_var_idx < 0) return;
     for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
