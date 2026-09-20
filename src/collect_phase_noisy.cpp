@@ -749,7 +749,7 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
     // Measured on chr20:55,871,837, a 1 bp insertion in an 8 bp A-run that
     // segregates at 0.525 against read truth: flagged 0 before, 1 after. The
     // flag gates five consumers in collect_phase.cpp -- get_var_init_max_cov_allele and
-    // update_var_hap_to_cons_alle (both ONT-only), read scoring in init_assign_read_hap,
+    // update_var_hap_to_cons_alle (both ONT-only), read scoring in init_assign_read_hap_based_on_cons_alle,
     // the link list in iter_update_var_hap_cons_phase_set, phase-set eligibility
     // in update_read_phase_set, and pivot choice in select_init_var -- so an
     // under-detected insertion leaks into all four.

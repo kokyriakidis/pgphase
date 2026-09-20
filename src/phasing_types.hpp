@@ -372,7 +372,7 @@ struct Options {
     // right at a block boundary and the main pass left them unassigned) to a
     // flank they individually agree with by allele
     // (CandidateVariant::hap_to_cons_alle), same principle as
-    // --link-by-alleles / check_agree_alleles for the main phasing pass.
+    // --link-by-alleles / check_agree_haps for the main phasing pass.
     //
     // Two earlier versions fed this allele agreement directly into
     // stitch_gap_proposal's `votes` (i.e. let it help decide which side a
@@ -737,7 +737,7 @@ struct ReadRecord {
     // them only where that tier is what phased the read.
     int n_hp_gap_agree = 0;
     int n_hp_gap_conflict = 0;
-    // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap call,
+    // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap_based_on_cons_alle call,
     // and the number of informative variants behind the winning haplotype.
     // The clean-SNP agree/conflict counts above see only germline clean SNPs;
     // these see every category that votes, so they separate a confidently

@@ -1190,7 +1190,7 @@ void run_collect_graph_variation(const Options& opts) {
     }
     // Per-read phasing evidence, accumulated across chunks. Used to diagnose
     // which reads get a haplotype on thin or contradictory evidence: a read is
-    // assigned by init_assign_read_hap with no minimum-observation or margin
+    // assigned by init_assign_read_hap_based_on_cons_alle with no minimum-observation or margin
     // requirement, so a single informative site is enough to commit it.
     struct PhaseReadDiag {
         int hap = 0;

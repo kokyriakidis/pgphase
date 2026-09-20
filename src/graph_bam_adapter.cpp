@@ -1222,7 +1222,7 @@ void merge_graph_chunk_into_read_rows(
         if (row.read_name.empty()) row.read_name = read.qname;
 
         int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
-        // Read-confidence gate.  init_assign_read_hap commits a read to a
+        // Read-confidence gate.  init_assign_read_hap_based_on_cons_alle commits a read to a
         // haplotype on any non-zero score, with no minimum evidence: a read
         // agreeing with a single clean het SNP and contradicting none is
         // assigned as confidently as one agreeing with thirty.  On HG002 chr20

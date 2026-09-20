@@ -5,6 +5,7 @@
 // driven by per-variant consensus allele profiles (hap_to_cons_alle),
 // up to 10 refinement rounds, plus cross-chunk stitching.
 
+#include <optional>
 #include "collect_types.hpp"
 
 #include <cstdint>
@@ -146,6 +147,32 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Opt
 /// lowering `min_mapq` below `min_assign_mapq` admits their sites without
 /// letting an ambiguously placed read own an HP/PS tag.
 bool read_carries_phase_tags(int mapq, const Options& opts);
+
+
+// ── Ported from longcallD, name-for-name ────────────────────────────────────
+// These four carry their upstream names so parity can be checked by reading the
+// two sources side by side, and are declared here so the test binaries can
+// exercise them directly. Each comment gives the upstream definition.
+
+/// longcallD assign_hap.c:307 -- do two variants agree for one read, under the
+/// haplotype it is being tested against? Our `check_agree_alleles` is a
+/// SEPARATE helper that consults chunk.haps instead; it is not this function.
+int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int var1, int var2);
+
+/// longcallD assign_hap.c:151 -- pick the haplotype whose consensus a read's
+/// alleles match; -1 when the read carries no usable allele.
+int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uint32_t flags,
+                                           std::optional<hts_pos_t> phase_set);
+
+/// longcallD assign_hap.c:292 -- add this read's alleles to the per-haplotype
+/// profile of EVERY variant it covers, under one hap for the whole read.
+void update_var_hap_profile_based_on_read_hap(PhasingChunk& chunk, int read_i, int hap,
+                                             uint32_t flags,
+                                             std::optional<hts_pos_t> phase_set);
+
+/// longcallD assign_hap.c:270 -- same, against each variant's consensus allele.
+void update_var_hap_profile_cons_alle_based_on_read_hap(PhasingChunk& chunk, bool is_ont,
+                                                        int read_i, int hap, uint32_t flags);
 
 } // namespace pgphase_collect
 
