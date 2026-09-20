@@ -154,3 +154,36 @@ The class is therefore recorded as a known, quantified difference and not a
 defect. The remaining parity buckets that ARE candidate defects: 162 positions
 where we hold no candidate at all, and 172 loci where we hold the position but
 a different allele (148 indels, 24 SNPs).
+
+## Parameter audit: every threshold matches upstream
+
+Checked because a clustered discovery difference (162 positions in 12 windows
+of 10 kb, 146 of them SNPs, largest clusters 50 at 30.80 Mb and 89 across
+26.68-26.71 Mb) would be explained by any one of these differing.
+
+| parameter | upstream | ours |
+|---|---|---|
+| min mapping quality | 30 (`LONGCALLD_MIN_CAND_MQ`) | 30 (`kDefaultMinMapq`) |
+| min candidate depth | 5 | 5 |
+| min alternate depth | 2 | 2 |
+| min allele fraction | 0.20 | 0.20 |
+| max allele fraction | 0.80 | 0.80 |
+| max noisy region length | 50,000 | 50,000 |
+| max noisy region coverage | 1,000 | 1,000 |
+| noisy region max X/gaps per window | 5 | 5 |
+| slide window, HiFi / ONT | 100 / 25 | 100 / 25 |
+| max noisy fraction per read | 0.5 | 0.5 |
+| long end clip / clip flank | 30 / 100 | 30 / 100 (`kLongClipLength`, `kClipFlank`) |
+| noisy region merge distance | 500 | 500 |
+| noisy region flank length | 10 | 10 |
+| sample reads above region size | 10,000 | 10,000 |
+| min reads supporting a noisy region | `min_alt_dp` (`collect_var.c:603`) | `min_alt_depth` (`collect_var.cpp:1001`) |
+
+All seventeen match, including the one upstream leaves as a commented-out
+option and derives from `min_alt_dp` instead -- we derive it the same way.
+
+So no remaining parity difference is a threshold. In the 30.80-30.81 Mb window
+we hold 264 candidates and emit all 264 where upstream emits 315, from reads
+that are mostly MAPQ 1-19 (21 of 28 over the first 2 kb, only 7 at or above the
+shared floor of 30). At that depth the difference is which reads survive
+digar-level filtering and how the noisy region is cut, not a parameter.
