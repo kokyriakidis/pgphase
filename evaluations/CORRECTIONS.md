@@ -541,7 +541,7 @@ observed to fail, with the failing assertion's line recorded:
 | the phase-set argument is ignored | `:103` |
 | `check_agree_haps` agree and conflict returns swapped | `:117`, `:121` |
 | a read with no variant profile is labelled hap1 | `:137` |
-| the chosen haplotype is inverted | `:142` |
+| the chosen haplotype is inverted (at the return the test path takes) | `:142` |
 
 All pass again on restore (23 assertions, 8 cases).
 
@@ -551,3 +551,19 @@ non-unique anchor and wrote nothing, so its run was a clean pass rather than a
 fault that failed to bite. That was noted at the time and the injection was
 redone with a unique anchor. The error here is the coverage claim, not a missed
 non-biting fault.
+
+### Correction to the entry above, same day
+
+The row "the chosen haplotype is inverted" was first attempted at that
+function's FINAL return (`return 3 - min_hap;`) and did **not** bite: the test's
+inputs leave through the earlier `return max_hap;`, so the fault was never on
+the executed path. Inverting that earlier return fails `:142` as expected, which
+is what the row now records.
+
+Two things follow, and both are kept rather than smoothed over. The entry above
+was committed before that injection had been confirmed, so for one commit it
+claimed a proof it did not have -- the same overstatement it was written to
+correct. And the `3 - min_hap` path in
+`init_assign_read_hap_based_on_cons_alle` is not exercised by any case in the
+suite: a fault there changes nothing that is measured. That is an open coverage
+gap, not a proven behaviour.
