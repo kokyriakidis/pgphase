@@ -197,3 +197,80 @@ allele and the reference together -- rather than against the reference alone,
 which is what upstream's cluster-consensus comparison does implicitly. Until
 that is done the merge stays on by default, and the option exists so the
 comparison can be re-run in one command.
+
+## Parity ledger: what is ruled out, and what the merge is still doing
+
+Four candidate divergences were tested against upstream and three are dead.
+
+**Thresholds are identical.** `min_dp 5`, `min_alt_dp 2`, `min_af 0.20`,
+`max_af 0.80` on both sides (`call_var_main.h:20-23` against
+`phasing_types.hpp:37-40`), so classification cannot be the difference.
+
+**The AF rule never touches an MSA candidate.** `classify_cand_vars_pgphase`
+runs from `classify_chunk_candidates` at `collect_var.cpp:2171`, before the
+noisy pass; MSA candidates get their category from the two-haplotype comparison
+at `collect_phase_noisy.cpp:535-563`, exactly as upstream does.
+
+**The collision rule is inert here, though it IS a divergence.** Upstream always
+keeps the old candidate and frees the MSA's version
+(`collect_var.c:1329-1336`, "always use old_var"); we added four `replace_*`
+paths. Disabling all four leaves the alignment arm's chr20 output at 116,973
+records -- byte-for-byte the same count as with them on. They matter to the
+graph arm, not here.
+
+**And the coherence passes are not what costs the in-gap hets.** Isolated on
+window `5,309,406`:
+
+| | in-gap het records | in-gap candidates |
+|---|---:|---:|
+| merge ON, passes ON | 3 | 7 |
+| merge ON, passes OFF | 3 | 7 |
+| merge OFF, passes ON | 1 | 5 |
+| merge OFF, passes OFF | 1 | 5 |
+
+### What the merge is actually doing
+
+Probing the MSA candidate list in that window with the merge on and off gives
+IDENTICAL lists but for one field at one site:
+
+```
+merge on :  pos=5339368 type=INS alt='TGTGTGTGTGTG' nalts=2  cate=NoisyCandHet
+merge off:  pos=5339368 type=INS alt='TGTGTGTGTGTG' nalts=0  cate=NoisyCandHet
+```
+
+`msa_insertion_alts.size() == 2` is the condition `replace_single_allele`
+tests, so that one field decides whether the MSA's call displaces a
+low-AF single-allele candidate -- and that cascades to two more phased in-gap
+hets. The merge's remaining function is therefore not representation at all: it
+is acting as the admission ticket for gap-interior sites in the GRAPH arm.
+
+### Where the alignment arm stands
+
+With the merge off and the complementary pass on, the exemplar locus now comes
+out in upstream's own form -- both alleles kept, one per haplotype:
+
+```
+882277  A > ATC    GT=1|0  AD=2,11      (from cluster 1)
+882277  A > ATCTC  GT=0|1  AD=2,15      (from cluster 2)
+```
+
+and the pairing probe confirms the provenance was always there:
+`from_cons=1` and `from_cons=2` at construction.
+
+| alignment arm, chr20 | records | identical to upstream | comma-ALT | two ALTs on one hap |
+|---|---:|---:|---:|---:|
+| merge ON | 116,170 | -- | 1,664 | 0 |
+| merge OFF, no coherence pass | 117,696 | 117,167 | 0 | 412 |
+| **merge OFF + coherence passes** | **116,973** | -- | **0** | **0** |
+| upstream | 118,270 | -- | 0 | 0 |
+
+So the alignment path is coherent and in upstream's representation once the
+merge is off; the remaining ~1,300 records are the residual bucket already
+decomposed above (916 positions we never emit, 172 allele differences).
+
+The one thing still holding the merge in place is the graph arm's gap
+interiors. Per the architecture -- graph arm takes alignment sites through
+RECOVERY -- those sites should arrive by import, not as a side effect of
+`replace_single_allele`. Whether recovery delivers `5,339,368` with the merge
+off is the next measurement, and it is the last step before the merge and its
+option can be deleted outright.
