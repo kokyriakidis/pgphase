@@ -85,3 +85,72 @@ low-coverage regions -- upstream also puts those five sites in ONE phase set
 (26,591,362) where we split them across two (26,549,599 and 26,591,520).
 
 That is the next parity step, and it is a solver-level question, not a gate.
+
+## The `is_alt_genotype` class is NOT a bug on our side
+
+Chased to the read level at `26,591,362`, one of the 358 `CLEAN_HET_SNP`
+rejections, where upstream emits `0|1:8:5,3` and we emit nothing.
+
+**Both tools are working from the same 8 sampled reads.** The site has 445
+covering reads (330 reference, 115 alternate) yet both report DP 8 -- the
+noisy-region read sampling -- and both label exactly the same 8 read names.
+
+**Seven of the eight labels agree. The one that differs decides the record:**
+
+| read | base | ours | upstream | truth |
+|---|---|---|---|---|
+| `215485304` | T | HP2 | HP2 | PAT |
+| `36700407` | A | HP1 | HP1 | MAT |
+| `64292608` | A | HP2 | HP2 | PAT |
+| `85791316` | T | HP2 | HP2 | PAT |
+| `143853999` | A | HP2 | HP2 | PAT |
+| `54662206` | T | HP2 | HP2 | PAT |
+| `73531961` | A | HP1 | HP1 | MAT |
+| **`77401560`** | **A** | **HP2** | **HP1** | **PAT** |
+
+Our labelling is 8/8 consistent with parental truth -- every HP2 read is
+paternal, both HP1 reads are maternal. Upstream places `77401560`, a paternal
+read, on HP1 beside the two maternal ones.
+
+That one read is the whole difference in the output. Our hap2 profile becomes
+`[3,3]`, a tie, which the prefer-reference argmax resolves to reference, so
+`hap_to_cons_alle = [0,0]` and no ALT is written. Upstream's hap2 is `[2,3]`,
+alternate wins, and it emits `0|1`. **The record upstream emits rests on its
+misplaced read.**
+
+Note also what the site looks like with full coverage: 115 of 445 reads carry
+the alternate, and among our own 8 reads the paternal haplotype carries BOTH
+bases. That is a collapsed-duplication signature, not a clean heterozygote.
+
+### How much of the class is real
+
+Sampling 30 of the dropped positions, 21 with a single-base upstream REF, 13
+with at least 5 truth-attributed alternate reads:
+
+| the alternate allele's parental purity | positions |
+|---|---:|
+| >= 0.90 -- a real heterozygote we suppress | **8** |
+| mixed parents -- an artifact, suppression correct | **5** |
+| fewer than 5 alt reads, not evaluable | 8 |
+
+So roughly 60% of the class are real sites we lose and 40% are sites upstream
+should not be calling.
+
+### Why this is not fixed here
+
+Three candidate fixes, all rejected on the measurement:
+
+- **Change the tie-break toward ALT on het-classified sites.** Produces
+  upstream's output but diverges from its rule, and would emit the 40%
+  artifact fraction as heterozygous calls.
+- **Change the read assignment to match upstream.** Ours is the more accurate
+  labelling at this locus (8/8 against 7/8), so this would trade truth for
+  parity.
+- **Emit the tie as an unphased het.** Upstream emits no unphased records at
+  all on chr20 (41,705 `1|0`, 41,308 `0|1`, 35,257 `1|1` and nothing else), so
+  it does not close the gap either.
+
+The class is therefore recorded as a known, quantified difference and not a
+defect. The remaining parity buckets that ARE candidate defects: 162 positions
+where we hold no candidate at all, and 172 loci where we hold the position but
+a different allele (148 indels, 24 SNPs).
