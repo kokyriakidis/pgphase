@@ -164,7 +164,8 @@ int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int var1, i
 int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uint32_t flags,
                                            std::optional<hts_pos_t> phase_set = std::nullopt,
                                            bool msa_sites_vote = false,
-                                           bool infer_complement = false);
+                                           bool infer_complement = false,
+                                           bool upstream_read_scoring = false);
 
 /// longcallD assign_hap.c:292 -- add this read's alleles to the per-haplotype
 /// profile of EVERY variant it covers, under one hap for the whole read.

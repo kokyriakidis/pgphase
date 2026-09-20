@@ -256,15 +256,17 @@ static bool two_allele_het(const CandidateVariant& var) {
 // Score a read against consensus alleles: +1 for agreement, -1 for conflict.
 static int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i,
                                      bool msa_sites_vote_without_gap_link,
-                                     bool infer_complement_at_multiallelic) {
+                                     bool infer_complement_at_multiallelic,
+                                     bool upstream_read_scoring) {
     const uint32_t var_i_to_cate = var.lcd_var_i_to_cate;
     // longcallD has no equivalent gate (assign_hap.c:127-147): every candidate
     // in the mask votes. See Options::msa_sites_vote_without_gap_link.
     if (!msa_sites_vote_without_gap_link &&
         !var.msa_insertion_alts.empty() && !var.gap_link_supported) return 0;
     int var_score = 1;
-    if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetSnp) var_score = 2;
-    else if (var.counts.n_uniq_alles <= 2 && var_i_to_cate == kCandCleanHetIndel) var_score = 2;
+    const bool two_alle_ok = upstream_read_scoring || var.counts.n_uniq_alles <= 2;
+    if (two_alle_ok && var_i_to_cate == kCandCleanHetSnp) var_score = 2;
+    else if (two_alle_ok && var_i_to_cate == kCandCleanHetIndel) var_score = 2;
     if (var.hap_to_cons_alle[hap] == -1 && var.hap_to_cons_alle[3 - hap] == -1) return 0;
     // A multiallelic site has no unique complementary allele. Infer it only
     // for a biallelic site; otherwise let actual read observations resolve it.
@@ -357,7 +359,7 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
 // Init_assign_read_hap_based_on_cons_alle.
 int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uint32_t flags,
                                 std::optional<hts_pos_t> phase_set, bool msa_sites_vote,
-                                bool infer_complement) {
+                                bool infer_complement, bool upstream_read_scoring) {
     ReadRecord& read = chunk.reads[read_i];
     read.n_clean_agree_snps = 0;
     read.n_clean_conflict_snps = 0;
@@ -390,17 +392,22 @@ int init_assign_read_hap_based_on_cons_alle(PhasingChunk& chunk, int read_i, uin
         // chr20:36,247,421-36,268,291, the admitted homopolymer deletion
         // segregates at 0.923 against read truth while the non-homopolymer
         // verified indels beside it sit at 0.509-0.644.
-        if ((var.is_homopolymer_indel && !var.hp_gap_scorable) ||
+        if ((var.is_homopolymer_indel && (upstream_read_scoring || !var.hp_gap_scorable)) ||
             vic == kCandNoisyCandHom) continue;
 
         const int aidx = prof.alleles[vi - prof.start_var_idx];
         if (aidx < 0) continue;
 
         for (int hap = 1; hap <= 2; ++hap) {
-            const int score = read_to_cons_allele_score(var, hap, aidx, msa_sites_vote, infer_complement);
+            const int score = read_to_cons_allele_score(var, hap, aidx, msa_sites_vote, infer_complement,
+                                                      upstream_read_scoring);
             if (score != 0) {
                 if (vic != kCandCleanHom) n_vars_used[hap]++;
-                if (vic == kCandCleanHetSnp && var.counts.n_uniq_alles <= 2) {
+                const bool clean_snp_upstream =
+                    (vic & kCandGermlineClean) != 0 && var.key.type == VariantType::Snp;
+                if (upstream_read_scoring ? clean_snp_upstream
+                                          : (vic == kCandCleanHetSnp &&
+                                             var.counts.n_uniq_alles <= 2)) {
                     if (score > 0) n_clean_agree[hap]++;
                     else n_clean_conflict[hap]++;
                 } else if (vic == kCandNoisyCandHet && var.key.type == VariantType::Snp &&
@@ -797,7 +804,8 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         if ((flags & kCandNoisyCandHet) || !opts.phase_set_scoped_clean_rounds) {
             int hap = init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags, std::nullopt,
                                                     opts.msa_sites_vote_without_gap_link,
-                                       opts.infer_complement_at_multiallelic);
+                                       opts.infer_complement_at_multiallelic,
+                                       opts.upstream_read_scoring);
             if (hap == -1) hap = 0;
             chunk.haps[read_i] = hap;
             update_var_hap_profile_based_on_read_hap(chunk, read_i, hap, flags);
@@ -819,7 +827,8 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         for (const hts_pos_t phase_set : phase_sets) {
             const int hap = std::max(0, init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags, phase_set,
                                        opts.msa_sites_vote_without_gap_link,
-                                       opts.infer_complement_at_multiallelic));
+                                       opts.infer_complement_at_multiallelic,
+                                       opts.upstream_read_scoring));
             update_var_hap_profile_based_on_read_hap(chunk, read_i, hap, flags, phase_set);
         }
         chunk.haps[read_i] = std::max(0, init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags,
@@ -901,7 +910,8 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
 
 // Assign per-read phase_sets from the first phased het var each read covers.
 // Update_read_phase_set.
-static void update_read_phase_set(PhasingChunk& chunk, const std::vector<bool>& var_is_valid) {
+static void update_read_phase_set(PhasingChunk& chunk, const std::vector<bool>& var_is_valid,
+                                 bool upstream_read_scoring) {
     for (int oi = 0; oi < read_visit_count(chunk); ++oi) {
         const int read_i = read_at_visit_ord(chunk, oi);
         if (read_i < 0 || static_cast<size_t>(read_i) >= chunk.reads.size()) continue;
@@ -914,11 +924,13 @@ static void update_read_phase_set(PhasingChunk& chunk, const std::vector<bool>& 
             const CandidateVariant& var = chunk.candidates[vi];
             // Use the same eligible evidence as init_assign_read_hap_based_on_cons_alle. An
             // excluded repeat can inherit a preceding PS without a link.
-            if (var.is_homopolymer_indel || var.lcd_var_i_to_cate == kCandNoisyCandHom ||
-                (!var.msa_insertion_alts.empty() && !var.gap_link_supported)) continue;
-            const int allele = prof.alleles[vi - prof.start_var_idx];
-            if (allele < 0 || (allele != var.hap_to_cons_alle[1] &&
-                               allele != var.hap_to_cons_alle[2])) continue;
+            if (!upstream_read_scoring) {
+                if (var.is_homopolymer_indel || var.lcd_var_i_to_cate == kCandNoisyCandHom ||
+                    (!var.msa_insertion_alts.empty() && !var.gap_link_supported)) continue;
+                const int allele = prof.alleles[vi - prof.start_var_idx];
+                if (allele < 0 || (allele != var.hap_to_cons_alle[1] &&
+                                   allele != var.hap_to_cons_alle[2])) continue;
+            }
             if (var.hap_to_cons_alle[1] != -1 && var.hap_to_cons_alle[2] != -1 &&
                 var.hap_to_cons_alle[1] != var.hap_to_cons_alle[2]) {
                 ps = var.phase_set;
@@ -1070,7 +1082,8 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
                 if (chunk.reads[read_i].is_skipped || chunk.haps[read_i] != 0) continue;
                 int hap = init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags, std::nullopt,
                                                     opts.msa_sites_vote_without_gap_link,
-                                       opts.infer_complement_at_multiallelic);
+                                       opts.infer_complement_at_multiallelic,
+                                       opts.upstream_read_scoring);
                 if (hap == -1) hap = 1; // no informative vars yet — seed new phase set as hap1
                 chunk.haps[read_i] = hap;
                 update_var_hap_profile_cons_alle_based_on_read_hap(chunk, is_ont, read_i, hap, flags);
@@ -1088,13 +1101,14 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     }
 
     // Phase 3: report HP in its own phase set, using the final consensus.
-    update_read_phase_set(chunk, var_is_valid);
+    update_read_phase_set(chunk, var_is_valid, opts.upstream_read_scoring);
     for (size_t ri = 0; ri < n_reads; ++ri) {
         if (chunk.reads[ri].is_skipped) continue;
         chunk.haps[ri] = chunk.phase_sets[ri] < 0 ? 0 :
             std::max(0, init_assign_read_hap_based_on_cons_alle(chunk, static_cast<int>(ri), flags,
                        chunk.phase_sets[ri], opts.msa_sites_vote_without_gap_link,
-                                       opts.infer_complement_at_multiallelic));
+                                       opts.infer_complement_at_multiallelic,
+                                       opts.upstream_read_scoring));
     }
 
     // Phase 4: fill hap_alt / hap_ref from finalized hap_to_cons_alle.

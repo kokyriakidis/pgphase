@@ -970,6 +970,7 @@ void wfa_trim_aln_str(int full_cover, AlnStr& s) {
             if (target_end != -1 && query_end != -1) break;
         }
         if (query_end == -1) query_end = target_end;
+        assert(query_end <= target_end);  // upstream wfa_trim_aln_str
         s.aln_len   = target_end + 1;
         s.target_beg = 0; s.target_end = target_end;
         s.query_beg  = 0; s.query_end  = query_end;
@@ -986,6 +987,7 @@ void wfa_trim_aln_str(int full_cover, AlnStr& s) {
             if (target_start != -1 && query_start != -1) break;
         }
         if (query_start == -1) query_start = target_start;
+        assert(query_start >= target_start);  // upstream wfa_trim_aln_str
         s.aln_len = s.aln_len - target_start;
         if (target_start != 0) {
             // Shift both arrays left by target_start.

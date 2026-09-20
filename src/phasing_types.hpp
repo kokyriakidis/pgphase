@@ -308,6 +308,22 @@ struct Options {
     /// MSA sites, and reads there span up to 15 usable candidates yet end with
     /// n_vars_used == 0.
     bool infer_complement_at_multiallelic = false;
+    /// Score reads exactly as longcallD does, dropping four restrictions this
+    /// project added to `init_assign_read_hap_based_on_cons_alle`,
+    /// `read_to_cons_allele_score` and `update_read_phase_set`:
+    ///
+    ///   - a homopolymer indel is skipped unconditionally (`assign_hap.c:166`),
+    ///     not spared when `hp_gap_scorable` is set;
+    ///   - the clean agree/conflict tallies count any clean SNP, heterozygous or
+    ///     homozygous (`assign_hap.c:174`), where we counted only a clean het SNP
+    ///     with at most two alleles;
+    ///   - a clean het SNP or indel weighs 2 regardless of allele count
+    ///     (`assign_hap.c:130-131`), where we required at most two alleles;
+    ///   - a read takes the phase set of the first heterozygous site it covers
+    ///     (`assign_hap.c:328-336`), where we additionally skipped homopolymer,
+    ///     noisy-hom and ungap-linked sites and required the read's own allele to
+    ///     match one of the two consensus alleles.
+    bool upstream_read_scoring = false;
     /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
     /// sites for the parent to re-solve.
     ///

@@ -2302,6 +2302,12 @@ int collect_bam_variation(int argc, char* argv[]) {
     // (assign_hap.c:141-142). See Options::infer_complement_at_multiallelic.
     opts.infer_complement_at_multiallelic = true;
 
+    // Score reads exactly as upstream does: unconditional homopolymer skip, any
+    // clean SNP in the agree/conflict tallies, a clean het weighing 2 regardless
+    // of allele count, and a read taking the first het site's phase set with no
+    // further screens. See Options::upstream_read_scoring.
+    opts.upstream_read_scoring = true;
+
     try {
         run_collect_bam_variation(opts);
     } catch (const std::exception& e) {
