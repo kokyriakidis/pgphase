@@ -363,6 +363,12 @@ static inline void push_digar_alt_seq(std::vector<DigarOp>& out, const DigarOp& 
     if (d.len <= 0) return;
     if (out.empty() || !same_digar_for_merge(out.back(), d)) {
         out.push_back(d);
+        // bam_utils.c:573-577 sets alt_seq to NULL on this path and copies it
+        // only for BAM_CDIFF and BAM_CINS. We pushed the whole op, so a
+        // deletion, match or clip kept whatever alt string it arrived with.
+        if (out.back().type != DigarType::Snp &&
+            out.back().type != DigarType::Insertion)
+            out.back().alt.clear();
         return;
     }
     if (out.back().type == DigarType::Insertion) {

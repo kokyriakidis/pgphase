@@ -79,3 +79,48 @@ divergence.
   `graph_alleles` maintenance, and `push_digar_alt_seq` copying `alt` where
   upstream nulls it: both have upstream counterparts (`bam_utils.c:251`,
   `align.c`) and both are still open. Not attempted here.
+
+## The two open items, closed
+
+### `push_digar_alt_seq` now nulls `alt` where upstream does
+
+`bam_utils.c:573-577` sets `alt_seq = NULL` on the new-element path and copies
+it only for `BAM_CDIFF` and `BAM_CINS`. We pushed the whole op, so a deletion,
+match or clip kept whatever alt string it arrived with. Now cleared for every
+type except `Snp` and `Insertion`.
+
+The neighbouring `push_digar0` was checked at the same time and needs no change:
+upstream assigns `alt_seq = d.alt_seq` there unconditionally, with no type test
+(`bam_utils.c:600`), which is what we already do. The nulling is specific to the
+`_alt_seq` variant.
+
+Whole chr20: both arms **byte-identical**. So the field was never read for those
+types on this data -- the divergence was latent, and is now closed rather than
+left to surface on data that does read it.
+
+### `update_read_var_profile_with_allele`: one branch was dead, the other is caller-driven
+
+Upstream writes into a PRE-SIZED profile at `var_i - start_var_idx` and sets
+`end_var_idx = var_i` unconditionally (`bam_utils.c:250-254`). Ours grows the
+vectors, extends `end_var_idx` only upward, and had a branch that grew the
+profile leftward when a call arrived below `start_var_idx`. Instrumenting every
+call over `chr20:5-9 Mb`:
+
+| arm | calls | below `end_var_idx` | below `start_var_idx` |
+|---|---:|---:|---:|
+| alignment | 64,000,000 | **0** | **0** |
+| graph | 2,000,000 | 1,490 | **0** |
+
+Two conclusions, each acted on differently.
+
+The leftward branch was **dead** -- no call on either arm arrives below
+`start_var_idx` -- so it is removed, and whole chr20 is byte-identical in both
+arms.
+
+The `end_var_idx` difference is **not observable on the ported path**: zero of
+64 million alignment-arm calls arrive below the current end, so upstream's
+unconditional assignment and our upward-only extension cannot be told apart
+there. They differ only for the graph arm's merge paths, which renumber
+candidates and do call below the end 1,490 times -- a caller upstream does not
+have, and one for which upstream's version would shrink the span and truncate
+the profile. So the conditional stays, now with the number that says why.
