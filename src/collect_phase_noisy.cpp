@@ -1357,8 +1357,10 @@ int make_vars_from_msa_cons_aln(
     // on the recovery pass it never ran by default, so the default pipeline
     // described such a locus as two competing biallelic records, each scoring
     // the other haplotype's reads against its own allele.
-    merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
-    merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster
     // alignment, in every arm: these counts describe the reads. While this
     // refresh was gated on the recovery pass, the alignment-only channel was

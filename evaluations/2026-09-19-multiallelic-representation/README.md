@@ -93,3 +93,48 @@ The previous session note framed this as "the graph arm never emits a
 multiallelic record", implying it alone was wrong. That was measured on our
 arms only; upstream behaves the same way, and the intended behaviour is our
 merge, not upstream's split.
+
+## Bringing the alignment arm to parity: what it takes, measured
+
+The alignment arm is a port, so the merge is a divergence to reconcile. It is
+now behind `merge_colocated_msa_alleles` (`--merge-colocated-msa-alleles`,
+default ON -- see below), which makes the comparison runnable.
+
+**Turning the merge off moves most of the way to parity.** Whole chr20 against
+upstream's own output, matching on `(POS, REF, ALT)`:
+
+| alignment arm | records | identical to upstream | upstream-only | ours-only | merged positions |
+|---|---:|---:|---:|---:|---:|
+| merge ON | 116,179 | 114,118 | 4,152 | 2,061 | 1,532 |
+| **merge OFF** | **117,696** | **117,167** | **1,103** | **529** | **0** |
+| upstream | 118,270 | -- | -- | -- | 0 |
+
+Comma-ALT records go 1,664 -> 0 and two-row positions 806 -> 2,335 against
+upstream's 2,401. Identical records reach 99.1%. It also *improves* the graph
+arm: read hamming 1.153% -> 1.095%, misplaced reads 2,526 -> 2,401.
+
+**But it is not parity, because our split is incoherent where upstream's is
+not.** Counting positions at which ONE haplotype claims two different ALT
+alleles -- the rule the window suite asserts, ALT-side only, REF-side claims
+ignored:
+
+| chr20 | positions putting two ALTs on one haplotype |
+|---|---:|
+| upstream longcallD | **0** |
+| ours, merge OFF | **412** |
+| ours, merge ON | 8 |
+| graph arm, merge OFF | 0 |
+
+Upstream writes two rows per locus that are complementary by construction: one
+haplotype carries the ALT, the other the reference. Ours, with the merge off,
+writes 412 positions where a haplotype is assigned two different alleles at
+once, and the gap-window suite fails on exactly those.
+
+So the parity task is NOT "stop merging". It is "make the split complementary
+the way upstream's is", and the 412 positions are the work. Until then the
+merged form is the one to ship, which is why the option defaults ON.
+
+The residual 1,103 upstream records we lack with the merge off decompose as 916
+at positions we do not emit at all, 148 indels where the position is present
+but the allele differs, and 24 SNPs likewise -- a separate parity bucket from
+the representation question.

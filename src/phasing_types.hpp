@@ -217,6 +217,30 @@ struct Options {
     /// Path for the recovery audit TSV: one row per candidate the sub-solve
     /// found inside a recovery window, with the merge's decisions about it.
     std::string recovery_audit_out;
+    /// Merge co-located MSA alleles into one multiallelic record.
+    ///
+    /// OFF by default, because longcallD does not do it: measured on its own
+    /// chr20 output, upstream emits 0 records with a comma in ALT and 2,401
+    /// positions carrying two biallelic rows, and the alignment arm is a port.
+    /// With the merge on, our alignment arm emits 1,664 comma-ALT records and
+    /// 1,657 GT 1|2, which accounts for 1,532 positions where upstream writes
+    /// two rows and we write one.
+    ///
+    /// The merge exists because splitting measures each allele against a
+    /// reference no read carries, so allele fraction runs to 1 and both halves
+    /// can classify homozygous. Keeping it available, off by default, makes
+    /// that a measurable choice rather than a silent divergence.
+    /// ON by default, and the reason is measured rather than preferred.
+    ///
+    /// longcallD does not merge: its own chr20 output has 0 records with a
+    /// comma in ALT and 2,401 positions carrying two biallelic rows. But its
+    /// split is COHERENT -- counting positions where one haplotype claims two
+    /// different ALT alleles, upstream scores 0. Ours does not: with the merge
+    /// off our alignment arm scores 412 such positions, and the gap-window
+    /// suite fails on them. So parity with upstream is not "stop merging"; it
+    /// is "make the split complementary the way upstream's is", and until that
+    /// is done the merged form is the correct one to ship.
+    bool merge_colocated_msa_alleles = true;
     /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
     /// sites for the parent to re-solve.
     ///
