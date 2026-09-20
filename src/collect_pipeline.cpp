@@ -2292,6 +2292,16 @@ int collect_bam_variation(int argc, char* argv[]) {
 
     opts.phase_set_scoped_clean_rounds = false;
 
+    // Every candidate in the mask votes on a read's haplotype, as upstream does
+    // (assign_hap.c:127-147). See Options::msa_sites_vote_without_gap_link for
+    // the measurement: the gate silenced the whole NOISY_CAND_HET class and
+    // cost 254 of the 370 records upstream emits that we did not.
+    opts.msa_sites_vote_without_gap_link = true;
+
+    // Infer the missing haplotype's consensus at any site, as upstream does
+    // (assign_hap.c:141-142). See Options::infer_complement_at_multiallelic.
+    opts.infer_complement_at_multiallelic = true;
+
     try {
         run_collect_bam_variation(opts);
     } catch (const std::exception& e) {

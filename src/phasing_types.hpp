@@ -273,6 +273,41 @@ struct Options {
     /// (assign_hap.c:437) computes ONE hap per read and applies it to every
     /// variant the read covers, with no phase-set scoping anywhere.
     bool phase_set_scoped_clean_rounds = true;
+    /// Let a two-cluster MSA candidate vote on which haplotype a read belongs
+    /// to even when no gap link has vouched for it.
+    ///
+    /// `read_to_cons_allele_score` returned 0 -- no vote -- for any candidate
+    /// with `msa_insertion_alts` unless `gap_link_supported`, which is the whole
+    /// NOISY_CAND_HET class. longcallD's counterpart (`assign_hap.c:127-147`)
+    /// has no such condition: every candidate in the mask votes. The effect is
+    /// not a small one, because it is self-reinforcing -- in a region whose only
+    /// candidates come from the noisy MSA, no read scores, `n_vars_used` stays
+    /// 0, `init_assign_read_hap_based_on_cons_alle` returns -1, and the
+    /// unlabelled reads are then counted toward BOTH haplotype profiles, so the
+    /// argmax calls reference twice and the site is dropped at output for
+    /// carrying no ALT.
+    ///
+    /// Measured at chr20:3,870,827 (DP 72, 43/29, phased): our profiles are
+    /// [25,17] and [31,27], consensus [0,0], nothing emitted, while upstream on
+    /// the identical depth emits 0|1. Over 20 sampled sites of that class we
+    /// labelled 20% of spanning reads against upstream's 45%.
+    bool msa_sites_vote_without_gap_link = false;
+    /// Infer the unknown haplotype's consensus allele as the complement at any
+    /// site, not only a biallelic one.
+    ///
+    /// longcallD does this unconditionally (`assign_hap.c:141-142`): if one
+    /// haplotype's consensus is -1 and the other is known, the missing one
+    /// becomes `1 - other`, in place, so the site scores for every later read.
+    /// We restricted it to sites with exactly two allele slots on the grounds
+    /// that a multiallelic site has no unique complement -- true in itself, but
+    /// it means a site with three slots and one unknown haplotype returns 0 for
+    /// every read instead of voting.
+    ///
+    /// That is what withholds the labels behind the 254 records upstream emits
+    /// and we do not: in chr20:3.86-3.88 Mb the only het candidates are noisy
+    /// MSA sites, and reads there span up to 15 usable candidates yet end with
+    /// n_vars_used == 0.
+    bool infer_complement_at_multiallelic = false;
     /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
     /// sites for the parent to re-solve.
     ///
