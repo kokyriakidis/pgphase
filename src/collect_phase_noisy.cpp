@@ -1369,7 +1369,7 @@ int make_vars_from_msa_cons_aln(
     // without the refresh it was counted 3 ref / 1 alt. It is also why eight of
     // the seventy-six candidates shared with the hybrid arm on
     // chr20:48,176,830-48,229,446 carried different counts.
-    if (!aln_strs[0].empty() && !aln_strs[1].empty())
+    if (opts.refresh_msa_observations && !aln_strs[0].empty() && !aln_strs[1].empty())
         refresh_assigned_msa_observations(opts, clu_n_seqs, clu_read_ids, aln_strs,
                                            noisy_reg_beg, noisy_vars, noisy_rvp);
     return static_cast<int>(noisy_vars.size());
@@ -1761,6 +1761,58 @@ static void refresh_assigned_msa_observations(const Options& opts,
     std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles) {
     constexpr int kLeftGapAlignment = 1;
     const std::array<AlnStr, 2> consensuses = {alignments[0][0], alignments[1][0]};
+
+    // call_local_msa_allele requires a consistent, valid allele call from
+    // BOTH haplotype consensuses before it will attribute any read at all --
+    // true whenever the two haplotypes carry the same kind of event (the
+    // ordinary case this refresh targets: fixing cross-cluster count
+    // contamination), but not when a homopolymer is unstable enough that the
+    // two consensuses disagree on event TYPE, not just allele (one an
+    // insertion, the other a deletion, relative to reference, at the same
+    // locus). When that happens every read fails classification for that
+    // variant specifically.
+    //
+    // The refresh below still needs to run per-read (skipping only the reads
+    // that individually fail, the way it always has) for every variant it CAN
+    // say something about -- that per-read skip is what actually fixes the
+    // contamination this function exists for, and doing it selectively here
+    // instead would just reintroduce that contamination for every variant
+    // with a single stray unclassifiable read, which is most of them. The
+    // one thing a variant with NO valid classification anywhere is owed is
+    // being left alone entirely: this pre-pass identifies those variants so
+    // the write loop below can skip them outright, rather than resetting
+    // their counts and read entries to nothing. Measured at chr20:411,654 (a
+    // homopolymer T-insertion candidate whose sibling haplotype consensus is
+    // a deletion at the same run): unconditional reset-and-rebuild left the
+    // variant with zero reads at every position (real DP 51, matching
+    // longcallD's own DP 51 at the same locus), and the site silently
+    // vanished from the phased VCF. A per-read "skip on failure" instead of
+    // this per-variant one measurably regresses read-phasing accuracy
+    // chromosome-wide (evaluations/2026-09-20-refresh-observations-bug/):
+    // it reintroduces the contamination on every partially-classifiable
+    // variant to fix the rare fully-unclassifiable one.
+    std::vector<bool> any_valid_call(vars.size(), false);
+    for (int ci = 0; ci < 2; ++ci) {
+        for (int ri = 0; ri < clu_n_seqs[ci]; ++ri) {
+            const auto& cons_read = alignments[ci][2 * ri + 1];
+            if (cons_read.target_beg != 0 || cons_read.query_beg != 0 ||
+                cons_read.target_end != cons_read.aln_len - 1 ||
+                cons_read.query_end != cons_read.aln_len - 1) continue;
+            AlnStr ref_read;
+            make_ref_read_aln_str(opts, consensuses[ci], cons_read, ref_read);
+            ref_read.target_beg = ref_read.query_beg = 0;
+            ref_read.target_end = ref_read.query_end = ref_read.aln_len - 1;
+            if (opts.gap_aln == kLeftGapAlignment) left_normalize_msa_alignment(ref_read);
+            for (size_t vi = 0; vi < vars.size(); ++vi) {
+                if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
+                if (any_valid_call[vi]) continue;
+                if (call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses,
+                                          &vars[vi].msa_insertion_alts) >= 0)
+                    any_valid_call[vi] = true;
+            }
+        }
+    }
+
     for (int ci = 0; ci < 2; ++ci) {
         for (int ri = 0; ri < clu_n_seqs[ci]; ++ri) {
             const auto& cons_read = alignments[ci][2 * ri + 1];
@@ -1785,6 +1837,7 @@ static void refresh_assigned_msa_observations(const Options& opts,
             auto& profile = profiles[static_cast<size_t>(rid_)];
             for (size_t vi = 0; vi < vars.size(); ++vi) {
                 if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
+                if (!any_valid_call[vi]) continue;
                 const int allele = call_local_msa_allele(ref_read, vars[vi].key, ref_beg, consensuses, &vars[vi].msa_insertion_alts);
                 update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1, profile);
             }
@@ -1793,6 +1846,7 @@ static void refresh_assigned_msa_observations(const Options& opts,
     for (size_t vi = 0; vi < vars.size(); ++vi) {
         auto& var = vars[vi];
         if (var.counts.category != VariantCategory::NoisyCandHet) continue;
+        if (!any_valid_call[vi]) continue;
         var.counts.alle_covs.assign(var.msa_insertion_alts.empty() ? 2 : var.msa_insertion_alts.size() + 1, 0);
         for (const auto& profile : profiles) {
             if (static_cast<int>(vi) < profile.start_var_idx || static_cast<int>(vi) > profile.end_var_idx) continue;
@@ -2001,8 +2055,9 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     // A real neighboring variant is valid flank sequence, not alignment noise.
     std::array<AlnStr, 2> consensuses;
     if (n_cons == 2) consensuses = {aln_strs[0][0], aln_strs[1][0]};
-    add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
-                              noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
+    if (opts.add_unplaced_msa_observations)
+        add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
+                                  noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
     make_colocated_deletions_exclusive(noisy_vars, noisy_rvp);
 
     return merge_var_profile(

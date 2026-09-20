@@ -2216,6 +2216,82 @@ int collect_bam_variation(int argc, char* argv[]) {
     }
     opts.bam_file = opts.bam_files.front();
 
+    // longcallD's assign_hap_based_on_germline_het_vars_kmeans
+    // (assign_hap.c:465) calls read_init_hap_phase_set unconditionally on
+    // every invocation -- it has no anchoring parameter at all, so stage 2
+    // (the noisy-inclusive re-solve, collect_phase_noisy.cpp's
+    // run_noisy_pass) always resets and re-sweeps from a fresh pivot chosen
+    // over the full site set. Our anchored_stage2 default (true) is our own
+    // addition, not a port -- phasing_types.hpp's own comment on the field
+    // says so ("a knowing divergence from upstream, in the direction
+    // upstream documented" -- upstream's COMMENT, not its code). Ported here
+    // for the alignment path, matching upstream's actual behavior: with
+    // anchoring, a noisy site downstream of a long, SNP-dense, near-50%-AF
+    // block can only ever refine stage 1's read partition, never correct it,
+    // measured on whole chr20 (truth-scored against parental origin) as 4 of
+    // ~295 phase sets carrying a genuine internal switch. Without anchoring:
+    // 2, and both survivors are thin (2-11 scored SNPs, near-tied) rather
+    // than the large, confident blocks anchoring was breaking.
+    opts.anchored_stage2 = false;
+
+    // longcallD never merges a locus where both haplotypes carry a
+    // different ALT into one multiallelic record -- it always emits the
+    // co-located alleles as separate biallelic records
+    // (`collect_var.c:1329-1336` keeps the older candidate and frees the
+    // MSA's; there is no merge step our `merge_colocated_msa_alleles`
+    // corresponds to). Our default (true) was kept specifically because
+    // turning it off, measured before the anchored_stage2 port above,
+    // roughly doubled misplaced reads on this arm (0.699% -> 1.385%,
+    // evaluations/2026-09-20-parity-report/) -- large enough that
+    // upstream's own representation wasn't worth it. Re-measured with
+    // anchored_stage2 already fixed: whole chr20 against the same
+    // diplinator truth, discordance moves 0.66% -> 0.72% (1,425/216,942
+    // -> 1,570/217,638), not a doubling -- most of the old cost came from
+    // the same stage-2 anchoring this file already turns off, not from
+    // the merge itself. Record identity with longcallD's own output rises
+    // from 97.8% to 99.1% (114,410/117,040 -> 116,868/117,896). Ported
+    // here for the alignment path only, matching upstream's actual
+    // representation.
+    opts.merge_colocated_msa_alleles = false;
+
+    // `refresh_assigned_msa_observations` has no upstream counterpart at all.
+    // Upstream's only producer of a two-cluster MSA candidate's counts and
+    // per-read profile is `update_cand_var_profile_from_cons_aln_str21`
+    // (collect_var.c:2178), which this project ports faithfully; upstream then
+    // never revisits those counts. The refresh re-derives them from a second,
+    // independent classifier (`call_local_msa_allele`), and where the two
+    // disagree the port's answer is discarded in favour of the invention's.
+    //
+    // It costs read accuracy to turn off (99.27% -> 98.34% against the
+    // diplinator truth) and that is not a reason to keep it: longcallD itself
+    // scores 97.03% on the same truth BAM, so the refresh was making this arm
+    // BETTER than the tool it ports, through a mechanism that tool does not
+    // have, while breaking the record parity that is the point of the arm.
+    // Turning it off moves accuracy toward upstream and still stays well
+    // ahead of it. Off for the alignment path, which is the arm held to
+    // upstream; the graph arm keeps the struct default and is unaffected.
+    opts.refresh_msa_observations = false;
+
+    // `add_msa_site_observations` has no upstream counterpart either: a noisy
+    // candidate's depth in longcallD is exactly the reads its two cluster
+    // alignments cover, and it never adds observations for reads the MSA could
+    // not place. Ours did, and the extra reads are overwhelmingly REFERENCE.
+    //
+    // That is what was dropping the largest remaining clean-region class. Across
+    // all 218 such records our depth exceeded upstream's at 141 of them, equalled
+    // it at 77, and was lower at NONE (mean DP 62.0 vs 41.3, +20.7 depth against
+    // only +6.7 alt). Those surplus reference reads dilute the alt haplotype's
+    // allele profile, and `update_var_hap_to_cons_alle` resolves a tie to the
+    // lowest allele index -- reference -- so both haplotypes read reference,
+    // hap_alt = hap_ref = 0, and the record never reaches the VCF. Measured at
+    // chr20:3,997,065: upstream's hap2 profile is 20 ref / 22 alt and calls the
+    // het; ours admitted 2 extra paternal reference reads into hap2, making it
+    // an exact 22/22 tie, and the site vanished. With this off it emits
+    // `CA>C 0|1:87:65,22:0.253:60:3981464` -- byte-identical to longcallD.
+    opts.add_unplaced_msa_observations = false;
+
+    opts.phase_set_scoped_clean_rounds = false;
+
     try {
         run_collect_bam_variation(opts);
     } catch (const std::exception& e) {

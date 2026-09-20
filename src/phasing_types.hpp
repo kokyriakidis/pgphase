@@ -241,6 +241,38 @@ struct Options {
     /// is "make the split complementary the way upstream's is", and until that
     /// is done the merged form is the correct one to ship.
     bool merge_colocated_msa_alleles = true;
+    /// Re-derive every two-cluster MSA candidate's counts and per-read profile
+    /// from `call_local_msa_allele` after `update_cand_var_profile_from_cons_
+    /// aln_str2` has already built them.
+    ///
+    /// This step has NO counterpart in longcallD: `update_cand_var_profile_
+    /// from_cons_aln_str21` (collect_var.c:2178) is upstream's only producer of
+    /// these counts, and upstream never revisits them. It is this project's own
+    /// addition, and it is a second, disagreeing classifier layered over a
+    /// faithful port.
+    ///
+    /// What it overwrites is load-bearing. In the port, a read belonging to the
+    /// OTHER cluster than the candidate is recorded as REFERENCE outright
+    /// (`allele_i = 0`, collect_var.c:2205) -- that forced complementarity is
+    /// exactly how upstream's two rows at one locus come out `1|0` and `0|1`
+    /// "by construction". `call_local_msa_allele` re-measures those reads and
+    /// calls many of them ALT at a nested shorter allele too, collapsing the
+    /// complementary pair into one wrongly-homozygous row. Measured on chr20:
+    /// of the 751 upstream-only records at two-row loci, 664 come back when
+    /// this is off; the median NOISY_CAND_HET depth rises from 52 to its true
+    /// 61; record identity goes 99.13% -> 99.60%.
+    bool refresh_msa_observations = true;
+    /// Add observations, from reads the MSA could not place, to candidates that
+    /// have none for them. No counterpart upstream: longcallD's depth at a noisy
+    /// candidate is exactly the reads its two cluster alignments cover.
+    bool add_unplaced_msa_observations = true;
+    /// In the clean rounds, re-score a read once per phase set it spans and
+    /// update each block's allele profile with that block's own verdict.
+    ///
+    /// No counterpart upstream: `iter_update_var_hap_to_cons_alle`
+    /// (assign_hap.c:437) computes ONE hap per read and applies it to every
+    /// variant the read covers, with no phase-set scoping anywhere.
+    bool phase_set_scoped_clean_rounds = true;
     /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
     /// sites for the parent to re-solve.
     ///

@@ -788,7 +788,7 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         // Apply phase-set-local updates to clean-candidate rounds first.
         // MSA-round scoping exposes unresolved repeat-link regressions;
         // retain its existing update path (see CHECKPOINT.md).
-        if (flags & kCandNoisyCandHet) {
+        if ((flags & kCandNoisyCandHet) || !opts.phase_set_scoped_clean_rounds) {
             int hap = init_assign_read_hap(chunk, read_i, flags);
             if (hap == -1) hap = 0;
             chunk.haps[read_i] = hap;
