@@ -348,15 +348,18 @@ static bool is_germline_output_category(VariantCategory category) {
 }
 
 /**
- * Skip when var.DP < min_dp or var.AD[1] < min_alt_dp
- * (germline branch). `make_variants` sets `var.DP = cand_vars[cand_i].total_cov` only — not including
- * low_qual_cov — so VCF emission must match that gate even though `classify_var_cate` uses
- * `total_cov + low_qual_cov` for LOW_COV classification.
+ * REMOVED as a divergence from longcallD. This re-applied the DETECTION
+ * thresholds (min_dp, min_alt_dp) at emission time, against counts that the
+ * MSA and the merge have since rewritten. Upstream's `make_variants`
+ * (collect_var.c:1465-1562) filters on exactly two things -- the candidate's
+ * category and whether its position falls in the active region -- and its only
+ * reference to depth is assigning `var->vars[i].DP`. It applies min_dp and
+ * min_alt_dp where they belong, at candidate detection.
+ *
+ * Measured cost of the divergence: 1,316 PHASED candidates dropped on chr20,
+ * 1,271 of them NoisyCandHet, including sites upstream emits with identical DP
+ * and AD.
  */
-static bool passes_vcf_depth_gates(const CandidateVariant& candidate, const Options& opts) {
-    return candidate.counts.total_cov >= opts.min_depth &&
-           candidate.counts.alt_cov >= opts.min_alt_depth;
-}
 
 // is_clean = (lcd_var_i_to_cate & kCandGermlineClean) != 0.
 static bool lcd_make_variants_is_clean(const CandidateVariant& candidate) {
@@ -389,11 +392,11 @@ static std::vector<const CandidateVariant*> project_vcf_candidates(
     const CandidateTable& variants,
     const Options& opts,
     bool require_alt_genotype) {
+    (void)opts;  // depth gating removed: see passes_vcf_depth_gates above
     std::vector<const CandidateVariant*> projected;
     projected.reserve(variants.size());
     for (const CandidateVariant& candidate : variants) {
         if (!is_germline_output_category(candidate.counts.category)) continue;
-        if (!passes_vcf_depth_gates(candidate, opts)) continue;
         if (require_alt_genotype && !is_alt_genotype(candidate)) continue;
         if (!candidate.lcd_make_variants_region_pass) continue;
         projected.push_back(&candidate);
