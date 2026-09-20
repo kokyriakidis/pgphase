@@ -139,3 +139,22 @@ predicate 151, window 125).
 
 Any future change that moves where the MSA fires is now visible in one command
 rather than by inference.
+
+## Firing parity as measured by the harness
+
+Two spans, both tools run directly:
+
+| span | regions (up / ours) | identical bounds | up-only | ours-only | upstream branches | our branches | disagreements |
+|---|---|---:|---:|---:|---|---|---:|
+| 30,700,000-30,900,000 | 53 / 53 | 53 | 0 | 0 | 43 Hap, 1 NoHap, 9 Skipped | 42 Hap, 1 NoHap, 10 Skipped | **1** |
+| 22,900,000-23,100,000 | 37 / 37 | 37 | 0 | 0 | 37 Hap | 37 Hap | **0** |
+
+Region formation is at parity on both spans, and the branch agrees everywhere
+except `30,802,901-30,804,117`.
+
+One parsing trap is worth recording because it produced a phantom 54th region in
+the first version of this harness: upstream emits `Skipped region: <chrom>:...`
+from the noisy-region ratio filter in `collect_var.c`, which is NOT an MSA
+firing and collides with the `Skipped <chrom>:...` firing label from
+`align.c:1800`. The script now requires a `<chrom>:<beg>-<end>` field
+immediately after the label, which separates them.
