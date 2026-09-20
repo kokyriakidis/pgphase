@@ -547,10 +547,22 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         // to ordinary MSA indels. Otherwise a rejected site can reconnect the
         // flanks through its abundant reference observations alone.
         // A homopolymer indel is kept out of the LINK list because its allele is
-        // unreliable for linking. But the emit loop below still hands such a
-        // site the running phase set while leaving `parity` unapplied, so it
-        // joins a block carrying whatever orientation its own consensus
-        // produced, never reconciled against that block. On
+        // unreliable for linking, and the emit loop below hands it the running
+        // phase set without applying `parity` -- the same shape as longcallD
+        // (assign_hap.c:409 flips inside the `is_het` guard, :418 assigns the
+        // phase set to every candidate).
+        //
+        // That asymmetry is NOT the cause of the switch described below, which
+        // was tested directly: applying the running parity to every site that
+        // only inherits the phase set moved 128 genotypes on chr20 and, scored
+        // against each site's own block orientation from read truth, 31 of them
+        // went from agreeing to disagreeing against 18 the other way. The solve
+        // is iterative -- the caller re-derives read labels from the flipped
+        // consensus and calls this again -- so by convergence an inherited site
+        // is already in the block's gauge and applying the parity double-counts
+        // it. Rejected and reverted; see
+        // evaluations/2026-09-20-inherited-parity/. The mechanism behind the
+        // site below is therefore still open. On
         // chr20:48,225,786 (CAAAA>C in an A run, segregation 1.000 against read
         // truth) that put a maternal-on-hap1 site inside a block whose body is
         // paternal-on-hap1 -- a switch invisible in read space, because the
@@ -707,9 +719,12 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 /// whatever its own consensus produced in isolation.
 ///
 /// Why that matters: a homopolymer indel is normally kept off the link list
-/// because its allele is unreliable for linking, but the emit loop still hands
-/// such a site the running phase set while leaving `parity` unapplied -- so it
-/// joins a block carrying its own unreconciled orientation. On
+/// because its allele is unreliable for linking, and such a site inherits the
+/// running phase set without `parity` being applied. Applying that parity was
+/// tested and rejected -- it regressed 31 site orientations against 18 improved
+/// (evaluations/2026-09-20-inherited-parity/) -- so admission to the link list,
+/// where spanning reads decide the orientation, remains the route that fixes
+/// the site below. On
 /// chr20:48,225,786 (CAAAA>C in an A run, segregating 1.000 against read truth)
 /// that put a maternal-on-hap1 site inside a paternal-on-hap1 block: a switch
 /// invisible in read space, because the reads covering it belong to the NEXT
