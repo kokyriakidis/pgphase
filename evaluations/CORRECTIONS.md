@@ -522,3 +522,32 @@ rule we have. So there is no gate divergence to fix, and the record's conclusion
 gate would fire the noisy MSA on regions upstream skips, breaking firing parity
 in the other direction. Measured firing lists over 200 kb: upstream 43 Hap /
 1 NoHap / 9 Skipped, ours 42 / 1 / 10, over 53 identical regions.
+
+## 2026-09-20 -- 013a0c9 overstated the fault-injection coverage of the parity suite
+
+The commit message for the per-function parity suite says "Each case was
+fault-injected to prove it bites" and names three injections. That covered three
+of the eight test cases, not all of them, so the blanket claim was wrong.
+
+It is now true. Each of the eight cases has been broken deliberately and
+observed to fail, with the failing assertion's line recorded:
+
+| injected fault | fails at |
+|---|---|
+| scope the profile update to the first covered variant's phase set | `:63` |
+| an unassigned read counts toward hap1 only | `:72` |
+| the category mask is ignored | `:84` |
+| an unobserved allele is counted as reference | `:90` |
+| the phase-set argument is ignored | `:103` |
+| `check_agree_haps` agree and conflict returns swapped | `:117`, `:121` |
+| a read with no variant profile is labelled hap1 | `:137` |
+| the chosen haplotype is inverted | `:142` |
+
+All pass again on restore (23 assertions, 8 cases).
+
+One detail the original message did report correctly and is worth keeping
+separate from the overstatement: a first injection attempt aborted on a
+non-unique anchor and wrote nothing, so its run was a clean pass rather than a
+fault that failed to bite. That was noted at the time and the injection was
+redone with a unique anchor. The error here is the coverage claim, not a missed
+non-biting fault.
