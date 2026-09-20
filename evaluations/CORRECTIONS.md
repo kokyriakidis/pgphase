@@ -506,3 +506,19 @@ scored reads (949 reads), the set the record's table was built from, and
 0.967% excludes all 35 single-parent blocks (1,105 reads). Recomputed on the
 same run to confirm. The fault was quoting one convention beside a table built
 on the other; both now appear with their cutoffs.
+
+## 2026-09-20 -- 6cea093 cited the wrong level for upstream's MSA branch gate
+
+The commit says our `n_full_reads >= min_depth` branch gate diverges from
+upstream, citing `align.c:1175`, "bails only on n_full_reads == 0". That line is
+the guard inside `wfa_collect_noisy_aln_str_no_ps_hap`, one level BELOW the
+branch. Upstream's branch gate is `align.c:1794`:
+
+    } else if (ps_with_both_haps <= 0 && n_full_reads >= min_no_hap_full_read_count) {
+
+with `min_no_hap_full_read_count = opt->min_dp` (`align.c:1777`) -- the same
+rule we have. So there is no gate divergence to fix, and the record's conclusion
+(keep the relaxation unshipped) is reinforced rather than weakened: relaxing our
+gate would fire the noisy MSA on regions upstream skips, breaking firing parity
+in the other direction. Measured firing lists over 200 kb: upstream 43 Hap /
+1 NoHap / 9 Skipped, ours 42 / 1 / 10, over 53 identical regions.
