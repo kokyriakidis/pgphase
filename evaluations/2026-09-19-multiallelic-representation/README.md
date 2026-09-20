@@ -55,9 +55,39 @@ measured against a reference no read carries, allele fraction runs to 1 and
 both halves classify homozygous.
 
 So the ordering is upstream splits, our alignment arm was changed to merge, and
-the graph arm still splits -- 0 multiallelic records on chr20 against 400
-positions carrying two het rows. The graph arm is behind our own alignment arm,
-not behind upstream.
+the graph arm still splits. The graph arm is behind our own alignment arm, not
+behind upstream.
+
+## Current state, all figures from runs of the current binary
+
+The table above mixes the Sep 12 eval-data snapshots with upstream; this one is
+the binary as it stands, whole chr20, phased records only. The graph-arm
+snapshot figure (72 two-row positions) and the current figure (400) are
+DIFFERENT RUNS eleven days and many commits apart, and an earlier revision of
+this document put them in one paragraph without saying so.
+
+| run | phased | comma-ALT | `GT 1\|2` | positions with 2+ rows |
+|---|---:|---:|---:|---:|
+| longcallD 0.0.11 (upstream) | 118,270 | 0 | 0 | 2,401 (4,824 records) |
+| alignment arm, Sep 12 snapshot | 118,270 | 0 | 0 | 2,401 |
+| **alignment arm, current** | 116,179 | **1,664** | **1,657** | **806** (1,612 records) |
+| graph arm, Sep 12 snapshot | 50,954 | 0 | 0 | 72 (145 records) |
+| **graph arm, current default** | 62,352 | **0** | **0** | **400** (800 records) |
+| **graph arm, current routed** | 69,906 | **0** | **0** | **653** (1,306 records) |
+| hiphase | 77,123 | 2,063 | 1,718 | 0 |
+
+Two things this makes precise.
+
+**The divergence from upstream is 1,664 records.** That is the size of the
+merge in the arm that has it: upstream writes 2,401 two-row positions on chr20,
+we write 1,664 merged records and still 806 two-row positions.
+
+**The merge is incomplete even where it exists.** 806 positions in our own
+alignment arm still carry two biallelic rows. Either those are loci the merge
+should cover and does not, or they are a class that must not merge (a SNP and
+an insertion at one base are not two alleles of one event). That is a separate
+question from propagating the merge to the graph arm, and it is answerable from
+these 806 positions.
 
 The previous session note framed this as "the graph arm never emits a
 multiallelic record", implying it alone was wrong. That was measured on our
