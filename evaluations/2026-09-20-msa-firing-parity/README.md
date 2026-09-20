@@ -96,3 +96,46 @@ upstream's 7/8.
 The instrumented upstream lives at `/tmp/lcd-instr`, a copy -- the user's
 `~/Downloads/longcallD` checkout is untouched. Probes there are gated on
 `LCD_PSDUMP` and `LCD_READS`.
+
+## Whose partition is right? Truth cannot say here -- claim withdrawn
+
+An earlier reading of this record said our labelling was wrong, because the
+three fully-covering reads are `062403_s3/42341906` (MATERNAL),
+`034919_s2/144706284` (PATERNAL) and `034919_s2/218562686` (PATERNAL) and we put
+all three on one haplotype while upstream splits them 1/2 -- matching that
+composition. That conclusion does not hold, and the contradiction that broke it
+is worth recording.
+
+**Our labels are internally consistent.** Scoring all reads against our own 165
+phased clean SNPs in the enclosing block, the two supposedly misassigned reads
+agree with the haplotype we gave them at **152 of 153 sites**. A locally
+misassigned read does not look like that.
+
+**The parental truth map is self-inconsistent in this window.** Assigning each
+site's alternate allele to a parent (>= 5 alternate reads, >= 90% pure) and
+walking the block, the parent attached to hap1 alternates **42 times across 147
+sites** -- often site to site. No real phasing produces that, and it cannot
+coexist with reads matching one haplotype at 152 of 153 sites. This is the
+low-mapping-quality, duplicated window already on record (21 of 28 reads at
+MAPQ 1-19), and it is outside the GIAB confident regions, so neither the
+benchmark nor read truth can adjudicate the partition here.
+
+So the honest status of the single firing divergence: its mechanism is
+established (the read partition decides the minor-haplotype count, which decides
+the branch), but which partition is correct is **not** established, and this
+locus cannot establish it.
+
+## The harness
+
+`compare_firing.sh REF BAM REGION` (with `LCD` pointing at the longcallD
+binary) diffs the two firing lists directly. Ours now prints one comparable line
+per region at `--verbose 1`:
+
+    MsaFire <Hap|NoHap|Skipped> <beg>-<end> <len> <n> reads (<f> full) ps=<ps>
+
+against upstream's `Hap` / `NoHap` / `Skipped` lines. This is a verbose-only
+change; no behaviour is affected, and all three suites are unchanged (unit 3/3,
+predicate 151, window 125).
+
+Any future change that moves where the MSA fires is now visible in one command
+rather than by inference.

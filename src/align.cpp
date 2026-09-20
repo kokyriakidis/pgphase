@@ -1932,8 +1932,21 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
 
     int n_cons = 0;
     if (opts.verbose >= 1) {
-        std::fprintf(stderr, "BranchSelect ps=%" PRId64 " n_full_reads=%d n_reads=%d\n",
-                     static_cast<int64_t>(ps), n_full_reads, info.n_reads);
+        // Region bounds and the branch label make this line directly comparable
+        // with longcallD's own firing log, which prints Hap / NoHap / Skipped
+        // per region at -V 1 (align.c:1792, :1798, :1800). The three labels are
+        // chosen by the same rule on both sides, so a diff of the two logs is a
+        // diff of where the noisy MSA fires. See
+        // evaluations/2026-09-20-msa-firing-parity/.
+        const char* branch = ps > 0 ? "Hap"
+                           : (n_full_reads >= opts.min_depth ? "NoHap" : "Skipped");
+        std::fprintf(stderr,
+                     "MsaFire %s %" PRId64 "-%" PRId64 " %" PRId64
+                     " %d reads (%d full) ps=%" PRId64 "\n",
+                     branch, static_cast<int64_t>(noisy_reg_beg),
+                     static_cast<int64_t>(noisy_reg_end),
+                     static_cast<int64_t>(noisy_reg_end - noisy_reg_beg + 1),
+                     info.n_reads, n_full_reads, static_cast<int64_t>(ps));
     }
     // Build ref-vs-read alignment strings when phased-BAM output is requested.
     const bool collect_ref_read_aln_str =
