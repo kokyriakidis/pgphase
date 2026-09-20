@@ -628,8 +628,10 @@ void run_collect_bam_variation(const Options& opts) {
         // positions on chr20. Ours scored 412 with the multiallelic merge off.
         // The graph writer already applied this resolution
         // (graph_collect.cpp); the alignment writer did not.
-        make_colocated_alleles_complementary(variants, opts.min_alt_depth);
-        drop_conflicting_haplotype_alleles(variants);
+        if (opts.collapse_colocated_alleles)
+            make_colocated_alleles_complementary(variants, opts.min_alt_depth);
+        if (opts.collapse_colocated_alleles)
+            drop_conflicting_haplotype_alleles(variants);
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);
         if (!opts.output_vcf.empty()) {
@@ -2307,6 +2309,12 @@ int collect_bam_variation(int argc, char* argv[]) {
     // of allele count, and a read taking the first het site's phase set with no
     // further screens. See Options::upstream_read_scoring.
     opts.upstream_read_scoring = true;
+
+    // NOT set false: make_colocated_alleles_complementary is what produces
+    // upstream's one-row-per-haplotype shape at a co-located pair, so turning it
+    // off moves away from parity rather than toward it. The option exists and
+    // stays on here; see Options::collapse_colocated_alleles.
+
 
     try {
         run_collect_bam_variation(opts);

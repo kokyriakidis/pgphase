@@ -241,6 +241,17 @@ struct Options {
     /// is "make the split complementary the way upstream's is", and until that
     /// is done the merged form is the correct one to ship.
     bool merge_colocated_msa_alleles = true;
+    /// Collapse two co-located haplotype-specific alleles into one record.
+    ///
+    /// Where both haplotypes carry an allele at one position, this project
+    /// reduces the pair to a single row -- as a homozygous call when the two
+    /// alleles are equal, or by keeping one when they differ. longcallD emits
+    /// one biallelic row per haplotype instead: at chr20:3,863,176 it writes
+    /// `C>CAAAAAAAAA 1|0` beside `C>CAAAAAAAAA 0|1` where we write `1|1`, and at
+    /// 7,829,788 `C>CA 1|0` beside `C>CAAA 0|1` where we keep only `C>CA`.
+    /// That accounts for 31 of the 38 positions where the two disagree on
+    /// alleles. Off for the ported path.
+    bool collapse_colocated_alleles = true;
     /// Re-derive every two-cluster MSA candidate's counts and per-read profile
     /// from `call_local_msa_allele` after `update_cand_var_profile_from_cons_
     /// aln_str2` has already built them.

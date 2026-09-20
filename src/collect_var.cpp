@@ -2250,7 +2250,8 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     derive_msa_candidate_strand_counts(chunk);
     // Step 4 is what creates the merged multiallelic records, so the superseded
     // duplicates can only be identified after it has run.
-    drop_superseded_colocated_records(chunk);
+    if (opts.collapse_colocated_alleles)
+        drop_superseded_colocated_records(chunk);
 
     const hts_pos_t active_reg_beg = chunk.region.beg;
     const hts_pos_t active_reg_end = chunk.region.end;
@@ -2325,8 +2326,13 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
     std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
     for (size_t i = 0; i < result.size(); ++i)
         by_pos[{result[i].key.tid, result[i].key.sort_pos()}].push_back(i);
+    // A BAM-discovered candidate carries its depths in ref_cov/alt_cov and
+    // leaves alle_covs empty -- 662 such candidates per megabase on chr20 --
+    // so reading alle_covs[1] alone returned 0 and the min_alt_support test
+    // below rejected every pair on the alignment arm. This rule was dead there.
     const auto alt_depth = [](const CandidateVariant& c) {
-        return c.counts.alle_covs.size() > 1 ? c.counts.alle_covs[1] : 0;
+        if (c.counts.alle_covs.size() > 1) return c.counts.alle_covs[1];
+        return c.counts.alt_cov;
     };
     size_t flipped = 0;
     for (const auto& group : by_pos) {
@@ -2334,12 +2340,55 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
         CandidateVariant& a = result[group.second[0]];
         CandidateVariant& b = result[group.second[1]];
         if (a.hap_to_cons_alle.size() < 3 || b.hap_to_cons_alle.size() < 3) continue;
+        if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
+        if (alt_depth(a) < min_alt_support || alt_depth(b) < min_alt_support) continue;
         int hap = 0;
         for (int h = 1; h <= 2; ++h)
             if (a.hap_to_cons_alle[h] == 1 && b.hap_to_cons_alle[h] == 1) hap = h;
-        if (hap == 0) continue;                       // already complementary
-        if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
-        if (alt_depth(a) < min_alt_support || alt_depth(b) < min_alt_support) continue;
+        if (hap == 0) {
+            // The other way a co-located pair fails to be complementary: one
+            // candidate claims BOTH haplotypes and the other claims NEITHER, so
+            // the first is emitted 1|1 and the second dropped for carrying no
+            // ALT. longcallD splits these -- at chr20:3,863,176 it writes
+            // C>AAAAAAAAA 1|0 beside C>AAAAAAAAAAA 0|1 where we wrote 1|1 and
+            // nothing. Give each allele the haplotype whose own profile prefers
+            // it, and only when both profiles are present and disagree, so the
+            // orientation comes from read evidence rather than from the order
+            // the candidates happen to sit in.
+            const bool a_both = a.hap_to_cons_alle[1] == 1 && a.hap_to_cons_alle[2] == 1;
+            const bool b_none = b.hap_to_cons_alle[1] != 1 && b.hap_to_cons_alle[2] != 1;
+            const bool b_both = b.hap_to_cons_alle[1] == 1 && b.hap_to_cons_alle[2] == 1;
+            const bool a_none = a.hap_to_cons_alle[1] != 1 && a.hap_to_cons_alle[2] != 1;
+            if (!((a_both && b_none) || (b_both && a_none))) continue;
+            CandidateVariant& both = a_both ? a : b;
+            CandidateVariant& none = a_both ? b : a;
+            const auto alt_prof = [](const CandidateVariant& c, int h) -> int {
+                if (c.hap_to_alle_profile.size() < 3) return -1;
+                const auto& row = c.hap_to_alle_profile[static_cast<size_t>(h)];
+                return row.size() > 1 ? row[1] : -1;
+            };
+            const int n1 = alt_prof(none, 1), n2 = alt_prof(none, 2);
+            if (n1 < 0 || n2 < 0 || n1 == n2) continue;
+            const int none_hap = n1 > n2 ? 1 : 2;       // where the dropped allele is stronger
+            const int both_hap = none_hap == 1 ? 2 : 1;
+            none.hap_to_cons_alle[none_hap] = 1;
+            none.hap_to_cons_alle[both_hap] = 0;
+            both.hap_to_cons_alle[both_hap] = 1;
+            both.hap_to_cons_alle[none_hap] = 0;
+            // Keep hap_alt/hap_ref in step with the consensus, the way the
+            // rule below this one does with its swap: collect_phase.cpp:1132-1136
+            // encodes both-alt as 3/0, hap1-alt as 1/2 and hap2-alt as 2/1.
+            const auto sync_hap_fields = [](CandidateVariant& c) {
+                const bool h1 = c.hap_to_cons_alle[1] != 0;
+                const bool h2 = c.hap_to_cons_alle[2] != 0;
+                c.hap_alt = (h1 && h2) ? 3 : (h1 ? 1 : (h2 ? 2 : 0));
+                c.hap_ref = (h1 && h2) ? 0 : (h1 ? 2 : (h2 ? 1 : 3));
+            };
+            sync_hap_fields(none);
+            sync_hap_fields(both);
+            ++flipped;
+            continue;
+        }
         CandidateVariant& weaker = alt_depth(a) <= alt_depth(b) ? a : b;
         const int other = hap == 1 ? 2 : 1;
         weaker.hap_to_cons_alle[hap] = 0;
