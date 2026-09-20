@@ -127,3 +127,4 @@ test_data/derived/
 /test_gap_windows
 /test_phase_predicates
 /test_bam_site_injection
+test_port_parity
