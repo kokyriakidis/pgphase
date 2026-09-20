@@ -124,3 +124,43 @@ there. They differ only for the graph arm's merge paths, which renumber
 candidates and do call below the end 1,490 times -- a caller upstream does not
 have, and one for which upstream's version would shrink the span and truncate
 the profile. So the conditional stays, now with the number that says why.
+
+## Is the residual worth closing? Scored against GIAB truth
+
+Every record in both residual sets was classified against
+`HG002_CHM13v2.0_v5.0q_smvar` inside the benchmark BED:
+
+| | upstream emits, we do not (370) | we emit, upstream does not (373) |
+|---|---:|---:|
+| outside the benchmark region | 299 (81%) | 344 (92%) |
+| **TRUE variant, exact allele** | **12** | **13** |
+| **FALSE positive, no truth variant** | **25** | **9** |
+| truth has the position, other allele | 34 | 7 |
+
+Matching upstream exactly on these records would **gain 12 true variants and
+lose 13, while gaining 25 false positives and shedding 9** -- net one fewer true
+variant and sixteen more false ones.
+
+For the 254 held-but-unemitted class specifically: 25 false positives against 12
+true variants inside the benchmark. Our abstention there is right about twice as
+often as it is wrong, which is the same thing the labelling comparison said from
+the other direction -- upstream labels 45% of spanning reads at 60.2%
+truth-consistency where we label 20% at 65.6%. It emits more because it commits
+more, and most of what it commits at these loci is not in the truth set.
+
+So the residual is not an accuracy target. It is only worth closing if the goal
+is bit-parity with the reference implementation, which is a different goal and
+should be chosen deliberately.
+
+Caveat on the size of the signal: 81-92% of both sets fall outside the benchmark
+region, so the verdict rests on 37 and 22 assessable records respectively. The
+direction is consistent with the independent labelling measurement, but these are
+small numbers and should not be quoted as precise rates.
+
+## The real cost is already known, and it is reversible
+
+The nine divergences removed today were suppressing false positives. Their
+removal took GIAB F1 from 0.9677 to 0.9632 and misplaced reads from 1,516 to
+3,226. Every one is behind a named option, defaulted to this project's behaviour
+and set faithful only in `collect_bam_variation`, so the choice between "matches
+upstream" and "scores better" is now one flag per divergence rather than a fork.
