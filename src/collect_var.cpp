@@ -2301,6 +2301,55 @@ void collect_var_main(PhasingChunk& chunk,
 // containment resolved towards the complete allele: when one ALT is a prefix
 // of the other on a haplotype already claimed at that position, the
 // contained (shorter) record is dropped.
+/// Make two co-located records complementary instead of discarding one.
+///
+/// longcallD cannot express a haplotype carrying two alleles at one position:
+/// it writes one ALT per candidate and takes the genotype from that
+/// candidate's own haplotype alleles, so its two rows at a locus are
+/// complementary by construction, and it scores ZERO such positions on chr20.
+/// Ours scored 412 with the multiallelic merge off -- two nested MSA
+/// insertions, A>ATC and A>ATCTC at 882,277, both called 1|0 with 11 and 15
+/// alternate reads against 2 reference.
+///
+/// Both alleles have real support there, so the locus is heterozygous with two
+/// non-reference alleles and the right answer is one allele per haplotype --
+/// which is what upstream emits. Dropping the contained form instead costs 798
+/// records on chr20 and takes two-row positions to 1,542 against upstream's
+/// 2,401.
+///
+/// So: when two records at one position claim the SAME haplotype and both
+/// alleles carry alternate support, move the less supported one to the other
+/// haplotype. Returns the number of records re-oriented. Anything without
+/// support on both sides is left to drop_conflicting_haplotype_alleles.
+size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
+    std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
+    for (size_t i = 0; i < result.size(); ++i)
+        by_pos[{result[i].key.tid, result[i].key.sort_pos()}].push_back(i);
+    const auto alt_depth = [](const CandidateVariant& c) {
+        return c.counts.alle_covs.size() > 1 ? c.counts.alle_covs[1] : 0;
+    };
+    size_t flipped = 0;
+    for (const auto& group : by_pos) {
+        if (group.second.size() != 2) continue;
+        CandidateVariant& a = result[group.second[0]];
+        CandidateVariant& b = result[group.second[1]];
+        if (a.hap_to_cons_alle.size() < 3 || b.hap_to_cons_alle.size() < 3) continue;
+        int hap = 0;
+        for (int h = 1; h <= 2; ++h)
+            if (a.hap_to_cons_alle[h] == 1 && b.hap_to_cons_alle[h] == 1) hap = h;
+        if (hap == 0) continue;                       // already complementary
+        if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
+        if (alt_depth(a) < min_alt_support || alt_depth(b) < min_alt_support) continue;
+        CandidateVariant& weaker = alt_depth(a) <= alt_depth(b) ? a : b;
+        const int other = hap == 1 ? 2 : 1;
+        weaker.hap_to_cons_alle[hap] = 0;
+        weaker.hap_to_cons_alle[other] = 1;
+        std::swap(weaker.hap_alt, weaker.hap_ref);
+        ++flipped;
+    }
+    return flipped;
+}
+
 void drop_conflicting_haplotype_alleles(CandidateTable& result) {
     std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
     for (size_t i = 0; i < result.size(); ++i)

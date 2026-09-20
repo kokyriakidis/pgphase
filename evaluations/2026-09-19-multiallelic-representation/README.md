@@ -138,3 +138,62 @@ The residual 1,103 upstream records we lack with the merge off decompose as 916
 at positions we do not emit at all, 148 indels where the position is present
 but the allele differs, and 24 SNPs likewise -- a separate parity bucket from
 the representation question.
+
+## Two coherence fixes, and the real blocker to parity
+
+### The alignment writer never ran the conflict resolution
+
+`drop_conflicting_haplotype_alleles` was wired into the graph writer only
+(`graph_collect.cpp`), so the alignment arm emitted positions where one
+haplotype carries two different ALT alleles: 8 with the merge on, 412 with it
+off. Upstream scores 0, because it writes one ALT per candidate and derives the
+genotype from that candidate's own haplotype alleles, so its rows are
+complementary by construction. Now wired into both writers.
+
+### Dropping is the wrong resolution when both alleles have support
+
+At `882,277` the two records are `A>ATC` (11 alternate reads) and `A>ATCTC`
+(15), both called `1|0` against 2 reference reads. Both alleles are real, so
+the locus is heterozygous with two non-reference alleles and the answer is one
+allele per haplotype -- what upstream emits. Dropping the contained form costs
+798 records on chr20 and takes two-row positions to 1,542 against upstream's
+2,401.
+
+`make_colocated_alleles_complementary` moves the less supported allele to the
+other haplotype instead, and only when both carry at least `min_alt_depth`
+alternate reads; anything weaker still falls to the drop.
+
+Measured with the merge ON, whole chr20:
+
+| | alignment arm | graph arm |
+|---|---|---|
+| positions putting two ALTs on one haplotype | **8 -> 0** | 0 -> 0 |
+| phased records | 116,179 -> 116,170 | 62,352 -> 62,458 |
+| read hamming | -- | **1.153% -> 1.153%** |
+| tagged / misplaced | -- | 219,055 / 2,526 unchanged |
+
+Read placement does not move; the fixes change which records are emitted and
+on which haplotype, not how reads are assigned. Window suite 125/125.
+
+### What still blocks parity: the split's genotyping, not its coherence
+
+With the merge off the gap-window suite fails on `in_gap_hets`, not on
+conflicts:
+
+```
+window 3,852,321  in_gap_hets  4 >= 17   FAILED
+window 4,766,928  in_gap_hets  1 >=  6   FAILED
+window 5,309,406  in_gap_hets  1 >=  3   FAILED
+```
+
+Split into two biallelic rows, each allele is measured against a reference no
+read carries -- allele fraction runs to 1 and both halves classify homozygous,
+so they never reach the output as heterozygotes at all. That is the defect the
+merge was built to avoid, and it is upstream of every representation fix: the
+coherence passes above cannot help a record that was never called het.
+
+So parity requires genotyping a split allele against the LOCUS -- the other
+allele and the reference together -- rather than against the reference alone,
+which is what upstream's cluster-consensus comparison does implicitly. Until
+that is done the merge stays on by default, and the option exists so the
+comparison can be re-run in one command.

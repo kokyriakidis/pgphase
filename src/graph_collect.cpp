@@ -554,6 +554,7 @@ static CandidateTable graph_chunks_to_candidate_table(
         }
     }
 
+    make_colocated_alleles_complementary(result, opts.min_alt_depth);
     drop_conflicting_haplotype_alleles(result);
 
     return result;

@@ -619,6 +619,17 @@ void run_collect_bam_variation(const Options& opts) {
             opts, chunks, batch_begin, batch_end);
         stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
         CandidateTable variants = merge_chunk_candidates(batch.chunks);
+        // One haplotype carries one allele. Two co-located MSA insertions whose
+        // ALTs nest -- A>ATC and A>ATCTC at 882,277, both called 1|0 -- assign
+        // the same haplotype two different alleles, which longcallD's structure
+        // cannot express: it writes one ALT per candidate and derives the
+        // genotype from that candidate's own haplotype alleles, so its two rows
+        // at a locus are complementary by construction and it scores ZERO such
+        // positions on chr20. Ours scored 412 with the multiallelic merge off.
+        // The graph writer already applied this resolution
+        // (graph_collect.cpp); the alignment writer did not.
+        make_colocated_alleles_complementary(variants, opts.min_alt_depth);
+        drop_conflicting_haplotype_alleles(variants);
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);
         if (!opts.output_vcf.empty()) {

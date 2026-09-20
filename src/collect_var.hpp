@@ -22,6 +22,11 @@ namespace pgphase_collect {
 /// position. Contained alleles lose to the complete one (a SNP against the
 /// insertion containing it); when neither contains the other, the better
 /// supported by allele depth wins, ties going to the shorter allele.
+/// Make two co-located records claiming one haplotype complementary, one allele
+/// per haplotype, the way longcallD's structure does by construction. Returns
+/// the number re-oriented.
+size_t make_colocated_alleles_complementary(CandidateTable& records, int min_alt_support);
+
 void drop_conflicting_haplotype_alleles(CandidateTable& records);
 
 // Move-only RAII owner for heap-allocated cgranges_t.
