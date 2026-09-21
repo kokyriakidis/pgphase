@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -39,7 +40,6 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 #include <htslib/sam.h>
@@ -363,7 +363,7 @@ static void initialize_chunk_overlap_state(PhasingChunk& chunk, size_t n_bams) {
     chunk.n_up_ovlp_skip_reads.assign(n_bams, 0);
     chunk.n_down_ovlp_skip_reads.assign(n_bams, 0);
     chunk.haps.assign(chunk.reads.size(), 0);
-    chunk.phase_sets.assign(chunk.reads.size(), -1);
+    chunk.phase_sets.assign(chunk.reads.size(), kUnphasedReadPhaseSet);
 
     for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
         const ReadRecord& read = chunk.reads[read_i];
@@ -685,125 +685,8 @@ void run_collect_bam_variation(const Options& opts) {
 
 namespace pgphase_collect {
 
-/// Reference windows where this chunk's solve failed, either way it can fail.
-///
-/// Two failures, both observed rather than predicted from site spacing:
-///
-///   NOT PHASED    -- reads cover the window and no eligible het candidate there
-///                    carries a phase set, so nothing in it was phased at all.
-///   NOT CONNECTED -- it was phased, but into a different phase set from the
-///                    block before it, so the solve could not link the two.
-///
-/// The second matters as much as the first: a window phased into its own block
-/// leaves the same unusable result as one not phased, and it is the shape most of
-/// these gaps actually have. Scattered unphased reads inside an otherwise phased
-/// stretch are not a failure and are left alone.
-///
-/// Step 1 of --retry-unphased-with-bam, and the only step that decides WHERE the
-/// retry applies. Its output becomes `retry_opts.retry_windows`, which
-/// allele_depths_call_het then uses to confine the widened het admission; a
-/// window this function does not report is a window the retry cannot touch.
-///
-/// Parameters, both exposed and both acting as floors on what counts as a
-/// failure worth re-solving:
-///   min_reads -- unphased reads that must pile up in the interval
-///                (--retry-min-unphased-reads, default 5). Below this the
-///                interval is a few stray reads, not a failed window.
-///   min_bp    -- how long the interval must be
-///                (--retry-min-window-bp, default 10000). Below this the solve
-///                did not fail over a span worth re-solving.
-/// Positions are accumulated in 1 kb bins, so both floors are applied to
-/// contiguous runs of bins rather than to individual reads.
-static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_unphased_windows(
-        const PhasingChunk& chunk, int min_reads, hts_pos_t min_bp) {
-    constexpr hts_pos_t kBin = 1000;
-    // A read's phase set comes only from an eligible heterozygous candidate
-    // (update_read_phase_set, collect_phase.cpp): homopolymer indels,
-    // kCandNoisyCandHom and unsupported MSA insertions are skipped, and a read
-    // with no such candidate gets ps = -1. So a window the solve could not phase
-    // is one holding no such candidate -- and it is measured that way rather than
-    // by asking whether reads carry a phase set, because a read reaching in from
-    // a flanking block carries one earned outside the window and would mask it.
-    // The eligibility test mirrors update_read_phase_set exactly, including the
-    // hap_to_cons_alle[1] / [2] indices; [0] is not a haplotype allele.
-    std::set<hts_pos_t> phasing_bins;
-    for (const auto& cand : chunk.candidates) {
-        if (cand.phase_set < 0) continue;
-        if (cand.is_homopolymer_indel ||
-            cand.lcd_var_i_to_cate == kCandNoisyCandHom ||
-            (!cand.msa_insertion_alts.empty() && !cand.gap_link_supported)) continue;
-        if (cand.hap_to_cons_alle[1] == -1 || cand.hap_to_cons_alle[2] == -1 ||
-            cand.hap_to_cons_alle[1] == cand.hap_to_cons_alle[2]) continue;
-        phasing_bins.insert(cand.key.pos / kBin);
-    }
-    std::map<hts_pos_t, std::pair<int, int>> bins;  // bin -> {phased, unphased}
-    const size_t n = std::min(chunk.reads.size(), chunk.haps.size());
-    for (size_t i = 0; i < n; ++i) {
-        const ReadRecord& read = chunk.reads[i];
-        if (read.is_skipped || read.end <= read.beg) continue;
-        for (hts_pos_t b = read.beg / kBin; b <= read.end / kBin; ++b) {
-            auto& e = bins[b];
-            if (phasing_bins.count(b) != 0) ++e.first; else ++e.second;
-        }
-    }
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> out;
-    // NOT CONNECTED: consecutive phasing candidates in different phase sets. The
-    // span between them is where the link failed, whatever its width -- a break
-    // is a break -- so it is admitted without the width floor that the
-    // not-phased runs carry.
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> breaks;
-    {
-        std::vector<std::pair<hts_pos_t, hts_pos_t>> ordered;  // pos -> phase set
-        for (const auto& cand : chunk.candidates) {
-            if (cand.phase_set < 0) continue;
-            if (cand.is_homopolymer_indel ||
-                cand.lcd_var_i_to_cate == kCandNoisyCandHom ||
-                (!cand.msa_insertion_alts.empty() && !cand.gap_link_supported)) continue;
-            if (cand.hap_to_cons_alle[1] == -1 || cand.hap_to_cons_alle[2] == -1 ||
-                cand.hap_to_cons_alle[1] == cand.hap_to_cons_alle[2]) continue;
-            ordered.emplace_back(cand.key.pos, cand.phase_set);
-        }
-        std::sort(ordered.begin(), ordered.end());
-        for (size_t i = 1; i < ordered.size(); ++i) {
-            if (ordered[i].second == ordered[i - 1].second) continue;
-            breaks.emplace_back(ordered[i - 1].first, ordered[i].first + 1);
-        }
-    }
-    hts_pos_t run_beg = -1;
-    hts_pos_t prev = -2;
-    for (const auto& [b, counts] : bins) {
-        const bool dead = counts.first == 0 && counts.second >= min_reads;
-        if (dead) {
-            if (run_beg < 0 || b != prev + 1) {
-                if (run_beg >= 0 && (prev + 1) * kBin - run_beg * kBin >= min_bp)
-                    out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
-                run_beg = b;
-            }
-            prev = b;
-        } else if (run_beg >= 0) {
-            if ((prev + 1) * kBin - run_beg * kBin >= min_bp)
-                out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
-            run_beg = -1;
-        }
-    }
-    if (run_beg >= 0 && (prev + 1) * kBin - run_beg * kBin >= min_bp)
-        out.emplace_back(run_beg * kBin, (prev + 1) * kBin);
-    out.insert(out.end(), breaks.begin(), breaks.end());
-    std::sort(out.begin(), out.end());
-    // Merge overlaps so a candidate is not admitted twice and the report reads
-    // as one failure per region.
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> merged;
-    for (const auto& w : out) {
-        if (!merged.empty() && w.first <= merged.back().second)
-            merged.back().second = std::max(merged.back().second, w.second);
-        else
-            merged.push_back(w);
-    }
-    return merged;
-}
-
-// Recover a window the first solve could not phase by running the ordinary
-// alignment pipeline over that region alone, then stitching its answer in.
+// Recover a seam by running the ordinary alignment pipeline over it, then
+// merging the discovered sites and observations into the live graph chunk.
 //
 // The gap this exists for is a mapping-quality hole: at
 // chr20:26,029,591-26,088,679 every read carries MAPQ 3, the default floor of
@@ -848,90 +731,80 @@ constexpr hts_pos_t kTargetedSolveFlank = 30000;
 /// sites on both sides needs a median of 5.6 kb and a p90 of 16.9 kb -- so 30 kb
 /// was 5x more than needed in the median case -- while ONE region needed 47.3 kb
 /// and therefore had no parent site to vote against at all.
-constexpr int kTargetedSolveFlankSites = 3;
+constexpr size_t kTargetedSolveFlankSites = 3;
 constexpr hts_pos_t kTargetedSolveFlankMin = 2000;
 constexpr hts_pos_t kTargetedSolveFlankMax = 60000;
 
-/// Sorted positions of the parent's phased sites, the anchors a targeted region
-/// must reach. Same admission test as the parent-extent map below.
+/// A recovery boundary must be an oriented heterozygote assigned to a real
+/// phase set. Both BAM and graph candidates use 0 until phasing assigns an
+/// anchor; reads separately use -1 while unphased. Testing `> 0` encodes the
+/// candidate contract directly, and unequal haplotype alleles exclude
+/// homozygous rows.
+static bool is_phase_set_anchor(const CandidateVariant& cand) {
+    return cand.phase_set > 0 && cand.hap_alt != cand.hap_ref;
+}
+
+/// Return the parent's phased candidate positions in coordinate order.
+///
+/// Candidate tables are position-sorted by the graph builder and preserve that
+/// invariant through recovery merges. Filtering the table preserves order, so
+/// this stage needs neither a sort nor an associative container. Co-located
+/// rows remain separate because the established recovery behavior measures
+/// context in phased candidates rather than distinct coordinates.
 static std::vector<hts_pos_t> parent_phased_positions(const PhasingChunk& chunk) {
-    std::vector<hts_pos_t> out;
-    out.reserve(chunk.candidates.size());
-    for (const CandidateVariant& cand : chunk.candidates) {
-        if (cand.phase_set == 0) continue;
-        if (cand.hap_alt == 0 && cand.hap_ref == 0) continue;
-        out.push_back(cand.key.sort_pos());
-    }
-    std::sort(out.begin(), out.end());
-    return out;
+    std::vector<hts_pos_t> positions;
+    positions.reserve(chunk.candidates.size());
+    for (const CandidateVariant& cand : chunk.candidates)
+        if (is_phase_set_anchor(cand)) positions.push_back(cand.key.sort_pos());
+    return positions;
 }
 
-/// Distance from `edge` to the `n`-th parent phased site in `direction`, clamped
-/// into [kTargetedSolveFlankMin, kTargetedSolveFlankMax]. Falls back to the
-/// maximum when there are not `n` sites that way: nothing to anchor against
-/// nearby, so reach as far as allowed rather than solve a region that cannot
-/// vote.
-static hts_pos_t targeted_flank_for(const std::vector<hts_pos_t>& sites,
-                                    hts_pos_t edge, int direction, int n) {
-    if (sites.empty()) return kTargetedSolveFlankMax;
-    const auto it = std::lower_bound(sites.begin(), sites.end(), edge);
-    hts_pos_t distance = kTargetedSolveFlankMax;
-    if (direction < 0) {
-        const auto index = static_cast<long>(it - sites.begin()) - n;
-        if (index >= 0) distance = edge - sites[static_cast<size_t>(index)];
-    } else {
-        const auto index = static_cast<long>(it - sites.begin()) + n - 1;
-        if (index < static_cast<long>(sites.size()))
-            distance = sites[static_cast<size_t>(index)] - edge;
-    }
-    return std::min(kTargetedSolveFlankMax,
-                    std::max(kTargetedSolveFlankMin, distance));
-}
-
-/// Intervals between consecutive phase blocks -- the other kind of failure.
+/// Return positive-width gaps between neighboring phase-set extents.
 ///
-/// collect_unphased_windows finds where the solve left READS unphased. That is
-/// one failure mode, and it is the one the alignment-driven pipeline produces:
-/// a stretch with no usable site leaves its reads untagged. But a solve can
-/// also place every read and still not join, leaving two blocks whose relative
-/// phase is unknown. The reads there are phased, so no unphased-read window is
-/// reported, and the targeted solve never sees the seam.
+/// Only oriented heterozygotes with `phase_set > 0` contribute coverage.
+/// Unphased candidates use 0, and homozygous rows can carry allele values, so
+/// testing the phase-set label or alleles alone would create false boundaries.
 ///
-/// That distinction decides whether a graph-first hybrid can work. Measured on
-/// chr20:5,309,406 with graph sites only outside the gap: three blocks with
-/// 34.6 kb and 12.0 kb seams between them, the retry reporting 3 unphased-read
-/// windows, none at a seam, and no targeted solve running. The blocks stayed
-/// apart because nothing asked about the interval between them.
+/// A phase-set label is the coordinate of the variant that began the block.
+/// Each accepted candidate therefore covers [phase_set, candidate_position].
+/// Candidates are position-sorted, so those interval ends arrive in order even
+/// when a later candidate reconnects to an older phase set and moves the start
+/// backward.
 ///
-/// Seams are taken from the candidates rather than the reads because a block's
-/// extent is first to last phased SITE; read starts understate it by up to a
-/// read length at each end, a mistake made earlier in this work.
-static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
+/// `covered` is a flat merge stack of disjoint coordinate extents. A new
+/// interval absorbs every component it reaches, then appends once. Each
+/// component is pushed and popped at most once, giving amortized O(C) time for C
+/// candidates and O(K) contiguous storage for K covered components. A hash
+/// table is unnecessary, and gaps cannot be emitted during the first pass
+/// because a later interval may bridge a provisional gap.
+///
+/// Terminal and wholly unanchored regions are intentionally absent because
+/// outside-in recovery needs established phase boundaries on both sides.
+static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_phase_set_seams(
         const PhasingChunk& chunk) {
-    std::map<hts_pos_t, std::pair<hts_pos_t, hts_pos_t>> extent;
+    struct CoveredExtent {
+        hts_pos_t beg;
+        hts_pos_t end;
+    };
+
+    std::vector<CoveredExtent> covered;
     for (const CandidateVariant& cand : chunk.candidates) {
-        if (cand.phase_set == 0) continue;
-        if (cand.hap_alt == 0 && cand.hap_ref == 0) continue;
-        const hts_pos_t pos = cand.key.sort_pos();
-        auto it = extent.find(cand.phase_set);
-        if (it == extent.end()) extent.emplace(cand.phase_set, std::make_pair(pos, pos));
-        else {
-            it->second.first = std::min(it->second.first, pos);
-            it->second.second = std::max(it->second.second, pos);
+        if (!is_phase_set_anchor(cand)) continue;
+
+        CoveredExtent merged{cand.phase_set, cand.key.sort_pos()};
+        while (!covered.empty() && merged.beg <= covered.back().end) {
+            merged.beg = std::min(merged.beg, covered.back().beg);
+            merged.end = std::max(merged.end, covered.back().end);
+            covered.pop_back();
         }
+        covered.push_back(merged);
     }
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
-    spans.reserve(extent.size());
-    for (const auto& kv : extent) spans.push_back(kv.second);
-    std::sort(spans.begin(), spans.end());
 
     std::vector<std::pair<hts_pos_t, hts_pos_t>> seams;
-    for (size_t i = 1; i < spans.size(); ++i) {
-        const hts_pos_t beg = spans[i - 1].second;
-        const hts_pos_t end = spans[i].first;
-        if (end <= beg) continue;   // overlapping or touching blocks
-        seams.emplace_back(beg, end);
-    }
+    if (covered.size() < 2) return seams;
+    seams.reserve(covered.size() - 1);
+    for (size_t i = 1; i < covered.size(); ++i)
+        seams.emplace_back(covered[i - 1].end, covered[i].beg);
     return seams;
 }
 
@@ -959,13 +832,12 @@ static void use_longcalld_bam_options(Options& opts) {
 /// index-parallel to per-site metadata cannot accept that: appending candidates,
 /// and the reorder that follows, decouples the arrays and mispairs records.
 /// Sub-solve options: the recovery MAPQ floor, the alignment pipeline's own
-/// noisy-k-means default, no recursion, and one thread because the caller
-/// parallelises across regions instead.
+/// noisy-k-means default, no recursion, and one thread because the outer graph
+/// worker pool already parallelises independent chunks.
 static Options targeted_solve_options(const Options& opts) {
     Options sub = opts;
     sub.min_mapq = std::min(opts.min_mapq, opts.recovery_min_mapq);
     sub.skip_noisy_kmeans = false;
-    sub.retry_unphased_with_bam = false;
     sub.threads = 1;
     sub.verbose = 0;
     return sub;
@@ -973,103 +845,100 @@ static Options targeted_solve_options(const Options& opts) {
 
 struct TargetedWindowGroup {
     RegionChunk region;
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> members;
+    size_t first_window = 0;
+    size_t past_last_window = 0;
 };
 
-/// Windows padded by kTargetedSolveFlank and merged where the padded regions
-/// touch, so one region is one piece of work. Shared by the per-chunk path and
-/// the batch prewarm so both derive identical region keys.
+static hts_pos_t clamp_targeted_flank(hts_pos_t distance) {
+    return std::clamp(distance, kTargetedSolveFlankMin, kTargetedSolveFlankMax);
+}
+
+/// Add phased context to sorted seams and merge touching solve regions.
+///
+/// Both inputs are coordinate ordered. A monotone cursor visits each parent
+/// candidate at most once, making target construction O(A + W) for A anchors
+/// and W seams. Group membership is stored as a half-open index range into
+/// `windows`; this avoids a vector allocation
+/// and coordinate copies for every merged group.
+///
+/// The left flank reaches the configured number of phased candidates strictly
+/// before the left boundary; the right flank reaches that number at or after
+/// the right boundary. This preserves the validated recovery context exactly.
+/// If a side has too few candidates, the maximum flank is used. Regions are
+/// clamped before grouping so a sub-solve cannot pull reads from the neighboring
+/// chunk.
 static std::vector<TargetedWindowGroup> build_targeted_groups(
-        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows, int solve_tid,
-        const std::vector<hts_pos_t>& parent_sites) {
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> window_list(windows.begin(), windows.end());
-    std::sort(window_list.begin(), window_list.end());
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
+        int solve_tid,
+        const std::vector<hts_pos_t>& parent_sites,
+        hts_pos_t chunk_beg,
+        hts_pos_t chunk_end) {
     std::vector<TargetedWindowGroup> groups;
-    groups.reserve(window_list.size());
-    for (const auto& window : window_list) {
-        const hts_pos_t beg = std::max<hts_pos_t>(
-            1, window.first - targeted_flank_for(parent_sites, window.first, -1,
-                                                 kTargetedSolveFlankSites));
-        const hts_pos_t end =
-            window.second + targeted_flank_for(parent_sites, window.second, +1,
-                                               kTargetedSolveFlankSites);
+    groups.reserve(windows.size());
+
+    const size_t required_sites = kTargetedSolveFlankSites;
+    size_t site_i = 0;
+    for (size_t window_i = 0; window_i < windows.size(); ++window_i) {
+        const auto& window = windows[window_i];
+
+        while (site_i < parent_sites.size() && parent_sites[site_i] < window.first)
+            ++site_i;
+        const size_t left_end = site_i;
+
+        hts_pos_t left_flank = kTargetedSolveFlankMax;
+        if (left_end >= required_sites) {
+            left_flank = clamp_targeted_flank(
+                window.first - parent_sites[left_end - required_sites]);
+        }
+
+        while (site_i < parent_sites.size() && parent_sites[site_i] < window.second)
+            ++site_i;
+        hts_pos_t right_flank = kTargetedSolveFlankMax;
+        if (parent_sites.size() - site_i >= required_sites) {
+            right_flank = clamp_targeted_flank(
+                parent_sites[site_i + required_sites - 1] - window.second);
+        }
+
+        const hts_pos_t beg = std::max(chunk_beg, window.first - left_flank);
+        const hts_pos_t end = std::min(chunk_end, window.second + right_flank);
+        if (beg >= end) continue;
+
         if (!groups.empty() && beg <= groups.back().region.end) {
             groups.back().region.end = std::max(groups.back().region.end, end);
-            groups.back().members.push_back(window);
+            groups.back().past_last_window = window_i + 1;
             continue;
         }
+
         TargetedWindowGroup group;
         group.region.tid = solve_tid;
         group.region.beg = beg;
         group.region.end = end;
         group.region.chunk_id = -1;
-        group.members.push_back(window);
-        groups.push_back(std::move(group));
+        group.first_window = window_i;
+        group.past_last_window = window_i + 1;
+        groups.push_back(group);
     }
     return groups;
 }
 
-/// Keep only what the apply phase reads, so a chromosome's worth of solved
-/// regions can be held at once.
-static TargetedSolveResult slim_targeted_result(PhasingChunk&& solved) {
-    TargetedSolveResult out;
-    if (solved.haps.size() != solved.reads.size()) return out;
-    out.qnames.reserve(solved.reads.size());
-    for (const auto& read : solved.reads) out.qnames.push_back(read.qname);
-    out.haps = std::move(solved.haps);
-    out.phase_sets = std::move(solved.phase_sets);
-    out.candidates = std::move(solved.candidates);
-    return out;
-}
-
-/// Solve the given regions in parallel, largest first.
+/// Return the seam containing pos, using the group's sorted half-open range.
 ///
-/// Largest-first matters because the regions are very uneven -- a merged group
-/// can hold twenty windows -- and taking them in coordinate order routinely
-/// leaves the biggest one starting last with every other thread idle. Each
-/// worker builds its own WorkerContext: htslib file handles are not shareable,
-/// and this is what collect_chunk_batch_parallel does for the main chunk loop.
-static std::vector<TargetedSolveResult> solve_targeted_regions(
-        const std::vector<RegionChunk>& regions, const Options& sub, int threads) {
-    std::vector<TargetedSolveResult> out(regions.size());
-    if (regions.empty()) return out;
+/// Recovery intentionally uses strict seam bounds: the two boundary anchors
+/// belong to the established blocks, while only sites inside the gap are new.
+static const std::pair<hts_pos_t, hts_pos_t>* find_containing_window(
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& windows,
+        const TargetedWindowGroup& group,
+        hts_pos_t pos) {
+    const auto first = windows.begin() + static_cast<std::ptrdiff_t>(group.first_window);
+    const auto last = windows.begin() + static_cast<std::ptrdiff_t>(group.past_last_window);
+    const auto after = std::upper_bound(
+        first, last, pos,
+        [](hts_pos_t value, const auto& window) { return value < window.first; });
+    if (after == first) return nullptr;
 
-    std::vector<size_t> order(regions.size());
-    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
-    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
-        return (regions[a].end - regions[a].beg) > (regions[b].end - regions[b].beg);
-    });
-
-    const size_t worker_count = std::min<size_t>(
-        std::max<size_t>(1, static_cast<size_t>(threads)), regions.size());
-    std::atomic<size_t> next_region{0};
-    std::exception_ptr first_error;
-    std::mutex error_mutex;
-    std::vector<std::thread> workers;
-    workers.reserve(worker_count);
-    for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
-        workers.emplace_back([&]() {
-            try {
-                WorkerContext local_context(sub);
-                while (true) {
-                    const size_t k = next_region.fetch_add(1);
-                    if (k >= order.size()) break;
-                    const size_t ri = order[k];
-                    out[ri] = slim_targeted_result(
-                        process_chunk(regions[ri], sub, local_context));
-                }
-            } catch (...) {
-                std::lock_guard<std::mutex> lock(error_mutex);
-                if (!first_error) first_error = std::current_exception();
-            }
-        });
-    }
-    for (std::thread& worker : workers) worker.join();
-    if (first_error) std::rethrow_exception(first_error);
-    return out;
+    const auto& window = *std::prev(after);
+    return pos > window.first && pos < window.second ? &window : nullptr;
 }
-
-
 
 namespace {
 
@@ -1097,6 +966,33 @@ CandKey cand_key_of(const CandidateVariant& cand) {
 
 /// One read's allele at each merged candidate, keyed by read name.
 using AlleleByCand = std::map<CandKey, std::pair<int, int>>;  // -> (allele, alt_qi)
+
+using CandidateIndex = std::map<CandKey, size_t>;
+
+struct ParentCandidateMatch {
+    size_t index;
+    bool is_raw;
+};
+
+static ParentCandidateMatch find_parent_candidate(
+        const CandidateIndex& raw_index,
+        const CandidateIndex& sequence_index,
+        const CandKey& key,
+        size_t missing_index) {
+    const auto raw = raw_index.find(key);
+    if (raw != raw_index.end()) return ParentCandidateMatch{raw->second, true};
+
+    const auto sequence = sequence_index.find(key);
+    if (sequence != sequence_index.end())
+        return ParentCandidateMatch{sequence->second, false};
+    return ParentCandidateMatch{missing_index, false};
+}
+
+struct TransferredCandidate {
+    CandidateVariant candidate;
+    bool orientation_decided;
+    bool flip;
+};
 
 }  // namespace
 
@@ -1365,10 +1261,10 @@ size_t expand_recovery_frontiers_once(PhasingChunk& chunk, const Options& opts) 
     return admitted;
 }
 
-size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
-                                      const Options& opts,
-                                      WorkerContext& context,
-                                       const char* contig_name) {
+size_t recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
+                                         const Options& opts,
+                                         WorkerContext& context,
+                                         const char* contig_name) {
     PhasingChunk& chunk = graph_chunk.chunk;
     if (chunk.candidates.empty() || chunk.reads.empty()) return 0;
 
@@ -1377,43 +1273,15 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                               : chunk.region.tid;
     if (solve_tid < 0) return 0;
 
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows = collect_unphased_windows(
-        chunk, opts.retry_min_unphased_reads, opts.retry_min_window_bp);
-    for (const auto& seam : collect_block_seams(chunk)) windows.push_back(seam);
-    // Repeat-context loci the graph arm demoted. The noisy-region MSA cannot
-    // run on the graph chunk itself -- collect_noisy_reg_reads skips every read
-    // with no digars (collect_phase_noisy.cpp:1042) and graph-only reads have
-    // none -- but the sub-solve re-reads the BAM through process_chunk, which
-    // builds them, so routing the seeded regions through here gives those loci
-    // the same stage 2 the alignment arm gives them.
-    if (opts.graph_noisy_msa)
-        for (const Interval& iv : chunk.noisy_regions)
-            windows.emplace_back(iv.beg, iv.end);
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> windows =
+        collect_phase_set_seams(chunk);
     if (windows.empty()) return 0;
 
     const std::vector<hts_pos_t> parent_sites = parent_phased_positions(chunk);
-    std::vector<TargetedWindowGroup> groups =
-        build_targeted_groups(windows, solve_tid, parent_sites);
-    // Keep the regions inside this chunk. A group's extension can reach past the
-    // chunk's own span, and discovering there pulls in reads that belong to the
-    // neighbouring chunk -- measured over chr20:1-5,000,000, 693 reads whose span
-    // lies entirely outside the chunk, from zero before the merge. Those reads
-    // then enter the cross-chunk stitch's merge-join as if they straddled the
-    // boundary, which changes the evidence it votes on. The neighbour recovers
-    // its own territory.
-    for (TargetedWindowGroup& g : groups) {
-        g.region.beg = std::max(g.region.beg, chunk.ref_beg);
-        g.region.end = std::min(g.region.end, chunk.ref_end);
-    }
-    groups.erase(std::remove_if(groups.begin(), groups.end(),
-                                [](const TargetedWindowGroup& g) {
-                                    return g.region.beg >= g.region.end;
-                                }),
-                 groups.end());
-    std::vector<RegionChunk> regions;
-    regions.reserve(groups.size());
-    for (const TargetedWindowGroup& group : groups) regions.push_back(group.region);
-
+    const std::vector<TargetedWindowGroup> groups =
+        build_targeted_groups(windows, solve_tid, parent_sites,
+                              chunk.ref_beg, chunk.ref_end);
+    if (groups.empty()) return 0;
 
     Options sub = targeted_solve_options(opts);
     // Scope the depth-based het escape to the windows actually being recovered.
@@ -1426,16 +1294,17 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // tuned for exactly this scoped use, inside a window the first pass could
     // not phase.
     sub.retry_windows.clear();
+    sub.retry_windows.reserve(windows.size());
     for (const TargetedWindowGroup& group : groups)
-        for (const auto& member : group.members)
-            sub.retry_windows.emplace_back(member.first, member.second);
+        for (size_t wi = group.first_window; wi < group.past_last_window; ++wi)
+            sub.retry_windows.push_back(windows[wi]);
     // The parent re-solves over the merged sites and collapses them unless it
     // applies the same depth-based het test, which is scoped by this list.
     graph_chunk.recovery_windows = sub.retry_windows;
     std::vector<PhasingChunk> discovered;
-    discovered.reserve(regions.size());
-    for (const RegionChunk& region : regions)
-        discovered.push_back(process_chunk(region, sub, context));
+    discovered.reserve(groups.size());
+    for (const TargetedWindowGroup& group : groups)
+        discovered.push_back(process_chunk(group.region, sub, context));
 
     // What the alignment found INSIDE the windows, plus every read's allele at
     // those sites and at the catalog sites the alignment also called. The second
@@ -1450,13 +1319,12 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // blocks instead of 47. The sequence-level identity lives in the parallel
     // site_meta array, and vcf_to_variant_key applies the same anchor trimming
     // inject_graph_sites uses in the other direction.
-    std::set<CandKey> parent_keys;
-    std::map<CandKey, size_t> parent_seq_index;
+    CandidateIndex parent_seq_index;
     const bool have_meta = graph_chunk.site_meta.size() == chunk.candidates.size();
-    std::map<CandKey, size_t> parent_cand_index;
+    CandidateIndex parent_cand_index;
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        parent_cand_index.emplace(cand_key_of(chunk.candidates[ci]), ci);
-        parent_keys.insert(cand_key_of(chunk.candidates[ci]));
+        const CandKey key = cand_key_of(chunk.candidates[ci]);
+        parent_cand_index.emplace(key, ci);
         if (!have_meta) continue;
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
         if (meta.ref.empty()) continue;
@@ -1466,7 +1334,6 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 vcf_to_variant_key(solve_tid, meta.pos, meta.ref, alt);
             const CandKey key{translated.sort_pos(), static_cast<int>(translated.type),
                               translated.ref_len, translated.alt};
-            parent_keys.insert(key);
             parent_seq_index.emplace(key, ci);
         }
     }
@@ -1475,21 +1342,24 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     for (size_t gi = 0; gi < discovered.size(); ++gi)
         for (const CandidateVariant& cand : discovered[gi].candidates) {
             const CandKey key = cand_key_of(cand);
-            if (cand.msa_insertion_alts.size() < 2 || parent_keys.count(key) != 0)
+            const ParentCandidateMatch parent =
+                find_parent_candidate(parent_cand_index, parent_seq_index, key,
+                                      chunk.candidates.size());
+            if (cand.msa_insertion_alts.size() < 2 ||
+                parent.index < chunk.candidates.size()) {
                 continue;
-            for (const auto& member : groups[gi].members)
-                if (key.pos > member.first && key.pos < member.second) {
-                    split_positions[gi].insert(key.pos);
-                    break;
-                }
+            }
+            if (find_containing_window(windows, groups[gi], key.pos) != nullptr)
+                split_positions[gi].insert(key.pos);
         }
 
     Options exact_sub = sub;
     use_longcalld_bam_options(exact_sub);
-    std::vector<PhasingChunk> exact_discovered(regions.size());
-    for (size_t gi = 0; gi < regions.size(); ++gi)
+    std::vector<PhasingChunk> exact_discovered(groups.size());
+    for (size_t gi = 0; gi < groups.size(); ++gi)
         if (!split_positions[gi].empty())
-            exact_discovered[gi] = process_chunk(regions[gi], exact_sub, context);
+            exact_discovered[gi] =
+                process_chunk(groups[gi].region, exact_sub, context);
 
     size_t adopted = 0;
     // Every sub-solve candidate and what the merge decided about it, so a
@@ -1497,9 +1367,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // rather than only under a probe.
     std::vector<RecoveredCandidate> audit;
     std::map<CandKey, size_t> audit_of;
-    std::map<CandKey, CandidateVariant> new_cands;
-    /// Per candidate: did its group's orientation vote decide, and did it flip.
-    std::map<CandKey, std::pair<bool, bool>> orient_of;
+    std::map<CandKey, TransferredCandidate> new_cands;
     std::map<std::string, AlleleByCand> observed;
     std::map<std::string, int> observed_mapq;
     // Parent haplotype per read, for the orientation vote below. The parent
@@ -1535,116 +1403,86 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         const bool orient_ok = opts.stitch_recovered &&
                                (vote_same + vote_cross) >= 2 &&
                                vote_same != vote_cross;
-        auto inside_window = [&](hts_pos_t pos) {
-            for (const auto& member : groups[gi].members)
-                if (pos > member.first && pos < member.second) return true;
-            return false;
+        const auto containing_window = [&](hts_pos_t pos) {
+            return find_containing_window(windows, groups[gi], pos);
         };
-        for (const CandidateVariant& cand : src.candidates) {
+        for (size_t ci = 0; ci < src.candidates.size(); ++ci) {
+            const CandidateVariant& cand = src.candidates[ci];
             const CandKey key = cand_key_of(cand);
-            RecoveredCandidate rec;
-            rec.pos = key.pos; rec.type = key.type; rec.ref_len = key.ref_len;
-            rec.alt = key.alt; rec.category = static_cast<int>(cand.counts.category);
-            rec.known_raw = parent_cand_index.count(key) != 0;
-            rec.known_translated = !rec.known_raw && parent_seq_index.count(key) != 0;
-            rec.inside_window = inside_window(key.pos);
-            rec.category_admitted = (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
-            for (const auto& member : groups[gi].members)
-                if (key.pos > member.first && key.pos < member.second) {
-                    rec.win_beg = member.first; rec.win_end = member.second; break;
+            const ParentCandidateMatch parent =
+                find_parent_candidate(parent_cand_index, parent_seq_index, key,
+                                      chunk.candidates.size());
+
+            const auto* member = containing_window(key.pos);
+            if (!opts.recovery_audit_out.empty()) {
+                RecoveredCandidate rec;
+                rec.pos = key.pos;
+                rec.type = key.type;
+                rec.ref_len = key.ref_len;
+                rec.alt = key.alt;
+                rec.category = static_cast<int>(cand.counts.category);
+                rec.known_raw =
+                    parent.index < chunk.candidates.size() && parent.is_raw;
+                rec.known_translated =
+                    parent.index < chunk.candidates.size() && !parent.is_raw;
+                rec.inside_window = member != nullptr;
+                rec.category_admitted =
+                    (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+                if (member != nullptr) {
+                    rec.win_beg = member->first;
+                    rec.win_end = member->second;
                 }
-            if (!opts.recovery_audit_out.empty() && audit_of.count(key) == 0) {
-                audit_of.emplace(key, audit.size());
-                audit.push_back(rec);
+                const bool inserted = audit_of.emplace(key, audit.size()).second;
+                if (inserted) audit.push_back(std::move(rec));
             }
-            if (parent_keys.count(key) != 0) {
+
+            if (parent.index < chunk.candidates.size()) {
                 // A sequence-identical graph row is still alignment recovered:
-                // the merge adds the BAM observations to that existing row
-                // instead of appending a duplicate representation. Record that
-                // provenance so the same link validation used for new rows can
-                // admit it below.
-                size_t recovered_parent = chunk.candidates.size();
-                const auto recovered_raw = parent_cand_index.find(key);
-                if (recovered_raw != parent_cand_index.end()) {
-                    recovered_parent = recovered_raw->second;
-                } else {
-                    const auto recovered_seq = parent_seq_index.find(key);
-                    if (recovered_seq != parent_seq_index.end())
-                        recovered_parent = recovered_seq->second;
-                }
+                // the merge adds BAM observations to the existing row instead
+                // of appending a duplicate representation.
                 const bool recovered_usable =
                     cand.counts.category == VariantCategory::NoisyCandHet ||
                     cand.counts.category == VariantCategory::CleanHetIndel ||
                     cand.counts.category == VariantCategory::CleanHetSnp;
-                if (inside_window(key.pos) && recovered_usable &&
-                    recovered_parent < chunk.candidates.size()) {
-                    chunk.candidates[recovered_parent].alignment_verified =
+                if (member != nullptr && recovered_usable) {
+                    chunk.candidates[parent.index].alignment_verified =
                         cand.counts.category != VariantCategory::NoisyCandHet ||
                         cand.msa_verified;
                 }
 
-                // The parent may hold this locus as RepeatHetIndel, which the
-                // graph arm's noise filter assigns from the REFERENCE CONTEXT
-                // alone -- it asks whether the locus is a homopolymer or STR,
-                // never whether the reads separate there. The sub-solve just
-                // answered that question with the reads: it ran the alignment
-                // pipeline over this window, including the noisy-region MSA
-                // that reconstructs exactly these loci (the pass the graph
-                // chunk cannot run itself, because its reads carry no digars).
-                // Where that verdict is usable, it supersedes the context one.
-                if (opts.graph_noisy_msa ||
-                    (inside_window(key.pos) &&
-                     bam_site_has_pure_flank_links(
-                         src, static_cast<size_t>(&cand - src.candidates.data()), opts))) {
-                    // Two ways a parent candidate answers to this key. A
-                    // graph-derived candidate stores the catalog's ALLELE WALK
-                    // in key.alt (">115859261>115859263"), not a sequence, so
-                    // the raw key never matches what the alignment discovers;
-                    // it matches only through the VCF form in site_meta, which
-                    // parent_seq_index records. Looking only at the raw keys
-                    // silently found nothing.
-                    size_t pidx = chunk.candidates.size();
-                    const auto raw_it = parent_cand_index.find(key);
-                    if (raw_it != parent_cand_index.end()) {
-                        pidx = raw_it->second;
-                    } else {
-                        const auto seq_it = parent_seq_index.find(key);
-                        if (seq_it != parent_seq_index.end()) pidx = seq_it->second;
-                    }
-                    if (pidx < chunk.candidates.size()) {
-                        CandidateVariant& parent_cand = chunk.candidates[pidx];
-                        const bool parent_demoted =
-                            parent_cand.counts.category == VariantCategory::RepeatHetIndel;
-                        const bool sub_usable =
-                            cand.counts.category == VariantCategory::NoisyCandHet ||
-                            cand.counts.category == VariantCategory::CleanHetIndel ||
-                            cand.counts.category == VariantCategory::CleanHetSnp;
-                        if (parent_demoted && sub_usable &&
-                            (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) {
-                            // Keep the sub-solve's own category. Forcing the
-                            // clean indel class instead was measured worse on
-                            // whole chr20 -- 2.369% against 1.124% -- and did
-                            // not reduce fragmentation either (1,689 blocks
-                            // against 1,655).
-                            parent_cand.counts.category = cand.counts.category;
-                            parent_cand.counts.candvarcate_initial = cand.counts.category;
-                            parent_cand.lcd_var_i_to_cate = cand.lcd_var_i_to_cate;
-                            parent_cand.msa_verified = cand.msa_verified;
-                            // The alignment path vouched for it: this locus was
-                            // demoted here on reference context and came back
-                            // from a solve over the reads as a usable het.
-                            parent_cand.alignment_verified =
-                                cand.counts.category != VariantCategory::NoisyCandHet ||
-                                cand.msa_verified;
-                            if (!cand.msa_insertion_alts.empty())
-                                parent_cand.msa_insertion_alts = cand.msa_insertion_alts;
-                            ++adopted;
-                        }
+                // A reference-context demotion can be superseded only when the
+                // BAM reconstruction links cleanly on both sides.
+                if (member != nullptr &&
+                    bam_site_has_pure_flank_links(src, ci, opts)) {
+                    CandidateVariant& parent_cand = chunk.candidates[parent.index];
+                    const bool parent_demoted =
+                        parent_cand.counts.category == VariantCategory::RepeatHetIndel;
+                    const bool sub_usable =
+                        cand.counts.category == VariantCategory::NoisyCandHet ||
+                        cand.counts.category == VariantCategory::CleanHetIndel ||
+                        cand.counts.category == VariantCategory::CleanHetSnp;
+                    if (parent_demoted && sub_usable &&
+                        (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) {
+                        // Keep the sub-solve's own category. Forcing clean
+                        // indel measured worse on whole chr20 (2.369% versus
+                        // 1.124%) without reducing fragmentation.
+                        parent_cand.counts.category = cand.counts.category;
+                        parent_cand.counts.candvarcate_initial =
+                            cand.counts.category;
+                        parent_cand.lcd_var_i_to_cate = cand.lcd_var_i_to_cate;
+                        parent_cand.msa_verified = cand.msa_verified;
+                        parent_cand.alignment_verified =
+                            cand.counts.category != VariantCategory::NoisyCandHet ||
+                            cand.msa_verified;
+                        if (!cand.msa_insertion_alts.empty())
+                            parent_cand.msa_insertion_alts =
+                                cand.msa_insertion_alts;
+                        ++adopted;
                     }
                 }
                 continue;
             }
-            if (!inside_window(key.pos) || split_positions[gi].count(key.pos) != 0)
+            if (member == nullptr || split_positions[gi].count(key.pos) != 0)
                 continue;
             // Admit what the solve itself would admit; the emitter's own
             // category gate runs later and independently.
@@ -1664,8 +1502,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
             // 2,557, hamming 1.161% -> 1.168%). Contiguity and accuracy are the
             // deliverables; a read tagged with a phase set the VCF does not
             // describe is a cosmetic inconsistency.
-            new_cands.emplace(key, cand);
-            orient_of.emplace(key, std::make_pair(orient_ok, flip_group));
+            new_cands.emplace(
+                key, TransferredCandidate{cand, orient_ok, flip_group});
             { auto ai = audit_of.find(key);
               if (ai != audit_of.end()) audit[ai->second].appended = true; }
         }
@@ -1679,8 +1517,13 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 if (ci >= src.candidates.size()) break;
                 if (prof.alleles[k] < 0) continue;
                 const CandKey observed_key = cand_key_of(src.candidates[ci]);
+                const ParentCandidateMatch parent =
+                    find_parent_candidate(parent_cand_index, parent_seq_index,
+                                          observed_key, chunk.candidates.size());
                 if (split_positions[gi].count(observed_key.pos) != 0 &&
-                    parent_keys.count(observed_key) == 0) continue;
+                    parent.index == chunk.candidates.size()) {
+                    continue;
+                }
                 per_read.emplace(observed_key,
                                  std::make_pair(prof.alleles[k],
                                                 k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
@@ -1695,15 +1538,19 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         if (src.read_var_profile.size() != src.reads.size()) continue;
         for (const CandidateVariant& cand : src.candidates) {
             const CandKey key = cand_key_of(cand);
+            const ParentCandidateMatch parent =
+                find_parent_candidate(parent_cand_index, parent_seq_index, key,
+                                      chunk.candidates.size());
             if (split_positions[gi].count(key.pos) == 0 ||
-                parent_keys.count(key) != 0 ||
-                (cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-            bool in_window = false;
-            for (const auto& member : groups[gi].members)
-                in_window |= key.pos > member.first && key.pos < member.second;
-            if (!in_window) continue;
-            new_cands.emplace(key, cand);
-            orient_of.emplace(key, std::make_pair(false, false));
+                parent.index < chunk.candidates.size() ||
+                (cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) {
+                continue;
+            }
+            const auto* member =
+                find_containing_window(windows, groups[gi], key.pos);
+            if (member == nullptr) continue;
+            new_cands.emplace(
+                key, TransferredCandidate{cand, false, false});
             if (!opts.recovery_audit_out.empty()) {
                 auto ai = audit_of.find(key);
                 if (ai == audit_of.end()) {
@@ -1718,12 +1565,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 rec.category_admitted = true;
                 rec.inside_window = true;
                 rec.appended = true;
-                for (const auto& member : groups[gi].members)
-                    if (key.pos > member.first && key.pos < member.second) {
-                        rec.win_beg = member.first;
-                        rec.win_end = member.second;
-                        break;
-                    }
+                rec.win_beg = member->first;
+                rec.win_end = member->second;
             }
         }
         for (size_t ri = 0; ri < src.reads.size(); ++ri) {
@@ -1736,7 +1579,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 if (ci >= src.candidates.size()) break;
                 const CandKey key = cand_key_of(src.candidates[ci]);
                 if (prof.alleles[k] < 0 || split_positions[gi].count(key.pos) == 0 ||
-                    new_cands.count(key) == 0) continue;
+                    new_cands.find(key) == new_cands.end()) continue;
                 per_read.emplace(key, std::make_pair(prof.alleles[k],
                     k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
             }
@@ -1752,8 +1595,12 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // parent never had; only this early return kept it from running.
     size_t refreshed = 0;
     for (const auto& per_read : observed)
-        for (const auto& obs : per_read.second)
-            if (parent_keys.count(obs.first) != 0) ++refreshed;
+        for (const auto& obs : per_read.second) {
+            const ParentCandidateMatch parent =
+                find_parent_candidate(parent_cand_index, parent_seq_index,
+                                      obs.first, chunk.candidates.size());
+            if (parent.index < chunk.candidates.size()) ++refreshed;
+        }
     if (new_cands.empty() && refreshed == 0 && adopted == 0) return 0;
 
     // Re-index. The candidates must stay position-sorted: the solve's outward
@@ -1805,7 +1652,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       : std::vector<int>{});
             continue;
         }
-        const CandidateVariant& cand = new_cands.at(slot.key);
+        const TransferredCandidate& transferred = new_cands.at(slot.key);
+        const CandidateVariant& cand = transferred.candidate;
         // The graph writer emits one record per entry of counts.alle_covs
         // (graph_chunks_to_candidate_table loops new_a = 1 .. alle_covs.size()),
         // but the alignment path reports depth as ref_cov/alt_cov and leaves
@@ -1825,9 +1673,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         // Carry the sub-solve's consensus THROUGH the orientation, or drop it
         // and let the parent derive one. A consensus without a vote behind it
         // is worse than none.
-        const auto oit = orient_of.find(slot.key);
-        const bool o_ok = oit != orient_of.end() && oit->second.first;
-        const bool o_flip = oit != orient_of.end() && oit->second.second;
+        const bool o_ok = transferred.orientation_decided;
+        const bool o_flip = transferred.flip;
         // Measured, and it did not work: carrying the sub-solve's per-site
         // consensus hurts even when the orientation vote is decisive and says
         // no flip is needed (same=157, cross=14 over the shared reads of
@@ -1961,10 +1808,19 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // in-gap sites have almost no observing read and each one starts its own
     // phase set. Measured on the first 10 Mb of chr20 with them omitted: 2,844
     // sites merged but the VCF came out in 4,680 blocks instead of 47.
-    std::set<std::string> have_read;
-    for (const ReadRecord& read : chunk.reads) have_read.insert(read.qname);
+    // Both inputs are qname-ordered. A monotone merge scan finds alignment-only
+    // reads without building a second tree containing every existing qname.
+    const size_t existing_read_count = chunk.reads.size();
+    size_t existing_read_i = 0;
     for (const auto& entry : observed) {
-        if (have_read.count(entry.first) != 0) continue;
+        while (existing_read_i < existing_read_count &&
+               chunk.reads[existing_read_i].qname < entry.first) {
+            ++existing_read_i;
+        }
+        if (existing_read_i < existing_read_count &&
+            chunk.reads[existing_read_i].qname == entry.first) {
+            continue;
+        }
         if (entry.second.empty()) continue;
         hts_pos_t beg = std::numeric_limits<hts_pos_t>::max();
         hts_pos_t end = 0;
@@ -2063,7 +1919,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
     // stayed invisible; the anchored solve does not.
     if (chunk.haps.size() != chunk.reads.size()) chunk.haps.resize(chunk.reads.size(), 0);
     if (chunk.phase_sets.size() != chunk.reads.size())
-        chunk.phase_sets.resize(chunk.reads.size(), -1);
+        chunk.phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
 
     // Restore the qname ordering of chunk.reads. The cross-chunk stitch pairs
     // reads with a MERGE-JOIN over the two chunks' read vectors
@@ -2120,9 +1976,11 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
 
     // Fail loudly here rather than as a block count three runs later.
     hts_pos_t region_lo = 0, region_hi = 0;
-    for (const RegionChunk& r : regions) {
-        region_lo = region_lo == 0 ? r.beg : std::min(region_lo, r.beg);
-        region_hi = std::max(region_hi, r.end);
+    for (const TargetedWindowGroup& group : groups) {
+        region_lo = region_lo == 0
+                        ? group.region.beg
+                        : std::min(region_lo, group.region.beg);
+        region_hi = std::max(region_hi, group.region.end);
     }
     verify_chunk_invariants(chunk, graph_chunk.site_ids.size(),
                             graph_chunk.site_meta.size(),
@@ -2131,100 +1989,12 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
 
     if (opts.verbose > 0)
         fprintf(stderr, "[in-pass] %zu window(s) -> %zu region(s), merged %zu alignment site(s)\n",
-                windows.size(), regions.size(), added);
+                windows.size(), groups.size(), added);
     // Refreshed evidence on a site the parent already owned is as much a reason
     // for the caller to re-solve as a new site: it is what lets the linker see
     // the alignment's reads at a seam whose two sides were already called.
     return added + (refreshed > 0 ? 1 : 0);
 }
-
-
-
-
-
-static void filter_hybrid_reads_by_margin(std::vector<PhasingChunk>& chunks,
-                                          int min_margin,
-                                          bool credit_bridge_snps) {
-    if (min_margin <= 0) return;
-    for (PhasingChunk& chunk : chunks) {
-        for (size_t i = 0; i < chunk.reads.size(); ++i) {
-            const ReadRecord& read = chunk.reads[i];
-            if (read.n_clean_agree_snps - read.n_clean_conflict_snps >= min_margin)
-                continue;
-            // A read whose only informative sites in a stretch are
-            // MSA-admitted bridge SNPs (see --private-msa-admit-all-in-region)
-            // has zero clean-SNP margin by construction -- CleanHetSnp is a
-            // different category -- and would be silently stripped here even
-            // when its haplotype assignment already used that evidence via
-            // hap_scores.  Credit it only when the admission mode that
-            // produced it is active, and only using the bridge SNP counters
-            // (never indels: an MSA indel can be placed at several equivalent
-            // positions inside a repeat run and is not trustworthy enough to
-            // rescue an otherwise-thin read).
-            if (credit_bridge_snps &&
-                (read.n_bridge_agree_snps > 0 || read.n_hp_gap_agree > 0)) {
-                // hp_gap_scorable observations are credited here for the same
-                // reason as bridge SNPs: the read's haplotype was assigned using
-                // that evidence, so judging it on clean-SNP counts alone strips a
-                // read the solve had already phased. This is the narrow case the
-                // indel caveat above does not cover -- the site is MSA-verified
-                // and inside the homopolymer tier's own gap window, and it is
-                // frequently the only interior evidence such a gap has.
-                const int bridge_margin =
-                    (read.n_clean_agree_snps + read.n_bridge_agree_snps +
-                     read.n_hp_gap_agree) -
-                    (read.n_clean_conflict_snps + read.n_bridge_conflict_snps +
-                     read.n_hp_gap_conflict);
-                if (bridge_margin >= min_margin) continue;
-            }
-            if (i < chunk.haps.size()) chunk.haps[i] = 0;
-            if (i < chunk.phase_sets.size()) chunk.phase_sets[i] = -1;
-        }
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-static void filter_hybrid_small_phase_sets(std::vector<PhasingChunk>& chunks,
-                                           int min_reads) {
-    if (min_reads <= 0) return;
-    std::unordered_map<hts_pos_t, std::unordered_set<std::string>> phase_set_reads;
-    for (const PhasingChunk& chunk : chunks) {
-        for (size_t i = 0; i < chunk.haps.size() &&
-                           i < chunk.phase_sets.size() &&
-                           i < chunk.reads.size(); ++i) {
-            if ((chunk.haps[i] == 1 || chunk.haps[i] == 2) &&
-                chunk.phase_sets[i] >= 0) {
-                std::string read_key = std::to_string(chunk.reads[i].input_index);
-                read_key.push_back('\0');
-                read_key += chunk.reads[i].qname;
-                phase_set_reads[chunk.phase_sets[i]].insert(std::move(read_key));
-            }
-        }
-    }
-    for (PhasingChunk& chunk : chunks) {
-        for (size_t i = 0; i < chunk.haps.size() && i < chunk.phase_sets.size(); ++i) {
-            const hts_pos_t phase_set = chunk.phase_sets[i];
-            const auto found = phase_set_reads.find(phase_set);
-            if (phase_set < 0 ||
-                (found != phase_set_reads.end() &&
-                 static_cast<int>(found->second.size()) >= min_reads)) {
-                continue;
-            }
-            chunk.haps[i] = 0;
-            chunk.phase_sets[i] = -1;
-        }
-    }
-}
-
 
 } // namespace pgphase_collect
 

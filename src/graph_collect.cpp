@@ -1,5 +1,4 @@
 #include "graph_collect.hpp"
-#include "collect_phase_noisy.hpp"
 #include "collect_pipeline.hpp"
 
 #include "arg_parse.hpp"
@@ -37,131 +36,6 @@
 
 namespace pgphase_collect {
 
-size_t synthesize_meta_for_appended_candidates(GraphChunkBuildResult& result,
-                                               const std::string& contig) {
-    PhasingChunk& chunk = result.chunk;
-    if (chunk.ref_seq.empty()) return 0;
-    if (chunk.candidates.size() <= result.site_meta.size()) return 0;
-
-    const auto ref_at = [&](hts_pos_t pos, int len) -> std::string {
-        if (len <= 0) return std::string();
-        const hts_pos_t off = pos - chunk.ref_beg;
-        if (off < 0) return std::string();
-        if (static_cast<size_t>(off) + static_cast<size_t>(len) > chunk.ref_seq.size())
-            return std::string();
-        return chunk.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(len));
-    };
-
-    size_t built = 0;
-    for (size_t ci = result.site_meta.size(); ci < chunk.candidates.size(); ++ci) {
-        const CandidateVariant& cand = chunk.candidates[ci];
-        GraphSiteMeta meta;
-        meta.chrom = contig;
-        const auto anchored = [&](const std::string& allele) -> std::string {
-            if (cand.key.type == VariantType::Snp) return allele;
-            if (cand.key.type == VariantType::Insertion && cand.key.ref_len == 0)
-                return ref_at(cand.key.pos - 1, 1) + allele;
-            if (cand.key.type == VariantType::Insertion) return allele;
-            return ref_at(cand.key.pos - 1, 1) + allele;
-        };
-        std::string vcf_ref, vcf_alt;
-        hts_pos_t vcf_pos = cand.key.pos;
-        if (cand.key.type == VariantType::Snp) {
-            vcf_ref = ref_at(cand.key.pos, std::max(1, cand.key.ref_len));
-        } else if (cand.key.type == VariantType::Insertion && cand.key.ref_len == 0) {
-            vcf_pos = cand.key.pos - 1;
-            vcf_ref = ref_at(vcf_pos, 1);
-        } else if (cand.key.type == VariantType::Insertion) {
-            vcf_ref = ref_at(cand.key.pos, cand.key.ref_len);
-        } else {
-            vcf_pos = cand.key.pos - 1;
-            vcf_ref = ref_at(vcf_pos, 1) + ref_at(cand.key.pos, cand.key.ref_len);
-        }
-        vcf_alt = anchored(cand.key.alt);
-
-        bool usable = !vcf_ref.empty() && !vcf_alt.empty();
-        if (usable) {
-            const VariantKey round_trip =
-                vcf_to_variant_key(cand.key.tid, vcf_pos, vcf_ref, vcf_alt);
-            usable = round_trip.type == cand.key.type && round_trip.pos == cand.key.pos &&
-                     round_trip.ref_len == cand.key.ref_len && round_trip.alt == cand.key.alt;
-        }
-        std::vector<std::string> alts;
-        if (cand.msa_insertion_alts.size() >= 2) {
-            for (const std::string& allele : cand.msa_insertion_alts) {
-                const std::string a = anchored(allele);
-                if (a.empty()) { alts.clear(); break; }
-                alts.push_back(a);
-            }
-        }
-        if (alts.empty() && usable) alts.push_back(vcf_alt);
-        if (usable && !alts.empty()) {
-            meta.pos = vcf_pos;
-            meta.ref = vcf_ref;
-            meta.alts = alts;
-            ++built;
-        }
-        // An unusable site still gets an EMPTY entry: the lookup is by index,
-        // so skipping a push would shift every later site's metadata.
-        result.site_meta.push_back(std::move(meta));
-        result.site_ids.push_back(std::string());
-        std::vector<int> orig;
-        for (int i = 0; i <= static_cast<int>(alts.size()); ++i) orig.push_back(i);
-        if (orig.size() < 2) orig = std::vector<int>{0, 1};
-        result.site_allele_orig_idx.push_back(std::move(orig));
-    }
-    return built;
-}
-
-void seed_graph_noisy_regions(GraphChunkBuildResult& result,
-                              const std::string& ref_seq,
-                              hts_pos_t ref_beg,
-                              hts_pos_t ref_end) {
-    PhasingChunk& chunk = result.chunk;
-    if (ref_seq.empty()) return;
-
-    // The MSA reads the reference off the chunk; a graph chunk never carried
-    // one (build_graph_chunk leaves ref_seq empty), which is the first reason
-    // stage 2 could not run here.
-    chunk.ref_seq = ref_seq;
-    chunk.ref_beg = ref_beg;
-    chunk.ref_end = ref_end;
-    populate_low_complexity_intervals(chunk);
-
-    const std::vector<Interval> lc = find_low_complexity_intervals(ref_seq, ref_beg);
-    std::vector<Interval> seeded;
-    for (const CandidateVariant& cand : chunk.candidates) {
-        if (cand.counts.category != VariantCategory::RepeatHetIndel) continue;
-        hts_pos_t beg = 0, end = 0;
-        variant_genomic_span(cand.key, beg, end);
-        // Same widening as cr_add_var_to_noisy_cr: a locus inside a
-        // low-complexity tract takes the whole tract, so the MSA sees the
-        // repeat it has to resolve rather than one anchor inside it.
-        for (const Interval& iv : lc) {
-            if (iv.end < beg || iv.beg > end) continue;
-            beg = std::min(beg, iv.beg);
-            end = std::max(end, iv.end);
-        }
-        if (beg <= 0 || end < beg) continue;
-        seeded.push_back(Interval{beg, end, 0});
-    }
-    if (seeded.empty()) return;
-
-    std::sort(seeded.begin(), seeded.end(),
-              [](const Interval& a, const Interval& b) { return a.beg < b.beg; });
-    std::vector<Interval> merged;
-    for (const Interval& iv : seeded) {
-        if (!merged.empty() && iv.beg <= merged.back().end + 1)
-            merged.back().end = std::max(merged.back().end, iv.end);
-        else
-            merged.push_back(iv);
-    }
-    for (const Interval& iv : merged) chunk.noisy_regions.push_back(iv);
-    std::sort(chunk.noisy_regions.begin(), chunk.noisy_regions.end(),
-              [](const Interval& a, const Interval& b) { return a.beg < b.beg; });
-}
-
-
 namespace {
 
 static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
@@ -182,7 +56,7 @@ static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
 
 // Converts phased multi-allelic graph candidates to biallelic CandidateVariants compatible
 // with the existing TSV/VCF writers. One output row per passing alt allele per site.
-/// In-chunk recovery for one chunk: re-solve its unphased windows and seams
+/// In-chunk recovery for one chunk: re-solve the seams between phase sets
 /// from the alignment, merge what that finds, and re-run the chunk's rounds.
 ///
 /// This lived twice, once in the GAF path and once beside it, identical but for
@@ -194,7 +68,7 @@ static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
                                   WorkerContext& ctx,
                                   const char* contig) {
                     
-    const size_t merged = retry_unphased_windows_in_place(
+    const size_t merged = recover_phase_set_seams_in_place(
         gc, opts, ctx,
         contig);
     if (merged > 0) {
@@ -243,15 +117,8 @@ static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
             gc.chunk, solve_opts, kCandGermlineClean,
             false);
 
-        // Stage 2, as the alignment arm runs it: the noisy-region MSA
-        // reconstructs the demoted loci, then the second round solves over
-        // clean plus the rebuilt noisy sites.
-        // The noisy-region MSA cannot run on the graph chunk itself:
-        // collect_noisy_reg_reads skips every read with no digars
-        // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
-        // a seeded region has zero reads and the MSA has nothing to align.
-        // The seeded regions go to the recovery instead, whose sub-solve
-        // re-reads the BAM through process_chunk and does build digars.
+        // The alignment sub-solve already ran its noisy-region MSA inside
+        // each seam. This second graph round admits those recovered noisy hets.
         // The imported sites are NoisyCandHet, so THIS is the
         // round that recomputes them: it turns the complementary
         // pair the alignment produced at chr20:55,336,460 --
@@ -490,7 +357,10 @@ static CandidateTable graph_chunks_to_candidate_table(
                     cand.hap_to_cons_alle[2] = 1;
                     cand.hap_alt = 1;
                     cand.hap_ref = 1;
-                    cand.phase_set = -1;
+                    // Homozygous candidates have no phase block. Keep the BAM
+                    // candidate convention (0) rather than the read sentinel
+                    // (-1), so both pipelines serialize the same state.
+                    cand.phase_set = kUnsetCandidatePhaseSet;
                 } else {
                     cand.hap_to_cons_alle[1] = (hap1 == new_a) ? 1 : 0;
                     cand.hap_to_cons_alle[2] = (hap2 == new_a) ? 1 : 0;
@@ -743,9 +613,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                                 graph_chunks[offset], ref_slice,
                                 region.beg, region.beg + ref_len - 1,
                                 opts.noisy_reg_max_xgaps);
-                            if (opts.graph_noisy_msa)
-                                seed_graph_noisy_regions(graph_chunks[offset], ref_slice,
-                                                         region.beg, region.beg + ref_len - 1);
                         } else {
                             std::free(ref_raw);
                         }
@@ -756,16 +623,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
-
-                    // Stage 2, as the alignment arm runs it: the noisy-region MSA
-                    // reconstructs the demoted loci, then the second round solves over
-                    // clean plus the rebuilt noisy sites.
-                    // The noisy-region MSA cannot run on the graph chunk itself:
-                    // collect_noisy_reg_reads skips every read with no digars
-                    // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
-                    // a seeded region has zero reads and the MSA has nothing to align.
-                    // The seeded regions go to the recovery instead, whose sub-solve
-                    // re-reads the BAM through process_chunk and does build digars.
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -905,9 +762,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                                 graph_chunks[offset], ref_slice,
                                 region.beg, region.beg + ref_len - 1,
                                 opts.noisy_reg_max_xgaps);
-                            if (opts.graph_noisy_msa)
-                                seed_graph_noisy_regions(graph_chunks[offset], ref_slice,
-                                                         region.beg, region.beg + ref_len - 1);
                         } else {
                             std::free(ref_raw);
                         }
@@ -918,16 +772,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
-
-                    // Stage 2, as the alignment arm runs it: the noisy-region MSA
-                    // reconstructs the demoted loci, then the second round solves over
-                    // clean plus the rebuilt noisy sites.
-                    // The noisy-region MSA cannot run on the graph chunk itself:
-                    // collect_noisy_reg_reads skips every read with no digars
-                    // (collect_phase_noisy.cpp:1042) and graph-only reads have none, so
-                    // a seeded region has zero reads and the MSA has nothing to align.
-                    // The seeded regions go to the recovery instead, whose sub-solve
-                    // re-reads the BAM through process_chunk and does build digars.
 
                     // Recovery, in the chunk, while this chunk is still the unit
                     // of work. Each chunk's windows are its own, so this needs no
@@ -1204,7 +1048,7 @@ void run_collect_graph_variation(const Options& opts) {
     // requirement, so a single informative site is enough to commit it.
     struct PhaseReadDiag {
         int hap = 0;
-        hts_pos_t phase_set = -1;
+        hts_pos_t phase_set = kUnphasedReadPhaseSet;
         int n_obs = 0;
         int agree = 0;
         int conflict = 0;
@@ -1257,7 +1101,7 @@ void run_collect_graph_variation(const Options& opts) {
                         d.hap = hap;
                         d.phase_set = read_i < pc.phase_sets.size()
                                           ? pc.phase_sets[read_i]
-                                          : static_cast<hts_pos_t>(-1);
+                                          : kUnphasedReadPhaseSet;
                     }
                 }
             }
@@ -1351,7 +1195,6 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
-        << "      --graph-noisy-msa         Run the alignment pipeline's noisy-region MSA\n"
         << "      --stitch-recovered        Import a recovery sub-solve as a block: orient it\n"
         << "                                against the parent on shared reads and keep its\n"
         << "                                per-site consensus instead of re-solving\n"
@@ -1360,12 +1203,10 @@ static void print_graph_collect_help() {
         << "                                over repeat-context loci (stage 2)\n"
         << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
         << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
-        << "      --bam FILE                Indexed BAM used ONLY to recover what the graph\n"
-        << "                                of grafting a sub-solve on afterwards\n"
-        << "                                set, instead of refining stage 1 (pre-2026-09-18)\n"
-        << "                                 sites could not phase: each unphased window and\n"
-        << "                                 each seam between blocks is re-solved from the\n"
-        << "                                 alignment as its own chunk and stitched in\n"
+        << "      --bam FILE                Indexed BAM used to recover seams between\n"
+        << "                                neighboring graph phase sets; recovered sites\n"
+        << "                                and observations enter the live chunk before\n"
+        << "                                its normal phasing rounds run again\n"
         << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
         << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
         << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
@@ -1454,7 +1295,6 @@ enum GraphCollectOption {
     kGcStrandBiasPval,
     kGcPhasedBam,
     kGcLinkEarnedRepeatIndels,
-    kGcGraphNoisyMsa,
     kGcRecoveryAuditOut,
     kGcStitchRecovered,
     kGcRef,
@@ -1510,7 +1350,6 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
-        {"graph-noisy-msa", no_argument, nullptr, kGcGraphNoisyMsa},
         {"recovery-audit-out", required_argument, nullptr, kGcRecoveryAuditOut},
         {"stitch-recovered", no_argument, nullptr, kGcStitchRecovered},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
@@ -1576,7 +1415,6 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
-            case kGcGraphNoisyMsa: opts.graph_noisy_msa = true; break;
             case kGcRecoveryAuditOut: opts.recovery_audit_out = optarg; break;
             case kGcStitchRecovered: opts.stitch_recovered = true; break;
             // Recovery only. The graph pass never reads this BAM; it is used to

@@ -74,7 +74,7 @@ holding its own FAI handle:
 | 2 | `build_graph_chunk` | the catalog's sites become the candidate table and the GAF rows become read profiles; allele identity is a **graph-walk identity**, not a realignment decision |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
-| 5 | **recovery, when `--bam` is present** | `retry_unphased_windows_in_place` injects alignment candidates and replaces shared-site observations with BAM observations; co-located MSA rows come across as the standalone BAM caller's separate rows; the normal graph rounds run over the union, then verified repeat rows can enter one boundary locus at a time (below) |
+| 5 | **recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets each bounded gap between neighboring phase sets, injects alignment candidates, and replaces shared-site observations with BAM observations; co-located MSA rows come across as the standalone BAM caller's separate rows; the normal graph rounds run over the union, then verified repeat rows can enter one boundary locus at a time (below) |
 
 The recovery sub-solve uses graph defaults to retain its catalog-site
 observations. At a new MSA candidate with two alternate alleles, recovery
@@ -91,9 +91,7 @@ noisy-inclusive k-means rounds; no imported phase label is pinned.
 Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
 straddle each boundary, `stitch_chunk_haps` joins adjacent chunks on those shared
 reads, and `graph_chunks_to_candidate_table` turns the chunks into the output
-table. Post-hoc recovery, when in-chunk recovery is off, runs at that point
-instead.
-
+table.
 Running recovery inside the chunk is the point of the in-chunk placement: the
 chunk is still the unit of work, so each chunk's windows are its own, needing no
 batching and no cross-chunk coordination -- the worker pool already provides the
@@ -101,15 +99,37 @@ parallelism the post-hoc path had to rebuild for itself.
 
 ### Recovery, on by default when `--bam` is present
 
-The first graph solve reports two observable failures:
+The first graph solve defines one recovery target: every bounded gap between
+neighboring phase sets. Phase-set sentinels follow longcallD: an unassigned
+`CandidateVariant` uses `0`, an unphased read uses `-1`, and an assigned phase
+set is positive. `collect_phase_set_seams` therefore accepts only oriented
+heterozygotes with a positive phase-set label. Each candidate contributes the
+coordinate interval from its phase-set anchor to its own position. A flat vector
+acts as a merge stack over those ordered interval ends, coalescing overlaps in
+amortized O(C) time and contiguous O(K) storage, where C is the candidate count
+and K is the number of covered components.
 
-- `collect_unphased_windows` finds covered intervals with no eligible phased
-  heterozygote;
-- `collect_block_seams` finds intervals between phase blocks whose reads were
-  placed but whose sites were not connected.
+The next stage scans the already ordered parent anchors and seams with monotone
+cursors, so building padded solve regions is O(A+W) for A anchors and W seams.
+Touching regions merge in place; each group stores a half-open range into the
+original seam vector rather than copying members. Candidate-to-seam lookup uses
+binary search within that range. Regions are clamped to the owning chunk before
+the BAM sub-solve.
 
-`retry_unphased_windows_in_place` runs the alignment caller on those intervals,
-then inserts its candidate rows and BAM allele observations into the same
+Inside `recover_phase_set_seams_in_place`, the raw and translated parent
+indexes are the single source of candidate identity; there is no duplicate
+membership set. A parent match is computed once and reused for provenance,
+refresh, and demotion repair. Each transferred candidate stores its orientation
+beside the candidate in one ordered entry. Audit rows are constructed only when
+audit output is enabled, and the ordered existing-read and observed-read streams
+are compared with a monotone scan rather than building another qname tree.
+Ordered maps remain where later code consumes candidates or observations in key
+order; changing those structures would change deterministic merge ordering. Recovery does not scan arbitrary unphased-read bins, terminal
+regions, wholly unanchored regions, or graph-seeded noisy regions because those
+intervals lack two established boundaries.
+
+`recover_phase_set_seams_in_place` runs the alignment caller on each seam, then
+inserts its candidate rows and BAM allele observations into the same
 position-sorted chunk. Shared sites keep one candidate representation and take
 the BAM observation for a read. When graph-default MSA would combine co-located
 alleles, recovery obtains that locus with the standalone longcallD BAM options
@@ -131,84 +151,22 @@ their interiors:
    boundary, both alleles occur, and its net margin is at least 10 reads. Every
    co-located row must pass that gate independently.
 5. Run both normal graph rounds over the whole chunk before exposing another
-   layer. Recovery performs at most two waves per pair, the minimum that closes
-   the regression panel's supported two-step gap.
+   layer. Recovery performs at most two waves per pair.
 
 Unverified imported rows can inherit a phase-set label during a solve, but they
-do not become frontier boundaries. This prevents interior repeat rows from
-collectively manufacturing a bridge before the evidence chain reaches them.
-`retry_windows` also confines depth-based heterozygote repair to the intervals
-that triggered recovery, and `alignment_verified` prevents catalog-only rows in
-those intervals from entering through that repair.
+do not become frontier boundaries. `retry_windows` confines depth-based
+heterozygote repair to the seams being recovered, and `alignment_verified`
+prevents catalog-only rows in those intervals from entering through that
+repair.
 
-### Recovery has one placement
+Recovery always runs inside the chunk, after the noise filter and initial graph
+solve and before cross-chunk stitching. Both k-means rounds rerun over the
+merged union without pinning the earlier graph assignments. After all workers
+finish, ordinary overlap stitching joins adjacent chunks.
 
-Recovery is not a mode, and there is no flag for it: the post-hoc placement,
-`Options::in_pass_recovery`, `--in-chunk-recovery` and `--no-anchored-stage2`
-were deleted outright (419 lines), and the two flag names are now rejected as
-unrecognised rather than silently ignored. Inside each chunk, after the noise filter and the first clean solve,
-`retry_unphased_windows_in_place` finds the windows the solve left unphased plus
-the seams between its blocks, re-solves them from the alignment, and merges what
-it finds into the chunk. Both k-means rounds then run over the union and are not
-anchored. Decisive repeat rows are subsequently admitted by the outside-in
-frontier loop above, with the same two normal rounds after each advancing wave.
-
-Anchoring those rounds was measured and removed. On
-chr20:42,500,000-43,000,000, where recovery merges 6 sites across 3 windows,
-pinning the pre-merge consensus left 840 of 2,008 reads misplaced inside a
-single block; unanchored places all 2,008 correctly. Restricting the pin to the
-recovered intervals gives the same 840, because the parity that has to change
-is the chunk's, not the gap's. `Options::anchored_stage2` still governs the
-noisy-region round in the shared alignment machinery
-(`collect_phase_noisy.cpp`), which is a different round and is unaffected.
-
-Whole chr20 against the post-hoc pass this replaced: 219,059 tagged reads
-against 203,751, 2,543 misplaced against 2,732, read hamming 1.161% against
-1.341%, 62,485 records against 56,032.
-
-### How the arms relate
-
-`collect-bam-variation` and `collect-graph-variation` are separate tools, not
-modes of one another. The graph arm is what ships and what is under
-development; the alignment arm is both the baseline it is measured against and
-the solver its recovery calls into.
-
-### What is not a mode
-
-The graph arm has exactly two switches that change behaviour rather than a
-threshold or an output path: in-chunk recovery (where recovery runs) and
-the unanchored recovery rounds (whether stage 2 refines or resets). Everything else is
-a threshold or a path.
-
-Removed as modes, and not coming back: `--recover-gaps`,
-`--msa-verified-refine`, `--gap-bam-only`, `--graph-first`/`--no-graph-first`,
-`--graph-authoritative`, `--private-sites`, `--bam-authoritative-bed`,
-`--read-support`, `--phase-read-tsv`, and the whole
-`collect-hybrid-variation` arm with `--retry-unphased-with-bam`.
-
-### The two recovery placements
-
-The alignment is consulted ONLY to recover what the catalog's sites could not
-join, and where that recovery runs is a real choice:
-
-| | where | flag |
-|---|---|---|
-| post-hoc (default) | after the pass, as its own sub-solve grafted onto the parent blocks | -- |
-| in-chunk | inside each chunk, before the stitch | in-chunk recovery |
-
-In-chunk recovery merges the alignment's in-gap candidates into the LIVE chunk
-and re-runs both solve rounds over the union, so the recovered sites are ordinary
-members of the chunk's own solve rather than a graft whose internal parity
-nothing checks. the unanchored recovery rounds makes stage 2 reset and re-solve over the
-wider site set instead of refining stage 1; on this path the resetting form
-measures better, which is the reverse of the alignment arm and is not explained.
-
-chr20 at `-t 16`, scored against read-level parental truth:
-
-| | wall | tagged | read blocks | discordant | read hamming | VCF records | phased | hom |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| post-hoc | -- | 203,751 | 281 | 2,732 | 1.341% | 56,032 | 55,907 | 125 |
-| in-chunk, the unanchored recovery rounds | 114 s | 219,059 | 323 | **2,543** | **1.161%** | 61,789 | **61,650** | 139 |
+`collect-bam-variation` and `collect-graph-variation` remain separate commands.
+The BAM command is the parity baseline and supplies the targeted caller used by
+graph recovery; it does not supply phase labels to the graph command.
 
 #### What the merge must preserve
 

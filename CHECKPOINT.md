@@ -8609,3 +8609,66 @@ The merge also fixed a real refresh bug: rebuilding a shared read profile used
 allele. It now uses `insert_or_assign` at shared sites. The expectation refresh
 script was stale after the suite moved to one `graph` arm; its gate now checks
 that active arm instead of removed `default` and `noretry` rows.
+
+### Graph recovery targets phase-set seams only (2026-09-21)
+
+Recovery now derives its BAM intervals only from bounded gaps between neighboring
+phase sets. The separate unphased-read bin detector duplicated internal seam
+coverage and uniquely selected terminal or wholly unanchored regions, which have
+no two-sided phase boundary for the outside-in algorithm. Graph-seeded noisy
+regions had the same problem and were removed from the target union along with
+the now-dead `--graph-noisy-msa` option and seeding helper.
+
+The rebuilt seam-only binary keeps every intended internal closure and the
+15.10 Mb no-span control remains split. Its local concordance is 98.71% rather
+than 99.2%, so that control's floor moved from 0.99 to 0.98 while its exact
+no-span assertion remains unchanged. Whole chr20 phases 217,543/245,053 emitted
+reads in 320 phase sets, with 3,174/217,529 truth-evaluated reads discordant
+(1.459%; 98.54% accuracy). Against the preceding frontier build this removes
+3,103 phased reads and 35 phase sets while reducing discordant reads by 421 and
+improving accuracy from 98.37%. This is the expected scope change: recovery no
+longer adds reads from regions without two neighboring phase-set anchors.
+
+A detector review found two related issues. Its original eligibility check
+excluded only `phase_set == 0`, while the graph adapter had diverged from
+longcallD by initializing graph candidates to `-1`. LongcallD initializes a
+candidate phase set to `0` and an unphased read phase set to `-1`; graph now
+uses those same sentinels. The shared boundary predicate requires
+`phase_set > 0` and different haplotype alleles, so only assigned,
+heterozygous candidates define a seam. The ordered-map accumulation plus a
+second sort was replaced by a coordinate-order scan with an unordered
+phase-set index and overlap coalescing: expected O(C+B) time and O(B) storage
+for C candidates and B phase sets. The two filtering helpers orphaned by
+removing post-hoc recovery were also deleted. A rebuilt full chr20 run retains
+77,484 candidates and produces byte-identical phased VCF and BAM output. The
+only TSV differences are 17,276 `PHASE_SET` values changing from `-1` to `0`,
+which is the intended candidate-sentinel normalization.
+
+The detector was then made fully flat. Because a phase-set label is its genomic
+anchor coordinate, each candidate contributes `[phase_set, position]`; a vector
+merge stack computes the covered union without a label map. Ordered interval
+ends make this amortized O(C), with contiguous O(K) storage for K covered
+components. The following target builder no longer copies or sorts seams. It
+uses a monotone scan of parent anchors and seams, half-open member ranges, early
+chunk clamping, and binary membership lookup, removing the duplicate region
+vector and per-group member allocations.
+
+A trial also deduplicated co-located anchors and counted the seam boundary
+symmetrically. That changed recovery scope and regressed full chr20 from 3,174
+to 3,201 discordant truth-scored reads while evaluating 54 fewer reads, so that
+semantic change was reverted. The retained implementation preserves the
+validated flank rule and phases 217,543 reads in 320 phase sets. It has
+3,170/217,529 discordant truth-scored reads (1.457%; 98.54% accuracy), four
+fewer than the pre-flat detector, and all 229 window assertions pass. It emits
+77,448 candidate rows; the phased-read completeness is unchanged.
+
+The full recovery transfer was audited after target construction. The redundant
+`set<CandKey>` mirroring the raw and translated parent indexes was removed;
+one parent match now supplies membership, provenance and the parent index.
+Transferred candidates and orientation decisions share one ordered-map entry,
+eliminating a second tree and lookup. Audit rows, including ALT string copies,
+are built only when `--recovery-audit-out` is active. Missing reads are found
+by a monotone scan over the qname-ordered parent reads and observations instead
+of constructing another qname set. Ordered maps that define deterministic
+candidate and observation merge order were retained. Full chr20 TSV, phased VCF
+and phased BAM are byte-identical before and after these changes.

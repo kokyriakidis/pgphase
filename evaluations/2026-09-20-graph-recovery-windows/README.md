@@ -228,3 +228,58 @@ concordance is 99–100%. The 4.78 and 34.10 Mb representation cases stay open
 because their first external edge is below the two-read threshold. The original
 six-window regression panel remains green, including the deliberately open
 3.85 Mb interval where HiPhase's join is only 54.3% correct.
+
+## Seam-only targeting
+
+Recovery targeting was reduced to bounded gaps between neighboring phase sets.
+The unphased-read bin scan and graph-seeded noisy regions were removed: the seam
+already contains the unphased reads between its two anchors, and a recovery
+site without decisive boundary support remains excluded by the frontier gate.
+Terminal and wholly unanchored regions are intentionally outside this extension
+model because they do not have phase boundaries on both sides.
+
+The rebuilt seam-only binary keeps every intended internal closure. The 15.10
+Mb no-span control remains split and measures 98.71% local concordance, so its
+concordance floor moved from 0.99 to 0.98 while the exact no-span assertion stays
+unchanged. The resulting suite passes all 229 assertions.
+
+Whole chr20 phases 217,543 of 245,053 emitted reads in 320 phase sets. Of 217,529
+truth-evaluated reads, 3,174 are discordant (1.459%; 98.54% accuracy). Compared
+with the preceding frontier build, seam-only targeting removes 3,103 phased
+reads and 35 phase sets while reducing discordant reads by 421 and improving
+accuracy from 98.37%. The lost coverage came from recovery regions without two
+neighboring phase-set anchors, which are intentionally outside the extension
+model. `--graph-noisy-msa` and its seeding helper were removed with the only
+consumer of those seeded regions.
+
+The seam detector was then audited independently. The graph adapter had
+initialized unphased candidates to `-1`, while longcallD initializes candidates
+to `0` and reserves `-1` for unphased reads. Graph candidate and read sentinels
+now match that contract. One shared anchor predicate requires a positive
+phase-set label and different haplotype alleles, so neither an unassigned
+candidate nor a homozygous row can define a seam. Extents are accumulated in
+candidate coordinate order through an unordered label-to-index map, then
+overlapping or touching extents are coalesced before gaps are emitted. This
+changes expected detector cost from O(C log B + B log B) to O(C+B). A full
+chr20 rerun retains 77,484 candidate rows and produces byte-identical phased
+VCF and BAM output. Exactly 17,276 TSV rows differ, only in `PHASE_SET`, and
+each difference is the intended `-1` to `0` candidate-sentinel normalization.
+
+The detector and target construction were subsequently converted to flat,
+ordered scans. Each candidate contributes `[phase_set, position]` to a vector
+merge stack, so seam detection is amortized O(C) without a hash table. Target
+construction scans the ordered anchors and seams once, stores group membership
+as index ranges, and uses binary search for later candidate membership.
+
+A distinct-locus, symmetric-flank trial was rejected: it produced 3,201
+discordant reads and evaluated 54 fewer reads on full chr20. Retaining the
+validated flank semantics yields 217,543 phased reads in 320 phase sets and
+3,170/217,529 discordant truth-scored reads (1.457%; 98.54% accuracy). All 229
+window assertions pass. The output contains 77,448 candidate rows.
+
+The recovery transfer itself was then audited without changing its decisions.
+Parent membership now comes from the raw and translated indexes directly,
+candidate orientation is stored with the transferred candidate, disabled audit
+output performs no audit-row string copies, and missing-read detection is a
+linear qname merge scan. The full chr20 TSV, phased VCF and phased BAM are
+byte-identical to the preceding flat-detector output.

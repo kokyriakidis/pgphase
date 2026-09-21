@@ -92,7 +92,7 @@ uint32_t category_to_flag(VariantCategory c) {
 static void read_init_hap_phase_set(PhasingChunk& chunk) {
     for (size_t i = 0; i < chunk.reads.size(); ++i) {
         chunk.haps[i] = 0;
-        chunk.phase_sets[i] = -1;
+        chunk.phase_sets[i] = kUnphasedReadPhaseSet;
     }
 }
 
@@ -1061,7 +1061,7 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
         any_pinned = true;
     } else {
         chunk.haps.assign(n_reads, 0);
-        chunk.phase_sets.assign(n_reads, -1);
+        chunk.phase_sets.assign(n_reads, kUnphasedReadPhaseSet);
         read_init_hap_phase_set(chunk);
     }
     var_init_hap_profile_cons_allele(is_ont, chunk.candidates, valid_var_idx, anchored);
@@ -1213,7 +1213,7 @@ static void apply_chunk_flip_and_merge(PhasingChunk& cur,
         }
         if (update_reads) {
             for (size_t read_i = 0; read_i < cur.reads.size(); ++read_i) {
-                if (cur.phase_sets[read_i] == -1) continue;
+                if (cur.phase_sets[read_i] == kUnphasedReadPhaseSet) continue;
                 if (cur.phase_sets[read_i] == min_cur_ps) cur.phase_sets[read_i] = max_pre_ps;
             }
         }

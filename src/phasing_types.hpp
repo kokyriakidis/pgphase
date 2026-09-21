@@ -26,8 +26,13 @@ namespace pgphase_collect {
 // Constants
 // ════════════════════════════════════════════════════════════════════════════
 
-// Default thresholds and window sizes for variant calling and phasing.
+// Keep the two longcallD phase-set sentinels distinct. Candidate rows start at
+// 0 until phasing assigns a genomic anchor; read rows use -1 while unphased.
+// A real phase-set anchor is therefore always tested with `phase_set > 0`.
+constexpr hts_pos_t kUnsetCandidatePhaseSet = 0;
+constexpr hts_pos_t kUnphasedReadPhaseSet = -1;
 
+// Default thresholds and window sizes for variant calling and phasing.
 constexpr int kDefaultMinMapq = 30;
 constexpr int kDefaultMinBaseq = 10;
 constexpr int kMinSvLen = 30;
@@ -201,19 +206,6 @@ struct Options {
     ReadTechnology read_technology = ReadTechnology::Hifi;
     double strand_bias_pval = kDefaultStrandBiasPvalOnt;
     int noisy_reg_max_xgaps = kDefaultNoisyRegMaxXgaps;
-    // A repeat-context het indel is demoted on the reference context alone.
-    // Nearly half of that class is informative (103 of 218 scored against read
-    // truth on chr20:20-25 Mb), so a site may earn its way back by AGREEING
-    // with an already-trusted neighbour on enough reads -- 86% of the sites
-    // admitted that way are informative, against 65% for a read-concentration
-    // test and 0% recall for rejecting all of them.
-    // The alignment pipeline treats a repeat-context het indel as a POINTER to
-    // a noisy region, not as a verdict: classify_cand_vars_pgphase adds every
-    // RepeatHetIndel locus to the noisy set (collect_var.cpp:1690-1694), the
-    // MSA reconstructs the locus, and the rebuilt site enters the second round
-    // as NoisyCandHet. The graph arm never ran that pass, so the same label was
-    // a dead end there -- 17 sites per 130 kb that the alignment arm recovers.
-    bool graph_noisy_msa = false;
     /// Path for the recovery audit TSV: one row per candidate the sub-solve
     /// found inside a recovery window, with the merge's decisions about it.
     std::string recovery_audit_out;
@@ -483,28 +475,6 @@ struct Options {
     /// chain links across it with no spanning read and picks an arbitrary
     /// orientation.
     bool joint_het_orientation = false;
-    /// ON BY DEFAULT. After the first solve, find windows it left unphased and
-    /// re-solve each with the noisy class admitted (force_noisy_msa,
-    /// skip_noisy_kmeans = false, scoped by retry_windows). Measured on the six
-    /// panel windows: 4 of 6 gaps span against 0 without it, 23 heterozygotes
-    /// phased strictly inside gaps against 0, at 99.49% read concordance
-    /// against 99.67%. Disable with --no-retry-unphased-with-bam.
-    /// Graph-first: the first pass phases on the graph catalog's sites only,
-    /// and the alignment channel supplies sites where recovery needs them.
-    ///
-    /// Without this the hybrid is the alignment pipeline with the graph injected
-    /// into it -- the union of both site sets drives the first solve -- and
-    /// measurement shows that union behaves almost identically to the alignment
-    /// channel alone, so the graph earns little. Graph-first inverts it: after
-    /// the claim pass marks every locus the catalog owns, candidates it does not
-    /// own are dropped, and the targeted per-window solve puts alignment
-    /// evidence back exactly where the first pass failed.
-    ///
-    /// Measured cost, chr20:5,309,406: read placement, not site recovery. A
-    /// third of the clean het anchors outside a gap are alignment-only,
-    /// including every clean het indel in the regions examined, so fewer reads
-    /// find a site to sit on.
-    bool retry_unphased_with_bam = true;
     /// split_nested_msa_deletions, which then emitted both nested forms of one
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.
@@ -514,10 +484,6 @@ struct Options {
     /// to them: outside a failed window the provisional-label collapse is not
     /// this pass's business to repair.
     std::vector<std::pair<hts_pos_t, hts_pos_t>> retry_windows;
-    /// Reads overlapping a window with no phase set before it counts as failed.
-    int retry_min_unphased_reads = 5;
-    /// Width a failed window must reach before the retry admits sites in it.
-    hts_pos_t retry_min_window_bp = 10000;
     // When true (gap recovery only), an MSA-verified private het SNP inside a
     // gap may act as a block-bridge anchor, on the same terms as a recovered
     // MSA indel: it must pass the anchor allele-segregation test that sets
@@ -867,7 +833,7 @@ struct CandidateVariant {
     std::vector<std::string> msa_insertion_alts = {};
     uint8_t ref_base = 4;     // 0-3=ACGT, 4=unknown; SNPs only
     uint8_t alt_ref_base = 4; // INS/DEL anchor base: 0-3=ACGT consensus, 4=use ref, >3=gap (skip VCF)
-    hts_pos_t phase_set = 0;
+    hts_pos_t phase_set = kUnsetCandidatePhaseSet;
     int hap_alt = 0;
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).

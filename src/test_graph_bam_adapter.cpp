@@ -73,6 +73,10 @@ int main() {
     ok &= check(chunks[0].chunk.reads.size() == 4, "adapter builds four reads");
     ok &= check(chunks[0].chunk.read_var_profile.size() == 4, "adapter builds read profiles");
     ok &= check(chunks[0].chunk.read_var_cr != nullptr, "adapter builds read-var cgranges");
+    ok &= check(chunks[0].chunk.candidates[0].phase_set == kUnsetCandidatePhaseSet,
+                "graph candidate uses longcallD unset phase-set sentinel");
+    ok &= check(chunks[0].chunk.phase_sets[0] == kUnphasedReadPhaseSet,
+                "graph read uses longcallD unphased phase-set sentinel");
 
     Options opts;
     opts.read_technology = ReadTechnology::Hifi;

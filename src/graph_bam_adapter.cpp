@@ -138,7 +138,9 @@ void add_graph_candidate(GraphChunkBuildResult& out,
     candidate.hap_to_cons_alle[0] = -1;
     candidate.hap_to_cons_alle[1] = -1;
     candidate.hap_to_cons_alle[2] = -1;
-    candidate.phase_set = -1;
+    // Match longcallD candidate initialization. Reads use a separate -1
+    // sentinel, but an as-yet unphased candidate starts at 0.
+    candidate.phase_set = kUnsetCandidatePhaseSet;
     out.chunk.candidates.push_back(std::move(candidate));
     out.site_ids.push_back(key);
     out.site_meta.push_back({
@@ -1159,7 +1161,7 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     }
 
     out.chunk.haps.assign(out.chunk.reads.size(), 0);
-    out.chunk.phase_sets.assign(out.chunk.reads.size(), -1);
+    out.chunk.phase_sets.assign(out.chunk.reads.size(), kUnphasedReadPhaseSet);
     rebuild_read_var_cr(out.chunk);
     out.site_allele_orig_idx = std::move(allele_orig_idx);
 
