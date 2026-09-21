@@ -907,6 +907,36 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     }
 }
 
+TEST_CASE("recovery preserves complementary BAM deletion rows", "[gap][representation]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    Window w;
+    w.gap_left = 11235279;
+    w.gap_right = 11262361;
+    std::string dir;
+    REQUIRE(run_arm(p, w, "graph", "", dir));
+
+    std::ifstream in(dir + "/native.vcf");
+    REQUIRE(in.good());
+    std::set<std::pair<std::string, std::string>> alleles;
+    int rows = 0;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 5 || fields[1] != "11255369") continue;
+        ++rows;
+        alleles.emplace(fields[3], fields[4]);
+    }
+    CHECK(rows == 2);
+    CHECK(alleles == std::set<std::pair<std::string, std::string>>{
+                         {"GA", "G"}, {"GAA", "G"}});
+}
+
 TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     const Paths p = paths();
     if (!p.complete()) {

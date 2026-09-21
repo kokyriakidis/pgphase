@@ -935,6 +935,20 @@ static std::vector<std::pair<hts_pos_t, hts_pos_t>> collect_block_seams(
     return seams;
 }
 
+// Both the BAM command and exact-row recovery use these longcallD settings.
+static void use_longcalld_bam_options(Options& opts) {
+    opts.anchored_stage2 = false;
+    opts.merge_colocated_msa_alleles = false;
+    opts.refresh_msa_observations = false;
+    opts.add_unplaced_msa_observations = false;
+    opts.upstream_msa_insertion_hp = true;
+    opts.phase_set_scoped_clean_rounds = false;
+    opts.msa_sites_vote_without_gap_link = true;
+    opts.infer_complement_at_multiallelic = true;
+    opts.upstream_read_scoring = true;
+    opts.upstream_assign_hap = true;
+}
+
 /// The region handed to process_chunk uses the chunk's own contig id, which is
 /// the BAM's because the hybrid is the only caller. A caller whose header is not
 /// the BAM's -- the graph pipeline built a synthetic one in reference-index
@@ -1109,6 +1123,248 @@ void write_recovery_audit(const std::string& path,
             << (r.alignment_verified ? 1 : 0) << '\n';
 }
 
+// A BAM-verified repeat may replace a catalog context veto only when the BAM
+// observations themselves link it to a heterozygote on each side. Use the same
+// read count and purity gates as ordinary graph links; the k-means round still
+// decides its phase after admission.
+struct BamPairLinkCounts {
+    int same = 0;
+    int cross = 0;
+    bool seen_ref = false;
+    bool seen_alt = false;
+};
+
+static BamPairLinkCounts bam_pair_link_counts(const PhasingChunk& src,
+                                               size_t a, size_t b,
+                                               size_t tested) {
+    BamPairLinkCounts counts;
+    for (size_t ri = 0; ri < src.read_var_profile.size(); ++ri) {
+        if (src.reads[ri].is_skipped) continue;
+        const ReadVariantProfile& prof = src.read_var_profile[ri];
+        if (prof.start_var_idx < 0 ||
+            a < static_cast<size_t>(prof.start_var_idx) ||
+            b < static_cast<size_t>(prof.start_var_idx) ||
+            a > static_cast<size_t>(prof.end_var_idx) ||
+            b > static_cast<size_t>(prof.end_var_idx)) continue;
+        const int aa = prof.alleles[a - static_cast<size_t>(prof.start_var_idx)];
+        const int bb = prof.alleles[b - static_cast<size_t>(prof.start_var_idx)];
+        if (aa < 0 || aa > 1 || bb < 0 || bb > 1) continue;
+        const int tested_allele = tested == a ? aa : bb;
+        counts.seen_ref |= tested_allele == 0;
+        counts.seen_alt |= tested_allele == 1;
+        if (aa == bb) ++counts.same;
+        else ++counts.cross;
+    }
+    return counts;
+}
+
+static bool bam_pair_has_pure_link(const PhasingChunk& src, size_t a, size_t b,
+                                   size_t tested, const Options& opts) {
+    const BamPairLinkCounts counts = bam_pair_link_counts(src, a, b, tested);
+    const int total = counts.same + counts.cross;
+    return counts.seen_ref && counts.seen_alt &&
+           total >= opts.min_block_link_reads &&
+           static_cast<double>(std::max(counts.same, counts.cross)) / total >=
+               opts.link_earned_min_purity;
+}
+
+constexpr int kRecoveryFrontierMinMargin = 10;
+constexpr hts_pos_t kRecoveryFrontierMaxStepBp = 10000;
+
+struct RecoveryFrontierScore {
+    int margin = 0;
+    int total = 0;
+    bool decisive = false;
+};
+
+static RecoveryFrontierScore recovery_frontier_score(const PhasingChunk& src,
+                                                      size_t a, size_t b,
+                                                      size_t tested,
+                                                      const Options& opts) {
+    const hts_pos_t distance =
+        std::abs(src.candidates[a].key.sort_pos() - src.candidates[b].key.sort_pos());
+    if (distance > kRecoveryFrontierMaxStepBp) return {};
+    const BamPairLinkCounts counts = bam_pair_link_counts(src, a, b, tested);
+    const int min_margin = std::max(opts.min_block_link_reads,
+                                    kRecoveryFrontierMinMargin);
+    const int margin = std::abs(counts.same - counts.cross);
+    const int total = counts.same + counts.cross;
+    return RecoveryFrontierScore{
+        margin,
+        total,
+        counts.seen_ref && counts.seen_alt && margin >= min_margin};
+}
+
+static bool bam_site_has_pure_flank_links(const PhasingChunk& src, size_t ci,
+                                          const Options& opts) {
+    auto is_het = [](const CandidateVariant& cand) {
+        const VariantCategory cat = cand.counts.category;
+        return cat == VariantCategory::CleanHetSnp ||
+               cat == VariantCategory::CleanHetIndel ||
+               cat == VariantCategory::NoisyCandHet;
+    };
+    bool left = false, right = false;
+    for (size_t j = ci; j > 0; ) {
+        --j;
+        if (!is_het(src.candidates[j])) continue;
+        left = bam_pair_has_pure_link(src, j, ci, ci, opts);
+        break;
+    }
+    for (size_t j = ci + 1; j < src.candidates.size(); ++j) {
+        if (!is_het(src.candidates[j])) continue;
+        right = bam_pair_has_pure_link(src, ci, j, ci, opts);
+        break;
+    }
+    return left && right;
+}
+
+// Expand only from established phase-block boundaries. One call admits the
+// best-supported frontier locus for each disconnected phase-set pair, then the
+// caller re-runs phasing before another layer is considered.
+size_t expand_recovery_frontiers_once(PhasingChunk& chunk, const Options& opts) {
+    const auto is_anchor = [](const CandidateVariant& cand) {
+        if (cand.phase_set <= 0 || cand.hap_alt == cand.hap_ref) return false;
+        if (cand.bam_injected && !cand.alignment_verified) return false;
+        if (cand.is_homopolymer_indel && !cand.gap_link_supported) return false;
+        if (!cand.msa_insertion_alts.empty() && !cand.gap_link_supported) return false;
+        return true;
+    };
+    const auto is_frontier_candidate = [](const CandidateVariant& cand) {
+        if (!cand.alignment_verified || cand.gap_link_supported) return false;
+        if (!cand.is_homopolymer_indel && cand.msa_insertion_alts.empty()) return false;
+        return (cand.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+    };
+
+    // One representative per phased locus is enough to define the two block
+    // boundaries. Separate BAM rows remain separate candidates and are tested
+    // individually when their locus reaches a frontier.
+    std::vector<size_t> anchors;
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        if (!is_anchor(chunk.candidates[ci])) continue;
+        if (!anchors.empty() &&
+            chunk.candidates[anchors.back()].key.sort_pos() ==
+                chunk.candidates[ci].key.sort_pos()) continue;
+        anchors.push_back(ci);
+    }
+
+    struct RankedLocus {
+        size_t first = 0;
+        size_t last = 0;
+        size_t boundary = 0;
+        hts_pos_t pos = 0;
+        hts_pos_t distance = 0;
+        int margin = 0;
+        int total = 0;
+        bool found = false;
+    };
+
+    const auto choose_locus = [&](size_t first, size_t last, size_t boundary,
+                                  RankedLocus& best) {
+        size_t locus_first = first;
+        while (locus_first < last) {
+            const hts_pos_t pos = chunk.candidates[locus_first].key.sort_pos();
+            size_t locus_last = locus_first + 1;
+            while (locus_last < last &&
+                   chunk.candidates[locus_last].key.sort_pos() == pos)
+                ++locus_last;
+
+            RecoveryFrontierScore locus_score;
+            for (size_t ci = locus_first; ci < locus_last; ++ci) {
+                if (!is_frontier_candidate(chunk.candidates[ci])) continue;
+                // Evidence back to the phase set the row already belongs to
+                // confirms that assignment; it does not extend a boundary.
+                if (chunk.candidates[ci].phase_set > 0 &&
+                    chunk.candidates[ci].phase_set ==
+                        chunk.candidates[boundary].phase_set) continue;
+                const size_t a = std::min(ci, boundary);
+                const size_t b = std::max(ci, boundary);
+                const RecoveryFrontierScore score =
+                    recovery_frontier_score(chunk, a, b, ci, opts);
+                if (!score.decisive) continue;
+                if (!locus_score.decisive || score.margin > locus_score.margin ||
+                    (score.margin == locus_score.margin && score.total > locus_score.total))
+                    locus_score = score;
+            }
+
+            const hts_pos_t distance = std::abs(
+                pos - chunk.candidates[boundary].key.sort_pos());
+            // Rank a locus by its strongest separate BAM row. Summing rows at
+            // one coordinate would count the same reads more than once.
+            if (locus_score.decisive &&
+                (!best.found || locus_score.margin > best.margin ||
+                 (locus_score.margin == best.margin && locus_score.total > best.total) ||
+                 (locus_score.margin == best.margin && locus_score.total == best.total &&
+                  distance < best.distance) ||
+                 (locus_score.margin == best.margin && locus_score.total == best.total &&
+                  distance == best.distance && pos < best.pos))) {
+                best = RankedLocus{locus_first, locus_last, boundary, pos, distance,
+                                   locus_score.margin, locus_score.total, true};
+            }
+            locus_first = locus_last;
+        }
+    };
+
+    std::vector<RankedLocus> winners;
+    for (size_t ai = 1; ai < anchors.size(); ++ai) {
+        const size_t left = anchors[ai - 1];
+        const size_t right = anchors[ai];
+        if (chunk.candidates[left].phase_set == chunk.candidates[right].phase_set)
+            continue;
+        RankedLocus best;
+
+        // Only the next recovery locus on each side is a frontier. A weak
+        // intermediate locus cannot be skipped to reach stronger evidence
+        // deeper in the gap.
+        size_t left_first = left + 1;
+        while (left_first < right &&
+               !is_frontier_candidate(chunk.candidates[left_first]))
+            ++left_first;
+        if (left_first < right) {
+            size_t left_last = left_first + 1;
+            const hts_pos_t pos = chunk.candidates[left_first].key.sort_pos();
+            while (left_last < right &&
+                   chunk.candidates[left_last].key.sort_pos() == pos)
+                ++left_last;
+            choose_locus(left_first, left_last, left, best);
+        }
+
+        size_t right_last = right;
+        while (right_last > left + 1 &&
+               !is_frontier_candidate(chunk.candidates[right_last - 1]))
+            --right_last;
+        if (right_last > left + 1) {
+            size_t right_first = right_last - 1;
+            const hts_pos_t pos = chunk.candidates[right_first].key.sort_pos();
+            while (right_first > left + 1 &&
+                   chunk.candidates[right_first - 1].key.sort_pos() == pos)
+                --right_first;
+            choose_locus(right_first, right_last, right, best);
+        }
+        if (best.found) winners.push_back(best);
+    }
+
+    if (winners.empty()) return 0;
+
+    // Keep every BAM row at each selected locus separate. A row enters only on
+    // its own decisive evidence; a winning row selects the coordinate but does
+    // not lend support to its co-located neighbors.
+    size_t admitted = 0;
+    for (const RankedLocus& best : winners) {
+        for (size_t ci = best.first; ci < best.last; ++ci) {
+            if (!is_frontier_candidate(chunk.candidates[ci])) continue;
+            if (chunk.candidates[ci].phase_set > 0 &&
+                chunk.candidates[ci].phase_set ==
+                    chunk.candidates[best.boundary].phase_set) continue;
+            const size_t a = std::min(ci, best.boundary);
+            const size_t b = std::max(ci, best.boundary);
+            if (!recovery_frontier_score(chunk, a, b, ci, opts).decisive) continue;
+            chunk.candidates[ci].gap_link_supported = true;
+            ++admitted;
+        }
+    }
+    return admitted;
+}
+
 size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
@@ -1215,6 +1471,26 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         }
     }
 
+    std::vector<std::set<hts_pos_t>> split_positions(discovered.size());
+    for (size_t gi = 0; gi < discovered.size(); ++gi)
+        for (const CandidateVariant& cand : discovered[gi].candidates) {
+            const CandKey key = cand_key_of(cand);
+            if (cand.msa_insertion_alts.size() < 2 || parent_keys.count(key) != 0)
+                continue;
+            for (const auto& member : groups[gi].members)
+                if (key.pos > member.first && key.pos < member.second) {
+                    split_positions[gi].insert(key.pos);
+                    break;
+                }
+        }
+
+    Options exact_sub = sub;
+    use_longcalld_bam_options(exact_sub);
+    std::vector<PhasingChunk> exact_discovered(regions.size());
+    for (size_t gi = 0; gi < regions.size(); ++gi)
+        if (!split_positions[gi].empty())
+            exact_discovered[gi] = process_chunk(regions[gi], exact_sub, context);
+
     size_t adopted = 0;
     // Every sub-solve candidate and what the merge decided about it, so a
     // site that is found and then silently dropped is visible in output
@@ -1282,6 +1558,31 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 audit.push_back(rec);
             }
             if (parent_keys.count(key) != 0) {
+                // A sequence-identical graph row is still alignment recovered:
+                // the merge adds the BAM observations to that existing row
+                // instead of appending a duplicate representation. Record that
+                // provenance so the same link validation used for new rows can
+                // admit it below.
+                size_t recovered_parent = chunk.candidates.size();
+                const auto recovered_raw = parent_cand_index.find(key);
+                if (recovered_raw != parent_cand_index.end()) {
+                    recovered_parent = recovered_raw->second;
+                } else {
+                    const auto recovered_seq = parent_seq_index.find(key);
+                    if (recovered_seq != parent_seq_index.end())
+                        recovered_parent = recovered_seq->second;
+                }
+                const bool recovered_usable =
+                    cand.counts.category == VariantCategory::NoisyCandHet ||
+                    cand.counts.category == VariantCategory::CleanHetIndel ||
+                    cand.counts.category == VariantCategory::CleanHetSnp;
+                if (inside_window(key.pos) && recovered_usable &&
+                    recovered_parent < chunk.candidates.size()) {
+                    chunk.candidates[recovered_parent].alignment_verified =
+                        cand.counts.category != VariantCategory::NoisyCandHet ||
+                        cand.msa_verified;
+                }
+
                 // The parent may hold this locus as RepeatHetIndel, which the
                 // graph arm's noise filter assigns from the REFERENCE CONTEXT
                 // alone -- it asks whether the locus is a homopolymer or STR,
@@ -1291,7 +1592,10 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 // that reconstructs exactly these loci (the pass the graph
                 // chunk cannot run itself, because its reads carry no digars).
                 // Where that verdict is usable, it supersedes the context one.
-                if (opts.graph_noisy_msa) {
+                if (opts.graph_noisy_msa ||
+                    (inside_window(key.pos) &&
+                     bam_site_has_pure_flank_links(
+                         src, static_cast<size_t>(&cand - src.candidates.data()), opts))) {
                     // Two ways a parent candidate answers to this key. A
                     // graph-derived candidate stores the catalog's ALLELE WALK
                     // in key.alt (">115859261>115859263"), not a sequence, so
@@ -1340,7 +1644,8 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 }
                 continue;
             }
-            if (!inside_window(key.pos)) continue;
+            if (!inside_window(key.pos) || split_positions[gi].count(key.pos) != 0)
+                continue;
             // Admit what the solve itself would admit; the emitter's own
             // category gate runs later and independently.
             if ((cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
@@ -1373,9 +1678,67 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                 const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
                 if (ci >= src.candidates.size()) break;
                 if (prof.alleles[k] < 0) continue;
-                per_read.emplace(cand_key_of(src.candidates[ci]),
+                const CandKey observed_key = cand_key_of(src.candidates[ci]);
+                if (split_positions[gi].count(observed_key.pos) != 0 &&
+                    parent_keys.count(observed_key) == 0) continue;
+                per_read.emplace(observed_key,
                                  std::make_pair(prof.alleles[k],
                                                 k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
+            }
+        }
+    }
+    // A graph-default MSA may combine co-located BAM alleles. Replace that
+    // candidate and its observations with the separate rows produced by the
+    // longcallD BAM settings; do not merge the rows again.
+    for (size_t gi = 0; gi < exact_discovered.size(); ++gi) {
+        const PhasingChunk& src = exact_discovered[gi];
+        if (src.read_var_profile.size() != src.reads.size()) continue;
+        for (const CandidateVariant& cand : src.candidates) {
+            const CandKey key = cand_key_of(cand);
+            if (split_positions[gi].count(key.pos) == 0 ||
+                parent_keys.count(key) != 0 ||
+                (cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            bool in_window = false;
+            for (const auto& member : groups[gi].members)
+                in_window |= key.pos > member.first && key.pos < member.second;
+            if (!in_window) continue;
+            new_cands.emplace(key, cand);
+            orient_of.emplace(key, std::make_pair(false, false));
+            if (!opts.recovery_audit_out.empty()) {
+                auto ai = audit_of.find(key);
+                if (ai == audit_of.end()) {
+                    RecoveredCandidate rec;
+                    rec.pos = key.pos; rec.type = key.type;
+                    rec.ref_len = key.ref_len; rec.alt = key.alt;
+                    ai = audit_of.emplace(key, audit.size()).first;
+                    audit.push_back(std::move(rec));
+                }
+                RecoveredCandidate& rec = audit[ai->second];
+                rec.category = static_cast<int>(cand.counts.category);
+                rec.category_admitted = true;
+                rec.inside_window = true;
+                rec.appended = true;
+                for (const auto& member : groups[gi].members)
+                    if (key.pos > member.first && key.pos < member.second) {
+                        rec.win_beg = member.first;
+                        rec.win_end = member.second;
+                        break;
+                    }
+            }
+        }
+        for (size_t ri = 0; ri < src.reads.size(); ++ri) {
+            const ReadVariantProfile& prof = src.read_var_profile[ri];
+            if (prof.start_var_idx < 0) continue;
+            AlleleByCand& per_read = observed[src.reads[ri].qname];
+            observed_mapq[src.reads[ri].qname] = src.reads[ri].mapq;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+                if (ci >= src.candidates.size()) break;
+                const CandKey key = cand_key_of(src.candidates[ci]);
+                if (prof.alleles[k] < 0 || split_positions[gi].count(key.pos) == 0 ||
+                    new_cands.count(key) == 0) continue;
+                per_read.emplace(key, std::make_pair(prof.alleles[k],
+                    k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
             }
         }
     }
@@ -1643,7 +2006,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
         if (it != observed.end())
             for (const auto& entry : it->second) {
                 auto idx = index_of.find(entry.first);
-                if (idx != index_of.end()) alleles.emplace(idx->second, entry.second);
+                if (idx != index_of.end()) alleles.insert_or_assign(idx->second, entry.second);
             }
         ReadVariantProfile prof;
         prof.read_id = static_cast<int>(ri);
@@ -1666,7 +2029,7 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
 
     const size_t added = new_cands.size();
     chunk.candidates = std::move(merged_cands);
-        chunk.read_var_profile = std::move(merged_profiles);
+    chunk.read_var_profile = std::move(merged_profiles);
     graph_chunk.site_ids = std::move(merged_ids);
     graph_chunk.site_meta = std::move(merged_meta);
     if (!opts.recovery_audit_out.empty()) {
@@ -2208,16 +2571,7 @@ int collect_bam_variation(int argc, char* argv[]) {
 
     // Use longcallD's BAM phasing and MSA behavior. These assignments override
     // shared defaults used by the graph path; see Options for each gate.
-    opts.anchored_stage2 = false;
-    opts.merge_colocated_msa_alleles = false;
-    opts.refresh_msa_observations = false;
-    opts.add_unplaced_msa_observations = false;
-    opts.upstream_msa_insertion_hp = true;
-    opts.phase_set_scoped_clean_rounds = false;
-    opts.msa_sites_vote_without_gap_link = true;
-    opts.infer_complement_at_multiallelic = true;
-    opts.upstream_read_scoring = true;
-    opts.upstream_assign_hap = true;
+    use_longcalld_bam_options(opts);
 
     try {
         run_collect_bam_variation(opts);

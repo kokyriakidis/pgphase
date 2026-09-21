@@ -202,12 +202,10 @@ static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
         // is scoped by them, and without it each haplotype takes its own
         // majority allele and a genuine het collapses to one side.
         Options solve_opts = opts;
-        // The depth-based het escape is keyed on the
-        // candidate's own provenance now
-        // (CandidateVariant::bam_injected), not on a window
-        // list, so nothing needs to be carried here. Window
-        // keying admitted every site in the window and cost
-        // 1.153% -> 2.067% read hamming on the default path.
+        // Keep the depth-based heterozygote repair inside the intervals that
+        // triggered recovery. Imported repeat rows remain excluded until the
+        // outside-in frontier below validates their next boundary edge.
+        solve_opts.retry_windows = gc.recovery_windows;
         // Two rounds, as the alignment pipeline solves: the
         // clean sites set the gauge, then the merged in-gap
         // sites -- NOISY_CAND_HET, which the clean mask does
@@ -271,6 +269,18 @@ static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
         assign_hap_based_on_germline_het_vars_kmeans(
             gc.chunk, solve_opts, kCandGermlineVarCate,
             false);
+
+        // Grow neighboring phase blocks one layer at a time. Each wave admits
+        // the strongest next recovery locus for each disconnected phase-set
+        // pair, then re-solves before another layer can enter.
+        constexpr size_t kMaxRecoveryFrontierRounds = 2;
+        for (size_t round = 0; round < kMaxRecoveryFrontierRounds; ++round) {
+            if (expand_recovery_frontiers_once(gc.chunk, solve_opts) == 0) break;
+            assign_hap_based_on_germline_het_vars_kmeans(
+                gc.chunk, solve_opts, kCandGermlineClean, false);
+            assign_hap_based_on_germline_het_vars_kmeans(
+                gc.chunk, solve_opts, kCandGermlineVarCate, false);
+        }
         if (opts.stitch_recovered)
             resolve_injected_consensus_jointly(gc.chunk);
     }

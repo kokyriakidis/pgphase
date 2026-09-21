@@ -74,7 +74,19 @@ holding its own FAI handle:
 | 2 | `build_graph_chunk` | the catalog's sites become the candidate table and the GAF rows become read profiles; allele identity is a **graph-walk identity**, not a realignment decision |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
-| 5 | **recovery, when in-chunk recovery** | `retry_unphased_windows_in_place` merges the alignment's in-gap candidates into this chunk, then both k-means rounds re-run over the union (below) |
+| 5 | **recovery, when `--bam` is present** | `retry_unphased_windows_in_place` injects alignment candidates and replaces shared-site observations with BAM observations; co-located MSA rows come across as the standalone BAM caller's separate rows; the normal graph rounds run over the union, then verified repeat rows can enter one boundary locus at a time (below) |
+
+The recovery sub-solve uses graph defaults to retain its catalog-site
+observations. At a new MSA candidate with two alternate alleles, recovery
+runs the same window with the standalone longcallD BAM options and substitutes
+those BAM candidate rows and their per-read alleles for the combined candidate.
+The shared BAM option setter is also used by `collect-bam-variation`, so the
+two paths cannot drift. A graph catalog indel demoted by reference context may re-enter phasing when
+the BAM candidate is usable and its read alleles link cleanly to the nearest
+heterozygote on each side. At a shared site, the BAM observation replaces the
+GAF observation for that read; otherwise the supposed refresh would leave the
+old graph allele in place. The chunk then runs its ordinary clean and
+noisy-inclusive k-means rounds; no imported phase label is pinned.
 
 Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
 straddle each boundary, `stitch_chunk_haps` joins adjacent chunks on those shared
@@ -87,43 +99,59 @@ chunk is still the unit of work, so each chunk's windows are its own, needing no
 batching and no cross-chunk coordination -- the worker pool already provides the
 parallelism the post-hoc path had to rebuild for itself.
 
-### Recovery (step 10), on by default
+### Recovery, on by default when `--bam` is present
 
-Two failure modes, because they do not overlap:
+The first graph solve reports two observable failures:
 
-- `collect_unphased_windows` -- intervals where the solve left **reads**
-  unphased, which is what an alignment-driven solve produces;
-- `collect_block_seams` -- intervals between consecutive blocks, every read
-  placed but the blocks unjoined, which is what a catalog-driven solve produces.
+- `collect_unphased_windows` finds covered intervals with no eligible phased
+  heterozygote;
+- `collect_block_seams` finds intervals between phase blocks whose reads were
+  placed but whose sites were not connected.
 
-Each window is treated twice, in order:
+`retry_unphased_windows_in_place` runs the alignment caller on those intervals,
+then inserts its candidate rows and BAM allele observations into the same
+position-sorted chunk. Shared sites keep one candidate representation and take
+the BAM observation for a read. When graph-default MSA would combine co-located
+alleles, recovery obtains that locus with the standalone longcallD BAM options
+and inserts the separate BAM rows. The BAM phase labels are never imported.
 
-1. **In place.** The chunk is re-solved with `force_noisy_msa` (asks for the
-   noisy-region MSA by name, and enables `split_nested_msa_deletions` with it),
-   `skip_noisy_kmeans = false` (so the recalled sites are actually oriented), and
-   `retry_windows` as the **only** scoping -- it confines the widened het
-   admission to the failed intervals. Admitting that class chunk-wide instead
-   roughly doubled the chromosome-wide read Hamming error (0.878% → 1.837%).
-2. **As its own chunk.** Whatever is still unphased, plus the seams, goes to
-   `recover_windows_with_targeted_solve`: `process_chunk` over the window plus
-   one read length at the recovery mapq floor, with the noisy class admitted and
-   no further recursion. The result is stitched to each adjacent parent block by
-   `select_stitch_orientation` over the reads tagged in both -- which refuses
-   when no read is shared, so an interval no read crosses yields two honest
-   blocks instead of a coin flip. Sites the parent holds unphased **adopt** the
-   sub-solve's phasing; sites it never discovered are **imported**.
+The chunk first runs the ordinary clean and noisy-inclusive graph rounds over
+that union. Repeat-derived recovery rows remain unable to link by default. The
+remaining gaps are then expanded from both established phase boundaries toward
+their interiors:
+
+1. On each side, expose only the nearest alignment-verified recovery locus.
+   Deeper sites cannot jump over that frontier.
+2. Ignore a row that already carries the boundary's phase set: its link back to
+   that block confirms existing membership and supplies no expansion evidence.
+3. For each disconnected phase-set pair, rank its two exposed boundary loci by
+   the strongest separate row: net same-versus-cross read margin, then total
+   paired reads, distance, and coordinate. Co-located rows are never summed.
+4. Admit the winning locus for each pair only when it lies within 10 kb of its
+   boundary, both alleles occur, and its net margin is at least 10 reads. Every
+   co-located row must pass that gate independently.
+5. Run both normal graph rounds over the whole chunk before exposing another
+   layer. Recovery performs at most two waves per pair, the minimum that closes
+   the regression panel's supported two-step gap.
+
+Unverified imported rows can inherit a phase-set label during a solve, but they
+do not become frontier boundaries. This prevents interior repeat rows from
+collectively manufacturing a bridge before the evidence chain reaches them.
+`retry_windows` also confines depth-based heterozygote repair to the intervals
+that triggered recovery, and `alignment_verified` prevents catalog-only rows in
+those intervals from entering through that repair.
 
 ### Recovery has one placement
 
 Recovery is not a mode, and there is no flag for it: the post-hoc placement,
 `Options::in_pass_recovery`, `--in-chunk-recovery` and `--no-anchored-stage2`
 were deleted outright (419 lines), and the two flag names are now rejected as
-unrecognised rather than silently ignored. Inside each chunk, after the noise filter and the first
-clean solve, `retry_unphased_windows_in_place` finds the windows the solve left
-unphased plus the seams between its blocks, re-solves them from the alignment,
-and merges what it finds into the chunk. Both k-means rounds then run again
-over the union, and NEITHER is anchored: the chunk is solved once, with every
-site it will ever have.
+unrecognised rather than silently ignored. Inside each chunk, after the noise filter and the first clean solve,
+`retry_unphased_windows_in_place` finds the windows the solve left unphased plus
+the seams between its blocks, re-solves them from the alignment, and merges what
+it finds into the chunk. Both k-means rounds then run over the union and are not
+anchored. Decisive repeat rows are subsequently admitted by the outside-in
+frontier loop above, with the same two normal rounds after each advancing wave.
 
 Anchoring those rounds was measured and removed. On
 chr20:42,500,000-43,000,000, where recovery merges 6 sites across 3 windows,
@@ -2979,4 +3007,3 @@ Internal `assert(...)` checks are present in alignment/noisy helper code paths (
 cover-state consistency and expected allele-width assumptions). In debug/assert-enabled builds,
 violations terminate execution immediately; in release builds these assertions may be compiled out,
 while explicit runtime checks listed above remain active.
-

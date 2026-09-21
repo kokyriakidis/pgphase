@@ -1,5 +1,93 @@
 # pgphase Evaluation Checkpoint
 
+## 2026-09-20 graph recovery: exact BAM rows and noncentromeric gaps
+
+The chr20 gap investigation excluded the low-MAPQ 27.5–29 Mb centromeric
+interval. Five high-confidence competitor spans outside it were screened:
+5.31, 11.23, 24.10, 48.18, and 60.03 Mb. The prior graph recovery split
+all five; exact-row transfer closes 5.31 Mb. Measurements are in
+`evaluations/2026-09-20-graph-recovery-windows/`.
+
+The prior recovery sub-solve inherited graph defaults, including
+`merge_colocated_msa_alleles=true`. At 11.23 Mb this compressed two
+complementary BAM deletion rows at 11,255,369 into one three-allele candidate.
+Standalone BAM has 47 reads shared with the right SNP: each separate row agrees
+with it on 44 or 45 reads. The merged candidate's allele 2 is split 21/9
+across that SNP. The old transfer preserved the merged representation, so the
+bug was upstream of the candidate-table merge. The retained path substitutes
+the standalone BAM rows and their read alleles at these MSA loci.
+
+Using the BAM port's full option set in the recovery sub-solve does produce
+separate rows, but the graph union then fails existing truth gates: 3.85 Mb
+read concordance falls to 0.917, 60.03 Mb to 0.912, and 5.31 Mb separated
+reads to 0.323. Turning off only the MSA merge also loses phased in-gap
+heterozygotes (17 to 4 at 3.85 Mb and 6 to 1 at 4.77 Mb). These trials were
+reverted. A narrow graph-style candidate-admission gate closed 5.31 Mb at
+0.947 separated reads and 99.6% read concordance, with only three additional
+discordant reads across full chr20, but it retained the merged BAM site source
+and was also reverted after the no-merge requirement was clarified.
+
+Minimal variant-key inequality overstates private variation in repeats. At
+3.85 Mb, 32 of 39 BAM heterozygotes that the audit called unmatched are
+local-haplotype equivalents of raw catalog ALTs under different anchors.
+A trial matching all raw catalog ALTs removed most duplicate descriptions,
+but lost phased sites and still failed the window suite. This distinction
+matters: an allele absent from the retained phasing candidates can already
+exist in the raw graph VCF. No experimental graph behavior from this audit
+was retained.
+
+Further transfer trials exposed two independent requirements. The 11.23 Mb
+deletion pair is present in the raw catalog as `GAAA>GAA` and `GAAA>GA`
+but absent from the active graph candidate table. Separate BAM rows link
+strongly to the right SNP (45 agreeing, 2 conflicting reads) and to each
+other (42/5), yet have no observed link back to the left boundary. Exact-row
+transfer alone cannot span that gap. Replacing only merged MSA rows with the
+standalone BAM rows and admitting read-supported catalog sites closed 5.31 Mb
+at 0.947 separated reads, but caused 3.85 Mb read concordance to fall to
+0.909 (45 discordant reads). The user accepted this local drop and the full
+chr20 error increase (2,527/219,058 to 3,302/220,640), so
+the exact-row transfer and read-supported catalog admission are retained.
+The early `allele_depths_call_het` retry-window guard also masks its later
+`bam_injected` exception in the graph re-solve; removing that guard without
+extra link validation regressed the committed 22.98 Mb window's separated
+fraction to 0.308. The guard-only trial was reverted. Details are in
+`evaluations/2026-09-20-graph-recovery-windows/README.md`.
+
+A graph-only chr20 phase-span audit found 74 internal gaps below 10 kb
+(281,849 bp). The original BAM comparison used output created before the final
+longcallD parity fixes and is superseded. Current standalone BAM spans 36 gaps
+(119,456 bp); 19 are at least 98% concordant across truth-scored crossing reads.
+HiPhase spans 50 (195,219 bp); 21 of its 49 scorable spans reach 98% in the
+phase set's whole-block orientation.
+
+Current BAM misses seven of those correct HiPhase spans. The 26.92 Mb case is a
+centromeric low-MAPQ shoulder where only 3/58 overlapping alignments pass BAM's
+MAPQ 30 floor and is excluded from recovery work. Four noncentromeric breaks
+come from exact longcallD behavior: heterozygous homopolymer indels are emitted
+but excluded from the phase link list, moving the effective anchor 21.0–45.5 kb
+away and leaving only 0 or 1 link vote. Two more come from representation and
+ordering: HiPhase phases one multiallelic record, while exact BAM preserves two
+complementary rows and tests only the immediately preceding heterozygote. The
+first row starts a new phase set with 0/0 or 1/0 votes; the strongly supported
+second row then links to the first and cannot reconnect the old block. Details
+are in `hiphase_correct_bam_misses.tsv` and the short-gap section of the same
+evaluation directory's README.
+
+A follow-up screened four noncentromeric deficits that standalone BAM itself
+spans (4.85, 47.74, 60.95, and 64.91 Mb). Injecting every exact BAM site and
+re-running the whole graph chunk closed none, reopened 5.31 Mb, and reduced
+60.03 Mb concordance to 0.912. Re-running the graph union with all longcallD
+phasing toggles also closed none. Unconditionally accepting BAM verdicts for
+sequence-equivalent catalog sites closed 64.91 Mb but made a false 60.03 Mb
+join at 59.2% concordance. A two-pure-flank gate prevented the false join and
+closed none. All four variants were reverted; the retained union substitutes
+exact BAM rows only where graph recovery compressed co-located MSA alleles.
+
+An earlier whole-chunk fallback for catalog-empty chunks was also rejected:
+it added 2,271 calls across chr20:27.5–29 Mb and raised read discordance from
+2,528/219,067 (1.154%) to 3,624/221,864 (1.633%). The normal MAPQ floor
+still added 341 calls and raised discordance to 2,566/219,213 (1.171%).
+
 ## Test Setup
 
 **Sample:** HG002 chr20 HiFi reads  
@@ -8462,3 +8550,62 @@ and chr11 ONT (586), with zero unique keys or shared differences in
 VCIGAR, FILTER, END/SV fields, CLEAN, GT, DP, AD, VAF, GQ and PS. The ONT
 TSV and VCF regression goldens now reflect this final result. The earlier
 12- and 8-difference counts above are intermediate measurements.
+
+
+### Graph recovery expands phase blocks outside-in (2026-09-20)
+
+Testing six noncentromeric gaps below 10 kb that HiPhase spans at at least 98%
+truth concordance showed two distinct failures. Four had an
+alignment-verified homopolymer row near a block boundary, but the graph solve
+never admitted that row to its link list. The other two had co-located
+representation/order failures whose first external edge had fewer than two
+votes.
+
+Bulk admission closed the four homopolymer cases but regressed the committed
+3.85 Mb control: its separated fraction fell from at least 0.36 to 0.165.
+Admission was therefore changed to an iterative frontier. After exact BAM rows
+and observations are injected and the normal graph rounds run, each disconnected
+block exposes only the nearest verified recovery locus on its left and right.
+Each disconnected phase-set pair ranks its two exposed loci by net
+same-versus-cross support; one coordinate per pair enters, and the normal clean
+and noisy rounds run again before the next layer is visible. Scoping the
+ranking per pair matters in production chunks: a chunk-wide winner let two
+unrelated gaps consume both waves and left 6.58 Mb open. Co-located rows remain
+separate and must qualify on their own evidence.
+
+The first implementation reused the ordinary two-read link margin without a
+step-distance limit. It kept the window gains and passed the original panel, but
+the full chr20 audit regressed to 5,827 discordant of 220,608 evaluated reads
+(2.641% error). A 10 kb step and ten-read net margin reduced unsupported
+admission, but choosing every boundary in one wave or allowing 32 single-site
+waves converged to 4,682/220,610 discordant reads (2.122%). Ranking only the
+immediate frontier restored the 12.27 Mb separated fraction from 0.68 to 0.81
+but still exposed a false 15.10 Mb join.
+
+That join identified a logic error: the chosen deletion already belonged to the
+same phase set as the boundary used to support it. Its 29/6 pair vote confirmed
+existing membership; it was not evidence of expansion. Rejecting same-phase-set
+support removes the join and yields 3,595/220,610 discordant reads (1.629%),
+versus the accepted exact-row recovery's 3,302/220,640 (1.497%). The remaining
+largest new join, at 52.3 Mb, has 30 of 31 pair reads in one orientation; an
+extra gate that rejects it would also reject weaker correct target links. Two
+single-locus waves are retained because one wave leaves 48.23 Mb open and two
+close all four supported targets. The 15,095,642–15,101,261 seam is retained
+as a no-span regression control: it stays split at 99.2% read concordance.
+The final full-chr20 VCF, using production chunking, spans all four targets;
+`full_chr20_target_spans.tsv` records their resulting phase-set extents.
+
+This closes 6,578,161–6,582,248, 11,255,370–11,262,360,
+12,269,536–12,277,077, and 48,225,787–48,229,445. Their measured read
+concordance is 99–100%; separated fractions are 0.80, 0.64, 0.81, and 0.71.
+The 4.78 and 34.10 Mb representation cases remain open because the first
+external link is still insufficient. The original and added regression
+windows pass, and the four closures are retained as regression
+windows. `evaluations/2026-09-20-graph-recovery-windows/frontier_short_gaps.tsv`
+records the result.
+
+The merge also fixed a real refresh bug: rebuilding a shared read profile used
+`map::emplace`, so an existing GAF allele silently won over the recovery BAM
+allele. It now uses `insert_or_assign` at shared sites. The expectation refresh
+script was stale after the suite moved to one `graph` arm; its gate now checks
+that active arm instead of removed `default` and `noretry` rows.

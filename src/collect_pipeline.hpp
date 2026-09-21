@@ -125,6 +125,10 @@ size_t retry_unphased_windows_in_place(GraphChunkBuildResult& graph_chunk,
                                       WorkerContext& context,
                                        const char* contig_name);
 
+/// Admit the strongest decisive next alignment-recovered frontier locus for
+/// each disconnected phase-set pair, then let the caller re-solve.
+size_t expand_recovery_frontiers_once(PhasingChunk& chunk, const Options& opts);
+
 
 
 

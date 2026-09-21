@@ -63,6 +63,7 @@ CandidateVariant het_candidate(hts_pos_t pos) {
     v.key.type = VariantType::Snp;
     v.key.ref_len = 1;
     v.lcd_var_i_to_cate = kCandCleanHetSnp;
+    v.alignment_verified = true;
     v.hap_to_alle_profile[1].assign(2, 10);
     v.hap_to_alle_profile[2].assign(2, 10);
     v.counts.ref_cov = 15;
@@ -390,6 +391,11 @@ TEST_CASE("allele_depths_call_het: every exclusion in order") {
         none.retry_windows.clear();
         CHECK_FALSE(allele_depths_call_het(het_candidate(1500), none));
     }
+    SECTION("a catalog-only row is not repaired") {
+        CandidateVariant v = het_candidate(1500);
+        v.alignment_verified = false;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+    }
     SECTION("the position must fall inside a window") {
         CHECK_FALSE(allele_depths_call_het(het_candidate(2500), opts));
         // The window is half-open: [beg, end).
@@ -437,11 +443,12 @@ TEST_CASE("allele_depths_call_het: every exclusion in order") {
         CHECK_FALSE(allele_depths_call_het(v, opts));
         v.counts.allele_fraction = 0.95;
         CHECK_FALSE(allele_depths_call_het(v, opts));
-        // A homopolymer indel at a textbook fraction still passes: this
-        // predicate asks only about depths, which is why it re-admits
-        // chance-level repeat sites to the link list.
+        // A homopolymer indel also needs the outside-in frontier to validate
+        // its boundary link; depth alone cannot admit a repeat row.
         v.counts.allele_fraction = 0.5;
         v.is_homopolymer_indel = true;
+        CHECK_FALSE(allele_depths_call_het(v, opts));
+        v.gap_link_supported = true;
         CHECK(allele_depths_call_het(v, opts));
     }
 }

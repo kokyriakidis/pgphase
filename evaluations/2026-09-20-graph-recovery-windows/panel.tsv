@@ -1,0 +1,9 @@
+# Five noncentromeric graph gaps with HiPhase spans and >=99% read concordance.
+# competitor_acc is HiPhase per-block read concordance, not separated fraction.
+# 5.31 Mb: 2026-09-16-stock-deficit; other rows: 2026-09-16-current-deficit.
+gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scored
+5309406	5345085	35679	226	hiphase	0.9955	221
+11235279	11262361	27082	210	hiphase	1.0	180
+24103779	24142287	38508	233	hiphase	1.0	194
+48176830	48229446	52616	304	hiphase	1.0	252
+60033052	60058235	25183	170	hiphase	0.9938	160
