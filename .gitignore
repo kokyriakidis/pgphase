@@ -128,3 +128,5 @@ test_data/derived/
 /test_phase_predicates
 /test_bam_site_injection
 test_port_parity
+
+/test_upstream_phase

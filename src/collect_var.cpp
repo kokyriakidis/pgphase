@@ -645,7 +645,7 @@ cgranges_t* intervals_to_cr(const std::vector<Interval>& intervals) {
         if (iv.beg > iv.end) continue;
         const int32_t st = static_cast<int32_t>(iv.beg - 1);
         const int32_t en = static_cast<int32_t>(iv.end);
-        const int32_t label = iv.label > 0 ? iv.label : 1;
+        const int32_t label = iv.label;
         cr_add(cr, "cr", st, en, label);
         ++added;
     }
@@ -698,7 +698,7 @@ static cgranges_t* intervals_to_cr_noisy_post_merge(const std::vector<Interval>&
         if (iv.beg > iv.end) continue;
         const int32_t st = static_cast<int32_t>(iv.beg);
         const int32_t en = static_cast<int32_t>(iv.end);
-        const int32_t label = iv.label > 0 ? iv.label : 1;
+        const int32_t label = iv.label;
         cr_add(cr, "cr", st, en, label);
         ++added;
     }
@@ -2123,39 +2123,25 @@ static void drop_superseded_colocated_records(PhasingChunk& chunk) {
     }
 }
 
-/// Steps 1-2: build the candidate table for a chunk and classify every entry.
-///
-/// Discovery from the reads' own alignments (X/I/D from the digars), then allele
-/// counts, then the noisy-region pre-pass, then a category per candidate. The
-/// category is what every later stage gates on -- not the position, not the
-/// allele fraction -- so this is where a site becomes eligible or ineligible for
-/// phasing.
-///
-/// NOT part of the retry. The retry re-enters at collect_var_run_phasing with
-/// this table already built, which is why it can only work with candidates that
-/// exist by now: a locus never proposed here cannot be recovered later. One of
-/// the panel's remaining defects is exactly that -- at chr20:5,339,364 read
-/// truth shows +34 against +38 with no read at reference, and the table holds a
-/// 5 bp deletion instead, so no admission or orientation change reaches it.
+/// Discover candidates from read alignments, count their alleles, and classify
+/// them. Read-level noisy regions are built first; classification adds candidate
+/// spans, then containment and pruning remove calls inside noisy intervals.
 void collect_var_classify(PhasingChunk& chunk,
                           const Options& opts,
                           const bam_hdr_t* header) {
-    // 1.1. collect X/I/D candidate sites from parsed read digars.
+    // Parsed X/I/D events propose sites; read profiles later score the same sites.
     collect_candidate_sites_from_records(
         chunk.region, chunk.reads, chunk.candidates, opts.min_sv_len);
 
-    // 1.2. collect reference and alternate allele support for every candidate site.
     collect_allele_counts_from_records(chunk.reads,
                                        chunk.candidates,
                                        opts.min_bq,
                                        opts.min_sv_len);
 
-    // 2.1. pre-process read-level noisy regions before classification.
+    // Read-level noise gives classification its initial exclusion intervals.
     pre_process_noisy_regs_pgphase(chunk, opts);
 
-    // 2.2. identify clean, repeat/noisy, low-AF, strand-biased, and low-coverage candidates.
-    // 2.3. add repeat/dense candidate spans back into the noisy-region model.
-    // 2.4. reserve somatic/mosaic classification for a future somatic branch.
+    // Classification uses allele counts and augments the noisy-region model.
     if (opts.verbose >= 2) {
         std::fprintf(stderr,
                      "PRE_CLASSIFY noisy_regions (%zu intervals):\n",
@@ -2170,66 +2156,27 @@ void collect_var_classify(PhasingChunk& chunk,
     }
     classify_chunk_candidates(chunk, opts, header);
 
-    // 2.5. post-process noisy regions using classified candidate context.
+    // Merge noisy spans after candidate context has been added.
     post_process_noisy_regs_pgphase(chunk, chunk.candidates);
 
-    // 2.6. final containment pass: candidates fully inside noisy spans become NON_VAR.
+    // A contained candidate is suppressed before profiles and phasing are built.
     apply_noisy_containment_filter(chunk);
     prune_not_candidate_variants(chunk);
 
     dump_all_noisy_regions(chunk, opts, header);
 }
 
-/// Step 3.1: record, for every read, which allele it carries at every candidate
-/// it overlaps (its ReadVariantProfile).
-///
-/// The profiles are the substrate everything downstream reads: the k-means
-/// clusters reads by their allele vectors, and
-/// backfill_graph_candidate_counts derives the graph-only candidates' coverage
-/// counts from these same profiles. A slot is 0 for reference, a positive
-/// allele index for an alternate, -1 uninformative, -2 low quality.
-///
-/// NOT re-run by the retry. process_chunk_hybrid calls this once, before the
-/// first solve; the retry re-enters at collect_var_run_phasing, so both solves
-/// read the same profiles. Only the noisy-region MSA adds observations after
-/// this point (add_msa_site_observations), and it writes into these same
-/// profiles rather than rebuilding them.
+/// Record each read's allele at every overlapping candidate. Profiles use 0
+/// for reference, positive indices for alternate alleles, and negative values
+/// when the read is uninformative or low quality. K-means consumes these vectors.
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts) {
     if (chunk.candidates.empty()) return;
     collect_read_var_profile(opts, chunk);
 }
 
-/// Steps 3.2-4: solve the chunk. THE RETRY'S ENTRY POINT -- called a second
-/// time on the same chunk with retry_opts, and everything it does is idempotent
-/// in the sense that matters: the second call overwrites the first call's read
-/// labels and candidate consensus fields rather than adding to them.
-///
-/// Three stages, in this order, and the order is load-bearing:
-///
-///   1. assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)
-///      -- the clean core. Clean het SNPs, clean het indels, clean hom. This is
-///      the only k-means the default hybrid path runs: the hybrid sets
-///      skip_noisy_kmeans = true, and the second k-means inside stage 2 below
-///      is gated on that field, so it declines to re-solve.
-///   2. collect_noisy_vars_step4 -- the noisy-region MSA. Recalls the candidates
-///      the per-read pass could not call, and -- only when skip_noisy_kmeans is
-///      clear, which is what the retry arranges -- re-runs the k-means over the
-///      WIDER kCandGermlineVarCate mask so those candidates are oriented too.
-///      This stage runs in both solves; the orientation is what the retry adds.
-///   3. drop_superseded_colocated_records -- stage 2 is what creates the
-///      merged multiallelic records, so a leftover single-allele description of
-///      the same locus can only be identified after it has run. At
-///      chr20:55,883,019 the merge produced the correct AATATAT -> AAT,A at
-///      1|2 while a third co-located 4 bp deletion survived beside it,
-///      classified homozygous because it scored the other haplotype's reads
-///      against its own allele (1 reference against 36 alt, AF 0.973), and was
-///      emitted 1|1 next to the correct record.
-///
-/// Reads and candidate orientations must come from the SAME solve. Restoring
-/// only the first pass's read labels would mix independent phase-set
-/// orientations and undo bridges the second solve established; preserving graph
-/// blocks is the block merger's job, and it aligns complete phase sets by shared
-/// reads rather than by trusting labels.
+/// Phase the clean candidates, recall sites in noisy regions with MSA, and
+/// re-phase when recall adds sites. Then fill MSA strand counts, remove records
+/// superseded by merged alleles, and mark candidates inside the active region.
 void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
                              const VariantKeySet* noisy_site_whitelist) {
     if (chunk.candidates.empty() && chunk.noisy_regions.empty()) return;
@@ -2239,10 +2186,7 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
         assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
     }
 
-    // Keep reads and candidate orientations from the same solve. Restoring only
-    // first-pass read labels would mix independent PS orientations and undo
-    // newly established bridges. Graph preservation is handled by the existing
-    // graph/hybrid block merger, which aligns complete phase sets by shared reads.
+    // MSA can add candidates and rerun k-means on the expanded site set.
     collect_noisy_vars_step4(chunk, opts, noisy_site_whitelist);
     // The MSA path derives ref_cov/alt_cov from alle_covs and never writes the
     // strand tallies, so its candidates reach the strand-bias screen with 0+0
@@ -2261,17 +2205,15 @@ void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
     }
 }
 
-/// Profiles then solve, for the alignment-only pipeline
-/// (collect-bam-variation). The hybrid does NOT call this: it calls
-/// collect_var_build_profiles and collect_var_run_phasing separately, because
-/// graph-site injection and the graph-only count derivation have to happen
-/// between the two, and because the retry re-enters at the second one alone.
+/// Build read profiles and solve the BAM chunk. Graph recovery calls the two
+/// stages separately so it can add catalog sites between them.
 void collect_var_phase(PhasingChunk& chunk,
                        const Options& opts) {
     collect_var_build_profiles(chunk, opts);
     collect_var_run_phasing(chunk, opts);
 }
 
+/// Run BAM candidate discovery, read profiling, and phasing for one chunk.
 void collect_var_main(PhasingChunk& chunk,
                       const Options& opts,
                       const bam_hdr_t* header) {

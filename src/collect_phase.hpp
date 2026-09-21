@@ -150,9 +150,20 @@ bool read_carries_phase_tags(int mapq, const Options& opts);
 
 
 // ── Ported from longcallD, name-for-name ────────────────────────────────────
-// These four carry their upstream names so parity can be checked by reading the
-// two sources side by side, and are declared here so the test binaries can
-// exercise them directly. Each comment gives the upstream definition.
+// These are also used by the direct upstream C differential test. For the BAM
+// path, pass preserve_decided=false, msa_sites_vote_without_gap_link=true,
+// infer_complement_at_multiallelic=true, and upstream_read_scoring=true.
+void var_init_hap_profile_cons_allele(bool is_ont, CandidateTable& variants,
+                                     const std::vector<int>& valid_var_idx,
+                                     bool preserve_decided = false);
+void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int hap);
+int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i,
+                              bool msa_sites_vote_without_gap_link,
+                              bool infer_complement_at_multiallelic,
+                              bool upstream_read_scoring);
+
+// These functions carry their upstream names so parity can be checked against
+// the original C. Each comment gives the upstream definition.
 
 /// longcallD assign_hap.c:307 -- do two variants agree for one read, under the
 /// haplotype it is being tested against? Our `check_agree_alleles` is a

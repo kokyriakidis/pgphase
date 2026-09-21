@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# compare_phased_vcf.sh — compare pgPhase --phased-vcf-output against longcallD's phased VCF.
+# compare_phased_vcf.sh — compare pgPhase --phased-vcf-out against longcallD's phased VCF.
 #
 # Usage:
 #   ./scripts/compare_phased_vcf.sh [REGION] [--hifi|--ont]
@@ -71,10 +71,9 @@ echo "mode   : $MODE"
 echo "BAM    : $BAM"
 echo ""
 
-"$PGPHASE" collect-bam-variation -t 1 --include-filtered \
-    ${MODE:---hifi} \
-    --phased-vcf-output "$TMP/pg_phased.vcf" \
-    "$FA" "$BAM" "$REGION" -o "$TMP/pg.tsv" 2>/dev/null
+"$PGPHASE" collect-bam-variation -t 1 --include-filtered "$MODE" \
+    --ref "$FA" --bam "$BAM" -r "$REGION" \
+    --phased-vcf-out "$TMP/pg_phased.vcf" -o "$TMP/pg.tsv" 2>/dev/null
 
 "$LONGCALLD_BIN" call -t 1 "$MODE" \
     "$FA" "$BAM" "$REGION" > "$TMP/lcd.vcf" 2>/dev/null

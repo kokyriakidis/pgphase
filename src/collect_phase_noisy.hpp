@@ -30,7 +30,7 @@ int call_msa_site_allele(const std::array<AlnStr, 2>& alignments,
 /// Extend MSA het profiles only if the expanded observations pass the existing AF gate.
 void add_msa_site_observations(const Options& opts,
                                 const std::vector<UnassignedMsaRead>& reads,
-                                hts_pos_t ref_beg, bool snp_only,
+                                hts_pos_t ref_beg,
                                 std::vector<CandidateVariant>& vars,
                                 std::vector<ReadVariantProfile>& profiles,
                                 const std::array<AlnStr, 2>* consensuses = nullptr);
@@ -47,17 +47,15 @@ void derive_msa_candidate_strand_counts(PhasingChunk& chunk);
 /// exercise it directly.
 uint8_t base_to_nt4(char base);
 
-/// Is this indel in a homopolymer context? Both branches compare in nt4 and are
-/// therefore case-insensitive, which matters because the reference is
-/// soft-masked in exactly the repeat tracts this asks about. `alt` is the
-/// inserted bases in ASCII for an insertion, and is ignored for a deletion.
-/// Returns false for a SNP, for an out-of-range position, and for a context
-/// containing a non-ACGT base.
+/// Is this indel in a homopolymer context? The BAM MSA path can use
+/// longcallD's raw-reference versus nt4 insertion comparison; other callers
+/// compare bases in nt4. `alt` is ignored for deletions.
 bool var_is_homopolymer_indel(const PhasingChunk& chunk,
                               hts_pos_t ref_pos,
                               VariantType type,
                               int ref_len,
-                              const std::string& alt);
+                              const std::string& alt,
+                              bool upstream_reference_bytes = false);
 
 /// Fill missing observations at admitted MSA sites from every overlapping BAM read.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
@@ -68,52 +66,26 @@ int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * @brief Iteratively call variants in noisy regions and re-run k-means phasing.
+ * @brief Attribute each co-located deletion read to one candidate.
  *
- * Iteratively process noisy regions: MSA-recall variants, merge into
- * Called after `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)`.
- *
- * Sorts noisy regions by `Interval::label` (variant count) ascending,
- * then by length ascending.  For each
- * region in sorted order, calls `collect_noisy_vars1`; if any attempt returns ≥0 the
- * region is marked done.  When at least one region yields new variants (`ret > 0`),
- * re-runs k-means with `kCandGermlineVarCate` to incorporate noisy candidates.
- * Loops until no region makes further progress.
- *
- * @note No-ops when `chunk.noisy_regions` is empty.
- */
-/**
- * @brief Attribute a read's deletion to one of several co-located records.
- *
- * Two deletion records at one position are the two haplotypes' different lengths
- * at one locus. A read carrying the longer deletion satisfies the shorter
- * record's window too and is scored alt at both, which double-counts one
- * haplotype and leaves the locus without a usable orientation. Each read keeps
- * alt at the longest record it supports and becomes reference at the rest.
+ * A longer deletion may also satisfy a shorter candidate's window. Keep the
+ * longest supported allele and change the other observations to reference.
  */
 void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
                                         std::vector<ReadVariantProfile>& profiles);
 
+/// Process smaller noisy regions first and re-phase when MSA admits candidates.
 void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
                               const VariantKeySet* site_whitelist = nullptr);
 
 /**
- * @brief Process one noisy region: collect reads → extract reference → MSA →
- *        variant extraction → merge into chunk.
+ * @brief Align reads in one noisy region and merge MSA candidates into the chunk.
  *
- * Process one noisy region: extract reads, run MSA, recall variants.
- *
- * Return values:
- *   > 0  new variants found; caller should trigger k-means re-run.
- *   = 0  region was attempted but no new variants (too long, too deep, or MSA
- *        returned empty consensus); region is marked done by the outer loop.
- *   < 0  MSA could not resolve the region; region stays undone and may be retried.
- *
- * @param noisy_reg_i  Index into `chunk.noisy_regions`.
+ * Returns the number of admitted candidates, or -1 if MSA could not resolve
+ * the region. A nonnegative result marks the region done in the outer loop.
  */
 int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
-                        const VariantKeySet* site_whitelist = nullptr,
-                        bool snp_only_admission = false);
+                        const VariantKeySet* site_whitelist = nullptr);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Sorting
@@ -214,7 +186,6 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist = nullptr,
                       bool admit_all_in_region = false,
-                      bool snp_only_admission = false,
                       const VariantKeySet* replace_sites = nullptr);
 
 } // namespace pgphase_collect

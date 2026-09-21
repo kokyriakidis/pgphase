@@ -137,10 +137,10 @@ static int get_var_init_max_cov_allele(bool is_ont, const CandidateVariant& var)
 // Initialize hap_to_alle_profile (zeroed) and hap_to_cons_alle for all valid vars.
 // Hom vars get cons_alle[1]=cons_alle[2]=1; het vars get -1/-1.
 // Var_init_hap_profile_cons_allele.
-static void var_init_hap_profile_cons_allele(bool is_ont,
+void var_init_hap_profile_cons_allele(bool is_ont,
                                               CandidateTable& variants,
                                               const std::vector<int>& valid_var_idx,
-                                              bool preserve_decided = false) {
+                                              bool preserve_decided) {
     for (int vi : valid_var_idx) {
         CandidateVariant& var = variants[vi];
         const int na = variant_allele_slots(var);
@@ -220,7 +220,7 @@ static int select_init_var(const CandidateTable& variants,
 
 // Update hap_to_cons_alle[hap] via argmax of the allele profile, with ONT 67% guard.
 // Update_var_hap_to_cons_alle.
-static void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int hap) {
+void update_var_hap_to_cons_alle(bool is_ont, CandidateVariant& var, int hap) {
     if (hap == 0) return;
     const auto& prof = var.hap_to_alle_profile[hap];
     int max_cov = 0, max_alle = -1, total = 0;
@@ -254,7 +254,7 @@ static bool two_allele_het(const CandidateVariant& var) {
 
 // Side effect: may set hap_to_cons_alle[hap] or [3-hap] when one is -1.
 // Score a read against consensus alleles: +1 for agreement, -1 for conflict.
-static int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i,
+int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i,
                                      bool msa_sites_vote_without_gap_link,
                                      bool infer_complement_at_multiallelic,
                                      bool upstream_read_scoring) {
@@ -599,9 +599,11 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         // orientation is then decided by spanning reads rather than inherited.
         if (var.hap_to_cons_alle[1] != -1 && var.hap_to_cons_alle[2] != -1 &&
             var.hap_to_cons_alle[1] != var.hap_to_cons_alle[2] &&
-            (var.msa_insertion_alts.empty() || var.gap_link_supported ||
+            (opts.upstream_assign_hap ||
+             var.msa_insertion_alts.empty() || var.gap_link_supported ||
              two_allele_het(var)) &&
-            !hp_indel_blocks_link) {
+            (opts.upstream_assign_hap ? !var.is_homopolymer_indel
+                                         : !hp_indel_blocks_link)) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
         }
@@ -620,7 +622,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
     // Ordinary rounds retain the nearest sufficient link within the preceding
     // `block_link_window` hets. Recovery rounds retain all sufficient edges,
     // so a later verified site can connect earlier components.
-    const int window = std::max(1, opts.block_link_window);
+    constexpr int kUpstreamMinLinkReads = 2;
+    const int window = opts.upstream_assign_hap ? 1 : std::max(1, opts.block_link_window);
+    const int min_link_reads = opts.upstream_assign_hap
+                                  ? kUpstreamMinLinkReads : opts.min_block_link_reads;
     struct Edge { int left, right, agree, conflict; };
     for (int hi = 1; hi < n_het; ++hi) {
         const int vi = valid_var_idx[het_var_idx[hi]];
@@ -633,7 +638,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             for (int64_t oi = 0; oi < ovlp_n; ++oi) {
                 const int read_i = (int)cr_label(cr, ovlp_b[oi]);
                 if (chunk.reads[read_i].is_skipped) continue;
-                const int agree = opts.link_by_alleles
+                const int agree = opts.link_by_alleles && !opts.upstream_assign_hap
                         ? check_agree_alleles(chunk, read_i, vj, vi)
                         : check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
                 if (agree > 0) a++;
@@ -642,16 +647,18 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             // An MSA bridge must segregate both haplotypes. A large pile of
             // reference-only observations cannot compensate for missing or
             // contradictory support on the other allele.
-            const int support = a == c ? 0 : std::max(a, c);
+            const int support = opts.upstream_assign_hap
+                                    ? std::max(a, c) : (a == c ? 0 : std::max(a, c));
             // Require a net margin for additional repeat links. Read-level
             // disagreements alone do not establish a wrong block orientation.
-            if ((chunk.candidates[vi].is_homopolymer_indel ||
+            if (!opts.upstream_assign_hap &&
+                (chunk.candidates[vi].is_homopolymer_indel ||
                  chunk.candidates[vj].is_homopolymer_indel) &&
-                std::abs(a - c) < opts.min_block_link_reads) continue;
+                std::abs(a - c) < min_link_reads) continue;
             if (support > best_support) {
                 best_support = support; best_h = hj; best_a = a; best_c = c;
             }
-            if (support >= opts.min_block_link_reads) break;
+            if (support >= min_link_reads) break;
         }
         link_h[hi] = best_h;
         link_agree[hi] = best_a;
@@ -671,9 +678,11 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             continue;
         }
         const int hj = link_h[hi];
-        const int support = link_agree[hi] == link_conflict[hi]
-                                ? 0 : std::max(link_agree[hi], link_conflict[hi]);
-        if (hj < 0 || support < opts.min_block_link_reads) {
+        const int support = opts.upstream_assign_hap
+                                ? std::max(link_agree[hi], link_conflict[hi])
+                                : (link_agree[hi] == link_conflict[hi]
+                                       ? 0 : std::max(link_agree[hi], link_conflict[hi]));
+        if (hj < 0 || support < min_link_reads) {
             // No sufficiently supported link anywhere in the window -- break.
             // Carry the running parity unchanged, as orientation within a fresh
             // phase set is arbitrary anyway.
@@ -710,7 +719,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             phase_set = het_ps[hi];
             if (parity[hi] == 1) {
                 changed = 1;
-                std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
+                // assign_hap.c swaps once per hap (1 then 2), returning the
+                // consensus to its original order while still reporting change.
+                if (!opts.upstream_assign_hap)
+                    std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
             }
         }
         var.phase_set = phase_set;
@@ -801,7 +813,8 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         // Apply phase-set-local updates to clean-candidate rounds first.
         // MSA-round scoping exposes unresolved repeat-link regressions;
         // retain its existing update path (see CHECKPOINT.md).
-        if ((flags & kCandNoisyCandHet) || !opts.phase_set_scoped_clean_rounds) {
+        if (opts.upstream_assign_hap || (flags & kCandNoisyCandHet) ||
+            !opts.phase_set_scoped_clean_rounds) {
             int hap = init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags, std::nullopt,
                                                     opts.msa_sites_vote_without_gap_link,
                                        opts.infer_complement_at_multiallelic,
@@ -1102,13 +1115,16 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
 
     // Phase 3: report HP in its own phase set, using the final consensus.
     update_read_phase_set(chunk, var_is_valid, opts.upstream_read_scoring);
-    for (size_t ri = 0; ri < n_reads; ++ri) {
-        if (chunk.reads[ri].is_skipped) continue;
-        chunk.haps[ri] = chunk.phase_sets[ri] < 0 ? 0 :
-            std::max(0, init_assign_read_hap_based_on_cons_alle(chunk, static_cast<int>(ri), flags,
-                       chunk.phase_sets[ri], opts.msa_sites_vote_without_gap_link,
-                                       opts.infer_complement_at_multiallelic,
-                                       opts.upstream_read_scoring));
+    // assign_hap.c returns the last iterative read labels after setting PS.
+    if (!opts.upstream_assign_hap) {
+        for (size_t ri = 0; ri < n_reads; ++ri) {
+            if (chunk.reads[ri].is_skipped) continue;
+            chunk.haps[ri] = chunk.phase_sets[ri] < 0 ? 0 :
+                std::max(0, init_assign_read_hap_based_on_cons_alle(chunk, static_cast<int>(ri), flags,
+                           chunk.phase_sets[ri], opts.msa_sites_vote_without_gap_link,
+                                           opts.infer_complement_at_multiallelic,
+                                           opts.upstream_read_scoring));
+        }
     }
 
     // Phase 4: fill hap_alt / hap_ref from finalized hap_to_cons_alle.
@@ -1170,20 +1186,23 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
 
 // Stitch one pair of adjacent chunks: optionally flip hap labels in the
 // downstream chunk, then merge its phase set into the upstream chunk's PS.
-// Keeps both candidate and read-level HP/PS in sync.
+// longcallD updates read HP/PS only when it writes a phased alignment.
 static void apply_chunk_flip_and_merge(PhasingChunk& cur,
                                        bool do_flip,
                                        hts_pos_t max_pre_ps,
-                                       hts_pos_t min_cur_ps) {
+                                       hts_pos_t min_cur_ps,
+                                       bool update_reads) {
     // Flip hap labels when overlap reads voted for a flip and a valid PS exists.
     if (do_flip && min_cur_ps != INT64_MAX && min_cur_ps != static_cast<hts_pos_t>(-1)) {
         for (CandidateVariant& v : cur.candidates) {
             if (v.phase_set != min_cur_ps) continue;
             std::swap(v.hap_to_cons_alle[1], v.hap_to_cons_alle[2]);
         }
-        for (size_t read_i = 0; read_i < cur.reads.size(); ++read_i) {
-            if (cur.reads[read_i].is_skipped || cur.haps[read_i] == 0) continue;
-            if (cur.phase_sets[read_i] == min_cur_ps) cur.haps[read_i] = 3 - cur.haps[read_i];
+        if (update_reads) {
+            for (size_t read_i = 0; read_i < cur.reads.size(); ++read_i) {
+                if (cur.reads[read_i].is_skipped || cur.haps[read_i] == 0) continue;
+                if (cur.phase_sets[read_i] == min_cur_ps) cur.haps[read_i] = 3 - cur.haps[read_i];
+            }
         }
     }
     if (max_pre_ps != -1 && min_cur_ps != INT64_MAX) {
@@ -1191,9 +1210,11 @@ static void apply_chunk_flip_and_merge(PhasingChunk& cur,
             if (v.phase_set == -1) continue;
             if (v.phase_set == min_cur_ps) v.phase_set = max_pre_ps;
         }
-        for (size_t read_i = 0; read_i < cur.reads.size(); ++read_i) {
-            if (cur.phase_sets[read_i] == -1) continue;
-            if (cur.phase_sets[read_i] == min_cur_ps) cur.phase_sets[read_i] = max_pre_ps;
+        if (update_reads) {
+            for (size_t read_i = 0; read_i < cur.reads.size(); ++read_i) {
+                if (cur.phase_sets[read_i] == -1) continue;
+                if (cur.phase_sets[read_i] == min_cur_ps) cur.phase_sets[read_i] = max_pre_ps;
+            }
         }
     }
 }
@@ -1270,7 +1291,8 @@ bool select_stitch_orientation(const std::array<int, 4>& votes,
 
 // Overlap-read voting between adjacent chunks: count reads that agree vs
 // disagree on hap assignment, then flip + merge if disagreement wins.
-static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, const Options* opts) {
+static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur,
+                           const Options* opts, bool update_reads) {
     if (pre.region.tid != cur.region.tid) return false;
 
     int n_cur_ovlp_reads = 0;
@@ -1338,7 +1360,8 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, const Options* 
     apply_chunk_flip_and_merge(cur,
                                do_flip,
                                max_pre_read_ps,
-                               min_cur_read_ps);
+                               min_cur_read_ps,
+                               update_reads);
     return true;
 }
 
@@ -1441,8 +1464,12 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
     // propagate overlap-read phase only for those pairs (see CHECKPOINT.md
     // "BAM Pipeline Parity").
     std::vector<bool> pair_stitched(chunks.size(), false);
+    // collect_var.c updates stitched read HP/PS only when writing an alignment.
+    const bool update_reads = opts == nullptr || !opts->upstream_assign_hap ||
+                              !opts->output_aln.empty();
     for (size_t ii = 1; ii < chunks.size(); ++ii) {
-        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], opts);
+        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], opts,
+                                             update_reads);
         if (stitched) {
             pair_stitched[ii] = true;
         } else if (use_pgbam) {
@@ -1465,10 +1492,9 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                                       opts->pgbam_relaxed_cleanup_min_winning_threads,
                                       opts->pgbam_relaxed_cleanup_polarity_margin);
     }
-    // Propagate overlap-read phase from downstream to upstream only for
-    // pairs that were successfully merged.  For unmerged pairs the relative
-    // phase is unknown and propagation could assign the wrong haplotype.
-    for (size_t ii = chunks.size(); ii > 1; --ii) {
+    // Propagate overlap-read phase only when read tags are being written and
+    // the pair was merged. For an unmerged pair the relative phase is unknown.
+    for (size_t ii = chunks.size(); update_reads && ii > 1; --ii) {
         if (pair_stitched[ii - 1]) {
             propagate_overlap_read_phase_to_output_owner(chunks[ii - 2], chunks[ii - 1]);
         }

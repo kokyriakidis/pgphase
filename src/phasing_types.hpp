@@ -277,6 +277,8 @@ struct Options {
     /// have none for them. No counterpart upstream: longcallD's depth at a noisy
     /// candidate is exactly the reads its two cluster alignments cover.
     bool add_unplaced_msa_observations = true;
+    /// Match longcallD's raw-reference versus nt4 comparison for MSA insertions.
+    bool upstream_msa_insertion_hp = false;
     /// In the clean rounds, re-score a read once per phase set it spans and
     /// update each block's allele profile with that block's own verdict.
     ///
@@ -586,6 +588,9 @@ struct Options {
     // link.  1 reproduces the original adjacent-pair chain; higher values let a
     // block survive a single weakly covered variant by linking across it.
     int block_link_window = 1;
+    /// Follow assign_hap.c's phasing rules on the BAM arm.
+    /// The graph arm retains its wider link and final read-label handling.
+    bool upstream_assign_hap = false;
     // Link variants by the allele pattern a read carries rather than by agreement
     // with the read's assigned haplotype, so untagged reads still contribute
     // connectivity.

@@ -2,7 +2,7 @@
 # compare_vcf_parity.sh — compare pgPhase phased VCF against longcallD call VCF.
 # Rows keyed by CHROM, POS, REF, ALT; payload includes a derived variant "VCIGAR"
 # (allele-shape digest: X/I/D for concrete REF/ALT, or S:… for symbolic ALT using INFO),
-# plus FILTER / INFO subset / GT:PS.
+# plus FILTER / INFO subset / GT:DP:AD:VAF:GQ:PS.
 #
 # Usage:
 #   ./scripts/compare_vcf_parity.sh [REGION] [--hifi|--ont]
@@ -52,10 +52,9 @@ echo "mode   : $MODE"
 echo "BAM    : $BAM"
 echo ""
 
-"$PGPHASE" collect-bam-variation -t 1 --include-filtered \
-    "$MODE" \
-    --phased-vcf-output "$TMP/pg.vcf" \
-    "$FA" "$BAM" "$REGION" -o "$TMP/pg.tsv" >/dev/null 2>&1
+"$PGPHASE" collect-bam-variation -t 1 --include-filtered "$MODE" \
+    --ref "$FA" --bam "$BAM" -r "$REGION" \
+    --phased-vcf-out "$TMP/pg.vcf" -o "$TMP/pg.tsv" >/dev/null 2>&1
 
 "$LONGCALLD_BIN" call -t 1 "$MODE" \
     "$FA" "$BAM" "$REGION" >"$TMP/lcd.vcf" 2>/dev/null
@@ -130,15 +129,20 @@ extract_cmp_table() {
             vcig = variant_cigar(pos, ref, alt, $8);
             gt = ".";
             ps = ".";
+            dp = ad = vaf = gq = ".";
             nfmt = split($9, fmtk, ":");
             nval = split($10, fmtv, ":");
             for (i = 1; i <= nfmt; ++i) {
                 if (fmtk[i] == "GT" && i <= nval && length(fmtv[i])) gt = fmtv[i];
                 else if (fmtk[i] == "PS" && i <= nval && length(fmtv[i])) ps = fmtv[i];
+                else if (fmtk[i] == "DP" && i <= nval && length(fmtv[i])) dp = fmtv[i];
+                else if (fmtk[i] == "AD" && i <= nval && length(fmtv[i])) ad = fmtv[i];
+                else if (fmtk[i] == "VAF" && i <= nval && length(fmtv[i])) vaf = fmtv[i];
+                else if (fmtk[i] == "GQ" && i <= nval && length(fmtv[i])) gq = fmtv[i];
             }
             clean = (index(";" $8 ";", ";CLEAN;") > 0 ? "1" : "0");
             print chrom, pos, ref, alt, vcig, $7, info_get($8, "END"), info_get($8, "SVTYPE"),
-                  info_get($8, "SVLEN"), clean, gt, ps;
+                  info_get($8, "SVLEN"), clean, gt, dp, ad, vaf, gq, ps;
         }
     ' "$in_vcf" | sort -u > "$out_tsv"
 }
@@ -151,20 +155,20 @@ awk -F'\t' '
     BEGIN { mism=0; }
     NR==FNR {
         k = $1 "\t" $2 "\t" $3 "\t" $4;
-        lcd[k] = $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9 "\t" $10 "\t" $11 "\t" $12;
+        lcd[k] = $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9 "\t" $10 "\t" $11 "\t" $12 "\t" $13 "\t" $14 "\t" $15 "\t" $16;
         next;
     }
     {
         key = $1 "\t" $2 "\t" $3 "\t" $4;
         if (!(key in lcd)) next;
-        pg = $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9 "\t" $10 "\t" $11 "\t" $12;
+        pg = $5 "\t" $6 "\t" $7 "\t" $8 "\t" $9 "\t" $10 "\t" $11 "\t" $12 "\t" $13 "\t" $14 "\t" $15 "\t" $16;
         lc = lcd[key];
         if (pg != lc) {
             ++mism;
             if (mism <= 30) {
                 print "DIFF key=" key " (CHROM POS REF ALT)";
-                print "  pg : VCIGAR FILTER END SVTYPE SVLEN CLEAN GT PS = " pg;
-                print "  lcd: VCIGAR FILTER END SVTYPE SVLEN CLEAN GT PS = " lc;
+                print "  pg : VCIGAR FILTER END SVTYPE SVLEN CLEAN GT DP AD VAF GQ PS = " pg;
+                print "  lcd: VCIGAR FILTER END SVTYPE SVLEN CLEAN GT DP AD VAF GQ PS = " lc;
             }
         }
     }
@@ -183,4 +187,4 @@ if [[ "$shared_diff_exit" -ne 0 ]]; then
     exit 1
 fi
 echo ""
-echo "OK: VCF parity matched (POS REF ALT + VCIGAR + FILTER/INFO subset + GT:PS)"
+echo "OK: VCF parity matched (POS REF ALT + VCIGAR + FILTER/INFO subset + GT:DP:AD:VAF:GQ:PS)"

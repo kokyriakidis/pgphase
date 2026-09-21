@@ -507,24 +507,19 @@ static CandidateTable merge_chunk_candidates(std::vector<PhasingChunk>& chunks) 
     return merged;
 }
 
-// Parallel batch result: one PhasingChunk per chunk offset.
-struct ChunkBatchResult {
-    std::vector<PhasingChunk> chunks;
-};
-
+// Return one PhasingChunk per input offset so stitching sees genomic order.
 // Run process_chunk on chunks[batch_begin..batch_end) using a thread pool.
 // Each worker opens its own BAM/FAI handles.  First exception is rethrown
 // after all workers join.
-static ChunkBatchResult collect_chunk_batch_parallel(const Options& opts,
-                                                     const std::vector<RegionChunk>& chunks,
-                                                     size_t batch_begin,
-                                                     size_t batch_end) {
+static std::vector<PhasingChunk> collect_chunk_batch_parallel(const Options& opts,
+                                                                const std::vector<RegionChunk>& chunks,
+                                                                size_t batch_begin,
+                                                                size_t batch_end) {
     if (batch_begin > batch_end || batch_end > chunks.size()) {
         throw std::runtime_error("invalid chunk batch range");
     }
     const size_t batch_size = batch_end - batch_begin;
-    ChunkBatchResult result;
-    result.chunks.resize(batch_size);
+    std::vector<PhasingChunk> result(batch_size);
     if (batch_size == 0) return result;
 
     const size_t worker_count = std::min<size_t>(static_cast<size_t>(opts.threads), batch_size);
@@ -535,14 +530,13 @@ static ChunkBatchResult collect_chunk_batch_parallel(const Options& opts,
     workers.reserve(worker_count);
 
     for (size_t worker_i = 0; worker_i < worker_count; ++worker_i) {
-        workers.emplace_back([&, worker_i]() {
-            (void)worker_i;
+        workers.emplace_back([&]() {
             try {
                 WorkerContext context(opts);
                 while (true) {
                     const size_t offset = next_offset.fetch_add(1);
                     if (offset >= batch_size) break;
-                    result.chunks[offset] =
+                    result[offset] =
                         process_chunk(chunks[batch_begin + offset], opts, context);
                 }
             } catch (...) {
@@ -615,23 +609,17 @@ void run_collect_bam_variation(const Options& opts) {
             ++batch_end;
         }
 
-        ChunkBatchResult batch = collect_chunk_batch_parallel(
+        // Stitch overlapping chunks before merging candidate rows and writing.
+        std::vector<PhasingChunk> batch = collect_chunk_batch_parallel(
             opts, chunks, batch_begin, batch_end);
-        stitch_chunk_haps(batch.chunks, &opts, pgbam_sidecar.get());
-        CandidateTable variants = merge_chunk_candidates(batch.chunks);
-        // One haplotype carries one allele. Two co-located MSA insertions whose
-        // ALTs nest -- A>ATC and A>ATCTC at 882,277, both called 1|0 -- assign
-        // the same haplotype two different alleles, which longcallD's structure
-        // cannot express: it writes one ALT per candidate and derives the
-        // genotype from that candidate's own haplotype alleles, so its two rows
-        // at a locus are complementary by construction and it scores ZERO such
-        // positions on chr20. Ours scored 412 with the multiallelic merge off.
-        // The graph writer already applied this resolution
-        // (graph_collect.cpp); the alignment writer did not.
-        if (opts.collapse_colocated_alleles)
+        stitch_chunk_haps(batch, &opts, pgbam_sidecar.get());
+        CandidateTable variants = merge_chunk_candidates(batch);
+        // Two records at one locus cannot assign different alleles to the same
+        // haplotype. Make their genotypes complementary, then remove conflicts.
+        if (opts.collapse_colocated_alleles) {
             make_colocated_alleles_complementary(variants, opts.min_alt_depth);
-        if (opts.collapse_colocated_alleles)
             drop_conflicting_haplotype_alleles(variants);
+        }
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);
         if (!opts.output_vcf.empty()) {
@@ -641,7 +629,7 @@ void run_collect_bam_variation(const Options& opts) {
             write_phased_variants_vcf_records(phased_vcf_out, opts, header.get(), ref, variants);
         }
         if (phased_aln_writer) {
-            n_out_aln_reads += static_cast<size_t>(phased_aln_writer->write_chunks(batch.chunks));
+            n_out_aln_reads += static_cast<size_t>(phased_aln_writer->write_chunks(batch));
         }
 
         batch_begin = batch_end;
@@ -2218,103 +2206,18 @@ int collect_bam_variation(int argc, char* argv[]) {
     }
     opts.bam_file = opts.bam_files.front();
 
-    // longcallD's assign_hap_based_on_germline_het_vars_kmeans
-    // (assign_hap.c:465) calls read_init_hap_phase_set unconditionally on
-    // every invocation -- it has no anchoring parameter at all, so stage 2
-    // (the noisy-inclusive re-solve, collect_phase_noisy.cpp's
-    // run_noisy_pass) always resets and re-sweeps from a fresh pivot chosen
-    // over the full site set. Our anchored_stage2 default (true) is our own
-    // addition, not a port -- phasing_types.hpp's own comment on the field
-    // says so ("a knowing divergence from upstream, in the direction
-    // upstream documented" -- upstream's COMMENT, not its code). Ported here
-    // for the alignment path, matching upstream's actual behavior: with
-    // anchoring, a noisy site downstream of a long, SNP-dense, near-50%-AF
-    // block can only ever refine stage 1's read partition, never correct it,
-    // measured on whole chr20 (truth-scored against parental origin) as 4 of
-    // ~295 phase sets carrying a genuine internal switch. Without anchoring:
-    // 2, and both survivors are thin (2-11 scored SNPs, near-tied) rather
-    // than the large, confident blocks anchoring was breaking.
+    // Use longcallD's BAM phasing and MSA behavior. These assignments override
+    // shared defaults used by the graph path; see Options for each gate.
     opts.anchored_stage2 = false;
-
-    // longcallD never merges a locus where both haplotypes carry a
-    // different ALT into one multiallelic record -- it always emits the
-    // co-located alleles as separate biallelic records
-    // (`collect_var.c:1329-1336` keeps the older candidate and frees the
-    // MSA's; there is no merge step our `merge_colocated_msa_alleles`
-    // corresponds to). Our default (true) was kept specifically because
-    // turning it off, measured before the anchored_stage2 port above,
-    // roughly doubled misplaced reads on this arm (0.699% -> 1.385%,
-    // evaluations/2026-09-20-parity-report/) -- large enough that
-    // upstream's own representation wasn't worth it. Re-measured with
-    // anchored_stage2 already fixed: whole chr20 against the same
-    // diplinator truth, discordance moves 0.66% -> 0.72% (1,425/216,942
-    // -> 1,570/217,638), not a doubling -- most of the old cost came from
-    // the same stage-2 anchoring this file already turns off, not from
-    // the merge itself. Record identity with longcallD's own output rises
-    // from 97.8% to 99.1% (114,410/117,040 -> 116,868/117,896). Ported
-    // here for the alignment path only, matching upstream's actual
-    // representation.
     opts.merge_colocated_msa_alleles = false;
-
-    // `refresh_assigned_msa_observations` has no upstream counterpart at all.
-    // Upstream's only producer of a two-cluster MSA candidate's counts and
-    // per-read profile is `update_cand_var_profile_from_cons_aln_str21`
-    // (collect_var.c:2178), which this project ports faithfully; upstream then
-    // never revisits those counts. The refresh re-derives them from a second,
-    // independent classifier (`call_local_msa_allele`), and where the two
-    // disagree the port's answer is discarded in favour of the invention's.
-    //
-    // It costs read accuracy to turn off (99.27% -> 98.34% against the
-    // diplinator truth) and that is not a reason to keep it: longcallD itself
-    // scores 97.03% on the same truth BAM, so the refresh was making this arm
-    // BETTER than the tool it ports, through a mechanism that tool does not
-    // have, while breaking the record parity that is the point of the arm.
-    // Turning it off moves accuracy toward upstream and still stays well
-    // ahead of it. Off for the alignment path, which is the arm held to
-    // upstream; the graph arm keeps the struct default and is unaffected.
     opts.refresh_msa_observations = false;
-
-    // `add_msa_site_observations` has no upstream counterpart either: a noisy
-    // candidate's depth in longcallD is exactly the reads its two cluster
-    // alignments cover, and it never adds observations for reads the MSA could
-    // not place. Ours did, and the extra reads are overwhelmingly REFERENCE.
-    //
-    // That is what was dropping the largest remaining clean-region class. Across
-    // all 218 such records our depth exceeded upstream's at 141 of them, equalled
-    // it at 77, and was lower at NONE (mean DP 62.0 vs 41.3, +20.7 depth against
-    // only +6.7 alt). Those surplus reference reads dilute the alt haplotype's
-    // allele profile, and `update_var_hap_to_cons_alle` resolves a tie to the
-    // lowest allele index -- reference -- so both haplotypes read reference,
-    // hap_alt = hap_ref = 0, and the record never reaches the VCF. Measured at
-    // chr20:3,997,065: upstream's hap2 profile is 20 ref / 22 alt and calls the
-    // het; ours admitted 2 extra paternal reference reads into hap2, making it
-    // an exact 22/22 tie, and the site vanished. With this off it emits
-    // `CA>C 0|1:87:65,22:0.253:60:3981464` -- byte-identical to longcallD.
     opts.add_unplaced_msa_observations = false;
-
+    opts.upstream_msa_insertion_hp = true;
     opts.phase_set_scoped_clean_rounds = false;
-
-    // Every candidate in the mask votes on a read's haplotype, as upstream does
-    // (assign_hap.c:127-147). See Options::msa_sites_vote_without_gap_link for
-    // the measurement: the gate silenced the whole NOISY_CAND_HET class and
-    // cost 254 of the 370 records upstream emits that we did not.
     opts.msa_sites_vote_without_gap_link = true;
-
-    // Infer the missing haplotype's consensus at any site, as upstream does
-    // (assign_hap.c:141-142). See Options::infer_complement_at_multiallelic.
     opts.infer_complement_at_multiallelic = true;
-
-    // Score reads exactly as upstream does: unconditional homopolymer skip, any
-    // clean SNP in the agree/conflict tallies, a clean het weighing 2 regardless
-    // of allele count, and a read taking the first het site's phase set with no
-    // further screens. See Options::upstream_read_scoring.
     opts.upstream_read_scoring = true;
-
-    // NOT set false: make_colocated_alleles_complementary is what produces
-    // upstream's one-row-per-haplotype shape at a co-located pair, so turning it
-    // off moves away from parity rather than toward it. The option exists and
-    // stays on here; see Options::collapse_colocated_alleles.
-
+    opts.upstream_assign_hap = true;
 
     try {
         run_collect_bam_variation(opts);

@@ -5364,10 +5364,10 @@ recording uniform HP-label transforms. Absolute HP1/HP2 labels are arbitrary.
 The edge-unanimity rule remains a conservative fallback experiment; read
 assignment noise is not itself grounds to reject a correctly oriented stitch.
 
-`make check` currently cannot execute its golden comparisons: the existing
-validate_collect_gates.sh uses obsolete --phased-vcf-output and positional
-reference/BAM arguments. The current CLI uses --phased-vcf-out, --ref, --bam.
-This unrelated gate-script issue is not fixed by changing golden results.
+At this point `make check` could not execute its golden comparisons: the
+validator used obsolete --phased-vcf-output and positional reference/BAM
+arguments. The CLI invocation was repaired on 2026-09-20; the subsequent
+golden mismatch is recorded in the paired noisy MSA section below.
 
 
 Full-chromosome original-block audit (`compare_full_block_orientations.py`)
@@ -8318,3 +8318,147 @@ reads become discordant and window accuracy falls 100.00% (167/167) to 71.50%
 4, so the correct orientation is available and the joining path does not use it;
 the tier report's leftPS = rightPS = 48243938, a third identity for these blocks,
 is where that orientation comes from and the next thing to fix.
+
+### Paired noisy MSA alleles lose their consensus in BAM stage 2 (2026-09-20)
+
+On identical `CHM13#0#chr20:3800000-3900000` input, both callers produce the
+same two MSA insertions at 3,870,827 (AA and AAA; depths 72 with alternate
+counts 29 and 32). pgphase then set both candidates' haplotype consensus to
+reference and emitted neither; longcallD emitted both. The pending cluster seed
+survived `var_init_hap_profile_cons_allele` but was overwritten by
+`update_var_hap_to_cons_alle` during the iterative k-means update.
+
+A cluster-consensus seed was tried for pairs of insertion or SNP alleles from
+opposite MSA consensuses. The guards required matching event type and support
+above `min_alt_depth` and `min_af`; pairing on position alone also paired
+insertions with deletions, while weak alleles produced unsupported calls.
+Deletion-length pairs remained under the existing solver. Extending the seed
+to the 43.9-44.8 Mb window recovered 3 upstream records but added 21 unmatched
+records (pgphase-only 2 -> 23), so that extension was reverted.
+
+With the narrower seed on identical region inputs, 3.8-3.9 Mb matching records
+rose 186 -> 188 of 188 upstream records, and pgphase-only stayed at 1. Over
+43.9-44.8 Mb, matching records rose 928 -> 932 of 942, pgphase-only stayed at
+2. These are experimental region-scoped measurements, not shipped behavior.
+
+The seed itself was removed when the port was checked against the original
+source: longcallD `collect_var.c:update_cand_var_profile_from_cons_aln_str2`
+does not assign `hap_to_cons_alle` from the MSA cluster, and
+`assign_hap.c:var_init_hap_profile_cons_allele` resets heterozygous consensus
+to -1/-1 on each phasing call. A direct differential target compiles the
+original C at revision `23e369d71a1e4dd46529be3755d2224b8e239b76` and
+compares consensus initialization, consensus updates, allele scoring,
+two-site read assignment, phase-set linking, and complete k-means on small
+two- and three-site read matrices against the BAM C++ path. It passed 166,364
+assertions over six cases, including link chains with mixed read haplotypes.
+This establishes parity for those tested inputs and functions; whole-pipeline
+parity remains a separate integration question.
+
+The direct phase-link test found two differences in the previous C++ port:
+a 2-agree/2-conflict tie started a new phase set, whereas upstream keeps the
+current set, and the C++ port swapped the alleles on a conflict-majority link,
+whereas `assign_hap.c` swaps once per hap and therefore leaves their order
+unchanged. The full-k-means test also found a port-only final read re-assignment
+after phase-set calculation; upstream returns the last iterative read labels.
+The BAM path now follows the original adjacent-site, two-read link threshold,
+tie, orientation, and final-label behavior. The graph path keeps its existing
+link and final-label rules. On the chr20 quick BAM fixture both callers
+still emit the same 818 VCF record keys and GTs, but 13 shared records carry phase-set label 15039543
+in pgphase versus 15071132 in longcallD. Function parity therefore has not
+closed this integration mismatch; the inputs to the functions or later
+postprocessing still differ.
+
+The stitch audit also found that longcallD calls
+`update_chunk_read_hap_phase_set1` only when `out_aln_fp` is non-null.
+pgphase previously updated read HP/PS on every stitch. The BAM VCF-only path
+now leaves read HP/PS as upstream does, with a focused output-mode regression
+test; alignment output still updates them. This source correction did not
+change the 13-label difference on the chr20 quick fixture.
+
+The BAM validation scripts also used the retired positional CLI and
+`--phased-vcf-output`; their invocations now use `--ref`, `--bam`, `-r` and
+`--phased-vcf-out`. `make check` reaches the golden comparison and fails against
+its May 1 chr11 files. The current HiFi run has the same 569 rows, positions,
+types, categories and phase labels; differences include haplotype labels,
+strand tallies on MSA candidates, 51 REF anchor fields and one allele count.
+Runs at 1 and 4 threads are byte-identical. The golden files were not refreshed as part of this parity
+fix.
+
+The 13-label chr20 mismatch was traced to `collect_noisy_reg_aln_strs`:
+`collect_noisy_vars1` passed a non-null `unassigned` buffer even though the
+BAM path set `add_unplaced_msa_observations = false`. The aligner uses that
+pointer for more than reporting unplaced reads: it aligns them to both
+consensuses and appends a read with a sufficiently better score directly to
+an MSA cluster. At chr20:15,070,944-15,071,487 both callers initially selected
+5 and 7 phase-set reads, but pgphase expanded the recalled deletion at
+15,071,133 to depth 74 (36/38), while longcallD kept depth 11 (6/5).
+The extra reads supplied a 12-agree/0-conflict link to the preceding
+15,056,025 site; longcallD had 0/0 and started PS 15,071,132. Passing a null
+buffer when unplaced observation recovery is disabled restores the original
+cluster membership. On the shared 500 kb chr20 fixture the VCF parity script
+now reports 818 keys on each side, zero unique keys, and zero shared payload
+differences, including GT and PS. The earlier 13-label result above records
+the pre-fix measurement.
+
+### BAM chr11 golden repair and remaining ONT FORMAT differences (2026-09-20)
+
+An upstream-compatible branch in `assign_hap_based_on_germline_het_vars_kmeans`
+returned immediately after read phase-set assignment, skipping the common TSV
+`hap_alt`/`hap_ref` projection. It now skips only the final read reassignment;
+the direct C-versus-C++ k-means test checks those projected counts. The HiFi
+chr11 golden was refreshed after a full comparison against original longcallD:
+568 shared VCF keys and zero differences in the compared FILTER/INFO and
+GT:DP:AD:VAF:GQ:PS fields. The current TSV has 569 rows and is byte-identical
+at one and four threads.
+
+On ONT chr11, pgphase initially omitted nine MSA insertions that longcallD
+called. `collect_var.c:var_is_homopolymer_indel` compares raw FASTA bytes with
+nt4-coded insertion bases; pgphase had normalized both to nt4 and marked the
+insertions as homopolymer indels, excluding them from phasing. The BAM path now
+uses the original raw-byte comparison, while the graph path retains its
+case-insensitive check. The differential test compiles the upstream C function
+and covers both indel branches on uppercase and lowercase reference slices.
+All nine ONT insertions are restored; ONT chr11 now has 586 shared VCF keys,
+zero unique keys, and matching GT/PS at every shared record. Its 689-row TSV
+and 586-record VCF goldens were refreshed; `make check` passes.
+
+The VCF parity script now compares DP, AD, VAF and GQ in addition to GT/PS.
+It exposes 12 residual ONT FORMAT differences: four records near 1,294,294,
+four near 1,417,535, and four near 1,429,530. At the first group, longcallD
+keeps noisy regions 1,294,276-1,294,413 and 1,294,527-1,294,976 separate,
+while pgphase merges them into 1,294,276-1,294,976. The other two regions
+have the same bounds and selected-read counts, but one read's full-coverage or
+allele assignment differs. Thus the chr11 ONT fixture has exact call, GT and
+PS parity but not full FORMAT parity. The refreshed goldens are pgphase
+regression outputs, not evidence of complete upstream parity.
+
+The first four residual differences were then traced to `intervals_to_cr`:
+it coerced a valid zero noisy-region label to one. `cgranges.c:cr_cluster0`
+uses the smaller neighboring label as the merge distance, so this one-base
+change let a zero-label bridge merge the 1,294,276 and 1,294,527 regions.
+Preserving the original label separates the regions and removes all four
+FORMAT differences. Chr20 HiFi (818 records) and chr11 HiFi (568 records)
+retain full compared-field parity. ONT chr11 now has eight FORMAT differences
+in the two remaining MSA regions; all 586 record keys, GTs, and PS labels
+still match. Per-read profile comparison identifies one discordant read in
+each region: `1d237405-a612-4e04-868f-9936555e0f3d` is spuriously counted
+at the first three sites of 1,417,525-1,418,674 and classified oppositely
+at the last; `2914fbda-117d-4761-96ee-30606c1942c6` is classified
+oppositely at the first and last SNPs of 1,429,514-1,432,553. Both callers
+select the same numbers of MSA reads in those regions. These eight FORMAT
+values remain an open alignment/profile parity gap.
+
+The remaining eight differences were traced through original `-V3` input
+traces. At 1,417,525-1,418,674, longcallD extracts 150 bases from ONT read
+`1d237405-a612-4e04-868f-9936555e0f3d` while pgphase extracted 2,343.
+The BAM record has a large soft clip on its palindrome end. Original
+`bam_utils.c` marks that clip as an internal `BAM_CHARD_CLIP`; every pgphase
+digar parser detected the palindrome but still stored `SoftClip`. The extra
+sequence changed read order in abPOA and its partial alignment. The same
+upstream conversion also resolves the second region's discordant read.
+Porting the clip conversion at all BAM digar parser sites makes the full
+compared VCF payload exact on chr20 HiFi (818 records), chr11 HiFi (568),
+and chr11 ONT (586), with zero unique keys or shared differences in
+VCIGAR, FILTER, END/SV fields, CLEAN, GT, DP, AD, VAF, GQ and PS. The ONT
+TSV and VCF regression goldens now reflect this final result. The earlier
+12- and 8-difference counts above are intermediate measurements.

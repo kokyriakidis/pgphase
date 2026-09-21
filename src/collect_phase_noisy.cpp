@@ -227,7 +227,8 @@ std::vector<CandidateVariant> make_cand_vars_from_baln0(const Options& opts,
                 alt.push_back(nt4_to_base(cons_msa_seq[static_cast<size_t>(i + k)]));
 
             const bool hp = gap_len < opts.min_sv_len &&
-                            var_is_homopolymer_indel(chunk, ref_pos, VariantType::Insertion, 0, alt);
+                            var_is_homopolymer_indel(chunk, ref_pos, VariantType::Insertion, 0, alt,
+                                                      opts.upstream_msa_insertion_hp);
             const uint8_t alt_ref_base = i - 1 >= 0 ? cons_msa_seq[static_cast<size_t>(i - 1)] : 4;
             vars.push_back(make_noisy_candidate(chunk, ref_pos, VariantType::Insertion, 0,
                                                 4, alt, alt_ref_base, hp));
@@ -736,29 +737,9 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
                               hts_pos_t ref_pos,
                               VariantType type,
                               int ref_len,
-                              const std::string& alt) {
-    // Is this indel in a homopolymer context?
-    //
-    // Both branches compare in nt4 and are therefore case-insensitive. The
-    // insertion branch previously compared the reference as a RAW FASTA byte
-    // against an nt4-coded alt base, so `'a'` (97) was tested against 0 and the
-    // branch could never return true: no insertion was ever flagged as a
-    // homopolymer indel, while deletions -- whose branch compares raw bytes on
-    // both sides -- were. longcallD carries the same mismatch (collect_var.c:1730
-    // tests an ASCII `chunk->ref_seq` against an nt4 abPOA consensus base), so
-    // this is a knowing divergence from upstream rather than a port error.
-    //
-    // Measured on chr20:55,871,837, a 1 bp insertion in an 8 bp A-run that
-    // segregates at 0.525 against read truth: flagged 0 before, 1 after. The
-    // flag gates five consumers in collect_phase.cpp -- get_var_init_max_cov_allele and
-    // update_var_hap_to_cons_alle (both ONT-only), read scoring in init_assign_read_hap_based_on_cons_alle,
-    // the link list in iter_update_var_hap_cons_phase_set, phase-set eligibility
-    // in update_read_phase_set, and pivot choice in select_init_var -- so an
-    // under-detected insertion leaks into all four.
-    //
-    // The reference here is soft-masked (this locus reads `gtctcaaaaaaaaa`), which
-    // the raw-byte comparison would also have failed on even with matching
-    // encodings.
+                              const std::string& alt,
+                              bool upstream_reference_bytes) {
+    // longcallD compares raw FASTA bytes with nt4-coded MSA insertion bases.
     if (type == VariantType::Snp) return false;
     const hts_pos_t off = ref_pos - chunk.ref_beg;
     if (off < 0) return false;
@@ -772,7 +753,10 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
             if (base_to_nt4(alt[i]) != ins_base0) return false;
         }
         for (int i = 0; i < 5; ++i) {
-            if (base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]) != ins_base0) return false;
+            const uint8_t ref_base = upstream_reference_bytes
+                                         ? static_cast<uint8_t>(chunk.ref_seq[idx0 + static_cast<size_t>(i)])
+                                         : base_to_nt4(chunk.ref_seq[idx0 + static_cast<size_t>(i)]);
+            if (ref_base != ins_base0) return false;
         }
         return true;
     }
@@ -1387,7 +1371,6 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist,
                       bool admit_all_in_region,
-                      bool snp_only_admission,
                       const VariantKeySet* replace_sites) {
     if (noisy_vars.empty()) return 0;
     // Region-trust mode: collect_noisy_vars1 already restricted which noisy
@@ -1397,14 +1380,6 @@ int merge_var_profile(PhasingChunk& chunk,
     // land on an exact whitelist key defeats that purpose; here the containment
     // gate already did the trust decision, so admit every call.
     if (admit_all_in_region) site_whitelist = nullptr;
-    // SNP-first escalation: MSA indels can be placed ambiguously inside a
-    // repeat run (the same base can be "deleted" from several equivalent
-    // positions), while an MSA SNP call is unambiguous. Try phasing a junction
-    // with SNPs alone before trusting an indel call; the caller decides when
-    // to retry with this off.
-    auto admissible_type = [&](const CandidateVariant& v) {
-        return !snp_only_admission || v.key.type == VariantType::Snp;
-    };
 
     std::vector<CandidateVariant> new_vars = noisy_vars;
     std::vector<VariantCategory> new_cats = noisy_var_cate;
@@ -1450,8 +1425,7 @@ int merge_var_profile(PhasingChunk& chunk,
             merged_vars.push_back(old_vars[old_i++]);
         } else if (ret > 0) {
             if ((site_whitelist != nullptr &&
-                 site_whitelist->find(new_vars[new_i].key) == site_whitelist->end()) ||
-                !admissible_type(new_vars[new_i])) {
+                 site_whitelist->find(new_vars[new_i].key) == site_whitelist->end())) {
                 ++new_i;
                 continue;
             }
@@ -1472,10 +1446,9 @@ int merge_var_profile(PhasingChunk& chunk,
             // admit. Requiring region-trust mode or a whitelist hit before the
             // swap meant a plain run always kept the screened, unusable version.
             const bool replace_repeat =
-                old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel &&
-                admissible_type(new_vars[new_i]);
+                old_vars[old_i].counts.category == VariantCategory::RepeatHetIndel;
             const bool replace_selected = replace_sites != nullptr &&
-                replace_sites->count(new_vars[new_i].key) != 0 && admissible_type(new_vars[new_i]);
+                replace_sites->count(new_vars[new_i].key) != 0;
             // An old candidate in a pruned category is about to be deleted by
             // prune_not_candidate_variants, so keeping it in preference to the
             // MSA's own call at the same key discards the only version of the
@@ -1490,8 +1463,7 @@ int merge_var_profile(PhasingChunk& chunk,
             // site at all.
             const bool replace_pruned =
                 (old_vars[old_i].counts.category == VariantCategory::LowCoverage ||
-                 old_vars[old_i].counts.category == VariantCategory::LowAlleleFraction) &&
-                admissible_type(new_vars[new_i]);
+                 old_vars[old_i].counts.category == VariantCategory::LowAlleleFraction);
             // A record carrying both of the locus' alleles describes a locus
             // whose haplotypes are those two alleles. A single-allele record at
             // the same key cannot describe it: whichever allele it names, the
@@ -1508,8 +1480,7 @@ int merge_var_profile(PhasingChunk& chunk,
             // replacement. Only the allele set is preserved.
             const bool replace_single_allele =
                 new_vars[new_i].msa_insertion_alts.size() == 2 &&
-                old_vars[old_i].msa_insertion_alts.empty() &&
-                admissible_type(new_vars[new_i]);
+                old_vars[old_i].msa_insertion_alts.empty();
             if (replace_repeat || replace_selected || replace_pruned ||
                 replace_single_allele) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
@@ -1533,8 +1504,7 @@ int merge_var_profile(PhasingChunk& chunk,
     }
     while (new_i < new_vars.size()) {
         if ((site_whitelist != nullptr &&
-             site_whitelist->find(new_vars[new_i].key) == site_whitelist->end()) ||
-            !admissible_type(new_vars[new_i])) {
+             site_whitelist->find(new_vars[new_i].key) == site_whitelist->end())) {
             ++new_i;
             continue;
         }
@@ -1863,25 +1833,16 @@ static void refresh_assigned_msa_observations(const Options& opts,
 
 void add_msa_site_observations(const Options& opts,
                                 const std::vector<UnassignedMsaRead>& reads,
-                                hts_pos_t ref_beg, bool snp_only,
+                                hts_pos_t ref_beg,
                                 std::vector<CandidateVariant>& vars,
                                 std::vector<ReadVariantProfile>& profiles,
                                 const std::array<AlnStr, 2>* consensuses) {
     for (size_t vi = 0; vi < vars.size(); ++vi) {
         auto& var = vars[vi];
-        // A homozygous verdict must not block the correction that would overturn
-        // it. This pass existed to raise a site's depth toward its true coverage
-        // where the MSA clustering had placed only some of the reads, but it
-        // accepted only NoisyCandHet records -- and a record whose missing
-        // reference observations are exactly what made it read homozygous is
-        // NoisyCandHom, so it was skipped and its counts could never be
-        // corrected. Measured on chr20:12,735,895, a 1 bp deletion the
-        // competitor phases: 22 of the 75 covering reads sit at reference length
-        // and 36 carry the deletion, yet the record reported DP 8 with 0
-        // reference, allele fraction 1, and was classified homozygous.
+        // Missing reference observations can make a noisy het appear hom.
+        // Recount both categories before applying the allele-fraction gate.
         const bool was_hom = var.counts.category == VariantCategory::NoisyCandHom;
-        if ((var.counts.category != VariantCategory::NoisyCandHet && !was_hom) ||
-            (snp_only && var.key.type != VariantType::Snp)) continue;
+        if (var.counts.category != VariantCategory::NoisyCandHet && !was_hom) continue;
         std::vector<std::pair<int, int>> observations;
         auto counts = var.counts.alle_covs;
         std::array<MsaSiteSlice, 2> context;
@@ -1911,13 +1872,7 @@ void add_msa_site_observations(const Options& opts,
             const double second_af = static_cast<double>(counts[2]) / total;
             if (second_af < opts.min_af || second_af > opts.max_af) continue;
         }
-        // Promoting such a record to heterozygous on these corrected counts was
-        // measured and rejected: it admits enough additional noisy heterozygotes
-        // to take the panel from 0 concordant-to-discordant reads to 380 and
-        // 83.87% concordance with the retry, the same way every other broad
-        // admission of that class has. The counts are corrected regardless,
-        // which is what every allele-fraction-gated consumer downstream reads.
-        (void)was_hom;
+        // Correct depth and profiles without changing the site's category.
         for (const auto& [read_id, allele] : observations)
             update_read_var_profile_with_allele(static_cast<int>(vi), allele, -1,
                                                 profiles[read_id]);
@@ -1927,22 +1882,8 @@ void add_msa_site_observations(const Options& opts,
     }
 }
 
-// Two deletion records at one position are the two haplotypes' different lengths
-// at one locus, not two independent sites -- and a read carrying the longer
-// deletion satisfies the shorter record's window too, so it is scored alt in
-// BOTH. That double-counts one haplotype and corrupts the locus: on
-// chr20:48,225,787 the maternal allele is a 1 bp deletion (17 reads) and the
-// paternal a 5-8 bp one (30 reads) over 75 covering reads, yet the 1 bp record
-// reported ref/alt 11/35 at AF 0.761 -- impossible for a het -- with its alt
-// allele carried by 20 maternal AND 31 paternal reads, while the 6 bp record
-// reported 11/12. A locus whose two records each look het but share their alt
-// reads has no usable orientation, which is what inverts the parity when the
-// blocks either side are joined.
-//
-// Resolve it by exclusivity: a read supports the co-located record whose length
-// its own event is closest to, and is reference for the others. Nothing is
-// invented -- every observation already exists, it is only attributed to one
-// record instead of several.
+// A longer deletion also satisfies shorter deletion windows at the same locus.
+// Keep its read on the longest supported candidate so one event votes once.
 void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
                                                std::vector<ReadVariantProfile>& profiles) {
     std::map<hts_pos_t, std::vector<int>> by_pos;
@@ -1986,7 +1927,7 @@ void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
 }
 
 int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
-                        const VariantKeySet* site_whitelist, bool snp_only_admission) {
+                        const VariantKeySet* site_whitelist) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
     // Enter with noisy_reg_beg/end from the interval tree.
     hts_pos_t noisy_reg_beg = reg.beg;
@@ -2032,12 +1973,8 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         opts, chunk, noisy_reg_beg, noisy_reg_end,
         read_ids, ref_seq,
         clu_n_seqs, clu_read_ids, aln_strs,
-        // Always collect the reads the MSA could not place. The consumer,
-        // add_msa_site_observations, only adds an observation where there is
-        // none and accepts an allele only where two independently composed
-        // paths agree, so this can raise a site's depth toward its true
-        // coverage but cannot overturn an existing observation.
-        &unassigned);
+        // A non-null pointer also admits unplaced reads into the MSA clusters.
+        opts.add_unplaced_msa_observations ? &unassigned : nullptr);
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
@@ -2058,59 +1995,29 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     std::array<AlnStr, 2> consensuses;
     if (n_cons == 2) consensuses = {aln_strs[0][0], aln_strs[1][0]};
     if (opts.add_unplaced_msa_observations)
-        add_msa_site_observations(opts, unassigned, noisy_reg_beg, snp_only_admission,
+        add_msa_site_observations(opts, unassigned, noisy_reg_beg,
                                   noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
     make_colocated_deletions_exclusive(noisy_vars, noisy_rvp);
 
     return merge_var_profile(
         chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,
-        /*admit_all_in_region=*/false, snp_only_admission);
+        /*admit_all_in_region=*/false);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // collect_noisy_vars_step4
 // ════════════════════════════════════════════════════════════════════════════
 
-// Is the het variant immediately before `reg_beg` in the same phase set as the
-// het variant immediately after `reg_end`?  Used to decide whether a noisy
-// region still needs to supply bridging evidence, or whether phasing already
-// connects across it (from a clean anchor elsewhere, or a previous, more
-// conservative admission pass). Linear scan: called only between escalation
-// tiers, not per-read.
-static bool noisy_region_still_broken(const PhasingChunk& chunk,
-                                      hts_pos_t reg_beg, hts_pos_t reg_end) {
-    hts_pos_t left_pos = -1, right_pos = -1;
-    hts_pos_t left_ps = 0, right_ps = 0;
-    for (const CandidateVariant& v : chunk.candidates) {
-        const bool is_het = v.hap_to_cons_alle[1] != -1 && v.hap_to_cons_alle[2] != -1 &&
-                            v.hap_to_cons_alle[1] != v.hap_to_cons_alle[2];
-        if (!is_het || v.phase_set < 0) continue;
-        if (v.key.pos < reg_beg) {
-            if (v.key.pos > left_pos) { left_pos = v.key.pos; left_ps = v.phase_set; }
-        } else if (v.key.pos > reg_end) {
-            if (right_pos < 0 || v.key.pos < right_pos) { right_pos = v.key.pos; right_ps = v.phase_set; }
-        }
-    }
-    // No flanking anchor on one side: nothing to bridge to, so there is no
-    // junction here for this region to close. Not "broken" in the sense the
-    // escalation is trying to fix.
-    if (left_pos < 0 || right_pos < 0) return false;
-    return left_ps != right_ps;
-}
-
-// Runs the standard fixed-point loop over `regions`, admitting MSA calls with
-// `snp_only_admission` applied uniformly.  Shared by both escalation tiers.
+// Attempt each region once per pass; newly admitted sites can help later regions.
 static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
                            const VariantKeySet* site_whitelist,
                            const std::vector<int>& regions,
-                           bool snp_only_admission,
                            std::vector<bool>& done) {
     while (true) {
         bool any_done = false, any_new_var = false;
         for (int reg_idx : regions) {
             if (done[static_cast<size_t>(reg_idx)]) continue;
-            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist,
-                                                snp_only_admission);
+            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist);
             if (ret >= 0) {
                 done[static_cast<size_t>(reg_idx)] = true;
                 any_done = true;
@@ -2124,77 +2031,18 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
     }
 }
 
-/// Step 4: for each noisy region, rebuild the truth by multiple alignment and
-/// recall the candidates the per-read pass could not call, then re-solve.
-///
-/// Runs in EVERY solve, including the first -- it is not retry-specific, and the
-/// candidates it recalls are in the table by default. What differs is whether
-/// they are ever oriented, and that is decided by the two options below.
-///
-///   - the re-solve at the end of the loop is gated on
-///     `!opts.skip_noisy_kmeans`, and the hybrid sets skip_noisy_kmeans = true
-///     unconditionally. With it set, recalled candidates exist but nothing
-///     orients them: inside chr20:48,176,831-48,229,447 on stock defaults the
-///     chunk holds 6 NOISY_CAND_HET and not one carries a phase set. Clearing
-///     it (what the retry does) leaves all 8 phased. So admitting sites without
-///     clearing that override changes the table and not the phasing.
-///   - split_nested_msa_deletions, inside make_vars_from_msa_cons_aln, is gated
-///     on `force_noisy_msa`; it accounts for the 6 -> 8 difference in that
-///     window.
-///
-/// A caution recorded from measurement: the sites this recalls are the noisy
-/// class, and in these intervals that class holds BOTH the informative sites
-/// and the bridges that invert flanks. MSA verification does not separate them
-/// -- at chr20:55,843,827 all eight admitted sites carry msa_verified = 1, yet
-/// only one segregates at or above 0.90 against read truth and five sit below
-/// 0.70 -- and neither the allele fraction nor the homopolymer flag separates
-/// them either.
+/// Recall candidates from noisy regions with MSA. Regions that cannot be
+/// resolved stay pending; a newly called variant triggers a wider k-means pass
+/// and may let a pending region resolve on the next iteration.
 void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
                               const VariantKeySet* site_whitelist) {
     if (chunk.noisy_regions.empty()) return;
 
-    // Step 4: iterate noisy regions, recall variants via MSA, re-phase.
     const std::vector<int> sorted = sort_noisy_regs(chunk);
     const int n_regs = static_cast<int>(chunk.noisy_regions.size());
 
-    // Escalation is only meaningful in region-trust mode: without it, admission
-    // already requires an exact whitelist-key match, which is a stronger gate
-    // than "SNP only" and makes the tiering moot.
-    // Both operands were options of the removed private-whitelist mode and
-    // defaulted to false, so this escalation never ran.
-    const bool escalate = false;
-
     std::vector<bool> done(static_cast<size_t>(n_regs), false);
-    run_noisy_pass(chunk, opts, site_whitelist, sorted, escalate, done);
-    if (!escalate) return;
-
-    // Tier 2 -> Tier 3: for whitelist-triggered regions whose flanking phase
-    // sets still differ after the SNP-only pass, retry allowing indels too.
-    // MSA indels are the least trustworthy source here -- the same deleted
-    // base can be placed at several equivalent positions inside a repeat run
-    // -- so they are admitted only where an unambiguous SNP call was not
-    // enough to close the junction.
-    std::vector<int> retry;
-    for (int reg_idx : sorted) {
-        const Interval& reg = chunk.noisy_regions[static_cast<size_t>(reg_idx)];
-        if (site_whitelist != nullptr) {
-            bool in_whitelist_window = false;
-            for (const VariantKey& key : *site_whitelist) {
-                if (key.tid == chunk.region.tid &&
-                    key.pos >= reg.beg && key.pos <= reg.end) {
-                    in_whitelist_window = true;
-                    break;
-                }
-            }
-            if (!in_whitelist_window) continue;
-        }
-        if (noisy_region_still_broken(chunk, reg.beg, reg.end)) retry.push_back(reg_idx);
-    }
-    if (retry.empty()) return;
-
-    std::vector<bool> done2(static_cast<size_t>(n_regs), true);
-    for (int reg_idx : retry) done2[static_cast<size_t>(reg_idx)] = false;
-    run_noisy_pass(chunk, opts, site_whitelist, retry, /*snp_only_admission=*/false, done2);
+    run_noisy_pass(chunk, opts, site_whitelist, sorted, done);
 }
 
 } // namespace pgphase_collect

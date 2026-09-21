@@ -60,7 +60,7 @@ LDFLAGS ?= -lhts -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
@@ -78,6 +78,28 @@ predicate-tests: test_phase_predicates
 
 parity-tests: test_port_parity
 	./test_port_parity
+
+# Requires a local longcallD checkout; compiles its original C source so the
+# expected results cannot drift with a hand-copied reference implementation.
+LONGCALLD_ROOT ?= $(abspath ../longcallD)
+UPSTREAM_PHASE_DIR = build/upstream_phase
+UPSTREAM_PHASE_INCLUDES = -I$(LONGCALLD_ROOT)/src -I$(LONGCALLD_ROOT)/htslib -I$(LONGCALLD_ROOT)/edlib/include -I$(LONGCALLD_ROOT)/abPOA/include -I$(LONGCALLD_ROOT)/WFA2-lib
+-include $(UPSTREAM_PHASE_DIR)/assign_hap.d $(UPSTREAM_PHASE_DIR)/collect_var.d $(UPSTREAM_PHASE_DIR)/bridge.d
+
+upstream-parity-tests: test_upstream_phase
+	./test_upstream_phase
+
+$(UPSTREAM_PHASE_DIR):
+	mkdir -p $@
+
+$(UPSTREAM_PHASE_DIR)/assign_hap.o: $(LONGCALLD_ROOT)/src/assign_hap.c | $(UPSTREAM_PHASE_DIR)
+	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-parameter -Wno-unused-function -Wno-misleading-indentation -ffunction-sections -fdata-sections $(UPSTREAM_PHASE_INCLUDES) -c $< -o $@
+
+$(UPSTREAM_PHASE_DIR)/collect_var.o: $(LONGCALLD_ROOT)/src/collect_var.c | $(UPSTREAM_PHASE_DIR)
+	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-parameter -Wno-unused-function -Wno-misleading-indentation -Wno-absolute-value -ffunction-sections -fdata-sections $(UPSTREAM_PHASE_INCLUDES) -c $< -o $@
+
+$(UPSTREAM_PHASE_DIR)/bridge.o: src/test_upstream_phase_bridge.c src/test_upstream_phase_bridge.h | $(UPSTREAM_PHASE_DIR)
+	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-function $(UPSTREAM_PHASE_INCLUDES) -Isrc -c $< -o $@
 
 unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter
 	./test_graph_sites
@@ -183,7 +205,11 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase test_gap_windows test_phase_predicates test_port_parity test_graph_sites test_graph_bam_adapter test_noise_filter src/*.o src/*.d
+	rm -f pgphase test_gap_windows test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter src/*.o src/*.d
+	rm -rf $(UPSTREAM_PHASE_DIR)
+
+test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) -Wl,--gc-sections $(LDFLAGS)
 
 test_port_parity: src/test_port_parity.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)

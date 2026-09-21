@@ -1570,6 +1570,33 @@ After the clean-category k-means pass, pgPhase mirrors longcallD step 4 on final
 5. Update noisy coverage/profile fields (`total_cov`, `ref_cov`, `alt_cov`, `LQC`) from full-cover reads.
 6. Re-run read profiling and k-means with `kCandGermlineVarCate` when new variants were added.
 
+On the BAM path, MSA cluster membership does not seed a candidate's haplotype
+consensus. The second k-means pass initializes each heterozygous candidate to
+unknown on both haplotypes, matching longcallD's
+`var_init_hap_profile_cons_allele`. Read votes then decide its consensus.
+The BAM path passes a null unplaced-read buffer to the MSA aligner, so only
+reads selected for the two phase-set clusters enter the recalled candidate
+profiles. MSA insertions on the BAM path use longcallD's raw-reference-byte
+comparison for the homopolymer flag; graph recovery retains its nt4 comparison.
+The graph path can enable unplaced-read recovery separately. BAM noisy-region
+intervals retain their original zero labels when converted to cgranges, since
+those labels determine the distance used to merge neighboring intervals.
+For ONT palindrome reads, each BAM digar parser converts the clipped end to
+an internal hard clip, matching longcallD. That excludes the clipped read
+sequence from a partial MSA extraction while retaining its original BAM
+CIGAR and query coordinates.
+
+On this path, phase-set linking uses longcallD's adjacent heterozygote pair
+and two-read threshold. A 2-agree/2-conflict tie retains the phase set. The
+source's per-haplotype swap loop restores the original consensus order after
+two swaps; the BAM port matches that behavior.
+After the final phase-set assignment, the BAM solver retains its last
+iterative read haplotypes, as longcallD does, then projects finalized
+candidate consensus alleles into the TSV haplotype counts.
+During chunk stitching, a VCF-only BAM run updates variant haplotypes and
+phase sets but leaves read HP/PS unchanged. When a phased alignment is
+requested, it updates read HP/PS too, matching longcallD's output-mode gate.
+
 Step 4 re-phasing can modify pre-existing within-chunk hap assignments and
 phase-set structure, not only phase newly recovered sites -- but how far it may
 modify them is now a choice; see the next subsection.
@@ -1619,29 +1646,17 @@ while true:
     if no region made progress this pass: break
 ```
 
-###### What the loop is wrapped in, and what of it is live
+###### Noisy-region admission and re-phasing
 
-`collect_noisy_vars_step4` (`collect_phase_noisy.cpp:2085`) sorts the regions,
-runs the fixed-point loop above through `run_noisy_pass`, and then has a second
-tier that retries regions whose flanking phase sets still differ, admitting MSA
-indels where a SNP-only pass was not enough. Two parts of that are inert in the
-shipped code and a reader should not spend time on them:
-
-- **The escalation never runs.** `escalate` is `const bool escalate = false`
-  (line 2098). Both operands it was computed from were options of the removed
-  private-whitelist mode, so tier 1 runs with `snp_only_admission = false` --
-  admitting everything, not SNPs only -- and `if (!escalate) return;` makes the
-  tier-2 block below it unreachable.
-- **No caller passes a site whitelist.** `collect_var_run_phasing` takes
-  `noisy_site_whitelist` and forwards it, but all three call sites
-  (`collect_pipeline.cpp:2059` and `:2160`, `collect_var.cpp:2194`) take the
-  `nullptr` default, so every `site_whitelist` branch inside the recall is dead
-  with it.
+`collect_noisy_vars_step4` sorts regions by candidate count and length, then
+runs the loop above. Each region's MSA candidates are merged with existing
+candidates and read profiles. Each MSA pass admits SNPs and indels. The
+optional site whitelist limits admission when supplied by a caller.
 
 What *does* decide whether recalled sites matter is a pair of gates:
 
 - `skip_noisy_kmeans` gates the re-solve at the end of the loop
-  (`collect_phase_noisy.cpp:2053`). It defaults to `false`
+  in `collect_phase_noisy.cpp`. It defaults to `false`
   (`phasing_types.hpp:228`) and, since the hybrid arm was removed, **nothing
   sets it true** -- that arm's unconditional override was the only one, and
   with it went the state where recalled candidates entered the table but
@@ -2815,29 +2830,16 @@ pipeline sections above; this log maps each fix class to those sections.
 
 ###### 27.4 Homopolymer Indel Veto Parity
 
-**No longer a literal port -- a deliberate divergence, since 510f865.**
+The BAM MSA insertion check follows longcallD `collect_var.c` exactly: it
+compares raw FASTA reference bytes against nt4-coded insertion bases. For
+ordinary DNA bases this returns false, so an MSA insertion is not marked as a
+homopolymer indel by this check. The deletion branch compares reference bytes
+on both sides. A differential test compiles the original C function and checks
+both branches against the BAM port on uppercase and lowercase contexts.
 
-`var_is_homopolymer_indel` (`collect_phase_noisy.cpp:733`) was a literal
-longcallD port, and the port faithfully reproduced a defect. Its insertion
-branch compared the reference as a raw FASTA byte against an nt4-coded alt base
--- `'a'` (97) tested against `0` -- so the branch could never return true and
-**no insertion was ever flagged**, while deletions, whose branch compared raw
-bytes on both sides, were. Upstream has the same mismatch
-(`collect_var.c:1730`, an ASCII `chunk->ref_seq` against an nt4 abPOA consensus
-base), so parity here meant inheriting the bug.
-
-Both branches now convert through `base_to_nt4`, which also makes them
-case-insensitive -- load-bearing, because CHM13 soft-masks exactly the repeat
-tracts these indels sit in, and a raw-byte comparison fails on lowercase even
-with matching encodings.
-
-The flag is a field on the candidate (`is_homopolymer_indel`), and five places
-in `collect_phase.cpp` read it, which is why under-detection leaked so widely:
-`get_var_init_max_cov_allele` (ONT allele veto), `select_init_var` (pivot
-choice), `update_var_hap_to_cons_alle` (ONT consensus veto), `init_assign_read_hap`
-(read scoring, together with `hp_gap_scorable`), and
-`iter_update_var_hap_cons_phase_set` (the link list, and the pair rule at line
-623).
+Graph recovery retains the case-insensitive nt4 comparison for MSA insertions.
+The candidate's `is_homopolymer_indel` flag affects ONT allele vetoes, read
+scoring, pivot choice, and phase-set links in `collect_phase.cpp`.
 
 - Main text: §13.5, §18 Step 4, §26.12.
 

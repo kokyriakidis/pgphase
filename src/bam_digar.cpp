@@ -219,21 +219,9 @@ struct NoisyRegionBuilder {
 // Read sequence & quality utilities
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * @brief Increments the total candidate event count for a read.
- * 
- * Tracks the absolute number of high-penalty structural events (SNPs, Insertions, Deletions)
- * observed on a read, feeding into `read_has_too_many_variants` 
- * to skip reads that are overwhelmingly chaotic or mismapped.
- * 
- * @param read The read record accumulating variants.
- * @param tid The target contig ID (unused, kept for signature compatibility).
- * @param digar The parsed operation triggering the penalty.
- */
-static inline void record_variant_event(ReadRecord& read, int tid, const DigarOp& digar) {
-    (void)tid;
-    (void)digar;
-    read.total_cand_events++;
+// Count a parsed variant toward the read-level variant-ratio filter.
+static inline void record_variant_event(ReadRecord& read) {
+    ++read.total_cand_events;
 }
 
 /**
@@ -561,7 +549,7 @@ static void build_digars_ref_cigar(const bam1_t* aln,
                 const bool low_quality = base_quality(aln, qi) < opts.min_bq;
                 DigarOp digar{pos, DigarType::Snp, 1, qi, low_quality, std::string(1, alt_base)};
                 append_digar(read.digars, digar);
-                record_variant_event(read, aln->core.tid, digar);
+                record_variant_event(read);
                 if (!low_quality) noisy_builder.observe_variant(pos, 1, 1);
             }
             append_digar(read.digars, DigarOp{equal_pos, DigarType::Equal, equal_len, equal_qi, false, ""});
@@ -575,17 +563,20 @@ static void build_digars_ref_cigar(const bam1_t* aln,
                           insertion_is_low_quality(aln, query_pos, len, opts.min_bq),
                           read_sequence(aln, query_pos, len)};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, 0, len);
             query_pos += len;
         } else if (op == BAM_CDEL) {
             DigarOp digar{ref_pos, DigarType::Deletion, len, query_pos, deletion_is_low_quality(aln, query_pos, opts.min_bq), ""};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, len, len);
             ref_pos += len;
         } else if (op == BAM_CSOFT_CLIP || op == BAM_CHARD_CLIP) {
-            const DigarType clip_type = op == BAM_CSOFT_CLIP ? DigarType::SoftClip : DigarType::HardClip;
+            const bool palindrome_clip = (i == 0 && left_clip_is_palindrome) ||
+                                         (i != 0 && right_clip_is_palindrome);
+            const DigarType clip_type = palindrome_clip || op == BAM_CHARD_CLIP
+                                            ? DigarType::HardClip : DigarType::SoftClip;
             append_digar(read.digars, DigarOp{ref_pos, clip_type, len, query_pos, false, ""});
             noisy_builder.add_end_clip_region(static_cast<int>(i),
                                               static_cast<int>(aln->core.n_cigar),
@@ -646,7 +637,7 @@ static void build_digars_eqx_cigar(const bam1_t* aln,
                 const bool low_quality = base_quality(aln, qi) < opts.min_bq;
                 DigarOp digar{pos, DigarType::Snp, 1, qi, low_quality, std::string(1, alt_base)};
                 append_digar(read.digars, digar);
-                record_variant_event(read, aln->core.tid, digar);
+                record_variant_event(read);
                 if (!low_quality) noisy_builder.observe_variant(pos, 1, 1);
             }
             ref_pos += len;
@@ -658,7 +649,7 @@ static void build_digars_eqx_cigar(const bam1_t* aln,
         } else if (op == BAM_CDEL) {
             DigarOp digar{ref_pos, DigarType::Deletion, len, query_pos, deletion_is_low_quality(aln, query_pos, opts.min_bq), ""};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, len, len);
             ref_pos += len;
         } else if (op == BAM_CINS) {
@@ -669,11 +660,14 @@ static void build_digars_eqx_cigar(const bam1_t* aln,
                           insertion_is_low_quality(aln, query_pos, len, opts.min_bq),
                           read_sequence(aln, query_pos, len)};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, 0, len);
             query_pos += len;
         } else if (op == BAM_CSOFT_CLIP || op == BAM_CHARD_CLIP) {
-            const DigarType clip_type = op == BAM_CSOFT_CLIP ? DigarType::SoftClip : DigarType::HardClip;
+            const bool palindrome_clip = (i == 0 && left_clip_is_palindrome) ||
+                                         (i != 0 && right_clip_is_palindrome);
+            const DigarType clip_type = palindrome_clip || op == BAM_CHARD_CLIP
+                                            ? DigarType::HardClip : DigarType::SoftClip;
             append_digar(read.digars, DigarOp{ref_pos, clip_type, len, query_pos, false, ""});
             noisy_builder.add_end_clip_region(static_cast<int>(i),
                                               static_cast<int>(aln->core.n_cigar),
@@ -774,7 +768,7 @@ static bool build_digars_md_cigar(const bam1_t* aln,
                     const bool low_quality = base_quality(aln, qi) < opts.min_bq;
                     DigarOp digar{ref_pos, DigarType::Snp, 1, qi, low_quality, std::string(1, alt_base)};
                     append_digar(read.digars, digar);
-                    record_variant_event(read, aln->core.tid, digar);
+                    record_variant_event(read);
                     if (!low_quality) noisy_builder.observe_variant(ref_pos, 1, 1);
                     ++ref_pos;
                     ++query_pos;
@@ -791,7 +785,7 @@ static bool build_digars_md_cigar(const bam1_t* aln,
         } else if (op == BAM_CDEL) {
             DigarOp digar{ref_pos, DigarType::Deletion, len, query_pos, deletion_is_low_quality(aln, query_pos, opts.min_bq), ""};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, len, len);
             ref_pos += len;
             // MD pointer advance after deletion: skip one token and consume letters.
@@ -808,11 +802,14 @@ static bool build_digars_md_cigar(const bam1_t* aln,
                           insertion_is_low_quality(aln, query_pos, len, opts.min_bq),
                           read_sequence(aln, query_pos, len)};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, 0, len);
             query_pos += len;
         } else if (op == BAM_CSOFT_CLIP || op == BAM_CHARD_CLIP) {
-            const DigarType clip_type = op == BAM_CSOFT_CLIP ? DigarType::SoftClip : DigarType::HardClip;
+            const bool palindrome_clip = (i == 0 && left_clip_is_palindrome) ||
+                                         (i != 0 && right_clip_is_palindrome);
+            const DigarType clip_type = palindrome_clip || op == BAM_CHARD_CLIP
+                                            ? DigarType::HardClip : DigarType::SoftClip;
             append_digar(read.digars, DigarOp{ref_pos, clip_type, len, query_pos, false, ""});
             noisy_builder.add_end_clip_region(i,
                                               n_cigar,
@@ -890,7 +887,8 @@ static bool build_digars_cs_tag(const bam1_t* aln,
         const int op0 = bam_cigar_op(cigar[0]);
         if (op0 == BAM_CSOFT_CLIP || op0 == BAM_CHARD_CLIP) {
             const int len0 = bam_cigar_oplen(cigar[0]);
-            const DigarType clip_type = op0 == BAM_CSOFT_CLIP ? DigarType::SoftClip : DigarType::HardClip;
+            const DigarType clip_type = left_clip_is_palindrome || op0 == BAM_CHARD_CLIP
+                                            ? DigarType::HardClip : DigarType::SoftClip;
             append_digar(read.digars, DigarOp{ref_pos, clip_type, len0, query_pos, false, ""});
             noisy_builder.add_end_clip_region(0,
                                               n_cigar,
@@ -937,7 +935,7 @@ static bool build_digars_cs_tag(const bam1_t* aln,
             const bool low_quality = base_quality(aln, qi) < opts.min_bq;
             DigarOp digar{ref_pos, DigarType::Snp, 1, qi, low_quality, std::string(1, alt_base)};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!low_quality) noisy_builder.observe_variant(ref_pos, 1, 1);
             ++ref_pos;
             ++query_pos;
@@ -959,7 +957,7 @@ static bool build_digars_cs_tag(const bam1_t* aln,
                           insertion_is_low_quality(aln, query_pos, run, opts.min_bq),
                           ins_seq};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, 0, run);
             query_pos += run;
         } else if (cs[p] == '-') {
@@ -972,7 +970,7 @@ static bool build_digars_cs_tag(const bam1_t* aln,
             if (run <= 0) return false;
             DigarOp digar{ref_pos, DigarType::Deletion, run, query_pos, deletion_is_low_quality(aln, query_pos, opts.min_bq), ""};
             append_digar(read.digars, digar);
-            record_variant_event(read, aln->core.tid, digar);
+            record_variant_event(read);
             if (!digar.low_quality) noisy_builder.observe_variant(ref_pos, run, run);
             ref_pos += run;
         } else if (cs[p] == '~') {
@@ -990,7 +988,8 @@ static bool build_digars_cs_tag(const bam1_t* aln,
         const int opi = bam_cigar_op(cigar[n_cigar - 1]);
         if (opi == BAM_CSOFT_CLIP || opi == BAM_CHARD_CLIP) {
             const int lenl = bam_cigar_oplen(cigar[n_cigar - 1]);
-            const DigarType clip_type = opi == BAM_CSOFT_CLIP ? DigarType::SoftClip : DigarType::HardClip;
+            const DigarType clip_type = right_clip_is_palindrome || opi == BAM_CHARD_CLIP
+                                            ? DigarType::HardClip : DigarType::SoftClip;
             append_digar(read.digars, DigarOp{ref_pos, clip_type, lenl, query_pos, false, ""});
             noisy_builder.add_end_clip_region(n_cigar - 1,
                                               n_cigar,

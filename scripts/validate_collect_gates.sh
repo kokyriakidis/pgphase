@@ -3,9 +3,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PGPHASE="${PGPHASE:-$ROOT/pgphase}"
-# Defaults: HG002 HiFi chr20 slice vs CHM13#0#chr20 (see test_data/chr20_quick/).
-HIFI_FA="${HIFI_FA:-$ROOT/test_data/chr20_quick/CHM13_chr20_only.fa}"
-HIFI_BAM="${HIFI_BAM:-$ROOT/test_data/chr20_quick/HG002_CHM13_chr20_15000001_15500000.bam}"
+# Defaults: HG002 HiFi chr11 slice matching the committed golden outputs.
+HIFI_FA="${HIFI_FA:-$ROOT/test_data/chr11_2M.fa}"
+HIFI_BAM="${HIFI_BAM:-$ROOT/test_data/HG002_chr11_hifi_test.bam}"
 ONT_FA="${ONT_FA:-$ROOT/test_data/chr11_2M.fa}"
 ONT_BAM="${ONT_BAM:-$ROOT/test_data/HG002_chr11_ont_test.bam}"
 HIFI_EXPECTED_TSV="${HIFI_EXPECTED_TSV:-$ROOT/test_data/expected/hifi_collect_expected.tsv}"
@@ -75,8 +75,8 @@ run_collect() {
   local log
   log="$(mktemp)"
   set +e
-  "$PGPHASE" collect-bam-variation -t "$threads" "$mode" --include-filtered "$fa" "$bam" \
-    -o "$out_tsv" --phased-vcf-output "$out_vcf" >"$log" 2>&1
+  "$PGPHASE" collect-bam-variation -t "$threads" "$mode" --include-filtered \
+    --ref "$fa" --bam "$bam" -o "$out_tsv" --phased-vcf-out "$out_vcf" >"$log" 2>&1
   local st=$?
   set -e
   if [[ "$st" -ne 0 ]]; then

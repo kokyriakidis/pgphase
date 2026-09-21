@@ -192,6 +192,9 @@ make check
 
 # Run unit tests
 make unit-tests
+
+# Compare BAM phasing functions and full k-means against original longcallD C
+make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD
 ```
 
 ## Release
