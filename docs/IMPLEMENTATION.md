@@ -75,9 +75,9 @@ holding its own FAI handle:
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
 | 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets each bounded gap between neighboring phase sets, imports the BAM sub-solve's independent local phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` then joins left graph block, local BAM blocks, and right graph block on decisive allele evidence |
-| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve and stages read assignments only from BAM blocks statistically validated against the chunk's graph blocks; candidates, graph observations, primary assignments, and stitching inputs do not change |
+| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve and stages independent read assignments; graph-validated BAM blocks contribute all assigned reads, while other blocks contribute only reads whose haplotype score separation is at least the full margin produced by one clean biallelic site; reads without graph profiles remain output-only |
 | 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, uses statistically oriented excluded sites to haplotag additional reads without changing candidates or joining phase sets |
-| 8 | `apply_independent_bam_read_blocks` | fills only reads still unassigned after graph stitching and excluded-site rescue, preserving the independent BAM block instead of joining it to a graph block |
+| 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 
 The graph command admits GAF alignments at MAPQ 5 by default. These reads
 participate in graph-site depth, clustering, block construction, and read
@@ -114,11 +114,22 @@ each graph phase set they share. A table is informative only when both
 haplotypes occur on both sides. Every informative table must reject random
 association at exact two-sided p<=0.01. After choosing each graph block's
 arbitrary orientation independently, the combined disagreement rate must have
-a one-sided 95% Wilson upper bound no greater than 10%. A passing BAM block may
-provide HP/PS only to graph-unassigned reads. Those assignments are staged
-until graph stitching and excluded-site rescue finish, use the disjoint
-`PS + kBamFallbackPsOffset` namespace, and never contribute candidates,
-observations, or stitching votes. `graph_chunks_to_candidate_table` then turns
+a one-sided 95% Wilson upper bound no greater than 10%. A passing block may
+provide HP/PS to every graph-unassigned read it phases.
+
+A block that lacks sufficient or consistent graph overlap remains independent
+and therefore needs no graph orientation. It may provide an individual read
+assignment only when its `hap_score_margin` is at least
+`kIndependentBamReadMinHapScoreMargin`. The threshold is 4: one clean
+biallelic site scores +2 against one haplotype and -2 against the other, so 4
+is the first full clean-site separation.
+
+Assignments for reads with graph profiles are staged until graph stitching and
+excluded-site rescue finish. Assignments for BAM reads absent from the graph
+profiles are staged in `bam_output_fallback_reads` and enter only the phased
+BAM output merge. Both paths use the disjoint `PS + kBamFallbackPsOffset`
+namespace and never contribute candidates, observations, graph phase-set
+joins, or stitching votes. `graph_chunks_to_candidate_table` therefore turns
 the unchanged candidate chunks into the output table.
 
 Phased-BAM output accumulates a read across every chunk that observed it. Site
@@ -126,9 +137,11 @@ alleles are merged by site identity, and a conflicting duplicate observation is
 marked ambiguous. A later primary **phased** HP/PS assignment replaces an earlier one,
 which preserves downstream ownership after chunk stitching. A later unphased
 visit carries no contradictory haplotype evidence and therefore cannot erase an
-earlier valid assignment. An excluded-site rescue fills an otherwise unphased row, and a validated BAM
-fallback fills only a row left unphased by both earlier layers. Neither replaces
-a primary assignment from any chunk. This matters for reads
+earlier valid assignment. An excluded-site rescue fills an otherwise unphased
+row, and an independent BAM fallback fills only a row left unphased by both
+earlier layers. A staged BAM-only assignment can create a phased output row for
+a read with no graph profile. Neither path replaces a primary assignment from
+any chunk. This matters for reads
 whose informative site lies in the upstream half of a chunk overlap.
 Running recovery inside the chunk is the point of the in-chunk placement: the
 chunk is still the unit of work, so each chunk's windows are its own, needing no

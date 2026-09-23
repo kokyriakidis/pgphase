@@ -1624,6 +1624,18 @@ void merge_graph_chunk_into_read_rows(
         merge_phase_read_assignment(row, chunk.region.chunk_id, hap, phase_set,
                                     is_primary);
     }
+
+    // Reads without GAF catalog observations have no ReadVariantProfile and
+    // therefore never enter the loop above. Their independent BAM assignment
+    // is output-only; a primary graph assignment from an overlapping chunk
+    // still takes precedence in merge_phase_read_assignment.
+    for (const ReadPhaseAssignment& assignment :
+         chunk.bam_output_fallback_reads) {
+        PhaseReadOutputRow& row = rows_by_read[assignment.qname];
+        if (row.read_name.empty()) row.read_name = assignment.qname;
+        merge_phase_read_assignment(row, chunk.region.chunk_id, assignment.hap,
+                                    assignment.phase_set, false);
+    }
 }
 
 void write_graph_phase_sites_tsv_header(std::ostream& out) {

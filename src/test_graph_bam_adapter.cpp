@@ -1890,6 +1890,26 @@ int main() {
                         initial.phase_set + 1000,
                     "graph output merge: later phased overlap owns assignment");
 
+        // A BAM-only row must reach output even though it has no graph profile.
+        // The same secondary channel must not replace a graph-primary row.
+        constexpr hts_pos_t kBamOnlyPhaseSet =
+            300 + kBamFallbackPsOffset;
+        chunks[0].chunk.bam_output_fallback_reads = {
+            {"bam_only", 2, kBamOnlyPhaseSet},
+            {"read_a", initial.hap, kBamOnlyPhaseSet}};
+        merge_graph_chunk_into_read_rows(output_rows, chunks[0], 0);
+        ok &= check(output_rows.at("bam_only").hap == 2 &&
+                    output_rows.at("bam_only").phase_set ==
+                        kBamOnlyPhaseSet &&
+                    output_rows.at("bam_only").has_phased_assignment &&
+                    !output_rows.at("bam_only").has_primary_assignment,
+                    "graph output merge: BAM-only assignment creates row");
+        ok &= check(output_rows.at("read_a").hap == replacement_hap &&
+                    output_rows.at("read_a").phase_set ==
+                        initial.phase_set + 1000,
+                    "graph output merge: primary assignment beats BAM-only fallback");
+        chunks[0].chunk.bam_output_fallback_reads.clear();
+
         chunks[0].chunk.haps = saved_haps;
         chunks[0].chunk.phase_sets = saved_phase_sets;
         chunks[0].chunk.region.chunk_id = saved_chunk_id;

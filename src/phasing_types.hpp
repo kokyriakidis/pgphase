@@ -719,6 +719,13 @@ struct CgrangesDeleter {
 
 
 
+/** @brief An output-only HP/PS assignment for a read absent from graph profiles. */
+struct ReadPhaseAssignment {
+    std::string qname;
+    int hap = 0;
+    hts_pos_t phase_set = kUnphasedReadPhaseSet;
+};
+
 /**
  * @brief One input read after parsing: coordinates, digars, qualities, noisy subregions.
  */
@@ -982,6 +989,9 @@ struct PhasingChunk {
     // excluded-site rescue finish. They never participate in graph stitching.
     std::vector<int> bam_fallback_haps;
     std::vector<hts_pos_t> bam_fallback_phase_sets;
+    // Independent BAM assignments for reads absent from this chunk's GAF rows.
+    // They are output-only and never enter graph phasing or chunk stitching.
+    std::vector<ReadPhaseAssignment> bam_output_fallback_reads;
     std::vector<ReadVariantProfile> read_var_profile;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;

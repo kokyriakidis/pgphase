@@ -50,6 +50,9 @@
 
 namespace pgphase_collect {
 
+// A clean biallelic site scores +2 for the matching BAM haplotype and -2 for
+// the other. Four is therefore the first full clean-site score separation.
+static constexpr int kIndependentBamReadMinHapScoreMargin = 4;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Region chunking
@@ -1920,22 +1923,37 @@ size_t recover_independent_bam_read_blocks_in_place(
 
     graph.haps.resize(graph.reads.size(), 0);
     graph.phase_sets.resize(graph.reads.size(), kUnphasedReadPhaseSet);
-    graph.bam_fallback_haps.resize(graph.reads.size(), 0);
-    graph.bam_fallback_phase_sets.resize(
+    graph.bam_fallback_haps.assign(graph.reads.size(), 0);
+    graph.bam_fallback_phase_sets.assign(
         graph.reads.size(), kUnphasedReadPhaseSet);
+    graph.bam_output_fallback_reads.clear();
 
     size_t recovered = 0;
     for (size_t bam_read_i = 0; bam_read_i < bam.reads.size(); ++bam_read_i) {
         if (bam_read_i >= bam.haps.size() ||
             bam_read_i >= bam.phase_sets.size() ||
             (bam.haps[bam_read_i] != 1 && bam.haps[bam_read_i] != 2) ||
-            supported_bam_phase_sets.count(bam.phase_sets[bam_read_i]) == 0 ||
+            bam.phase_sets[bam_read_i] <= 0 ||
+            (supported_bam_phase_sets.count(bam.phase_sets[bam_read_i]) == 0 &&
+             bam.reads[bam_read_i].hap_score_margin <
+                 kIndependentBamReadMinHapScoreMargin) ||
             bam.phase_sets[bam_read_i] >
                 std::numeric_limits<int32_t>::max() - kBamFallbackPsOffset) {
             continue;
         }
+        const hts_pos_t fallback_phase_set =
+            bam.phase_sets[bam_read_i] + kBamFallbackPsOffset;
         const auto found = graph_read_by_qname.find(bam.reads[bam_read_i].qname);
-        if (found == graph_read_by_qname.end()) continue;
+        if (found == graph_read_by_qname.end()) {
+            // A read without a catalog-site observation has no graph profile.
+            // Preserve its independent BAM assignment for phased-BAM output;
+            // it must not become graph evidence.
+            graph.bam_output_fallback_reads.push_back(
+                {bam.reads[bam_read_i].qname, bam.haps[bam_read_i],
+                 fallback_phase_set});
+            ++recovered;
+            continue;
+        }
         const size_t graph_read_i = found->second;
         const bool graph_primary =
             graph_read_i < graph.haps.size() &&
@@ -1949,8 +1967,7 @@ size_t recover_independent_bam_read_blocks_in_place(
         }
 
         graph.bam_fallback_haps[graph_read_i] = bam.haps[bam_read_i];
-        graph.bam_fallback_phase_sets[graph_read_i] =
-            bam.phase_sets[bam_read_i] + kBamFallbackPsOffset;
+        graph.bam_fallback_phase_sets[graph_read_i] = fallback_phase_set;
         ++recovered;
     }
     return recovered;

@@ -89,8 +89,11 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
 
 /// Phase graph-unassigned reads from an independent whole-chunk BAM solve.
 ///
-/// Only fallback HP/PS vectors are updated. Graph candidates, observations,
-/// primary assignments, and cross-chunk stitching inputs remain unchanged.
+/// The solve stages assignments for graph-unphased reads and output-only
+/// assignments for BAM reads absent from the graph profiles. A BAM block may
+/// contribute when graph links validate the whole block; otherwise only reads
+/// separated by one full clean-site score may contribute. Graph candidates,
+/// observations, primary assignments, and stitching inputs remain unchanged.
 size_t recover_independent_bam_read_blocks_in_place(
     GraphChunkBuildResult& graph_chunk,
     const Options& opts,

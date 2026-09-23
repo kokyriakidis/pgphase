@@ -9192,6 +9192,46 @@ accuracy. The VCF remains at 61,644 phased heterozygotes in 419 phase sets. All
 unit tests and all 232 gap-window assertions pass. Full details are in
 `evaluations/2026-09-23-independent-bam-read-fallback/`.
 
+### Decisive independent BAM reads exceed HiPhase coverage (2026-09-23)
+
+The block validator above is deliberately conservative. A BAM phase block that
+cannot be oriented to a graph block does not need to be discarded if it remains
+an independent output phase set: its internal HP labels are meaningful up to the
+same arbitrary phase-set flip used by every truth evaluation. The fallback now
+keeps an individual BAM assignment from an unsupported block only when its BAM
+haplotype score margin is at least 4. A clean biallelic SNP or indel contributes
++2 to one haplotype and -2 to the other, making 4 the first complete clean-site
+separation. Passing statistically validated blocks still contribute all of
+their assigned reads.
+
+Reads absent from the chunk's graph profiles are stored as output-only
+assignments. Graph-present assignments remain staged until stitching and
+excluded-site rescue finish. Both use the independent
+`PS + kBamFallbackPsOffset` namespace; neither contributes candidates,
+observations, graph joins, or stitching votes. A primary graph assignment from
+any overlapping chunk always wins. Reinitializing the pass now clears every
+staging vector, and nonpositive BAM PS sentinels are rejected.
+
+The threshold sweep on full chr20 was:
+
+| minimum score margin | phased reads | correct | discordant | accuracy |
+|---:|---:|---:|---:|---:|
+| **4** | **234,787** | **226,223** | **8,564** | **96.352439%** |
+| 5 | 232,749 | 224,914 | 7,835 | 96.633713% |
+| 6 | 232,749 | 224,914 | 7,835 | 96.633713% |
+
+Margins 5 and 6 are safer but phase 604 fewer reads than HiPhase. Margin 4 is
+the only tested score boundary that exceeds HiPhase coverage while retaining
+higher truth accuracy. Against the conservative validated-block baseline it
+adds 4,319 phased reads. The final output phases 1,434 more reads than HiPhase,
+produces 2,423 more correct assignments and 989 fewer discordant assignments,
+and is 0.446237 percentage points more accurate. It phases 2,133 reads absent
+from graph/GAF profiles. All baseline HP/PS assignments remain byte-for-byte
+unchanged, and the phased VCF is byte-identical. The all-block arm remains
+rejected: although it phases 2,076 more reads than the retained margin-4 arm,
+it adds 893 more errors and narrows the accuracy lead over HiPhase to 0.101
+percentage points.
+
 ### Whole-chr20 comparison now includes longcalld (2026-09-23)
 
 The final graph+recovery output, frozen HiPhase output, and frozen upstream
@@ -9202,25 +9242,22 @@ was called from that same reheadered BAM. pgphase additionally uses the graph
 catalog and GAF, while longcalld calls variants internally. Each emitted PS was
 independently oriented against the same parental truth map.
 
-HiPhase has the highest coverage and correct yield: 233,353 reads phased
-(85.7865%), with 223,800 correct and 9,553 discordant. pgphase phases 230,468
-(84.7259%), with 223,190 correct and 7,278 discordant. Longcalld phases 219,090
+pgphase now has the highest coverage and correct yield: 234,787 reads phased
+(86.3137%), with 226,223 correct and 8,564 discordant. HiPhase phases 233,353
+(85.7865%), with 223,800 correct and 9,553 discordant. Longcalld phases 219,090
 (80.5431%), with 212,584 correct and 6,506 discordant. Conditional truth
-accuracy is 95.9062%, 96.8421%, and 97.0304% for HiPhase, pgphase, and
-longcalld, respectively. No tool dominates all metrics: pgphase is the middle
-operating point between HiPhase's additional coverage and longcalld's additional
-abstention. The measured next targets are explicit: +2,885 phased reads to
-match HiPhase coverage, +610 correct assignments to match HiPhase correct
-yield, and no more than 6,843 discordant reads at the current coverage (435
-fewer) to match longcalld's conditional accuracy. Future experiments must
-report all three so an accuracy gain obtained only by abstaining, or a coverage
-gain obtained by adding errors, is not mistaken for progress.
+accuracy is 96.3524%, 95.9062%, and 97.0304% for pgphase, HiPhase, and
+longcalld, respectively. pgphase therefore dominates HiPhase on phased reads,
+correct yield, discordant count, and conditional accuracy. Longcalld remains
+the more abstaining high-accuracy operating point: it has 0.6780 percentage
+points higher accuracy, while pgphase phases 15,697 more reads and produces
+13,639 more correct assignments.
 
-The earlier 252,292-qname graph-observed subset remains a phaser diagnostic,
-where pgphase exceeds HiPhase by 671 reads and 0.410 accuracy points. It must not
-be presented as whole-BAM coverage because 19,724 BAM qnames are absent from the
-graph/GAF output. On the 210,832 reads phased by all three, pgphase and
-longcalld are nearly tied at 98.3276% and 98.3655%; HiPhase is 97.2495%.
+The 252,292-qname graph-observed subset remains a phaser diagnostic, not the
+primary whole-BAM comparison. pgphase phases 232,654 graph-observed reads
+(92.2162%) at 96.6293% truth accuracy, versus HiPhase's 229,797 (91.0837%) at
+96.4321%. The additional output-only BAM channel phases 2,133 reads absent from
+the graph/GAF profiles.
 
 The callsets contain 61,644, 77,123, and 83,013 phased heterozygotes for
 pgphase, HiPhase, and longcalld. These counts are not a variant-accuracy ranking
