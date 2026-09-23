@@ -78,3 +78,83 @@ Retain the statistically validated assignment-only fallback by default whenever
 `collect-graph-variation` receives `--bam`. It increases coverage and accuracy
 while leaving the graph variant result and every existing read assignment
 unchanged.
+
+## Three-tool whole-chr20 comparison
+
+The final pgphase result was compared with the frozen upstream longcalld and
+HiPhase results. All three consume the same underlying 272,016 BAM records.
+pgphase and longcalld use
+`test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam`; HiPhase uses
+`shared_calls/chr20/HG002.chr20.normalized.bam`, which `samtools reheader`
+created from that exact BAM without changing records, coordinates, CIGARs, or
+qnames. HiPhase's DeepVariant VCF was called from that same normalized BAM and
+reference. pgphase additionally uses the graph catalog and GAF; longcalld
+discovers its own variants from the shared BAM.
+
+The primary comparison counts every BAM qname. A read absent from a tool's
+output is unphased. Each emitted phase set is independently oriented to maximize
+agreement with `chr20_truth_hap.tsv`, then every tagged read is scored.
+
+| tool | phased reads | coverage | truth correct | truth discordant | truth accuracy | correct yield |
+|---|---:|---:|---:|---:|---:|---:|
+| pgphase graph+recovery | 230,468 | 84.7259% | 223,190 | 7,278 | 96.8421% | 82.0503% |
+| **HiPhase** | **233,353** | **85.7865%** | **223,800** | 9,553 | 95.9062% | **82.2746%** |
+| longcalld | 219,090 | 80.5431% | 212,584 | **6,506** | **97.0304%** | 78.1513% |
+
+No tool dominates all read metrics. HiPhase phases 2,885 more reads than
+pgphase and produces 610 more correct assignments, but also 2,275 more wrong
+assignments and has 0.936-point lower conditional accuracy. Longcalld has the
+highest conditional accuracy, 0.188 points above pgphase, while pgphase phases
+11,378 more reads and produces 10,606 more correct assignments. pgphase is the
+middle operating point: substantially more coverage than longcalld and
+substantially fewer errors than HiPhase.
+
+### Improvement targets from this baseline
+
+| objective | delta from current pgphase |
+|---|---:|
+| match HiPhase coverage | +2,885 phased reads |
+| match HiPhase correct yield | +610 truth-correct reads |
+| match longcalld accuracy at the current 230,468 phased reads | at most 6,843 discordant reads, 435 fewer |
+
+Future changes should report all three quantities. Coverage-only gains can move
+toward HiPhase while adding too many errors, and accuracy-only filtering can
+move toward longcalld by abstaining. A strict improvement increases correct
+yield without losing existing correct assignments; the longer-term Pareto goal
+is to exceed HiPhase's coverage while retaining at least longcalld's conditional
+accuracy.
+
+The graph/GAF path contains 252,292 of the 272,016 BAM qnames. Restricting all
+three tools to those graph-observed reads is useful for diagnosing the phaser,
+but is not the primary end-to-end coverage comparison:
+
+| tool | phased graph-observed reads | coverage | truth accuracy |
+|---|---:|---:|---:|
+| pgphase graph+recovery | 230,468 | 91.3497% | 96.8421% |
+| HiPhase | 229,797 | 91.0837% | 96.4321% |
+| longcalld | 217,619 | 86.2568% | 97.2581% |
+
+On the 210,832 reads phased by all three, accuracy is 98.3276% for pgphase,
+97.2495% for HiPhase, and 98.3655% for longcalld. This separates assignment
+quality from each tool's decision to abstain and leaves pgphase and longcalld
+0.038 percentage points apart on the identical phased subset.
+
+The longcalld totals include 315 reads carrying HP with `PS=0`, matching its
+existing evaluator's convention and published 219,090-read total. Excluding
+those rows gives 218,775 phased reads on the full BAM; the comparison retains
+them because longcalld emitted an HP assignment.
+
+VCF structure is reported separately because the tools do not start from the
+same variant callset: pgphase uses the graph catalog, HiPhase uses DeepVariant
+calls generated from the shared BAM, and longcalld discovers alignment variants
+itself.
+
+| tool | phased heterozygotes | VCF phase sets | span N50 |
+|---|---:|---:|---:|
+| pgphase graph+recovery | 61,644 | 419 | 482,085 bp |
+| HiPhase | 77,123 | 196 | 1,005,183 bp |
+| longcalld | 83,013 | 431 | 416,121 bp |
+
+These VCF counts measure output quantity and continuity, not variant accuracy;
+a variant-truth comparison would be required to rank the three callsets. The
+machine-readable primary summary is in `three_tool_chr20.tsv`.

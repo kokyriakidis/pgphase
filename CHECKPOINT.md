@@ -9191,3 +9191,39 @@ shared population, pgphase's tagged-read lead over HiPhase grows from 275 to
 accuracy. The VCF remains at 61,644 phased heterozygotes in 419 phase sets. All
 unit tests and all 232 gap-window assertions pass. Full details are in
 `evaluations/2026-09-23-independent-bam-read-fallback/`.
+
+### Whole-chr20 comparison now includes longcalld (2026-09-23)
+
+The final graph+recovery output, frozen HiPhase output, and frozen upstream
+longcalld output were rescored on the complete 272,016-qname BAM population.
+All three use the same underlying annotated `vg giraffe` BAM alignments;
+HiPhase's input is a lossless contig-header reheader, and its DeepVariant VCF
+was called from that same reheadered BAM. pgphase additionally uses the graph
+catalog and GAF, while longcalld calls variants internally. Each emitted PS was
+independently oriented against the same parental truth map.
+
+HiPhase has the highest coverage and correct yield: 233,353 reads phased
+(85.7865%), with 223,800 correct and 9,553 discordant. pgphase phases 230,468
+(84.7259%), with 223,190 correct and 7,278 discordant. Longcalld phases 219,090
+(80.5431%), with 212,584 correct and 6,506 discordant. Conditional truth
+accuracy is 95.9062%, 96.8421%, and 97.0304% for HiPhase, pgphase, and
+longcalld, respectively. No tool dominates all metrics: pgphase is the middle
+operating point between HiPhase's additional coverage and longcalld's additional
+abstention. The measured next targets are explicit: +2,885 phased reads to
+match HiPhase coverage, +610 correct assignments to match HiPhase correct
+yield, and no more than 6,843 discordant reads at the current coverage (435
+fewer) to match longcalld's conditional accuracy. Future experiments must
+report all three so an accuracy gain obtained only by abstaining, or a coverage
+gain obtained by adding errors, is not mistaken for progress.
+
+The earlier 252,292-qname graph-observed subset remains a phaser diagnostic,
+where pgphase exceeds HiPhase by 671 reads and 0.410 accuracy points. It must not
+be presented as whole-BAM coverage because 19,724 BAM qnames are absent from the
+graph/GAF output. On the 210,832 reads phased by all three, pgphase and
+longcalld are nearly tied at 98.3276% and 98.3655%; HiPhase is 97.2495%.
+
+The callsets contain 61,644, 77,123, and 83,013 phased heterozygotes for
+pgphase, HiPhase, and longcalld. These counts are not a variant-accuracy ranking
+because the graph catalog, DeepVariant callset, and longcalld-discovered callset
+differ. Full methodology and the machine-readable table are in
+`evaluations/2026-09-23-independent-bam-read-fallback/`.

@@ -1,0 +1,4 @@
+tool	input_reads	phased_reads	phased_percent	truth_correct	truth_discordant	truth_accuracy	correct_yield	phased_hets	vcf_phase_sets	vcf_span_n50_bp	alignment_input	variant_input
+pgphase_graph_recovery	272016	230468	84.725898	223190	7278	96.842078	82.050321	61644	419	482085	annotated_vg_giraffe_bam	graph_catalog_gaf_plus_bam_recovery
+hiphase	272016	233353	85.786498	223800	9553	95.906202	82.274572	77123	196	1005183	lossless_reheader_of_same_annotated_vg_giraffe_bam	deepvariant_from_same_bam
+longcalld	272016	219090	80.543056	212584	6506	97.030444	78.151285	83013	431	416121	annotated_vg_giraffe_bam	internally_called_from_same_bam
