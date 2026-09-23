@@ -95,6 +95,12 @@ constexpr int kHybridDefaultStitchRule = kStitchRuleBothStrands;
 // well above any genomic-coordinate PS id and never collide with core blocks.
 constexpr hts_pos_t kGapFillPsOffset = 1000000000;
 
+// Whole-chunk BAM fallback blocks are read-only and must not share labels with
+// either graph blocks or excluded-site rescue blocks. BAM PS values are genomic
+// coordinates on the human references supported by the graph pipeline, so this
+// offset remains below the signed 32-bit limit used by the BAM PS tag.
+constexpr hts_pos_t kBamFallbackPsOffset = 1500000000;
+
 // Graph-only het-indel anchor gating (hybrid pipeline only).  Graph het indels
 // added to k-means as CleanHetIndel can mis-orient reads when the genotype is
 // unreliable.  Keep an indel anchor only when its allele fraction sits within
@@ -972,6 +978,10 @@ struct PhasingChunk {
     // already carry kGapFillPsOffset.
     std::vector<int> gap_haps;
     std::vector<hts_pos_t> gap_phase_sets;
+    // Whole-chunk BAM solve assignments staged until graph stitching and
+    // excluded-site rescue finish. They never participate in graph stitching.
+    std::vector<int> bam_fallback_haps;
+    std::vector<hts_pos_t> bam_fallback_phase_sets;
     std::vector<ReadVariantProfile> read_var_profile;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;

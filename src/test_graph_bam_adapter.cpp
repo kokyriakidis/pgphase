@@ -1745,6 +1745,49 @@ int main() {
                     "recovery blocks: flank attachment preserves and flips reads atomically");
     }
 
+    // Independent BAM blocks are accepted only when every informative graph
+    // link is diploid, non-random, and has a narrow block-wide discordance
+    // interval. This prevents high-depth weak links from passing on p-value
+    // alone.
+    {
+        IndependentBamBlockLink clean;
+        clean.counts = {{{15, 0}, {0, 15}}};
+        ok &= check(independent_bam_block_is_supported({clean}),
+                    "independent BAM block: clean diploid link passes");
+
+        IndependentBamBlockLink random;
+        random.counts = {{{8, 7}, {7, 8}}};
+        ok &= check(!independent_bam_block_is_supported({clean, random}),
+                    "independent BAM block: one mixed graph link rejects block");
+
+        IndependentBamBlockLink high_depth_but_noisy;
+        high_depth_but_noisy.counts = {{{45, 5}, {5, 45}}};
+        ok &= check(!independent_bam_block_is_supported(
+                        {high_depth_but_noisy}),
+                    "independent BAM block: confidence bound rejects noise");
+
+        PhasingChunk fallback;
+        fallback.reads.resize(3);
+        fallback.haps = {1, 0, 0};
+        fallback.phase_sets = {100, 0, 0};
+        fallback.gap_haps = {0, 2, 0};
+        fallback.gap_phase_sets = {0, 200 + kGapFillPsOffset, 0};
+        fallback.bam_fallback_haps = {2, 1, 2};
+        fallback.bam_fallback_phase_sets = {
+            300 + kBamFallbackPsOffset,
+            300 + kBamFallbackPsOffset,
+            300 + kBamFallbackPsOffset};
+        ok &= check(apply_independent_bam_read_blocks(fallback) == 1 &&
+                    fallback.haps[0] == 1 && fallback.phase_sets[0] == 100 &&
+                    fallback.gap_haps[1] == 2 &&
+                    fallback.gap_phase_sets[1] ==
+                        200 + kGapFillPsOffset &&
+                    fallback.gap_haps[2] == 2 &&
+                    fallback.gap_phase_sets[2] ==
+                        300 + kBamFallbackPsOffset,
+                    "independent BAM block: primary and rescue assignments win");
+    }
+
     // Reads with only excluded-site observations are invisible to the clean
     // solve. Seven already phased molecules orient two sites statistically;
     // an eighth molecule can then be assigned without changing the candidates or

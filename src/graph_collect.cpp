@@ -584,6 +584,11 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     if (thread_recovery_ctx != nullptr)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig.c_str());
+                    if (thread_recovery_ctx != nullptr) {
+                        recover_independent_bam_read_blocks_in_place(
+                            graph_chunks[offset], opts, *thread_recovery_ctx,
+                            batch_contig.c_str());
+                    }
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -604,6 +609,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
+        apply_independent_bam_read_blocks(graph_chunks[i].chunk);
     }
 
     return graph_chunks;
@@ -726,6 +732,11 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     if (thread_recovery_ctx != nullptr)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig_gaf.c_str());
+                    if (thread_recovery_ctx != nullptr) {
+                        recover_independent_bam_read_blocks_in_place(
+                            graph_chunks[offset], opts, *thread_recovery_ctx,
+                            batch_contig_gaf.c_str());
+                    }
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -747,6 +758,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
+        apply_independent_bam_read_blocks(graph_chunks[i].chunk);
     }
 
     return graph_chunks;

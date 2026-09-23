@@ -43,6 +43,7 @@
 #include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <htslib/sam.h>
@@ -1845,6 +1846,114 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     // Refreshed evidence alone is enough to run the final stitch: it can
     // supply the missing allele edge between two existing graph blocks.
     return true;
+}
+
+size_t recover_independent_bam_read_blocks_in_place(
+        GraphChunkBuildResult& graph_chunk,
+        const Options& opts,
+        WorkerContext& context,
+        const char* contig_name) {
+    PhasingChunk& graph = graph_chunk.chunk;
+    if (graph.reads.empty()) return 0;
+
+    const int solve_tid = contig_name != nullptr
+                              ? sam_hdr_name2tid(context.primary_header(), contig_name)
+                              : graph.region.tid;
+    if (solve_tid < 0) return 0;
+
+    RegionChunk region = graph.region;
+    region.tid = solve_tid;
+    region.beg = graph.ref_beg;
+    region.end = graph.ref_end;
+
+    Options sub = targeted_solve_options(opts);
+    sub.retry_windows.clear();
+    PhasingChunk bam = process_chunk(region, sub, context);
+
+    std::unordered_map<std::string_view, size_t> graph_read_by_qname;
+    graph_read_by_qname.reserve(graph.reads.size());
+    for (size_t read_i = 0; read_i < graph.reads.size(); ++read_i)
+        graph_read_by_qname.try_emplace(graph.reads[read_i].qname, read_i);
+
+    struct BamBlockEvidence {
+        std::unordered_map<hts_pos_t, size_t> link_by_graph_phase_set;
+        std::vector<IndependentBamBlockLink> links;
+    };
+    std::unordered_map<hts_pos_t, BamBlockEvidence> evidence_by_bam_phase_set;
+
+    // Validate each BAM block against graph-assigned reads. Each graph phase
+    // set has its own arbitrary HP orientation, so its 2x2 table remains
+    // separate until the validator chooses that link's better orientation.
+    for (size_t bam_read_i = 0; bam_read_i < bam.reads.size(); ++bam_read_i) {
+        if (bam_read_i >= bam.haps.size() ||
+            bam_read_i >= bam.phase_sets.size() ||
+            (bam.haps[bam_read_i] != 1 && bam.haps[bam_read_i] != 2) ||
+            bam.phase_sets[bam_read_i] <= 0) {
+            continue;
+        }
+        const auto found = graph_read_by_qname.find(bam.reads[bam_read_i].qname);
+        if (found == graph_read_by_qname.end()) continue;
+        const size_t graph_read_i = found->second;
+        if (graph_read_i >= graph.haps.size() ||
+            graph_read_i >= graph.phase_sets.size() ||
+            (graph.haps[graph_read_i] != 1 && graph.haps[graph_read_i] != 2) ||
+            graph.phase_sets[graph_read_i] <= 0) {
+            continue;
+        }
+
+        BamBlockEvidence& block =
+            evidence_by_bam_phase_set[bam.phase_sets[bam_read_i]];
+        const auto [link_it, inserted] = block.link_by_graph_phase_set.try_emplace(
+            graph.phase_sets[graph_read_i], block.links.size());
+        if (inserted) block.links.emplace_back();
+        ++block.links[link_it->second]
+              .counts[static_cast<size_t>(bam.haps[bam_read_i] - 1)]
+                     [static_cast<size_t>(graph.haps[graph_read_i] - 1)];
+    }
+
+    std::unordered_set<hts_pos_t> supported_bam_phase_sets;
+    supported_bam_phase_sets.reserve(evidence_by_bam_phase_set.size());
+    for (const auto& entry : evidence_by_bam_phase_set) {
+        if (independent_bam_block_is_supported(entry.second.links))
+            supported_bam_phase_sets.insert(entry.first);
+    }
+
+    graph.haps.resize(graph.reads.size(), 0);
+    graph.phase_sets.resize(graph.reads.size(), kUnphasedReadPhaseSet);
+    graph.bam_fallback_haps.resize(graph.reads.size(), 0);
+    graph.bam_fallback_phase_sets.resize(
+        graph.reads.size(), kUnphasedReadPhaseSet);
+
+    size_t recovered = 0;
+    for (size_t bam_read_i = 0; bam_read_i < bam.reads.size(); ++bam_read_i) {
+        if (bam_read_i >= bam.haps.size() ||
+            bam_read_i >= bam.phase_sets.size() ||
+            (bam.haps[bam_read_i] != 1 && bam.haps[bam_read_i] != 2) ||
+            supported_bam_phase_sets.count(bam.phase_sets[bam_read_i]) == 0 ||
+            bam.phase_sets[bam_read_i] >
+                std::numeric_limits<int32_t>::max() - kBamFallbackPsOffset) {
+            continue;
+        }
+        const auto found = graph_read_by_qname.find(bam.reads[bam_read_i].qname);
+        if (found == graph_read_by_qname.end()) continue;
+        const size_t graph_read_i = found->second;
+        const bool graph_primary =
+            graph_read_i < graph.haps.size() &&
+            graph_read_i < graph.phase_sets.size() &&
+            (graph.haps[graph_read_i] == 1 || graph.haps[graph_read_i] == 2) &&
+            graph.phase_sets[graph_read_i] > 0;
+        if (graph_primary ||
+            graph.bam_fallback_haps[graph_read_i] == 1 ||
+            graph.bam_fallback_haps[graph_read_i] == 2) {
+            continue;
+        }
+
+        graph.bam_fallback_haps[graph_read_i] = bam.haps[bam_read_i];
+        graph.bam_fallback_phase_sets[graph_read_i] =
+            bam.phase_sets[bam_read_i] + kBamFallbackPsOffset;
+        ++recovered;
+    }
+    return recovered;
 }
 
 } // namespace pgphase_collect

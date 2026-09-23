@@ -9165,3 +9165,29 @@ window concordance floors intentionally move to 0.88, 0.98, 0.99, 0.85 and
 be obtained from the retained graph site representation; matching them requires
 discovering or importing the sample-private alleles. Details are in
 `evaluations/2026-09-23-unphased-read-audit/`.
+
+### Statistically validated BAM blocks extend read coverage (2026-09-23)
+
+A whole-chunk BAM solve can recover reads whose private alignment variants are
+absent from the graph catalog, but transferring all of its assignments is
+unsafe: the unvalidated arm added 4,452 reads at only 69.18% local truth
+accuracy. Accepting a BAM block from any one graph overlap also missed
+contradictory evidence elsewhere in that block.
+
+The retained pass keeps BAM blocks independent and transfers no candidates or
+observations. Shared graph/BAM phased reads form a 2x2 table for each graph
+phase set. Every diploid table must reject random association at exact
+two-sided p<=0.01. The tables are oriented independently, then their aggregate
+disagreement must have a one-sided 95% Wilson upper bound <=10%. Passing block
+assignments are staged until graph stitching and excluded-site rescue finish,
+then fill only still-unphased reads under the separate
+`PS + kBamFallbackPsOffset` namespace.
+
+On full chr20 this adds 396 reads, 389/396 (98.23%) truth-correct, with no lost
+or changed prior assignment and a byte-identical VCF. Whole-output accuracy
+moves from 222,801/230,072 (96.839685%) to 223,190/230,468 (96.842078%). On the
+shared population, pgphase's tagged-read lead over HiPhase grows from 275 to
+671. It recovers 393 of the prior 5,523 HiPhase-only reads at 98.47% truth
+accuracy. The VCF remains at 61,644 phased heterozygotes in 419 phase sets. All
+unit tests and all 232 gap-window assertions pass. Full details are in
+`evaluations/2026-09-23-independent-bam-read-fallback/`.

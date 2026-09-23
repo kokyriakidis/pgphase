@@ -87,6 +87,16 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                        WorkerContext& context,
                                        const char* contig_name);
 
+/// Phase graph-unassigned reads from an independent whole-chunk BAM solve.
+///
+/// Only fallback HP/PS vectors are updated. Graph candidates, observations,
+/// primary assignments, and cross-chunk stitching inputs remain unchanged.
+size_t recover_independent_bam_read_blocks_in_place(
+    GraphChunkBuildResult& graph_chunk,
+    const Options& opts,
+    WorkerContext& context,
+    const char* contig_name);
+
 /// One candidate the recovery sub-solve found inside a recovery window, with
 /// every decision the merge made about it.
 ///

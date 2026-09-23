@@ -1220,6 +1220,9 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 namespace {
 
 constexpr double kRescueSiteOrientationPValue = 0.01;
+constexpr double kIndependentBlockAssociationPValue = 0.01;
+constexpr double kIndependentBlockMaxDiscordance = 0.10;
+constexpr double kOneSided95PercentZ = 1.6448536269514722;
 
 struct RescueSiteVote {
     // [read haplotype - 1][observed allele]
@@ -1265,6 +1268,82 @@ bool is_oriented_biallelic_candidate(const CandidateVariant& candidate) {
 }
 
 }  // namespace
+
+bool independent_bam_block_is_supported(
+        const std::vector<IndependentBamBlockLink>& links) {
+    int total = 0;
+    int discordant = 0;
+    size_t informative_links = 0;
+
+    for (const IndependentBamBlockLink& link : links) {
+        const auto& counts = link.counts;
+        const int bam_hap1 = counts[0][0] + counts[0][1];
+        const int bam_hap2 = counts[1][0] + counts[1][1];
+        const int graph_hap1 = counts[0][0] + counts[1][0];
+        const int graph_hap2 = counts[0][1] + counts[1][1];
+        if (bam_hap1 == 0 || bam_hap2 == 0 ||
+            graph_hap1 == 0 || graph_hap2 == 0) {
+            continue;
+        }
+
+        const int same = counts[0][0] + counts[1][1];
+        const int cross = counts[0][1] + counts[1][0];
+        const int link_total = same + cross;
+        const int link_concordant = std::max(same, cross);
+        const double association_p = std::min(
+            1.0, 2.0 * rescue_binomial_tail(link_concordant, link_total));
+        if (association_p > kIndependentBlockAssociationPValue) return false;
+
+        total += link_total;
+        discordant += std::min(same, cross);
+        ++informative_links;
+    }
+    if (informative_links == 0 || total == 0) return false;
+
+    // A p-value against random association alone becomes permissive at high
+    // depth. The one-sided Wilson bound also limits the plausible block-wide
+    // discordance while accounting for the amount of supporting evidence.
+    const double n = static_cast<double>(total);
+    const double rate = static_cast<double>(discordant) / n;
+    const double z2 = kOneSided95PercentZ * kOneSided95PercentZ;
+    const double center = rate + z2 / (2.0 * n);
+    const double spread = kOneSided95PercentZ * std::sqrt(
+        rate * (1.0 - rate) / n + z2 / (4.0 * n * n));
+    const double upper_bound = (center + spread) / (1.0 + z2 / n);
+    return upper_bound <= kIndependentBlockMaxDiscordance;
+}
+
+size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {
+    chunk.haps.resize(chunk.reads.size(), 0);
+    chunk.phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
+    chunk.gap_haps.resize(chunk.reads.size(), 0);
+    chunk.gap_phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
+
+    const size_t n = std::min(chunk.reads.size(),
+                              chunk.bam_fallback_haps.size());
+    size_t applied = 0;
+    for (size_t read_i = 0; read_i < n; ++read_i) {
+        if ((chunk.haps[read_i] == 1 || chunk.haps[read_i] == 2) &&
+            chunk.phase_sets[read_i] > 0) {
+            continue;
+        }
+        if ((chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) &&
+            chunk.gap_phase_sets[read_i] > 0) {
+            continue;
+        }
+        if ((chunk.bam_fallback_haps[read_i] != 1 &&
+             chunk.bam_fallback_haps[read_i] != 2) ||
+            read_i >= chunk.bam_fallback_phase_sets.size() ||
+            chunk.bam_fallback_phase_sets[read_i] <= 0) {
+            continue;
+        }
+        chunk.gap_haps[read_i] = chunk.bam_fallback_haps[read_i];
+        chunk.gap_phase_sets[read_i] =
+            chunk.bam_fallback_phase_sets[read_i];
+        ++applied;
+    }
+    return applied;
+}
 
 static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
     if (chunk.candidates.empty() || chunk.read_var_profile.empty()) return 0;

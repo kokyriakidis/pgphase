@@ -14,6 +14,7 @@
 
 #include <htslib/sam.h>
 
+#include <array>
 #include <iosfwd>
 #include <string>
 #include <unordered_map>
@@ -133,6 +134,25 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 /// may assign an unphased read to a separate read-only block. This pass never
 /// changes candidate phasing or joins phase sets.
 size_t rescue_unphased_graph_reads(PhasingChunk& chunk);
+
+/// Read links between one independently solved BAM block and one graph block.
+/// Rows are BAM haplotypes and columns are graph haplotypes.
+struct IndependentBamBlockLink {
+    std::array<std::array<int, 2>, 2> counts{};
+};
+
+/// Return true when every informative graph link supports a clean BAM block.
+///
+/// Each link must contain both haplotypes and reject random association. The
+/// combined discordance rate must also have a 95% Wilson upper bound at or
+/// below 10%, so a high-depth but weak association cannot pass merely because
+/// its p-value is small.
+bool independent_bam_block_is_supported(
+    const std::vector<IndependentBamBlockLink>& links);
+
+/// Apply statistically validated BAM assignments only to reads that remain
+/// unassigned after graph stitching and excluded-site rescue.
+size_t apply_independent_bam_read_blocks(PhasingChunk& chunk);
 
 // Fold one stitched chunk's per-read hap/PS assignments into a running map.
 void merge_graph_chunk_into_read_rows(
