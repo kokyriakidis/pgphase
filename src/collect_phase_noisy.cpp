@@ -106,17 +106,26 @@ void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi, Re
         if (!profile.graph_alleles.empty()) profile.graph_alleles.assign(1, -1);
         return;
     }
-    // No backward extension: upstream (bam_utils.c:250) only ever sets
-    // start_var_idx on the first call and writes at var_i - start_var_idx, so a
-    // call below the start would index before the array. Measured over 66M
-    // calls across both arms on chr20:5-9 Mb, no call arrives below
-    // start_var_idx, so the branch that grew the profile leftward was dead and
-    // is removed. A call below the current END does occur -- 1,490 of 2M on the
-    // graph arm, from the merge paths that renumber candidates, against 0 of
-    // 64M on the alignment arm -- which is why end_var_idx is still only
-    // extended and not assigned as upstream assigns it: on the ported path the
-    // two are equivalent, and only a caller upstream does not have can tell
-    // them apart.
+    // Recovery revisits already-built sparse profiles and can discover an
+    // observation on either side of their current range. Grow every populated
+    // index-parallel channel before writing so the candidate offset remains
+    // valid and the original BAM/graph evidence stays aligned.
+    if (var_idx < profile.start_var_idx) {
+        const size_t grow =
+            static_cast<size_t>(profile.start_var_idx - var_idx);
+        profile.alleles.insert(profile.alleles.begin(), grow, -1);
+        profile.alt_qi.insert(profile.alt_qi.begin(), grow, -1);
+        if (!profile.graph_alleles.empty())
+            profile.graph_alleles.insert(profile.graph_alleles.begin(), grow, -1);
+        if (!profile.bam_alleles.empty())
+            profile.bam_alleles.insert(profile.bam_alleles.begin(), grow, -1);
+        if (!profile.bam_qi.empty())
+            profile.bam_qi.insert(profile.bam_qi.begin(), grow, -1);
+        profile.start_var_idx = var_idx;
+        profile.alleles.front() = allele;
+        profile.alt_qi.front() = alt_qi;
+        return;
+    }
     if (var_idx > profile.end_var_idx) {
         const int gap = var_idx - profile.end_var_idx - 1;
         profile.alleles.insert(profile.alleles.end(), static_cast<size_t>(gap), -1);
@@ -124,10 +133,18 @@ void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi, Re
         if (!profile.graph_alleles.empty())
             profile.graph_alleles.insert(
                 profile.graph_alleles.end(), static_cast<size_t>(gap), -1);
+        if (!profile.bam_alleles.empty())
+            profile.bam_alleles.insert(
+                profile.bam_alleles.end(), static_cast<size_t>(gap), -1);
+        if (!profile.bam_qi.empty())
+            profile.bam_qi.insert(
+                profile.bam_qi.end(), static_cast<size_t>(gap), -1);
         profile.end_var_idx = var_idx;
         profile.alleles.push_back(allele);
         profile.alt_qi.push_back(alt_qi);
         if (!profile.graph_alleles.empty()) profile.graph_alleles.push_back(-1);
+        if (!profile.bam_alleles.empty()) profile.bam_alleles.push_back(-1);
+        if (!profile.bam_qi.empty()) profile.bam_qi.push_back(-1);
         return;
     }
     const int offset = var_idx - profile.start_var_idx;

@@ -1,0 +1,4 @@
+arm	current_spanned	historical_spanned	coordinate_cases_spanned	phased_hets	vcf_phase_sets	vcf_n50_bp	phased_reads	evaluated_reads	discordant_reads	read_accuracy
+no_mec_control	16/34	12/14	28/48	59891	200	1052956	221431	221394	35360	0.840285
+injected_mec_plus_bam_endpoint	19/34	12/14	31/48	59906	187	1136391	221836	221799	36220	0.836699
+adjacent_mec_rejected	27/34	13/14	40/48	.	.	.	.	221430	40515	0.817030

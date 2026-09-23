@@ -38,6 +38,11 @@ namespace pgphase_collect {
 
 namespace {
 
+// Graph alignments encode path support directly, and the chr20 gap audit
+// found useful linking reads between MAPQ 5 and 29. Keep this separate
+// from longcallD/BAM, whose established default remains MAPQ 30.
+constexpr int kDefaultGraphMinMapq = 5;
+
 static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
     bam_hdr_t* hdr = sam_hdr_init();
     if (!hdr) throw std::runtime_error("failed to allocate synthetic BAM header");
@@ -56,102 +61,51 @@ static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
 
 // Converts phased multi-allelic graph candidates to biallelic CandidateVariants compatible
 // with the existing TSV/VCF writers. One output row per passing alt allele per site.
-/// In-chunk recovery for one chunk: re-solve the seams between phase sets
-/// from the alignment, merge what that finds, and re-run the chunk's rounds.
+/// In-chunk recovery for one chunk.
 ///
-/// This lived twice, once in the GAF path and once beside it, identical but for
-/// the contig variable. Every fix here had to be applied to both copies, and a
-/// probe added to one of them silently measured nothing -- which is how the
-/// duplication was found.
+/// The BAM sub-solve phases injected sites and reads in an independent local
+/// gauge. Once merged, decisive allele edges stitch left graph PS -> local PS
+/// -> right graph PS. Existing graph blocks are never globally re-clustered.
 static void run_in_chunk_recovery(GraphChunkBuildResult& gc,
                                   const Options& opts,
                                   WorkerContext& ctx,
                                   const char* contig) {
-                    
-    const size_t merged = recover_phase_set_seams_in_place(
-        gc, opts, ctx,
-        contig);
-    if (merged > 0) {
-        // The re-solve needs the recovery windows: allele_depths_call_het
-        // is scoped by them, and without it each haplotype takes its own
-        // majority allele and a genuine het collapses to one side.
-        Options solve_opts = opts;
-        // Keep the depth-based heterozygote repair inside the intervals that
-        // triggered recovery. Imported repeat rows remain excluded until the
-        // outside-in frontier below validates their next boundary edge.
-        solve_opts.retry_windows = gc.recovery_windows;
-        // Two rounds, as the alignment pipeline solves: the
-        // clean sites set the gauge, then the merged in-gap
-        // sites -- NOISY_CAND_HET, which the clean mask does
-        // not admit -- join it. Anchored, so the noisy sites
-        // can extend a block without re-deciding the parity
-        // the catalog's clean sites already established.
-        // The merged sites belong to the FIRST solve, not to a
-        // correction applied after one. Both rounds run again
-        // over the union and neither is anchored: the chunk is
-        // solved once, with every site it will ever have.
-        //
-        // Anchoring here was measured and removed. On
-        // chr20:42,500,000-43,000,000, where recovery merges 6
-        // sites across 3 windows, pinning the pre-merge
-        // consensus left 840 of 2,008 reads misplaced inside a
-        // single block -- a switch, not an inversion: the pinned
-        // flank keeps one parity while the merged sites decide
-        // the other. Re-running both rounds unanchored places
-        // every read correctly (0 misplaced). Restricting the
-        // pin to the recovered intervals does NOT help (same 840),
-        // because the parity that has to change is the chunk's,
-        // not the gap's.
-        // Block import: the parent keeps the read labels it
-        // already has and only incorporates the imported
-        // sites. Re-solving from scratch is what every
-        // earlier admission mechanism did, and all of them
-        // degraded the result.
-        // Round 1 is the ordinary solve. Anchoring it under the
-        // flag was pointless: round 2 below resets reads anyway
-        // (as upstream does at the top of every clustering
-        // call), so the anchoring was overridden a few lines
-        // later. The flag's work is the orientation vote in the
-        // merge and the joint resolution after round 2.
-        assign_hap_based_on_germline_het_vars_kmeans(
-            gc.chunk, solve_opts, kCandGermlineClean,
-            false);
+    if (!recover_phase_set_seams_in_place(gc, opts, ctx, contig)) return;
 
-        // The alignment sub-solve already ran its noisy-region MSA inside
-        // each seam. This second graph round admits those recovered noisy hets.
-        // The imported sites are NoisyCandHet, so THIS is the
-        // round that recomputes them: it turns the complementary
-        // pair the alignment produced at chr20:55,336,460 --
-        // cons (0,1) for the insertion and (1,0) for the
-        // deletion, exactly what the BAM pipeline emits -- into
-        // (0,0) and (1,1), and the writer skips a site whose two
-        // consensus alleles are equal.
-        //
-        // Anchoring it fixes that window (the insertion is
-        // emitted and joins PS 55,331,014, and the window becomes
-        // one 9-site block) and is a chromosome-wide regression:
-        // 4.188% -> 6.160% read hamming, 350 -> 568 blocks. The
-        // window result does not generalise, so the round stays
-        // unanchored and the loss is recorded rather than traded.
-        assign_hap_based_on_germline_het_vars_kmeans(
-            gc.chunk, solve_opts, kCandGermlineVarCate,
-            false);
+    Options stitch_opts = opts;
+    constexpr int kRecoveryLinkWindow = 128;
+    stitch_opts.block_link_window = kRecoveryLinkWindow;
+    // Match longcallD's two-read link floor. A single molecule may nominate an
+    // edge for diagnostics, but cannot merge two production phase blocks.
+    stitch_opts.min_block_link_reads = 1;
+    stitch_opts.link_by_alleles = true;
 
-        // Grow neighboring phase blocks one layer at a time. Each wave admits
-        // the strongest next recovery locus for each disconnected phase-set
-        // pair, then re-solves before another layer can enter.
-        constexpr size_t kMaxRecoveryFrontierRounds = 2;
-        for (size_t round = 0; round < kMaxRecoveryFrontierRounds; ++round) {
-            if (expand_recovery_frontiers_once(gc.chunk, solve_opts) == 0) break;
-            assign_hap_based_on_germline_het_vars_kmeans(
-                gc.chunk, solve_opts, kCandGermlineClean, false);
-            assign_hap_based_on_germline_het_vars_kmeans(
-                gc.chunk, solve_opts, kCandGermlineVarCate, false);
+    // This is the complete replay state: established graph blocks, imported
+    // local blocks, read assignments and every allele observation at the seam.
+    if (!opts.phase_matrix_dump_prefix.empty()) {
+        for (const RecoveryPhaseGauge& gauge : gc.recovery_phase_gauges) {
+            for (const PhaseSetGaugeVote& vote : gauge.graph_votes)
+                std::fprintf(stderr, "[recovery-gauge] %" PRId64 "-%" PRId64 " ps=%" PRId64 " same=%d cross=%d\n",
+                             static_cast<int64_t>(gauge.beg), static_cast<int64_t>(gauge.end),
+                             static_cast<int64_t>(vote.phase_set), vote.same, vote.cross);
+            for (const RecoveryBlockGaugeVote& vote : gauge.block_votes)
+                std::fprintf(stderr, "[recovery-block-gauge] %" PRId64 "-%" PRId64
+                                     " graph_ps=%" PRId64 " bam_ps=%" PRId64
+                                     " counts=%d,%d,%d,%d shared_candidates=%d,%d\n",
+                             static_cast<int64_t>(gauge.beg),
+                             static_cast<int64_t>(gauge.end),
+                             static_cast<int64_t>(vote.graph_phase_set),
+                             static_cast<int64_t>(vote.bam_phase_set),
+                             vote.counts[0][0], vote.counts[0][1],
+                             vote.counts[1][0], vote.counts[1][1],
+                             vote.shared_candidate_same,
+                             vote.shared_candidate_cross);
         }
-        if (opts.stitch_recovered)
-            resolve_injected_consensus_jointly(gc.chunk);
     }
-                    
+    dump_recovery_phase_state(gc.chunk, stitch_opts, "recovery-input");
+    stitch_recovery_phase_sets_left_to_right(
+        gc.chunk, gc.recovery_windows, gc.recovery_phase_gauges, stitch_opts);
+    dump_recovery_phase_state(gc.chunk, stitch_opts, "recovery-final");
 }
 
 static CandidateTable graph_chunks_to_candidate_table(
@@ -624,18 +578,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
 
-                    // Recovery, in the chunk, while this chunk is still the unit
-                    // of work. Each chunk's windows are its own, so this needs no
-                    // batching and no cross-chunk coordination -- the worker pool
-                    // already provides the parallelism the post-hoc path had to
-                    // rebuild for itself.
-                    //
-                    // Running it HERE, before populate_graph_chunk_overlaps and
-                    // stitch_chunk_haps, is what removes the reconciliation
-                    // layer: phase sets are not final yet, so merged sites are
-                    // part of a better first solve rather than an answer grafted
-                    // on with a vote and a relabel. The same merge run after the
-                    // stitch fragmented the output into 4,624 blocks against 47.
+                    // Recover and stitch local BAM blocks before cross-chunk
+                    // overlaps are computed. Each worker owns one chunk, so the
+                    // merge and its index rebuild require no synchronization.
                     if (thread_recovery_ctx != nullptr)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig.c_str());
@@ -656,8 +601,10 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     for (GraphChunkBuildResult& gc : graph_chunks)
         phasing_chunks.push_back(std::move(gc.chunk));
     stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
-    for (size_t i = 0; i < batch_size; ++i)
+    for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
+        rescue_unphased_graph_reads(graph_chunks[i].chunk);
+    }
 
     return graph_chunks;
 }
@@ -773,18 +720,9 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     assign_hap_based_on_germline_het_vars_kmeans(
                         graph_chunks[offset].chunk, opts, kCandGermlineClean);
 
-                    // Recovery, in the chunk, while this chunk is still the unit
-                    // of work. Each chunk's windows are its own, so this needs no
-                    // batching and no cross-chunk coordination -- the worker pool
-                    // already provides the parallelism the post-hoc path had to
-                    // rebuild for itself.
-                    //
-                    // Running it HERE, before populate_graph_chunk_overlaps and
-                    // stitch_chunk_haps, is what removes the reconciliation
-                    // layer: phase sets are not final yet, so merged sites are
-                    // part of a better first solve rather than an answer grafted
-                    // on with a vote and a relabel. The same merge run after the
-                    // stitch fragmented the output into 4,624 blocks against 47.
+                    // Recover and stitch local BAM blocks before cross-chunk
+                    // overlaps are computed. Each worker owns one chunk, so the
+                    // merge and its index rebuild require no synchronization.
                     if (thread_recovery_ctx != nullptr)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig_gaf.c_str());
@@ -806,8 +744,10 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     for (GraphChunkBuildResult& gc : graph_chunks)
         phasing_chunks.push_back(std::move(gc.chunk));
     stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
-    for (size_t i = 0; i < batch_size; ++i)
+    for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
+        rescue_unphased_graph_reads(graph_chunks[i].chunk);
+    }
 
     return graph_chunks;
 }
@@ -1195,21 +1135,18 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF output\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
-        << "      --stitch-recovered        Import a recovery sub-solve as a block: orient it\n"
-        << "                                against the parent on shared reads and keep its\n"
-        << "                                per-site consensus instead of re-solving\n"
         << "      --recovery-audit-out FILE One row per candidate the recovery sub-solve\n"
         << "                                found, and what the merge did with it\n"
-        << "                                over repeat-context loci (stage 2)\n"
         << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
         << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
         << "      --bam FILE                Indexed BAM used to recover seams between\n"
-        << "                                neighboring graph phase sets; recovered sites\n"
-        << "                                and observations enter the live chunk before\n"
-        << "                                its normal phasing rounds run again\n"
+        << "                                neighboring graph phase sets; imports sites\n"
+        << "                                as independent local phase blocks, then stitches\n"
+        << "                                left to right on decisive allele evidence\n"
         << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
         << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
         << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
+        << "      --phase-matrix-dump PATH  Dump phasing inputs and incoming assignments\n"
         << "      --graph-indel-af-margin F  Max |AF-0.5| for a het-indel k-means anchor [0.11]\n"
         << "      --graph-indel-min-alt INT  Min alt support for a het-indel k-means anchor [0]\n"
         << "      --min-read-margin INT     Min clean-SNP (agree-conflict) to phase a read [0=off]\n"
@@ -1227,7 +1164,7 @@ static void print_graph_collect_help() {
         << "      --af-vs-site-depth        Score allele fraction against total site depth,\n"
         << "                                recovering hets between two non-reference alleles\n"
         << "  -t, --threads INT             Worker threads [1]\n"
-        << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
+        << "  -q, --min-mapq INT            Minimum read mapping quality [5]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
         << "      --min-alt-depth INT       Minimum alt depth [2]\n"
         << "      --min-af FLOAT            Minimum allele fraction [0.20]\n"
@@ -1296,7 +1233,6 @@ enum GraphCollectOption {
     kGcPhasedBam,
     kGcLinkEarnedRepeatIndels,
     kGcRecoveryAuditOut,
-    kGcStitchRecovered,
     kGcRef,
     kGcSites,
     kGcPgbamFile,
@@ -1326,6 +1262,7 @@ enum GraphCollectOption {
     kGcSnarlAllelePhasing,
     kGcSnarlKeepWhole,
     kGcSnarlTop2Frac,
+    kGcPhaseMatrixDump,
 };
 
 } // namespace
@@ -1335,6 +1272,7 @@ enum GraphCollectOption {
 int collect_graph_variation(int argc, char* argv[]) {
     using namespace pgphase_collect;
     Options opts;
+    opts.min_mapq = kDefaultGraphMinMapq;
 
     {
         std::ostringstream cmd;
@@ -1351,11 +1289,11 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
         {"recovery-audit-out", required_argument, nullptr, kGcRecoveryAuditOut},
-        {"stitch-recovered", no_argument, nullptr, kGcStitchRecovered},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
+        {"phase-matrix-dump", required_argument, nullptr, kGcPhaseMatrixDump},
         {"graph-indel-af-margin", required_argument, nullptr, kGcGraphIndelAfMargin},
         {"graph-indel-min-alt",   required_argument, nullptr, kGcGraphIndelMinAlt},
         {"min-read-margin",   required_argument, nullptr, kGcMinReadHapMargin},
@@ -1416,14 +1354,14 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
             case kGcRecoveryAuditOut: opts.recovery_audit_out = optarg; break;
-            case kGcStitchRecovered: opts.stitch_recovered = true; break;
-            // Recovery only. The graph pass never reads this BAM; it is used to
-            // re-solve the intervals the catalog's sites could not phase.
+            // Recovery only. Targeted BAM solves supply private sites and
+            // local phase blocks for seams the graph catalog could not join.
             case kGcRecoveryBam:  opts.bam_files.push_back(optarg); break;
 
             case kGcFilteredSitesOut: opts.output_filtered_sites = optarg; break;
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;
+            case kGcPhaseMatrixDump: opts.phase_matrix_dump_prefix = optarg; break;
             case kGcGraphIndelAfMargin:
                 opts.graph_indel_af_margin = parse_double_arg(optarg, "--graph-indel-af-margin");
                 break;

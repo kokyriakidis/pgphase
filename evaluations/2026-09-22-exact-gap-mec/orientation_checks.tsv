@@ -1,0 +1,6 @@
+gap_left	gap_right	mechanism	truth_check	result
+18194808	18218259	exact_injected_mec	local_crossing_reads_1/1	keep
+31886648	31901501	exact_injected_mec	local_crossing_reads_2/2	keep
+58834248	58836037	injected_endpoint_margin8	phase_set_reads_587/610	keep
+32035459	32050364	adjacent_mec	left_right_parental_orientation_switch	reject_arm
+1907007	1907045	graph_endpoint_margin8	flipped_6418_read_mature_block	reject_arm

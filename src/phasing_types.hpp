@@ -178,18 +178,16 @@ struct Options {
     // reproduce single-floor behavior exactly, which is the default.
     int min_assign_mapq = kDefaultMinMapq;
     /// Floor for reads the RECOVERY may use. Reads at or above this but below
-    /// min_mapq are parsed into the chunk and immediately marked skipped, so
-    /// every stage behaves as if they were never loaded -- until the re-solve
-    /// un-skips those overlapping a window the first solve left unphased.
+    /// min_mapq are excluded from the graph solve but admitted by a targeted
+    /// BAM sub-solve over a seam the graph left unphased.
     ///
     /// The reason this floor exists separately: at chr20:26,029,591-26,088,679
     /// the reads carry MAPQ 3 and the default floor of 30 excludes them, so the
     /// pipeline discovers ZERO candidates across 50 kb while a competitor
     /// phases 120 heterozygotes there, 39 of 40 sampled segregating cleanly
-    /// against read truth. Admitting them everywhere closes the gap but also
-    /// re-solves the flanks: the left flank falls from 100% to 93.3% read
-    /// concordance. Admitting them only where nothing could be phased is the
-    /// point of the separate floor.
+    /// against read truth. Admitting them everywhere closes the gap but drops
+    /// the left flank from 100% to 93.3% read concordance. Admitting them only
+    /// where nothing could be phased is the point of the separate floor.
     int recovery_min_mapq = 1;
     int min_bq = kDefaultMinBaseq;
     int min_depth = kDefaultMinDepth;
@@ -329,17 +327,6 @@ struct Options {
     ///     noisy-hom and ungap-linked sites and required the read's own allele to
     ///     match one of the two consensus alleles.
     bool upstream_read_scoring = false;
-    /// Import a recovery sub-solve's result as a BLOCK TO STITCH rather than as
-    /// sites for the parent to re-solve.
-    ///
-    /// The sub-solve already phased its window; the merge threw that away and
-    /// asked the parent to re-derive phase for exactly the loci the parent was
-    /// worst at. Six admission mechanisms were measured on that arrangement and
-    /// all degraded the solve. This orients the sub-solve's haplotype labels
-    /// against the parent's with the vote the cross-chunk stitch already uses,
-    /// carries its per-site consensus through that orientation, and leaves the
-    /// parent's own labels alone.
-    bool stitch_recovered = false;
     bool link_earned_repeat_indels = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;
@@ -898,6 +885,50 @@ using CandidateTable = std::vector<CandidateVariant>;
 // alt_qi normally stores a nonnegative BAM query index.  This sentinel records
 // an allele independently confirmed by the same read's graph walk.
 constexpr int kGraphConfirmedAltQi = -2;
+/// One bounded gap between neighboring graph phase sets. Phase-set identities
+/// are captured when the canonical graph coordinates are computed so later
+/// stitching never has to rediscover flanks from differently normalized keys.
+struct RecoverySeam {
+    hts_pos_t beg = 0;
+    hts_pos_t end = 0;
+    hts_pos_t left_phase_set = 0;
+    hts_pos_t right_phase_set = 0;
+};
+
+/// One established phase set's numeric HP orientation relative to a targeted
+/// BAM sub-solve. `same` and `cross` count shared reads whose graph and BAM HP
+/// labels match or differ.
+struct PhaseSetGaugeVote {
+    hts_pos_t phase_set = 0;
+    int same = 0;
+    int cross = 0;
+};
+
+/// Direct orientation evidence between one graph block and one independently
+/// phased BAM block. Separate BAM phase sets have separate HP gauges, so these
+/// votes must never be pooled merely because they came from the same sub-solve.
+struct RecoveryBlockGaugeVote {
+    hts_pos_t graph_phase_set = 0;
+    hts_pos_t bam_phase_set = 0;
+    // [graph haplotype][BAM haplotype], both zero based.
+    std::array<std::array<int, 2>, 2> counts{};
+    // A sequence-identical clean heterozygote belongs to both blocks and maps
+    // their allele gauges directly. Keep this separate from read counts: it is
+    // a consensus anchor, not another independent molecule.
+    int shared_candidate_same = 0;
+    int shared_candidate_cross = 0;
+};
+
+/// Phase gauge supplied by one targeted BAM solve. Imported phase sets already
+/// use this gauge; graph phase sets acquire it through shared-read votes.
+struct RecoveryPhaseGauge {
+    hts_pos_t beg = 0;
+    hts_pos_t end = 0;
+    std::vector<hts_pos_t> imported_phase_sets;
+    std::vector<PhaseSetGaugeVote> graph_votes;
+    std::vector<RecoveryBlockGaugeVote> block_votes;
+};
+
 struct ReadVariantProfile {
     int read_id = -1;
     int start_var_idx = -1;

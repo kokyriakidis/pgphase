@@ -12,10 +12,12 @@
 #include <array>
 #include <cinttypes>
 #include <climits>
+#include <cmath>
 #include <cstdio>
-#include <cstdlib>
+#include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -304,12 +306,17 @@ static int phase_matrix_var_weight(const CandidateVariant& var) {
 static void dump_phase_matrix(const PhasingChunk& chunk,
                               const std::vector<int>& valid_var_idx,
                               const std::vector<bool>& var_is_valid,
-                              const Options& opts, uint32_t flags) {
+                              const Options& opts, uint32_t flags,
+                              const char* label) {
     if (opts.phase_matrix_dump_prefix.empty()) return;
 
     std::string path = opts.phase_matrix_dump_prefix + ".chunk" +
-                       std::to_string(chunk.region.chunk_id) + ".flags" +
-                       std::to_string(flags) + ".tsv";
+                       std::to_string(chunk.region.chunk_id);
+    if (label != nullptr)
+        path += "." + std::string(label);
+    else
+        path += ".flags" + std::to_string(flags);
+    path += ".tsv";
     std::FILE* fp = std::fopen(path.c_str(), "w");
     if (fp == nullptr) {
         std::fprintf(stderr, "[dump-phase-matrix] cannot open %s\n", path.c_str());
@@ -320,7 +327,8 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
     // position within valid_var_idx (0-based, contig order).
     std::fprintf(fp, "#tid\t%d\tchunk\t%d\tflags\t%u\tn_vars\t%zu\n",
                  chunk.region.tid, chunk.region.chunk_id, flags, valid_var_idx.size());
-    std::fprintf(fp, "#VAR\tvar_idx\tpos\ttype\tcate\tweight\n");
+    std::fprintf(fp, "#VAR\tvar_idx\tpos\ttype\tcate\tweight"
+                     "\tref_cov\talt_cov\tallele_fraction\n");
     std::vector<int> global_to_vidx(chunk.candidates.size(), -1);
     for (int vidx = 0; vidx < (int)valid_var_idx.size(); ++vidx) {
         const int gi = valid_var_idx[vidx];
@@ -328,12 +336,41 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
         const CandidateVariant& var = chunk.candidates[gi];
         const char t = (var.key.type == VariantType::Snp ? 'X'
                      : (var.key.type == VariantType::Insertion ? 'I' : 'D'));
-        std::fprintf(fp, "VAR\t%d\t%" PRId64 "\t%c\t%u\t%d\n",
+        std::fprintf(fp,
+                     "VAR\t%d\t%" PRId64 "\t%c\t%u\t%d\t%d\t%s\t%" PRId64
+                     "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.17g\n",
                      vidx, static_cast<int64_t>(var.key.pos), t,
-                     var.lcd_var_i_to_cate,
-                     phase_matrix_var_weight(var));
+                     var.lcd_var_i_to_cate, phase_matrix_var_weight(var),
+                     var.key.ref_len, var.key.alt.c_str(),
+                     static_cast<int64_t>(var.phase_set),
+                     var.hap_to_cons_alle[1], var.hap_to_cons_alle[2],
+                     var.bam_injected, var.alignment_verified,
+                     var.gap_link_supported, var.counts.ref_cov,
+                     var.counts.alt_cov, var.counts.allele_fraction);
         std::fprintf(fp, "#META\t%d\tmsa_verified=%d\thomopolymer=%d\tgap_link_supported=%d\n",
                      vidx, var.msa_verified, var.is_homopolymer_indel, var.gap_link_supported);
+    }
+
+    // Preserve the incoming labels as well as the allele matrix. For recovery
+    // rounds these are the two neighboring blocks that the next solve is trying
+    // to connect; recording them makes the boundary independently replayable.
+    std::fprintf(fp,
+                 "#READ\tqname\tbeg\tend\tmapq\tskipped\thap\tphase_set"
+                 "\tagree\tconflict\n");
+    for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+        const ReadRecord& read = chunk.reads[read_i];
+        const int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
+        const hts_pos_t phase_set = read_i < chunk.phase_sets.size()
+                                          ? chunk.phase_sets[read_i]
+                                          : kUnphasedReadPhaseSet;
+        std::fprintf(fp,
+                     "READ\t%s\t%" PRId64 "\t%" PRId64
+                     "\t%d\t%d\t%d\t%" PRId64 "\t%d\t%d\n",
+                     read.qname.c_str(), static_cast<int64_t>(read.beg),
+                     static_cast<int64_t>(read.end), read.mapq, read.is_skipped,
+                     hap, static_cast<int64_t>(phase_set),
+                     read.n_clean_agree_snps,
+                     read.n_clean_conflict_snps);
     }
 
     // Observation rows: qname, var_idx, allele (0=ref,1=alt,-1=non-inf,-2=lowqual).
@@ -351,6 +388,15 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
         }
     }
     std::fclose(fp);
+}
+
+void dump_recovery_phase_state(const PhasingChunk& chunk, const Options& opts,
+                               const char* label) {
+    std::vector<int> candidate_indices(chunk.candidates.size());
+    for (size_t i = 0; i < candidate_indices.size(); ++i)
+        candidate_indices[i] = static_cast<int>(i);
+    const std::vector<bool> included(chunk.candidates.size(), true);
+    dump_phase_matrix(chunk, candidate_indices, included, opts, 0, label);
 }
 
 // Assign a read to hap 1, 2, 0 (tied), or -1 (no informative variants).
@@ -540,6 +586,2372 @@ int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, int var
     return (h1 == h2) ? 1 : 0;
 }
 
+static bool merge_phase_sets_in_place(PhasingChunk& chunk,
+                                      hts_pos_t upstream_phase_set,
+                                      hts_pos_t downstream_phase_set,
+                                      bool flip) {
+    if (upstream_phase_set <= 0 || downstream_phase_set <= 0 ||
+        upstream_phase_set == downstream_phase_set)
+        return false;
+
+    const auto flip_hap = [](int hap) {
+        return hap == 1 ? 2 : (hap == 2 ? 1 : hap);
+    };
+    for (CandidateVariant& candidate : chunk.candidates) {
+        if (candidate.phase_set != downstream_phase_set) continue;
+        if (flip) {
+            std::swap(candidate.hap_to_cons_alle[1],
+                      candidate.hap_to_cons_alle[2]);
+            std::swap(candidate.hap_to_alle_profile[1],
+                      candidate.hap_to_alle_profile[2]);
+            candidate.hap_alt = flip_hap(candidate.hap_alt);
+            candidate.hap_ref = flip_hap(candidate.hap_ref);
+        }
+        candidate.phase_set = upstream_phase_set;
+    }
+    for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+        if (read_i >= chunk.phase_sets.size() ||
+            chunk.phase_sets[read_i] != downstream_phase_set)
+            continue;
+        if (flip && read_i < chunk.haps.size() &&
+            (chunk.haps[read_i] == 1 || chunk.haps[read_i] == 2))
+            chunk.haps[read_i] = flip_hap(chunk.haps[read_i]);
+        chunk.phase_sets[read_i] = upstream_phase_set;
+    }
+    return true;
+}
+
+// Score one read only on loci that earned an edge in the recovery chain. The
+// scoring primitive is the longcallD port; this wrapper supplies the graph
+// recovery's selected-site set so unrelated MSA candidates cannot cancel a
+// decisive bridge allele. Returns -1 when the read observes no selected locus.
+static int assign_read_hap_from_recovery_chain(PhasingChunk& chunk,
+                                               size_t read_i,
+                                               hts_pos_t phase_set) {
+    if (read_i >= chunk.reads.size() ||
+        read_i >= chunk.read_var_profile.size())
+        return -1;
+    const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+    if (profile.start_var_idx < 0) return -1;
+
+    int scores[3] = {0, 0, 0};
+    int sites_scored = 0;
+    constexpr bool kMsaSitesVote = true;
+    constexpr bool kInferComplement = true;
+    constexpr bool kUpstreamReadScoring = true;
+    for (int candidate_i = profile.start_var_idx;
+         candidate_i <= profile.end_var_idx; ++candidate_i) {
+        if (candidate_i < 0 ||
+            static_cast<size_t>(candidate_i) >= chunk.candidates.size())
+            continue;
+        const size_t offset =
+            static_cast<size_t>(candidate_i - profile.start_var_idx);
+        if (offset >= profile.alleles.size() || profile.alleles[offset] < 0)
+            continue;
+        CandidateVariant& candidate =
+            chunk.candidates[static_cast<size_t>(candidate_i)];
+        if (candidate.phase_set != phase_set ||
+            !candidate.gap_link_supported)
+            continue;
+
+        const int hap1_score = read_to_cons_allele_score(
+            candidate, 1, profile.alleles[offset], kMsaSitesVote,
+            kInferComplement, kUpstreamReadScoring);
+        const int hap2_score = read_to_cons_allele_score(
+            candidate, 2, profile.alleles[offset], kMsaSitesVote,
+            kInferComplement, kUpstreamReadScoring);
+        if (hap1_score == 0 && hap2_score == 0) continue;
+        scores[1] += hap1_score;
+        scores[2] += hap2_score;
+        ++sites_scored;
+    }
+    if (sites_scored == 0) return -1;
+
+    ReadRecord& read = chunk.reads[read_i];
+    read.hap_score_margin = std::abs(scores[1] - scores[2]);
+    read.n_vars_scored = sites_scored;
+    if (scores[1] == scores[2]) return 0;
+    return scores[1] > scores[2] ? 1 : 2;
+}
+
+using DiploidLinkCounts = std::array<std::array<int, 2>, 2>;
+
+struct SupportedAlleleEdge {
+    int upstream_candidate = -1;
+    int downstream_candidate = -1;
+    int same = 0;
+    int cross = 0;
+    size_t comparisons = 0;
+    bool flip = false;
+};
+
+// Recovery parity is a binary choice: keep the downstream block's gauge or
+// flip it. Test the winning same/cross count against a 50:50 null so confidence
+// scales with depth instead of depending on a fixed read-count difference.
+constexpr double kRecoveryParityPValue = 0.01;
+constexpr double kRecoveryCandidateAnchorPValue = 0.05;
+
+static std::optional<bool> parity_flip_at_p(
+        int same, int cross, size_t comparisons, double max_p_value) {
+    const int total = same + cross;
+    const int winner = std::max(same, cross);
+    if (total <= 0 || same == cross || comparisons == 0) return std::nullopt;
+
+    // Under the null, X~Binomial(total, 0.5). Because winner > total/2,
+    // successive upper-tail terms decrease; the recurrence avoids factorials.
+    const double log_term =
+        std::lgamma(static_cast<double>(total + 1)) -
+        std::lgamma(static_cast<double>(winner + 1)) -
+        std::lgamma(static_cast<double>(total - winner + 1)) -
+        static_cast<double>(total) * std::log(2.0);
+    double term = std::exp(log_term);
+    double tail = term;
+    for (int k = winner; k < total; ++k) {
+        term *= static_cast<double>(total - k) /
+                static_cast<double>(k + 1);
+        tail += term;
+    }
+
+    const double corrected_p = std::min(
+        1.0, tail * static_cast<double>(comparisons));
+    if (corrected_p > max_p_value) return std::nullopt;
+    return cross > same;
+}
+
+static std::optional<bool> significant_parity_flip(
+        int same, int cross, size_t comparisons = 1) {
+    return parity_flip_at_p(
+        same, cross, comparisons, kRecoveryParityPValue);
+}
+
+static std::optional<bool> significant_parity_flip(
+        const DiploidLinkCounts& counts) {
+    return significant_parity_flip(
+        counts[0][0] + counts[1][1],
+        counts[0][1] + counts[1][0]);
+}
+
+static std::optional<SupportedAlleleEdge> strongest_phase_set_edge(
+        PhasingChunk& chunk, hts_pos_t upstream_phase_set,
+        hts_pos_t downstream_phase_set, const Options& opts) {
+    if (upstream_phase_set <= 0 || downstream_phase_set <= 0 ||
+        upstream_phase_set == downstream_phase_set || chunk.read_var_cr == nullptr)
+        return std::nullopt;
+
+    const auto oriented_in = [](const CandidateVariant& candidate,
+                                hts_pos_t phase_set) {
+        return candidate.phase_set == phase_set &&
+               candidate.hap_to_cons_alle[1] >= 0 &&
+               candidate.hap_to_cons_alle[2] >= 0 &&
+               candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2];
+    };
+
+    std::vector<int> upstream;
+    std::vector<int> downstream;
+    const size_t window = static_cast<size_t>(std::max(1, opts.block_link_window));
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        if (oriented_in(chunk.candidates[i], upstream_phase_set))
+            upstream.push_back(static_cast<int>(i));
+        if (oriented_in(chunk.candidates[i], downstream_phase_set) &&
+            downstream.size() < window)
+            downstream.push_back(static_cast<int>(i));
+    }
+    if (upstream.size() > window)
+        upstream.erase(upstream.begin(), upstream.end() - window);
+    if (upstream.empty() || downstream.empty()) return std::nullopt;
+
+    int best_margin = 0;
+    int best_total = 0;
+    int best_agree = 0;
+    int best_conflict = 0;
+    int best_upstream = -1;
+    int best_downstream = -1;
+    bool parity_tied = false;
+    size_t comparisons = 0;
+    int64_t* overlaps = nullptr;
+    int64_t overlap_capacity = 0;
+    for (auto left = upstream.rbegin(); left != upstream.rend(); ++left) {
+        for (const int right : downstream) {
+            if (*left >= right) continue;
+            ++comparisons;
+            int agree = 0;
+            int conflict = 0;
+            const int64_t overlap_count = cr_overlap(
+                chunk.read_var_cr.get(), "cr", *left, right + 1,
+                &overlaps, &overlap_capacity);
+            for (int64_t oi = 0; oi < overlap_count; ++oi) {
+                const int read_i = static_cast<int>(
+                    cr_label(chunk.read_var_cr.get(), overlaps[oi]));
+                if (chunk.reads[read_i].is_skipped) continue;
+                const int vote = check_agree_alleles(
+                    chunk, read_i, *left, right);
+                if (vote > 0) ++agree;
+                else if (vote == 0) ++conflict;
+            }
+            const int margin = std::abs(agree - conflict);
+            const int total = agree + conflict;
+            const bool stronger = margin > best_margin ||
+                                  (margin == best_margin && total > best_total);
+            if (stronger) {
+                best_margin = margin;
+                best_total = total;
+                best_agree = agree;
+                best_conflict = conflict;
+                best_upstream = *left;
+                best_downstream = right;
+                parity_tied = false;
+            } else if (margin == best_margin && total == best_total && margin > 0 &&
+                       (conflict > agree) != (best_conflict > best_agree)) {
+                parity_tied = true;
+            }
+        }
+    }
+    free(overlaps);
+    if (parity_tied ||
+        best_margin < std::max(1, opts.min_block_link_reads))
+        return std::nullopt;
+
+    return SupportedAlleleEdge{
+        best_upstream, best_downstream, best_agree, best_conflict,
+        comparisons, best_conflict > best_agree};
+}
+
+static void mark_supported_locus(PhasingChunk& chunk, int candidate_i) {
+    // Record the exact locus that earned this edge. Co-located rows remain
+    // independent candidates, but both alleles must be eligible when reads are
+    // rescored: a read carrying one deletion has no exact observation on the
+    // complementary deletion row.
+    if (candidate_i < 0 ||
+        static_cast<size_t>(candidate_i) >= chunk.candidates.size())
+        return;
+    const CandidateVariant& selected =
+        chunk.candidates[static_cast<size_t>(candidate_i)];
+    for (CandidateVariant& candidate : chunk.candidates) {
+        if (candidate.phase_set == selected.phase_set &&
+            candidate.key.sort_pos() == selected.key.sort_pos() &&
+            candidate.hap_to_cons_alle[1] >= 0 &&
+            candidate.hap_to_cons_alle[2] >= 0 &&
+            candidate.hap_to_cons_alle[1] !=
+                candidate.hap_to_cons_alle[2]) {
+            candidate.gap_link_supported = true;
+        }
+    }
+}
+
+bool stitch_phase_sets_by_alleles(PhasingChunk& chunk,
+                                  hts_pos_t upstream_phase_set,
+                                  hts_pos_t downstream_phase_set,
+                                  const Options& opts) {
+    const std::optional<SupportedAlleleEdge> edge = strongest_phase_set_edge(
+        chunk, upstream_phase_set, downstream_phase_set, opts);
+    if (!edge) return false;
+    mark_supported_locus(chunk, edge->upstream_candidate);
+    mark_supported_locus(chunk, edge->downstream_candidate);
+
+    return merge_phase_sets_in_place(
+        chunk, upstream_phase_set, downstream_phase_set,
+        edge->flip);
+}
+
+
+// Combine two explicit candidate sets before voting so each read contributes
+// at most one parity decision. Keeping the candidate identities separate from
+// their mutable phase-set labels lets recovery test one imported BAM block
+// after a preceding flank merge has renamed it.
+static std::optional<bool> aggregate_candidate_set_flip(
+        const PhasingChunk& chunk, std::vector<int> upstream,
+        std::vector<int> downstream, const Options& opts) {
+    if (chunk.read_var_cr == nullptr) return std::nullopt;
+    const size_t window =
+        static_cast<size_t>(std::max(1, opts.block_link_window));
+    if (upstream.size() > window)
+        upstream.erase(upstream.begin(), upstream.end() - window);
+    if (downstream.size() > window)
+        downstream.erase(
+            downstream.begin() +
+                static_cast<std::vector<int>::difference_type>(window),
+            downstream.end());
+    if (upstream.empty() || downstream.empty()) return std::nullopt;
+
+    int same = 0;
+    int cross = 0;
+    int64_t* overlaps = nullptr;
+    int64_t overlap_capacity = 0;
+    const int64_t overlap_count = cr_overlap(
+        chunk.read_var_cr.get(), "cr", upstream.front(),
+        downstream.back() + 1, &overlaps, &overlap_capacity);
+    for (int64_t overlap_i = 0; overlap_i < overlap_count; ++overlap_i) {
+        const int64_t read_label = cr_label(
+            chunk.read_var_cr.get(), overlaps[overlap_i]);
+        if (read_label < 0 ||
+            static_cast<size_t>(read_label) >= chunk.reads.size() ||
+            static_cast<size_t>(read_label) >= chunk.read_var_profile.size()) {
+            continue;
+        }
+        const size_t read_i = static_cast<size_t>(read_label);
+        if (chunk.reads[read_i].is_skipped) continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        std::array<std::array<int, 2>, 2> votes{};
+        const auto score_block = [&](const std::vector<int>& candidates,
+                                     size_t side) {
+            for (const int candidate_i : candidates) {
+                if (candidate_i < profile.start_var_idx ||
+                    candidate_i > profile.end_var_idx) {
+                    continue;
+                }
+                const size_t offset = static_cast<size_t>(
+                    candidate_i - profile.start_var_idx);
+                if (offset >= profile.alleles.size()) continue;
+                const int allele = profile.alleles[offset];
+                const CandidateVariant& candidate =
+                    chunk.candidates[static_cast<size_t>(candidate_i)];
+                if (allele == candidate.hap_to_cons_alle[1])
+                    ++votes[side][0];
+                else if (allele == candidate.hap_to_cons_alle[2])
+                    ++votes[side][1];
+            }
+        };
+        score_block(upstream, 0);
+        score_block(downstream, 1);
+        if (votes[0][0] == votes[0][1] ||
+            votes[1][0] == votes[1][1]) {
+            continue;
+        }
+        const bool upstream_hap2 = votes[0][1] > votes[0][0];
+        const bool downstream_hap2 = votes[1][1] > votes[1][0];
+        if (upstream_hap2 == downstream_hap2) ++same;
+        else ++cross;
+    }
+    free(overlaps);
+
+    return significant_parity_flip(same, cross);
+}
+
+// This graph-only wrapper follows current phase-set labels. Recovery boundaries
+// that contain BAM blocks instead pass their immutable candidate memberships to
+// aggregate_candidate_set_flip().
+static std::optional<bool> aggregate_phase_set_flip(
+        const PhasingChunk& chunk, hts_pos_t upstream_phase_set,
+        hts_pos_t downstream_phase_set, const Options& opts) {
+    const auto oriented_in = [](const CandidateVariant& candidate,
+                                hts_pos_t phase_set) {
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        return candidate.phase_set == phase_set && hap1 >= 0 && hap1 <= 1 &&
+               hap2 >= 0 && hap2 <= 1 && hap1 != hap2;
+    };
+
+    std::vector<int> upstream;
+    std::vector<int> downstream;
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        if (oriented_in(chunk.candidates[i], upstream_phase_set))
+            upstream.push_back(static_cast<int>(i));
+        if (oriented_in(chunk.candidates[i], downstream_phase_set))
+            downstream.push_back(static_cast<int>(i));
+    }
+    return aggregate_candidate_set_flip(
+        chunk, std::move(upstream), std::move(downstream), opts);
+}
+
+constexpr int kRecoveryPathMinEdgeMargin = 10;
+constexpr int kRecoveryPathMinOrientationMargin = 2;
+constexpr hts_pos_t kRecoveryPathMaxStepBp = 20000;
+constexpr size_t kRecoveryPathMinFlankAnchors = 2;
+
+struct RecoveryPairEvidence {
+    int same = 0;
+    int cross = 0;
+    bool right_ref = false;
+    bool right_alt = false;
+};
+
+static RecoveryPairEvidence recovery_pair_evidence(
+        const PhasingChunk& chunk, int left_i, int right_i) {
+    RecoveryPairEvidence evidence;
+    if (left_i < 0 || right_i < 0 || left_i >= right_i ||
+        static_cast<size_t>(right_i) >= chunk.candidates.size() ||
+        chunk.read_var_cr == nullptr) {
+        return evidence;
+    }
+    int64_t* overlaps = nullptr;
+    int64_t overlap_capacity = 0;
+    const int64_t overlap_count = cr_overlap(
+        chunk.read_var_cr.get(), "cr", left_i, right_i + 1,
+        &overlaps, &overlap_capacity);
+    for (int64_t oi = 0; oi < overlap_count; ++oi) {
+        const size_t read_i = static_cast<size_t>(
+            cr_label(chunk.read_var_cr.get(), overlaps[oi]));
+        if (read_i >= chunk.reads.size() ||
+            read_i >= chunk.read_var_profile.size() ||
+            chunk.reads[read_i].is_skipped) {
+            continue;
+        }
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0 ||
+            left_i < profile.start_var_idx || right_i > profile.end_var_idx) {
+            continue;
+        }
+        const size_t left_offset = static_cast<size_t>(
+            left_i - profile.start_var_idx);
+        const size_t right_offset = static_cast<size_t>(
+            right_i - profile.start_var_idx);
+        if (left_offset >= profile.alleles.size() ||
+            right_offset >= profile.alleles.size()) {
+            continue;
+        }
+        const int left_allele = profile.alleles[left_offset];
+        const int right_allele = profile.alleles[right_offset];
+        if ((left_allele != 0 && left_allele != 1) ||
+            (right_allele != 0 && right_allele != 1)) {
+            continue;
+        }
+        evidence.right_ref |= right_allele == 0;
+        evidence.right_alt |= right_allele == 1;
+        if (left_allele == right_allele) ++evidence.same;
+        else ++evidence.cross;
+    }
+    free(overlaps);
+    return evidence;
+}
+
+struct RecoveryPathScore {
+    bool valid = false;
+    int bottleneck = 0;
+    int total_margin = 0;
+    int total_support = 0;
+    int edges = 0;
+};
+
+static bool better_recovery_path(const RecoveryPathScore& lhs,
+                                 const RecoveryPathScore& rhs) {
+    if (!lhs.valid) return false;
+    if (!rhs.valid) return true;
+    if (lhs.bottleneck != rhs.bottleneck)
+        return lhs.bottleneck > rhs.bottleneck;
+    if (lhs.total_margin != rhs.total_margin)
+        return lhs.total_margin > rhs.total_margin;
+    if (lhs.total_support != rhs.total_support)
+        return lhs.total_support > rhs.total_support;
+    return lhs.edges < rhs.edges;
+}
+
+static RecoveryPathScore extend_recovery_path(
+        const RecoveryPathScore& prefix, int support, int conflict) {
+    const int margin = support - conflict;
+    if (margin < kRecoveryPathMinEdgeMargin) return {};
+    if (!prefix.valid) {
+        return RecoveryPathScore{true, margin, margin, support, 1};
+    }
+    return RecoveryPathScore{
+        true, std::min(prefix.bottleneck, margin),
+        prefix.total_margin + margin,
+        prefix.total_support + support, prefix.edges + 1};
+}
+
+struct RecoveryDiploidPath {
+    bool flip_right = false;
+    // A direct relation between two centered SNPs can validate a graph/BAM
+    // edge even when the callers describe no sequence-identical site.
+    bool direct_snp_bridge = false;
+    // Candidate index and the allele assigned to haplotype 1 in the left
+    // phase set's gauge.
+    std::vector<std::pair<int, int>> sites;
+};
+
+// Solve an ordered two-state DAG. A node is one eligible injected BAM site in
+// one of its two allele orientations. An edge exists when two sites are within
+// the molecule-scale distance limit and their shared reads favor one parity by
+// the required margin. Jumping over a site omits it from the chain.
+//
+// The recurrence is exact for this DAG and lexicographic objective: maximize
+// the weakest edge first, then total margin, then supporting observations, and
+// finally prefer fewer edges. Both right-flank orientations are solved; an
+// ambiguous winner is rejected. This is deliberately a path solver, not a
+// whole-matrix MEC claim.
+static std::optional<RecoveryDiploidPath> optimal_recovery_diploid_path(
+        const PhasingChunk& chunk, const RecoverySeam& window,
+        hts_pos_t left_phase_set, hts_pos_t right_phase_set) {
+    std::vector<int> left_anchors;
+    std::vector<int> right_anchors;
+    std::vector<int> internal;
+    std::vector<bool> seen_ref(chunk.candidates.size(), false);
+    std::vector<bool> seen_alt(chunk.candidates.size(), false);
+
+    for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+        if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            const int candidate_i = profile.start_var_idx +
+                                    static_cast<int>(offset);
+            if (candidate_i < 0 ||
+                static_cast<size_t>(candidate_i) >= chunk.candidates.size()) {
+                break;
+            }
+            if (profile.alleles[offset] == 0)
+                seen_ref[static_cast<size_t>(candidate_i)] = true;
+            else if (profile.alleles[offset] == 1)
+                seen_alt[static_cast<size_t>(candidate_i)] = true;
+        }
+    }
+
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        const CandidateVariant& candidate = chunk.candidates[i];
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        const bool oriented = hap1 >= 0 && hap1 <= 1 &&
+                              hap2 >= 0 && hap2 <= 1 && hap1 != hap2;
+        if (candidate.phase_set == left_phase_set && oriented)
+            left_anchors.push_back(static_cast<int>(i));
+        if (candidate.phase_set == right_phase_set && oriented)
+            right_anchors.push_back(static_cast<int>(i));
+
+        const hts_pos_t pos = candidate.key.sort_pos();
+        const bool exact_bam_site =
+            candidate.key.type == VariantType::Snp || candidate.alignment_verified;
+        if (pos > window.beg && pos < window.end && candidate.bam_injected &&
+            candidate.phase_set != left_phase_set &&
+            candidate.phase_set != right_phase_set && exact_bam_site &&
+            seen_ref[i] && seen_alt[i] &&
+            (candidate.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) {
+            internal.push_back(static_cast<int>(i));
+        }
+    }
+    // One anchor cannot corroborate the orientation of its phase set. The
+    // ordinary stitcher may still join such blocks directly, but the recovery
+    // fallback must not use a single noisy row to absorb an entire flank.
+    if (left_anchors.size() < kRecoveryPathMinFlankAnchors ||
+        right_anchors.size() < kRecoveryPathMinFlankAnchors ||
+        internal.empty()) {
+        return std::nullopt;
+    }
+
+    struct State {
+        RecoveryPathScore score;
+        int prev_node = -1;
+        int prev_orientation = -1;
+    };
+    std::vector<std::array<State, 2>> dp(internal.size());
+    std::map<std::pair<int, int>, RecoveryPairEvidence> evidence_cache;
+    const auto evidence = [&](int left_i, int right_i) {
+        const auto key = std::make_pair(left_i, right_i);
+        const auto found = evidence_cache.find(key);
+        if (found != evidence_cache.end()) return found->second;
+        const RecoveryPairEvidence value =
+            recovery_pair_evidence(chunk, left_i, right_i);
+        evidence_cache.emplace(key, value);
+        return value;
+    };
+
+    for (size_t j = 0; j < internal.size(); ++j) {
+        const int right_i = internal[j];
+        const hts_pos_t right_pos =
+            chunk.candidates[static_cast<size_t>(right_i)].key.sort_pos();
+        for (int right_orientation = 0; right_orientation <= 1;
+             ++right_orientation) {
+            State best;
+            for (const int left_i : left_anchors) {
+                const CandidateVariant& left =
+                    chunk.candidates[static_cast<size_t>(left_i)];
+                const hts_pos_t left_pos = left.key.sort_pos();
+                if (left_pos >= right_pos ||
+                    right_pos - left_pos > kRecoveryPathMaxStepBp) {
+                    continue;
+                }
+                const RecoveryPairEvidence edge = evidence(left_i, right_i);
+                if (!edge.right_ref || !edge.right_alt) continue;
+                const bool same_orientation =
+                    left.hap_to_cons_alle[1] == right_orientation;
+                const int support = same_orientation ? edge.same : edge.cross;
+                const int conflict = same_orientation ? edge.cross : edge.same;
+                const RecoveryPathScore score =
+                    extend_recovery_path({}, support, conflict);
+                if (better_recovery_path(score, best.score)) {
+                    best.score = score;
+                    best.prev_node = -1;
+                    best.prev_orientation = -1;
+                }
+            }
+            for (size_t i = 0; i < j; ++i) {
+                const int left_i = internal[i];
+                const hts_pos_t left_pos =
+                    chunk.candidates[static_cast<size_t>(left_i)].key.sort_pos();
+                if (left_pos >= right_pos ||
+                    right_pos - left_pos > kRecoveryPathMaxStepBp) {
+                    continue;
+                }
+                const RecoveryPairEvidence edge = evidence(left_i, right_i);
+                if (!edge.right_ref || !edge.right_alt) continue;
+                for (int left_orientation = 0; left_orientation <= 1;
+                     ++left_orientation) {
+                    if (!dp[i][left_orientation].score.valid) continue;
+                    const bool same_orientation =
+                        left_orientation == right_orientation;
+                    const int support = same_orientation ? edge.same : edge.cross;
+                    const int conflict = same_orientation ? edge.cross : edge.same;
+                    const RecoveryPathScore score = extend_recovery_path(
+                        dp[i][left_orientation].score, support, conflict);
+                    if (better_recovery_path(score, best.score)) {
+                        best.score = score;
+                        best.prev_node = static_cast<int>(i);
+                        best.prev_orientation = left_orientation;
+                    }
+                }
+            }
+            dp[j][right_orientation] = best;
+        }
+    }
+
+    struct Endpoint {
+        RecoveryPathScore score;
+        int node = -1;
+        int orientation = -1;
+    };
+    std::array<Endpoint, 2> endpoints;
+    for (int flip = 0; flip <= 1; ++flip) {
+        Endpoint best;
+        for (size_t i = 0; i < internal.size(); ++i) {
+            const int left_i = internal[i];
+            const hts_pos_t left_pos =
+                chunk.candidates[static_cast<size_t>(left_i)].key.sort_pos();
+            for (int left_orientation = 0; left_orientation <= 1;
+                 ++left_orientation) {
+                if (!dp[i][left_orientation].score.valid) continue;
+                for (const int right_i : right_anchors) {
+                    const CandidateVariant& right =
+                        chunk.candidates[static_cast<size_t>(right_i)];
+                    const hts_pos_t right_pos = right.key.sort_pos();
+                    if (left_pos >= right_pos ||
+                        right_pos - left_pos > kRecoveryPathMaxStepBp) {
+                        continue;
+                    }
+                    const int right_orientation = flip
+                        ? right.hap_to_cons_alle[2]
+                        : right.hap_to_cons_alle[1];
+                    const RecoveryPairEvidence edge = evidence(left_i, right_i);
+                    const bool same_orientation =
+                        left_orientation == right_orientation;
+                    const int support = same_orientation ? edge.same : edge.cross;
+                    const int conflict = same_orientation ? edge.cross : edge.same;
+                    const RecoveryPathScore score = extend_recovery_path(
+                        dp[i][left_orientation].score, support, conflict);
+                    if (better_recovery_path(score, best.score)) {
+                        best.score = score;
+                        best.node = static_cast<int>(i);
+                        best.orientation = left_orientation;
+                    }
+                }
+            }
+        }
+        endpoints[flip] = best;
+    }
+
+    const int winner = better_recovery_path(
+        endpoints[1].score, endpoints[0].score) ? 1 : 0;
+    const int runner = 1 - winner;
+    if (!endpoints[winner].score.valid) return std::nullopt;
+    if (endpoints[runner].score.valid &&
+        endpoints[winner].score.bottleneck -
+                endpoints[runner].score.bottleneck <
+            kRecoveryPathMinOrientationMargin) {
+        return std::nullopt;
+    }
+
+    RecoveryDiploidPath path;
+    path.flip_right = winner != 0;
+    int node = endpoints[winner].node;
+    int orientation = endpoints[winner].orientation;
+    while (node >= 0) {
+        path.sites.emplace_back(internal[static_cast<size_t>(node)], orientation);
+        const State& state = dp[static_cast<size_t>(node)][orientation];
+        orientation = state.prev_orientation;
+        node = state.prev_node;
+    }
+    std::reverse(path.sites.begin(), path.sites.end());
+    return path;
+}
+
+static bool commit_recovery_diploid_path(
+        PhasingChunk& chunk, const RecoveryDiploidPath& path,
+        hts_pos_t left_phase_set, hts_pos_t right_phase_set) {
+    // A DP node may already belong to a locally phased BAM block. Determine
+    // each block's required parity before mutating anything: two nodes from the
+    // same block must agree on one atomic flip.
+    std::map<hts_pos_t, bool> local_flips;
+    for (const auto& [candidate_i, orientation] : path.sites) {
+        const CandidateVariant& candidate =
+            chunk.candidates[static_cast<size_t>(candidate_i)];
+        if (candidate.phase_set <= 0 ||
+            candidate.phase_set == left_phase_set ||
+            candidate.phase_set == right_phase_set) {
+            continue;
+        }
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        if (hap1 < 0 || hap1 > 1 || hap2 < 0 || hap2 > 1 || hap1 == hap2)
+            continue;
+        const bool flip = hap1 != orientation;
+        const auto [it, inserted] =
+            local_flips.emplace(candidate.phase_set, flip);
+        if (!inserted && it->second != flip) return false;
+    }
+
+    for (const auto& [phase_set, flip] : local_flips) {
+        if (!merge_phase_sets_in_place(
+                chunk, left_phase_set, phase_set, flip)) {
+            return false;
+        }
+    }
+    if (!merge_phase_sets_in_place(
+            chunk, left_phase_set, right_phase_set, path.flip_right)) {
+        return false;
+    }
+
+    for (const auto& [candidate_i, orientation] : path.sites) {
+        CandidateVariant& candidate =
+            chunk.candidates[static_cast<size_t>(candidate_i)];
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        const bool already_oriented =
+            candidate.phase_set == left_phase_set &&
+            hap1 >= 0 && hap1 <= 1 && hap2 >= 0 && hap2 <= 1 &&
+            hap1 != hap2;
+        if (!already_oriented) {
+            candidate.hap_to_cons_alle[1] = orientation;
+            candidate.hap_to_cons_alle[2] = 1 - orientation;
+            candidate.hap_alt = orientation == 1 ? 1 : 2;
+            candidate.hap_ref = orientation == 0 ? 1 : 2;
+            candidate.phase_set = left_phase_set;
+        }
+        candidate.gap_link_supported = true;
+    }
+    return true;
+}
+
+
+struct RecoveryMecRow {
+    int fixed_mismatches = 0;
+    int fixed_observations = 0;
+    std::map<size_t, std::array<int, 2>> variable_mismatches;
+};
+
+struct RecoveryMecEffect {
+    size_t row = 0;
+    int mismatch0 = 0;
+    int mismatch1 = 0;
+    int observations = 0;
+};
+
+struct RecoveryMecOptimum {
+    int score = INT_MAX;
+    std::vector<int> bits;
+};
+
+// Find the exact minimum-error diploid assignment for one fixed orientation of
+// the right block. A read pays the smaller Hamming distance to haplotype 1 or
+// its complement. Branch-and-bound is exact: its lower bound lets every
+// unassigned observation choose any mismatch count, which can only
+// underestimate the attainable cost and therefore cannot prune an optimum.
+static RecoveryMecOptimum solve_recovery_mec(
+        const std::vector<RecoveryMecRow>& rows,
+        size_t variable_count) {
+    std::vector<std::vector<RecoveryMecEffect>> effects(variable_count);
+    std::vector<int> total_observations(rows.size(), 0);
+    std::vector<int> mismatches(rows.size(), 0);
+    std::vector<int> assigned_observations(rows.size(), 0);
+    for (size_t row_i = 0; row_i < rows.size(); ++row_i) {
+        const RecoveryMecRow& row = rows[row_i];
+        mismatches[row_i] = row.fixed_mismatches;
+        assigned_observations[row_i] = row.fixed_observations;
+        total_observations[row_i] = row.fixed_observations;
+        for (const auto& [variable, costs] : row.variable_mismatches) {
+            const int observations = costs[0] + costs[1];
+            if (variable >= variable_count || observations == 0) continue;
+            effects[variable].push_back(
+                RecoveryMecEffect{row_i, costs[0], costs[1], observations});
+            total_observations[row_i] += observations;
+        }
+    }
+
+    std::vector<size_t> order(variable_count);
+    for (size_t i = 0; i < variable_count; ++i) order[i] = i;
+    std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        const auto support = [&](size_t variable) {
+            int n = 0;
+            for (const RecoveryMecEffect& effect : effects[variable])
+                n += effect.observations;
+            return n;
+        };
+        return support(a) > support(b);
+    });
+
+    const auto lower_bound = [&]() {
+        int bound = 0;
+        for (size_t row_i = 0; row_i < rows.size(); ++row_i) {
+            const int remaining = total_observations[row_i] -
+                                  assigned_observations[row_i];
+            const int low = mismatches[row_i];
+            const int high = low + remaining;
+            const int total = total_observations[row_i];
+            bound += std::min(std::min(low, total - low),
+                              std::min(high, total - high));
+        }
+        return bound;
+    };
+    const auto score_assignment = [&](const std::vector<int>& assignment) {
+        int score = 0;
+        for (const RecoveryMecRow& row : rows) {
+            int mismatch = row.fixed_mismatches;
+            int observations = row.fixed_observations;
+            for (const auto& [variable, costs] : row.variable_mismatches) {
+                if (variable >= assignment.size()) continue;
+                mismatch += costs[static_cast<size_t>(assignment[variable])];
+                observations += costs[0] + costs[1];
+            }
+            score += std::min(mismatch, observations - mismatch);
+        }
+        return score;
+    };
+
+    // A coordinate-descent seed supplies a tight feasible upper bound before
+    // exact search. It affects only search order and pruning; branch-and-bound
+    // still proves that no lower score exists.
+    std::vector<int> seed(variable_count, 0);
+    int seed_score = score_assignment(seed);
+    bool improved = true;
+    while (improved) {
+        improved = false;
+        for (size_t variable : order) {
+            seed[variable] ^= 1;
+            const int flipped_score = score_assignment(seed);
+            if (flipped_score < seed_score) {
+                seed_score = flipped_score;
+                improved = true;
+            } else {
+                seed[variable] ^= 1;
+            }
+        }
+    }
+
+    RecoveryMecOptimum optimum;
+    optimum.score = seed_score;
+    optimum.bits = seed;
+    std::vector<int> bits(variable_count, 0);
+    std::function<void(size_t)> search = [&](size_t depth) {
+        const int bound = lower_bound();
+        // The incumbent is already feasible. Equal-score assignments cannot
+        // change source-to-sink parity, so only a strict improvement matters.
+        if (bound >= optimum.score) return;
+        if (depth == order.size()) {
+            optimum.score = bound;
+            optimum.bits = bits;
+            return;
+        }
+
+        const size_t variable = order[depth];
+        for (int branch = 0; branch <= 1; ++branch) {
+            const int bit = branch == 0 ? seed[variable]
+                                        : 1 - seed[variable];
+            bits[variable] = bit;
+            for (const RecoveryMecEffect& effect : effects[variable]) {
+                mismatches[effect.row] +=
+                    bit == 0 ? effect.mismatch0 : effect.mismatch1;
+                assigned_observations[effect.row] += effect.observations;
+            }
+            search(depth + 1);
+            for (const RecoveryMecEffect& effect : effects[variable]) {
+                mismatches[effect.row] -=
+                    bit == 0 ? effect.mismatch0 : effect.mismatch1;
+                assigned_observations[effect.row] -= effect.observations;
+            }
+        }
+    };
+    search(0);
+    return optimum;
+}
+
+// Solve one adjacent recovery edge with the same binary MEC objective used by
+// HiPhase, over observations pgphase already collected. Clean, allele-balanced
+// SNPs define the primary problem. Centered indels enter only when SNPs alone
+// do not connect the two blocks; one verified boundary row may substitute when
+// a split multi-allelic event makes row-wise AF off center. The full read set
+// and two deterministic, disjoint read halves must choose the same unique
+// parity; this stability test replaces an arbitrary vote-margin threshold.
+static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
+        const PhasingChunk& chunk, const RecoverySeam& edge,
+        hts_pos_t left_phase_set, hts_pos_t right_phase_set,
+        bool boundary_scope = false,
+        bool* exceeded_variable_limit = nullptr) {
+    constexpr double kTrustedAlleleFractionMargin = 0.12;
+    constexpr size_t kTrustedMecMaxVariables = 20;
+    if (exceeded_variable_limit != nullptr)
+        *exceeded_variable_limit = false;
+    const size_t candidate_count = chunk.candidates.size();
+
+    std::vector<bool> seen_ref(candidate_count, false);
+    std::vector<bool> seen_alt(candidate_count, false);
+    for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+        if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            const int candidate_i = profile.start_var_idx +
+                                    static_cast<int>(offset);
+            if (candidate_i < 0 ||
+                static_cast<size_t>(candidate_i) >= candidate_count) break;
+            if (profile.alleles[offset] == 0)
+                seen_ref[static_cast<size_t>(candidate_i)] = true;
+            else if (profile.alleles[offset] == 1)
+                seen_alt[static_cast<size_t>(candidate_i)] = true;
+        }
+    }
+
+    const auto oriented = [](const CandidateVariant& candidate) {
+        return candidate.phase_set > 0 &&
+               candidate.hap_to_cons_alle[1] >= 0 &&
+               candidate.hap_to_cons_alle[1] <= 1 &&
+               candidate.hap_to_cons_alle[2] >= 0 &&
+               candidate.hap_to_cons_alle[2] <= 1 &&
+               candidate.hap_to_cons_alle[1] !=
+                   candidate.hap_to_cons_alle[2];
+    };
+    const auto centered = [&](const CandidateVariant& candidate) {
+        return candidate.counts.ref_cov > 0 && candidate.counts.alt_cov > 0 &&
+               std::abs(candidate.counts.allele_fraction - 0.5) <=
+                   kTrustedAlleleFractionMargin;
+    };
+    const auto closest_anchor = [&](hts_pos_t phase_set, hts_pos_t target,
+                                    VariantType required_type,
+                                    bool allow_verified_off_center)
+            -> std::optional<int> {
+        std::optional<int> best;
+        hts_pos_t best_distance = std::numeric_limits<hts_pos_t>::max();
+        for (size_t i = 0; i < candidate_count; ++i) {
+            const CandidateVariant& candidate = chunk.candidates[i];
+            const bool trusted_off_center_indel =
+                allow_verified_off_center &&
+                required_type != VariantType::Snp &&
+                candidate.bam_injected && candidate.alignment_verified;
+            if (candidate.phase_set != phase_set || !oriented(candidate) ||
+                (!centered(candidate) && !trusted_off_center_indel) ||
+                candidate.key.type != required_type ||
+                !seen_ref[i] || !seen_alt[i]) {
+                continue;
+            }
+            const hts_pos_t distance =
+                std::llabs(candidate.key.sort_pos() - target);
+            if (!best || distance < best_distance) {
+                best = static_cast<int>(i);
+                best_distance = distance;
+            }
+        }
+        return best;
+    };
+
+    std::optional<int> left_anchor =
+        closest_anchor(left_phase_set, edge.beg, VariantType::Snp, false);
+    std::optional<int> right_anchor =
+        closest_anchor(right_phase_set, edge.end, VariantType::Snp, false);
+    bool allow_indels = false;
+    // Prefer a centered indel of either kind. A verified injected boundary row
+    // is the final fallback: splitting a diploid multi-allelic event into two
+    // separate BAM rows can move both row-wise AFs away from 0.5 even though
+    // their complementary read alleles determine the phase unambiguously.
+    if (!left_anchor)
+        left_anchor = closest_anchor(
+            left_phase_set, edge.beg, VariantType::Insertion, false);
+    if (!left_anchor)
+        left_anchor = closest_anchor(
+            left_phase_set, edge.beg, VariantType::Deletion, false);
+    if (!left_anchor)
+        left_anchor = closest_anchor(
+            left_phase_set, edge.beg, VariantType::Insertion, true);
+    if (!left_anchor)
+        left_anchor = closest_anchor(
+            left_phase_set, edge.beg, VariantType::Deletion, true);
+    if (!right_anchor)
+        right_anchor = closest_anchor(
+            right_phase_set, edge.end, VariantType::Insertion, false);
+    if (!right_anchor)
+        right_anchor = closest_anchor(
+            right_phase_set, edge.end, VariantType::Deletion, false);
+    if (!right_anchor)
+        right_anchor = closest_anchor(
+            right_phase_set, edge.end, VariantType::Insertion, true);
+    if (!right_anchor)
+        right_anchor = closest_anchor(
+            right_phase_set, edge.end, VariantType::Deletion, true);
+    if (!left_anchor || !right_anchor) return std::nullopt;
+    if (chunk.candidates[static_cast<size_t>(*left_anchor)].key.type !=
+            VariantType::Snp ||
+        chunk.candidates[static_cast<size_t>(*right_anchor)].key.type !=
+            VariantType::Snp) {
+        allow_indels = true;
+    }
+
+    hts_pos_t solve_beg = std::min(
+        chunk.candidates[static_cast<size_t>(*left_anchor)].key.sort_pos(),
+        chunk.candidates[static_cast<size_t>(*right_anchor)].key.sort_pos());
+    hts_pos_t solve_end = std::max(
+        chunk.candidates[static_cast<size_t>(*left_anchor)].key.sort_pos(),
+        chunk.candidates[static_cast<size_t>(*right_anchor)].key.sort_pos());
+    if (!boundary_scope) {
+        // The normal solve validates the read-connected extent of both atomic
+        // blocks. It can therefore expose an older polarity change away from
+        // the immediate boundary, but unrelated unphased sites may make that
+        // exact problem too large.
+        for (size_t i = 0; i < candidate_count; ++i) {
+            const CandidateVariant& candidate = chunk.candidates[i];
+            if ((candidate.phase_set != left_phase_set &&
+                 candidate.phase_set != right_phase_set) ||
+                !oriented(candidate) || !centered(candidate) ||
+                !seen_ref[i] || !seen_alt[i]) {
+                continue;
+            }
+            const bool boundary_uses_indels =
+                chunk.candidates[static_cast<size_t>(*left_anchor)].key.type !=
+                    VariantType::Snp ||
+                chunk.candidates[static_cast<size_t>(*right_anchor)].key.type !=
+                    VariantType::Snp;
+            if (!boundary_uses_indels &&
+                candidate.key.type != VariantType::Snp) {
+                continue;
+            }
+            solve_beg = std::min(solve_beg, candidate.key.sort_pos());
+            solve_end = std::max(solve_end, candidate.key.sort_pos());
+        }
+    }
+    // Boundary scope keeps only the selected-anchor interval. The caller may
+    // request it solely after the complete atomic-block problem exceeds the
+    // exact-search bound and independent candidate evidence validates the same
+    // graph/BAM gauge. It cannot override a tie or contradictory full solve.
+
+    const auto build_problem = [&](bool include_indels) {
+        std::vector<int> nodes;
+        std::vector<int> node_of(candidate_count, -1);
+        std::set<std::tuple<hts_pos_t, int, int, std::string, hts_pos_t>> seen_keys;
+        for (size_t i = 0; i < candidate_count; ++i) {
+            const CandidateVariant& candidate = chunk.candidates[i];
+            const hts_pos_t pos = candidate.key.sort_pos();
+            const bool selected_boundary =
+                static_cast<int>(i) == *left_anchor ||
+                static_cast<int>(i) == *right_anchor;
+            if (pos < solve_beg || pos > solve_end ||
+                (!centered(candidate) && !selected_boundary) ||
+                !seen_ref[i] || !seen_alt[i] ||
+                (!include_indels && candidate.key.type != VariantType::Snp)) {
+                continue;
+            }
+            const auto key = std::make_tuple(
+                pos, static_cast<int>(candidate.key.type), candidate.key.ref_len,
+                candidate.key.alt, candidate.phase_set);
+            if (!seen_keys.insert(key).second) continue;
+            node_of[i] = static_cast<int>(nodes.size());
+            nodes.push_back(static_cast<int>(i));
+        }
+
+        std::vector<int> parent(nodes.size());
+        for (size_t i = 0; i < parent.size(); ++i)
+            parent[i] = static_cast<int>(i);
+        const auto root_of = [&](int node) {
+            int root = node;
+            while (parent[static_cast<size_t>(root)] != root)
+                root = parent[static_cast<size_t>(root)];
+            return root;
+        };
+        const auto join = [&](int a, int b) {
+            const int root_a = root_of(a);
+            const int root_b = root_of(b);
+            if (root_a != root_b)
+                parent[static_cast<size_t>(root_b)] = root_a;
+        };
+        for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+            if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            if (profile.start_var_idx < 0) continue;
+            int first = -1;
+            for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+                if (profile.alleles[offset] != 0 &&
+                    profile.alleles[offset] != 1) continue;
+                const int candidate_i = profile.start_var_idx +
+                                        static_cast<int>(offset);
+                if (candidate_i < 0 ||
+                    static_cast<size_t>(candidate_i) >= node_of.size()) break;
+                const int node = node_of[static_cast<size_t>(candidate_i)];
+                if (node < 0) continue;
+                if (first < 0) first = node;
+                else join(first, node);
+            }
+        }
+
+        std::set<int> left_roots;
+        std::set<int> right_roots;
+        for (size_t node = 0; node < nodes.size(); ++node) {
+            const CandidateVariant& candidate =
+                chunk.candidates[static_cast<size_t>(nodes[node])];
+            if (candidate.phase_set == left_phase_set && oriented(candidate))
+                left_roots.insert(root_of(static_cast<int>(node)));
+            if (candidate.phase_set == right_phase_set && oriented(candidate))
+                right_roots.insert(root_of(static_cast<int>(node)));
+        }
+        std::set<int> bridge_roots;
+        std::set_intersection(
+            left_roots.begin(), left_roots.end(), right_roots.begin(),
+            right_roots.end(), std::inserter(bridge_roots,
+                                             bridge_roots.begin()));
+        std::vector<bool> retained(candidate_count, false);
+        for (size_t node = 0; node < nodes.size(); ++node) {
+            if (bridge_roots.count(root_of(static_cast<int>(node))) != 0)
+                retained[static_cast<size_t>(nodes[node])] = true;
+        }
+        return retained;
+    };
+
+    std::vector<bool> retained = build_problem(allow_indels);
+    const auto has_both_flanks = [&]() {
+        bool left = false;
+        bool right = false;
+        for (size_t i = 0; i < candidate_count; ++i) {
+            if (!retained[i]) continue;
+            left = left || chunk.candidates[i].phase_set == left_phase_set;
+            right = right || chunk.candidates[i].phase_set == right_phase_set;
+        }
+        return left && right;
+    };
+    if (!has_both_flanks() && !allow_indels) {
+        allow_indels = true;
+        retained = build_problem(true);
+    }
+    if (!has_both_flanks()) return std::nullopt;
+
+    std::vector<int> variable_of(candidate_count, -1);
+    std::vector<int> base_orientation(candidate_count, 0);
+    std::vector<int> variable_candidates;
+    std::vector<bool> is_left(candidate_count, false);
+    std::vector<bool> is_right(candidate_count, false);
+    for (size_t i = 0; i < candidate_count; ++i) {
+        if (!retained[i]) continue;
+        const CandidateVariant& candidate = chunk.candidates[i];
+        is_left[i] = candidate.phase_set == left_phase_set && oriented(candidate);
+        is_right[i] = candidate.phase_set == right_phase_set && oriented(candidate);
+        if (is_left[i] || is_right[i]) continue;
+        variable_of[i] = static_cast<int>(variable_candidates.size());
+        variable_candidates.push_back(static_cast<int>(i));
+        base_orientation[i] = oriented(candidate)
+                                  ? candidate.hap_to_cons_alle[1]
+                                  : 0;
+    }
+    if (variable_candidates.size() > kTrustedMecMaxVariables) {
+        if (exceeded_variable_limit != nullptr)
+            *exceeded_variable_limit = true;
+        return std::nullopt;
+    }
+
+    int indel_cost_bound = 0;
+    if (allow_indels) {
+        for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+            if (profile.start_var_idx < 0) continue;
+            for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+                if (profile.alleles[offset] != 0 &&
+                    profile.alleles[offset] != 1) continue;
+                const int candidate_i = profile.start_var_idx +
+                                        static_cast<int>(offset);
+                if (candidate_i < 0 ||
+                    static_cast<size_t>(candidate_i) >= retained.size()) break;
+                if (!retained[static_cast<size_t>(candidate_i)]) continue;
+                const CandidateVariant& candidate =
+                    chunk.candidates[static_cast<size_t>(candidate_i)];
+                if (candidate.key.type != VariantType::Snp)
+                    indel_cost_bound += phase_matrix_var_weight(candidate);
+            }
+        }
+    }
+    const int snp_multiplier = indel_cost_bound + 1;
+    const auto stable_hash = [](const std::string& value) {
+        uint64_t hash = 14695981039346656037ULL;
+        for (const unsigned char byte : value) {
+            hash ^= byte;
+            hash *= 1099511628211ULL;
+        }
+        return hash;
+    };
+    const auto solve_fold = [&](int fold) {
+        std::array<RecoveryMecOptimum, 2> result;
+        for (int right_flip = 0; right_flip <= 1; ++right_flip) {
+            std::vector<RecoveryMecRow> rows;
+            for (size_t read_i = 0; read_i < chunk.read_var_profile.size();
+                 ++read_i) {
+                if (read_i >= chunk.reads.size() ||
+                    chunk.reads[read_i].is_skipped ||
+                    (fold >= 0 &&
+                     static_cast<int>(stable_hash(chunk.reads[read_i].qname) & 1ULL) !=
+                         fold)) {
+                    continue;
+                }
+                const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+                if (profile.start_var_idx < 0) continue;
+                RecoveryMecRow row;
+                int observed_sites = 0;
+                for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+                    const int allele = profile.alleles[offset];
+                    if (allele != 0 && allele != 1) continue;
+                    const int candidate_i = profile.start_var_idx +
+                                            static_cast<int>(offset);
+                    if (candidate_i < 0 ||
+                        static_cast<size_t>(candidate_i) >= retained.size()) break;
+                    const size_t ci = static_cast<size_t>(candidate_i);
+                    if (!retained[ci]) continue;
+                    const CandidateVariant& candidate = chunk.candidates[ci];
+                    int weight = phase_matrix_var_weight(candidate);
+                    if (candidate.key.type == VariantType::Snp)
+                        weight *= snp_multiplier;
+                    ++observed_sites;
+                    if (is_left[ci] || is_right[ci]) {
+                        int orientation = candidate.hap_to_cons_alle[1];
+                        if (is_right[ci] && right_flip != 0)
+                            orientation = 1 - orientation;
+                        row.fixed_mismatches +=
+                            weight * static_cast<int>(allele != orientation);
+                        row.fixed_observations += weight;
+                    } else {
+                        const int variable = variable_of[ci];
+                        if (variable < 0) continue;
+                        std::array<int, 2>& costs =
+                            row.variable_mismatches[static_cast<size_t>(variable)];
+                        const int mismatch0 = allele != base_orientation[ci];
+                        costs[0] += weight * mismatch0;
+                        costs[1] += weight * (1 - mismatch0);
+                    }
+                }
+                // One heterozygous observation can always match one of the
+                // two haplotypes, so it contributes zero information to MEC
+                // parity while increasing the branch-and-bound workload.
+                if (observed_sites >= 2) rows.push_back(std::move(row));
+            }
+            result[static_cast<size_t>(right_flip)] =
+                solve_recovery_mec(rows, variable_candidates.size());
+        }
+        if (result[0].score == result[1].score)
+            return std::make_pair(std::optional<bool>{}, result);
+        return std::make_pair(
+            std::optional<bool>{result[1].score < result[0].score}, result);
+    };
+
+    const auto full = solve_fold(-1);
+    const auto half0 = solve_fold(0);
+    const auto half1 = solve_fold(1);
+    if (!full.first || !half0.first || !half1.first ||
+        *full.first != *half0.first || *full.first != *half1.first) {
+        return std::nullopt;
+    }
+
+    const RecoveryMecOptimum& winner =
+        full.second[static_cast<size_t>(*full.first)];
+    if (winner.bits.size() != variable_candidates.size()) return std::nullopt;
+    RecoveryDiploidPath path;
+    path.flip_right = *full.first;
+
+    // A pair of distinct SNPs is a valid representation-independent anchor.
+    // Use the nearest selected boundary pair, then require the full reads and
+    // both disjoint halves to select the MEC parity independently. Restricting
+    // this check to one pair keeps recovery linear in the read count and avoids
+    // selecting the strongest result from many correlated SNP comparisons.
+    const size_t left_i = static_cast<size_t>(*left_anchor);
+    const size_t right_i = static_cast<size_t>(*right_anchor);
+    if (chunk.candidates[left_i].key.type == VariantType::Snp &&
+        chunk.candidates[right_i].key.type == VariantType::Snp &&
+        retained[left_i] && retained[right_i]) {
+        const auto direct_snp_flip = [&](int fold) -> std::optional<bool> {
+            int same = 0;
+            int cross = 0;
+            const int left_hap1 =
+                chunk.candidates[left_i].hap_to_cons_alle[1];
+            const int right_hap1 =
+                chunk.candidates[right_i].hap_to_cons_alle[1];
+            for (size_t read_i = 0; read_i < chunk.read_var_profile.size();
+                 ++read_i) {
+                if (read_i >= chunk.reads.size() ||
+                    chunk.reads[read_i].is_skipped ||
+                    (fold >= 0 &&
+                     static_cast<int>(stable_hash(
+                         chunk.reads[read_i].qname) & 1ULL) != fold)) {
+                    continue;
+                }
+                const ReadVariantProfile& profile =
+                    chunk.read_var_profile[read_i];
+                if (profile.start_var_idx < 0 ||
+                    static_cast<int>(left_i) < profile.start_var_idx ||
+                    static_cast<int>(right_i) < profile.start_var_idx ||
+                    static_cast<int>(left_i) > profile.end_var_idx ||
+                    static_cast<int>(right_i) > profile.end_var_idx) {
+                    continue;
+                }
+                const size_t left_offset =
+                    left_i - static_cast<size_t>(profile.start_var_idx);
+                const size_t right_offset =
+                    right_i - static_cast<size_t>(profile.start_var_idx);
+                if (left_offset >= profile.alleles.size() ||
+                    right_offset >= profile.alleles.size()) {
+                    continue;
+                }
+                const int left_allele = profile.alleles[left_offset];
+                const int right_allele = profile.alleles[right_offset];
+                if ((left_allele != 0 && left_allele != 1) ||
+                    (right_allele != 0 && right_allele != 1)) {
+                    continue;
+                }
+                const bool flip =
+                    (left_allele == left_hap1) !=
+                    (right_allele == right_hap1);
+                if (flip) ++cross;
+                else ++same;
+            }
+            return parity_flip_at_p(
+                same, cross, 1, kRecoveryCandidateAnchorPValue);
+        };
+        const std::optional<bool> pair_full = direct_snp_flip(-1);
+        const std::optional<bool> pair_half0 = direct_snp_flip(0);
+        const std::optional<bool> pair_half1 = direct_snp_flip(1);
+        path.direct_snp_bridge =
+            pair_full && pair_half0 && pair_half1 &&
+            *pair_full == path.flip_right &&
+            *pair_half0 == path.flip_right &&
+            *pair_half1 == path.flip_right;
+    }
+
+    for (size_t variable = 0; variable < variable_candidates.size(); ++variable) {
+        const int candidate_i = variable_candidates[variable];
+        path.sites.emplace_back(
+            candidate_i,
+            base_orientation[static_cast<size_t>(candidate_i)] ^
+                winner.bits[variable]);
+    }
+    return path;
+}
+
+// Optimize every biallelic site in the read-connected source-to-sink component.
+// Existing local phase sets are variables as atomic units, while an unphased
+// site is one variable. This preserves the relative orientation already solved
+// inside a BAM block and lets many individually weak observations establish one
+// globally supported parity. Tied block parity is left unjoined; equal internal
+// optima need not be enumerated because they cannot change that block parity.
+static std::optional<RecoveryDiploidPath> optimal_recovery_mec_path(
+        const PhasingChunk& chunk, const RecoverySeam& window,
+        hts_pos_t left_phase_set, hts_pos_t right_phase_set) {
+    const size_t candidate_count = chunk.candidates.size();
+    std::vector<bool> seen_ref(candidate_count, false);
+    std::vector<bool> seen_alt(candidate_count, false);
+    for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+        if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            const int candidate_i = profile.start_var_idx +
+                                    static_cast<int>(offset);
+            if (candidate_i < 0 ||
+                static_cast<size_t>(candidate_i) >= candidate_count) break;
+            if (profile.alleles[offset] == 0)
+                seen_ref[static_cast<size_t>(candidate_i)] = true;
+            else if (profile.alleles[offset] == 1)
+                seen_alt[static_cast<size_t>(candidate_i)] = true;
+        }
+    }
+
+    std::vector<int> nodes;
+    std::vector<int> node_of(candidate_count, -1);
+    std::vector<bool> is_left(candidate_count, false);
+    std::vector<bool> is_right(candidate_count, false);
+    std::vector<bool> is_internal(candidate_count, false);
+    for (size_t candidate_i = 0; candidate_i < candidate_count; ++candidate_i) {
+        const CandidateVariant& candidate = chunk.candidates[candidate_i];
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        const bool oriented = hap1 >= 0 && hap1 <= 1 &&
+                              hap2 >= 0 && hap2 <= 1 && hap1 != hap2;
+        is_left[candidate_i] =
+            candidate.phase_set == left_phase_set && oriented;
+        is_right[candidate_i] =
+            candidate.phase_set == right_phase_set && oriented;
+        const hts_pos_t pos = candidate.key.sort_pos();
+        const bool exact_bam_site =
+            candidate.bam_injected &&
+            (candidate.key.type == VariantType::Snp ||
+             candidate.alignment_verified);
+        is_internal[candidate_i] =
+            pos > window.beg && pos < window.end && exact_bam_site &&
+            candidate.phase_set != left_phase_set &&
+            candidate.phase_set != right_phase_set &&
+            seen_ref[candidate_i] && seen_alt[candidate_i] &&
+            (candidate.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+        if (is_left[candidate_i] || is_right[candidate_i] ||
+            is_internal[candidate_i]) {
+            node_of[candidate_i] = static_cast<int>(nodes.size());
+            nodes.push_back(static_cast<int>(candidate_i));
+        }
+    }
+    if (nodes.empty()) return std::nullopt;
+
+    std::vector<int> parent(nodes.size());
+    for (size_t i = 0; i < parent.size(); ++i) parent[i] = static_cast<int>(i);
+    const auto root_of = [&](int node) {
+        int root = node;
+        while (parent[static_cast<size_t>(root)] != root)
+            root = parent[static_cast<size_t>(root)];
+        return root;
+    };
+    const auto join = [&](int a, int b) {
+        const int root_a = root_of(a);
+        const int root_b = root_of(b);
+        if (root_a != root_b) parent[static_cast<size_t>(root_b)] = root_a;
+    };
+    for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+        if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+        if (profile.start_var_idx < 0) continue;
+        int first_node = -1;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            if (profile.alleles[offset] != 0 && profile.alleles[offset] != 1)
+                continue;
+            const int candidate_i = profile.start_var_idx +
+                                    static_cast<int>(offset);
+            if (candidate_i < 0 ||
+                static_cast<size_t>(candidate_i) >= node_of.size()) break;
+            const int node = node_of[static_cast<size_t>(candidate_i)];
+            if (node < 0) continue;
+            if (first_node < 0) first_node = node;
+            else join(first_node, node);
+        }
+    }
+
+    std::vector<bool> component_left(nodes.size(), false);
+    std::vector<bool> component_right(nodes.size(), false);
+    for (size_t node = 0; node < nodes.size(); ++node) {
+        const size_t candidate_i = static_cast<size_t>(nodes[node]);
+        const size_t root = static_cast<size_t>(root_of(static_cast<int>(node)));
+        component_left[root] = component_left[root] || is_left[candidate_i];
+        component_right[root] = component_right[root] || is_right[candidate_i];
+    }
+    std::vector<bool> retained(candidate_count, false);
+    bool connected = false;
+    for (size_t node = 0; node < nodes.size(); ++node) {
+        const size_t root = static_cast<size_t>(root_of(static_cast<int>(node)));
+        if (!component_left[root] || !component_right[root]) continue;
+        retained[static_cast<size_t>(nodes[node])] = true;
+        connected = true;
+    }
+    if (!connected) return std::nullopt;
+
+    struct Variable {
+        hts_pos_t phase_set = 0;
+        std::vector<int> candidates;
+    };
+    std::vector<Variable> variables;
+    std::map<hts_pos_t, size_t> variable_of_phase_set;
+    std::vector<int> variable_of(candidate_count, -1);
+    std::vector<int> base_orientation(candidate_count, 0);
+    for (size_t candidate_i = 0; candidate_i < candidate_count; ++candidate_i) {
+        if (!retained[candidate_i] || !is_internal[candidate_i]) continue;
+        const CandidateVariant& candidate = chunk.candidates[candidate_i];
+        const int hap1 = candidate.hap_to_cons_alle[1];
+        const int hap2 = candidate.hap_to_cons_alle[2];
+        const bool oriented = hap1 >= 0 && hap1 <= 1 &&
+                              hap2 >= 0 && hap2 <= 1 && hap1 != hap2;
+        size_t variable = variables.size();
+        if (candidate.phase_set > 0 && oriented) {
+            const auto [it, inserted] = variable_of_phase_set.emplace(
+                candidate.phase_set, variables.size());
+            if (inserted)
+                variables.push_back(Variable{candidate.phase_set, {}});
+            variable = it->second;
+            base_orientation[candidate_i] = hap1;
+        } else {
+            variables.push_back(Variable{0, {}});
+            base_orientation[candidate_i] = 0;
+        }
+        variable_of[candidate_i] = static_cast<int>(variable);
+        variables[variable].candidates.push_back(static_cast<int>(candidate_i));
+    }
+
+    // With no internal BAM site this is a direct block edge, for which the
+    // aggregate voter already enforces the validated support threshold. MEC is
+    // reserved for the case it adds: optimizing a diploid chain through one or
+    // more injected sites.
+    if (variables.empty()) return std::nullopt;
+
+    // Exact diploid MEC is NP-hard. Targeted recovery gaps are small (the
+    // chr20 panel needs at most 13 injected variables), while an unrelated
+    // 52.8 kb seam contains 131. Keep production latency bounded by abstaining
+    // before search; every solution returned below is still the exact optimum.
+    constexpr size_t kRecoveryMecMaxVariables = 20;
+    if (variables.size() > kRecoveryMecMaxVariables) return std::nullopt;
+
+    const auto build_rows = [&](bool flip_right) {
+        std::vector<RecoveryMecRow> rows;
+        for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+            if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            if (profile.start_var_idx < 0) continue;
+            RecoveryMecRow row;
+            int observations = 0;
+            for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+                const int allele = profile.alleles[offset];
+                if (allele != 0 && allele != 1) continue;
+                const int candidate_i = profile.start_var_idx +
+                                        static_cast<int>(offset);
+                if (candidate_i < 0 ||
+                    static_cast<size_t>(candidate_i) >= retained.size()) break;
+                const size_t ci = static_cast<size_t>(candidate_i);
+                if (!retained[ci]) continue;
+                ++observations;
+                if (is_left[ci] || is_right[ci]) {
+                    int orientation = chunk.candidates[ci].hap_to_cons_alle[1];
+                    if (is_right[ci] && flip_right) orientation = 1 - orientation;
+                    row.fixed_mismatches += allele != orientation;
+                    ++row.fixed_observations;
+                } else {
+                    const int variable = variable_of[ci];
+                    if (variable < 0) continue;
+                    std::array<int, 2>& costs =
+                        row.variable_mismatches[static_cast<size_t>(variable)];
+                    const int mismatch0 = allele != base_orientation[ci];
+                    costs[0] += mismatch0;
+                    costs[1] += 1 - mismatch0;
+                }
+            }
+            if (observations >= 2) rows.push_back(std::move(row));
+        }
+        return rows;
+    };
+
+    const std::vector<RecoveryMecRow> same_rows = build_rows(false);
+    const std::vector<RecoveryMecRow> flipped_rows = build_rows(true);
+    const RecoveryMecOptimum same =
+        solve_recovery_mec(same_rows, variables.size());
+    const RecoveryMecOptimum flipped =
+        solve_recovery_mec(flipped_rows, variables.size());
+    if (same.score == flipped.score) return std::nullopt;
+    const bool flip_right = flipped.score < same.score;
+    const RecoveryMecOptimum& winner = flip_right ? flipped : same;
+    if (winner.bits.size() != variables.size()) return std::nullopt;
+
+    RecoveryDiploidPath path;
+    path.flip_right = flip_right;
+    for (size_t variable = 0; variable < variables.size(); ++variable) {
+        for (const int candidate_i : variables[variable].candidates) {
+            path.sites.emplace_back(
+                candidate_i,
+                base_orientation[static_cast<size_t>(candidate_i)] ^
+                    winner.bits[variable]);
+        }
+    }
+    return path;
+}
+
+// Visit the spatial chain of graph and recovered BAM phase sets from left to
+// right. A BAM subsolve may contain several phase sets whose HP labels are
+// independent. Keep those blocks separate until direct read evidence determines
+// the parity of one adjacent pair. Graph-only seams retain the ordinary allele,
+// aggregate, and exact-path fallbacks.
+size_t stitch_recovery_phase_sets_left_to_right(
+        PhasingChunk& chunk,
+        const std::vector<RecoverySeam>& windows,
+        const std::vector<RecoveryPhaseGauge>& gauges,
+        const Options& opts) {
+    const auto oriented = [](const CandidateVariant& candidate) {
+        return candidate.phase_set > 0 &&
+               candidate.hap_to_cons_alle[1] >= 0 &&
+               candidate.hap_to_cons_alle[2] >= 0 &&
+               candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2];
+    };
+    const int min_support = std::max(1, opts.min_block_link_reads);
+    const auto orientation_in_gauge = [min_support](
+            const RecoveryPhaseGauge& gauge, hts_pos_t phase_set) {
+        if (std::find(gauge.imported_phase_sets.begin(),
+                      gauge.imported_phase_sets.end(), phase_set) !=
+            gauge.imported_phase_sets.end()) {
+            return 1;  // imported candidates already use the BAM solve's gauge
+        }
+        const auto vote = std::find_if(
+            gauge.graph_votes.begin(), gauge.graph_votes.end(),
+            [phase_set](const PhaseSetGaugeVote& v) {
+                return v.phase_set == phase_set;
+            });
+        if (vote == gauge.graph_votes.end() ||
+            std::abs(vote->same - vote->cross) < min_support)
+            return 0;
+        return vote->same > vote->cross ? 1 : -1;
+    };
+    const auto significant_graph_orientation = [](
+            const RecoveryPhaseGauge& gauge, hts_pos_t phase_set) {
+        const auto vote = std::find_if(
+            gauge.graph_votes.begin(), gauge.graph_votes.end(),
+            [phase_set](const PhaseSetGaugeVote& candidate) {
+                return candidate.phase_set == phase_set;
+            });
+        if (vote == gauge.graph_votes.end()) return 0;
+        const std::optional<bool> flip =
+            significant_parity_flip(vote->same, vote->cross);
+        if (!flip) return 0;
+        return *flip ? -1 : 1;
+    };
+    const auto candidate_anchor_flip = [](
+            const RecoveryPhaseGauge& gauge, hts_pos_t graph_phase_set,
+            hts_pos_t bam_phase_set) -> std::optional<bool> {
+        const auto vote = std::find_if(
+            gauge.block_votes.begin(), gauge.block_votes.end(),
+            [graph_phase_set, bam_phase_set](
+                    const RecoveryBlockGaugeVote& candidate) {
+                return (candidate.graph_phase_set == graph_phase_set &&
+                        candidate.bam_phase_set == bam_phase_set) ||
+                       (candidate.graph_phase_set == bam_phase_set &&
+                        candidate.bam_phase_set == graph_phase_set);
+            });
+        if (vote == gauge.block_votes.end()) return std::nullopt;
+        return parity_flip_at_p(
+            vote->shared_candidate_same, vote->shared_candidate_cross, 1,
+            kRecoveryCandidateAnchorPValue);
+    };
+    const auto find_block_gauge_vote = [](
+            const RecoveryPhaseGauge& gauge, hts_pos_t first_phase_set,
+            hts_pos_t second_phase_set) {
+        return std::find_if(
+            gauge.block_votes.begin(), gauge.block_votes.end(),
+            [first_phase_set, second_phase_set](
+                    const RecoveryBlockGaugeVote& candidate) {
+                return (candidate.graph_phase_set == first_phase_set &&
+                        candidate.bam_phase_set == second_phase_set) ||
+                       (candidate.graph_phase_set == second_phase_set &&
+                        candidate.bam_phase_set == first_phase_set);
+            });
+    };
+    const auto block_read_gauge_flip = [&find_block_gauge_vote](
+            const RecoveryPhaseGauge& gauge, hts_pos_t first_phase_set,
+            hts_pos_t second_phase_set) -> std::optional<bool> {
+        const auto vote = find_block_gauge_vote(
+            gauge, first_phase_set, second_phase_set);
+        if (vote == gauge.block_votes.end()) return std::nullopt;
+        return significant_parity_flip(vote->counts);
+    };
+    const auto block_gauge_flip = [&find_block_gauge_vote](
+            const RecoveryPhaseGauge& gauge, hts_pos_t first_phase_set,
+            hts_pos_t second_phase_set) -> std::optional<bool> {
+        const auto vote = find_block_gauge_vote(
+            gauge, first_phase_set, second_phase_set);
+        if (vote == gauge.block_votes.end()) return std::nullopt;
+        const std::optional<bool> read_flip =
+            significant_parity_flip(vote->counts);
+        if (!read_flip) return std::nullopt;
+
+        // Sequence-identical clean heterozygotes validate a decisive molecule
+        // vote. They cannot establish a join alone: one BAM phase block may
+        // contain an internal switch, so its two distant consensus anchors can
+        // each be locally correct while their implied long-range join is not.
+        const bool have_candidate_vote =
+            vote->shared_candidate_same > 0 ||
+            vote->shared_candidate_cross > 0;
+        if (!have_candidate_vote) return std::nullopt;
+        if (vote->shared_candidate_same > 0 &&
+            vote->shared_candidate_cross == 0) {
+            return *read_flip ? std::nullopt : read_flip;
+        }
+        if (vote->shared_candidate_cross > 0 &&
+            vote->shared_candidate_same == 0) {
+            return *read_flip ? read_flip : std::nullopt;
+        }
+        return std::nullopt;
+    };
+
+    // Block votes are measured before any recovery stitch mutates the chunk.
+    // Keep one oriented candidate from each original phase set so a later vote
+    // can be translated into the current gauge after an earlier flank merge.
+    std::map<hts_pos_t, std::pair<size_t, int>> initial_orientations;
+    std::map<hts_pos_t, std::vector<int>> initial_phase_set_candidates;
+    std::vector<hts_pos_t> initial_phase_sets;
+    initial_phase_sets.reserve(chunk.candidates.size());
+    for (size_t candidate_i = 0; candidate_i < chunk.candidates.size();
+         ++candidate_i) {
+        const CandidateVariant& candidate = chunk.candidates[candidate_i];
+        initial_phase_sets.push_back(candidate.phase_set);
+        if (!oriented(candidate)) continue;
+        initial_orientations.try_emplace(
+            candidate.phase_set,
+            std::make_pair(candidate_i, candidate.hap_to_cons_alle[1]));
+        initial_phase_set_candidates[candidate.phase_set].push_back(
+            static_cast<int>(candidate_i));
+    }
+    const auto flipped_from_initial = [&](hts_pos_t phase_set) {
+        const auto initial = initial_orientations.find(phase_set);
+        if (initial == initial_orientations.end()) return false;
+        const CandidateVariant& candidate =
+            chunk.candidates[initial->second.first];
+        return candidate.hap_to_cons_alle[1] != initial->second.second;
+    };
+
+    // Earlier seams can absorb a phase set that is a later seam's left side.
+    // Preserve that relabeling explicitly so the detector's original IDs stay
+    // usable while the chunk is updated in place from left to right.
+    std::map<hts_pos_t, hts_pos_t> phase_set_aliases;
+    // A component first created beyond an unsupported edge may grow only on
+    // aggregate/DP evidence or a statistically supported edge from an injected BAM site.
+    // Preserve that rule when a following seam refers to the component by its
+    // surviving phase-set label.
+    std::set<hts_pos_t> strong_only_roots;
+    // Exact MEC may otherwise bridge around an intentionally independent BAM
+    // block after the first pass abstains at one of its boundaries.
+    std::set<std::pair<hts_pos_t, hts_pos_t>> bam_block_windows;
+    const auto resolve_phase_set = [&phase_set_aliases](hts_pos_t phase_set) {
+        for (;;) {
+            const auto alias = phase_set_aliases.find(phase_set);
+            if (alias == phase_set_aliases.end() || alias->second == phase_set)
+                return phase_set;
+            phase_set = alias->second;
+        }
+    };
+
+    size_t joined = 0;
+    // A recovered block may appear in several overlapping seam windows. Keep
+    // this set for the whole chunk so the trusted fallback cannot attach the
+    // same original gauge twice through different windows.
+    std::set<hts_pos_t> trusted_used_blocks;
+    for (const RecoverySeam& window : windows) {
+        const auto gauge_it = std::find_if(
+            gauges.begin(), gauges.end(), [&](const RecoveryPhaseGauge& gauge) {
+                return gauge.beg <= window.beg && gauge.end >= window.end;
+            });
+        const RecoveryPhaseGauge* recovery_gauge =
+            gauge_it != gauges.end() ? &*gauge_it : nullptr;
+
+        // Candidate order is reference order. Keep the first occurrence of
+        // each local PS so the chain follows the blocks spatially.
+        std::vector<std::pair<size_t, hts_pos_t>> local_blocks;
+        for (size_t candidate_i = 0; candidate_i < chunk.candidates.size();
+             ++candidate_i) {
+            const CandidateVariant& candidate = chunk.candidates[candidate_i];
+            const hts_pos_t pos = candidate.key.sort_pos();
+            if (!candidate.bam_injected || !oriented(candidate) ||
+                pos <= window.beg || pos >= window.end)
+                continue;
+            const hts_pos_t source_phase_set =
+                initial_phase_sets[candidate_i];
+            if (source_phase_set <= 0) continue;
+            const bool seen = std::any_of(
+                local_blocks.begin(), local_blocks.end(),
+                [&](const auto& block) {
+                    return block.second == source_phase_set;
+                });
+            if (!seen)
+                local_blocks.emplace_back(candidate_i, source_phase_set);
+        }
+        if (!local_blocks.empty())
+            bam_block_windows.emplace(window.beg, window.end);
+
+        // The detector captured these identities while canonical graph and BAM
+        // coordinates were both available. Reusing them avoids attempting to
+        // rediscover an indel flank from a differently padded representation.
+        const hts_pos_t left_phase_set =
+            resolve_phase_set(window.left_phase_set);
+        const hts_pos_t right_phase_set =
+            resolve_phase_set(window.right_phase_set);
+        if (left_phase_set <= 0 || right_phase_set <= 0) continue;
+
+        struct ChainBlock {
+            hts_pos_t current_phase_set;
+            hts_pos_t gauge_phase_set;
+        };
+        std::vector<ChainBlock> chain;
+        chain.reserve(local_blocks.size() + 2);
+        chain.push_back(ChainBlock{left_phase_set, window.left_phase_set});
+        for (const auto& block : local_blocks) {
+            const hts_pos_t current = resolve_phase_set(block.second);
+            const bool seen = std::any_of(
+                chain.begin(), chain.end(),
+                [current](const ChainBlock& item) {
+                    return item.current_phase_set == current;
+                });
+            if (current > 0 && !seen)
+                chain.push_back(ChainBlock{current, block.second});
+        }
+        const bool right_seen = std::any_of(
+            chain.begin(), chain.end(),
+            [right_phase_set](const ChainBlock& item) {
+                return item.current_phase_set == right_phase_set;
+            });
+        if (!right_seen)
+            chain.push_back(
+                ChainBlock{right_phase_set, window.right_phase_set});
+
+        const auto is_imported_phase_set = [&](hts_pos_t phase_set) {
+            if (recovery_gauge != nullptr &&
+                std::find(recovery_gauge->imported_phase_sets.begin(),
+                          recovery_gauge->imported_phase_sets.end(),
+                          phase_set) !=
+                    recovery_gauge->imported_phase_sets.end()) {
+                return true;
+            }
+            return std::any_of(
+                local_blocks.begin(), local_blocks.end(),
+                [phase_set](const auto& block) {
+                    return block.second == phase_set;
+                });
+        };
+        std::optional<bool> outer_relation;
+        const auto left_candidates =
+            initial_phase_set_candidates.find(window.left_phase_set);
+        const auto right_candidates =
+            initial_phase_set_candidates.find(window.right_phase_set);
+        if (left_candidates != initial_phase_set_candidates.end() &&
+            right_candidates != initial_phase_set_candidates.end()) {
+            const std::optional<bool> current_relation =
+                aggregate_candidate_set_flip(
+                    chunk, left_candidates->second,
+                    right_candidates->second, opts);
+            if (current_relation) {
+                // Convert the current candidate orientations back to the
+                // pre-stitch gauges used by the saved phase-set identities.
+                outer_relation =
+                    *current_relation ^
+                    flipped_from_initial(window.left_phase_set) ^
+                    flipped_from_initial(window.right_phase_set);
+            }
+        }
+        // Every recovered chain must preserve a statistically decisive
+        // relation between the already phased graph flanks. Prefer direct
+        // outer-candidate observations. A multi-block BAM solve can also
+        // provide a whole-window graph gauge; when both exist they must agree.
+        std::optional<bool> gauge_outer_relation;
+        if (local_blocks.size() > 1 && recovery_gauge != nullptr) {
+            const std::optional<bool> left_anchor = candidate_anchor_flip(
+                *recovery_gauge, window.left_phase_set,
+                local_blocks.front().second);
+            const std::optional<bool> right_anchor = candidate_anchor_flip(
+                *recovery_gauge, window.right_phase_set,
+                local_blocks.back().second);
+            if (left_anchor && right_anchor) {
+                const int left_orientation = significant_graph_orientation(
+                    *recovery_gauge, window.left_phase_set);
+                const int right_orientation = significant_graph_orientation(
+                    *recovery_gauge, window.right_phase_set);
+                if (left_orientation != 0 && right_orientation != 0) {
+                    gauge_outer_relation =
+                        left_orientation != right_orientation;
+                }
+            }
+        }
+        if (outer_relation && gauge_outer_relation &&
+            *outer_relation != *gauge_outer_relation) {
+            continue;
+        }
+        if (!outer_relation) outer_relation = gauge_outer_relation;
+
+        const auto merge_imported_boundary =
+            [&](hts_pos_t upstream_phase_set,
+                hts_pos_t downstream_phase_set, bool flip) {
+                const hts_pos_t left_root =
+                    resolve_phase_set(window.left_phase_set);
+                const hts_pos_t right_root =
+                    resolve_phase_set(window.right_phase_set);
+                if (outer_relation && left_root != right_root) {
+                    std::optional<bool> resulting_relation;
+                    if (upstream_phase_set == left_root &&
+                        downstream_phase_set == right_root) {
+                        resulting_relation =
+                            flipped_from_initial(window.left_phase_set) ^
+                            flipped_from_initial(window.right_phase_set) ^
+                            flip;
+                    } else if (upstream_phase_set == right_root &&
+                               downstream_phase_set == left_root) {
+                        resulting_relation =
+                            (flipped_from_initial(window.left_phase_set) ^
+                             flip) ^
+                            flipped_from_initial(window.right_phase_set);
+                    }
+                    if (resulting_relation &&
+                        *resulting_relation != *outer_relation) {
+                        return false;
+                    }
+                }
+                return merge_phase_sets_in_place(
+                    chunk, upstream_phase_set, downstream_phase_set, flip);
+            };
+
+        // Imported recovery is an atomic seam transaction. A prefix merge that
+        // fails at a later edge adds no continuity and can only relabel reads
+        // into a less accurate block. Snapshot the mutable phase state and keep
+        // it only if the complete left-to-right chain closes.
+        const CandidateTable candidates_before_window = chunk.candidates;
+        const std::vector<int> haps_before_window = chunk.haps;
+        const std::vector<hts_pos_t> phase_sets_before_window =
+            chunk.phase_sets;
+        const auto aliases_before_window = phase_set_aliases;
+        const auto strong_roots_before_window = strong_only_roots;
+        const size_t joined_before_window = joined;
+
+        const hts_pos_t primary_upstream_phase_set =
+            chain.front().current_phase_set;
+        bool merged_into_upstream = false;
+        bool component_contiguous =
+            strong_only_roots.count(primary_upstream_phase_set) == 0;
+        int upstream_orientation = recovery_gauge != nullptr
+            ? orientation_in_gauge(*recovery_gauge,
+                                   chain.front().gauge_phase_set)
+            : 0;
+        if (recovery_gauge != nullptr && upstream_orientation == 0 &&
+            chain.front().current_phase_set !=
+                chain.front().gauge_phase_set) {
+            // A preceding seam may already have absorbed this boundary. The
+            // targeted BAM solve then votes for the surviving graph label,
+            // while the detector correctly retains the original local label.
+            upstream_orientation = orientation_in_gauge(
+                *recovery_gauge, chain.front().current_phase_set);
+        }
+        for (size_t i = 1; i < chain.size(); ++i) {
+            // A failed edge separates two components; it must not hide a later
+            // supported edge. Resolve the immediately preceding block after
+            // every merge so each component still grows from left to right.
+            const hts_pos_t upstream_phase_set =
+                resolve_phase_set(chain[i - 1].current_phase_set);
+            const hts_pos_t downstream_phase_set =
+                resolve_phase_set(chain[i].current_phase_set);
+            if (downstream_phase_set == upstream_phase_set) continue;
+
+            bool stitched = false;
+            bool used_strong_fallback = false;
+            const bool upstream_imported =
+                is_imported_phase_set(chain[i - 1].gauge_phase_set);
+            const bool downstream_imported =
+                is_imported_phase_set(chain[i].gauge_phase_set);
+            const bool imported_boundary =
+                upstream_imported || downstream_imported;
+
+            // BAM blocks are complete local phase solutions. Their arbitrary
+            // HP gauges carry no relationship until reads spanning an exact
+            // adjacent pair establish one. Candidate membership was captured
+            // before mutation, so neither this vote nor a graph-flank vote can
+            // accidentally pool a different recovered block.
+            if (imported_boundary) {
+                if (upstream_imported && downstream_imported) {
+                    const auto upstream_candidates =
+                        initial_phase_set_candidates.find(
+                            chain[i - 1].gauge_phase_set);
+                    const auto downstream_candidates =
+                        initial_phase_set_candidates.find(
+                            chain[i].gauge_phase_set);
+                    if (upstream_candidates !=
+                            initial_phase_set_candidates.end() &&
+                        downstream_candidates !=
+                            initial_phase_set_candidates.end()) {
+                        const std::optional<bool> current_flip =
+                            aggregate_candidate_set_flip(
+                                chunk, upstream_candidates->second,
+                                downstream_candidates->second, opts);
+                        if (current_flip) {
+                            stitched = merge_imported_boundary(
+                                upstream_phase_set, downstream_phase_set,
+                                *current_flip);
+                        }
+                    }
+                } else if (recovery_gauge != nullptr) {
+                    const std::optional<bool> gauge_flip = block_gauge_flip(
+                        *recovery_gauge, chain[i - 1].gauge_phase_set,
+                        chain[i].gauge_phase_set);
+                    std::optional<bool> current_flip;
+                    if (gauge_flip) {
+                        current_flip =
+                            *gauge_flip ^
+                            flipped_from_initial(
+                                chain[i - 1].gauge_phase_set) ^
+                            flipped_from_initial(chain[i].gauge_phase_set);
+                    }
+                    if (current_flip) {
+                        stitched = merge_imported_boundary(
+                            upstream_phase_set, downstream_phase_set,
+                            *current_flip);
+                    }
+                }
+                if (!stitched) {
+                    component_contiguous = false;
+                    continue;
+                }
+            }
+            // One imported block shares one BAM gauge with both graph flanks.
+            // Multiple imported blocks do not share an orientation with each
+            // other, so only the entry edge may use that common gauge.
+            const bool gauge_covers_edge =
+                local_blocks.size() <= 1 || i == 1;
+            if (!imported_boundary && !stitched && component_contiguous &&
+                gauge_covers_edge &&
+                recovery_gauge != nullptr && upstream_orientation != 0) {
+                const int downstream_orientation =
+                    orientation_in_gauge(*recovery_gauge,
+                                         chain[i].gauge_phase_set);
+                if (downstream_orientation != 0) {
+                    const bool gauge_flip =
+                        upstream_orientation != downstream_orientation;
+                    // Alleles select which locus may later assign reads. The
+                    // shared-read gauge still controls the block orientation;
+                    // mark the locus only when both evidence paths agree.
+                    const std::optional<SupportedAlleleEdge> edge =
+                        strongest_phase_set_edge(
+                            chunk, upstream_phase_set,
+                            downstream_phase_set, opts);
+                    if (edge && edge->flip == gauge_flip) {
+                        mark_supported_locus(
+                            chunk, edge->upstream_candidate);
+                        mark_supported_locus(
+                            chunk, edge->downstream_candidate);
+                    }
+                    stitched = merge_phase_sets_in_place(
+                        chunk, upstream_phase_set, downstream_phase_set,
+                        gauge_flip);
+                }
+            }
+            if (!imported_boundary && !stitched && component_contiguous) {
+                stitched = stitch_phase_sets_by_alleles(
+                    chunk, upstream_phase_set, downstream_phase_set, opts);
+            }
+            if (!imported_boundary && !stitched && !component_contiguous) {
+                // A failed edge begins a new component, but it must not hide a
+                // later, independently decisive site pair. Apply the same
+                // parity test used by the aggregate fallback before extending
+                // that new component. The ordinary one-read recovery floor is
+                // too weak once the outer gauge has disconnected.
+                const std::optional<SupportedAlleleEdge> edge =
+                    strongest_phase_set_edge(
+                        chunk, upstream_phase_set, downstream_phase_set, opts);
+                const std::optional<bool> tested_flip = edge
+                    ? significant_parity_flip(
+                          edge->same, edge->cross, edge->comparisons)
+                    : std::nullopt;
+                if (edge && tested_flip &&
+                    chunk.candidates[static_cast<size_t>(
+                        edge->upstream_candidate)].bam_injected) {
+                    mark_supported_locus(chunk, edge->upstream_candidate);
+                    mark_supported_locus(chunk, edge->downstream_candidate);
+                    stitched = merge_phase_sets_in_place(
+                        chunk, upstream_phase_set, downstream_phase_set,
+                        *tested_flip);
+                    used_strong_fallback = stitched;
+                }
+            }
+            if (!imported_boundary && !stitched) {
+                const std::optional<bool> aggregate_flip =
+                    aggregate_phase_set_flip(
+                        chunk, upstream_phase_set,
+                        downstream_phase_set, opts);
+                if (aggregate_flip) {
+                    stitched = merge_phase_sets_in_place(
+                        chunk, upstream_phase_set,
+                        downstream_phase_set, *aggregate_flip);
+                    used_strong_fallback = stitched;
+                }
+            }
+            if (!imported_boundary && !stitched) {
+                std::optional<hts_pos_t> right_pos;
+                for (const CandidateVariant& candidate : chunk.candidates) {
+                    if (candidate.phase_set != downstream_phase_set ||
+                        !oriented(candidate)) {
+                        continue;
+                    }
+                    const hts_pos_t pos = candidate.key.sort_pos();
+                    if (pos < window.beg || pos > window.end) continue;
+                    if (!right_pos || pos < *right_pos) right_pos = pos;
+                }
+                std::optional<hts_pos_t> left_pos;
+                if (right_pos) {
+                    for (const CandidateVariant& candidate : chunk.candidates) {
+                        if (candidate.phase_set != upstream_phase_set ||
+                            !oriented(candidate)) {
+                            continue;
+                        }
+                        const hts_pos_t pos = candidate.key.sort_pos();
+                        if (pos < window.beg || pos >= *right_pos) continue;
+                        if (!left_pos || pos > *left_pos) left_pos = pos;
+                    }
+                }
+                if (left_pos && right_pos) {
+                    const RecoverySeam edge_window{
+                        *left_pos, *right_pos, upstream_phase_set,
+                        downstream_phase_set};
+                    const std::optional<RecoveryDiploidPath> optimal_path =
+                        optimal_recovery_diploid_path(
+                            chunk, edge_window, upstream_phase_set,
+                            downstream_phase_set);
+                    if (optimal_path) {
+                        stitched = commit_recovery_diploid_path(
+                            chunk, *optimal_path, upstream_phase_set,
+                            downstream_phase_set);
+                        used_strong_fallback = stitched;
+                    }
+                }
+            }
+            if (!stitched) {
+                component_contiguous = false;
+                continue;
+            }
+
+            // Redirect every known alias of the absorbed label. Later seams
+            // still refer to their original detector IDs.
+            for (auto& [source, target] : phase_set_aliases) {
+                (void)source;
+                if (resolve_phase_set(target) == downstream_phase_set)
+                    target = upstream_phase_set;
+            }
+            phase_set_aliases[downstream_phase_set] = upstream_phase_set;
+            phase_set_aliases[chain[i].gauge_phase_set] = upstream_phase_set;
+            const bool keep_strong_only = used_strong_fallback ||
+                strong_only_roots.count(upstream_phase_set) != 0 ||
+                strong_only_roots.count(downstream_phase_set) != 0;
+            strong_only_roots.erase(downstream_phase_set);
+            if (keep_strong_only)
+                strong_only_roots.insert(upstream_phase_set);
+            // merge_phase_sets_in_place already transfers and, when needed,
+            // flips every read belonging to an imported block. Re-scoring the
+            // whole seam would erase the BAM subsolve's independent labels.
+            if (!imported_boundary) merged_into_upstream = true;
+            ++joined;
+        }
+
+        if (!local_blocks.empty() &&
+            (!outer_relation ||
+             resolve_phase_set(window.left_phase_set) !=
+                 resolve_phase_set(window.right_phase_set))) {
+            chunk.candidates = candidates_before_window;
+            chunk.haps = haps_before_window;
+            chunk.phase_sets = phase_sets_before_window;
+            phase_set_aliases = aliases_before_window;
+            strong_only_roots = strong_roots_before_window;
+            joined = joined_before_window;
+
+            // The outer transaction could not prove every edge. Revisit each
+            // graph/BAM neighbor with one exact decision flow: solve the full
+            // atomic blocks, and use boundary scope only when that problem is
+            // over the exact-search bound. Unsupported neighbors remain
+            // separate blocks.
+            // Attach recovered BAM blocks only to graph blocks. Independent
+            // BAM phase blocks remain separate; joining two arbitrary subsolve
+            // gauges here can alter reads without closing a graph seam. Never
+            // use one original block in two fallback joins during the
+            // same pass: chaining locally stable edges can conceal an older
+            // polarity change inside an atomic block.
+            for (size_t edge_i = 1; edge_i < chain.size(); ++edge_i) {
+                const hts_pos_t upstream_source =
+                    chain[edge_i - 1].gauge_phase_set;
+                const hts_pos_t downstream_source =
+                    chain[edge_i].gauge_phase_set;
+                const bool upstream_imported =
+                    is_imported_phase_set(upstream_source);
+                const bool downstream_imported =
+                    is_imported_phase_set(downstream_source);
+                const bool graph_bam_edge =
+                    upstream_imported != downstream_imported;
+                if (!graph_bam_edge ||
+                    trusted_used_blocks.count(upstream_source) != 0 ||
+                    trusted_used_blocks.count(downstream_source) != 0) {
+                    continue;
+                }
+                const hts_pos_t upstream_phase_set =
+                    resolve_phase_set(chain[edge_i - 1].current_phase_set);
+                const hts_pos_t downstream_phase_set =
+                    resolve_phase_set(chain[edge_i].current_phase_set);
+                if (upstream_phase_set <= 0 || downstream_phase_set <= 0 ||
+                    upstream_phase_set == downstream_phase_set) {
+                    continue;
+                }
+                if (!is_imported_phase_set(
+                        chain[edge_i - 1].gauge_phase_set) &&
+                    !is_imported_phase_set(
+                        chain[edge_i].gauge_phase_set)) {
+                    continue;
+                }
+
+                const auto upstream_candidates =
+                    initial_phase_set_candidates.find(
+                        chain[edge_i - 1].gauge_phase_set);
+                const auto downstream_candidates =
+                    initial_phase_set_candidates.find(
+                        chain[edge_i].gauge_phase_set);
+                if (upstream_candidates ==
+                        initial_phase_set_candidates.end() ||
+                    downstream_candidates ==
+                        initial_phase_set_candidates.end()) {
+                    continue;
+                }
+                std::optional<hts_pos_t> upstream_pos;
+                for (const int candidate_i : upstream_candidates->second) {
+                    const hts_pos_t pos = chunk.candidates[
+                        static_cast<size_t>(candidate_i)].key.sort_pos();
+                    if (!upstream_pos || pos > *upstream_pos)
+                        upstream_pos = pos;
+                }
+                std::optional<hts_pos_t> downstream_pos;
+                for (const int candidate_i : downstream_candidates->second) {
+                    const hts_pos_t pos = chunk.candidates[
+                        static_cast<size_t>(candidate_i)].key.sort_pos();
+                    if (!downstream_pos || pos < *downstream_pos)
+                        downstream_pos = pos;
+                }
+                if (!upstream_pos || !downstream_pos) continue;
+                const RecoverySeam trusted_edge{
+                    std::min(*upstream_pos, *downstream_pos),
+                    std::max(*upstream_pos, *downstream_pos),
+                    upstream_phase_set, downstream_phase_set};
+                bool whole_block_too_large = false;
+                std::optional<RecoveryDiploidPath> trusted_path =
+                    trusted_recovery_mec_path(
+                        chunk, trusted_edge, upstream_phase_set,
+                        downstream_phase_set, false,
+                        &whole_block_too_large);
+                // The narrow scope is a resource fallback only. Never use it
+                // to override a full-block tie or conflicting parity.
+                if (!trusted_path && whole_block_too_large &&
+                    graph_bam_edge && recovery_gauge != nullptr &&
+                    candidate_anchor_flip(
+                        *recovery_gauge, upstream_source,
+                        downstream_source)) {
+                    trusted_path = trusted_recovery_mec_path(
+                        chunk, trusted_edge, upstream_phase_set,
+                        downstream_phase_set, true);
+                }
+                if (!trusted_path) continue;
+                if (graph_bam_edge) {
+                    if (recovery_gauge == nullptr) continue;
+                    std::optional<bool> gauge_flip = block_gauge_flip(
+                        *recovery_gauge, upstream_source, downstream_source);
+                    // Distinct centered SNPs with independently significant
+                    // full/half evidence replace the exact-key anchor. Keep
+                    // the source-specific read gauge as a separate check.
+                    if (!gauge_flip && trusted_path->direct_snp_bridge) {
+                        gauge_flip = block_read_gauge_flip(
+                            *recovery_gauge, upstream_source,
+                            downstream_source);
+                    }
+                    if (!gauge_flip) continue;
+                    const bool current_gauge_flip =
+                        *gauge_flip ^
+                        flipped_from_initial(upstream_source) ^
+                        flipped_from_initial(downstream_source);
+                    if (current_gauge_flip != trusted_path->flip_right)
+                        continue;
+                }
+                if (!commit_recovery_diploid_path(
+                        chunk, *trusted_path, upstream_phase_set,
+                        downstream_phase_set)) {
+                    continue;
+                }
+
+                std::set<hts_pos_t> absorbed{downstream_phase_set};
+                for (const auto& site : trusted_path->sites) {
+                    const hts_pos_t phase_set = chunk.candidates[
+                        static_cast<size_t>(site.first)].phase_set;
+                    if (phase_set > 0 && phase_set != upstream_phase_set)
+                        absorbed.insert(phase_set);
+                }
+                for (auto& [source, target] : phase_set_aliases) {
+                    (void)source;
+                    if (absorbed.count(resolve_phase_set(target)) != 0)
+                        target = upstream_phase_set;
+                }
+                for (const hts_pos_t phase_set : absorbed)
+                    phase_set_aliases[phase_set] = upstream_phase_set;
+                phase_set_aliases[chain[edge_i].gauge_phase_set] =
+                    upstream_phase_set;
+                joined += absorbed.size();
+                trusted_used_blocks.insert(upstream_source);
+                trusted_used_blocks.insert(downstream_source);
+            }
+            continue;
+        }
+
+        if (!merged_into_upstream) continue;
+        // Imported HP labels were assigned before the final chain existed and
+        // are stale as soon as a later block is flipped. Reuse longcallD's read
+        // scorer against the completed, oriented phase set so every retained
+        // read derives its HP from the same candidate consensus emitted in VCF.
+        // Include previously unphased reads: once the chain orients an exact MSA
+        // allele, that allele supplies the phase evidence the subsolve lacked.
+        for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+            if (read_i >= chunk.phase_sets.size() ||
+                read_i >= chunk.haps.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const hts_pos_t current_phase_set = chunk.phase_sets[read_i];
+            if (current_phase_set > 0 &&
+                current_phase_set != primary_upstream_phase_set)
+                continue;
+            const int hap = assign_read_hap_from_recovery_chain(
+                chunk, read_i, primary_upstream_phase_set);
+            if (hap < 0) continue;
+            chunk.haps[read_i] = hap;
+            if (hap > 0)
+                chunk.phase_sets[read_i] = primary_upstream_phase_set;
+        }
+    }
+
+    // Preserve the validated left-to-right stitch above as pass one. Exact MEC
+    // revisits only seams that remain open after every ordinary decision has
+    // settled, so an experimental join cannot change the evidence or policy of
+    // a later baseline seam.
+    for (const RecoverySeam& window : windows) {
+        if (bam_block_windows.count({window.beg, window.end}) != 0) continue;
+        const hts_pos_t left_phase_set =
+            resolve_phase_set(window.left_phase_set);
+        const hts_pos_t right_phase_set =
+            resolve_phase_set(window.right_phase_set);
+        if (left_phase_set <= 0 || right_phase_set <= 0 ||
+            left_phase_set == right_phase_set) {
+            continue;
+        }
+
+        const std::optional<RecoveryDiploidPath> mec_path =
+            optimal_recovery_mec_path(
+                chunk, window, left_phase_set, right_phase_set);
+        if (!mec_path) continue;
+
+        std::set<hts_pos_t> absorbed_phase_sets;
+        absorbed_phase_sets.insert(right_phase_set);
+        for (const auto& site : mec_path->sites) {
+            const hts_pos_t phase_set =
+                chunk.candidates[static_cast<size_t>(site.first)].phase_set;
+            if (phase_set > 0 && phase_set != left_phase_set)
+                absorbed_phase_sets.insert(phase_set);
+        }
+        if (!commit_recovery_diploid_path(
+                chunk, *mec_path, left_phase_set, right_phase_set)) {
+            continue;
+        }
+
+        for (auto& [source, target] : phase_set_aliases) {
+            (void)source;
+            if (absorbed_phase_sets.count(resolve_phase_set(target)) != 0)
+                target = left_phase_set;
+        }
+        for (const hts_pos_t phase_set : absorbed_phase_sets)
+            phase_set_aliases[phase_set] = left_phase_set;
+        joined += absorbed_phase_sets.size();
+
+        for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+            if (read_i >= chunk.phase_sets.size() ||
+                read_i >= chunk.haps.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const hts_pos_t current_phase_set = chunk.phase_sets[read_i];
+            if (current_phase_set > 0 && current_phase_set != left_phase_set)
+                continue;
+            const int hap = assign_read_hap_from_recovery_chain(
+                chunk, read_i, left_phase_set);
+            if (hap < 0) continue;
+            chunk.haps[read_i] = hap;
+            if (hap > 0) chunk.phase_sets[read_i] = left_phase_set;
+        }
+    }
+    return joined;
+}
+
 bool allele_depths_call_het(const CandidateVariant& var,
                                   const Options& opts);
 
@@ -602,8 +3014,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             (opts.upstream_assign_hap ||
              var.msa_insertion_alts.empty() || var.gap_link_supported ||
              two_allele_het(var)) &&
-            (opts.upstream_assign_hap ? !var.is_homopolymer_indel
-                                         : !hp_indel_blocks_link)) {
+            (opts.upstream_assign_hap
+                 ? (!var.is_homopolymer_indel || var.gap_link_supported ||
+                    (var.bam_injected && var.alignment_verified))
+                 : !hp_indel_blocks_link)) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
         }
@@ -619,14 +3033,14 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 
     // Link each het var to a preceding one by spanning-read evidence.
     //
-    // Ordinary rounds retain the nearest sufficient link within the preceding
-    // `block_link_window` hets. Recovery rounds retain all sufficient edges,
-    // so a later verified site can connect earlier components.
-    constexpr int kUpstreamMinLinkReads = 2;
-    const int window = opts.upstream_assign_hap ? 1 : std::max(1, opts.block_link_window);
-    const int min_link_reads = opts.upstream_assign_hap
-                                  ? kUpstreamMinLinkReads : opts.min_block_link_reads;
-    struct Edge { int left, right, agree, conflict; };
+    // Search the configured number of preceding heterozygotes and retain the
+    // strongest supported edge. Ties keep the nearer edge because the scan is
+    // nearest first. The ordinary BAM defaults restrict this to one predecessor.
+    // The BAM defaults remain the upstream rule (one predecessor and two
+    // reads). Recovery can widen this local search through its copied Options;
+    // keeping the parameters here avoids a second link implementation.
+    const int window = std::max(1, opts.block_link_window);
+    const int min_link_reads = std::max(1, opts.min_block_link_reads);
     for (int hi = 1; hi < n_het; ++hi) {
         const int vi = valid_var_idx[het_var_idx[hi]];
         const int lo = std::max(0, hi - window);
@@ -638,7 +3052,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             for (int64_t oi = 0; oi < ovlp_n; ++oi) {
                 const int read_i = (int)cr_label(cr, ovlp_b[oi]);
                 if (chunk.reads[read_i].is_skipped) continue;
-                const int agree = opts.link_by_alleles && !opts.upstream_assign_hap
+                const int agree = opts.link_by_alleles
                         ? check_agree_alleles(chunk, read_i, vj, vi)
                         : check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
                 if (agree > 0) a++;
@@ -647,8 +3061,11 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             // An MSA bridge must segregate both haplotypes. A large pile of
             // reference-only observations cannot compensate for missing or
             // contradictory support on the other allele.
-            const int support = opts.upstream_assign_hap
-                                    ? std::max(a, c) : (a == c ? 0 : std::max(a, c));
+            const int support = opts.link_by_alleles
+                                    ? (a == c ? 0 : std::max(a, c))
+                                    : (opts.upstream_assign_hap
+                                           ? std::max(a, c)
+                                           : (a == c ? 0 : std::max(a, c)));
             // Require a net margin for additional repeat links. Read-level
             // disagreements alone do not establish a wrong block orientation.
             if (!opts.upstream_assign_hap &&
@@ -658,7 +3075,6 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             if (support > best_support) {
                 best_support = support; best_h = hj; best_a = a; best_c = c;
             }
-            if (support >= min_link_reads) break;
         }
         link_h[hi] = best_h;
         link_agree[hi] = best_a;
@@ -678,10 +3094,13 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             continue;
         }
         const int hj = link_h[hi];
-        const int support = opts.upstream_assign_hap
-                                ? std::max(link_agree[hi], link_conflict[hi])
-                                : (link_agree[hi] == link_conflict[hi]
-                                       ? 0 : std::max(link_agree[hi], link_conflict[hi]));
+        const int support = opts.link_by_alleles
+                                ? (link_agree[hi] == link_conflict[hi]
+                                       ? 0 : std::max(link_agree[hi], link_conflict[hi]))
+                                : (opts.upstream_assign_hap
+                                       ? std::max(link_agree[hi], link_conflict[hi])
+                                       : (link_agree[hi] == link_conflict[hi]
+                                              ? 0 : std::max(link_agree[hi], link_conflict[hi])));
         if (hj < 0 || support < min_link_reads) {
             // No sufficiently supported link anywhere in the window -- break.
             // Carry the running parity unchanged, as orientation within a fresh
@@ -721,7 +3140,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 changed = 1;
                 // assign_hap.c swaps once per hap (1 then 2), returning the
                 // consensus to its original order while still reporting change.
-                if (!opts.upstream_assign_hap)
+                // Allele-link recovery resolves orientation directly from
+                // the observed allele pair, so its parity must be applied even
+                // while read assignment follows the upstream BAM rule.
+                if (!opts.upstream_assign_hap || opts.link_by_alleles)
                     std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
             }
         }
@@ -985,45 +3407,6 @@ bool read_carries_phase_tags(const int mapq, const Options& opts) {
 /// INVERTED. The block linker is not at fault there and cannot be: it correctly
 /// starts a new phase set for a het with no supported link, but by then the
 /// k-means has already merged the components.
-/// Resolve an imported site's haplotype consensus JOINTLY, after the solve.
-///
-/// The round that owns these sites resets reads to a fresh gauge, so nothing
-/// can be pinned into it -- a carried consensus is fixed in a gauge that no
-/// longer exists, and pinning measured 54 -> 46 emitted records on
-/// chr20:55,290,000-55,380,000. Run afterwards instead, against the labels the
-/// solve settled on, and choose the orientation that maximises agreement
-/// rather than taking each haplotype's majority independently. Independent
-/// majorities are what turned the complementary pair at chr20:55,336,460 --
-/// (0,1) for the insertion and (1,0) for the deletion -- into (0,0) and (1,1),
-/// which the writer skips.
-///
-/// This cannot perturb the solve: it runs after convergence and touches only
-/// the consensus of sites the recovery imported.
-void resolve_injected_consensus_jointly(PhasingChunk& chunk) {
-    for (CandidateVariant& c : chunk.candidates) {
-        if (!c.bam_injected) continue;
-        if (c.hap_to_alle_profile[1].size() < 2 || c.hap_to_alle_profile[2].size() < 2)
-            continue;
-        // Only rescue a site the solve COLLAPSED. Where it produced a
-        // heterozygous call its answer stands, and a site that is genuinely
-        // homozygous must stay homozygous -- forcing an orientation on every
-        // imported site cost two records and split the window in two.
-        if (c.hap_to_cons_alle[1] != c.hap_to_cons_alle[2]) continue;
-        const int ref_alt = c.hap_to_alle_profile[1][0] + c.hap_to_alle_profile[2][1];
-        const int alt_ref = c.hap_to_alle_profile[1][1] + c.hap_to_alle_profile[2][0];
-        const int total = c.hap_to_alle_profile[1][0] + c.hap_to_alle_profile[1][1] +
-                          c.hap_to_alle_profile[2][0] + c.hap_to_alle_profile[2][1];
-        const int win = std::max(ref_alt, alt_ref);
-        const int lose = std::min(ref_alt, alt_ref);
-        // A split the reads actually support: both haplotypes observed, a
-        // margin of at least two reads, and a clear majority for the winning
-        // orientation. Anything weaker leaves the collapsed call alone.
-        if (total < 4 || win - lose < 2 || win * 5 < total * 3) continue;
-        c.hap_to_cons_alle[1] = ref_alt > alt_ref ? 0 : 1;
-        c.hap_to_cons_alle[2] = ref_alt > alt_ref ? 1 : 0;
-    }
-}
-
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
                                                    const Options& opts,
                                                    uint32_t flags,
@@ -1040,7 +3423,7 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     if (valid_var_idx.empty()) return;
 
     // Debug: dump the read x variant allele matrix before phasing mutates state.
-    dump_phase_matrix(chunk, valid_var_idx, var_is_valid, opts, flags);
+    dump_phase_matrix(chunk, valid_var_idx, var_is_valid, opts, flags, nullptr);
 
     const bool is_ont = opts.is_ont();
     const size_t n_reads = chunk.reads.size();

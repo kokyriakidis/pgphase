@@ -1,0 +1,4 @@
+arm	tracked_spans	current_spans	historical_spans	vcf_blocks	vcf_n50_bp	tagged_reads	truth_scorer	truth_evaluated	truth_discordant	truth_accuracy
+retained_representation_fix	27	19	8	452	482085	225005	formal_evaluator	224976	6258	0.972184
+unguarded_local_scope	28	20	8	429	482085	225005	direct_truth_map	225005	6308	0.971965
+guarded_local_retry	28	20	8	419	482085	225005	formal_evaluator	224985	6258	0.972185

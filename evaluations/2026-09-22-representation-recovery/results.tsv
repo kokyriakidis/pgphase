@@ -1,0 +1,4 @@
+arm	tracked_spans	current_spans	historical_spans	vcf_blocks	vcf_n50_bp	tagged_reads	truth_evaluated	truth_discordant	truth_accuracy
+trusted_mec_baseline	26	18	8	467	482085	225005	224969	6257	0.972187
+unsafe_reused_block	27	19	8	441	486119	225003	224974	6325	0.971886
+retained_representation_fix	27	19	8	452	482085	225005	224976	6258	0.972184

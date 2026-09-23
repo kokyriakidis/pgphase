@@ -29,6 +29,7 @@ struct PhaseReadOutputRow {
     int hap = 0;                // 1 or 2 when phased, 0 when unphased
     hts_pos_t phase_set = kUnphasedReadPhaseSet;  // positive when phased
     bool has_phased_assignment = false;
+    bool has_primary_assignment = false;
     int copies = 0;             // number of chunks that observed this read
     std::unordered_map<std::string, int> allele_by_site;  // site_id → allele
 };
@@ -57,18 +58,13 @@ struct GraphSiteMeta {
 // Output of build_graph_chunk: a PhasingChunk ready for k-means phasing,
 // plus graph-specific bookkeeping for VCF output and diagnostics.
 struct GraphChunkBuildResult {
-    /// Windows the in-chunk recovery solved, in reference coordinates.
-    ///
-    /// The parent chunk re-solves after the merge, and its consensus step takes
-    /// each haplotype's majority allele independently -- which collapses a
-    /// genuine heterozygote to one allele when both majorities land on the same
-    /// side. Measured at chr20:55,336,460, where the recovery injects the two
-    /// candidates carrying the window's only informative signal, both correctly
-    /// phased, and the re-solve returns hap_to_cons_alle (0,0) and (1,1) so the
-    /// writer skips both. allele_depths_call_het guards against exactly that,
-    /// and reads retry_windows to decide where it applies, so the parent needs
-    /// the same window list the sub-solve had.
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> recovery_windows;
+    /// Bounded graph seams solved by BAM recovery. Each entry retains the
+    /// canonical boundaries and exact adjacent graph PS identities for the
+    /// final left-to-right stitch.
+    std::vector<RecoverySeam> recovery_windows;
+    /// Read-assignment gauge for each targeted BAM solve. The final stitch uses
+    /// it when separate allele rows do not share a callable observation.
+    std::vector<RecoveryPhaseGauge> recovery_phase_gauges;
     PhasingChunk chunk;
     // Snarl site ID per candidate (parallel to chunk.candidates).
     std::vector<std::string> site_ids;
@@ -129,6 +125,14 @@ void populate_graph_chunk_overlaps(std::vector<GraphChunkBuildResult>& graph_chu
 // K-means hap assignment for every chunk, then overlap detection and stitching.
 void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
                             const Options& opts);
+
+/// Haplotag reads that only observe sites excluded from the clean graph solve.
+///
+/// Already phased reads orient an excluded biallelic site within one existing
+/// phase set. Two independently inferred loci, or one directly phased locus,
+/// may assign an unphased read to a separate read-only block. This pass never
+/// changes candidate phasing or joins phase sets.
+size_t rescue_unphased_graph_reads(PhasingChunk& chunk);
 
 // Fold one stitched chunk's per-read hap/PS assignments into a running map.
 void merge_graph_chunk_into_read_rows(

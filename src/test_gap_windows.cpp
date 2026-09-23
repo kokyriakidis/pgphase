@@ -266,6 +266,18 @@ bool is_phased_het(const std::string& gt) {
     return gt.substr(0, bar) != gt.substr(bar + 1);
 }
 
+/// Return the first changed reference base, matching vcf_to_variant_key().
+/// VCF indels retain a shared left anchor, while the gap manifest and candidate
+/// table use the unanchored BAM coordinate. Comparing raw VCF POS against those
+/// boundaries made a correctly spanning deletion appear one base too short.
+long long normalized_vcf_position(long long pos, const std::string& ref,
+                                  const std::string& alt) {
+    size_t shared = 0;
+    const size_t limit = std::min(ref.size(), alt.size());
+    while (shared < limit && ref[shared] == alt[shared]) ++shared;
+    return pos + static_cast<long long>(shared);
+}
+
 /// Per phase set, the first and last phased heterozygote, and how many fall
 /// strictly inside the gap.
 /// Count sites inside the gap that the solve was allowed to use and did not.
@@ -381,7 +393,16 @@ void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
         const std::string sample = f[9];
         const std::string gt = sample.substr(0, sample.find(':'));
         if (!is_phased_het(gt)) continue;
-        const long long pos = std::stoll(f[1]);
+        const long long raw_pos = std::stoll(f[1]);
+        const long long pos = normalized_vcf_position(
+            raw_pos, f[3], f[4]);
+        // A VCF indel occupies both its mandatory anchor coordinate and its
+        // canonical first-changed coordinate. Use that closed interval for
+        // phase-block extent, while candidate membership below continues to
+        // use the canonical coordinate. Reducing an insertion to only pos + 1
+        // creates a false one-base gap at its left breakpoint.
+        const long long record_beg = std::min(raw_pos, pos);
+        const long long record_end = std::max(raw_pos, pos);
         // PS is located through FORMAT rather than assumed to be a fixed field.
         std::string ps;
         {
@@ -392,10 +413,10 @@ void parse_vcf(const std::string& path, const Window& w, Outcome& out) {
         }
         if (ps.empty() || ps == "." || ps == "0") continue;
         auto it = extent.find(ps);
-        if (it == extent.end()) extent[ps] = {pos, pos};
+        if (it == extent.end()) extent[ps] = {record_beg, record_end};
         else {
-            it->second.first = std::min(it->second.first, pos);
-            it->second.second = std::max(it->second.second, pos);
+            it->second.first = std::min(it->second.first, record_beg);
+            it->second.second = std::max(it->second.second, record_end);
         }
         if (pos > w.gap_left && pos < w.gap_right) {
             ++out.in_gap_hets;
@@ -857,6 +878,29 @@ void emit_expectations(const std::string& out_path, const Paths& p,
     }
     std::fclose(req);
     WARN("wrote required sites to " << p.required);
+}
+
+TEST_CASE("anchored indel spans its VCF breakpoint",
+          "[gap][representation][unit]") {
+    const std::string path = "/tmp/pgphase-anchored-span-regression.vcf";
+    {
+        std::ofstream out(path);
+        REQUIRE(out.good());
+        out << "##fileformat=VCFv4.2\n"
+            << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n"
+            << "chr20\t100\t.\tA\tATC\t.\tPASS\t.\tGT:PS\t0|1:100\n"
+            << "chr20\t200\t.\tT\tC\t.\tPASS\t.\tGT:PS\t1|0:100\n";
+    }
+
+    Window window;
+    window.gap_left = 100;
+    window.gap_right = 200;
+    Outcome outcome;
+    parse_vcf(path, window, outcome);
+    std::remove(path.c_str());
+
+    CHECK(outcome.spans);
+    CHECK(outcome.in_gap_hets == 1);
 }
 
 TEST_CASE("chr20 gap windows", "[gap][windows]") {

@@ -1,0 +1,4 @@
+arm	phased_hets	vcf_blocks	vcf_n50_bp	largest_vcf_block_bp	tagged_reads	truth_evaluated	truth_discordant	truth_accuracy
+prior_guarded_baseline	61644	419	482085	1311008	225005	224985	6258	0.972185
+whole_block_shortcut_rejected	61630	449	486139	1311008	225005	224974	6416	0.971481
+single_flow_resource_guard	61644	419	482085	1311008	225005	224985	6258	0.972185

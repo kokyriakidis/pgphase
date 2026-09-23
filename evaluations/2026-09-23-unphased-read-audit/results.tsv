@@ -1,0 +1,10 @@
+metric	before	after
+shared_reads	252292	252292
+pgphase_tagged	225005	225517
+pgphase_unphased	27287	26775
+hiphase_tagged_on_shared_reads	229797	229797
+hiphase_phases_pgphase_unphased	9183	8682
+both_unphased	18104	18093
+added_pgphase_tags	0	512
+added_truth_correct	0	500
+added_truth_wrong	0	12

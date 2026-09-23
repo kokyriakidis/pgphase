@@ -7,6 +7,7 @@
 #include "noise_filter.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -198,14 +199,15 @@ void merge_phase_read_observation(PhaseReadOutputRow& row,
     if (!inserted && it->second != allele) it->second = -1;
 }
 
-// Fold a chunk's hap/PS assignment into a read's running output row.
-// Chunks are merged in order, so the last chunk's assignment wins — matching
-// the BAM pipeline's PhasedAlignmentWriter where downstream ownership takes
-// precedence for overlap reads.
+// Fold a chunk's hap/PS assignment into a read's running output row. A later
+// phased assignment owns the read, matching downstream chunk ownership. An
+// unphased overlap cannot erase an earlier valid assignment: it contributes no
+// contrary haplotype evidence and previously discarded truth-consistent tags.
 void merge_phase_read_assignment(PhaseReadOutputRow& row,
                                  int chunk_id,
                                  int hap,
-                                 hts_pos_t phase_set) {
+                                 hts_pos_t phase_set,
+                                 bool is_primary) {
     if (row.copies == 0) {
         row.chunk_id = chunk_id;
     } else if (row.chunk_id != chunk_id) {
@@ -213,12 +215,14 @@ void merge_phase_read_assignment(PhaseReadOutputRow& row,
     }
     ++row.copies;
 
-    // Match collect_bam_output PhasedAlignmentWriter::write_chunks: HP/PS come from the one chunk
-    // that owns the read at emission time. Overlap reads skip upstream chunks there; here we merge
-    // finalized chunks in order, so the latest visit matches downstream ownership / stitched state.
-    row.hap                   = hap;
-    row.phase_set             = phase_set;
-    row.has_phased_assignment = ((hap == 1 || hap == 2) && phase_set >= 0);
+    const bool phased = (hap == 1 || hap == 2) && phase_set > 0;
+    if ((phased && (is_primary || !row.has_primary_assignment)) ||
+        !row.has_phased_assignment) {
+        row.hap = hap;
+        row.phase_set = phase_set;
+        row.has_phased_assignment = phased;
+    }
+    if (phased && is_primary) row.has_primary_assignment = true;
 }
 
 // Classify graph candidates using count-based rules matching the BAM pipeline's
@@ -1209,7 +1213,287 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
     stitch_chunk_haps(chunks, &opts, nullptr);
     for (size_t i = 0; i < chunks.size(); ++i) {
         graph_chunks[i].chunk = std::move(chunks[i]);
+        rescue_unphased_graph_reads(graph_chunks[i].chunk);
     }
+}
+
+namespace {
+
+constexpr double kRescueSiteOrientationPValue = 0.01;
+
+struct RescueSiteVote {
+    // [read haplotype - 1][observed allele]
+    std::array<std::array<int, 2>, 2> counts{};
+};
+
+struct RescueMarker {
+    hts_pos_t phase_set = kUnphasedReadPhaseSet;
+    std::array<int, 2> allele_to_hap{};
+    bool is_snp = false;
+    bool is_direct = false;
+};
+
+// Exact one-sided P(X >= successes), X ~ Binomial(trials, 0.5). Sites enter
+// rescue only when their allele/haplotype association is unlikely under an
+// unlinked null, avoiding a fixed read-count threshold that changes meaning
+// with local depth.
+double rescue_binomial_tail(int successes, int trials) {
+    if (successes <= 0) return 1.0;
+    if (successes > trials) return 0.0;
+
+    const long double log_term =
+        std::lgamma(static_cast<long double>(trials + 1)) -
+        std::lgamma(static_cast<long double>(successes + 1)) -
+        std::lgamma(static_cast<long double>(trials - successes + 1)) -
+        static_cast<long double>(trials) * std::log(2.0L);
+    long double term = std::exp(log_term);
+    long double tail = term;
+    for (int k = successes; k < trials; ++k) {
+        term *= static_cast<long double>(trials - k) /
+                static_cast<long double>(k + 1);
+        tail += term;
+    }
+    return static_cast<double>(std::min(1.0L, tail));
+}
+
+bool is_oriented_biallelic_candidate(const CandidateVariant& candidate) {
+    const int hap1 = candidate.hap_to_cons_alle[1];
+    const int hap2 = candidate.hap_to_cons_alle[2];
+    return candidate.phase_set > 0 &&
+           (hap1 == 0 || hap1 == 1) &&
+           (hap2 == 0 || hap2 == 1) && hap1 != hap2;
+}
+
+}  // namespace
+
+static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
+    if (chunk.candidates.empty() || chunk.read_var_profile.empty()) return 0;
+
+    chunk.haps.resize(chunk.reads.size(), 0);
+    chunk.phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
+    chunk.gap_haps.resize(chunk.reads.size(), 0);
+    chunk.gap_phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
+
+    // Each unphased candidate normally overlaps only a few phase sets, so a
+    // sparse map avoids allocating candidates * phase_sets dense counters.
+    using VotesByPhaseSet = std::unordered_map<hts_pos_t, RescueSiteVote>;
+    std::vector<VotesByPhaseSet> site_votes(chunk.candidates.size());
+    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.read_id < 0 ||
+            static_cast<size_t>(profile.read_id) >= chunk.reads.size()) {
+            continue;
+        }
+        const size_t read_i = static_cast<size_t>(profile.read_id);
+        int hap = chunk.haps[read_i];
+        hts_pos_t phase_set = chunk.phase_sets[read_i];
+        if ((hap != 1 && hap != 2) &&
+            (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2)) {
+            hap = chunk.gap_haps[read_i];
+            phase_set = chunk.gap_phase_sets[read_i] - kGapFillPsOffset;
+        }
+        if ((hap != 1 && hap != 2) || phase_set <= 0) continue;
+
+        for (int site_i = profile.start_var_idx;
+             site_i <= profile.end_var_idx; ++site_i) {
+            if (site_i < 0 ||
+                static_cast<size_t>(site_i) >= chunk.candidates.size()) {
+                continue;
+            }
+            const size_t offset = static_cast<size_t>(
+                site_i - profile.start_var_idx);
+            if (offset >= profile.alleles.size()) continue;
+            const int allele = profile.alleles[offset];
+            if (allele != 0 && allele != 1) continue;
+            ++site_votes[static_cast<size_t>(site_i)][phase_set]
+                  .counts[static_cast<size_t>(hap - 1)]
+                         [static_cast<size_t>(allele)];
+        }
+    }
+
+    std::vector<RescueMarker> markers(chunk.candidates.size());
+    for (size_t site_i = 0; site_i < chunk.candidates.size(); ++site_i) {
+        const CandidateVariant& candidate = chunk.candidates[site_i];
+        RescueMarker& marker = markers[site_i];
+        marker.is_snp = candidate.key.type == VariantType::Snp;
+
+        if (is_oriented_biallelic_candidate(candidate)) {
+            marker.phase_set = candidate.phase_set;
+            marker.is_direct = true;
+            marker.allele_to_hap[static_cast<size_t>(
+                candidate.hap_to_cons_alle[1])] = 1;
+            marker.allele_to_hap[static_cast<size_t>(
+                candidate.hap_to_cons_alle[2])] = 2;
+            continue;
+        }
+
+        // An excluded site is usable only when exactly one established phase
+        // set gives it a significant orientation. Evidence from different
+        // blocks is never pooled, because their numeric HP labels need not use
+        // the same gauge.
+        RescueMarker supported;
+        int supported_phase_sets = 0;
+        for (const auto& entry : site_votes[site_i]) {
+            const auto& counts = entry.second.counts;
+            const int hap1 = counts[0][0] + counts[0][1];
+            const int hap2 = counts[1][0] + counts[1][1];
+            const int allele0 = counts[0][0] + counts[1][0];
+            const int allele1 = counts[0][1] + counts[1][1];
+            if (hap1 == 0 || hap2 == 0 || allele0 == 0 || allele1 == 0) {
+                continue;
+            }
+
+            const int same = counts[0][0] + counts[1][1];
+            const int cross = counts[0][1] + counts[1][0];
+            if (same == cross) continue;
+            const int concordant = std::max(same, cross);
+            const int total = same + cross;
+            if (rescue_binomial_tail(concordant, total) >
+                kRescueSiteOrientationPValue) {
+                continue;
+            }
+
+            ++supported_phase_sets;
+            supported.phase_set = entry.first;
+            supported.is_snp = marker.is_snp;
+            supported.allele_to_hap =
+                same > cross ? std::array<int, 2>{1, 2}
+                             : std::array<int, 2>{2, 1};
+        }
+        if (supported_phase_sets == 1) marker = supported;
+    }
+
+    struct PhaseSetReadScore {
+        std::array<int, 2> snp{};
+        std::array<int, 2> indel{};
+        std::array<int, 2> direct_snp{};
+        std::array<int, 2> direct_indel{};
+    };
+
+    struct LocusVote {
+        int hap = 0;
+        bool is_snp = false;
+        bool is_direct = false;
+    };
+
+    size_t rescued = 0;
+    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.read_id < 0 ||
+            static_cast<size_t>(profile.read_id) >= chunk.reads.size()) {
+            continue;
+        }
+        const size_t read_i = static_cast<size_t>(profile.read_id);
+        if (chunk.haps[read_i] == 1 || chunk.haps[read_i] == 2 ||
+            chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) {
+            continue;
+        }
+
+        // Collapse co-located candidate rows before scoring. Split or nested
+        // representations at one coordinate provide one observation; if they
+        // disagree on the proposed haplotype, that locus contributes nothing.
+        using LocusKey = std::pair<hts_pos_t, hts_pos_t>;  // PS, position
+        std::map<LocusKey, LocusVote> locus_votes;
+        for (int site_i = profile.start_var_idx;
+             site_i <= profile.end_var_idx; ++site_i) {
+            if (site_i < 0 ||
+                static_cast<size_t>(site_i) >= markers.size()) {
+                continue;
+            }
+            const size_t offset = static_cast<size_t>(
+                site_i - profile.start_var_idx);
+            if (offset >= profile.alleles.size()) continue;
+            const int allele = profile.alleles[offset];
+            if (allele != 0 && allele != 1) continue;
+
+            const RescueMarker& marker = markers[static_cast<size_t>(site_i)];
+            if (marker.phase_set <= 0) continue;
+            const int proposed_hap =
+                marker.allele_to_hap[static_cast<size_t>(allele)];
+            if (proposed_hap != 1 && proposed_hap != 2) continue;
+
+            const hts_pos_t pos =
+                chunk.candidates[static_cast<size_t>(site_i)].key.sort_pos();
+            const LocusKey key{marker.phase_set, pos};
+            auto [it, inserted] = locus_votes.emplace(
+                key, LocusVote{proposed_hap, marker.is_snp,
+                               marker.is_direct});
+            if (!inserted && it->second.hap != proposed_hap) {
+                it->second.hap = 0;
+            } else if (!inserted) {
+                // A direct SNP is the strongest form when equivalent rows agree.
+                it->second.is_snp = it->second.is_snp || marker.is_snp;
+                it->second.is_direct =
+                    it->second.is_direct || marker.is_direct;
+            }
+        }
+
+        std::unordered_map<hts_pos_t, PhaseSetReadScore> scores;
+        for (const auto& entry : locus_votes) {
+            const LocusVote& vote = entry.second;
+            if (vote.hap != 1 && vote.hap != 2) continue;
+            PhaseSetReadScore& score = scores[entry.first.first];
+            std::array<int, 2>& tier = vote.is_snp ? score.snp : score.indel;
+            std::array<int, 2>& direct =
+                vote.is_snp ? score.direct_snp : score.direct_indel;
+            const size_t hap_i = static_cast<size_t>(vote.hap - 1);
+            ++tier[hap_i];
+            if (vote.is_direct) ++direct[hap_i];
+        }
+
+        hts_pos_t best_phase_set = kUnphasedReadPhaseSet;
+        int best_hap = 0;
+        int best_margin = 0;
+        int best_total = 0;
+        int best_direct = 0;
+        bool tied = false;
+        for (const auto& entry : scores) {
+            const PhaseSetReadScore& score = entry.second;
+            const bool use_snps = score.snp[0] + score.snp[1] > 0;
+            const std::array<int, 2>& tier = use_snps ? score.snp
+                                                      : score.indel;
+            const std::array<int, 2>& direct =
+                use_snps ? score.direct_snp : score.direct_indel;
+            if (tier[0] == tier[1]) continue;
+            const int margin = std::abs(tier[0] - tier[1]);
+            const int total = tier[0] + tier[1];
+            const int hap = tier[0] > tier[1] ? 1 : 2;
+            if (margin > best_margin ||
+                (margin == best_margin && total > best_total)) {
+                best_phase_set = entry.first;
+                best_hap = hap;
+                best_margin = margin;
+                best_total = total;
+                best_direct = direct[0] + direct[1];
+                tied = false;
+            } else if (margin == best_margin && total == best_total) {
+                tied = true;
+            }
+        }
+
+        // One allele is enough only when the ordinary clean solve directly
+        // oriented that site. An excluded site inferred from other reads needs
+        // a second independent locus before it may tag a new read.
+        if (best_hap == 0 || tied ||
+            (best_total == 1 && best_direct == 0)) {
+            continue;
+        }
+        chunk.gap_haps[read_i] = best_hap;
+        chunk.gap_phase_sets[read_i] = best_phase_set + kGapFillPsOffset;
+        ++rescued;
+    }
+    return rescued;
+}
+
+size_t rescue_unphased_graph_reads(PhasingChunk& chunk) {
+    size_t total_rescued = 0;
+    while (true) {
+        // Grow from established blocks toward the middle of a gap. Every next
+        // layer must independently pass the same site-orientation test.
+        const size_t layer_rescued =
+            rescue_unphased_graph_read_layer(chunk);
+        if (layer_rescued == 0) break;
+        total_rescued += layer_rescued;
+    }
+    return total_rescued;
 }
 
 void merge_graph_chunk_into_read_rows(
@@ -1224,6 +1508,18 @@ void merge_graph_chunk_into_read_rows(
         if (row.read_name.empty()) row.read_name = read.qname;
 
         int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
+        hts_pos_t phase_set =
+            read_i < chunk.phase_sets.size()
+                ? chunk.phase_sets[read_i]
+                : kUnphasedReadPhaseSet;
+        bool is_primary = (hap == 1 || hap == 2) && phase_set > 0;
+        if (!is_primary && read_i < chunk.gap_haps.size() &&
+            read_i < chunk.gap_phase_sets.size() &&
+            (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) &&
+            chunk.gap_phase_sets[read_i] > 0) {
+            hap = chunk.gap_haps[read_i];
+            phase_set = chunk.gap_phase_sets[read_i];
+        }
         // Read-confidence gate.  init_assign_read_hap_based_on_cons_alle commits a read to a
         // haplotype on any non-zero score, with no minimum evidence: a read
         // agreeing with a single clean het SNP and contradicting none is
@@ -1235,10 +1531,6 @@ void merge_graph_chunk_into_read_rows(
             read.n_clean_agree_snps - read.n_clean_conflict_snps < min_read_hap_margin) {
             hap = 0;
         }
-        const hts_pos_t phase_set =
-            read_i < chunk.phase_sets.size()
-                ? chunk.phase_sets[read_i]
-                : static_cast<hts_pos_t>(-1);
 
         for (int site_i = profile.start_var_idx; site_i <= profile.end_var_idx; ++site_i) {
             const int offset = site_i - profile.start_var_idx;
@@ -1250,7 +1542,8 @@ void merge_graph_chunk_into_read_rows(
                                          gc.site_ids[static_cast<size_t>(site_i)],
                                          allele);
         }
-        merge_phase_read_assignment(row, chunk.region.chunk_id, hap, phase_set);
+        merge_phase_read_assignment(row, chunk.region.chunk_id, hap, phase_set,
+                                    is_primary);
     }
 }
 

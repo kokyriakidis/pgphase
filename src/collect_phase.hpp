@@ -5,10 +5,12 @@
 // driven by per-variant consensus allele profiles (hap_to_cons_alle),
 // up to 10 refinement rounds, plus cross-chunk stitching.
 
-#include <optional>
 #include "collect_types.hpp"
 
 #include <cstdint>
+#include <optional>
+#include <utility>
+#include <vector>
 
 namespace pgphase_collect {
 
@@ -80,7 +82,7 @@ uint32_t category_to_flag(VariantCategory c);
 ///     sorted by qname;
 ///   - every read-indexed vector must keep the same length and ordering.
 ///
-/// `region_lo`/`region_hi` are the span that was re-solved; pass 0/0 to skip the
+/// `region_lo`/`region_hi` are the targeted BAM span; pass 0/0 to skip the
 /// containment check.
 void verify_chunk_invariants(const PhasingChunk& chunk,
                              size_t site_ids_size,
@@ -112,6 +114,32 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,
                                       const Options& opts);
 
+/// Join two adjacent phase sets using the strongest read-backed allele edge.
+/// The upstream set defines the gauge. A crossed edge flips every candidate
+/// and read in the downstream set before its PS label is replaced atomically.
+bool stitch_phase_sets_by_alleles(PhasingChunk& chunk,
+                                  hts_pos_t upstream_phase_set,
+                                  hts_pos_t downstream_phase_set,
+                                  const Options& opts);
+
+/// Stitch imported BAM phase sets through each explicit graph seam from left
+/// to right. Each BAM block keeps its independent gauge. Incomplete graph/BAM
+/// edges use one bounded exact MEC decision over the complete atomic blocks;
+/// only a problem that exceeds the bound may use the boundary interval, and
+/// then only with an independently significant candidate gauge. Ties,
+/// contradictions, disconnected edges, and unsupported over-bound problems
+/// remain separate. Accepted blocks adopt the upstream gauge atomically.
+size_t stitch_recovery_phase_sets_left_to_right(
+    PhasingChunk& chunk,
+    const std::vector<RecoverySeam>& windows,
+    const std::vector<RecoveryPhaseGauge>& gauges,
+    const Options& opts);
+
+/// Dump the complete post-injection, pre-solve recovery state when diagnostics
+/// are enabled. The snapshot is sufficient for a local boundary replay.
+void dump_recovery_phase_state(const PhasingChunk& chunk, const Options& opts,
+                               const char* label);
+
 // Assign haplotypes and phase sets to reads via iterative k-means clustering.
 //
 // Phase 1: initial sweep from the highest-confidence pivot variant outward,
@@ -136,9 +164,6 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
 ///                 so this round refines that solution instead of resetting and
 ///                 re-solving. Off by default: the shipped second round discards
 ///                 the first one.
-/// Resolve imported sites' consensus jointly, after the solve has converged.
-void resolve_injected_consensus_jointly(PhasingChunk& chunk);
-
 void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk, const Options& opts,
                                                   uint32_t flags, bool anchored = false);
 

@@ -1,0 +1,17 @@
+# Noncentromeric chr20 gaps that HiPhase spans at >=98% local truth purity.
+# These belong in compact in-memory boundary fixtures, never region pipeline tests.
+gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scored
+1903021	1903046	25	29	hiphase_short	1.0000	29
+1907007	1907045	38	31	hiphase_short	1.0000	31
+4778793	4785720	6927	105	hiphase_short	1.0000	35
+32168699	32169151	452	10	hiphase_short	1.0000	6
+34094605	34102868	8263	118	hiphase_short	1.0000	30
+35613763	35613765	2	56	hiphase_short	1.0000	56
+36059715	36069697	9982	87	hiphase_short	1.0000	12
+55882617	55883020	403	68	hiphase_short	1.0000	66
+58416190	58418868	2678	67	hiphase_short	1.0000	48
+61763858	61770862	7004	83	hiphase_short	1.0000	41
+65509649	65509898	249	6	hiphase_short	1.0000	6
+65511683	65513879	2196	9	hiphase_short	1.0000	4
+65953554	65953582	28	61	hiphase_short	0.9833	60
+65994906	65995588	682	51	hiphase_short	1.0000	50

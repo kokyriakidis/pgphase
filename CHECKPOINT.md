@@ -1,5 +1,77 @@
 # pgphase Evaluation Checkpoint
 
+## 2026-09-22 independent BAM recovery phase blocks
+
+Recovery now preserves every phase set produced by the targeted BAM sub-solve
+as an independent local block. Importing candidates no longer implies that
+their HP integers share a gauge, and the recovery stitch cannot route around an
+unsupported BAM boundary through its generic strongest-site, DP, or MEC paths.
+
+The final left-to-right stitch compares one exact adjacent pair at a time.
+Graph/BAM pairs use only their source-specific 2x2 read-haplotype vote.
+BAM/BAM pairs use a candidate-membership-preserving aggregate allele vote.
+Both require the existing one-sided exact binomial test at `p <= 0.01`;
+otherwise the blocks remain separate. An accepted edge mutates the complete
+downstream block atomically. Reads retain the BAM sub-solve's assignment, and
+reads left unphased by that solve are not reassigned from a later composite
+chain.
+
+One orientation bug was found while testing a single BAM block attached to both
+flanks. If the left edge flipped the block, the right-edge source vote was
+previously applied in its old gauge. The stitcher now records an original
+orientation anchor for every phase set and translates each later vote into the
+current gauge.
+
+On the full chr20 fixture, the retained design has:
+
+| metric | independent blocks + direct stitch | prior recovery |
+|---|---:|---:|
+| phased heterozygotes | 59,892 | 59,906 |
+| phase sets | 657 | 187 |
+| phased block span | 54.32 Mb | 56.71 Mb |
+| N50 | 412.1 kb | 1,136.4 kb |
+| tagged reads | 219,579 | 221,836 |
+| truth-discordant reads | 4,762 | 36,220 |
+| truth discordance | 2.169% | 16.327% |
+| target gaps spanned | 14/48 | 31/48 |
+
+The rejected graph/BAM allele-aggregate fallback phased only 42 additional
+reads but raised whole-chr20 discordance from 2.169% to 4.162%. In the fast
+panel it created truth-switched joins at 22.98 Mb (51.1% concordance) and
+48.23 Mb (68.3%). Source-specific graph/BAM votes remove both switches. The
+48-target scorer reports no `SWITCH` for the retained design. Detailed
+commands and output are in
+`evaluations/2026-09-22-independent-bam-blocks/`.
+
+## 2026-09-21 compact gap phasing and atomic stitch prototype
+
+Short-gap iteration no longer belongs in the region integration panel. The 14
+noncentromeric HiPhase targets are listed in
+`evaluations/2026-09-16-test-panel/short_gap_targets.tsv` for conversion to
+compact fixtures. The first synthetic replay uses positions and support patterns
+from the chr20:4.76-4.79 Mb seam containing the 4,778,793-4,785,720 target. It
+constructs the production `PhasingChunk` state directly and runs in under
+0.02 seconds measured wall time; it opens no BAM, GAF, reference, or subprocess.
+
+The fixture separates two decisions. BAM-only reads are first checked inside an
+independent local gap phase set, with parental truth used only by the assertion
+and with whole-block inversion allowed. Stitching then proceeds left to right:
+left PS to gap PS, followed by the oriented gap PS to right PS. The new
+`stitch_phase_sets_by_alleles` primitive ranks candidate edges by net
+same-versus-cross margin and paired-read count, abstains on an equal opposite
+parity, and flips and relabels every candidate and read in the downstream PS
+atomically. A far-right candidate with no read spanning back to the seam is in
+the regression; it still flips because it shares the downstream PS.
+
+Production now uses the same path as the fixture. The merge preserves the BAM
+sub-solve's candidate consensus and read HP/PS under a collision-free local PS,
+keeps established graph assignments unchanged, and stitches the local blocks
+through each seam from left to right. The old whole-chunk k-means rerun,
+outside-in frontier waves, and post-solve consensus repair were removed because
+they recomputed or mutated the imported BAM answer. The regression calls the
+production chain driver directly and also verifies that a tied allele edge
+leaves the downstream block unchanged; measured wall time is under 0.02 seconds.
+
 ## 2026-09-20 graph recovery: exact BAM rows and noncentromeric gaps
 
 The chr20 gap investigation excluded the low-MAPQ 27.5–29 Mb centromeric
@@ -8672,3 +8744,424 @@ by a monotone scan over the qname-ordered parent reads and observations instead
 of constructing another qname set. Ordered maps that define deterministic
 candidate and observation merge order were retained. Full chr20 TSV, phased VCF
 and phased BAM are byte-identical before and after these changes.
+
+### Explicit recovery seams close the 14 short-gap targets (2026-09-21)
+
+The remaining 35.613 Mb failure exposed a representation bug in the final
+stitch. Seam detection used canonical graph/VCF coordinates, but stitching
+discarded the detected phase-set identities and searched again with raw
+candidate keys. The two complementary complex-indel rows at 35,613,763 and
+35,613,765 therefore supplied decisive shared-read BAM gauge votes but the
+stitch selected the wrong flank. Recovery seams now carry canonical begin/end
+coordinates plus their exact left and right graph phase-set IDs.
+
+Left-to-right processing needs one further detail: an earlier seam can absorb
+the phase set named as the following seam's left side. A phase-set alias map
+resolves that old ID to the surviving upstream label. Shared-read gauge lookup
+first checks the original detector ID and then the surviving ID. This restored
+the consecutive 61.76 and 65.51 Mb joins without coordinate rediscovery.
+
+Targeted recovery now runs the standalone longcallD BAM configuration once.
+Co-located MSA allele merging remains disabled, so separate BAM rows are
+injected exactly as called; the earlier graph-style call plus normalized-key
+replacement path is gone. Each solve receives 50--60 kb of context and at
+least three graph anchors per side when available. The shared-qname BAM gauge
+is the primary stitch orientation; strongest allele-pair evidence remains the
+fallback when the gauge abstains.
+
+A fresh targeted run places all 14 selected noncentromeric short gaps inside
+one pgphase phase set. The normalized VCF span result is 14/14. The 32.17 Mb
+isolated case uses 250 kb of outer test context because 50 kb contains no left
+graph anchor; production chromosome chunks already contain that context.
+The other thirteen use 50 kb. Full per-window measurements are in
+evaluations/2026-09-21-short-gap-recovery/final.tsv.
+
+The 55.88 Mb deficit was subsequently traced to the observation and stitching
+path rather than missing sites. The graph plus injected BAM table contains the
+same bridge used by HiPhase: the 55,862,239 deletion, 55,862,269 insertion,
+the complementary four- and six-base deletion rows at 55,883,019, and the
+55,889,113 SNP. Two physical bridge reads carried the six-base deletion in
+their CIGARs, but the verified MSA row was absent from their sparse profiles.
+The exact-CIGAR MSA backfill had no production caller and, when first called,
+also exposed a memory bug: its profile updater could not extend a profile to a
+lower candidate index.
+
+Recovery now backfills verified exact observations only inside detected seams.
+The strongest edge records the locus that earned the chain, and final read HP
+is recomputed from those supported loci with longcallD's allele scorer. This
+prevents an unrelated MSA row from cancelling the bridge and avoids copying a
+stale BAM sub-solve HP after a downstream block flips. At 55.88 Mb the result
+moved from 44/56 truth-correct crossing reads (78.57%) to 64/64 (100%). The
+frozen HiPhase result is 66/66. The remaining pgphase-unphased reads have no
+decisive exact observation on either injected deletion row; assigning them
+would require interpreting a different 18-base deletion or two reference calls
+as one of the complementary BAM alleles.
+
+The graph-adapter unit test now replays the explicit-seam identity invariant at
+all 14 target coordinates and the consecutive-seam alias case entirely in
+memory. It also retains the 4.78 Mb three-block gauge fixture. These tests are
+sub-second after compilation and do not invoke BAM, GAF, reference, or the full
+pipeline. The real-window outputs remain evaluation evidence rather than a
+routine test dependency.
+
+### Expanded HiPhase-correct gap regression panel (2026-09-21)
+
+A fresh full chr20 graph+BAM run with the supported-chain implementation emitted
+205 phase blocks and left 200 inter-block gaps. Frozen HiPhase spans 74. Scoring
+only truth-labeled reads physically crossing both flanks, allowing the arbitrary
+local HP orientation to flip, leaves 34 noncentromeric gaps at >=98% local
+purity. They cover 380,363 bp and 780 scored crossing reads; 15 have at least 20
+scored reads. `remaining_hiphase_correct_gaps.tsv` records every target and marks
+lower-support rows instead of dropping them. The fast explicit-seam replay
+keeps the 14 historical short-gap coordinate cases and adds all 34 current
+misses (48 coordinate cases). The 4.78 Mb gap is
+represented once under each audit's coordinate convention, so the test covers
+47 distinct genomic regions; the current deficit itself is 34 gaps.
+
+### Per-edge aggregate and exact-path recovery close supported chr20 gaps (2026-09-21)
+
+The first DP prototype treated an entire recovery window as one outer-flank
+problem. That is incorrect when the window contains several local phase sets:
+an unsupported early edge prevented the solver from considering a supported
+pair farther to the right. The retained stitcher walks every adjacent phase-set
+pair in reference order. It tries the existing BAM gauge and strongest single
+site pair first, then a per-read aggregate boundary vote, then the exact
+ordered two-state site-path DP for that pair. A missing edge starts an
+independent component and processing continues. Components born after a break
+remain strong-only across later seams, preventing the 33.79 Mb recovery from
+being absorbed by a weak downstream edge.
+
+The aggregate uses up to `block_link_window` oriented boundary candidates from
+each block. Each molecule forms one consensus per side and contributes at most
+one same/cross vote. A net margin of eight is required. On the saved 34-gap
+matrix, every high-support target with aggregate evidence at margin >=8 had the
+truth-consistent parity; all observed wrong low-support parities had margin <=3.
+The implementation queries the read-to-candidate interval index over the
+boundary range rather than rescanning all chunk reads. A fresh full-chr20 run
+after this optimization is byte-identical to the retained pre-optimization
+candidate TSV, phased VCF, and phased BAM.
+
+The DP still solves the exact lexicographic objective for one adjacent pair:
+maximize bottleneck edge margin, then total margin, total support, and finally
+prefer fewer edges. Edges span at most 20 kb and require net margin 10; each
+flank needs two oriented anchors and the winning endpoint parity must exceed the
+other by two. Existing local phase sets are committed atomically. Final
+longcallD scoring may assign a previously unphased read when it observes an
+exact allele on a selected path site; the DP never assigns a label without that
+site evidence.
+
+On the current 34 HiPhase-correct deficit targets, production chr20 recovery
+spans all 15 high-support gaps. The initially reported 14/15 was an evaluator
+bug, not an open phase edge: both insertion rows at raw VCF position 882277 and
+the 890261 right-flank site already carry PS 882277 after recovery. The span
+parser reduced the anchored insertion to only its canonical candidate position
+882278, then incorrectly asked whether the block reached 882277. Phase-block
+extent now includes the closed interval between a VCF record's mandatory anchor
+and canonical first-changed coordinate; candidate membership remains canonical.
+A self-contained regression covers this exact insertion-boundary case. The safe
+solver also closes the low-class 25985709--25986123 gap with a 42-read margin.
+Every newly closed high-support target has at least 84.53% local truth
+concordance, above the accepted 80% floor.
+
+Lowering aggregate and DP margins to one and allowing one flank anchor was
+tested and rejected. It joined 15056025--15071132 at only 68% local concordance,
+while most no-signal targets remained open. The other low-support targets have
+at most three net aggregate votes, and several have zero. Their BAM profiles do
+not contain enough observed alleles to select a diploid chain without guessing;
+the no-realignment design deliberately abstains there.
+
+Full chr20 keeps 59,818 phased heterozygotes. Phase sets fall from 205 to 198 and
+N50 rises from 1,008.5 kb to 1,070.7 kb. Tagged reads move from 221,571 to
+221,307. The same per-phase-set parental diagnostic reduces discordant reads
+from 37,128 to 35,569 (1,559 fewer); its absolute percentage is not used as the
+truth-accuracy headline because that legacy scorer includes all emitted
+unaligned records. Summed phase-set span drops from 56.80 to 56.40 Mb while the
+number of phased heterozygotes is unchanged; that span sum double-counts
+intersecting phase-set extents and also reflects avoided weak joins.
+
+The unit suite now covers both exact DP bridging across disjoint read cohorts
+and aggregate support distributed across four weak site pairs. The aggregate
+fixture proves that no single pair meets the ordinary threshold while the
+one-vote-per-read block evidence joins the two phase sets. A representation
+regression verifies that an anchored insertion contributes both its VCF anchor
+and canonical event coordinate to block extent. The focused 15-window
+high-support integration panel is unchanged by the interval-index optimization.
+
+
+## 2026-09-22 exact injected-site MEC and safe post-break extension
+
+Recovery now finishes with a bounded exact MEC solve for still-open seams. The
+solver uses only read-connected exact BAM-injected sites, treats every existing
+local phase set atomically, compares both right-block orientations, and abstains
+on tied parity or more than 20 variables. It runs after the established
+left-to-right stitch so a new exact join cannot change later baseline decisions.
+
+A separate control-flow bug suppressed a decisive later edge after an earlier
+edge in the same recovery window failed. The retained exception requires the
+later edge to start at a BAM-injected site and have net margin at least eight.
+It closes chr20:58,834,248--58,836,037 at 96.23% parental phase-set purity.
+Exact MEC adds chr20:18,194,808--18,218,259 and
+31,886,648--31,901,501, each at 100% among available local crossing truth reads.
+
+Full chr20 moves from 28/48 to 31/48 coordinate cases spanned (30/47 distinct
+regions), 59,891 to 59,906 phased hets, 200 to 187 VCF phase sets, N50
+1,052,956 to 1,136,391 bp, and 221,431 to 221,836 phased reads. The parental
+read diagnostic changes from 35,360/221,394 discordant (84.03% accurate) to
+36,220/221,799 (83.67%). The added joins retain the correct parental block
+orientation; the extra read discordance is within the accepted tradeoff.
+
+Two broader arms were rejected. Adjacent-pair MEC spanned 40/48 cases but made
+a confirmed haplotype switch at 32,035,459--32,050,364 and raised discordance
+to 40,515 reads. Allowing post-break strongest edges from graph sites also
+flipped a mature 6,418-read block at 1.907 Mb. The injected-endpoint restriction
+prevents both shortcuts. Evidence and totals are in
+`evaluations/2026-09-22-exact-gap-mec/`.
+
+
+The older integration panel still has wrong-orientation graph joins at 6.578,
+22.981, and 48.226 Mb. The exact pre-change binary reproduces all three, so the
+MEC work did not add them. A global eight-read ordinary-link floor fixes only
+6.578 Mb and loses correct 5.31 and 60.03 Mb closures; it was restored to the
+existing value. Treat those three windows as a separate unresolved orientation
+quality problem, not as evidence against the injected-only MEC joins above.
+
+### Per-block recovery gauges and statistical parity decisions (2026-09-22)
+
+The targeted BAM solve already produced independent local phase sets in 15 of
+the 17 still-open chr20 coordinate cases; every injected row in those cases had
+a positive phase set. Two cases had no injected site. The remaining failure was
+therefore block orientation, not the 20-variable MEC search bound.
+
+A correctness bug pooled graph-versus-BAM HP votes across all BAM phase sets
+from one targeted solve. Those phase sets have independent gauges. Recovery now
+stores direct `(graph PS, remapped BAM PS)` same/cross counts and uses only the
+matching vote to orient an adjacent local block.
+
+The experimental fixed eight-read recovery margin was also replaced where it
+was used: direct per-block gauges and block aggregates now apply a one-sided
+exact binomial test against a 50:50 parity null at p <= 0.01. A strongest-site
+fallback applies a Bonferroni correction for the number of pairs searched. This
+accepts 8/0 and rejects 104/96 despite their identical raw margin. Applying the
+test to the ordinary longcallD gauge and allele path was rejected: it lost the
+valid 5.31 and 60.03 Mb joins and changed fallback order enough to create a new
+3.85 Mb switch. The retained scope reproduces the prior ten-window output: the
+same seven known assertions remain, with no new failure.
+
+
+### Read attrition, qname matching, and atomic recovery chains (2026-09-22)
+
+The 34-gap attrition audit rules out BAM admission as the main competitor gap.
+There are 860 primary spanning qnames, 859 eligible at the recovery MAPQ 1
+floor, and 788 eligible under the HiPhase MAPQ 5 default. HiPhase supplementary
+handling adds zero unique bridges. The meaningful drop is after admission: 772
+bridges receive graph tags, 649 receive standalone BAM tags, and only 593
+receive both. Nineteen gaps have fewer than eight doubly tagged bridges.
+HiPhase instead starts from supplied heterozygous sites, performs one global
+A-star haplotype solve, derives blocks from read-connected variants, and tags
+one-allele reads after the solve.
+
+A recovery correctness bug used a two-pointer merge between qname-sorted graph
+reads and coordinate-ordered targeted BAM reads. At 4.78 Mb the 493 source reads
+have 242 qname-order inversions; the old scan recorded a 5--0 boundary vote
+where a qname hash lookup records 180--1. Recovery now indexes parent qnames once
+per graph chunk and looks up every BAM read.
+
+Using the complete vote without more validation exposed correlated systematic
+errors. A permissive internal-block replay raised full-chr20 discordance to
+5,206/219,250 (2.37%); preserving independent blocks after failed seams reduced
+it to 5,098/219,246 (2.33%). Read binomial significance could not distinguish
+the edges: wrong joins had 84--100% apparent support and the correct 55.381 Mb
+edge had 86.5%.
+
+The retained transaction requires source-specific graph/BAM read parity at
+`p <= 0.01`, a consistent shared clean candidate, and an independently measured
+outer graph relation. A multi-BAM-block chain without direct outer-candidate
+evidence may use the whole-window graph gauge only when the gauge passes
+`p <= 0.01` and each outer boundary has a shared-candidate parity result at
+`p <= 0.05`. The two outer measurements must agree when both exist. Any failed
+edge restores candidates, read HP/PS assignments, aliases, and recovery state;
+internal BAM edges are not replayed after rollback.
+
+The final chr20 run phases 219,396 reads and 59,891 heterozygotes in 671 VCF
+blocks with N50 412,113 bp. Among 219,233 truth-evaluated reads, 4,641 are
+discordant (2.12%, 97.88% accuracy), improving the previous retained
+4,759/219,434 (2.17%, 97.83%). It spans 12/48 tracked coordinate cases versus
+14/48 previously. The two lost physical joins lack evidence independent of the
+same correlated BAM solve; retaining them also retains the observed accuracy
+regression. The focused integration panel records the new 4.78 Mb closure at
+427/428 local concordance, and no spanned target is classified as a switch.
+Detailed counts and per-gap rows are in
+`evaluations/2026-09-22-gap-read-attrition/`.
+
+
+### Graph GAF MAPQ floor closes additional recovery targets (2026-09-22)
+
+The graph command formerly inherited longcallD/BAM's MAPQ 30 default. On chr20,
+MAPQ 5 admits 2,611 additional graph candidates, phases 1,739 additional
+heterozygotes and tags 5,609 additional reads. The tracked panel moves from
+12/48 to 17/48 spans, with no span classified as a haplotype `SWITCH` by the
+local truth scorer. Six current misses close and one historical span opens.
+Whole-chromosome accuracy changes from 97.88% (4,641/219,233 discordant) to
+97.28% (6,112/224,943 discordant), an accepted completeness tradeoff.
+
+A recovery-only alternative scored lower-MAPQ BAM reads against already phased
+graph flanks without allowing them to alter graph consensus. It left the panel
+at 12/48 and changed truth discordance by one read. The missing reads therefore
+need to participate in graph-site clustering and construction of the adjacent
+phase sets; post-hoc orientation evidence is too late. The experimental path was
+removed. `collect-graph-variation` now defaults to MAPQ 5, its prior effective
+HiPhase-comparable floor. `collect-bam-variation` retains the longcallD MAPQ 30
+default, and `--min-mapq` still overrides the graph setting.
+
+### Trusted SNP-first MEC closes graph/BAM recovery edges (2026-09-22)
+
+HiPhase's joint binary MEC design was replayed on pgphase's existing allele
+matrix without realignment. Uniform all-site MEC is unsafe: at 33.79 Mb noisy
+indels and false heterozygous SNPs overturned a 30--2 direct SNP relation.
+The retained fallback uses AF-centered SNPs first (`|AF-0.5| <= 0.12`), adds
+centered indels only when SNPs are disconnected, and requires one exact parity
+from the full reads and both deterministic read halves. Graph/BAM edges must
+also agree with their source-specific block gauge and shared candidate. BAM/BAM
+blocks remain independent, and one original block can attach only once per
+chunk across overlapping seam windows.
+
+On full chr20 at graph MAPQ 5 this moves the 48-case panel from 17 to 26 spans
+(9/34 to 18/34 current HiPhase-correct cases; no historical loss), reduces VCF
+blocks from 659 to 467, raises N50 from 412,113 to 482,085 bp, and keeps all
+225,005 tagged reads. Truth discordance changes from 6,116 to 6,259 reads
+(97.282% to 97.218%). The switch audit finds no new large polarity reversal.
+The rejected permissive arm reached 28/48 at 95.31% accuracy and created large
+wrong-gauge blocks. Full results and rejected arms are in
+`evaluations/2026-09-22-hiphase-joint-solver/`.
+
+### Boundary representation fixes retain the one-attachment invariant (2026-09-22)
+
+Two remaining gaps exposed representation assumptions in trusted MEC. At
+14.264 Mb, separate rows from one multi-allelic deletion had AF 0.657 and 0.314
+although their deletion-to-SNP tables were pure (23--0 and 12--0). A selected
+alignment-verified boundary indel may now enter only when no centered boundary
+site exists; rows are never merged and the source gauge remains mandatory. At
+14.679 Mb, two centered SNP anchors six bases apart had 76--0 direct support but
+failed the sequence-identical-key requirement. The nearest SNP pair can now
+replace that exact-key check when the full reads and both deterministic halves
+all pass corrected binomial p<=0.05 and agree with MEC and the source read gauge.
+The check is linear in reads and SNPs still have lexicographic priority over
+indels.
+
+An experiment allowing a recovered block to attach twice was rejected: it
+created an incorrect 54.49 Mb merge and changed 342 correct reads to discordant.
+The retained implementation keeps one trusted attachment per original block and
+never uses this fallback for BAM/BAM edges. Full chr20 moves from 26/48 to 27/48
+tracked spans (18/34 to 19/34 current targets), reduces VCF blocks 467 to 452,
+keeps N50 482,085 bp and all 225,005 tags, and changes the matched truth result
+from 6,257/224,969 to 6,258/224,976 discordant. No previously evaluated read
+changes concordant/discordant status; seven formerly skipped reads become six
+correct and one incorrect. Details are in
+`evaluations/2026-09-22-representation-recovery/`.
+
+### Guarded local MEC retry closes 14.264 Mb without a switch (2026-09-23)
+
+The apparent full-chunk gauge conflict at 14.264 Mb was a diagnostic
+misinterpretation. Replaying the saved matrix showed agreement among all three
+independent signals: exact MEC chose the cross orientation in the full read set
+and both FNV halves, the source graph/BAM gauge was 275--0, and 59 shared clean
+candidates selected the same cross orientation. The actual failure was search
+scope: expanding the 8 kb edge over the neighboring atomic block admitted more
+than 20 unrelated unphased variables, so the exact solver abstained.
+
+The retained solver keeps whole-block validation as its first attempt. When that
+problem cannot be solved, it retries only the selected boundary interval if
+sequence-identical candidate votes are significant at one-sided binomial
+p<=0.05. The full/half MEC parity and source read gauge still must agree, and
+the existing one-attachment and no-BAM/BAM rules remain. A one-anchor edge at
+51.27 Mb demonstrated why the guard is required: an unguarded retry merged
+opposite parental orientations and caused 54 correct-to-wrong read changes in
+that block; the retained retry abstains there.
+
+Full chr20 moves from 27/48 to 28/48 tracked spans (19/34 to 20/34 current,
+8/14 historical unchanged), reduces VCF blocks from 452 to 419, keeps N50
+482,085 bp and all 225,005 tagged reads. Direct parental-truth comparison finds
+zero correct-to-wrong and zero wrong-to-correct read changes. The formal
+diplinator evaluator reports 6,258 discordant of 224,985 evaluated reads
+(97.2185%); the baseline had the same 6,258 discordant with nine fewer eligible
+reads. Details are in `evaluations/2026-09-23-local-edge-retry/`.
+
+### Recovery MEC uses one resource-aware decision flow (2026-09-23)
+
+Simplification experiments established the boundary of the algorithm. Replacing
+site MEC with whole-block majority voting reduced phased heterozygotes by 14 and
+raised chr20 truth discordance from 6,258 to 6,416 reads. Removing the variable
+bound was also rejected: real components contain up to 167 coupled variables,
+and full chr20 still consumed about seven CPU cores after 2.5 minutes. Binary
+MEC is NP hard, so a practical exact implementation must be allowed to abstain.
+
+The retained flow distinguishes evidence failure from resource exhaustion. It
+solves the complete read-connected atomic blocks first. A tie, split-half
+disagreement, source-gauge conflict, or missing evidence ends the decision. Only
+an otherwise eligible problem exceeding the 20-variable exact-search bound may
+use the selected boundary interval, and significant sequence-identical candidate
+evidence must authorize that scope. This prevents a narrower matrix from
+silently overriding contradictory whole-block evidence.
+
+The refactor is output preserving on full chr20: the phased VCF is byte identical
+and the SAM records from the phased BAM have the same MD5 as the prior guarded
+baseline. Metrics remain 61,644 phased heterozygotes, 419 VCF blocks, 482,085 bp
+VCF N50, 225,005 tagged reads, and 6,258/224,985 formal truth discordance
+(97.2185%). The 14.264 Mb target remains joined and 51.27 Mb remains separate.
+Details and rejected arms are in
+`evaluations/2026-09-23-single-flow-recovery/`.
+
+### Unphased-read audit and overlap-output fix (2026-09-23)
+
+A qname-exact comparison of the current chr20 graph+BAM output with HiPhase
+found 9,183/27,287 pgphase-unphased reads tagged by HiPhase and 18,104 left
+unphased by both. The graph read-evidence diagnostic showed that 24,795 reads
+had graph allele observations but no eligible site produced a haplotype score,
+1,807 had no graph allele observation, 174 tied, and 14 retained a positive
+margin without a final assignment. HiPhase's larger DeepVariant-backed phased
+set (77,123 heterozygotes versus 61,644) and its post-solve single-allele
+haplotagging explain most of its extra coverage. The extra 9,183 calls are
+8,071/9,183 (87.89%) truth-correct. MAPQ is secondary: only 505 are below 30
+and none below HiPhase's floor of 5.
+
+The audit also found 512 reads with a valid internal HP/PS assignment that the
+phased-BAM accumulator erased when a later overlapping chunk visited the read
+unphased. The merge now preserves a valid assignment across an unphased visit;
+a later phased assignment still owns the read. Full chr20 adds exactly 512 tags
+with no lost or changed existing tags. Direct parental truth supports 500/512
+(97.66%), and the phased VCF remains byte-identical. Current counts are 225,517
+phased and 26,775 unphased graph-associated reads. HiPhase tags 8,682 of the
+remainder at 87.68% truth accuracy. Details are in
+`evaluations/2026-09-23-unphased-read-audit/`.
+
+
+### Post-solve graph read rescue closes the aggregate HiPhase coverage gap (2026-09-23)
+
+The 8,682-read HiPhase-only deficit was separated into solver and input effects.
+Running HiPhase 1.7.0 on pgphase's own 61,644-heterozygote graph VCF tagged
+225,978 shared reads and recovered only 3,444/8,682 target reads. The original
+HiPhase DeepVariant output carries 25,465 phased alleles absent from pgphase
+output, including 11,312 SNPs; only 6,344 and 1,818 respectively occur exactly
+in the complete graph catalog. Most of the remaining exact-read difference is
+therefore private-site or representation input, not an A*/k-means choice.
+
+The retained read-only pass runs after cross-chunk stitching. Assigned reads
+orient excluded biallelic sites within one PS using both haplotypes, both
+alleles, and an exact one-sided binomial p<=0.01. Exactly one PS must support the
+site. Fixed-point layers extend inward, SNP votes precede indel votes, and
+co-located rows vote once. One directly phased site may tag a read; an
+indirectly oriented excluded site needs a second independent locus. Conflicts
+and ties abstain. Fallback assignments use the independent
+`PS + kGapFillPsOffset` namespace and cannot override primary HP/PS. Candidates
+and VCF phase sets are untouched.
+
+Full chr20 phases 230,072/252,292 shared reads, 275 more than HiPhase on that
+population. It adds 4,555 reads with no lost or changed existing assignments and
+a byte-identical phased VCF. Of the original 8,682 HiPhase-only reads, 3,159 are
+recovered at 85.57% truth accuracy. Whole-output direct truth accuracy is 96.84%
+(222,801/230,072), above HiPhase's 95.91% on its full read population. The five
+window concordance floors intentionally move to 0.88, 0.98, 0.99, 0.85 and
+0.94 while all 232 assertions pass. The remaining 5,523 exact qnames cannot all
+be obtained from the retained graph site representation; matching them requires
+discovering or importing the sample-private alleles. Details are in
+`evaluations/2026-09-23-unphased-read-audit/`.

@@ -75,23 +75,17 @@ void run_collect_bam_variation(const Options& opts);
  * addition to the standard BAM pipeline inputs.
  */
 
-
 /// Recover bounded seams between neighboring phase sets inside a graph chunk.
 ///
-/// The alignment caller supplies candidate rows and per-read observations for
-/// the seam. They enter the position-sorted live chunk before its ordinary
-/// phasing rounds rerun, so no detached phase labels need to be imported.
+/// The alignment caller supplies candidate rows, local candidate/read HP/PS,
+/// and per-read observations. The merge keeps the local gauge under a
+/// collision-free PS label and leaves established graph assignments unchanged.
 ///
-/// Returns the number of alignment candidates merged in.
-size_t recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
-                                           const Options& opts,
-                                           WorkerContext& context,
-                                           const char* contig_name);
-
-/// Admit the strongest decisive next alignment-recovered frontier locus for
-/// each disconnected phase-set pair, then let the caller re-solve.
-size_t expand_recovery_frontiers_once(PhasingChunk& chunk, const Options& opts);
-
+/// Returns true when new candidates or refreshed graph-site evidence was merged.
+bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
+                                       const Options& opts,
+                                       WorkerContext& context,
+                                       const char* contig_name);
 
 /// One candidate the recovery sub-solve found inside a recovery window, with
 /// every decision the merge made about it.

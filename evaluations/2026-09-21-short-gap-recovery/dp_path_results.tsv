@@ -1,0 +1,13 @@
+scope	metric	pre_dp	per_edge_recovery	note
+34_current_deficit	high_support_spanned	0	15	all high-support targets; anchored-indel extent corrected
+34_current_deficit	low_support_spanned	0	1	25985709--25986123, aggregate margin 42
+new_high_support_closures	minimum_local_concordance	.	0.8453	accepted floor 0.80
+full_chr20	phased_hets	59818	59818	unchanged
+full_chr20	phase_sets	205	198	seven fewer
+full_chr20	n50_kb	1008.5	1070.7	larger phase blocks
+full_chr20	tagged_reads	221571	221307	264 fewer
+full_chr20	diagnostic_discordant_reads	37128	35569	1559 fewer; absolute legacy rate is not headline accuracy
+optimization	candidate_tsv_sha256	d5f649410959df6097bb87ce3f4f3d1293465f61f8c3baa4d00e8ffe7d8b8a51	d5f649410959df6097bb87ce3f4f3d1293465f61f8c3baa4d00e8ffe7d8b8a51	byte-identical
+optimization	phased_vcf_sha256	ca263ecc8654e13e0decdd6949f2299d2646d643e62fddf7d7e4ebded329f036	ca263ecc8654e13e0decdd6949f2299d2646d643e62fddf7d7e4ebded329f036	byte-identical
+optimization	phased_bam_sha256	b000c524f1f9d2be94deb941c32a935fdefdb648d7dd19035eecdecd17887d7f	b000c524f1f9d2be94deb941c32a935fdefdb648d7dd19035eecdecd17887d7f	byte-identical
+chr20_882277_890261	anchored_extent_span	0	1	PS 882277 already contains raw insertion anchor and 890261 right flank
