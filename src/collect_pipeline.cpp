@@ -1851,6 +1851,148 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     return true;
 }
 
+static void add_bam_observation_to_graph_profile(
+        ReadVariantProfile& profile, size_t candidate_i, int allele, int alt_qi) {
+    if (allele != 0 && allele != 1) return;
+
+    const int old_start = profile.start_var_idx;
+    const int old_end = profile.end_var_idx;
+    const int new_start =
+        old_start < 0 ? static_cast<int>(candidate_i)
+                      : std::min(old_start, static_cast<int>(candidate_i));
+    const int new_end =
+        old_end < 0 ? static_cast<int>(candidate_i)
+                    : std::max(old_end, static_cast<int>(candidate_i));
+    const size_t new_size =
+        static_cast<size_t>(new_end - new_start + 1);
+    if (old_start < 0 || new_start != old_start || new_end != old_end) {
+        const size_t shift =
+            old_start < 0 ? 0 : static_cast<size_t>(old_start - new_start);
+        const auto expand = [&](std::vector<int>& values, int fill) {
+            std::vector<int> expanded(new_size, fill);
+            if (old_start >= 0) {
+                std::copy(values.begin(), values.end(),
+                          expanded.begin() +
+                              static_cast<std::ptrdiff_t>(shift));
+            }
+            values = std::move(expanded);
+        };
+
+        expand(profile.alleles, -1);
+        expand(profile.alt_qi, 0);
+        if (!profile.graph_alleles.empty()) expand(profile.graph_alleles, -1);
+        if (!profile.bam_alleles.empty()) expand(profile.bam_alleles, -1);
+        if (!profile.bam_qi.empty()) expand(profile.bam_qi, 0);
+        profile.start_var_idx = new_start;
+        profile.end_var_idx = new_end;
+    }
+    const size_t offset =
+        candidate_i - static_cast<size_t>(new_start);
+
+    // The graph observation remains authoritative when both channels called
+    // different alleles. BAM fills only an absent graph observation; retaining
+    // the conflict in bam_alleles keeps it available for diagnostics without
+    // turning disagreement into a phasing vote.
+    if (profile.bam_alleles.empty())
+        profile.bam_alleles.assign(new_size, -1);
+    if (profile.bam_qi.empty())
+        profile.bam_qi.assign(new_size, 0);
+    profile.bam_alleles[offset] = allele;
+    profile.bam_qi[offset] = alt_qi;
+}
+
+/// Add exact sequence-matched BAM alleles to existing graph candidates.
+///
+/// The whole-chunk BAM solve used for output fallback sees reads and private
+/// indels that the GAF profile can omit. Candidate state and graph phasing stay
+/// unchanged; this function only fills missing per-read observations so the
+/// post-stitch statistical rescue can evaluate them in the final graph gauge.
+static void attach_bam_observations_to_graph_profiles(
+        GraphChunkBuildResult& graph_chunk,
+        const PhasingChunk& bam,
+        int solve_tid,
+        const std::unordered_map<std::string_view, size_t>& graph_read_by_qname) {
+    PhasingChunk& graph = graph_chunk.chunk;
+    CandidateIndex raw_index;
+    CandidateIndex sequence_index;
+    const bool have_meta =
+        graph_chunk.site_meta.size() == graph.candidates.size();
+    const bool have_orig =
+        graph_chunk.site_allele_orig_idx.size() == graph.candidates.size();
+
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const CandidateVariant& candidate = graph.candidates[ci];
+        if (candidate.counts.n_uniq_alles > 2) continue;
+        raw_index.emplace(cand_key_of(candidate), ci);
+        if (!have_meta) continue;
+
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        if (meta.ref.empty()) continue;
+        if (have_orig && graph_chunk.site_allele_orig_idx[ci].size() > 1) {
+            const int alt_i = graph_chunk.site_allele_orig_idx[ci][1] - 1;
+            if (alt_i < 0 || static_cast<size_t>(alt_i) >= meta.alts.size() ||
+                meta.alts[static_cast<size_t>(alt_i)].empty()) {
+                continue;
+            }
+            const VariantKey translated = vcf_to_variant_key(
+                solve_tid, meta.pos, meta.ref,
+                meta.alts[static_cast<size_t>(alt_i)]);
+            sequence_index.emplace(
+                CandKey{translated.sort_pos(), static_cast<int>(translated.type),
+                        translated.ref_len, translated.alt},
+                ci);
+        } else if (meta.alts.size() == 1 && !meta.alts[0].empty()) {
+            const VariantKey translated =
+                vcf_to_variant_key(solve_tid, meta.pos, meta.ref, meta.alts[0]);
+            sequence_index.emplace(
+                CandKey{translated.sort_pos(), static_cast<int>(translated.type),
+                        translated.ref_len, translated.alt},
+                ci);
+        }
+    }
+
+    const size_t missing_candidate = graph.candidates.size();
+    std::vector<size_t> graph_candidate_by_bam_candidate(
+        bam.candidates.size(), missing_candidate);
+    for (size_t bam_candidate_i = 0;
+         bam_candidate_i < bam.candidates.size(); ++bam_candidate_i) {
+        const CandidateVariant& candidate = bam.candidates[bam_candidate_i];
+        if (candidate.counts.n_uniq_alles > 2) continue;
+        const ParentCandidateMatch parent = find_parent_candidate(
+            raw_index, sequence_index, cand_key_of(candidate),
+            missing_candidate);
+        graph_candidate_by_bam_candidate[bam_candidate_i] = parent.index;
+    }
+
+    for (size_t bam_read_i = 0;
+         bam_read_i < bam.reads.size() &&
+         bam_read_i < bam.read_var_profile.size(); ++bam_read_i) {
+        const auto graph_read =
+            graph_read_by_qname.find(bam.reads[bam_read_i].qname);
+        if (graph_read == graph_read_by_qname.end()) continue;
+        const size_t graph_read_i = graph_read->second;
+        if (graph_read_i >= graph.read_var_profile.size()) continue;
+
+        const ReadVariantProfile& source = bam.read_var_profile[bam_read_i];
+        if (source.start_var_idx < 0) continue;
+        for (size_t offset = 0; offset < source.alleles.size(); ++offset) {
+            const size_t bam_candidate_i =
+                static_cast<size_t>(source.start_var_idx) + offset;
+            if (bam_candidate_i >= bam.candidates.size()) break;
+            const int allele = source.alleles[offset];
+            if (allele != 0 && allele != 1) continue;
+            const size_t graph_candidate_i =
+                graph_candidate_by_bam_candidate[bam_candidate_i];
+            if (graph_candidate_i == missing_candidate) continue;
+
+            add_bam_observation_to_graph_profile(
+                graph.read_var_profile[graph_read_i],
+                graph_candidate_i, allele,
+                offset < source.alt_qi.size() ? source.alt_qi[offset] : 0);
+        }
+    }
+}
+
 size_t recover_independent_bam_read_blocks_in_place(
         GraphChunkBuildResult& graph_chunk,
         const Options& opts,
@@ -1877,6 +2019,12 @@ size_t recover_independent_bam_read_blocks_in_place(
     graph_read_by_qname.reserve(graph.reads.size());
     for (size_t read_i = 0; read_i < graph.reads.size(); ++read_i)
         graph_read_by_qname.try_emplace(graph.reads[read_i].qname, read_i);
+
+    // Preserve the whole-chunk BAM solve's exact allele observations for
+    // sequence-identical graph candidates. They are consumed only by the
+    // post-stitch read rescue and cannot alter graph candidate phase state.
+    attach_bam_observations_to_graph_profiles(
+        graph_chunk, bam, solve_tid, graph_read_by_qname);
 
     struct BamBlockEvidence {
         std::unordered_map<hts_pos_t, size_t> link_by_graph_phase_set;

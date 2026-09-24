@@ -207,7 +207,8 @@ void merge_phase_read_assignment(PhaseReadOutputRow& row,
                                  int chunk_id,
                                  int hap,
                                  hts_pos_t phase_set,
-                                 bool is_primary) {
+                                 bool is_primary,
+                                 bool fill_only) {
     if (row.copies == 0) {
         row.chunk_id = chunk_id;
     } else if (row.chunk_id != chunk_id) {
@@ -216,8 +217,10 @@ void merge_phase_read_assignment(PhaseReadOutputRow& row,
     ++row.copies;
 
     const bool phased = (hap == 1 || hap == 2) && phase_set > 0;
-    if ((phased && (is_primary || !row.has_primary_assignment)) ||
-        !row.has_phased_assignment) {
+    const bool may_replace = !fill_only || !row.has_phased_assignment;
+    if (may_replace &&
+        ((phased && (is_primary || !row.has_primary_assignment)) ||
+         !row.has_phased_assignment)) {
         row.hap = hap;
         row.phase_set = phase_set;
         row.has_phased_assignment = phased;
@@ -1222,11 +1225,15 @@ namespace {
 constexpr double kRescueSiteOrientationPValue = 0.01;
 constexpr double kIndependentBlockAssociationPValue = 0.01;
 constexpr double kIndependentBlockMaxDiscordance = 0.10;
+constexpr double kRescueSingletonMaxDiscordance = 0.15;
 constexpr double kOneSided95PercentZ = 1.6448536269514722;
 
 struct RescueSiteVote {
     // [read haplotype - 1][observed allele]
     std::array<std::array<int, 2>, 2> counts{};
+    // Read-only rescue assignments may extend a two-locus chain, but they
+    // cannot establish the stronger evidence needed for a singleton rescue.
+    std::array<std::array<int, 2>, 2> primary_counts{};
 };
 
 struct RescueMarker {
@@ -1234,6 +1241,7 @@ struct RescueMarker {
     std::array<int, 2> allele_to_hap{};
     bool is_snp = false;
     bool is_direct = false;
+    bool singleton_safe = false;
 };
 
 // Exact one-sided P(X >= successes), X ~ Binomial(trials, 0.5). Sites enter
@@ -1265,6 +1273,17 @@ bool is_oriented_biallelic_candidate(const CandidateVariant& candidate) {
     return candidate.phase_set > 0 &&
            (hap1 == 0 || hap1 == 1) &&
            (hap2 == 0 || hap2 == 1) && hap1 != hap2;
+}
+
+double one_sided_wilson_upper_bound(int discordant, int total) {
+    if (total <= 0 || discordant < 0 || discordant > total) return 1.0;
+    const double n = static_cast<double>(total);
+    const double rate = static_cast<double>(discordant) / n;
+    const double z2 = kOneSided95PercentZ * kOneSided95PercentZ;
+    const double center = rate + z2 / (2.0 * n);
+    const double spread = kOneSided95PercentZ * std::sqrt(
+        rate * (1.0 - rate) / n + z2 / (4.0 * n * n));
+    return (center + spread) / (1.0 + z2 / n);
 }
 
 }  // namespace
@@ -1303,14 +1322,8 @@ bool independent_bam_block_is_supported(
     // A p-value against random association alone becomes permissive at high
     // depth. The one-sided Wilson bound also limits the plausible block-wide
     // discordance while accounting for the amount of supporting evidence.
-    const double n = static_cast<double>(total);
-    const double rate = static_cast<double>(discordant) / n;
-    const double z2 = kOneSided95PercentZ * kOneSided95PercentZ;
-    const double center = rate + z2 / (2.0 * n);
-    const double spread = kOneSided95PercentZ * std::sqrt(
-        rate * (1.0 - rate) / n + z2 / (4.0 * n * n));
-    const double upper_bound = (center + spread) / (1.0 + z2 / n);
-    return upper_bound <= kIndependentBlockMaxDiscordance;
+    return one_sided_wilson_upper_bound(discordant, total) <=
+           kIndependentBlockMaxDiscordance;
 }
 
 size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {
@@ -1345,13 +1358,30 @@ size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {
     return applied;
 }
 
-static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
+static int rescue_observed_allele(const ReadVariantProfile& profile,
+                                  size_t offset,
+                                  bool use_bam_observations) {
+    if (offset < profile.alleles.size() &&
+        (profile.alleles[offset] == 0 || profile.alleles[offset] == 1)) {
+        return profile.alleles[offset];
+    }
+    if (use_bam_observations && offset < profile.bam_alleles.size() &&
+        (profile.bam_alleles[offset] == 0 ||
+         profile.bam_alleles[offset] == 1)) {
+        return profile.bam_alleles[offset];
+    }
+    return -1;
+}
+
+static size_t rescue_unphased_graph_read_layer(
+        PhasingChunk& chunk, bool use_bam_observations) {
     if (chunk.candidates.empty() || chunk.read_var_profile.empty()) return 0;
 
     chunk.haps.resize(chunk.reads.size(), 0);
     chunk.phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
     chunk.gap_haps.resize(chunk.reads.size(), 0);
     chunk.gap_phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
+    chunk.gap_from_bam_observation.resize(chunk.reads.size(), false);
 
     // Each unphased candidate normally overlaps only a few phase sets, so a
     // sparse map avoids allocating candidates * phase_sets dense counters.
@@ -1365,6 +1395,8 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
         const size_t read_i = static_cast<size_t>(profile.read_id);
         int hap = chunk.haps[read_i];
         hts_pos_t phase_set = chunk.phase_sets[read_i];
+        const bool primary_assignment =
+            (hap == 1 || hap == 2) && phase_set > 0;
         if ((hap != 1 && hap != 2) &&
             (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2)) {
             hap = chunk.gap_haps[read_i];
@@ -1380,12 +1412,17 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
             }
             const size_t offset = static_cast<size_t>(
                 site_i - profile.start_var_idx);
-            if (offset >= profile.alleles.size()) continue;
-            const int allele = profile.alleles[offset];
-            if (allele != 0 && allele != 1) continue;
-            ++site_votes[static_cast<size_t>(site_i)][phase_set]
-                  .counts[static_cast<size_t>(hap - 1)]
+            const int allele = rescue_observed_allele(
+                profile, offset, use_bam_observations);
+            if (allele < 0) continue;
+            RescueSiteVote& vote =
+                site_votes[static_cast<size_t>(site_i)][phase_set];
+            ++vote.counts[static_cast<size_t>(hap - 1)]
                          [static_cast<size_t>(allele)];
+            if (primary_assignment) {
+                ++vote.primary_counts[static_cast<size_t>(hap - 1)]
+                                     [static_cast<size_t>(allele)];
+            }
         }
     }
 
@@ -1437,6 +1474,33 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
             supported.allele_to_hap =
                 same > cross ? std::array<int, 2>{1, 2}
                              : std::array<int, 2>{2, 1};
+
+            // A single inferred locus may tag a read only when primary graph
+            // assignments independently establish both its association and a
+            // low discordance rate. This is deliberately stronger than the
+            // test used when two independent inferred loci agree.
+            const auto& primary = entry.second.primary_counts;
+            const int primary_hap1 = primary[0][0] + primary[0][1];
+            const int primary_hap2 = primary[1][0] + primary[1][1];
+            const int primary_allele0 = primary[0][0] + primary[1][0];
+            const int primary_allele1 = primary[0][1] + primary[1][1];
+            const int primary_same = primary[0][0] + primary[1][1];
+            const int primary_cross = primary[0][1] + primary[1][0];
+            const int primary_total = primary_same + primary_cross;
+            const int primary_concordant =
+                std::max(primary_same, primary_cross);
+            const bool same_orientation =
+                primary_same != primary_cross &&
+                ((same > cross) == (primary_same > primary_cross));
+            supported.singleton_safe =
+                primary_hap1 > 0 && primary_hap2 > 0 &&
+                primary_allele0 > 0 && primary_allele1 > 0 &&
+                same_orientation &&
+                rescue_binomial_tail(primary_concordant, primary_total) <=
+                    kRescueSiteOrientationPValue &&
+                one_sided_wilson_upper_bound(
+                    std::min(primary_same, primary_cross), primary_total) <=
+                    kRescueSingletonMaxDiscordance;
         }
         if (supported_phase_sets == 1) marker = supported;
     }
@@ -1446,12 +1510,15 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
         std::array<int, 2> indel{};
         std::array<int, 2> direct_snp{};
         std::array<int, 2> direct_indel{};
+        std::array<int, 2> singleton_safe_snp{};
+        std::array<int, 2> singleton_safe_indel{};
     };
 
     struct LocusVote {
         int hap = 0;
         bool is_snp = false;
         bool is_direct = false;
+        bool singleton_safe = false;
     };
 
     size_t rescued = 0;
@@ -1463,6 +1530,17 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
         const size_t read_i = static_cast<size_t>(profile.read_id);
         if (chunk.haps[read_i] == 1 || chunk.haps[read_i] == 2 ||
             chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) {
+            continue;
+        }
+        // A decisive whole-chunk BAM assignment already carries more than one
+        // clean-site equivalent of evidence. The augmented singleton pass is a
+        // fill path and must not replace that staged assignment.
+        if (use_bam_observations &&
+            read_i < chunk.bam_fallback_haps.size() &&
+            read_i < chunk.bam_fallback_phase_sets.size() &&
+            (chunk.bam_fallback_haps[read_i] == 1 ||
+             chunk.bam_fallback_haps[read_i] == 2) &&
+            chunk.bam_fallback_phase_sets[read_i] > 0) {
             continue;
         }
 
@@ -1479,9 +1557,9 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
             }
             const size_t offset = static_cast<size_t>(
                 site_i - profile.start_var_idx);
-            if (offset >= profile.alleles.size()) continue;
-            const int allele = profile.alleles[offset];
-            if (allele != 0 && allele != 1) continue;
+            const int allele = rescue_observed_allele(
+                profile, offset, use_bam_observations);
+            if (allele < 0) continue;
 
             const RescueMarker& marker = markers[static_cast<size_t>(site_i)];
             if (marker.phase_set <= 0) continue;
@@ -1494,7 +1572,7 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
             const LocusKey key{marker.phase_set, pos};
             auto [it, inserted] = locus_votes.emplace(
                 key, LocusVote{proposed_hap, marker.is_snp,
-                               marker.is_direct});
+                               marker.is_direct, marker.singleton_safe});
             if (!inserted && it->second.hap != proposed_hap) {
                 it->second.hap = 0;
             } else if (!inserted) {
@@ -1502,6 +1580,8 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
                 it->second.is_snp = it->second.is_snp || marker.is_snp;
                 it->second.is_direct =
                     it->second.is_direct || marker.is_direct;
+                it->second.singleton_safe =
+                    it->second.singleton_safe || marker.singleton_safe;
             }
         }
 
@@ -1513,9 +1593,13 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
             std::array<int, 2>& tier = vote.is_snp ? score.snp : score.indel;
             std::array<int, 2>& direct =
                 vote.is_snp ? score.direct_snp : score.direct_indel;
+            std::array<int, 2>& singleton_safe =
+                vote.is_snp ? score.singleton_safe_snp
+                            : score.singleton_safe_indel;
             const size_t hap_i = static_cast<size_t>(vote.hap - 1);
             ++tier[hap_i];
             if (vote.is_direct) ++direct[hap_i];
+            if (vote.singleton_safe) ++singleton_safe[hap_i];
         }
 
         hts_pos_t best_phase_set = kUnphasedReadPhaseSet;
@@ -1523,6 +1607,7 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
         int best_margin = 0;
         int best_total = 0;
         int best_direct = 0;
+        int best_singleton_safe = 0;
         bool tied = false;
         for (const auto& entry : scores) {
             const PhaseSetReadScore& score = entry.second;
@@ -1531,6 +1616,9 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
                                                       : score.indel;
             const std::array<int, 2>& direct =
                 use_snps ? score.direct_snp : score.direct_indel;
+            const std::array<int, 2>& singleton_safe =
+                use_snps ? score.singleton_safe_snp
+                         : score.singleton_safe_indel;
             if (tier[0] == tier[1]) continue;
             const int margin = std::abs(tier[0] - tier[1]);
             const int total = tier[0] + tier[1];
@@ -1542,21 +1630,26 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
                 best_margin = margin;
                 best_total = total;
                 best_direct = direct[0] + direct[1];
+                best_singleton_safe =
+                    singleton_safe[static_cast<size_t>(hap - 1)];
                 tied = false;
             } else if (margin == best_margin && total == best_total) {
                 tied = true;
             }
         }
 
-        // One allele is enough only when the ordinary clean solve directly
-        // oriented that site. An excluded site inferred from other reads needs
-        // a second independent locus before it may tag a new read.
+        // One allele is enough when the ordinary solve directly phased the
+        // site, or when primary graph assignments gave an inferred site the
+        // stronger statistical guarantees above.
         if (best_hap == 0 || tied ||
-            (best_total == 1 && best_direct == 0)) {
+            (best_total == 1 && best_direct == 0 &&
+             best_singleton_safe == 0)) {
             continue;
         }
         chunk.gap_haps[read_i] = best_hap;
         chunk.gap_phase_sets[read_i] = best_phase_set + kGapFillPsOffset;
+        chunk.gap_from_bam_observation[read_i] =
+            use_bam_observations;
         ++rescued;
     }
     return rescued;
@@ -1564,14 +1657,25 @@ static size_t rescue_unphased_graph_read_layer(PhasingChunk& chunk) {
 
 size_t rescue_unphased_graph_reads(PhasingChunk& chunk) {
     size_t total_rescued = 0;
-    while (true) {
-        // Grow from established blocks toward the middle of a gap. Every next
-        // layer must independently pass the same site-orientation test.
-        const size_t layer_rescued =
-            rescue_unphased_graph_read_layer(chunk);
-        if (layer_rescued == 0) break;
-        total_rescued += layer_rescued;
-    }
+    const auto run_to_fixed_point = [&](bool use_bam_observations) {
+        size_t rescued = 0;
+        while (true) {
+            // Grow from established blocks toward the middle of a gap. Every
+            // next layer independently passes the site-orientation test.
+            const size_t layer_rescued =
+                rescue_unphased_graph_read_layer(
+                    chunk, use_bam_observations);
+            if (layer_rescued == 0) break;
+            rescued += layer_rescued;
+        }
+        return rescued;
+    };
+
+    // Preserve every assignment supported by the original graph profiles.
+    // Only after that fixed point is stable may exact BAM observations fill
+    // missing alleles for reads that are still unphased.
+    total_rescued += run_to_fixed_point(false);
+    total_rescued += run_to_fixed_point(true);
     return total_rescued;
 }
 
@@ -1621,8 +1725,12 @@ void merge_graph_chunk_into_read_rows(
                                          gc.site_ids[static_cast<size_t>(site_i)],
                                          allele);
         }
+        const bool fill_only =
+            !is_primary &&
+            read_i < chunk.gap_from_bam_observation.size() &&
+            chunk.gap_from_bam_observation[read_i];
         merge_phase_read_assignment(row, chunk.region.chunk_id, hap, phase_set,
-                                    is_primary);
+                                    is_primary, fill_only);
     }
 
     // Reads without GAF catalog observations have no ReadVariantProfile and
@@ -1634,7 +1742,7 @@ void merge_graph_chunk_into_read_rows(
         PhaseReadOutputRow& row = rows_by_read[assignment.qname];
         if (row.read_name.empty()) row.read_name = assignment.qname;
         merge_phase_read_assignment(row, chunk.region.chunk_id, assignment.hap,
-                                    assignment.phase_set, false);
+                                    assignment.phase_set, false, false);
     }
 }
 

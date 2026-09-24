@@ -75,8 +75,8 @@ holding its own FAI handle:
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
 | 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets each bounded gap between neighboring phase sets, imports the BAM sub-solve's independent local phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` then joins left graph block, local BAM blocks, and right graph block on decisive allele evidence |
-| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve and stages independent read assignments; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six, so one clean biallelic site alone cannot emit a tag; reads without graph profiles remain output-only |
-| 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, uses statistically oriented excluded sites to haplotag additional reads without changing candidates or joining phase sets |
+| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve, stages independent read assignments, and records BAM alleles missing from graph read profiles at exact sequence-matched biallelic candidates; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six; reads without graph profiles remain output-only |
+| 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, first completes graph-only excluded-site rescue, then uses the recorded exact BAM alleles to fill still-unphased reads; neither pass changes candidates or joins phase sets |
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 
 The graph command admits GAF alignments at MAPQ 5 by default. These reads
@@ -103,12 +103,24 @@ solve from reads already assigned to one phase set. Both haplotypes and both
 alleles must be observed, the exact one-sided binomial association must pass at
 p<=0.01, and exactly one phase set may support the orientation. The pass grows
 in fixed-point layers from established assignments. A directly phased site may
-haplotag a read alone; an excluded site oriented indirectly requires a second
-independent locus. A read uses SNP votes when available and indel votes
-otherwise; co-located rows count once, conflicting rows abstain, and competing
-phase sets or haplotypes abstain. The resulting
-read-only assignment is stored separately under `PS + kGapFillPsOffset`, so it
-cannot change candidate GT/PS, take part in chunk stitching, or join two blocks.
+haplotag a read alone. An indirectly oriented site normally needs a second
+independent locus; one locus is sufficient only when primary graph assignments
+alone pass the same p-value test and their one-sided 95% Wilson discordance
+upper bound is at most 15%. Read-only rescue assignments cannot validate this
+singleton test.
+
+The graph-only fixed point runs first. A second pass may use an exact
+sequence-matched BAM allele where the graph profile has no allele at that
+biallelic candidate. The selected catalog ALT is normalized through
+`vcf_to_variant_key` before matching, so anchored VCF indels and internal
+insertion coordinates compare by sequence identity. A called graph allele
+remains authoritative if BAM disagrees. A read uses SNP votes when available
+and indel votes otherwise; co-located rows count once, conflicts abstain, and
+competing phase sets or haplotypes abstain. The resulting read-only assignment
+is stored under `PS + kGapFillPsOffset`, so it cannot change candidate GT/PS,
+take part in chunk stitching, or join two blocks. BAM-observation assignments
+fill only empty output rows and cannot replace an assignment from another
+chunk or a staged margin-6 BAM assignment.
 
 The whole-chunk BAM fallback is also read-only. For every BAM phase block,
 already graph-phased reads form a separate 2x2 BAM-HP by graph-HP table for

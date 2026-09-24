@@ -985,6 +985,10 @@ struct PhasingChunk {
     // already carry kGapFillPsOffset.
     std::vector<int> gap_haps;
     std::vector<hts_pos_t> gap_phase_sets;
+    // True only for assignments created in the second rescue pass from an
+    // exact BAM observation missing in the graph profile. These are fill-only
+    // when overlapping chunks already supplied any phased assignment.
+    std::vector<bool> gap_from_bam_observation;
     // Whole-chunk BAM solve assignments staged until graph stitching and
     // excluded-site rescue finish. They never participate in graph stitching.
     std::vector<int> bam_fallback_haps;

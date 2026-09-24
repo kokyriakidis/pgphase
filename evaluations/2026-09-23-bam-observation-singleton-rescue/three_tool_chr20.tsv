@@ -1,0 +1,4 @@
+tool	phased_reads	coverage_pct	truth_correct	truth_discordant	truth_accuracy_pct	correct_yield_pct
+pgphase_graph_recovery	236338	86.883860	227754	8584	96.367914	83.728163
+hiphase	233353	85.786510	223800	9553	95.906202	82.274586
+longcalld	219090	80.543059	212584	6506	97.030444	78.151291

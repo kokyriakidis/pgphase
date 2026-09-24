@@ -1841,6 +1841,54 @@ int main() {
                     "graph read rescue: fixed point preserves one PS offset");
     }
 
+    // One inferred site may tag a read only when primary graph assignments
+    // establish a low-discordance allele/haplotype relation. Thirty-one
+    // perfectly separated primary reads pass the Wilson bound; seven do not.
+    {
+        const auto singleton_rescue = [](int primary_reads) {
+            PhasingChunk rescue;
+            CandidateVariant excluded;
+            excluded.key.pos = 1200;
+            excluded.key.type = VariantType::Insertion;
+            excluded.counts.n_uniq_alles = 2;
+            excluded.counts.category = VariantCategory::RepeatHetIndel;
+            excluded.lcd_var_i_to_cate = kLongcalldRepHetVar;
+            rescue.candidates.push_back(std::move(excluded));
+
+            constexpr hts_pos_t kPhaseSet = 950;
+            for (int read_i = 0; read_i <= primary_reads; ++read_i) {
+                const bool unphased = read_i == primary_reads;
+                const bool hap1 = read_i < primary_reads / 2;
+                ReadRecord read;
+                read.qname = "singleton_" + std::to_string(read_i);
+                rescue.reads.push_back(std::move(read));
+
+                ReadVariantProfile profile;
+                profile.read_id = read_i;
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 0;
+                profile.alleles = {hap1 ? 0 : 1};
+                rescue.read_var_profile.push_back(std::move(profile));
+                rescue.haps.push_back(unphased ? 0 : (hap1 ? 1 : 2));
+                rescue.phase_sets.push_back(
+                    unphased ? kUnphasedReadPhaseSet : kPhaseSet);
+            }
+            return std::make_pair(
+                rescue_unphased_graph_reads(rescue), std::move(rescue));
+        };
+
+        auto [strong_count, strong] = singleton_rescue(31);
+        ok &= check(
+            strong_count == 1 && strong.gap_haps.back() == 2 &&
+                strong.gap_phase_sets.back() == 950 + kGapFillPsOffset,
+            "graph read rescue: strong inferred singleton tags read");
+
+        auto [weak_count, weak] = singleton_rescue(7);
+        ok &= check(
+            weak_count == 0 && weak.gap_haps.back() == 0,
+            "graph read rescue: weak inferred singleton abstains");
+    }
+
     // A read can appear in two adjacent chunks while only the upstream chunk
     // has informative alleles. The downstream visit must not erase that valid
     // HP/PS assignment merely because it is unphased. A later phased visit
@@ -1913,6 +1961,39 @@ int main() {
         chunks[0].chunk.haps = saved_haps;
         chunks[0].chunk.phase_sets = saved_phase_sets;
         chunks[0].chunk.region.chunk_id = saved_chunk_id;
+    }
+
+    // A BAM-observation rescue is additive across overlapping chunks. Once an
+    // earlier graph-supported rescue assigned the read, a later fill-only
+    // assignment cannot replace its HP/PS gauge.
+    {
+        GraphChunkBuildResult fill_chunk;
+        fill_chunk.chunk.region.chunk_id = 10;
+        ReadRecord read;
+        read.qname = "fill_only";
+        fill_chunk.chunk.reads.push_back(std::move(read));
+        ReadVariantProfile profile;
+        profile.read_id = 0;
+        fill_chunk.chunk.read_var_profile.push_back(std::move(profile));
+        fill_chunk.chunk.haps = {0};
+        fill_chunk.chunk.phase_sets = {kUnphasedReadPhaseSet};
+        fill_chunk.chunk.gap_haps = {1};
+        fill_chunk.chunk.gap_phase_sets = {1100 + kGapFillPsOffset};
+        fill_chunk.chunk.gap_from_bam_observation = {false};
+
+        std::unordered_map<std::string, PhaseReadOutputRow> rows;
+        merge_graph_chunk_into_read_rows(rows, fill_chunk, 0);
+        fill_chunk.chunk.region.chunk_id = 11;
+        fill_chunk.chunk.gap_haps[0] = 2;
+        fill_chunk.chunk.gap_phase_sets[0] = 1200 + kGapFillPsOffset;
+        fill_chunk.chunk.gap_from_bam_observation[0] = true;
+        merge_graph_chunk_into_read_rows(rows, fill_chunk, 0);
+
+        ok &= check(
+            rows.at("fill_only").hap == 1 &&
+                rows.at("fill_only").phase_set ==
+                    1100 + kGapFillPsOffset,
+            "graph output merge: BAM-observation rescue is fill-only");
     }
 
     std::ostringstream sites;

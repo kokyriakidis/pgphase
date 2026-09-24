@@ -130,8 +130,9 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 /// Haplotag reads that only observe sites excluded from the clean graph solve.
 ///
 /// Already phased reads orient an excluded biallelic site within one existing
-/// phase set. Two independently inferred loci, or one directly phased locus,
-/// may assign an unphased read to a separate read-only block. This pass never
+/// phase set. A directly phased locus, two independently inferred loci, or one
+/// inferred locus with a statistically bounded primary-read error rate may
+/// assign an unphased read to a separate read-only block. This pass never
 /// changes candidate phasing or joins phase sets.
 size_t rescue_unphased_graph_reads(PhasingChunk& chunk);
 

@@ -9309,3 +9309,38 @@ pgphase, HiPhase, and longcalld. These counts are not a variant-accuracy ranking
 because the graph catalog, DeepVariant callset, and longcalld-discovered callset
 differ. Full methodology and the machine-readable table are in
 `evaluations/2026-09-23-independent-bam-read-fallback/`.
+
+
+### Exact BAM observations enable statistically safe singleton rescue (2026-09-23)
+
+The final pgphase/HiPhase qname audit found 6,617 HiPhase-only read tags; 5,009
+agree with parental truth, including 3,770 outside chr20:26-30 Mb. All 3,770
+noncentromeric reads overlap a phased HiPhase heterozygote and 2,871 rely on one
+site. Indels dominate: 3,204 overlap only indels. A one-base representation
+proxy maps 1,807 to pgphase `REP_HET_INDEL` rows, 810 to an already phased
+pgphase candidate whose graph profile lacks an eligible read observation, 1,145
+to no nearby pgphase candidate, and 8 to an unphased clean SNP.
+
+The whole-chunk BAM fallback now retains missing read alleles at
+sequence-identical biallelic graph candidates. Catalog ALTs are normalized
+through `vcf_to_variant_key` and BAM-to-graph candidate matching is precomputed
+once per chunk. The original graph-only rescue reaches its fixed point first.
+A second fixed point may fill a missing graph allele from the BAM channel, but
+a called graph allele remains authoritative.
+
+One statistically oriented excluded site may now tag a read when primary graph
+assignments alone contain both haplotypes and alleles, pass the exact one-sided
+binomial test at p<=0.01, and have a one-sided 95% Wilson discordance upper bound
+<=15%. Read-only rescues cannot bootstrap this singleton condition. Augmented
+assignments fill only empty output rows and cannot replace graph assignments or
+the existing margin-6 BAM fallback. Candidates and stitching are unchanged.
+
+The retained full-chr20 output phases 236,338 reads: 227,754 correct and 8,584
+discordant, for 86.8839% coverage and 96.3679% conditional truth accuracy. It
+adds 503 reads over the prior baseline at 465/503 (92.45%) truth accuracy, loses
+no tag, changes no existing HP, and leaves the phased VCF byte identical. It
+recovers 464 truth-correct HiPhase-only reads, 462 outside chr20:26-30 Mb.
+Against HiPhase it phases 2,985 more reads, produces 3,954 more correct
+assignments and 969 fewer discordant assignments, while remaining 0.4617
+percentage points more accurate. Details are in
+`evaluations/2026-09-23-bam-observation-singleton-rescue/`.
