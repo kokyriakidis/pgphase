@@ -75,15 +75,17 @@ holding its own FAI handle:
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
 | 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets each bounded gap between neighboring phase sets, imports the BAM sub-solve's independent local phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` then joins left graph block, local BAM blocks, and right graph block on decisive allele evidence |
-| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve and stages independent read assignments; graph-validated BAM blocks contribute all assigned reads, while other blocks contribute only reads whose haplotype score separation is at least the full margin produced by one clean biallelic site; reads without graph profiles remain output-only |
+| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve and stages independent read assignments; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six, so one clean biallelic site alone cannot emit a tag; reads without graph profiles remain output-only |
 | 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, uses statistically oriented excluded sites to haplotag additional reads without changing candidates or joining phase sets |
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 
 The graph command admits GAF alignments at MAPQ 5 by default. These reads
 participate in graph-site depth, clustering, block construction, and read
-assignment; `--min-mapq` can override the floor. The BAM command keeps its MAPQ
-30 default. Recovery retains its separate alignment floor for targeted BAM
-sub-solves.
+assignment; `--min-mapq` can override the floor. With `--bam`, its default
+chunk size is 1 Mb, which supplies the graph solve and its independent BAM solve
+with the same context. Graph-only and standalone BAM runs keep the 500 kb
+default; the standalone BAM command also keeps MAPQ 30. Recovery retains its
+separate alignment floor for targeted BAM sub-solves.
 
 The recovery sub-solve uses the BAM pipeline on a small padded region around
 one or more touching seams. At a new MSA candidate with two alternate alleles,
@@ -120,9 +122,10 @@ provide HP/PS to every graph-unassigned read it phases.
 A block that lacks sufficient or consistent graph overlap remains independent
 and therefore needs no graph orientation. It may provide an individual read
 assignment only when its `hap_score_margin` is at least
-`kIndependentBamReadMinHapScoreMargin`. The threshold is 4: one clean
-biallelic site scores +2 against one haplotype and -2 against the other, so 4
-is the first full clean-site separation.
+`kIndependentBamReadMinHapScoreMargin`. The threshold is 6. A clean
+biallelic site scores +2 against one haplotype and -2 against the other, giving
+a margin of 4; the higher threshold prevents one clean-site observation by
+itself from emitting a read assignment from an unvalidated block.
 
 Assignments for reads with graph profiles are staged until graph stitching and
 excluded-site rescue finish. Assignments for BAM reads absent from the graph

@@ -42,6 +42,9 @@ namespace {
 // found useful linking reads between MAPQ 5 and 29. Keep this separate
 // from longcallD/BAM, whose established default remains MAPQ 30.
 constexpr int kDefaultGraphMinMapq = 5;
+// One megabase gives the graph and its independent BAM solve enough shared
+// context to stabilize read assignments while retaining bounded worker memory.
+constexpr hts_pos_t kDefaultGraphRecoveryChunkSize = 1000000;
 
 static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
     bam_hdr_t* hdr = sam_hdr_init();
@@ -1182,7 +1185,7 @@ static void print_graph_collect_help() {
         << "      --min-af FLOAT            Minimum allele fraction [0.20]\n"
         << "      --max-af FLOAT            Maximum allele fraction [0.80]\n"
         << "      --min-sv-len INT          Min SV length for SVTYPE/SVLEN tags [30]\n"
-        << "      --chunk-size INT          Region chunk size in bp [500000]\n"
+        << "      --chunk-size INT          Region chunk size [500000; 1000000 with --bam]\n"
         << "  -r, --region STR              Restrict to region (may be repeated)\n"
         << "      --region-file FILE        BED file of regions\n"
         << "      --autosome                Process chr1-22 / 1-22 only\n"
@@ -1285,6 +1288,7 @@ int collect_graph_variation(int argc, char* argv[]) {
     using namespace pgphase_collect;
     Options opts;
     opts.min_mapq = kDefaultGraphMinMapq;
+    bool chunk_size_explicit = false;
 
     {
         std::ostringstream cmd;
@@ -1412,7 +1416,10 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcMinAf:        opts.min_af = parse_double_arg(optarg, "--min-af"); break;
             case kGcMaxAf:        opts.max_af = parse_double_arg(optarg, "--max-af"); break;
             case kGcMinSvLen:     opts.min_sv_len = parse_int_arg(optarg, "--min-sv-len"); break;
-            case kGcChunkSize:    opts.chunk_size = parse_ll_arg(optarg, "--chunk-size"); break;
+            case kGcChunkSize:
+                opts.chunk_size = parse_ll_arg(optarg, "--chunk-size");
+                chunk_size_explicit = true;
+                break;
             case 'r': opts.regions.push_back(optarg); break;
             case kGcRegionFile:   opts.region_file = optarg; break;
             case kGcAutosome:     opts.autosome = true; break;
@@ -1439,6 +1446,9 @@ int collect_graph_variation(int argc, char* argv[]) {
             default:  print_graph_collect_help(); return 1;
         }
     }
+
+    if (!chunk_size_explicit && !opts.primary_bam_file().empty())
+        opts.chunk_size = kDefaultGraphRecoveryChunkSize;
 
     if (opts.ref_fasta.empty() || opts.graph_sites_vcf.empty()) {
         std::cerr << "Error: --ref and --sites are required\n";

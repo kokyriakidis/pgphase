@@ -9232,6 +9232,49 @@ rejected: although it phases 2,076 more reads than the retained margin-4 arm,
 it adds 893 more errors and narrows the accuracy lead over HiPhase to 0.101
 percentage points.
 
+### One-megabase graph context improves coverage and accuracy (2026-09-23)
+
+The 500 kb margin-4 configuration left two distinct opportunities: reads with
+weak independent-BAM evidence, and reads whose graph and BAM blocks changed
+when given more shared context. Accepting every weak BAM assignment was not
+useful: the 2,076 broad-only reads were only 57.47% truth-correct. Most had a
+haplotype score margin of 2, and neither MAPQ nor rejected graph-link evidence
+identified a high-accuracy subset. Of the 6,301 reads HiPhase still phased and
+the broad BAM arm did not, none received a BAM HP/PS in any profiled chunk;
+2,735 were in the excluded centromeric interval. The assignment MAPQ floor was
+not the cause because the in-memory sub-solve assigns admitted reads before the
+standalone BAM writer applies that output filter.
+
+Increasing only the BAM sub-solve by 250 kb on each side was also rejected. It
+phased 234,708 reads with 226,055 correct and 8,653 discordant, worse than the
+un-padded 500 kb result. The graph and BAM solves need the same context.
+
+The joint chunk and margin sweep was:
+
+| graph chunk | BAM read margin | phased | correct | discordant | accuracy |
+|---:|---:|---:|---:|---:|---:|
+| 500 kb | 4 | 234,787 | 226,223 | 8,564 | 96.352439% |
+| 500 kb | 6 | 232,749 | 224,914 | 7,835 | 96.633713% |
+| 1 Mb | 4 | 236,918 | 228,010 | 8,908 | 96.240049% |
+| **1 Mb** | **6** | **235,835** | **227,293** | **8,542** | **96.377976%** |
+| 2 Mb | 4 | 239,129 | 228,903 | 10,226 | 95.723647% |
+
+The 1 Mb, margin-6 arm strictly improves the prior 500 kb, margin-4 result:
++1,048 phased reads, +1,070 correct assignments, 22 fewer discordant
+assignments, and +0.025537 accuracy points. Two megabases gains more reads but
+falls below HiPhase accuracy, so it is rejected. One megabase is now the
+default for graph runs with `--bam`; graph-only and standalone BAM runs remain
+at 500 kb, and an explicit chunk size is preserved. The margin-6
+rule requires more than the four-point separation supplied by one clean
+biallelic observation before a read from an unvalidated BAM block can be
+emitted.
+
+The retained VCF has 61,726 phased heterozygotes in 452 phase sets with a
+460,310 bp span N50. Changing chunk context changes graph block boundaries, so
+this VCF is not byte-identical to the old 500 kb result. All comparisons below
+therefore score the final output directly rather than assuming assignment
+preservation.
+
 ### Whole-chr20 comparison now includes longcalld (2026-09-23)
 
 The final graph+recovery output, frozen HiPhase output, and frozen upstream
@@ -9242,24 +9285,26 @@ was called from that same reheadered BAM. pgphase additionally uses the graph
 catalog and GAF, while longcalld calls variants internally. Each emitted PS was
 independently oriented against the same parental truth map.
 
-pgphase now has the highest coverage and correct yield: 234,787 reads phased
-(86.3137%), with 226,223 correct and 8,564 discordant. HiPhase phases 233,353
+pgphase now has the highest coverage and correct yield: 235,835 reads phased
+(86.6989%), with 227,293 correct and 8,542 discordant. HiPhase phases 233,353
 (85.7865%), with 223,800 correct and 9,553 discordant. Longcalld phases 219,090
 (80.5431%), with 212,584 correct and 6,506 discordant. Conditional truth
-accuracy is 96.3524%, 95.9062%, and 97.0304% for pgphase, HiPhase, and
+accuracy is 96.3780%, 95.9062%, and 97.0304% for pgphase, HiPhase, and
 longcalld, respectively. pgphase therefore dominates HiPhase on phased reads,
 correct yield, discordant count, and conditional accuracy. Longcalld remains
-the more abstaining high-accuracy operating point: it has 0.6780 percentage
-points higher accuracy, while pgphase phases 15,697 more reads and produces
-13,639 more correct assignments.
+the more abstaining high-accuracy operating point: it has 0.6525 percentage
+points higher accuracy, while pgphase phases 16,745 more reads and produces
+14,709 more correct assignments.
 
 The 252,292-qname graph-observed subset remains a phaser diagnostic, not the
-primary whole-BAM comparison. pgphase phases 232,654 graph-observed reads
-(92.2162%) at 96.6293% truth accuracy, versus HiPhase's 229,797 (91.0837%) at
-96.4321%. The additional output-only BAM channel phases 2,133 reads absent from
-the graph/GAF profiles.
+primary whole-BAM comparison. pgphase phases 232,964 graph-observed reads
+(92.3396%) at 96.7802% truth accuracy, versus HiPhase's 229,797 (91.0837%) at
+96.4321%. The output-only BAM channel phases 2,871 reads absent from the
+graph/GAF profiles. On the 212,076 reads phased by all three, pgphase reaches
+98.5760%, longcalld 98.2709%, and HiPhase 97.1779% after independently
+orienting phase sets on that common subset.
 
-The callsets contain 61,644, 77,123, and 83,013 phased heterozygotes for
+The callsets contain 61,726, 77,123, and 83,013 phased heterozygotes for
 pgphase, HiPhase, and longcalld. These counts are not a variant-accuracy ranking
 because the graph catalog, DeepVariant callset, and longcalld-discovered callset
 differ. Full methodology and the machine-readable table are in

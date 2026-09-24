@@ -50,9 +50,9 @@
 
 namespace pgphase_collect {
 
-// A clean biallelic site scores +2 for the matching BAM haplotype and -2 for
-// the other. Four is therefore the first full clean-site score separation.
-static constexpr int kIndependentBamReadMinHapScoreMargin = 4;
+// A clean biallelic site creates a four-point haplotype separation. Require
+// six for an unvalidated block so a single clean-site vote cannot emit a tag.
+static constexpr int kIndependentBamReadMinHapScoreMargin = 6;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Region chunking
