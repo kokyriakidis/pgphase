@@ -383,6 +383,22 @@ candidate SNP pairs tried, and any existing aggregate or graph/BAM gauge vote
 must agree. This joins the two graph blocks directly; their BAM source phase
 sets retain independent labels.
 
+For a seam at least 10 kb wide with exactly one physically spanning MAPQ-30
+molecule in the targeted BAM solve, recovery may validate a more distant
+clean-SNP bridge. It solves the extents of both adjacent graph phase sets within the current
+chunk with 5 kb of context, matches normalized clean SNPs to each graph block,
+and requires at least half of each block's clean SNPs to match one BAM source
+phase set with a constant allele orientation. Neither path from its nearest
+matched graph SNP to the selected clean BAM SNP may cross a weak source cut.
+If both flanks map to one BAM phase set, the interval between their selected
+SNPs must also have no weak cut.
+Exactly one MAPQ-30 molecule must call both selected SNPs with base quality at
+least the configured minimum; a raw aligned base can supply a call masked by
+the sparse BAM profile. Conflicting callable molecules veto the bridge. The
+result is still subject to the stitcher's existing outer-allele and gauge
+conflict checks. This joins the graph flanks; a separate imported BAM block
+inside the seam still needs its own supported attachment.
+
 An imported seam is one atomic graph-to-graph transaction. Before mutation the
 stitcher snapshots candidate orientations, read HP/PS labels, phase-set aliases,
 and recovery state. The complete chain must preserve a supported relation between the original

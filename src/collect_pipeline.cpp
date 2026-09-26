@@ -1685,6 +1685,194 @@ static uint8_t bam_snp_base_quality(const bam1_t* bam, hts_pos_t pos) {
     return 0;
 }
 
+
+// A singleton can orient two blocks only after the full BAM solve confirms
+// that each graph block keeps one allele gauge away from the seam. At 62.7 Mb
+// a Q40 boundary read is locally correct, but its right graph block switches
+// internally; a local-only check would join hundreds of misplaced reads.
+static std::optional<bool> validated_singleton_bridge(
+        const GraphChunkBuildResult& graph_chunk,
+        const RecoverySeam& seam,
+        const PhasingChunk& source,
+        const Options& opts) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    std::map<CandKey, size_t> source_by_key;
+    for (size_t ci = 0; ci < source.candidates.size(); ++ci)
+        source_by_key.emplace(cand_key_of(source.candidates[ci]), ci);
+
+    struct BlockEvidence {
+        size_t graph_snps = 0;
+        size_t matched_snps = 0;
+        hts_pos_t source_ps = 0;
+        int parity = -1;
+        size_t boundary_graph = 0;
+        size_t boundary_source = 0;
+        hts_pos_t boundary_pos = 0;
+        bool has_boundary = false;
+        bool inconsistent = false;
+    };
+    std::array<BlockEvidence, 2> blocks;
+    const std::array<hts_pos_t, 2> graph_ps{
+        seam.left_phase_set, seam.right_phase_set};
+    for (size_t gi = 0; gi < graph.candidates.size(); ++gi) {
+        const CandidateVariant& candidate = graph.candidates[gi];
+        const size_t side = candidate.phase_set == graph_ps[0] ? 0 :
+                            candidate.phase_set == graph_ps[1] ? 1 : 2;
+        if (side == 2 || !is_phase_set_anchor(candidate)) continue;
+        const std::string* alt = selected_graph_candidate_alt(graph_chunk, gi);
+        if (alt == nullptr) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[gi];
+        const VariantKey key = vcf_to_variant_key(
+            source.region.tid, meta.pos, meta.ref, *alt);
+        const CandKey normalized{key.sort_pos(), static_cast<int>(key.type),
+                                 key.ref_len, key.alt};
+        const auto matched = source_by_key.find(normalized);
+        const hts_pos_t pos = key.sort_pos();
+        BlockEvidence& block = blocks[side];
+        if (candidate.key.type == VariantType::Snp &&
+            candidate.counts.category == VariantCategory::CleanHetSnp)
+            ++block.graph_snps;
+        if (matched == source_by_key.end()) continue;
+        const CandidateVariant& bam_site = source.candidates[matched->second];
+        if (!is_phase_set_anchor(bam_site) ||
+            candidate.key.type != VariantType::Snp ||
+            candidate.counts.category != VariantCategory::CleanHetSnp ||
+            bam_site.key.type != VariantType::Snp ||
+            bam_site.counts.category != VariantCategory::CleanHetSnp)
+            continue;
+        const bool closer = !block.has_boundary ||
+            (side == 0 ? pos > block.boundary_pos : pos < block.boundary_pos);
+        if (closer) {
+            block.boundary_graph = gi;
+            block.boundary_source = matched->second;
+            block.boundary_pos = pos;
+            block.has_boundary = true;
+        }
+        const int parity = candidate.hap_to_cons_alle[1] ==
+                           bam_site.hap_to_cons_alle[1] ? 0 : 1;
+        if (block.source_ps != 0 &&
+            (block.source_ps != bam_site.phase_set || block.parity != parity))
+            block.inconsistent = true;
+        block.source_ps = bam_site.phase_set;
+        block.parity = parity;
+        ++block.matched_snps;
+    }
+    constexpr double kMinMatchedGraphSnpFraction = 0.5;
+    for (const BlockEvidence& block : blocks) {
+        if (block.inconsistent || !block.has_boundary ||
+            block.source_ps <= 0 || block.matched_snps == 0 ||
+            static_cast<double>(block.matched_snps) <
+                kMinMatchedGraphSnpFraction * block.graph_snps)
+            return std::nullopt;
+    }
+    // The first BAM site of the right source block can lie inside the graph
+    // gap. A molecule need not reach the first catalog site of that block if
+    // the complete BAM path already connects those two source sites.
+    for (size_t side = 0; side < 2; ++side) {
+        BlockEvidence& block = blocks[side];
+        bool found = false;
+        for (size_t ci = 0; ci < source.candidates.size(); ++ci) {
+            const CandidateVariant& site = source.candidates[ci];
+            if (site.phase_set != block.source_ps ||
+                !is_phase_set_anchor(site) ||
+                site.key.type != VariantType::Snp ||
+                site.counts.category != VariantCategory::CleanHetSnp)
+                continue;
+            const hts_pos_t pos = site.key.sort_pos();
+            if ((side == 0 && pos >= seam.end) ||
+                (side == 1 && pos <= seam.beg))
+                continue;
+            if (!found || (side == 0 ? pos > block.boundary_pos :
+                                      pos < block.boundary_pos)) {
+                block.boundary_source = ci;
+                block.boundary_pos = pos;
+                found = true;
+            }
+        }
+        if (!found) return std::nullopt;
+        const SourcePathEvidence path = source_phase_set_path_evidence(
+            source, block.source_ps);
+        const hts_pos_t graph_pos = recovery_position(
+            graph_chunk, block.boundary_graph);
+        const hts_pos_t lo = std::min(block.boundary_pos, graph_pos);
+        const hts_pos_t hi = std::max(block.boundary_pos, graph_pos);
+        if (std::any_of(path.weak_cuts.begin(), path.weak_cuts.end(),
+                        [lo, hi](hts_pos_t cut) {
+                            return lo <= cut && cut < hi;
+                        }))
+            return std::nullopt;
+    }
+    if (blocks[0].boundary_pos >= blocks[1].boundary_pos)
+        return std::nullopt;
+    // A single BAM phase set can still contain a weak internal cut. The
+    // selected bridge must not silently turn that cut into a strong link.
+    if (blocks[0].source_ps == blocks[1].source_ps) {
+        const SourcePathEvidence path = source_phase_set_path_evidence(
+            source, blocks[0].source_ps);
+        if (std::any_of(path.weak_cuts.begin(), path.weak_cuts.end(),
+                        [&](hts_pos_t cut) {
+                            return blocks[0].boundary_pos <= cut &&
+                                   cut < blocks[1].boundary_pos;
+                        }))
+            return std::nullopt;
+    }
+
+    constexpr int kMinBridgeMapq = 30;
+    int paired_reads = 0;
+    std::optional<bool> flip;
+    for (size_t ri = 0; ri < source.reads.size(); ++ri) {
+        const ReadRecord& read = source.reads[ri];
+        if (read.is_skipped || read.mapq < kMinBridgeMapq ||
+            read.mapq == 255 || read.beg > blocks[0].boundary_pos ||
+            read.end < blocks[1].boundary_pos ||
+            ri >= source.read_var_profile.size())
+            continue;
+        const ReadVariantProfile& profile = source.read_var_profile[ri];
+        std::array<int, 2> hap{};
+        for (size_t side = 0; side < 2; ++side) {
+            const BlockEvidence& block = blocks[side];
+            const int ci = static_cast<int>(block.boundary_source);
+            const int offset = ci - profile.start_var_idx;
+            const CandidateVariant& site = source.candidates[block.boundary_source];
+            int allele = profile.start_var_idx >= 0 &&
+                         ci <= profile.end_var_idx && offset >= 0 &&
+                         static_cast<size_t>(offset) < profile.alleles.size()
+                ? profile.alleles[static_cast<size_t>(offset)] : -1;
+            if (site.key.type == VariantType::Snp) {
+                const uint8_t quality = bam_snp_base_quality(
+                    read.alignment.get(), site.key.pos);
+                if (quality < opts.min_bq) continue;
+                // The BAM profile can mask a clean SNP inside a noisy read
+                // interval. For this one physical bridge, use its original
+                // aligned base when the profile omitted the allele.
+                if (allele < 0 && site.key.alt.size() == 1 &&
+                    site.key.pos >= source.ref_beg &&
+                    site.key.pos - source.ref_beg <
+                        static_cast<hts_pos_t>(source.ref_seq.size())) {
+                    const char ref = source.ref_seq[
+                        static_cast<size_t>(site.key.pos - source.ref_beg)];
+                    const int physical = physical_snp_call(
+                        read, site.key.pos, ref, site.key.alt[0]);
+                    allele = physical == 0 ? 0 : physical == 2 ? 1 : -1;
+                }
+            }
+            if (allele != 0 && allele != 1) continue;
+            const int source_hap = allele == site.hap_to_cons_alle[1] ? 1 :
+                                   allele == site.hap_to_cons_alle[2] ? 2 : 0;
+            if (source_hap == 0) continue;
+            hap[side] = block.parity == 0 ? source_hap : 3 - source_hap;
+        }
+        if (hap[0] == 0 || hap[1] == 0) continue;
+        ++paired_reads;
+        const bool read_flip = hap[0] != hap[1];
+        if (flip && *flip != read_flip) return std::nullopt;
+        flip = read_flip;
+    }
+    // Multi-read edges already have a statistical stitch path. This exception
+    // applies only to one otherwise stranded physical molecule.
+    return paired_reads == 1 ? flip : std::nullopt;
+}
+
 bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
@@ -3140,6 +3328,101 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                             graph_chunk.site_meta.size(),
                             graph_chunk.site_allele_orig_idx.size(),
                             region_lo, region_hi);
+
+    // A full-block validation solve is useful only when the local BAM solve
+    // contains one physical molecule joining two source paths. Screen that
+    // geometry before paying for the larger solve.
+    for (size_t wi = 0; wi < windows.size(); ++wi) {
+        const RecoverySeam& seam = windows[wi];
+        const auto left_extent = phase_set_extents.find(seam.left_phase_set);
+        const auto right_extent = phase_set_extents.find(seam.right_phase_set);
+        if (left_extent == phase_set_extents.end() ||
+            right_extent == phase_set_extents.end())
+            continue;
+        constexpr hts_pos_t kMinSingletonGap = 10000;
+        if (seam.end - seam.beg < kMinSingletonGap) continue;
+        const auto group = std::find_if(
+            groups.begin(), groups.end(), [wi](const TargetedWindowGroup& g) {
+                return g.first_window <= wi && wi < g.past_last_window;
+            });
+        if (group == groups.end()) continue;
+        const size_t source_id = static_cast<size_t>(group - groups.begin());
+        const PhasingChunk& local = discovered[source_id];
+        std::array<std::map<hts_pos_t, int>, 2> source_votes;
+        for (const SourceSite& site : source_sites) {
+            if (site.solve_id != source_id || !site.graph_clean_snp)
+                continue;
+            if (site.graph_phase_set == seam.left_phase_set)
+                ++source_votes[0][site.phase_set];
+            else if (site.graph_phase_set == seam.right_phase_set)
+                ++source_votes[1][site.phase_set];
+        }
+        if (source_votes[0].empty() || source_votes[1].empty()) continue;
+        std::array<hts_pos_t, 2> local_source_ps{};
+        for (size_t side = 0; side < 2; ++side)
+            local_source_ps[side] = std::max_element(
+                source_votes[side].begin(), source_votes[side].end(),
+                [](const auto& a, const auto& b) {
+                    return a.second < b.second;
+                })->first;
+        std::array<std::optional<hts_pos_t>, 2> local_boundary;
+        for (const CandidateVariant& site : local.candidates) {
+            if (!is_phase_set_anchor(site) ||
+                site.key.type != VariantType::Snp ||
+                site.counts.category != VariantCategory::CleanHetSnp)
+                continue;
+            const hts_pos_t pos = site.key.sort_pos();
+            if (site.phase_set == local_source_ps[0] && pos < seam.end &&
+                (!local_boundary[0] || pos > *local_boundary[0]))
+                local_boundary[0] = pos;
+            if (site.phase_set == local_source_ps[1] && pos > seam.beg &&
+                (!local_boundary[1] || pos < *local_boundary[1]))
+                local_boundary[1] = pos;
+        }
+        if (!local_boundary[0] || !local_boundary[1] ||
+            *local_boundary[0] >= *local_boundary[1])
+            continue;
+        constexpr int kMinScreenMapq = 30;
+        int spanning = 0;
+        for (const ReadRecord& read : local.reads) {
+            if (!read.is_skipped && read.mapq >= kMinScreenMapq &&
+                read.beg <= *local_boundary[0] &&
+                read.end >= *local_boundary[1])
+                ++spanning;
+            if (spanning > 1) break;
+        }
+        if (spanning != 1) continue;
+        constexpr hts_pos_t kValidationFlank = 5000;
+        RegionChunk validation = group->region;
+        validation.beg = std::max(chunk.ref_beg,
+            std::min(left_extent->second.first, right_extent->second.first) -
+                kValidationFlank);
+        validation.end = std::min(chunk.ref_end,
+            std::max(left_extent->second.second, right_extent->second.second) +
+                kValidationFlank);
+        Options validation_opts = targeted_solve_options(opts);
+        validation_opts.retry_windows = {{seam.beg, seam.end}};
+        PhasingChunk full_source = process_chunk(validation, validation_opts, context);
+        const std::optional<bool> flip = validated_singleton_bridge(
+            graph_chunk, seam, full_source, opts);
+        if (!flip) continue;
+        auto gauge = std::find_if(
+            graph_chunk.recovery_phase_gauges.begin(),
+            graph_chunk.recovery_phase_gauges.end(),
+            [&](const RecoveryPhaseGauge& g) {
+                return g.beg <= seam.beg && g.end >= seam.end;
+            });
+        if (gauge == graph_chunk.recovery_phase_gauges.end() ||
+            std::any_of(gauge->physical_snp_bridges.begin(),
+                        gauge->physical_snp_bridges.end(),
+                        [&](const RecoveryPhysicalSnpBridge& existing) {
+                            return existing.left_phase_set == seam.left_phase_set &&
+                                   existing.right_phase_set == seam.right_phase_set;
+                        }))
+            continue;
+        gauge->physical_snp_bridges.push_back(RecoveryPhysicalSnpBridge{
+            seam.left_phase_set, seam.right_phase_set, *flip});
+    }
 
     if (opts.verbose > 0)
         fprintf(stderr, "[in-pass] %zu window(s) -> %zu region(s), merged %zu alignment site(s)\n",

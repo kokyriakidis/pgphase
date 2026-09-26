@@ -10119,3 +10119,48 @@ while read phase sets fall from 769 to 768 and VCF blocks fall from 381 to
 HiPhase-correct gaps remain open: 1.086, 3.573, 21.736,
 and 61.664 Mb. A trial that reclassified foreign-phase-set MSA reads at
 3.573 Mb did not restore the missing allele and was reverted.
+
+### 2026-09-25: Validate complete flanks for one-read clean-SNP bridges
+
+The last four HiPhase-correct tracked gaps had one physical read across each
+exact boundary, but the existing bridge test required two nearby graph SNPs.
+At 1.086 Mb, the read calls a private BAM SNP at 1,110,921 before it reaches
+the next catalog SNP. Recovery now screens singleton geometry cheaply, then
+validates both complete graph block extents with a BAM solve. Exact normalized
+clean SNPs must keep one BAM phase set and one allele parity on each side,
+cover at least half of each graph block's clean SNPs, and have no weak source
+cut to the selected boundary SNP. When both flanks map to one BAM source phase
+set, there must also be no weak cut between their boundary SNPs. A single
+MAPQ-30 molecule must call both clean SNPs above the configured base-quality
+floor; its original aligned base
+can restore a clean SNP masked in the sparse BAM profile. A graph/BAM gauge
+conflict still vetoes the stitch. The complete-block check is needed because
+local boundary parity alone cannot detect an internal graph switch.
+
+The 1.086-Mb focused window joins with 470 truth-scored reads, 4 discordant
+(99.15% purity), and 138/171 truth reads separated by one block. The final
+clean-SNP rule leaves the 61.664-Mb focused window split at 86/205 separated;
+its full-chromosome target pair remains split too. An earlier trial joined the
+focused 61.664-Mb pair at 130/205 separated, but its endpoint was an indel
+whose profile call bypassed the SNP base-quality check. That route was removed.
+The 3.573- and 21.736-Mb targets also remain split.
+
+On the matched full chr20 fixture, the final rule phases 236,845 truth-scored
+reads with 229,007 correct and 7,838 discordant (96.6907%), compared with
+236,821 / 228,988 / 7,833 (96.6924%) in the accepted 21.435-Mb baseline.
+Of the 29 newly phased reads, 22 are correct and 7 discordant; five previously
+correct reads lose their HP assignment, two previously discordant reads become
+correct, and no previously correct assigned read becomes discordant. All
+62,152 VCF variant keys and unordered genotypes match; 1,765 sample fields
+change only GT orientation or PS. VCF block count falls from 380 to 372 and
+block N50 rises from 517,052 to 562,975 bp. Read phase-set count falls from
+768 to 755. The 1.086-Mb target closes in the full output, leaving three of
+the four previously open tracked HiPhase-correct gaps.
+
+The older description of the 62.623-Mb control as a wrong direct boundary
+join was imprecise. Its Q40 read gives the correct *local* parental relation,
+and HiPhase joins that boundary. The pgphase right graph phase set changes
+parental orientation internally near 62.719--62.722 Mb; merging the entire
+unsplit block would propagate that switch to hundreds of reads. The local
+pre-screen rejects this seam; the complete-flank consistency gate would also
+reject its conflicting graph/BAM SNP parity.
