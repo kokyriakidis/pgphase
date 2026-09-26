@@ -58,7 +58,34 @@ struct GraphSiteMeta {
 
 // Output of build_graph_chunk: a PhasingChunk ready for k-means phasing,
 // plus graph-specific bookkeeping for VCF output and diagnostics.
+struct RecoverySourceSite {
+    size_t candidate_index = 0;
+    hts_pos_t phase_set = 0;
+    int hap1_allele = -1;
+    int hap2_allele = -1;
+    hts_pos_t graph_phase_set = 0;
+    int graph_hap1_allele = -1;
+    bool can_adopt = false;
+};
+
+struct RecoverySourceRead {
+    size_t read_index = 0;
+    hts_pos_t phase_set = 0;
+    int hap = 0;
+};
+
 struct GraphChunkBuildResult {
+    /// Complete selected BAM phase-set membership, including shared graph rows.
+    std::vector<RecoverySourceSite> recovery_source_sites;
+    std::vector<RecoverySourceRead> recovery_source_reads;
+    std::unordered_map<hts_pos_t, bool> recovery_source_path_supported;
+    /// Coordinate cuts where the original BAM solve lacks a two-haplotype path.
+    std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>
+        recovery_source_weak_cuts;
+    /// Weak cuts with independent high-quality physical SNP calls on both sides.
+    /// Only the seam containing such a cut may use it to validate a BAM bridge.
+    std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>
+        recovery_source_quality_cuts;
     /// Bounded graph seams solved by BAM recovery. Each entry retains the
     /// canonical boundaries and exact adjacent graph PS identities for the
     /// final left-to-right stitch.
@@ -85,6 +112,12 @@ struct GraphChunkBuildResult {
 /// tree is keyed by CANDIDATE INDEX, so anything that inserts, removes or
 /// reorders candidates must call this before the chunk is solved again.
 void rebuild_read_var_cr(PhasingChunk& chunk);
+
+/// Return the VCF ALT represented by a biallelic graph candidate.
+/// Split candidates retain the full source ALT list; allele index 1 selects
+/// exactly one original ALT. Whole multiallelic candidates have no binary match.
+const std::string* selected_graph_candidate_alt(
+    const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
 
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                                const std::vector<GraphReadAllele>& rows,
@@ -134,7 +167,8 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 /// inferred locus with a statistically bounded primary-read error rate may
 /// assign an unphased read to a separate read-only block. This pass never
 /// changes candidate phasing or joins phase sets.
-size_t rescue_unphased_graph_reads(PhasingChunk& chunk);
+size_t rescue_unphased_graph_reads(
+    PhasingChunk& chunk, const std::vector<RecoverySeam>& recovery_windows = {});
 
 /// Read links between one independently solved BAM block and one graph block.
 /// Rows are BAM haplotypes and columns are graph haplotypes.

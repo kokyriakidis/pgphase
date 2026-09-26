@@ -12,6 +12,7 @@
 #include <array>
 #include <cinttypes>
 #include <climits>
+#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -854,13 +855,37 @@ bool stitch_phase_sets_by_alleles(PhasingChunk& chunk,
 }
 
 
+// Stable disjoint molecule halves make a block vote reproducible across runs.
+static uint64_t recovery_read_hash(const std::string& qname) {
+    uint64_t hash = 14695981039346656037ULL;
+    for (const unsigned char byte : qname) {
+        hash ^= byte;
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+// Snapshot labels let a boundary vote check the same read's source HP before
+// earlier edges in this transaction relabel or flip it.
+struct SourceLabelCheck {
+    const std::vector<int>* haps = nullptr;
+    const std::vector<hts_pos_t>* phase_sets = nullptr;
+    hts_pos_t upstream_ps = 0;
+    hts_pos_t downstream_ps = 0;
+    int agree = 0;
+    int conflict = 0;
+};
+
 // Combine two explicit candidate sets before voting so each read contributes
 // at most one parity decision. Keeping the candidate identities separate from
 // their mutable phase-set labels lets recovery test one imported BAM block
 // after a preceding flank merge has renamed it.
 static std::optional<bool> aggregate_candidate_set_flip(
         const PhasingChunk& chunk, std::vector<int> upstream,
-        std::vector<int> downstream, const Options& opts) {
+        std::vector<int> downstream, const Options& opts, int read_fold = -1,
+        std::pair<int, int>* observed_votes = nullptr,
+        std::array<std::pair<int, int>, 2>* half_votes = nullptr,
+        SourceLabelCheck* source_labels = nullptr) {
     if (chunk.read_var_cr == nullptr) return std::nullopt;
     const size_t window =
         static_cast<size_t>(std::max(1, opts.block_link_window));
@@ -889,7 +914,11 @@ static std::optional<bool> aggregate_candidate_set_flip(
             continue;
         }
         const size_t read_i = static_cast<size_t>(read_label);
-        if (chunk.reads[read_i].is_skipped) continue;
+        if (chunk.reads[read_i].is_skipped ||
+            (read_fold >= 0 &&
+             static_cast<int>(recovery_read_hash(
+                 chunk.reads[read_i].qname) & 1ULL) != read_fold))
+            continue;
         const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
         if (profile.start_var_idx < 0) continue;
         std::array<std::array<int, 2>, 2> votes{};
@@ -920,12 +949,163 @@ static std::optional<bool> aggregate_candidate_set_flip(
         }
         const bool upstream_hap2 = votes[0][1] > votes[0][0];
         const bool downstream_hap2 = votes[1][1] > votes[1][0];
-        if (upstream_hap2 == downstream_hap2) ++same;
+        if (source_labels != nullptr && source_labels->haps != nullptr &&
+            source_labels->phase_sets != nullptr &&
+            read_i < source_labels->haps->size() &&
+            read_i < source_labels->phase_sets->size()) {
+            const hts_pos_t source_ps = (*source_labels->phase_sets)[read_i];
+            const int source_hap = (*source_labels->haps)[read_i];
+            const int allele_hap = source_ps == source_labels->upstream_ps
+                ? (upstream_hap2 ? 2 : 1)
+                : source_ps == source_labels->downstream_ps
+                    ? (downstream_hap2 ? 2 : 1) : 0;
+            if (allele_hap != 0 && (source_hap == 1 || source_hap == 2)) {
+                if (allele_hap == source_hap) ++source_labels->agree;
+                else ++source_labels->conflict;
+            }
+        }
+        const bool agrees = upstream_hap2 == downstream_hap2;
+        if (agrees) ++same;
         else ++cross;
+        if (half_votes != nullptr) {
+            const size_t half = static_cast<size_t>(
+                recovery_read_hash(chunk.reads[read_i].qname) & 1ULL);
+            if (agrees) ++(*half_votes)[half].first;
+            else ++(*half_votes)[half].second;
+        }
     }
     free(overlaps);
-
+    if (observed_votes != nullptr) *observed_votes = {same, cross};
     return significant_parity_flip(same, cross);
+}
+
+// One molecule votes once from its BAM SNP calls on each side. This direct
+// link can validate a recovered inner component without requiring a distant
+// graph flank to join it. A conflicting SNP molecule makes the bridge abstain.
+static std::optional<bool> direct_bam_snp_bridge_flip(
+        const PhasingChunk& chunk,
+        const std::vector<int>& upstream,
+        const std::vector<int>& downstream,
+        bool* conflicting_votes = nullptr) {
+    constexpr int kDirectSnpBridgeMinMapq = 30;
+    int same = 0;
+    int cross = 0;
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        if (ri >= chunk.read_var_profile.size() ||
+            chunk.reads[ri].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+        if (profile.bam_mapq < kDirectSnpBridgeMinMapq ||
+            profile.start_var_idx < 0 || profile.bam_alleles.empty())
+            continue;
+        std::array<std::array<int, 2>, 2> votes{};
+        const auto score = [&](const std::vector<int>& candidates, size_t side) {
+            for (const int ci : candidates) {
+                if (ci < profile.start_var_idx || ci > profile.end_var_idx)
+                    continue;
+                const CandidateVariant& cand =
+                    chunk.candidates[static_cast<size_t>(ci)];
+                const bool verified_snp =
+                    cand.counts.category == VariantCategory::CleanHetSnp ||
+                    (cand.counts.category == VariantCategory::NoisyCandHet &&
+                     cand.msa_verified);
+                if (cand.key.type != VariantType::Snp || !verified_snp)
+                    continue;
+                const size_t offset = static_cast<size_t>(
+                    ci - profile.start_var_idx);
+                if (offset >= profile.bam_alleles.size()) continue;
+                const int allele = profile.bam_alleles[offset];
+                if (allele == cand.hap_to_cons_alle[1]) ++votes[side][0];
+                else if (allele == cand.hap_to_cons_alle[2]) ++votes[side][1];
+            }
+        };
+        score(upstream, 0);
+        score(downstream, 1);
+        if (votes[0][0] == votes[0][1] ||
+            votes[1][0] == votes[1][1])
+            continue;
+        const bool left_hap2 = votes[0][1] > votes[0][0];
+        const bool right_hap2 = votes[1][1] > votes[1][0];
+        if (left_hap2 == right_hap2) ++same;
+        else ++cross;
+    }
+    if (conflicting_votes != nullptr)
+        *conflicting_votes = same > 0 && cross > 0;
+    if (same > 0 && cross == 0) return false;
+    if (cross > 0 && same == 0) return true;
+    return std::nullopt;
+}
+
+// A single molecule may orient two complete BAM blocks only when it calls a
+// clean SNP in each and independently agrees with an MSA-verified indel in one
+// block. All calls must describe the same read; conflicting calls abstain.
+static std::optional<bool> corroborated_bam_block_flip(
+        const PhasingChunk& chunk, const std::vector<int>& first,
+        const std::vector<int>& second) {
+    constexpr int kMinMapq = 30;
+    constexpr int kMinSnpBaseQuality = 30;
+    constexpr hts_pos_t kDistinctSiteDistance = 100;
+    int same = 0;
+    int cross = 0;
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        if (ri >= chunk.read_var_profile.size() || chunk.reads[ri].is_skipped)
+            continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+        if (profile.bam_mapq < kMinMapq || profile.start_var_idx < 0 ||
+            profile.bam_alleles.empty())
+            continue;
+        std::array<int, 2> snp_hap{};
+        std::array<int, 2> indel_hap{};
+        std::array<hts_pos_t, 2> snp_pos{};
+        std::array<hts_pos_t, 2> indel_pos{};
+        bool conflict = false;
+        const auto score = [&](const std::vector<int>& sites, size_t side) {
+            for (const int ci : sites) {
+                if (ci < profile.start_var_idx || ci > profile.end_var_idx)
+                    continue;
+                const CandidateVariant& cand = chunk.candidates[static_cast<size_t>(ci)];
+                const size_t offset = static_cast<size_t>(ci - profile.start_var_idx);
+                if (offset >= profile.bam_alleles.size()) continue;
+                const int allele = profile.bam_alleles[offset];
+                const int hap = allele == cand.hap_to_cons_alle[1] ? 1 :
+                                allele == cand.hap_to_cons_alle[2] ? 2 : 0;
+                if (hap == 0) continue;
+                int* target = nullptr;
+                if (cand.key.type == VariantType::Snp &&
+                    cand.counts.category == VariantCategory::CleanHetSnp &&
+                    offset < profile.bam_base_qualities.size() &&
+                    profile.bam_base_qualities[offset] >= kMinSnpBaseQuality) {
+                    target = &snp_hap[side];
+                    snp_pos[side] = cand.key.sort_pos();
+                } else if (cand.key.type != VariantType::Snp &&
+                           cand.msa_verified) {
+                    target = &indel_hap[side];
+                    indel_pos[side] = cand.key.sort_pos();
+                }
+                if (target == nullptr) continue;
+                if (*target != 0 && *target != hap) conflict = true;
+                *target = hap;
+            }
+        };
+        score(first, 0);
+        score(second, 1);
+        if (snp_hap[0] == 0 || snp_hap[1] == 0) continue;
+        if (conflict ||
+            (indel_hap[0] != 0 && indel_hap[0] != snp_hap[0]) ||
+            (indel_hap[1] != 0 && indel_hap[1] != snp_hap[1]))
+            return std::nullopt;
+        const bool corroborated =
+            (indel_hap[0] != 0 &&
+             std::llabs(snp_pos[0] - indel_pos[0]) >= kDistinctSiteDistance) ||
+            (indel_hap[1] != 0 &&
+             std::llabs(snp_pos[1] - indel_pos[1]) >= kDistinctSiteDistance);
+        if (!corroborated) continue;
+        if (snp_hap[0] == snp_hap[1]) ++same;
+        else ++cross;
+    }
+    if (same > 0 && cross == 0) return false;
+    if (cross > 0 && same == 0) return true;
+    return std::nullopt;
 }
 
 // This graph-only wrapper follows current phase-set labels. Recovery boundaries
@@ -1054,6 +1234,8 @@ struct RecoveryDiploidPath {
     // A direct relation between two centered SNPs can validate a graph/BAM
     // edge even when the callers describe no sequence-identical site.
     bool direct_snp_bridge = false;
+    // A clean indel/SNP boundary may provide the same independent witness.
+    bool direct_clean_bridge = false;
     // Candidate index and the allele assigned to haplotype 1 in the left
     // phase set's gauge.
     std::vector<std::pair<int, int>> sites;
@@ -1771,14 +1953,6 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
         }
     }
     const int snp_multiplier = indel_cost_bound + 1;
-    const auto stable_hash = [](const std::string& value) {
-        uint64_t hash = 14695981039346656037ULL;
-        for (const unsigned char byte : value) {
-            hash ^= byte;
-            hash *= 1099511628211ULL;
-        }
-        return hash;
-    };
     const auto solve_fold = [&](int fold) {
         std::array<RecoveryMecOptimum, 2> result;
         for (int right_flip = 0; right_flip <= 1; ++right_flip) {
@@ -1788,7 +1962,7 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
                 if (read_i >= chunk.reads.size() ||
                     chunk.reads[read_i].is_skipped ||
                     (fold >= 0 &&
-                     static_cast<int>(stable_hash(chunk.reads[read_i].qname) & 1ULL) !=
+                     static_cast<int>(recovery_read_hash(chunk.reads[read_i].qname) & 1ULL) !=
                          fold)) {
                     continue;
                 }
@@ -1855,72 +2029,113 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
     RecoveryDiploidPath path;
     path.flip_right = *full.first;
 
-    // A pair of distinct SNPs is a valid representation-independent anchor.
-    // Use the nearest selected boundary pair, then require the full reads and
-    // both disjoint halves to select the MEC parity independently. Restricting
-    // this check to one pair keeps recovery linear in the read count and avoids
-    // selecting the strongest result from many correlated SNP comparisons.
-    const size_t left_i = static_cast<size_t>(*left_anchor);
-    const size_t right_i = static_cast<size_t>(*right_anchor);
-    if (chunk.candidates[left_i].key.type == VariantType::Snp &&
-        chunk.candidates[right_i].key.type == VariantType::Snp &&
-        retained[left_i] && retained[right_i]) {
-        const auto direct_snp_flip = [&](int fold) -> std::optional<bool> {
-            int same = 0;
-            int cross = 0;
-            const int left_hap1 =
-                chunk.candidates[left_i].hap_to_cons_alle[1];
-            const int right_hap1 =
-                chunk.candidates[right_i].hap_to_cons_alle[1];
-            for (size_t read_i = 0; read_i < chunk.read_var_profile.size();
-                 ++read_i) {
-                if (read_i >= chunk.reads.size() ||
-                    chunk.reads[read_i].is_skipped ||
-                    (fold >= 0 &&
-                     static_cast<int>(stable_hash(
-                         chunk.reads[read_i].qname) & 1ULL) != fold)) {
-                    continue;
-                }
-                const ReadVariantProfile& profile =
-                    chunk.read_var_profile[read_i];
-                if (profile.start_var_idx < 0 ||
-                    static_cast<int>(left_i) < profile.start_var_idx ||
-                    static_cast<int>(right_i) < profile.start_var_idx ||
-                    static_cast<int>(left_i) > profile.end_var_idx ||
-                    static_cast<int>(right_i) > profile.end_var_idx) {
-                    continue;
-                }
-                const size_t left_offset =
-                    left_i - static_cast<size_t>(profile.start_var_idx);
-                const size_t right_offset =
-                    right_i - static_cast<size_t>(profile.start_var_idx);
-                if (left_offset >= profile.alleles.size() ||
-                    right_offset >= profile.alleles.size()) {
-                    continue;
-                }
-                const int left_allele = profile.alleles[left_offset];
-                const int right_allele = profile.alleles[right_offset];
-                if ((left_allele != 0 && left_allele != 1) ||
-                    (right_allele != 0 && right_allele != 1)) {
-                    continue;
-                }
-                const bool flip =
-                    (left_allele == left_hap1) !=
-                    (right_allele == right_hap1);
-                if (flip) ++cross;
-                else ++same;
+    // The exact solve fixes block parity. An independently supported boundary
+    // pair confirms it when the graph and BAM have no sequence-identical row.
+    // Test the selected SNP pair first; if it cannot testify, use the nearest
+    // clean boundary pair with an indel. Each preselected pair must agree in
+    // the full reads and both disjoint read halves.
+    const auto direct_site_flip = [&](size_t left_i, size_t right_i,
+                                      int fold) -> std::optional<bool> {
+        int same = 0;
+        int cross = 0;
+        const int left_hap1 = chunk.candidates[left_i].hap_to_cons_alle[1];
+        const int right_hap1 = chunk.candidates[right_i].hap_to_cons_alle[1];
+        for (size_t read_i = 0; read_i < chunk.read_var_profile.size();
+             ++read_i) {
+            if (read_i >= chunk.reads.size() ||
+                chunk.reads[read_i].is_skipped ||
+                (fold >= 0 &&
+                 static_cast<int>(recovery_read_hash(
+                     chunk.reads[read_i].qname) & 1ULL) != fold)) {
+                continue;
             }
-            return parity_flip_at_p(
-                same, cross, 1, kRecoveryCandidateAnchorPValue);
-        };
-        const std::optional<bool> pair_full = direct_snp_flip(-1);
-        const std::optional<bool> pair_half0 = direct_snp_flip(0);
-        const std::optional<bool> pair_half1 = direct_snp_flip(1);
+            const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            if (profile.start_var_idx < 0 ||
+                static_cast<int>(left_i) < profile.start_var_idx ||
+                static_cast<int>(right_i) < profile.start_var_idx ||
+                static_cast<int>(left_i) > profile.end_var_idx ||
+                static_cast<int>(right_i) > profile.end_var_idx)
+                continue;
+            const size_t left_offset =
+                left_i - static_cast<size_t>(profile.start_var_idx);
+            const size_t right_offset =
+                right_i - static_cast<size_t>(profile.start_var_idx);
+            if (left_offset >= profile.alleles.size() ||
+                right_offset >= profile.alleles.size())
+                continue;
+            const int left_allele = profile.alleles[left_offset];
+            const int right_allele = profile.alleles[right_offset];
+            if ((left_allele != 0 && left_allele != 1) ||
+                (right_allele != 0 && right_allele != 1))
+                continue;
+            const bool flip =
+                (left_allele == left_hap1) !=
+                (right_allele == right_hap1);
+            if (flip) ++cross;
+            else ++same;
+        }
+        return parity_flip_at_p(
+            same, cross, 1, kRecoveryCandidateAnchorPValue);
+    };
+    const auto corroborates_pair = [&](size_t left_i, size_t right_i) {
+        const std::optional<bool> full = direct_site_flip(left_i, right_i, -1);
+        const std::optional<bool> half0 = direct_site_flip(left_i, right_i, 0);
+        const std::optional<bool> half1 = direct_site_flip(left_i, right_i, 1);
+        return full && half0 && half1 &&
+            *full == path.flip_right && *half0 == path.flip_right &&
+            *half1 == path.flip_right;
+    };
+    const size_t selected_left = static_cast<size_t>(*left_anchor);
+    const size_t selected_right = static_cast<size_t>(*right_anchor);
+    const bool selected_snps =
+        chunk.candidates[selected_left].key.type == VariantType::Snp &&
+        chunk.candidates[selected_right].key.type == VariantType::Snp;
+    if (selected_snps && retained[selected_left] && retained[selected_right])
         path.direct_snp_bridge =
-            pair_full && pair_half0 && pair_half1 &&
-            *pair_full == path.flip_right &&
-            *pair_half0 == path.flip_right &&
-            *pair_half1 == path.flip_right;
+            corroborates_pair(selected_left, selected_right);
+
+    const auto clean_boundary = [](const CandidateVariant& site) {
+        return site.counts.category == VariantCategory::CleanHetSnp ||
+               site.counts.category == VariantCategory::CleanHetIndel ||
+               (site.key.type == VariantType::Snp && site.bam_injected &&
+                site.counts.category == VariantCategory::NoisyCandHet &&
+                site.msa_verified && site.alignment_verified);
+    };
+    const auto nearest_clean = [&](hts_pos_t phase_set, hts_pos_t target)
+            -> std::optional<size_t> {
+        std::optional<size_t> nearest;
+        hts_pos_t nearest_distance = std::numeric_limits<hts_pos_t>::max();
+        for (size_t i = 0; i < candidate_count; ++i) {
+            const CandidateVariant& site = chunk.candidates[i];
+            if (site.phase_set != phase_set || !oriented(site) ||
+                !clean_boundary(site) || !seen_ref[i] || !seen_alt[i])
+                continue;
+            const hts_pos_t distance =
+                std::llabs(site.key.sort_pos() - target);
+            if (!nearest || distance < nearest_distance ||
+                (distance == nearest_distance &&
+                 site.key.type == VariantType::Snp &&
+                 chunk.candidates[*nearest].key.type != VariantType::Snp)) {
+                nearest = i;
+                nearest_distance = distance;
+            }
+        }
+        return nearest;
+    };
+    if (!path.direct_snp_bridge) {
+        const std::optional<size_t> boundary_left =
+            nearest_clean(left_phase_set, edge.beg);
+        const std::optional<size_t> boundary_right =
+            nearest_clean(right_phase_set, edge.end);
+        if (boundary_left && boundary_right) {
+            const bool left_snp =
+                chunk.candidates[*boundary_left].key.type == VariantType::Snp;
+            const bool right_snp =
+                chunk.candidates[*boundary_right].key.type == VariantType::Snp;
+            if (left_snp != right_snp)
+                path.direct_clean_bridge =
+                    corroborates_pair(*boundary_left, *boundary_right);
+        }
     }
 
     for (size_t variable = 0; variable < variable_candidates.size(); ++variable) {
@@ -2163,7 +2378,11 @@ size_t stitch_recovery_phase_sets_left_to_right(
         PhasingChunk& chunk,
         const std::vector<RecoverySeam>& windows,
         const std::vector<RecoveryPhaseGauge>& gauges,
-        const Options& opts) {
+        const Options& opts,
+        const std::unordered_map<hts_pos_t, bool>* source_path_supported,
+        const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_weak_cuts,
+        const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts,
+        std::set<hts_pos_t>* locally_bridged_sources) {
     const auto oriented = [](const CandidateVariant& candidate) {
         return candidate.phase_set > 0 &&
                candidate.hap_to_cons_alle[1] >= 0 &&
@@ -2315,12 +2534,69 @@ size_t stitch_recovery_phase_sets_left_to_right(
         }
     };
 
+    // Reusing an already joined block can chain two locally convincing edges
+    // across a phase set whose distant ends were never observed by one molecule.
+    // Require end-to-end allele agreement on both haplotypes before using it as
+    // the middle of a new chain. Cache this on the original atomic block IDs.
+    std::map<hts_pos_t, bool> reusable_block_cache;
+    const auto has_end_to_end_support = [&](hts_pos_t source_phase_set) {
+        const auto cached = reusable_block_cache.find(source_phase_set);
+        if (cached != reusable_block_cache.end()) return cached->second;
+        const auto found = initial_phase_set_candidates.find(source_phase_set);
+        if (found == initial_phase_set_candidates.end() ||
+            found->second.size() < 2) {
+            reusable_block_cache[source_phase_set] = false;
+            return false;
+        }
+        const int first = found->second.front();
+        const int last = found->second.back();
+        // Complementary rows at one locus do not span a phase block.
+        if (chunk.candidates[static_cast<size_t>(first)].key.sort_pos() >=
+            chunk.candidates[static_cast<size_t>(last)].key.sort_pos()) {
+            reusable_block_cache[source_phase_set] = false;
+            return false;
+        }
+        int hap1_support = 0;
+        int hap2_support = 0;
+        int conflicts = 0;
+        for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+            if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const int agreement = check_agree_alleles(
+                chunk, static_cast<int>(read_i), first, last);
+            if (agreement < 0) continue;
+            if (agreement == 0) {
+                ++conflicts;
+                continue;
+            }
+            const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            const int allele = profile.alleles[
+                static_cast<size_t>(first - profile.start_var_idx)];
+            if (allele == chunk.candidates[static_cast<size_t>(first)]
+                              .hap_to_cons_alle[1])
+                ++hap1_support;
+            else
+                ++hap2_support;
+        }
+        const bool supported = hap1_support > 0 && hap2_support > 0 &&
+            hap1_support + hap2_support >= std::max(2, min_support) &&
+            hap1_support + hap2_support > conflicts;
+        reusable_block_cache[source_phase_set] = supported;
+        return supported;
+    };
+
     size_t joined = 0;
     // A recovered block may appear in several overlapping seam windows. Keep
     // this set for the whole chunk so the trusted fallback cannot attach the
     // same original gauge twice through different windows.
     std::set<hts_pos_t> trusted_used_blocks;
-    for (const RecoverySeam& window : windows) {
+    // A complete BAM source path can be reused through its successive sites
+    // even when no read spans its two most distant injected rows. Ordinarily
+    // both attachments need direct SNP evidence. A focused retry can instead
+    // use significant, shared-site-confirmed gauges at both graph flanks.
+    std::set<hts_pos_t> direct_snp_used_blocks;
+    for (size_t window_i = 0; window_i < windows.size(); ++window_i) {
+        const RecoverySeam& window = windows[window_i];
         const auto gauge_it = std::find_if(
             gauges.begin(), gauges.end(), [&](const RecoveryPhaseGauge& gauge) {
                 return gauge.beg <= window.beg && gauge.end >= window.end;
@@ -2421,12 +2697,54 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     flipped_from_initial(window.right_phase_set);
             }
         }
-        // Every recovered chain must preserve a statistically decisive
-        // relation between the already phased graph flanks. Prefer direct
-        // outer-candidate observations. A multi-block BAM solve can also
-        // provide a whole-window graph gauge; when both exist they must agree.
+        // A source phase-set label may extend across many graph seams. A
+        // quality-validated weak cut can supply the outer relation only for
+        // the seam that actually contains it; treating the whole source path
+        // as complete here joined opposite graph haplotypes 600 kb upstream.
+        bool locally_validated_single_block = false;
+        bool locally_validated_source_span = false;
+        if (local_blocks.size() == 1 && source_weak_cuts != nullptr &&
+            source_quality_cuts != nullptr) {
+            const hts_pos_t source_ps = local_blocks.front().second;
+            const auto weak = source_weak_cuts->find(source_ps);
+            const auto quality = source_quality_cuts->find(source_ps);
+            if (weak != source_weak_cuts->end() &&
+                quality != source_quality_cuts->end()) {
+                bool has_inside_cut = false;
+                bool has_outside_cut = false;
+                bool all_inside_supported = true;
+                for (const hts_pos_t cut : weak->second) {
+                    if (cut < window.beg || cut >= window.end) {
+                        has_outside_cut = true;
+                        continue;
+                    }
+                    has_inside_cut = true;
+                    if (std::find(quality->second.begin(),
+                                  quality->second.end(), cut) ==
+                        quality->second.end())
+                        all_inside_supported = false;
+                }
+                locally_validated_source_span =
+                    has_inside_cut && all_inside_supported;
+                locally_validated_single_block =
+                    locally_validated_source_span && !has_outside_cut;
+            }
+        }
+        // Every recovered chain needs a supported outer graph relation.
+        // Direct outer-candidate observations take priority; a locally
+        // validated single block or the existing multi-block route may also
+        // supply it when both graph/BAM boundary gauges are significant and
+        // confirmed by exact shared heterozygotes.
         std::optional<bool> gauge_outer_relation;
-        if (local_blocks.size() > 1 && recovery_gauge != nullptr) {
+        if (locally_validated_source_span && recovery_gauge != nullptr) {
+            const hts_pos_t source_ps = local_blocks.front().second;
+            const std::optional<bool> left_flip = block_gauge_flip(
+                *recovery_gauge, window.left_phase_set, source_ps);
+            const std::optional<bool> right_flip = block_gauge_flip(
+                *recovery_gauge, window.right_phase_set, source_ps);
+            if (left_flip && right_flip)
+                gauge_outer_relation = *left_flip != *right_flip;
+        } else if (local_blocks.size() > 1 && recovery_gauge != nullptr) {
             const std::optional<bool> left_anchor = candidate_anchor_flip(
                 *recovery_gauge, window.left_phase_set,
                 local_blocks.front().second);
@@ -2438,9 +2756,42 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     *recovery_gauge, window.left_phase_set);
                 const int right_orientation = significant_graph_orientation(
                     *recovery_gauge, window.right_phase_set);
-                if (left_orientation != 0 && right_orientation != 0) {
+                if (left_orientation != 0 && right_orientation != 0)
                     gauge_outer_relation =
                         left_orientation != right_orientation;
+            }
+        }
+        if (recovery_gauge != nullptr) {
+            const auto physical = std::find_if(
+                recovery_gauge->physical_snp_bridges.begin(),
+                recovery_gauge->physical_snp_bridges.end(),
+                [&](const RecoveryPhysicalSnpBridge& bridge) {
+                    return bridge.left_phase_set == window.left_phase_set &&
+                           bridge.right_phase_set == window.right_phase_set;
+                });
+            if (physical != recovery_gauge->physical_snp_bridges.end()) {
+                if ((outer_relation && *outer_relation != physical->flip) ||
+                    (gauge_outer_relation &&
+                     *gauge_outer_relation != physical->flip))
+                    continue;
+                const hts_pos_t left_root =
+                    resolve_phase_set(window.left_phase_set);
+                const hts_pos_t right_root =
+                    resolve_phase_set(window.right_phase_set);
+                if (left_root != right_root &&
+                    merge_phase_sets_in_place(
+                        chunk, left_root, right_root,
+                        physical->flip ^
+                        flipped_from_initial(window.left_phase_set) ^
+                        flipped_from_initial(window.right_phase_set))) {
+                    for (auto& [source, target] : phase_set_aliases) {
+                        (void)source;
+                        if (resolve_phase_set(target) == right_root)
+                            target = left_root;
+                    }
+                    phase_set_aliases[right_root] = left_root;
+                    ++joined;
+                    continue;
                 }
             }
         }
@@ -2449,7 +2800,34 @@ size_t stitch_recovery_phase_sets_left_to_right(
             continue;
         }
         if (!outer_relation) outer_relation = gauge_outer_relation;
-
+        if (locally_validated_source_span &&
+            !locally_validated_single_block && gauge_outer_relation) {
+            // The BAM source block also has an unsupported cut outside this
+            // seam. Its local path can orient the graph flanks, but the full
+            // source phase set must remain independent.
+            const hts_pos_t left_root =
+                resolve_phase_set(window.left_phase_set);
+            const hts_pos_t right_root =
+                resolve_phase_set(window.right_phase_set);
+            if (left_root != right_root &&
+                merge_phase_sets_in_place(
+                    chunk, left_root, right_root,
+                    *gauge_outer_relation ^
+                    flipped_from_initial(window.left_phase_set) ^
+                    flipped_from_initial(window.right_phase_set))) {
+                for (auto& [source, target] : phase_set_aliases) {
+                    (void)source;
+                    if (resolve_phase_set(target) == right_root)
+                        target = left_root;
+                }
+                phase_set_aliases[right_root] = left_root;
+                if (locally_bridged_sources != nullptr)
+                    locally_bridged_sources->insert(
+                        local_blocks.front().second);
+                ++joined;
+                continue;
+            }
+        }
         const auto merge_imported_boundary =
             [&](hts_pos_t upstream_phase_set,
                 hts_pos_t downstream_phase_set, bool flip) {
@@ -2498,9 +2876,11 @@ size_t stitch_recovery_phase_sets_left_to_right(
         bool merged_into_upstream = false;
         bool component_contiguous =
             strong_only_roots.count(primary_upstream_phase_set) == 0;
+        hts_pos_t upstream_gauge_phase_set =
+            chain.front().gauge_phase_set;
         int upstream_orientation = recovery_gauge != nullptr
             ? orientation_in_gauge(*recovery_gauge,
-                                   chain.front().gauge_phase_set)
+                                   upstream_gauge_phase_set)
             : 0;
         if (recovery_gauge != nullptr && upstream_orientation == 0 &&
             chain.front().current_phase_set !=
@@ -2508,8 +2888,9 @@ size_t stitch_recovery_phase_sets_left_to_right(
             // A preceding seam may already have absorbed this boundary. The
             // targeted BAM solve then votes for the surviving graph label,
             // while the detector correctly retains the original local label.
+            upstream_gauge_phase_set = chain.front().current_phase_set;
             upstream_orientation = orientation_in_gauge(
-                *recovery_gauge, chain.front().current_phase_set);
+                *recovery_gauge, upstream_gauge_phase_set);
         }
         for (size_t i = 1; i < chain.size(); ++i) {
             // A failed edge separates two components; it must not hide a later
@@ -2547,11 +2928,26 @@ size_t stitch_recovery_phase_sets_left_to_right(
                             initial_phase_set_candidates.end() &&
                         downstream_candidates !=
                             initial_phase_set_candidates.end()) {
+                        SourceLabelCheck source_labels;
+                        source_labels.haps = &haps_before_window;
+                        source_labels.phase_sets = &phase_sets_before_window;
+                        source_labels.upstream_ps = chain[i - 1].gauge_phase_set;
+                        source_labels.downstream_ps = chain[i].gauge_phase_set;
                         const std::optional<bool> current_flip =
                             aggregate_candidate_set_flip(
                                 chunk, upstream_candidates->second,
-                                downstream_candidates->second, opts);
-                        if (current_flip) {
+                                downstream_candidates->second, opts, -1,
+                                nullptr, nullptr, &source_labels);
+                        // A read already tagged to an imported block checks
+                        // whether that block's boundary alleles retain its HP.
+                        // If the spanning reads significantly disagree with
+                        // their own tags, the apparent inter-block allele
+                        // relation is not safe to propagate to the graph.
+                        const std::optional<bool> label_conflict =
+                            significant_parity_flip(
+                                source_labels.agree,
+                                source_labels.conflict);
+                        if (current_flip && (!label_conflict || !*label_conflict)) {
                             stitched = merge_imported_boundary(
                                 upstream_phase_set, downstream_phase_set,
                                 *current_flip);
@@ -2592,8 +2988,14 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     orientation_in_gauge(*recovery_gauge,
                                          chain[i].gauge_phase_set);
                 if (downstream_orientation != 0) {
+                    // The saved gauge votes precede earlier seam merges. An
+                    // absorbed left block may already have flipped, so convert
+                    // both vote orientations into the current candidate gauge
+                    // before choosing the right block's flip.
                     const bool gauge_flip =
-                        upstream_orientation != downstream_orientation;
+                        (upstream_orientation != downstream_orientation) ^
+                        flipped_from_initial(upstream_gauge_phase_set) ^
+                        flipped_from_initial(chain[i].gauge_phase_set);
                     // Alleles select which locus may later assign reads. The
                     // shared-read gauge still controls the block orientation;
                     // mark the locus only when both evidence paths agree.
@@ -2607,9 +3009,18 @@ size_t stitch_recovery_phase_sets_left_to_right(
                         mark_supported_locus(
                             chunk, edge->downstream_candidate);
                     }
-                    stitched = merge_phase_sets_in_place(
-                        chunk, upstream_phase_set, downstream_phase_set,
-                        gauge_flip);
+                    // An unproved gauge join would consume the right flank
+                    // before the next recovery seam can test its own bridge.
+                    // Keep that flank independent when it is the next seam's
+                    // left anchor and no local allele pair validates the join.
+                    const bool next_seam_needs_downstream =
+                        window_i + 1 < windows.size() &&
+                        windows[window_i + 1].left_phase_set ==
+                            chain[i].gauge_phase_set;
+                    if (edge || !next_seam_needs_downstream)
+                        stitched = merge_phase_sets_in_place(
+                            chunk, upstream_phase_set,
+                            downstream_phase_set, gauge_flip);
                 }
             }
             if (!imported_boundary && !stitched && component_contiguous) {
@@ -2736,10 +3147,9 @@ size_t stitch_recovery_phase_sets_left_to_right(
             // separate blocks.
             // Attach recovered BAM blocks only to graph blocks. Independent
             // BAM phase blocks remain separate; joining two arbitrary subsolve
-            // gauges here can alter reads without closing a graph seam. Never
-            // use one original block in two fallback joins during the
-            // same pass: chaining locally stable edges can conceal an older
-            // polarity change inside an atomic block.
+            // gauges here can alter reads without closing a graph seam.
+            // A block can bridge two neighbors only when molecules spanning
+            // its end sites support both haplotypes in the same orientation.
             for (size_t edge_i = 1; edge_i < chain.size(); ++edge_i) {
                 const hts_pos_t upstream_source =
                     chain[edge_i - 1].gauge_phase_set;
@@ -2751,9 +3161,58 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     is_imported_phase_set(downstream_source);
                 const bool graph_bam_edge =
                     upstream_imported != downstream_imported;
+                const auto complete_focused_source_bridge =
+                    [&](hts_pos_t source_ps) {
+                        if (recovery_gauge == nullptr ||
+                            !recovery_gauge->focused_retry ||
+                            source_path_supported == nullptr ||
+                            std::find(
+                                recovery_gauge->imported_phase_sets.begin(),
+                                recovery_gauge->imported_phase_sets.end(),
+                                source_ps) ==
+                                recovery_gauge->imported_phase_sets.end())
+                            return false;
+                        const auto path = source_path_supported->find(source_ps);
+                        if (path == source_path_supported->end() ||
+                            !path->second)
+                            return false;
+                        const std::optional<bool> left_flip =
+                            block_gauge_flip(*recovery_gauge,
+                                window.left_phase_set, source_ps);
+                        const std::optional<bool> right_flip =
+                            block_gauge_flip(*recovery_gauge,
+                                window.right_phase_set, source_ps);
+                        return left_flip && right_flip &&
+                            (!outer_relation ||
+                             *outer_relation == (*left_flip != *right_flip));
+                    };
+                const auto reusable_by_source_path = [&](hts_pos_t source_ps) {
+                    return complete_focused_source_bridge(source_ps) ||
+                        (recovery_gauge != nullptr &&
+                         recovery_gauge->focused_retry &&
+                         std::find(recovery_gauge->imported_phase_sets.begin(),
+                                   recovery_gauge->imported_phase_sets.end(),
+                                   source_ps) !=
+                             recovery_gauge->imported_phase_sets.end() &&
+                         direct_snp_used_blocks.count(source_ps) != 0 &&
+                         source_path_supported != nullptr &&
+                         source_path_supported->count(source_ps) != 0 &&
+                         source_path_supported->at(source_ps));
+                };
+                const bool reused_source_path =
+                    (trusted_used_blocks.count(upstream_source) != 0 &&
+                     !has_end_to_end_support(upstream_source) &&
+                     reusable_by_source_path(upstream_source)) ||
+                    (trusted_used_blocks.count(downstream_source) != 0 &&
+                     !has_end_to_end_support(downstream_source) &&
+                     reusable_by_source_path(downstream_source));
                 if (!graph_bam_edge ||
-                    trusted_used_blocks.count(upstream_source) != 0 ||
-                    trusted_used_blocks.count(downstream_source) != 0) {
+                    (trusted_used_blocks.count(upstream_source) != 0 &&
+                     !has_end_to_end_support(upstream_source) &&
+                     !reusable_by_source_path(upstream_source)) ||
+                    (trusted_used_blocks.count(downstream_source) != 0 &&
+                     !has_end_to_end_support(downstream_source) &&
+                     !reusable_by_source_path(downstream_source))) {
                     continue;
                 }
                 const hts_pos_t upstream_phase_set =
@@ -2808,18 +3267,47 @@ size_t stitch_recovery_phase_sets_left_to_right(
                         chunk, trusted_edge, upstream_phase_set,
                         downstream_phase_set, false,
                         &whole_block_too_large);
-                // The narrow scope is a resource fallback only. Never use it
-                // to override a full-block tie or conflicting parity.
+                // The narrow scope is a resource fallback only. The focused
+                // source path and both flank gauges can admit it when an
+                // exact shared-site anchor is sparse. A full-block tie or
+                // conflicting parity never reaches this fallback.
                 if (!trusted_path && whole_block_too_large &&
                     graph_bam_edge && recovery_gauge != nullptr &&
-                    candidate_anchor_flip(
-                        *recovery_gauge, upstream_source,
-                        downstream_source)) {
+                    (candidate_anchor_flip(
+                         *recovery_gauge, upstream_source,
+                         downstream_source) ||
+                     complete_focused_source_bridge(
+                         upstream_imported ? upstream_source
+                                           : downstream_source))) {
                     trusted_path = trusted_recovery_mec_path(
                         chunk, trusted_edge, upstream_phase_set,
                         downstream_phase_set, true);
                 }
-                if (!trusted_path) continue;
+                // A second attachment to an already validated graph block
+                // may use its sequence-identical boundary candidate when the
+                // complete MEC problem ties. End-to-end molecules on both
+                // haplotypes independently validate the reused graph block.
+                const hts_pos_t graph_source = upstream_imported
+                    ? downstream_source : upstream_source;
+                if (!trusted_path && recovery_gauge != nullptr &&
+                    trusted_used_blocks.count(graph_source) != 0 &&
+                    has_end_to_end_support(graph_source)) {
+                    const std::optional<bool> anchor_flip = block_gauge_flip(
+                        *recovery_gauge, upstream_source, downstream_source);
+                    if (anchor_flip) {
+                        RecoveryDiploidPath direct_path;
+                        direct_path.flip_right =
+                            *anchor_flip ^
+                            flipped_from_initial(upstream_source) ^
+                            flipped_from_initial(downstream_source);
+                        trusted_path = std::move(direct_path);
+                    }
+                }
+                if (!trusted_path ||
+                    (reused_source_path && !trusted_path->direct_snp_bridge &&
+                     !complete_focused_source_bridge(upstream_source) &&
+                     !complete_focused_source_bridge(downstream_source)))
+                    continue;
                 if (graph_bam_edge) {
                     if (recovery_gauge == nullptr) continue;
                     std::optional<bool> gauge_flip = block_gauge_flip(
@@ -2827,10 +3315,64 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     // Distinct centered SNPs with independently significant
                     // full/half evidence replace the exact-key anchor. Keep
                     // the source-specific read gauge as a separate check.
-                    if (!gauge_flip && trusted_path->direct_snp_bridge) {
+                    const hts_pos_t imported_source = upstream_imported
+                        ? upstream_source : downstream_source;
+                    const bool complete_source_path =
+                        source_path_supported != nullptr &&
+                        source_path_supported->count(imported_source) != 0 &&
+                        source_path_supported->at(imported_source);
+                    if (!gauge_flip &&
+                        (trusted_path->direct_snp_bridge ||
+                         (trusted_path->direct_clean_bridge &&
+                          complete_source_path))) {
                         gauge_flip = block_read_gauge_flip(
                             *recovery_gauge, upstream_source,
                             downstream_source);
+                    }
+                    if (!gauge_flip && complete_source_path) {
+                        const auto upstream_sites =
+                            initial_phase_set_candidates.find(upstream_source);
+                        const auto downstream_sites =
+                            initial_phase_set_candidates.find(downstream_source);
+                        if (upstream_sites != initial_phase_set_candidates.end() &&
+                            downstream_sites != initial_phase_set_candidates.end()) {
+                            std::array<std::pair<int, int>, 2> half_votes{};
+                            const std::optional<bool> aggregate_flip =
+                                aggregate_candidate_set_flip(
+                                    chunk, upstream_sites->second,
+                                    downstream_sites->second, opts, -1,
+                                    nullptr, &half_votes);
+                            const auto supports = [&](const std::pair<int, int>& votes) {
+                                return trusted_path->flip_right
+                                    ? votes.second > votes.first
+                                    : votes.first > votes.second;
+                            };
+                            // The full vote must be significant; at lower
+                            // depth both halves need the same direction, but
+                            // need not each independently reach that p-value.
+                            if (aggregate_flip &&
+                                *aggregate_flip == trusted_path->flip_right &&
+                                supports(half_votes[0]) &&
+                                supports(half_votes[1])) {
+                                gauge_flip = block_read_gauge_flip(
+                                    *recovery_gauge, upstream_source,
+                                    downstream_source);
+                                // A source-specific read-label gauge is absent
+                                // when all bridging graph reads have only BAM
+                                // or upstream HP tags. The exact MEC and the
+                                // significant split-stable allele vote still
+                                // orient the two complete blocks directly.
+                                if (!gauge_flip &&
+                                    find_block_gauge_vote(
+                                        *recovery_gauge, upstream_source,
+                                        downstream_source) ==
+                                        recovery_gauge->block_votes.end()) {
+                                    gauge_flip = trusted_path->flip_right ^
+                                        flipped_from_initial(upstream_source) ^
+                                        flipped_from_initial(downstream_source);
+                                }
+                            }
+                        }
                     }
                     if (!gauge_flip) continue;
                     const bool current_gauge_flip =
@@ -2865,6 +3407,82 @@ size_t stitch_recovery_phase_sets_left_to_right(
                 joined += absorbed.size();
                 trusted_used_blocks.insert(upstream_source);
                 trusted_used_blocks.insert(downstream_source);
+                if (trusted_path->direct_snp_bridge) {
+                    direct_snp_used_blocks.insert(upstream_source);
+                    direct_snp_used_blocks.insert(downstream_source);
+                }
+            }
+            // The outer graph flank can be inconclusive while the two inner
+            // BAM blocks and the opposite graph flank form their own component.
+            // Validate that component with a direct clean BAM SNP molecule,
+            // independent of the indels used by the adjacent-block vote.
+            if (local_blocks.size() >= 2 && recovery_gauge != nullptr) {
+                const hts_pos_t first_source =
+                    local_blocks[local_blocks.size() - 2].second;
+                const hts_pos_t second_source = local_blocks.back().second;
+                const hts_pos_t first_root = resolve_phase_set(first_source);
+                const hts_pos_t second_root = resolve_phase_set(second_source);
+                const auto first_sites =
+                    initial_phase_set_candidates.find(first_source);
+                const auto second_sites =
+                    initial_phase_set_candidates.find(second_source);
+                const auto right_sites =
+                    initial_phase_set_candidates.find(window.right_phase_set);
+                if (first_root > 0 && second_root > 0 &&
+                    first_root != second_root &&
+                    second_root == resolve_phase_set(window.right_phase_set) &&
+                    first_root != resolve_phase_set(window.left_phase_set) &&
+                    first_sites != initial_phase_set_candidates.end() &&
+                    second_sites != initial_phase_set_candidates.end() &&
+                    right_sites != initial_phase_set_candidates.end() &&
+                    block_gauge_flip(*recovery_gauge, second_source,
+                                     window.right_phase_set)) {
+                    std::optional<bool> inner_flip =
+                        aggregate_candidate_set_flip(
+                            chunk, first_sites->second,
+                            second_sites->second, opts);
+                    const bool complete_bam_blocks =
+                        source_path_supported != nullptr &&
+                        source_path_supported->count(first_source) != 0 &&
+                        source_path_supported->at(first_source) &&
+                        source_path_supported->count(second_source) != 0 &&
+                        source_path_supported->at(second_source);
+                    if (!inner_flip && complete_bam_blocks)
+                        inner_flip = corroborated_bam_block_flip(
+                            chunk, first_sites->second, second_sites->second);
+                    bool outer_snp_conflict = false;
+                    const std::optional<bool> direct_flip =
+                        direct_bam_snp_bridge_flip(
+                            chunk, first_sites->second,
+                            right_sites->second, &outer_snp_conflict);
+                    const std::optional<bool> adjacent_direct =
+                        complete_bam_blocks && inner_flip
+                            ? direct_bam_snp_bridge_flip(
+                                  chunk, first_sites->second,
+                                  second_sites->second)
+                            : std::nullopt;
+                    const bool corroborated_singleton =
+                        complete_bam_blocks && adjacent_direct &&
+                        !outer_snp_conflict &&
+                        (!direct_flip || *direct_flip == *adjacent_direct);
+                    if (inner_flip &&
+                        ((direct_flip && *inner_flip == *direct_flip) ||
+                         (corroborated_singleton &&
+                          *inner_flip == *adjacent_direct)) &&
+                        merge_phase_sets_in_place(
+                            chunk, first_root, second_root, *inner_flip)) {
+                        for (auto& [source, target] : phase_set_aliases) {
+                            (void)source;
+                            if (resolve_phase_set(target) == second_root)
+                                target = first_root;
+                        }
+                        phase_set_aliases[second_root] = first_root;
+                        ++joined;
+                        trusted_used_blocks.insert(first_source);
+                        trusted_used_blocks.insert(second_source);
+                        trusted_used_blocks.insert(window.right_phase_set);
+                    }
+                }
             }
             continue;
         }

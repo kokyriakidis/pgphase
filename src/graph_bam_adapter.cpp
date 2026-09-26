@@ -10,7 +10,9 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <numeric>
 #include <ostream>
 #include <stdexcept>
@@ -1175,6 +1177,25 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     return out;
 }
 
+const std::string* selected_graph_candidate_alt(
+        const GraphChunkBuildResult& graph_chunk, size_t candidate_index) {
+    if (candidate_index >= graph_chunk.chunk.candidates.size() ||
+        candidate_index >= graph_chunk.site_meta.size() ||
+        candidate_index >= graph_chunk.site_allele_orig_idx.size() ||
+        graph_chunk.chunk.candidates[candidate_index].counts.n_uniq_alles != 2) {
+        return nullptr;
+    }
+    const GraphSiteMeta& meta = graph_chunk.site_meta[candidate_index];
+    const std::vector<int>& original =
+        graph_chunk.site_allele_orig_idx[candidate_index];
+    if (meta.ref.empty() || original.size() != 2) return nullptr;
+    const int alt_index = original[1] - 1;
+    if (alt_index < 0 || static_cast<size_t>(alt_index) >= meta.alts.size())
+        return nullptr;
+    const std::string& alt = meta.alts[static_cast<size_t>(alt_index)];
+    return alt.empty() || alt == "*" ? nullptr : &alt;
+}
+
 // Merge-intersect overlap detection between adjacent chunks.
 // Reads are inserted in sorted name order by build_graph_chunk,
 // so we can merge-intersect directly in O(n+m) without sorting.
@@ -1373,8 +1394,134 @@ static int rescue_observed_allele(const ReadVariantProfile& profile,
     return -1;
 }
 
+// Validate an excluded graph indel against the closest phased clean SNP
+// in the proposed block. This compares alleles on the same molecules, without
+// trusting a possibly switched read HP label elsewhere in that block. The
+// selected pair must agree with the inferred marker in all reads and in both
+// deterministic, disjoint read halves.
+static bool rescue_indel_has_direct_snp_support(
+        const PhasingChunk& chunk, size_t site_i,
+        const RescueMarker& marker,
+        const std::vector<RecoverySeam>& recovery_windows) {
+    constexpr double kDirectSnpPValue = 0.05;
+    constexpr double kMaxDirectSnpDiscordance = 0.25;
+    constexpr double kMaxUnlinkedSiteFraction = 0.5;
+    const CandidateVariant& site = chunk.candidates[site_i];
+    if (site.bam_injected || site.phase_set > 0 ||
+        site.lcd_var_i_to_cate != kLongcalldRepHetVar ||
+        site.key.type == VariantType::Snp || recovery_windows.empty()) {
+        return false;
+    }
+    const hts_pos_t site_pos = site.key.sort_pos();
+    const bool in_gap = std::any_of(
+        recovery_windows.begin(), recovery_windows.end(),
+        [site_pos](const RecoverySeam& window) {
+            return window.beg < site_pos && site_pos < window.end;
+        });
+    if (!in_gap) return false;
+    // Two unphased graph alternatives at one coordinate may encode the same
+    // event differently. A direct SNP pair cannot validate both rows as
+    // independent singletons.
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        if (i != site_i && !chunk.candidates[i].bam_injected &&
+            chunk.candidates[i].phase_set <= 0 &&
+            chunk.candidates[i].key.sort_pos() == site_pos) {
+            return false;
+        }
+    }
+
+    size_t anchor_i = chunk.candidates.size();
+    hts_pos_t nearest = std::numeric_limits<hts_pos_t>::max();
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        const CandidateVariant& anchor = chunk.candidates[i];
+        if (anchor.phase_set != marker.phase_set ||
+            anchor.key.type != VariantType::Snp ||
+            anchor.lcd_var_i_to_cate != kCandCleanHetSnp ||
+            !is_oriented_biallelic_candidate(anchor)) {
+            continue;
+        }
+        const hts_pos_t distance =
+            std::llabs(anchor.key.sort_pos() - site_pos);
+        if (distance < nearest) {
+            anchor_i = i;
+            nearest = distance;
+        }
+    }
+    if (anchor_i == chunk.candidates.size()) return false;
+
+    std::array<int, 3> agrees{};
+    std::array<int, 3> conflicts{};
+    std::array<bool, 2> observed_site_allele{};
+    std::array<bool, 2> observed_anchor_hap{};
+    int site_observations = 0;
+    const CandidateVariant& anchor = chunk.candidates[anchor_i];
+    for (const ReadVariantProfile& profile : chunk.read_var_profile) {
+        if (profile.read_id < 0 ||
+            static_cast<size_t>(profile.read_id) >= chunk.reads.size() ||
+            chunk.reads[static_cast<size_t>(profile.read_id)].is_skipped ||
+            profile.start_var_idx < 0 ||
+            site_i < static_cast<size_t>(profile.start_var_idx) ||
+            site_i > static_cast<size_t>(profile.end_var_idx)) {
+            continue;
+        }
+        const int site_allele = rescue_observed_allele(
+            profile, site_i - static_cast<size_t>(profile.start_var_idx),
+            false);
+        if (site_allele < 0) continue;
+        ++site_observations;
+        if (anchor_i < static_cast<size_t>(profile.start_var_idx) ||
+            anchor_i > static_cast<size_t>(profile.end_var_idx)) {
+            continue;
+        }
+        const int anchor_allele = rescue_observed_allele(
+            profile, anchor_i - static_cast<size_t>(profile.start_var_idx),
+            false);
+        if (anchor_allele < 0) continue;
+        const int site_hap = marker.allele_to_hap[
+            static_cast<size_t>(site_allele)];
+        const int anchor_hap = anchor_allele ==
+            anchor.hap_to_cons_alle[1] ? 1 : 2;
+        observed_site_allele[static_cast<size_t>(site_allele)] = true;
+        observed_anchor_hap[static_cast<size_t>(anchor_hap - 1)] = true;
+
+        uint64_t hash = 14695981039346656037ULL;
+        const std::string& qname =
+            chunk.reads[static_cast<size_t>(profile.read_id)].qname;
+        for (const unsigned char byte : qname) {
+            hash ^= byte;
+            hash *= 1099511628211ULL;
+        }
+        const size_t fold = static_cast<size_t>(hash & 1ULL) + 1;
+        std::array<int, 3>& votes =
+            site_hap == anchor_hap ? agrees : conflicts;
+        ++votes[0];
+        ++votes[fold];
+    }
+    const int joint_observations = agrees[0] + conflicts[0];
+    if (!observed_site_allele[0] || !observed_site_allele[1] ||
+        !observed_anchor_hap[0] || !observed_anchor_hap[1] ||
+        one_sided_wilson_upper_bound(conflicts[0],
+                                     joint_observations) >
+            kMaxDirectSnpDiscordance ||
+        one_sided_wilson_upper_bound(
+            site_observations - joint_observations,
+            site_observations) > kMaxUnlinkedSiteFraction) {
+        return false;
+    }
+    for (size_t fold = 0; fold < agrees.size(); ++fold) {
+        if (agrees[fold] <= conflicts[fold] ||
+            rescue_binomial_tail(agrees[fold],
+                                 agrees[fold] + conflicts[fold]) >
+                kDirectSnpPValue) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static size_t rescue_unphased_graph_read_layer(
-        PhasingChunk& chunk, bool use_bam_observations) {
+        PhasingChunk& chunk, bool use_bam_observations,
+        const std::vector<RecoverySeam>& recovery_windows) {
     if (chunk.candidates.empty() || chunk.read_var_profile.empty()) return 0;
 
     chunk.haps.resize(chunk.reads.size(), 0);
@@ -1501,6 +1648,11 @@ static size_t rescue_unphased_graph_read_layer(
                 one_sided_wilson_upper_bound(
                     std::min(primary_same, primary_cross), primary_total) <=
                     kRescueSingletonMaxDiscordance;
+            if (!supported.singleton_safe) {
+                supported.singleton_safe =
+                    rescue_indel_has_direct_snp_support(
+                        chunk, site_i, supported, recovery_windows);
+            }
         }
         if (supported_phase_sets == 1) marker = supported;
     }
@@ -1655,7 +1807,9 @@ static size_t rescue_unphased_graph_read_layer(
     return rescued;
 }
 
-size_t rescue_unphased_graph_reads(PhasingChunk& chunk) {
+size_t rescue_unphased_graph_reads(
+        PhasingChunk& chunk,
+        const std::vector<RecoverySeam>& recovery_windows) {
     size_t total_rescued = 0;
     const auto run_to_fixed_point = [&](bool use_bam_observations) {
         size_t rescued = 0;
@@ -1664,7 +1818,7 @@ size_t rescue_unphased_graph_reads(PhasingChunk& chunk) {
             // next layer independently passes the site-orientation test.
             const size_t layer_rescued =
                 rescue_unphased_graph_read_layer(
-                    chunk, use_bam_observations);
+                    chunk, use_bam_observations, recovery_windows);
             if (layer_rescued == 0) break;
             rescued += layer_rescued;
         }

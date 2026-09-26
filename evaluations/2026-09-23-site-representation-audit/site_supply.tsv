@@ -1,0 +1,9 @@
+category	alleles
+bam_phased_keys	83270
+graph_phased_keys	61742
+shared_exact_keys	54348
+bam_only_exact_keys	28922
+no_exact_catalog_or_candidate	19301
+catalog_exact_no_candidate	4008
+candidate_exact_no_phased_vcf	5613
+no_exact_catalog_total	21806

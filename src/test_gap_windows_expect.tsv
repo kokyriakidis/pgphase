@@ -1,7 +1,7 @@
 # Expected outcome per arm and window for src/test_gap_windows.cpp.
-# spans is an EQUALITY per window (a span appearing where none is expected is
-# a join across an interval no read crosses, not an improvement) and a count
-# of spanned windows on the TOTAL rows. min_in_gap_hets is a floor on SITES
+# spans is an EQUALITY per window: a new join needs molecule coverage and
+# truth-orientation review before its expectation changes. TOTAL rows hold
+# counts of spanned windows. min_in_gap_hets is a floor on SITES
 # phased inside the gap.
 #
 # There is deliberately no read-count column. How many reads end up tagged
@@ -24,11 +24,26 @@ graph	3852321	0	16	0.88	0.29
 graph	4766928	1	7	0.98	0.61
 graph	5309406	0	3	0.99	0.32
 graph	22980600	0	5	0.99	0.36
-graph	26029591	0	276	0.99	0.83
+graph	26029591	1	276	0.99	0.99
 graph	60033052	0	2	0.85	0.40
-graph	6578161	0	0	1.00	0.80
+graph	6578161	1	0	1.00	0.80
 graph	11255370	0	0	0.99	0.64
-graph	12269536	0	0	0.99	0.68
+graph	12269536	1	0	0.99	0.68
 graph	15095642	0	2	0.94	0.37
-graph	48225787	0	0	1.00	0.71
-graph	TOTAL	1	311	0.85	0.29
+graph	48225787	1	0	1.00	0.71
+graph	1086625	0	0	0.99	0.40
+graph	3573979	0	0	0.98	0.40
+graph	20875468	1	1	0.99	0.83
+graph	21435750	1	0	0.93	0.80
+graph	21736539	0	1	1.00	0.43
+graph	24357615	1	0	1.00	0.83
+graph	41900800	1	0	0.96	0.40
+graph	47636774	1	0	0.99	0.81
+graph	48022132	1	0	0.99	0.79
+graph	48929511	0	1	0.99	0.41
+graph	56323427	1	0	0.99	0.85
+graph	61664136	0	0	0.97	0.41
+graph	63945865	1	0	0.99	0.94
+graph	24581764	1	1	0.99	0.88
+graph	56064697	0	0	1.00	0.50
+graph	TOTAL	12	315	0.85	0.29

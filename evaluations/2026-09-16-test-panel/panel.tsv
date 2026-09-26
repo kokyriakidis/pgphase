@@ -20,3 +20,23 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 12269536	12277077	7541	53	hiphase	1.0000	53
 15095642	15101261	5619	101	regression_control	0.0000	0
 48225787	48229445	3658	51	hiphase	1.0000	51
+
+# Larger noncentromeric gaps: HiPhase 1.6.0 on the same pgphase VCF and BAM.
+# Exact boundary keys share one HiPhase PS; local purity >=98%, both 10-kb flanks >=95%.
+# Each window (50-kb flank on each side) has identical variant keys in the current and HiPhase input VCFs.
+# The corresponding pgphase isolated replay remains split; see the 2026-09-24 large-gap manifest.
+1086625	1110921	24296	171	hiphase_same_sites	0.8070	138
+3573979	3596663	22684	161	hiphase_same_sites	0.8261	133
+20875468	20895876	20408	144	hiphase_same_sites	0.8611	124
+21435750	21456826	21076	157	hiphase_same_sites	0.8535	134
+21736539	21757517	20978	143	hiphase_same_sites	0.8112	116
+24357615	24379633	22018	131	hiphase_same_sites	0.8321	109
+24581764	24601281	19517	172	hiphase_same_sites	0.9012	155
+41900800	41919471	18671	169	hiphase_same_sites	0.8698	147
+47636774	47659910	23136	147	hiphase_same_sites	0.8163	120
+48022132	48043584	21452	139	hiphase_same_sites	0.7986	111
+48929511	48950388	20877	156	hiphase_same_sites	0.8654	135
+56064697	56083708	19011	167	hiphase_same_sites	0.8922	149
+56323427	56343002	19575	183	hiphase_same_sites	0.8579	157
+61664136	61690751	26615	205	hiphase_same_sites	0.7317	150
+63945865	63968892	23027	150	hiphase_same_sites	0.7933	119

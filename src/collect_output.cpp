@@ -415,7 +415,10 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
     VcfRecordCore core;
     core.pos = key.pos;
     if (key.type == VariantType::Snp) {
-        core.ref_seq = std::string(1, ref.base(key.tid, key.pos, header));
+        // Graph catalog sites may carry an equal-length multi-base replacement.
+        // The BAM path always uses ref_len=1, but shortening a graph REF here
+        // changes the haplotype described by the emitted VCF record.
+        core.ref_seq = ref.subseq(key.tid, key.pos, std::max(1, key.ref_len), header);
         core.alt_seq = key.alt.empty() ? "." : key.alt;
     } else if (key.type == VariantType::Insertion) {
         const hts_pos_t anchor_pos = std::max<hts_pos_t>(1, key.pos - 1);
@@ -457,7 +460,9 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
                                          : anchor_base;
         const std::string del_seq = ref.subseq(key.tid, key.pos, key.ref_len, header);
         core.ref_seq = std::string(1, anchor_base) + del_seq;
-        core.alt_seq = std::string(1, alt_anchor_base);
+        // A length-decreasing replacement retains key.alt after the deleted
+        // span. Pure deletions have an empty key.alt and keep the anchor alone.
+        core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
         if (!candidate.msa_insertion_alts.empty()) {
             // A merged co-located deletion carries one entry per allele holding
             // the bases that allele retains, so REF spans the longest deletion
@@ -489,7 +494,7 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         info << ";CLEAN";
     }
     if (key.type == VariantType::Insertion || key.type == VariantType::Deletion) {
-        const int svlen = (key.type == VariantType::Insertion) ? static_cast<int>(key.alt.size()) : -key.ref_len;
+        const int svlen = static_cast<int>(key.alt.size()) - key.ref_len;
         const bool large_alt = std::any_of(candidate.msa_insertion_alts.begin(),
             candidate.msa_insertion_alts.end(), [&](const std::string& allele) {
                 return allele.size() >= static_cast<size_t>(opts.min_sv_len);

@@ -932,14 +932,25 @@ struct RecoveryBlockGaugeVote {
     int shared_candidate_cross = 0;
 };
 
+/// Physical clean-SNP molecule relation between two established graph blocks.
+/// The parity is expressed in their pre-stitch candidate gauges.
+struct RecoveryPhysicalSnpBridge {
+    hts_pos_t left_phase_set = 0;
+    hts_pos_t right_phase_set = 0;
+    bool flip = false;
+};
+
 /// Phase gauge supplied by one targeted BAM solve. Imported phase sets already
 /// use this gauge; graph phase sets acquire it through shared-read votes.
 struct RecoveryPhaseGauge {
+    // This gauge came from an MSA retry bounded by both adjacent graph PSs.
+    bool focused_retry = false;
     hts_pos_t beg = 0;
     hts_pos_t end = 0;
     std::vector<hts_pos_t> imported_phase_sets;
     std::vector<PhaseSetGaugeVote> graph_votes;
     std::vector<RecoveryBlockGaugeVote> block_votes;
+    std::vector<RecoveryPhysicalSnpBridge> physical_snp_bridges;
 };
 
 struct ReadVariantProfile {
@@ -954,6 +965,10 @@ struct ReadVariantProfile {
     // Original BAM observations, retained before GAF injection/MSA replacement.
     std::vector<int> bam_alleles;
     std::vector<int> bam_qi;
+    // Per-site BAM base quality retained for SNP bridge validation. Zero means
+    // the BAM call has no quality-bearing aligned base.
+    std::vector<uint8_t> bam_base_qualities;
+    int bam_mapq = -1;  // Mapping quality of this channel's BAM alignment.
 };
 
 // ════════════════════════════════════════════════════════════════════════════

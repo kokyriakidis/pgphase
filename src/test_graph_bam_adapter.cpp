@@ -1,13 +1,24 @@
 #include "graph_bam_adapter.hpp"
 
 #include "collect_phase.hpp"
+#include "collect_output.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <memory>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <htslib/faidx.h>
+#include <htslib/sam.h>
+#include <unistd.h>
 
 using namespace pgphase_collect;
 
@@ -252,6 +263,22 @@ int main() {
         ok &= check(tb.site_ids.size() == 2 &&
                     tb.site_ids[0] == "tri_both:1" && tb.site_ids[1] == "tri_both:2",
                     "multiallelic decomp: pair IDs carry original alt index");
+        // Both split rows retain the full VCF ALT list. Sequence matching must
+        // select the allele carried by that row, including when only ALT2 survives.
+        tb.site_meta[0].ref = tb.site_meta[1].ref = "A";
+        tb.site_meta[0].alts = tb.site_meta[1].alts = {"C", "G"};
+        const std::string* selected_first = selected_graph_candidate_alt(tb, 0);
+        const std::string* selected_second = selected_graph_candidate_alt(tb, 1);
+        ok &= check(selected_first != nullptr && *selected_first == "C" &&
+                    selected_second != nullptr && *selected_second == "G",
+                    "multiallelic decomp: each pair matches only its selected ALT");
+        GraphChunkBuildResult alt2_only;
+        alt2_only.chunk.candidates.push_back(tb.chunk.candidates[1]);
+        alt2_only.site_meta.push_back(tb.site_meta[1]);
+        alt2_only.site_allele_orig_idx.push_back(tb.site_allele_orig_idx[1]);
+        const std::string* selected_only = selected_graph_candidate_alt(alt2_only, 0);
+        ok &= check(selected_only != nullptr && *selected_only == "G",
+                    "multiallelic decomp: ALT1 cannot claim an ALT2-only candidate");
         // Under snarl allele phasing, "ref" for each pair means all reads not
         // carrying that alt: 6 literal-ref reads + 5 reads on the other alt.
         ok &= check(tb.chunk.candidates[0].counts.ref_cov == 11 &&
@@ -279,6 +306,44 @@ int main() {
                     a2_profile->alleles[0] == 0 &&
                     a2_profile->alleles[1] == 1,
                     "multiallelic decomp: alt2 read votes ref for alt1 pair");
+    }
+
+    // In the default REF-vs-ALT projection, a read on another ALT cannot
+    // testify that it carries the literal reference allele. This occurs at
+    // chr20:21,742,440: CT->CTT reads are unknown on the CT->C deletion row.
+    {
+        GraphSite multi;
+        multi.chrom = multi.ref_contig = "chr1";
+        multi.pos = multi.ref_beg = 100;
+        multi.ref_end = 101;
+        multi.id = "multi_default";
+        multi.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
+        multi.allele_walks = {parse_graph_walk(">1>2>3"),
+                              parse_graph_walk(">1>4>3"),
+                              parse_graph_walk(">1>5>3")};
+        multi.skip_reason = graph_site_validation_skip_reason(multi);
+        multi.eligible = multi.skip_reason.empty();
+        GraphSiteCatalog catalog;
+        catalog.sites.push_back(multi);
+        std::vector<GraphReadAllele> observations;
+        for (int i = 0; i < 6; ++i)
+            observations.push_back({"multi_default", "chr1", 100,
+                                    "ref_" + std::to_string(i), 0});
+        for (int i = 0; i < 5; ++i) {
+            observations.push_back({"multi_default", "chr1", 100,
+                                    "alt1_" + std::to_string(i), 1});
+            observations.push_back({"multi_default", "chr1", 100,
+                                    "alt2_" + std::to_string(i), 2});
+        }
+        Options opts;
+        auto result = build_graph_chunk(catalog.view_all(), observations,
+                                        "chr1", 0, 200, 0, opts);
+        const ReadVariantProfile* alt2 =
+            profile_for_read(result.chunk, "alt2_0");
+        ok &= check(result.chunk.candidates.size() == 2 && alt2 != nullptr &&
+                    alt2->start_var_idx == 1 && alt2->alleles.size() == 1 &&
+                    alt2->alleles[0] == 1,
+                    "default multiallelic projection: other ALT is unknown, not REF");
     }
 
     // Sub-test A2: keeping a no-reference alt1/alt2 snarl whole must remain a
@@ -313,6 +378,8 @@ int main() {
         ok &= check(!aa.chunk.candidates.empty() &&
                     aa.chunk.candidates[0].counts.n_uniq_alles == 3,
                     "whole snarl: candidate keeps all allele slots");
+        ok &= check(selected_graph_candidate_alt(aa, 0) == nullptr,
+                    "whole snarl: binary BAM allele cannot claim a multiallelic row");
         ok &= check(!aa.chunk.candidates.empty() &&
                     aa.chunk.candidates[0].counts.category == VariantCategory::CleanHetIndel,
                     "whole snarl: alt1/alt2 site classified as heterozygous");
@@ -657,6 +724,77 @@ int main() {
         }
         ok &= check(assigned == static_cast<int>(boundary.reads.size()),
                     "4.78 Mb fixture: independent blocks preserve read assignments");
+    }
+
+    // A broad graph/BAM gauge orients blocks but cannot bridge a local gap
+    // with no read observing both sides. The next, directly supported seam
+    // must still be eligible after that abstention.
+    {
+        constexpr hts_pos_t kLeft = 100;
+        constexpr hts_pos_t kMiddle = 200;
+        constexpr hts_pos_t kRight = 300;
+        PhasingChunk replay;
+        for (const auto [pos, phase_set] :
+             {std::pair<hts_pos_t, hts_pos_t>{1000, kLeft},
+              {2000, kMiddle}, {3000, kRight}}) {
+            CandidateVariant candidate;
+            candidate.key.pos = pos;
+            candidate.key.type = VariantType::Snp;
+            candidate.counts.n_uniq_alles = 2;
+            candidate.counts.alle_covs = {12, 12};
+            candidate.lcd_var_i_to_cate = kCandCleanHetSnp;
+            candidate.hap_to_cons_alle = {-1, 0, 1};
+            candidate.phase_set = phase_set;
+            replay.candidates.push_back(std::move(candidate));
+        }
+        const auto add_read = [&](const std::string& name, int first,
+                                  std::vector<int> alleles) {
+            const int read_i = static_cast<int>(replay.reads.size());
+            ReadRecord read;
+            read.qname = name;
+            read.mapq = 60;
+            replay.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.read_id = read_i;
+            profile.start_var_idx = first;
+            profile.end_var_idx = first + static_cast<int>(alleles.size()) - 1;
+            profile.alleles = std::move(alleles);
+            profile.alt_qi.assign(profile.alleles.size(), 60);
+            replay.read_var_profile.push_back(std::move(profile));
+            replay.haps.push_back(0);
+            replay.phase_sets.push_back(kUnphasedReadPhaseSet);
+        };
+        for (int allele = 0; allele <= 1; ++allele) {
+            for (int copy = 0; copy < 6; ++copy) {
+                const std::string suffix = std::to_string(allele) + "_" +
+                                           std::to_string(copy);
+                add_read("left_" + suffix, 0, {allele});
+                add_read("middle_right_" + suffix, 1,
+                         {allele, allele});
+            }
+        }
+        rebuild_read_var_cr(replay);
+
+        RecoveryPhaseGauge gauge;
+        gauge.beg = 1000;
+        gauge.end = 3000;
+        gauge.graph_votes = {
+            PhaseSetGaugeVote{kLeft, 12, 0},
+            PhaseSetGaugeVote{kMiddle, 12, 0},
+            PhaseSetGaugeVote{kRight, 12, 0},
+        };
+        Options stitch_opts;
+        stitch_opts.min_block_link_reads = 1;
+        stitch_opts.block_link_window = 8;
+        const size_t joined = stitch_recovery_phase_sets_left_to_right(
+            replay, {{1000, 2000, kLeft, kMiddle},
+                     {2000, 3000, kMiddle, kRight}},
+            {gauge}, stitch_opts);
+        ok &= check(joined == 1 &&
+                    replay.candidates[0].phase_set == kLeft &&
+                    replay.candidates[1].phase_set == kMiddle &&
+                    replay.candidates[2].phase_set == kMiddle,
+                    "recovery gauge: zero-read seam stays split, later clean edge joins");
     }
 
     // The ordinary adjacent-block stitch cannot cross two disjoint read
@@ -1423,13 +1561,37 @@ int main() {
             PhasingChunk replay;
             CandidateVariant left;
             left.key.pos = beg - 7;  // deliberately differs from canonical beg
+            left.key.type = VariantType::Snp;
+            left.lcd_var_i_to_cate = kCandCleanHetSnp;
             left.hap_to_cons_alle = {-1, 0, 1};
             left.phase_set = left_phase_set;
             CandidateVariant right;
             right.key.pos = end + 9;  // deliberately differs from canonical end
+            right.key.type = VariantType::Snp;
+            right.lcd_var_i_to_cate = kCandCleanHetSnp;
             right.hap_to_cons_alle = {-1, 1, 0};
             right.phase_set = right_phase_set;
             replay.candidates = {left, right};
+            for (int allele = 0; allele <= 1; ++allele) {
+                for (int copy = 0; copy < 4; ++copy) {
+                    const int read_i = static_cast<int>(replay.reads.size());
+                    ReadRecord read;
+                    read.qname = "target_" + std::to_string(allele) +
+                                 "_" + std::to_string(copy);
+                    read.mapq = 60;
+                    replay.reads.push_back(std::move(read));
+                    ReadVariantProfile profile;
+                    profile.read_id = read_i;
+                    profile.start_var_idx = 0;
+                    profile.end_var_idx = 1;
+                    profile.alleles = {allele, 1 - allele};
+                    profile.alt_qi = {60, 60};
+                    replay.read_var_profile.push_back(std::move(profile));
+                    replay.haps.push_back(0);
+                    replay.phase_sets.push_back(kUnphasedReadPhaseSet);
+                }
+            }
+            rebuild_read_var_cr(replay);
 
             const RecoverySeam seam{
                 beg, end, left_phase_set, right_phase_set};
@@ -1466,10 +1628,35 @@ int main() {
               std::pair<hts_pos_t, hts_pos_t>{3000, kRight}}) {
             CandidateVariant candidate;
             candidate.key.pos = pos;
+            candidate.key.type = VariantType::Snp;
+            candidate.lcd_var_i_to_cate = kCandCleanHetSnp;
             candidate.hap_to_cons_alle = {-1, 0, 1};
             candidate.phase_set = phase_set;
             replay.candidates.push_back(std::move(candidate));
         }
+        for (int first = 0; first < 2; ++first) {
+            for (int allele = 0; allele <= 1; ++allele) {
+                for (int copy = 0; copy < 4; ++copy) {
+                    const int read_i = static_cast<int>(replay.reads.size());
+                    ReadRecord read;
+                    read.qname = "consecutive_" + std::to_string(first) +
+                                 "_" + std::to_string(allele) + "_" +
+                                 std::to_string(copy);
+                    read.mapq = 60;
+                    replay.reads.push_back(std::move(read));
+                    ReadVariantProfile profile;
+                    profile.read_id = read_i;
+                    profile.start_var_idx = first;
+                    profile.end_var_idx = first + 1;
+                    profile.alleles = {allele, allele};
+                    profile.alt_qi = {60, 60};
+                    replay.read_var_profile.push_back(std::move(profile));
+                    replay.haps.push_back(0);
+                    replay.phase_sets.push_back(kUnphasedReadPhaseSet);
+                }
+            }
+        }
+        rebuild_read_var_cr(replay);
         const std::vector<RecoverySeam> seams = {
             {1000, 2000, kLeft, kMiddle},
             {2000, 3000, kMiddle, kRight},
@@ -1728,6 +1915,45 @@ int main() {
         Options stitch_opts;
         stitch_opts.min_block_link_reads = 1;
         stitch_opts.block_link_window = 8;
+        // The graph votes look decisive, but spanning reads already assigned
+        // to the first BAM block contradict its boundary allele consensus.
+        PhasingChunk inconsistent_source;
+        inconsistent_source.candidates = replay.candidates;
+        for (const ReadRecord& source : replay.reads) {
+            ReadRecord read;
+            read.qname = source.qname;
+            read.mapq = source.mapq;
+            read.is_skipped = source.qname.rfind("outer_", 0) == 0;
+            inconsistent_source.reads.push_back(std::move(read));
+        }
+        inconsistent_source.read_var_profile = replay.read_var_profile;
+        inconsistent_source.haps = replay.haps;
+        inconsistent_source.phase_sets = replay.phase_sets;
+        for (size_t read_i = 0; read_i < inconsistent_source.reads.size(); ++read_i) {
+            const std::string& name = inconsistent_source.reads[read_i].qname;
+            if (name.rfind("between_", 0) != 0) continue;
+            const int allele =
+                inconsistent_source.read_var_profile[read_i].alleles.front();
+            inconsistent_source.haps[read_i] = allele == 0 ? 2 : 1;
+            inconsistent_source.phase_sets[read_i] = kLocalA;
+        }
+        rebuild_read_var_cr(inconsistent_source);
+        RecoveryPhaseGauge source_vote = gauge;
+        source_vote.block_votes[0].shared_candidate_same = 20;
+        source_vote.block_votes[1].counts = {{{8, 0}, {0, 8}}};
+        source_vote.block_votes[1].shared_candidate_same = 20;
+        source_vote.block_votes[1].shared_candidate_cross = 0;
+        source_vote.graph_votes = {
+            PhaseSetGaugeVote{kLeft, 16, 0},
+            PhaseSetGaugeVote{kRight, 16, 0},
+        };
+        stitch_recovery_phase_sets_left_to_right(
+            inconsistent_source, {{1000, 4000, kLeft, kRight}},
+            {source_vote}, stitch_opts);
+        ok &= check(
+            inconsistent_source.candidates[0].phase_set !=
+                inconsistent_source.candidates[3].phase_set,
+            "recovery blocks: source HP conflict vetoes a false graph join");
         const size_t joined = stitch_recovery_phase_sets_left_to_right(
             replay, {{1000, 4000, kLeft, kRight}}, {gauge}, stitch_opts);
         ok &= check(joined == 3 &&
@@ -1889,6 +2115,123 @@ int main() {
             "graph read rescue: weak inferred singleton abstains");
     }
 
+    // A repeat indel may supply one trustworthy read-only singleton when a
+    // nearby phased clean SNP confirms its allele orientation in both read
+    // halves. An unstable half or a site outside recovery cannot use the rule.
+    {
+        const auto make_direct_snp_fixture = [](bool unstable) {
+            PhasingChunk chunk;
+            CandidateVariant anchor;
+            anchor.key.pos = 1000;
+            anchor.key.type = VariantType::Snp;
+            anchor.lcd_var_i_to_cate = kCandCleanHetSnp;
+            anchor.phase_set = 1000;
+            anchor.hap_to_cons_alle = {-1, 0, 1};
+            chunk.candidates.push_back(anchor);
+            CandidateVariant excluded;
+            excluded.key.pos = 1100;
+            excluded.key.type = VariantType::Deletion;
+            excluded.counts.n_uniq_alles = 2;
+            excluded.counts.category = VariantCategory::RepeatHetIndel;
+            excluded.lcd_var_i_to_cate = kLongcalldRepHetVar;
+            chunk.candidates.push_back(excluded);
+
+            const auto fold_of = [](const std::string& qname) {
+                uint64_t hash = 14695981039346656037ULL;
+                for (const unsigned char byte : qname) {
+                    hash ^= byte;
+                    hash *= 1099511628211ULL;
+                }
+                return static_cast<size_t>(hash & 1ULL);
+            };
+            std::array<int, 2> fold_counts{};
+            for (int name_i = 0;
+                 fold_counts[0] < 18 || fold_counts[1] < 18;
+                 ++name_i) {
+                const std::string qname =
+                    "direct_snp_" + std::to_string(name_i);
+                const size_t fold = fold_of(qname);
+                if (fold_counts[fold] == 18) continue;
+                const int copy = fold_counts[fold]++;
+                const int hap = copy % 2 == 0 ? 1 : 2;
+                const int anchor_allele = hap - 1;
+                const bool error = unstable
+                    ? fold == 1 && copy >= 9
+                    : copy >= 16;
+                ReadRecord read;
+                read.qname = qname;
+                chunk.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.read_id = static_cast<int>(chunk.read_var_profile.size());
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 1;
+                profile.alleles = {
+                    anchor_allele,
+                    error ? 1 - anchor_allele : anchor_allele};
+                chunk.read_var_profile.push_back(std::move(profile));
+                chunk.haps.push_back(hap);
+                chunk.phase_sets.push_back(1000);
+            }
+            for (int allele = 0; allele < 2; ++allele) {
+                ReadRecord read;
+                read.qname = "direct_unphased_" + std::to_string(allele);
+                chunk.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.read_id = static_cast<int>(chunk.read_var_profile.size());
+                profile.start_var_idx = 1;
+                profile.end_var_idx = 1;
+                profile.alleles = {allele};
+                chunk.read_var_profile.push_back(std::move(profile));
+                chunk.haps.push_back(0);
+                chunk.phase_sets.push_back(kUnphasedReadPhaseSet);
+            }
+            return chunk;
+        };
+        const std::vector<RecoverySeam> windows = {{1050, 1150, 1000, 2000}};
+        PhasingChunk outside = make_direct_snp_fixture(false);
+        ok &= check(rescue_unphased_graph_reads(outside) == 0,
+                    "graph direct SNP rescue: outside recovery abstains");
+        PhasingChunk supported = make_direct_snp_fixture(false);
+        ok &= check(rescue_unphased_graph_reads(supported, windows) == 2 &&
+                    supported.gap_haps[36] == 1 &&
+                    supported.gap_haps[37] == 2 &&
+                    supported.gap_phase_sets[36] ==
+                        1000 + kGapFillPsOffset &&
+                    supported.candidates[1].phase_set ==
+                        kUnsetCandidatePhaseSet,
+                    "graph direct SNP rescue: split-fold link tags singleton reads");
+        PhasingChunk unstable = make_direct_snp_fixture(true);
+        ok &= check(rescue_unphased_graph_reads(unstable, windows) == 0,
+                    "graph direct SNP rescue: unstable read half abstains");
+        PhasingChunk discordant = make_direct_snp_fixture(false);
+        discordant.read_var_profile[0].alleles[1] ^= 1;
+        discordant.read_var_profile[1].alleles[1] ^= 1;
+        ok &= check(rescue_unphased_graph_reads(discordant, windows) == 0,
+                    "graph direct SNP rescue: uncertain link abstains");
+        PhasingChunk ambiguous = make_direct_snp_fixture(false);
+        CandidateVariant alternative = ambiguous.candidates[1];
+        alternative.key.type = VariantType::Insertion;
+        ambiguous.candidates.push_back(std::move(alternative));
+        ok &= check(rescue_unphased_graph_reads(ambiguous, windows) == 0,
+                    "graph direct SNP rescue: co-located alleles abstain");
+        PhasingChunk sparse = make_direct_snp_fixture(false);
+        for (int read_i = 0; read_i < 50; ++read_i) {
+            ReadRecord read;
+            read.qname = "sparse_site_" + std::to_string(read_i);
+            sparse.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.read_id = static_cast<int>(sparse.read_var_profile.size());
+            profile.start_var_idx = 1;
+            profile.end_var_idx = 1;
+            profile.alleles = {read_i % 2};
+            sparse.read_var_profile.push_back(std::move(profile));
+            sparse.haps.push_back(0);
+            sparse.phase_sets.push_back(kUnphasedReadPhaseSet);
+        }
+        ok &= check(rescue_unphased_graph_reads(sparse, windows) == 0,
+                    "graph direct SNP rescue: sparse anchor coverage abstains");
+    }
+
     // A read can appear in two adjacent chunks while only the upstream chunk
     // has informative alleles. The downstream visit must not erase that valid
     // HP/PS assignment merely because it is unphased. A later phased visit
@@ -1994,6 +2337,83 @@ int main() {
                 rows.at("fill_only").phase_set ==
                     1100 + kGapFillPsOffset,
             "graph output merge: BAM-observation rescue is fill-only");
+    }
+
+    // A graph MNP has ref_len > 1 even though its internal type is SNP.
+    // The VCF must retain the whole replaced reference sequence.
+    {
+        char fasta_path[] = "/tmp/pgphase_mnp_writer_XXXXXX";
+        const int fd = mkstemp(fasta_path);
+        ok &= check(fd >= 0, "MNP writer: create temporary reference");
+        if (fd >= 0) {
+            close(fd);
+            {
+                std::ofstream fasta(fasta_path);
+                fasta << ">chr1\nATGCCATGCCAT\n";
+            }
+            ok &= check(fai_build(fasta_path) == 0,
+                        "MNP writer: index temporary reference");
+            std::unique_ptr<faidx_t, decltype(&fai_destroy)> fai(
+                fai_load(fasta_path), fai_destroy);
+            const char header_text[] =
+                "@HD\tVN:1.6\n@SQ\tSN:chr1\tLN:12\n";
+            std::unique_ptr<bam_hdr_t, decltype(&sam_hdr_destroy)> header(
+                sam_hdr_parse(std::strlen(header_text), header_text),
+                sam_hdr_destroy);
+            ok &= check(fai != nullptr && header != nullptr,
+                        "MNP writer: load reference and header");
+            if (fai != nullptr && header != nullptr) {
+                CandidateVariant candidate;
+                candidate.key.tid = 0;
+                candidate.key.type = VariantType::Snp;
+                candidate.key.pos = 2;
+                candidate.key.ref_len = 2;
+                candidate.key.alt = "CA";
+                candidate.counts.category = VariantCategory::CleanHetSnp;
+                candidate.counts.ref_cov = 5;
+                candidate.counts.alt_cov = 5;
+                candidate.counts.total_cov = 10;
+                candidate.counts.allele_fraction = 0.5;
+                candidate.hap_to_cons_alle = {-1, 1, 0};
+                candidate.phase_set = 2;
+                ReferenceCache ref(fai.get());
+                std::ostringstream vcf;
+                write_phased_variants_vcf_records(
+                    vcf, Options{}, header.get(), ref, {candidate});
+                ok &= check(vcf.str().find("\t2\t.\tTG\tCA\t") !=
+                                std::string::npos,
+                            "MNP writer: complete REF describes the graph allele");
+                Options replacement_opts;
+                replacement_opts.min_sv_len = 1;
+                candidate.key.type = VariantType::Deletion;
+                candidate.key.pos = 3;
+                candidate.key.ref_len = 2;
+                candidate.key.alt = "A";
+                candidate.counts.category = VariantCategory::CleanHetIndel;
+                std::ostringstream deletion_vcf;
+                write_phased_variants_vcf_records(
+                    deletion_vcf, replacement_opts, header.get(), ref, {candidate});
+                ok &= check(deletion_vcf.str().find("\t2\t.\tTGC\tTA\t") !=
+                                std::string::npos &&
+                            deletion_vcf.str().find("SVLEN=-1") !=
+                                std::string::npos,
+                            "deletion writer: replacement ALT and net length survive");
+
+                candidate.key.type = VariantType::Insertion;
+                candidate.key.ref_len = 1;
+                candidate.key.alt = "AA";
+                std::ostringstream insertion_vcf;
+                write_phased_variants_vcf_records(
+                    insertion_vcf, replacement_opts, header.get(), ref, {candidate});
+                ok &= check(insertion_vcf.str().find("\t2\t.\tTG\tTAA\t") !=
+                                std::string::npos &&
+                            insertion_vcf.str().find("SVLEN=1") !=
+                                std::string::npos,
+                            "insertion writer: replacement net length is reported");
+            }
+            std::remove(fasta_path);
+            std::remove((std::string(fasta_path) + ".fai").c_str());
+        }
     }
 
     std::ostringstream sites;

@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <optional>
+#include <set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -133,7 +135,11 @@ size_t stitch_recovery_phase_sets_left_to_right(
     PhasingChunk& chunk,
     const std::vector<RecoverySeam>& windows,
     const std::vector<RecoveryPhaseGauge>& gauges,
-    const Options& opts);
+    const Options& opts,
+    const std::unordered_map<hts_pos_t, bool>* source_path_supported = nullptr,
+    const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_weak_cuts = nullptr,
+    const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts = nullptr,
+    std::set<hts_pos_t>* locally_bridged_sources = nullptr);
 
 /// Dump the complete post-injection, pre-solve recovery state when diagnostics
 /// are enabled. The snapshot is sufficient for a local boundary replay.
