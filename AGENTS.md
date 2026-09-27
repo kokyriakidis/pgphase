@@ -201,6 +201,9 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
   `./scripts/refresh_gap_window_expectations.sh` only when an improvement is
   intended, and say in the commit which arm moved — refreshing the file to turn
   a red test green is how a regression gets committed.
+- Every newly closed gap must be added to the committed window panel with a
+  measured `spans=1` expectation and parental-orientation check. Keep any
+  owning-chunk regression when a short replay lacks the needed phase-set context.
 - When adding a new `.o` dependency, update both the main `pgphase` target and any test targets that link the dependent object.
 
 ---

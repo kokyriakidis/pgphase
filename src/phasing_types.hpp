@@ -930,6 +930,8 @@ struct RecoveryBlockGaugeVote {
     // a consensus anchor, not another independent molecule.
     int shared_candidate_same = 0;
     int shared_candidate_cross = 0;
+    // Two descriptions of one multiallelic locus are one anchor, not two.
+    bool has_distinct_shared_loci = false;
 };
 
 /// Physical clean-SNP molecule relation between two established graph blocks.
@@ -938,6 +940,9 @@ struct RecoveryPhysicalSnpBridge {
     hts_pos_t left_phase_set = 0;
     hts_pos_t right_phase_set = 0;
     bool flip = false;
+    // A validated MSA deletion can attach its independent BAM runs before
+    // this graph join; ordinary SNP bridges leave this unset.
+    hts_pos_t pre_attach_source_phase_set = 0;
 };
 
 /// Phase gauge supplied by one targeted BAM solve. Imported phase sets already

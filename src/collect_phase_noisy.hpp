@@ -57,6 +57,11 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
                               const std::string& alt,
                               bool upstream_reference_bytes = false);
 
+/// Call an exact BAM indel CIGAR allele with quality-checked flanks.
+/// Returns 0 for REF, 1 for ALT, and -1 for an ambiguous alignment.
+int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
+                           int min_bq, int* alt_qi);
+
 /// Fill missing observations at admitted MSA sites from every overlapping BAM read.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);

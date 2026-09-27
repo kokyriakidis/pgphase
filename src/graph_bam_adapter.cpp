@@ -116,6 +116,7 @@ void add_graph_candidate(GraphChunkBuildResult& out,
                          const std::vector<int>& allele_counts,
                          int tid) {
     CandidateVariant candidate;
+    candidate.graph_site = true;
     candidate.key.tid = tid;
     candidate.key.pos = site.order_pos() > 0 ? site.order_pos() : 1;
     candidate.key.type = VariantType::Snp;

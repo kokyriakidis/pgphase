@@ -139,7 +139,8 @@ size_t stitch_recovery_phase_sets_left_to_right(
     const std::unordered_map<hts_pos_t, bool>* source_path_supported = nullptr,
     const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_weak_cuts = nullptr,
     const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts = nullptr,
-    std::set<hts_pos_t>* locally_bridged_sources = nullptr);
+    std::set<hts_pos_t>* locally_bridged_sources = nullptr,
+    const std::set<hts_pos_t>* complete_graph_source_paths = nullptr);
 
 /// Dump the complete post-injection, pre-solve recovery state when diagnostics
 /// are enabled. The snapshot is sufficient for a local boundary replay.

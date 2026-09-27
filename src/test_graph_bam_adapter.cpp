@@ -84,6 +84,12 @@ int main() {
     std::vector<GraphChunkBuildResult> chunks;
     chunks.push_back(build_graph_chunk(catalog.view_all(), rows, "chr1", 0, 300, 0, build_opts));
     ok &= check(chunks[0].chunk.candidates.size() == 2, "adapter builds two candidates");
+    ok &= check(std::all_of(chunks[0].chunk.candidates.begin(),
+                            chunks[0].chunk.candidates.end(),
+                            [](const CandidateVariant& candidate) {
+                                return candidate.graph_site;
+                            }),
+                "adapter marks graph-origin candidates");
     ok &= check(chunks[0].chunk.reads.size() == 4, "adapter builds four reads");
     ok &= check(chunks[0].chunk.read_var_profile.size() == 4, "adapter builds read profiles");
     ok &= check(chunks[0].chunk.read_var_cr != nullptr, "adapter builds read-var cgranges");

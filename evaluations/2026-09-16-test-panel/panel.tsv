@@ -6,8 +6,9 @@
 # 3,852,321: hiphase spans it in one 875 kb block at 63.1% read purity -- a wrong
 # join, so its 0.543 is not a target to match.
 #
-# Windows were selected as gaps we leave open where reads are separable; the
-# truth-het chain test is what established separability, not a goal in itself.
+# Windows were selected as gaps we left open where reads are separable; the
+# truth-het chain test established separability. Keep each solved gap here so
+# its span and truth orientation remain regression checks.
 gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scored
 3852321	3890461	38140	230	hiphase	0.5430	198
 4766928	4792960	26032	175	hiphase	0.8800	154
@@ -16,10 +17,14 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 26029591	26088679	59088	313	none_spanning	0.0000	0
 60033052	60058235	25183	170	hiphase	0.9350	160
 6578161	6582248	4087	65	hiphase	1.0000	65
+6513891	6516221	2330	98	hiphase	0.9160	119
+21179807	21183846	4039	92	hiphase_same_sites	0.9037	135
 11255370	11262360	6990	47	hiphase	1.0000	47
+21514518	21518393	3875	90	hiphase	0.9753	162
 12269536	12277077	7541	53	hiphase	1.0000	53
 15095642	15101261	5619	101	regression_control	0.0000	0
 48225787	48229445	3658	51	hiphase	1.0000	51
+56150368	56156525	6157	104	hiphase_same_sites	1.0000	104
 
 # Larger noncentromeric gaps: HiPhase 1.6.0 on the same pgphase VCF and BAM.
 # Exact boundary keys share one HiPhase PS; local purity >=98%, both 10-kb flanks >=95%.
@@ -40,3 +45,4 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 56323427	56343002	19575	183	hiphase_same_sites	0.8579	157
 61664136	61690751	26615	205	hiphase_same_sites	0.7317	150
 63945865	63968892	23027	150	hiphase_same_sites	0.7933	119
+32431751	32432269	518	23	hiphase_same_sites	1.0000	8

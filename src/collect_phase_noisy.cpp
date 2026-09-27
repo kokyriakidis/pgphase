@@ -873,7 +873,7 @@ static bool bam_aligned_base_quality(const bam1_t* bam, hts_pos_t target, int mi
     return false;
 }
 
-static int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
+int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
                                   int min_bq, int* alt_qi) {
     const auto* cigar = bam_get_cigar(bam);
     hts_pos_t ref_pos = bam->core.pos + 1;

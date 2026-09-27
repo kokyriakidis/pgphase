@@ -1236,6 +1236,8 @@ struct RecoveryDiploidPath {
     bool direct_snp_bridge = false;
     // A clean indel/SNP boundary may provide the same independent witness.
     bool direct_clean_bridge = false;
+    // A graph indel witnessed independently by clean SNPs on both sides.
+    bool graph_indel_bridge = false;
     // Candidate index and the allele assigned to haplotype 1 in the left
     // phase set's gauge.
     std::vector<std::pair<int, int>> sites;
@@ -1656,16 +1658,20 @@ static RecoveryMecOptimum solve_recovery_mec(
 
 // Solve one adjacent recovery edge with the same binary MEC objective used by
 // HiPhase, over observations pgphase already collected. Clean, allele-balanced
-// SNPs define the primary problem. Centered indels enter only when SNPs alone
-// do not connect the two blocks; one verified boundary row may substitute when
-// a split multi-allelic event makes row-wise AF off center. The full read set
-// and two deterministic, disjoint read halves must choose the same unique
-// parity; this stability test replaces an arbitrary vote-margin threshold.
+// SNPs define the primary problem. Centered indels enter when SNPs alone do
+// not connect the blocks or an independent graph-indel bridge certifies them.
+// A certified graph path may also admit verified indels inside the seam
+// despite their off-center row-wise allele fractions.
+// The full read set and two deterministic, disjoint read halves must choose
+// the same unique parity. This checks stability without a vote-margin cutoff.
 static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
         const PhasingChunk& chunk, const RecoverySeam& edge,
         hts_pos_t left_phase_set, hts_pos_t right_phase_set,
         bool boundary_scope = false,
-        bool* exceeded_variable_limit = nullptr) {
+        bool* exceeded_variable_limit = nullptr,
+        bool allow_verified_gap_indels = false,
+        bool include_centered_indels = false,
+        bool allow_off_center_left_snp = false) {
     constexpr double kTrustedAlleleFractionMargin = 0.12;
     constexpr size_t kTrustedMecMaxVariables = 20;
     if (exceeded_variable_limit != nullptr)
@@ -1717,8 +1723,14 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
                 allow_verified_off_center &&
                 required_type != VariantType::Snp &&
                 candidate.bam_injected && candidate.alignment_verified;
+            const bool trusted_off_center_snp =
+                allow_off_center_left_snp &&
+                phase_set == left_phase_set &&
+                required_type == VariantType::Snp &&
+                candidate.counts.category == VariantCategory::CleanHetSnp;
             if (candidate.phase_set != phase_set || !oriented(candidate) ||
-                (!centered(candidate) && !trusted_off_center_indel) ||
+                (!centered(candidate) && !trusted_off_center_indel &&
+                 !trusted_off_center_snp) ||
                 candidate.key.type != required_type ||
                 !seen_ref[i] || !seen_alt[i]) {
                 continue;
@@ -1811,7 +1823,8 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
     // exact-search bound and independent candidate evidence validates the same
     // graph/BAM gauge. It cannot override a tie or contradictory full solve.
 
-    const auto build_problem = [&](bool include_indels) {
+    const auto build_problem = [&](bool include_indels,
+                                   bool include_verified_gap_indels = false) {
         std::vector<int> nodes;
         std::vector<int> node_of(candidate_count, -1);
         std::set<std::tuple<hts_pos_t, int, int, std::string, hts_pos_t>> seen_keys;
@@ -1821,8 +1834,16 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
             const bool selected_boundary =
                 static_cast<int>(i) == *left_anchor ||
                 static_cast<int>(i) == *right_anchor;
+            const bool verified_gap_indel =
+                include_verified_gap_indels && include_indels &&
+                candidate.key.type != VariantType::Snp &&
+                candidate.bam_injected && candidate.alignment_verified &&
+                (candidate.phase_set == left_phase_set ||
+                 candidate.phase_set == right_phase_set) &&
+                edge.beg <= pos && pos <= edge.end;
             if (pos < solve_beg || pos > solve_end ||
-                (!centered(candidate) && !selected_boundary) ||
+                (!centered(candidate) && !selected_boundary &&
+                 !verified_gap_indel) ||
                 !seen_ref[i] || !seen_alt[i] ||
                 (!include_indels && candidate.key.type != VariantType::Snp)) {
                 continue;
@@ -1893,6 +1914,7 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
         return retained;
     };
 
+    allow_indels |= include_centered_indels;
     std::vector<bool> retained = build_problem(allow_indels);
     const auto has_both_flanks = [&]() {
         bool left = false;
@@ -1907,6 +1929,10 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
     if (!has_both_flanks() && !allow_indels) {
         allow_indels = true;
         retained = build_problem(true);
+    }
+    if (allow_verified_gap_indels) {
+        allow_indels = true;
+        retained = build_problem(true, true);
     }
     if (!has_both_flanks()) return std::nullopt;
 
@@ -2140,12 +2166,132 @@ static std::optional<RecoveryDiploidPath> trusted_recovery_mec_path(
 
     for (size_t variable = 0; variable < variable_candidates.size(); ++variable) {
         const int candidate_i = variable_candidates[variable];
+        const hts_pos_t pos = chunk.candidates[
+            static_cast<size_t>(candidate_i)].key.sort_pos();
+        // The full block provides validation context, but its sites outside
+        // this seam must not acquire a phase label or gap-link status merely
+        // because they helped score the boundary. In particular, a graph
+        // indel with another BAM representation can sit beyond the seam.
+        if (allow_verified_gap_indels &&
+            (pos < edge.beg || pos > edge.end))
+            continue;
         path.sites.emplace_back(
             candidate_i,
             base_orientation[static_cast<size_t>(candidate_i)] ^
                 winner.bits[variable]);
     }
     return path;
+}
+
+// A repeat-context graph indel can bridge two SNP-backed blocks without
+// promoting or merging either representation. Each leg must be significant
+// over all molecules and have the same direction in both disjoint halves.
+static std::optional<bool> supported_graph_indel_bridge(
+        const PhasingChunk& chunk, int left_i,
+        const std::vector<int>& right_source_sites,
+        hts_pos_t right_phase_set) {
+    if (left_i < 0 || static_cast<size_t>(left_i) >= chunk.candidates.size())
+        return std::nullopt;
+    const CandidateVariant& left = chunk.candidates[static_cast<size_t>(left_i)];
+    if (left.key.type != VariantType::Snp ||
+        left.counts.category != VariantCategory::CleanHetSnp ||
+        left.hap_to_cons_alle[1] < 0 || left.hap_to_cons_alle[1] > 1)
+        return std::nullopt;
+
+    int right_i = -1;
+    for (const int candidate_i : right_source_sites) {
+        if (candidate_i < 0 ||
+            static_cast<size_t>(candidate_i) >= chunk.candidates.size())
+            continue;
+        const CandidateVariant& site =
+            chunk.candidates[static_cast<size_t>(candidate_i)];
+        if (site.phase_set != right_phase_set ||
+            site.counts.category != VariantCategory::CleanHetSnp ||
+            site.key.type != VariantType::Snp ||
+            site.key.sort_pos() <= left.key.sort_pos() ||
+            site.hap_to_cons_alle[1] < 0 || site.hap_to_cons_alle[1] > 1)
+            continue;
+        if (right_i < 0 || site.key.sort_pos() <
+                chunk.candidates[static_cast<size_t>(right_i)].key.sort_pos())
+            right_i = candidate_i;
+    }
+    if (right_i < 0) return std::nullopt;
+    const CandidateVariant& right =
+        chunk.candidates[static_cast<size_t>(right_i)];
+
+    std::vector<int> middle;
+    for (size_t i = 0; i < chunk.candidates.size(); ++i) {
+        const CandidateVariant& site = chunk.candidates[i];
+        if (site.phase_set > 0 || !site.graph_site ||
+            site.counts.category != VariantCategory::RepeatHetIndel ||
+            site.key.type == VariantType::Snp ||
+            site.key.sort_pos() <= left.key.sort_pos() ||
+            site.key.sort_pos() >= right.key.sort_pos())
+            continue;
+        middle.push_back(static_cast<int>(i));
+    }
+    if (middle.empty()) return std::nullopt;
+
+    const auto leg_flip = [&](int first_i, int second_i)
+            -> std::optional<bool> {
+        std::array<std::array<int, 2>, 3> votes{};
+        std::array<int, 2> first_alleles{};
+        std::array<int, 2> second_alleles{};
+        for (size_t read_i = 0; read_i < chunk.read_var_profile.size(); ++read_i) {
+            if (read_i >= chunk.reads.size() || chunk.reads[read_i].is_skipped)
+                continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            if (profile.start_var_idx < 0 ||
+                first_i < profile.start_var_idx ||
+                second_i < profile.start_var_idx ||
+                first_i > profile.end_var_idx ||
+                second_i > profile.end_var_idx)
+                continue;
+            const size_t first_offset =
+                static_cast<size_t>(first_i - profile.start_var_idx);
+            const size_t second_offset =
+                static_cast<size_t>(second_i - profile.start_var_idx);
+            if (first_offset >= profile.alleles.size() ||
+                second_offset >= profile.alleles.size())
+                continue;
+            const int first = profile.alleles[first_offset];
+            const int second = profile.alleles[second_offset];
+            if ((first != 0 && first != 1) ||
+                (second != 0 && second != 1))
+                continue;
+            const int parity = first != second;
+            ++votes[0][parity];
+            ++votes[1 + (recovery_read_hash(chunk.reads[read_i].qname) & 1ULL)]
+                    [parity];
+            ++first_alleles[first];
+            ++second_alleles[second];
+        }
+        if (first_alleles[0] < 2 || first_alleles[1] < 2 ||
+            second_alleles[0] < 2 || second_alleles[1] < 2)
+            return std::nullopt;
+        const std::optional<bool> full = parity_flip_at_p(
+            votes[0][0], votes[0][1], middle.size(), kRecoveryParityPValue);
+        if (!full) return std::nullopt;
+        for (size_t half = 1; half < votes.size(); ++half) {
+            if (votes[half][0] == votes[half][1] ||
+                (votes[half][1] > votes[half][0]) != *full)
+                return std::nullopt;
+        }
+        return full;
+    };
+
+    std::optional<bool> supported_flip;
+    for (const int middle_i : middle) {
+        const std::optional<bool> first = leg_flip(left_i, middle_i);
+        const std::optional<bool> second = leg_flip(middle_i, right_i);
+        if (!first || !second) continue;
+        const bool flip = *first ^ *second ^
+            (left.hap_to_cons_alle[1] != right.hap_to_cons_alle[1]);
+        if (supported_flip && *supported_flip != flip)
+            return std::nullopt;
+        supported_flip = flip;
+    }
+    return supported_flip;
 }
 
 // Optimize every biallelic site in the read-connected source-to-sink component.
@@ -2382,7 +2528,8 @@ size_t stitch_recovery_phase_sets_left_to_right(
         const std::unordered_map<hts_pos_t, bool>* source_path_supported,
         const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_weak_cuts,
         const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts,
-        std::set<hts_pos_t>* locally_bridged_sources) {
+        std::set<hts_pos_t>* locally_bridged_sources,
+        const std::set<hts_pos_t>* complete_graph_source_paths) {
     const auto oriented = [](const CandidateVariant& candidate) {
         return candidate.phase_set > 0 &&
                candidate.hap_to_cons_alle[1] >= 0 &&
@@ -2774,11 +2921,24 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     (gauge_outer_relation &&
                      *gauge_outer_relation != physical->flip))
                     continue;
-                const hts_pos_t left_root =
-                    resolve_phase_set(window.left_phase_set);
-                const hts_pos_t right_root =
-                    resolve_phase_set(window.right_phase_set);
-                if (left_root != right_root &&
+                // Earlier recovery may relabel an entire graph block without
+                // retaining its old detector label as an alias. Read the live
+                // candidate labels; accepting a mixed block would turn a local
+                // molecule into an unsupported whole-block join.
+                const auto current_root = [&](hts_pos_t original_ps) {
+                    const auto found = initial_phase_set_candidates.find(original_ps);
+                    if (found == initial_phase_set_candidates.end() ||
+                        found->second.empty()) return hts_pos_t{0};
+                    const hts_pos_t root = chunk.candidates[
+                        static_cast<size_t>(found->second.front())].phase_set;
+                    for (const int ci : found->second)
+                        if (chunk.candidates[static_cast<size_t>(ci)].phase_set != root)
+                            return hts_pos_t{0};
+                    return root;
+                };
+                const hts_pos_t left_root = current_root(window.left_phase_set);
+                const hts_pos_t right_root = current_root(window.right_phase_set);
+                if (left_root > 0 && right_root > 0 && left_root != right_root &&
                     merge_phase_sets_in_place(
                         chunk, left_root, right_root,
                         physical->flip ^
@@ -2790,6 +2950,8 @@ size_t stitch_recovery_phase_sets_left_to_right(
                             target = left_root;
                     }
                     phase_set_aliases[right_root] = left_root;
+                    phase_set_aliases[window.left_phase_set] = left_root;
+                    phase_set_aliases[window.right_phase_set] = left_root;
                     ++joined;
                     continue;
                 }
@@ -3187,7 +3349,9 @@ size_t stitch_recovery_phase_sets_left_to_right(
                              *outer_relation == (*left_flip != *right_flip));
                     };
                 const auto reusable_by_source_path = [&](hts_pos_t source_ps) {
-                    return complete_focused_source_bridge(source_ps) ||
+                    return (complete_graph_source_paths != nullptr &&
+                            complete_graph_source_paths->count(source_ps) != 0) ||
+                        complete_focused_source_bridge(source_ps) ||
                         (recovery_gauge != nullptr &&
                          recovery_gauge->focused_retry &&
                          std::find(recovery_gauge->imported_phase_sets.begin(),
@@ -3206,15 +3370,19 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     (trusted_used_blocks.count(downstream_source) != 0 &&
                      !has_end_to_end_support(downstream_source) &&
                      reusable_by_source_path(downstream_source));
-                if (!graph_bam_edge ||
-                    (trusted_used_blocks.count(upstream_source) != 0 &&
-                     !has_end_to_end_support(upstream_source) &&
-                     !reusable_by_source_path(upstream_source)) ||
-                    (trusted_used_blocks.count(downstream_source) != 0 &&
-                     !has_end_to_end_support(downstream_source) &&
-                     !reusable_by_source_path(downstream_source))) {
-                    continue;
-                }
+                // A reused graph block without an end-to-end source path
+                // needs independent shared-site evidence before a new edge can
+                // inherit its existing orientation. Compute the exact edge
+                // first; its direct SNP certificate can then validate reuse.
+                const bool unsupported_upstream_reuse =
+                    trusted_used_blocks.count(upstream_source) != 0 &&
+                    !has_end_to_end_support(upstream_source) &&
+                    !reusable_by_source_path(upstream_source);
+                const bool unsupported_downstream_reuse =
+                    trusted_used_blocks.count(downstream_source) != 0 &&
+                    !has_end_to_end_support(downstream_source) &&
+                    !reusable_by_source_path(downstream_source);
+                if (!graph_bam_edge) continue;
                 const hts_pos_t upstream_phase_set =
                     resolve_phase_set(chain[edge_i - 1].current_phase_set);
                 const hts_pos_t downstream_phase_set =
@@ -3261,12 +3429,53 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     std::min(*upstream_pos, *downstream_pos),
                     std::max(*upstream_pos, *downstream_pos),
                     upstream_phase_set, downstream_phase_set};
+                // A downstream BAM weak cut removes the whole-source gauge
+                // even when the source segment through this seam is intact.
+                // The certified left graph path can replace that missing
+                // gauge only when every source cut lies beyond this edge.
+                const bool downstream_cut_after_edge = [&] {
+                    if (upstream_imported || source_path_supported == nullptr ||
+                        source_weak_cuts == nullptr)
+                        return false;
+                    const auto path = source_path_supported->find(
+                        downstream_source);
+                    const auto cuts = source_weak_cuts->find(
+                        downstream_source);
+                    return path != source_path_supported->end() &&
+                        !path->second && cuts != source_weak_cuts->end() &&
+                        !cuts->second.empty() &&
+                        std::all_of(cuts->second.begin(), cuts->second.end(),
+                                    [&](hts_pos_t cut) {
+                                        return cut > trusted_edge.end;
+                                    });
+                }();
+                const bool complete_graph_path =
+                    downstream_cut_after_edge &&
+                    complete_graph_source_paths != nullptr &&
+                    complete_graph_source_paths->count(upstream_source) != 0;
+                const hts_pos_t graph_source = upstream_imported
+                    ? downstream_source : upstream_source;
+                const hts_pos_t imported_source = upstream_imported
+                    ? upstream_source : downstream_source;
+                const auto graph_sites =
+                    initial_phase_set_candidates.find(graph_source);
+                const bool singleton_graph_snp =
+                    !upstream_imported &&
+                    graph_sites != initial_phase_set_candidates.end() &&
+                    graph_sites->second.size() == 1 &&
+                    chunk.candidates[
+                        static_cast<size_t>(graph_sites->second.front())]
+                            .counts.category == VariantCategory::CleanHetSnp;
+                const bool complete_imported_path =
+                    source_path_supported != nullptr &&
+                    source_path_supported->count(imported_source) != 0 &&
+                    source_path_supported->at(imported_source);
                 bool whole_block_too_large = false;
                 std::optional<RecoveryDiploidPath> trusted_path =
                     trusted_recovery_mec_path(
                         chunk, trusted_edge, upstream_phase_set,
                         downstream_phase_set, false,
-                        &whole_block_too_large);
+                        &whole_block_too_large, complete_graph_path);
                 // The narrow scope is a resource fallback only. The focused
                 // source path and both flank gauges can admit it when an
                 // exact shared-site anchor is sparse. A full-block tie or
@@ -3287,8 +3496,6 @@ size_t stitch_recovery_phase_sets_left_to_right(
                 // may use its sequence-identical boundary candidate when the
                 // complete MEC problem ties. End-to-end molecules on both
                 // haplotypes independently validate the reused graph block.
-                const hts_pos_t graph_source = upstream_imported
-                    ? downstream_source : upstream_source;
                 if (!trusted_path && recovery_gauge != nullptr &&
                     trusted_used_blocks.count(graph_source) != 0 &&
                     has_end_to_end_support(graph_source)) {
@@ -3303,8 +3510,63 @@ size_t stitch_recovery_phase_sets_left_to_right(
                         trusted_path = std::move(direct_path);
                     }
                 }
-                if (!trusted_path ||
+                // Reusing a graph block normally needs two distinct shared
+                // loci and both source haplotypes. A singleton graph block
+                // instead needs the independently validated graph-indel path.
+                // A weak BAM source cut can misorient the whole imported block.
+                const bool graph_reuse_needs_proof =
+                    (!upstream_imported && unsupported_upstream_reuse) ||
+                    (!downstream_imported && unsupported_downstream_reuse);
+                if (!trusted_path && singleton_graph_snp &&
+                    complete_imported_path) {
+                    const std::optional<bool> indel_flip =
+                        supported_graph_indel_bridge(
+                            chunk, graph_sites->second.front(),
+                            downstream_candidates->second,
+                            downstream_phase_set);
+                    if (indel_flip) {
+                        const std::optional<RecoveryDiploidPath> indel_path =
+                            trusted_recovery_mec_path(
+                                chunk, trusted_edge, upstream_phase_set,
+                                downstream_phase_set, false, nullptr,
+                                false, true, true);
+                        if (indel_path &&
+                            indel_path->flip_right == *indel_flip) {
+                            trusted_path = *indel_path;
+                            trusted_path->graph_indel_bridge = true;
+                        }
+                    }
+                }
+                const bool imported_reuse_unsupported =
+                    (upstream_imported && unsupported_upstream_reuse) ||
+                    (downstream_imported && unsupported_downstream_reuse);
+                bool shared_graph_reuse_proof = false;
+                if (graph_reuse_needs_proof && recovery_gauge != nullptr) {
+                    const auto vote = find_block_gauge_vote(
+                        *recovery_gauge, upstream_source,
+                        downstream_source);
+                    if (vote != recovery_gauge->block_votes.end()) {
+                        const bool both_haps =
+                            vote->counts[0][0] + vote->counts[0][1] > 0 &&
+                            vote->counts[1][0] + vote->counts[1][1] > 0;
+                        // An attachment merges the whole imported PS. A
+                        // local SNP edge must not carry it across a weak cut.
+                        shared_graph_reuse_proof =
+                            complete_imported_path &&
+                            vote->has_distinct_shared_loci && both_haps &&
+                            block_gauge_flip(*recovery_gauge,
+                                             upstream_source,
+                                             downstream_source).has_value();
+                    }
+                }
+                if (!trusted_path || imported_reuse_unsupported ||
+                    (graph_reuse_needs_proof &&
+                     ((!trusted_path->direct_snp_bridge ||
+                       !shared_graph_reuse_proof) &&
+                      !trusted_path->graph_indel_bridge)) ||
                     (reused_source_path && !trusted_path->direct_snp_bridge &&
+                     !trusted_path->graph_indel_bridge &&
+                     !complete_graph_path &&
                      !complete_focused_source_bridge(upstream_source) &&
                      !complete_focused_source_bridge(downstream_source)))
                     continue;
@@ -3373,6 +3635,20 @@ size_t stitch_recovery_phase_sets_left_to_right(
                                 }
                             }
                         }
+                    }
+                    if (!gauge_flip && trusted_path->graph_indel_bridge) {
+                        gauge_flip = trusted_path->flip_right ^
+                            flipped_from_initial(upstream_source) ^
+                            flipped_from_initial(downstream_source);
+                    }
+                    if (!gauge_flip && complete_graph_path) {
+                        // The established graph block supplies the left-hand
+                        // gauge. An imported block on the left may already
+                        // contain a polarity break; its local MEC optimum
+                        // cannot establish the orientation of the graph block.
+                        gauge_flip = trusted_path->flip_right ^
+                            flipped_from_initial(upstream_source) ^
+                            flipped_from_initial(downstream_source);
                     }
                     if (!gauge_flip) continue;
                     const bool current_gauge_flip =
