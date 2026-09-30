@@ -61,6 +61,12 @@ std::vector<RegionChunk> build_region_chunks(const Options& opts,
  */
 std::vector<RegionChunk> load_region_chunks(const Options& opts);
 
+/// Read one physical BAM base at a 1-based SNP coordinate. Returns 0 for REF,
+/// 2 for ALT, 1 for a deletion, and -1 when the base is not callable.
+int physical_snp_call(const bam1_t* alignment, hts_pos_t pos,
+                      char ref_base, char alt_base,
+                      int* base_quality = nullptr);
+
 /**
  * @brief Streaming driver: batch by `reg_chunk_i`, write TSV/VCF incrementally.
  * @param opts Output paths, reference, and BAM list.
@@ -75,6 +81,10 @@ void run_collect_bam_variation(const Options& opts);
  * addition to the standard BAM pipeline inputs.
  */
 
+/// Collect current adjacent oriented phase-set anchors in coordinate order.
+std::vector<RecoverySeam> collect_phase_set_seams(
+    const GraphChunkBuildResult& graph_chunk);
+
 /// Recover bounded seams between neighboring phase sets inside a graph chunk.
 ///
 /// The alignment caller supplies candidate rows, local candidate/read HP/PS,
@@ -85,7 +95,8 @@ void run_collect_bam_variation(const Options& opts);
 bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                        const Options& opts,
                                        WorkerContext& context,
-                                       const char* contig_name);
+                                       const char* contig_name,
+                                       const std::vector<RecoverySeam>* completed_seams = nullptr);
 
 /// Phase graph-unassigned reads from an independent whole-chunk BAM solve.
 ///

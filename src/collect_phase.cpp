@@ -587,7 +587,7 @@ int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, int var
     return (h1 == h2) ? 1 : 0;
 }
 
-static bool merge_phase_sets_in_place(PhasingChunk& chunk,
+bool merge_phase_sets_in_place(PhasingChunk& chunk,
                                       hts_pos_t upstream_phase_set,
                                       hts_pos_t downstream_phase_set,
                                       bool flip) {

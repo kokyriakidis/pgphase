@@ -10659,3 +10659,829 @@ replay still closes the boundary. The remaining short noncentromeric
 HiPhase-spanned gaps are 11;
 several have low HiPhase truth purity on this callset and are not safe
 join targets.
+
+### 2026-09-27: Repair a missing repeat-reference source cut at 38.331 Mb
+
+At chr20:38,331,110–38,333,011, the left MSA-verified homopolymer
+deletion and right MSA insertion remained in different graph phase sets.
+The BAM source path had a false weak cut: sparse profiles omit reference
+calls for homopolymer indels. Six MAPQ 60 molecules physically span the
+preceding clean SNP and deletion; five pass base quality 10, four pass 30.
+All five qualified reference calls agree with the source orientation, giving
+a one-sided random-polarity probability of 1/32. Using base quality 30 for
+all support yielded only four calls and did not repair the path.
+
+After the source path is validated, 24 MAPQ 60 paired calls from the deletion
+to the first verified SNP in the next imported BAM block vote 20 cross to
+four same, with the same majority in both disjoint read halves. Thirty paired
+calls from that SNP to the next clean graph SNP support no flip. The new
+repeat-cut pass joins the complete blocks in that orientation. The exact
+38,331,110 deletion and 38,333,011 insertion now share PS 38,294,482 and
+carry opposite ALT haplotypes. The new owning-chunk panel window asserts
+that join and its local parental-truth orientation.
+
+Full chr20 VCF variant keys remain identical. Truth-scored phased reads
+increase from 236,831 to 236,835; correct reads from 229,045 to 229,057;
+discordant reads fall from 7,786 to 7,778. Accuracy rises from 96.7124% to
+96.7159%. Only 514 VCF rows change phase labels; all changes belong to this
+join. The optimized build, unit and predicate tests, `make window-tests`
+(1,132 assertions in 34 cases), and `git diff --check` pass.
+
+### 2026-09-27: Join a clean SNP seam after an upstream BAM weak cut
+
+At chr20:39,147,805–39,149,079, pgphase split two clean SNPs while HiPhase
+on the same variant keys joined them and placed all 66 truth-scorable gap
+reads correctly. Fifty-five MAPQ >=30 primary BAM reads call both SNPs at
+base quality >=20: 29 have A/T and 26 have G/C, with no contradictory pair.
+The transferred matrix retains 57 paired observations of the same polarity.
+The BAM source phase set spans both graph flanks, but its weak cut at
+39,098,639 lies upstream of the seam and inside the established left graph
+block. Whole-source completeness therefore rejected an intact local run.
+
+The post-transfer bridge now accepts a clean injected BAM SNP to the first
+clean graph SNP of the next block only after checking the local source cut,
+consistent exact shared SNPs and significant gauges on both flanks, a
+continuous original-graph SNP path through each entire block, and a direct
+MAPQ-30 allele vote significant at p <= 0.01 overall and agreeing in both
+read halves. The owning
+39–40 Mb replay joins the boundary without a parental switch; its local
+truth score remains 4,086/4,160. The established 51-Mb wrong-whole-block
+and 62-Mb one-read controls still pass.
+
+The full chr20 run changes only seven right-block VCF rows at 39.149–39.171
+Mb. Variant keys and truth-scored read totals are unchanged: 236,835 phased,
+229,057 correct, 7,778 discordant (96.7159%); read phase sets fall from
+733 to 732. The gap has an exact-span owning-chunk regression in the
+persistent panel, with a 0.98 concordance floor and a 1.00 separated-read
+floor. The optimized build, unit and predicate tests, full window suite
+(1,152 assertions in 34 cases), and `git diff --check` pass.
+
+The 60.033–60.058 Mb gap was also rechecked before selecting this fix.
+Thirteen MAPQ-60 primary molecules span its left SNP and right A insertion,
+but every exact CIGAR call at the insertion is REF while both left alleles
+occur. Three reads have a one-A insertion shifted within the same A run; a
+fourth insertion is outside that run and is not sequence-equivalent. Two
+reads have nearby deletions. Even after recognizing the three equivalent
+insertions, the paired observations do not establish a decisive diploid
+orientation, so this change leaves that gap split.
+
+### 2026-09-27: Broaden the HiPhase-correct gap regression inventory
+
+A full chr20 comparison with HiPhase 1.6.0 on pgphase's own VCF keys and the
+same HG002 BAM found 23 additional, noncentromeric boundaries that HiPhase
+joins and pgphase splits. Each HiPhase block has at least 20 truth-labeled
+primary reads in the gap plus 10 kb flanks, at least 98% local parental purity,
+at least 95% on each flank, and the same parental orientation on both flanks.
+Twenty-two gaps are at least 10 kb; the 64,144,256–64,144,722 gap is shorter.
+The inventory with exact boundary alleles and truth counts is in
+`evaluations/2026-09-27-remaining-hiphase-correct-gaps/targets.tsv`.
+
+All 23 are now in the persistent gap panel. Eight of the first 22 span in a
+short-window replay but remain split in the chromosome output, which isolates
+a production-context transfer or stitch problem. The panel includes both the
+older 60,033,052–60,058,235 interval and a distinct 60,033,052–60,048,237
+subgap. The regression harness now keys outputs, cached measurements, required
+sites, and expectations by both boundaries to prevent those cases colliding.
+The 55-case baseline run passed 1,592 assertions in 34 test cases; the
+complete 56-case baseline run passed 1,655 assertions in 34 test cases.
+
+At 64.144 Mb, the owning 64–65 Mb chunk transfers the left BAM source block
+onto the left graph PS and the right BAM block onto the right graph PS, then
+leaves them split. The nearest deletion locus on each side gives 14 concordant
+paired matrix calls and no discordant calls. The broader imported-block vote
+gives 14 concordant and five discordant calls: all five discordant reads lack
+the left boundary deletion call and instead vote from more distant left sites.
+This identifies a boundary-specific vote dilution, but any whole-block join
+must also pass the existing flank and source-label safeguards. A trial that
+used only the nearest loci joined the entire left and right graph blocks;
+the owning-chunk truth score fell from 3,010/3,013 to 2,586/3,013 because
+424 left-block reads inherited the wrong parental orientation. The trial was
+reverted.
+
+The actual source-path check already detects a weak cut at 64,140,314 in
+the left BAM PS, immediately before the 64,144,256 deletion run. Recovery
+stitching nevertheless merged that complete source PS into the left graph
+block, carrying its post-cut deletion across the unsupported edge. A trial
+that skipped every multi-source seam with such a cut closed three full-chr20
+targets, but reopened the established 21.435 Mb and 22.980 Mb windows and
+reduced separation at 56.323 Mb; that broad guard was rejected.
+
+The retained correction preserves the graph stitch and restores only private
+BAM candidates beyond an unsupported cut to a local source gauge. It acts
+when the near source component has an earlier oriented private BAM locus
+beside its boundary locus and the far component has no matched graph anchor. A one-locus source
+keeps its existing stitch; this preserves the previously truth-correct 8.638
+Mb local replay while its full-chromosome boundary remains split. At 64.144 Mb
+the exact boundary rows
+now share the right block's PS while graph SNP 64,118,182 remains in the left
+PS. The owning 64–65 Mb chunk stays at 3,010/3,013 truth-correct reads with
+three discordant reads, and the two boundary deletion rows remain connected.
+At 56.323 Mb, graph-block connectivity and the 493/495 local truth score are
+unchanged. The panel replays the owning 64–65 Mb chunk and asserts both its
+boundary join and the absence of the wrong whole-block join.
+
+### 2026-09-27: Recover seams exposed by the first BAM transfer
+
+The full first-megabase chunk has an initial graph phase set spanning the
+514,902 C>G and 528,827 A>T SNPs, so the first seam detector correctly does
+not target that interval. Recovery of the next 528,827–545,002 seam attaches
+the right SNP to a different BAM source block. This creates a new 13,925-bp
+phase-set seam *after* the only recovery solve. A short-window replay starts
+with that seam already present and injects the 516,158 A>G SNP, 528,728 C>A
+SNP, and 528,825 deletion; the full chunk previously omitted all three.
+The owning-chunk recovery audit listed these candidates but marked every one
+outside its selected windows. The gap was therefore lost at seam selection,
+not at BAM candidate calling or allele representation.
+
+Recovery now makes one additional bounded sub-solve for seams newly exposed by
+first-pass transfer. A second-round interval must have no positive-width
+overlap with any first-round interval; comparing endpoints alone also retried
+a shifted 0.863-Mb seam and incorrectly merged a pure 497-read block. The
+nonoverlap rule retains the previous block. New source sites and observations
+are injected through the existing exact-key merge and ordinary stitch path.
+
+The 528,728 SNP is classified internally as `NoisyCandHet`, but it is MSA-
+and alignment-verified and emitted as a clean heterozygous SNP. The first
+prototype overlooked this and left 20 paternal reads tagged HP1 in a block
+whose clean SNP ALT belongs to HP2. A local refresh now uses verified new-seam
+SNP calls with base quality >=20 and BAM MAPQ >=30 to update an existing HP only
+when all informative SNPs in that read's current PS agree on one haplotype.
+It leaves the PS unchanged and abstains on conflicts. On the owning 1-Mb
+replay, the 514,902–528,827 rows join, correctly separated reads rise from
+71/119 to 91/119, and truth discordance falls from 33/3,699 to 13/3,697.
+The new owning-chunk regression requires the two recovered SNP rows and a
+0.76 separated-read floor; HiPhase on the same keys scores 113/119 there.
+
+The full chr20 run adds exactly the three VCF keys above (62,147 -> 62,150)
+and removes none. It closes the 514,902–528,827 target in addition to the
+61.747-Mb and 64.144-Mb fixes: 3 of the 23 newly inventoried targets now
+join, with 20 remaining. Truth-scored reads change 236,835 -> 236,833,
+correct reads 229,058 -> 229,076, discordant reads 7,777 -> 7,757, and
+accuracy 96.7163% -> 96.7247%. A trial that blindly reran all seams is not
+the retained design: it raised first-megabase discordance from 33 to 52 by
+reprocessing the shifted 0.863-Mb seam. The bounded nonoverlap pass leaves
+that first-megabase baseline at 33 discordant before read refreshing.
+
+The first complete window-panel run caught a regression in the already solved
+528,827 SNP/528,828 insertion pair: the retry moved the SNP to the upstream
+PS and left its sequence-validated BAM insertion in the old source PS. The
+original BAM source has a weak cut at 528,850. A coordinate-specific trial
+merging the whole source fixed the pair, but crossed that cut. The retained
+rule snapshots first-pass blocks with one oriented graph SNP and oriented
+private BAM sites, then transfers only the SNP's original source component if
+the second stitch moves that SNP. It requires every transferred row to retain
+a consistent allele orientation; reads follow only if they observe moved rows
+and no remaining source row. Noninformative homozygous source rows do not
+veto the component. The dedicated 528,827/528,828 regression and the new
+514,902/528,827 owning-chunk regression both pass.
+
+The new-seam read pass also assigns previously unphased reads when all
+quality-bearing injected SNP observations identify one PS and one haplotype.
+This raises the owning-chunk single-block separation from 91/119 to 110/119,
+versus HiPhase's 113/119, while retaining 13 discordant reads among 3,711
+scored. The regression floor is now 0.92. On full chr20, the retained version
+has 62,150 VCF keys (three added, none removed), 236,847 truth-scored phased
+reads, 229,090 correct, 7,757 discordant, and 96.7249% accuracy. Relative to
+the pre-retry graph+BAM baseline, that is 12 more scored reads, 32 more correct
+reads, and 20 fewer discordant reads. The 528,827 SNP, 528,828 insertion, and
+528,850 deletion share PS 130541; the 542,052/545,002 control remains joined
+in PS 545002. Three of 23 newly tracked HiPhase-correct gaps are closed on
+the full chromosome, leaving 20.
+
+### 2026-09-28: Preserve exact clean graph SNP anchors across padded BAM solves
+
+The 48,971,192–48,982,663 gap joined in a short replay but split in its
+owning 48–49 Mb chunk and in the full chr20 run. The BAM source block spanning
+it had a complete site path with no weak cuts. Two clean SNPs at 48,950,388 and
+48,952,538 were exact matches to the left graph block and had a 71-read,
+two-haplotype graph/BAM gauge vote. A second padded BAM solve also contained
+those SNPs. Duplicate-source suppression set `can_adopt=false` on both copies,
+so the spanning source lost its left graph anchors; it could attach only the
+right graph block. The local replay used one padded solve, explaining its
+misleading success.
+
+Recovery now retains multiply claimed sites only when each claim is an exact,
+clean biallelic SNP shared with a clean graph SNP. Each source still needs its
+own shared-site allele orientation, complete source path, and two-haplotype
+read vote before transfer. Ambiguous indels and BAM-private rows remain
+excluded from duplicate claims. In the owning 48–49 Mb chunk, the exact
+48,971,192 G>GT and 48,982,663 T>C rows now share PS 48,950,389. Truth
+remains 3,844/3,901 correct reads (57 discordant) while the read phase-set
+count drops from eight to seven.
+
+The same change closes 7,047,080 C>CA–7,064,047 C>T on full chr20. Its
+owning 7–8 Mb chunk remains 3,926/4,091 truth-correct (165 discordant) before
+and after; the short-window test's former 0.98 concordance floor described a
+different solve context. The regression now replays the owning chunk and uses
+a 0.95 floor, with exact boundary PS equality asserted for both newly closed
+gaps. The full 56-window suite passed with 1,673 assertions across 34 test
+cases on this change.
+
+On full chr20, all 62,150 `(CHROM, POS, REF, ALT)` keys are unchanged. Tracked
+HiPhase-correct gaps closed rise from 3/23 to 5/23; 18 remain. Truth-scored
+reads change from 229,090/236,847 correct (7,757 discordant) to
+229,091/236,848 correct (7,757 discordant), both 96.7249% at four decimals.
+Read PS count falls from 731 to 729. This is a continuity gain without a
+chromosome-wide truth penalty in the same-BAM comparison.
+
+### 2026-09-28: Normalize graph SNP context for a physical insertion bridge
+
+The 56,662,188–56,679,959 target remained split in its owning 56–57 Mb chunk.
+Its left catalog row is a multi-base snarl allele (`TGG>TGT` at 56,662,186)
+that normalizes to the exact `G>T` SNP at 56,662,188. A physical bridge trial
+that required one-base raw graph REF/ALT skipped that boundary and chose a
+clean SNP 3.3 kb upstream, excluding reads starting in between. After
+normalization, the original BAM supplies 19 MAPQ/BQ >=30 SNP–insertion pairs
+at the first verified right-source insertion: 18 support one orientation,
+one conflicts. Complete BAM source paths, consistent clean shared SNP gauges
+on both graph flanks, and the ordinary stitch conflict checks allow the join.
+The boundary BAM SNP's MSA hap allele IDs are 1/2, so the physical REF/ALT
+call, not those IDs, orients it. The insertion has `msa_verified=true` but
+`alignment_verified=false`; exact CIGAR calls validate the bridge directly.
+
+The owning chunk gains one truth-correct phased read with no new discordant
+read. Full chr20 retains all 62,150 VCF keys, raises tracked target closures
+5/23 -> 6/23, and changes truth-scored reads 229,091/236,848 ->
+229,092/236,849 correct; discordant reads stay 7,757 and read PS count falls
+729 -> 728. The target's regression now uses its owning chunk and checks that
+the exact boundary rows share one PS. A preliminary 66-Mb run was truncated
+short of the 66,210,255-bp reference end and is not a valid coverage
+comparison.
+
+### 2026-09-28: certified single-molecule graph seam
+
+At chr20:54,894,127–54,912,022, the original BAM has one MAPQ-60 read with
+Q40 calls at both boundary SNPs. Lowering the global or targeted BAM link
+threshold from two reads to one joins this seam but also makes an incorrect
+whole-block join near 62.6 Mb; targeted one-read linking adds 1,024 discordant
+reads over the chr20 baseline. A post-transfer stitch now uses exactly one
+quality-certified physical SNP pair only after both chunk-local graph blocks pass
+consecutive clean-SNP path checks. The 62.6 Mb right block fails this check
+because it reverses internally. The 54–55 Mb owning-chunk regression joins
+the intended pair without changing its 4,305/4,314 truth-correct read score.
+A full chr20 replay increases tracked HiPhase-correct gap closures from 6/23
+to 7/23, reduces read phase sets from 728 to 727, and leaves truth scoring
+unchanged: 229,092 correct and 7,757 discordant among 236,849 phased reads
+(96.7249%). The remaining 16 tracked gaps stay open. Detailed commands and
+results: `evaluations/2026-09-28-certified-singleton-seam/README.md`.
+
+### 2026-09-28: Direct physical SNP votes and connected graph prefixes
+
+The original BAM contains 11 high-quality molecules voting unanimously for
+chr20:3,529,324–3,542,977, but the recovery subsolve demotes the right SNP
+and loses its callable pairs. Two biallelic rows of the same multiallelic
+snarl also created a false graph-path edge. Direct physical-base votes and
+one-locus-per-snarl path checks restore the boundary evidence. A later
+zero-vote graph-SNP path cut crosses two already linked deletion candidates.
+Moving the prefix across that cut breaks the established 3.573 Mb join, so
+the guarded stitch leaves the 3.529 Mb owning chunk split. An empty cut can
+still permit a prefix join. The 8.638 and 54.547 Mb tracked gaps join;
+the local 5,345,085–5,350,509 edge also joins without crossing its farther
+weak source cut. Its owning-chunk reads retain at least 99% parental
+concordance. The unsafe 62.6 Mb whole-block control stays split.
+
+Full chr20 closes 9/23 tracked HiPhase-correct gaps versus 7/23 previously.
+Read phase sets fall 727 -> 722. Parental truth stays at 7,757 discordant
+reads, while scored reads fall 236,849 -> 236,847 (both lost reads were
+correct), so accuracy remains 96.7249%. The detailed audit and reproduction
+are in `evaluations/2026-09-28-physical-snp-prefix/README.md`. The full
+window panel passes 1,723 assertions across 34 cases; unit tests and
+validation gates pass.
+
+### 2026-09-28: Preserve the main BAM stitch as graph-path evidence
+
+The 3.529 Mb boundary has 11 high-quality unanimous physical SNP pairs.
+Its right graph block later absorbs a second original graph block across a
+3.573–3.597 Mb GAF path gap through the existing validated BAM stitch.
+The final physical SNP check was rechecking that already joined block using
+GAF alone, then abstaining. Stable graph site IDs now retain both original
+block identities and their phase sets immediately after the first main BAM
+stitch. A missing or one-haplotype GAF edge may inherit that certified join
+only if no GAF read votes for reversal. Edges within each original block
+still need full two-haplotype graph support. This closes 3.529 Mb in the
+owning chunk without breaking the 3.573 Mb deletion bridge; the unsafe
+62.6 Mb control remains split.
+
+Full chr20 tracked closures rise 9/23 -> 10/23 and read phase sets fall
+722 -> 717. The 62,154 VCF keys and parental truth score are unchanged:
+229,090 correct and 7,757 discordant of 236,847 scored reads (96.7249%).
+No individual truth-scored read changes correctness.
+The full window panel passes 1,728 assertions across 34 cases; unit and
+validation gates pass. Details and reproduction:
+`evaluations/2026-09-28-certified-graph-path/README.md`.
+
+### 2026-09-28: One-haplotype clean-SNP bridge
+
+At chr20:32,215,055–32,233,534, two independent MAPQ 38/40, Q40 BAM reads
+call the same clean SNP allele pair (left ALT, right REF). Recovery had enough
+physical evidence, but the final stitch rejected two or more reads unless
+both left haplotypes appeared. Diploid parity is established by the existing
+quality-weighted likelihood even when both sampled molecules come from one
+haplotype. Removing that extra guard joins the correct opposite-ALT boundary;
+whole-block graph-path checks and the 62.6 Mb unsafe control remain in place.
+The owning-chunk regression checks the join and parental read concordance.
+
+Full chr20 tracked closures rise 10/23 -> 11/23, read PS fall 717 -> 716,
+and 62,154 VCF keys and all 236,847 truth-scored read outcomes remain
+unchanged (229,090 correct, 7,757 discordant; 96.7249%). Detailed evidence:
+`evaluations/2026-09-28-one-haplotype-snp-bridge/README.md`.
+
+The full gap-window suite passes 1,741 assertions across 34 cases; unit tests
+and validation gates pass. The source-to-trial read-name sets and each
+truth-scored read's correctness are identical.
+
+### 2026-09-28: Keep complementary deletion alleles separate at a graph seam
+
+At chr20:60,453,499–60,467,115, two overlapping MSA-verified BAM deletion
+rows (8 bp and 2 bp) were already attached to the left graph block on opposite
+haplotypes, but the final physical stitch only accepted clean SNPs at both
+boundaries. Six exact 8 bp deletion calls pair with right-SNP ALT, and two
+exact 2 bp deletion calls pair with right-SNP REF; two reads carrying other
+nearby deletions abstain. The new bridge takes only exact ALT CIGAR calls from
+either separate row, validates reference flanks, requires both deletion alleles
+and one unanimous phase relation, and retains graph-path checks on both blocks.
+No site is merged or rewritten. The reference audit also found that
+`physical_snp_call` compared BAM uppercase bases with soft-masked lowercase
+reference bytes; it now compares bases case-insensitively.
+
+The owning chunk keeps 3,290/3,326 truth-correct reads while its PS count falls
+18 -> 17. Full chr20 tracked closures rise 11/23 -> 12/23 and read PS fall
+716 -> 715. The 62,154 VCF keys and genotypes and every truth-scored read
+outcome remain unchanged: 229,090 correct, 7,757 discordant of 236,847
+(96.7249%). Details: `evaluations/2026-09-28-complementary-deletion-bridge/README.md`.
+
+The full gap-window suite passes 1,754 assertions across 34 cases; unit tests
+and HiFi/ONT validation gates pass.
+
+### 2026-09-28: Exact BAM insertion to singleton graph SNP at 19 Mb
+
+At chr20:18,983,414–18,999,993, the left recovery block ends in an
+MSA-verified six-base insertion and the right graph block begins seven bases
+before the 19 Mb chunk edge. The final physical stitch previously considered
+only clean SNP pairs or complementary deletions, so it ignored the insertion.
+The right block has one graph SNP in that chunk; a two-site graph-path check
+therefore rejected it even though no internal right-block edge exists.
+
+Three MAPQ-60 primary reads call the exact insertion and right SNP ALT, four
+call insertion REF and SNP REF, and one call insertion REF and SNP ALT while
+carrying a different nearby insertion. Quality-weighted evidence establishes
+the ALT/ALT relation. The new bridge requires exact CIGAR alleles, matching
+reference flanks, both insertion alleles, the existing 0.001 wrong-parity
+bound, and a certified left graph SNP path. It accepts a right singleton only
+when that phase set has exactly one graph candidate in the chunk. The owning
+chunk and short panel replay now span the gap without a truth switch.
+
+Full chr20 tracked HiPhase-correct closures rise 12/23 -> 13/23; read phase
+sets fall 715 -> 713. The same 62,154 variant keys and genotypes remain,
+and every one of 236,847 truth-scored reads keeps its correctness outcome:
+229,090 correct and 7,757 discordant (96.7249%). The graph panel span
+count rises 40 -> 41; the target window's separated-read fraction reaches
+0.536 (81/151). Details and reproduction are in
+`evaluations/2026-09-28-insertion-singleton-bridge/README.md`.
+
+### 2026-09-28: The 1.508 Mb shifted deletion needs a left-block split
+
+At chr20:1,508,171–1,523,721, two exact and three shifted four-base CIGAR
+deletions are sequence-equivalent and pair with the right SNP ALT; six REF
+reads pair with SNP REF. The current physical exact-position call misses the
+shifted three. However, the left graph phase set also fails the continuous
+SNP-path guard at 1,349,327–1,350,788 (19, 0, 6 agree/agree/reverse votes).
+A whole-block stitch is unsafe until a validated right-side suffix of that
+block is separated at the weak cut. No join was made for this gap. Evidence:
+`evaluations/2026-09-28-shifted-deletion-1508/README.md`.
+
+### 2026-09-28: Close the 1.508 Mb shifted-deletion seam safely
+
+The earlier split diagnosis was superseded by direct two-haplotype graph
+support between the SNPs flanking the weak 1.349 Mb site. For an MSA deletion
+bridge only, the path check may bypass one weak one-haplotype SNP when that
+direct edge has at least two reads from each haplotype and passes the existing
+one-sided binomial `p <= 0.01` vote test. A sequence-equivalent CIGAR
+deletion can vote for the unchanged BAM candidate row; other nearby indels abstain. The stitch tries
+clean SNP pairs first and requires two reads for each deletion allele plus
+the existing quality-weighted parity bound. The two-read floor is necessary:
+a one-per-allele trial joined 3.964 Mb incorrectly and worsened chr20 truth.
+The guarded bridge joins 1,508,171–1,523,721 in the owning chunk and short
+panel replay. Details: `evaluations/2026-09-28-shifted-deletion-1508/README.md`.
+
+Final full chr20: tracked closures 13/23 -> 14/23, read phase sets 713 ->
+711, and panel spans 41 -> 42. All 62,154 VCF keys and genotypes and all
+236,847 individual truth-scored read outcomes remain unchanged (229,090
+correct, 7,757 discordant; 96.7249%). A broad path-bypass trial increased
+discordance by 535 and was rejected; the bypass is now scoped to the certified
+MSA deletion bridge, with at most one skipped SNP per path.
+
+The final full gap-window suite passes 1,780 assertions across 34 cases.
+Unit tests and the HiFi/ONT validation gates pass.
+
+### 2026-09-28: Close the 60.033 Mb SNP-to-insertion seam
+
+The chr20:60,033,052–60,048,237 tracked gap had a clean left SNP and an
+MSA-verified one-base BAM insertion on the right. The final physical stitch
+previously tried left-indel to right-SNP but never the symmetric SNP-to-right-
+insertion case. In the BAM, equivalent one-base A insertions occur a few bases
+left of the candidate within the same A run. Direct physical calls in the
+owning 60–61 Mb chunk have seven qualified REF and two qualified ALT insertion
+pairs with the left SNP, yielding a decisive quality-weighted relation. The
+left phase set has one original graph SNP plus attached BAM rows; requiring two
+original graph SNPs falsely rejected this vacuous internal path check.
+
+The retained bridge compares inserted local reference strings, checks inserted
+and aligned base qualities, abstains on nearby other indels, requires two
+distinct reads per insertion allele, and validates both graph paths. A graph
+singleton is accepted only if it is the sole original graph candidate in its
+phase set. The short window spans with 0.71 truth-separated reads, up from
+0.46; the full owning chunk retains 3,290 correct and 36 discordant of 3,326
+truth-scored reads. A new owning-chunk regression checks exact boundary PS
+and opposite genotype orientation; the panel span expectation is updated.
+
+The initial full chr20 trial closes 15/23 tracked HiPhase-correct gaps versus
+14/23, reduces read PS 711 -> 709, and keeps the same 62,154 VCF keys and all
+236,847 truth-scored read outcomes (229,090 correct, 7,757 discordant). Eight
+VCF GT strings invert together inside the newly joined block, without changing
+allele dosage. The singleton guard was subsequently tightened to require one
+original graph candidate; final validation follows below.
+
+The same bridge closes the older 60,033,052–60,058,235 panel window, which
+contains the insertion as an interior step. Its short replay now has 0.75
+truth-separated reads instead of 0.40. The insertion at 60,048,238 is added
+to that window's required-site regression. The graph panel span total rises
+42 -> 44 because both 60.033 Mb windows now close.
+
+Final guarded full chr20 confirms 15/23 tracked closures, 709 read phase sets,
+62,154 identical VCF keys, eight phase-only GT inversions in the joined block,
+and no dosage or individual read-truth changes: 229,090 correct and 7,757
+discordant among 236,847 scored reads. `make unit-tests`, `make check`, and
+the full `make window-tests` suite pass; the latter has 1,793 assertions in
+34 cases. Evidence: `evaluations/2026-09-28-shifted-insertion-60033/README.md`.
+
+### 2026-09-29: Retry an imported BAM seam only with physical SNP parity
+
+The first recovery pass at chr20:15,056,025–15,071,132 imports two BAM phase
+blocks inside a wider graph seam. The old second-pass overlap filter discarded
+the newly exposed pair even though the pair's phase-set IDs had never been
+solved together. In the owning 15–16 Mb chunk, retrying that pair closes the
+boundary deletion and adjacent SNP in PS 15,039,543. Its local truth scorer
+remains unswitched with 99.44% concordance.
+
+Overlap alone was unsafe: retrying every new pair across a solved interval
+changed 25,283 previously correct chr20 read assignments to discordant ones,
+dropping accuracy from 96.72% to 86.57%. Requiring only two BAM molecules to
+span both endpoints still retried an adjacent 17.839 Mb pair, where the second
+BAM solve tagged 16 reads and 10 were locally discordant. There is no unphased
+reference base between those adjacent anchors, so it is excluded.
+
+The retained retry requires a new phase-set pair, an actual interior base, and
+direct physical calls on the nearest eligible SNP on each side: clean or
+alignment- and MSA-verified, MAPQ/base qualities at least 30, at least four
+unique paired reads, at least 75% agreement, and quality-weighted parity odds
+corresponding to at most 0.001 wrong-parity probability. In the 15 Mb owning
+chunk, truth changes from 4,259/4,279 correct to 4,257/4,279, with the gap
+closed and no switch. The adjacent 17.839 Mb retry is suppressed. The new
+owning-chunk regressions assert the closure and the adjacent-anchor safeguard.
+
+Full chr20 retains the same 62,154 VCF keys and 236,847 truth-scored phased
+reads. Tracked HiPhase-correct gap closures rise from 15/23 to 16/23; read PS
+fall from 709 to 706 and VCF PS from 350 to 348. Correct reads change from
+229,090 to 229,088 and discordant reads from 7,757 to 7,759 (96.7240%
+accuracy versus 96.7249%). Only four reads change individual truth outcome;
+there is no large block reversal. Evidence: `evaluations/2026-09-29-new-bam-seam-retry/README.md`.
+
+Final validation: `make -j4`, `make unit-tests`, `make check`, and
+`make window-tests` pass. The full gap-window suite has 1,820 assertions in
+36 test cases. The graph-arm panel expectation for the newly closed 15.056 Mb
+window changes from open to closed; its truth-separated floor rises from 0.40
+to 0.89, and the graph total span floor rises from 44 to 45.
+
+### 2026-09-29: Join a shifted-deletion bridge to a certified graph suffix
+
+At chr20:13,830,800–13,844,727, four BAM reads placed a two-base deletion
+17 bases after its catalog representation in a `(TG)` repeat. A 16-base
+physical-equivalence search lost those calls; 32 bases recovers sequence-
+verified support. The resulting physical deletion/SNP parity is decisive,
+but the left graph block has earlier SNP-path gaps and cannot join whole.
+The later unsupported edge contains indel candidates, so a coordinate-empty
+cut is also invalid. Splitting at the candidate boundary with the fewest
+crossing tagged reads preserves the prefix separately, unphases ambiguous
+crossing reads, and joins only the suffix with its own supported graph SNP
+path. The owning-chunk and full chr20 runs close the tracked gap without any
+change to individual truth-scored read correctness. Tracked HiPhase-correct
+closures rise 16/23 -> 17/23; all 62,154 VCF keys and 236,847 scored reads
+remain, with 229,088 correct and 7,759 discordant (96.7240%). Truth-scored
+read phase sets rise 706 -> 708 because the unsafe prefix stays separate. Evidence:
+`evaluations/2026-09-29-shifted-deletion-suffix/README.md`.
+
+The graph panel's 13.830 Mb span changes from open to closed, and its
+truth-separated floor rises 0.54 -> 0.73; total spans rise 45 -> 46.
+
+Final validation: `make -j4`, `make unit-tests`, `make check`, and the full
+`make window-tests` suite pass (1,834 assertions in 37 cases).
+
+### 2026-09-29: Certify a BAM insertion suffix against a graph MNP
+
+At chr20:17,865,146–17,883,198, an MSA-verified BAM insertion has a
+sequence-equivalent CIGAR placement five bases away, and the right graph
+boundary is a two-base MNP. Exact-coordinate insertion calls, SNP-only
+physical boundaries, and the old equal-length seam coordinate excluded the
+available bridge. Calling the full MNP and equivalent insertion restores its
+physical evidence. Transferring only the final insertion mixed independent
+fallback read gauges and cost 20 previously correct local reads. A direct
+clean-SNP-to-insertion link across the source's last weak cut certifies the
+larger BAM suffix, including the 17,852,024 SNP and paired deletion rows,
+while the earlier source prefix stays separate. The owning-chunk truth improves
+4,049/4,082 -> 4,052/4,082. Full chr20 tracked closures rise 17/23 -> 18/23;
+truth-scored reads rise 236,847 -> 236,854 and correct reads 229,088 ->
+229,098, with discordant reads falling 7,759 -> 7,756. All 62,154 VCF keys
+and genotype strings are unchanged. The MNP is admitted as a physical bridge
+boundary without broadening graph clean-SNP path certification; trials that
+broadened it reopened the earlier 1.508 and 3.529 Mb joins. Evidence:
+`evaluations/2026-09-29-insertion-mnp-suffix/README.md`.
+
+The graph panel's 17.865 Mb span changes from open to closed, raising the
+expected total 46 -> 47. Final validation: `make -j4`, `make unit-tests`,
+`make check`, and the full `make window-tests` suite pass (1,848 assertions
+in 38 test cases).
+
+### 2026-09-29: Use established graph read HP across a shifted BAM deletion
+
+At chr20:59,825,454–59,842,960, three primary BAM reads span the gap but the
+left graph SNP has low BAM base quality on two of them. Their graph allele and
+established graph HP remain informative. Two maternal reads physically carry
+the same short BAM deletion, with one CIGAR placement shifted eight bases in a
+repeat. A benign insertion outside the allele-verification span caused the
+old equivalent-deletion caller to discard the exact-placement read. Restricting
+indel interference to the verified span and pairing the graph HP with
+MSA-verified deletion ALT evidence closes the gap. The stitch requires two
+independent clean reads, a 0.001 wrong-parity bound, and supported graph SNP
+paths on both blocks. The full chr20 VCF keys, genotypes, 236,854 scored reads,
+and 229,098 correct / 7,756 discordant assignments are unchanged; tracked
+HiPhase-correct closures rise 18/23 -> 19/23 and read phase sets fall
+704 -> 702. Evidence and test: `evaluations/2026-09-29-graph-snp-deletion-bridge/README.md`.
+The 59.825 Mb panel span and total expected spans rise 0 -> 1 and 47 -> 48.
+Final validation: `make -j4`, `make unit-tests`, `make check`, and
+`make window-tests` pass (2,853 assertions in 39 cases).
+
+### 2026-09-29: Preserve a readless BAM island and certify the 47 Mb graph path
+
+At chr20:47,003,897–47,713,869, the BAM recovery solve contributes six
+MSA-verified variant rows at the left boundary, but their source block owns no
+read tags after transfer. Those rows stayed in an isolated PS even though a
+nearby clean graph SNP and independent physical calls establish their gauge.
+The graph block also has a one-haplotype SNP edge at 47,671,540–47,689,418;
+two MAPQ-60 reads call both SNPs at Q35/40 and confirm the existing phase.
+The readless source rows now inherit that graph PS only when their source path
+is complete, its weak and quality cut vectors are empty, and direct physical
+SNP-to-insertion and graph-edge checks pass. This does not move read tags.
+
+At the right boundary, the MSA insertion represented at 47,694,119 has
+sequence-equivalent CIGAR placements nearby. A spanning molecule has an
+inserted base at Q10, although its aligned SNP and flanks are Q30 or better.
+The insertion bridge now admits that base at Q10 and gives it its actual error
+weight. Its two REF and two ALT observations reach the 0.001 wrong-parity
+bound. The same physical graph-edge certificate and a direct suffix
+SNP-to-insertion check permit the complete graph block to join the right SNP.
+
+The owning 47–48 Mb replay and full chr20 run both join the exact boundary
+rows without a local parental switch. Tracked HiPhase-correct closures rise
+19/23 -> **20/23**; 21.378, 23.421, and 32.235 Mb remain open. All 62,154
+VCF keys and 236,854 truth-scored phased reads remain. Correct reads change
+229,098 -> 229,097, discordant reads 7,756 -> 7,757, and read PS 702 -> 700.
+The 11 changed VCF phase strings are confined to the two merged blocks; allele
+dosages do not change. Evidence:
+`evaluations/2026-09-29-readless-insertion-graph-path/README.md`.
+
+The graph panel's long-gap span rises 0 -> 1 and its total 48 -> 49. An
+owning-chunk regression asserts that the island, suffix insertion, and right
+SNP share a PS, their parental genotypes remain opposite, and local reads
+have no switch.
+
+Validation: `make -j4`, `make unit-tests`, `make check`, and the full
+`make window-tests` suite pass (2,870 assertions in 40 test cases). The
+existing 47–48 Mb graph-gauge regression measures 2,967/2,998 reads on its
+majority parental orientation after this join, so its purity floor is 98.9%
+while its exact site-gauge and opposite-genotype checks remain in force.
+
+### 2026-09-29: Stitch a recovered long BAM insertion after earlier graph joins
+
+The 65 bp BAM insertion at chr20:32,246,127 sat exactly at a newly exposed
+recovery seam. The physical stitch compared its internal `VariantKey.pos`
+(32,246,128) with the VCF-anchor seam end, so it excluded the allele; it also
+used an obsolete left PS after an earlier graph join. The stitch now compares
+`sort_pos()`, resolves boundary PS labels from current candidates, and checks
+long insertions up to 128 bp. Two MAPQ-14/15 ALT molecules with Q22/Q35
+inserted bases orient the complete right BAM source against a clean left SNP.
+Nearby reads with competing indels abstain from REF calling. The right source
+must have no weak or quality cut, the left graph SNP suffix must be supported,
+and the quality-weighted wrong-parity bound is 0.01. The established left
+block is retained; splitting at a distant weak edge reopened its earlier
+32.215 Mb join in a rejected trial.
+
+Tracked HiPhase-correct closures rise **20/23 → 21/23**. Full chr20 retains
+62,154 VCF keys and all genotype strings; truth-scored reads move 236,854 →
+236,855, correct reads remain 229,097, discordant reads move 7,757 → 7,758,
+and read PS fall 700 → 699. The remaining 21.378 and 23.421 Mb gaps have no
+independent clean direct bridge yet. Evidence:
+`evaluations/2026-09-29-long-insertion-source-stitch/README.md`.
+The new 32.235 Mb panel case replays its exact 32–33 Mb owning chunk,
+where overall read concordance is 1,311/1,520 (86.25%) and the dominant
+joined block correctly separates 39/52 local reads. Its 86% test floor
+replaces a 95% floor measured on a shorter, differently bounded replay.
+Validation: `make -j4`, `make unit-tests`, `make check`, and full
+`make window-tests` pass (2,893 assertions in 40 cases). Exact VCF
+allele-key review confirms 21 closed and the two named gaps open.
+
+### 2026-09-29: Stitch a recovered right deletion from a clean left SNP
+
+The 23.421 Mb recovery seam retained both boundary alleles, but the physical
+stitch had no SNP-to-right-deletion case. A MAPQ-60 read calls the left ALT at
+Q17 and the right 9 bp deletion REF at Q40. The quality-weighted relation has
+about 2.1% wrong-parity probability. The new stitch requires a complete BAM
+source without cuts, supported graph SNP paths on both sides, no
+opposite-haplotype overlapping deletion, and posterior wrong parity at most
+0.05. A broad trial that omitted the right graph-path check joined a weak
+1.15 Mb block first and reopened the earlier 1.508 Mb bridge. The graph-path
+check rejects that counterexample.
+
+Full chr20 tracked closures rise **21/23 → 22/23**; only 21.378 Mb remains
+open. Truth-scored reads rise 236,855 → 236,859, correct reads rise 229,097 →
+229,101, discordant reads stay 7,758, and read PS stay 699. VCF keys and
+allele dosages are unchanged; three phased genotype strings flip inside the
+newly joined right block. Evidence:
+`evaluations/2026-09-29-snp-to-deletion-stitch/README.md`.
+The last 21.378 Mb gap is also split by standalone BAM phasing on the same
+alignment. Its two crossing reads have disjoint low-quality or competing-repeat
+allele calls, so this is not a loss during graph recovery transfer.
+Validation: `make -j4`, `make unit-tests`, `make check`, and full
+`make window-tests` pass (2,910 assertions in 40 cases). The owning-chunk
+regression pins both 23.421 Mb alleles and parental orientation; the 1.508 Mb
+regression guards the rejected early join.
+
+### 2026-09-29: Close the repeat insertion pair without merging a multiallelic locus
+
+The last tracked HiPhase-correct chr20 gap, 21.378–21.395 Mb, has two
+MSA-verified BAM insertions and no graph SNP boundary for the ordinary
+physical stitch. A targeted seam pass uses two agreeing primary BAM
+repeat-length calls, exact zero-length calls at each boundary, and an
+independently certified left SNP-to-insertion edge. Right source reads
+without a callable primary BAM boundary allele keep independent HP tags;
+graph-projected starts were insufficient to classify those reads.
+
+A trial joined a 23.8 Mb multiallelic insertion/deletion locus through
+the same length-only vote. The final path vetoes a second phased allele
+at either boundary or an overlapping deletion. It leaves that locus
+unchanged. All 23/23 tracked gaps now close in the guarded full chr20 run.
+VCF keys stay 62,154; truth-scored phased reads stay 236,859; correct
+reads rise 229,101 -> 229,108 and discordant fall 7,758 -> 7,751.
+Only the intended 21,395,286 A>AT sample field changes; read PS count
+stays 699. Owning-chunk local majority purity is 122/144 (84.72%),
+below HiPhase's 131/144 (90.97%). The new paired-insertion and
+multiallelic counterexample regressions preserve both decisions.
+Evidence: evaluations/2026-09-29-repeat-insertion-pair/README.md.
+Validation: make -j4, make unit-tests, make check, and full
+make window-tests pass (2,939 assertions in 41 cases).
+
+### 2026-09-29: Audit additional HiPhase gap joins and preserve owning-chunk evidence
+
+An exact-boundary comparison of the accepted graph/recovery chr20 VCF with
+HiPhase on the same variant input found 56 further HiPhase joins outside the
+centromere, 51 with identical local input calls. Two met the strict >=98%
+local read-truth and >=95% concordant-flank criterion. Graph deletion
+coordinates at 13.8 Mb needed VCF allele normalization before physical
+matching; a certified local suffix now joins without absorbing an unsupported
+upstream SNP. At 64.14 Mb, right-block HP observations orient a BAM-derived
+left deletion against two complementary right deletion rows; only the left
+row moves. Both exact VCF gaps join in the owning chunks and full chr20.
+All 23 earlier tracked joins remain closed. Variant keys and truth-scored
+phased reads stay 62,154 and 236,859; 229,108 remain correct and 7,751
+discordant. The read PS count falls 699 -> 698. The 64.14 Mb row transfer reveals
+an adjacent 64.138 Mb split; current full chr20 still has 56 exact
+HiPhase-joined pgphase splits, including this newly exposed seam. Its
+deletion and SNP votes are mixed, so the seam remains open and has its own
+panel regression. Five more >=95%-pure and eight >=80%-pure,
+concordant-flank HiPhase joins are pinned as open panel targets: 14 open
+targets after the newly exposed 64.138 Mb seam. A strict
+repeat-length trial reopened the verified 21.378 Mb join and added seven
+truth-discordant reads, so it was reverted. Evidence and reproducible gap
+audit: evaluations/2026-09-29-expanded-hiphase-gaps/README.md.
+Validation: make -j4, make unit-tests, make check, and full make
+window-tests pass (3,302 assertions in 42 cases).
+
+### 2026-09-29: Reject a zero-pair SNP-to-deletion stitch without corroboration
+
+A trial invoked the existing physical SNP-to-MSA-deletion stitch when a right
+clean SNP existed but no read called both SNPs. It closed the 58.366 Mb panel
+gap by one exact CIGAR pair, but joined its boundary ALT alleles on opposite
+haplotypes; HiPhase and the parental read evidence put them on the same
+haplotype. Another one-read join at 20.8 Mb attached a large block across an
+injected one-base deletion overlapping an unphased six-base graph repeat row.
+Full chr20 discordant reads rose 7,751 -> 7,892 at unchanged 236,859 scored
+reads; a repeat-overlap veto still left 7,815. Both trials were discarded.
+The 58.366 Mb gap regression now rejects the observed wrong ALT orientation
+if a future solver joins it. The second spanning 58.385 Mb read carries a
+sequence-equivalent deletion shifted 20 bp in an A run but has Q17 at a
+retained base, below the current Q30 equivalence filter. The next repair needs
+to score both placements with their actual base qualities and establish a
+supported relation before joining. Evidence:
+evaluations/2026-09-29-zero-pair-indel-counterexample/README.md.
+Validation after rejecting the trial: make -j4, make unit-tests, make check,
+and make window-tests pass (3,307 assertions in 42 cases). A one-window replay
+with the rejected binary fails both the switch and ALT-orientation assertions.
+
+### 2026-09-29: Certify detached BAM-only runs and prioritize clean SNPs
+
+At chr20:19,403,172–19,414,720, 19 independent MAPQ/base-quality >=30
+reads make a decisive clean-SNP bridge with the HiPhase allele orientation.
+The left phase set contains three BAM-derived rows and no graph rows, so the
+final stitch's graph-only path check always rejected it. Its original BAM
+source has three weak cuts, all before the detached three-row run; none lies
+inside the run. The stitch now accepts such a BAM-only local path only when
+every candidate maps to one source phase set with consistent haplotype
+orientation and no internal weak cut. It then retries a newly adjacent seam
+inside the recovery target when the left boundary is a clean SNP.
+
+This exposes the upstream 19,395,544–19,403,172 SNP gap. Its physical SNP
+pair has 26 unanimous same-allele calls, but a repeat-insertion length vote
+chose the opposite haplotype join. A decisive nearby BAM clean-SNP pair now
+sets the orientation when it shares a source run with the insertion and no
+weak cut separates them. The two exact gaps join with the HiPhase allele
+orientation. Their dominant-block truth separation rises from 59/95 to 79/95
+and 67/113 to 98/113, respectively; HiPhase has 91/95 and 110/113.
+
+A broad retry also joined the low-purity chr20:36,620,864 singleton and lost
+seven truth-scored phased reads. Restricting newly exposed retry seams to a
+clean-SNP left boundary removes this collateral join; an owning-chunk control
+pins that split. Full chr20 retains 62,154 variant keys and 236,859
+truth-scored phased reads, with 229,108 correct and 7,751 discordant. Exactly
+32 VCF sample fields change, all from 19,397,607 to 19,464,219; read phase
+sets fall 698 -> 697. Evidence: evaluations/2026-09-29-bam-only-snp-run/README.md.
+
+### 2026-09-29: Expand same-callset gap controls; reject unsupported whole-block joins
+
+The current accepted chr20 graph/recovery output still has 55 exact-boundary
+HiPhase joins on the same callset. Five more noncentromeric cases now have
+owning-chunk regression rows: 1.180, 10.727, 19.373, 21.594, and 36.332 Mb.
+HiPhase separates 125/129, 133/161, 111/140, 118/154, and 144/179
+truth-scorable reads in their dominant gap blocks; pgphase separates 66,
+66, 59, 59, and 144, respectively. All five remain split, adding six
+in-gap heterozygotes and no spans to the panel baseline.
+
+At 1.18 Mb, left-block tagged reads unanimously orient both alleles of a
+right insertion placed 18 bp later in a repeat. The right graph block also
+contains an unsupported edge at 1.349–1.351 Mb with 19 one-haplotype GAF
+votes and six reversals. Joining the whole block from this local evidence
+would propagate orientation across that edge. At 12.256 Mb, a short replay
+joins while the full owning chunk splits; the BAM source has a weak cut at
+the boundary and shifted deletions on both SNP allele classes. This is an
+unsafe short-context certificate.
+
+A trial admitting all verified injected noisy SNPs to physical seam stitching
+closed 36.332–36.355 Mb, but lost 144 net truth-correct reads on full
+chr20 and changed 988 VCF sample fields. Nearly all losses came from an
+incorrect 37.462–37.467 Mb whole-block join at a seam with competing
+2- and 3-base deletion rows; the precise false-support mechanism remains
+unresolved. A separate trial excluding deletion lengths
+from repeat-insertion REF votes changed no VCF fields and lost four correct
+reads. Both were reverted; the separate read-label correction below is the accepted
+change. Evidence: evaluations/2026-09-29-five-more-gap-controls/README.md.
+
+The expanded 19.373 Mb control exposed stale read PS tags after weak-cut site
+detachment: 13 reads wholly right of the gap retained the left read PS and
+12 had the opposite truth orientation. Source reads that observe only the
+detached component and no neighboring graph anchor now move with its sites in the original BAM HP gauge. The
+owning chunk improves from 4,020/4,071 to 4,031/4,071 correct reads and its
+switch check passes. Full chr20 keeps 62,154 VCF rows with identical sample
+fields; truth-scored phased reads change 236,859 → 236,858, correct reads
+229,108 → 229,125, discordant reads 7,751 → 7,733, and read phase sets
+697 → 698. The read-only component may remain independent of VCF blocks.
+
+### 2026-09-29: short insertion CIGAR placement at chr20:5.25 Mb
+
+The graph/recovery phase sets at 5,256,785 and 5,263,741 stayed separate although
+HiPhase joined the same VCF alleles. On the original BAM, 15 reads overlapping
+5,256,785 place its `AT` insertion 50 reference bases later in the same AT
+run. Inserting `AT` at either coordinate gives the identical edited reference
+string. The physical insertion caller only searched 16 bases and therefore
+lost those ALT observations. A trial expanding the bound to 64 for all
+insertions joined this gap, but split the already closed 18,983,414–18,999,993
+gap; that nearby locus has multiple longer insertion alleles in one compound
+repeat. The broad trial was rejected.
+
+The accepted rule searches 64 bases for one- and two-base insertions and keeps
+the 16-base bound for longer insertions. It still requires identical edited
+reference strings, clean anchor bases across both placements, and the usual
+stitch evidence. An initial short-insertion trial closed 5.25 Mb but reopened
+the established 5.31 Mb seam: the graph SNP-path validator did not remember
+the newly certified physical insertion edge and rejected 43 agreeing clean
+SNP pairs at the next seam. The fix carries forward only a unique boundary
+graph-SNP pair whose live phase sets actually merge during the physical stitch.
+Both the newly joined 5.25 Mb gap and the existing 18.98 and 5.31 Mb gaps
+pass focused truth-backed tests. In the full chr20 run, the same 62,154 VCF
+keys are emitted and only 24 sample fields change, all in the 5 Mb chunk. At
+5,256,785 and 5,263,741 the ALT alleles now share the same haplotype,
+matching HiPhase's boundary orientation. Truth-scored phased reads increase
+236,858 to 236,867; correct reads increase 229,125 to 229,131; discordant
+reads increase 7,733 to 7,736. VCF blocks decrease 338 to 337 while N50
+stays 616,859 bp; read phase sets decrease 698 to 696. The new gap span and
+its unanchored interior candidate at 5,256,786 are pinned in the window panel.
+The complete window suite passes 3,496 assertions in 42 test cases;
+`make unit-tests` and `make check` also pass.

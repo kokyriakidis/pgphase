@@ -97,6 +97,13 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                        const Options* opts = nullptr,
                        const PgbamSidecarData* pgbam_sidecar = nullptr);
 
+/// Move one complete phase set into another, flipping its candidate and read
+/// haplotypes when the connecting allele evidence requires opposite polarity.
+bool merge_phase_sets_in_place(PhasingChunk& chunk,
+                               hts_pos_t upstream_phase_set,
+                               hts_pos_t downstream_phase_set,
+                               bool flip);
+
 /// Apply the normal overlap-read stitching rule to 11/12/21/22 haplotype votes.
 bool select_stitch_orientation(const std::array<int, 4>& votes,
                                const Options* opts, bool& do_flip);

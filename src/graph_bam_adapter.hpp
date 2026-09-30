@@ -65,6 +65,8 @@ struct RecoverySourceSite {
     int hap2_allele = -1;
     hts_pos_t graph_phase_set = 0;
     int graph_hap1_allele = -1;
+    // Exact clean SNP in both the graph and this independent BAM solve.
+    bool clean_shared_snp = false;
     bool can_adopt = false;
 };
 
