@@ -2515,6 +2515,93 @@ static std::optional<RecoveryDiploidPath> optimal_recovery_mec_path(
     return path;
 }
 
+// An unphased graph indel can carry a two-sided allele relation between two
+// independently solved BAM blocks. Keep the site itself independent; only a
+// conflict-free, two-haplotype path may orient the neighboring blocks.
+static std::optional<bool> graph_indel_two_hop_flip(
+        const PhasingChunk& chunk, const std::vector<int>& left_sites,
+        const std::vector<int>& right_sites) {
+    constexpr hts_pos_t kMaxHopSpan = 25000;
+    constexpr double kMaxHopParityP = 0.001;
+    constexpr int kMinAllelePairs = 2;
+    constexpr int kMinBridgeMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    const auto allele_at = [](const ReadVariantProfile& profile, int ci,
+                              bool graph) {
+        if (profile.start_var_idx < 0 || ci < profile.start_var_idx)
+            return -1;
+        const size_t offset =
+            static_cast<size_t>(ci - profile.start_var_idx);
+        const auto& calls = graph ? profile.graph_alleles : profile.alleles;
+        return offset < calls.size() && (calls[offset] == 0 || calls[offset] == 1)
+            ? calls[offset] : -1;
+    };
+    const auto link = [&](int anchor_i, int middle_i) -> std::optional<bool> {
+        int pairs[2][2]{};
+        for (size_t ri = 0; ri < chunk.read_var_profile.size() &&
+                            ri < chunk.reads.size(); ++ri) {
+            const ReadRecord& read = chunk.reads[ri];
+            if (read.is_skipped || read.mapq < kMinBridgeMapq ||
+                read.mapq == kUnknownMapq)
+                continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+            const int anchor = allele_at(profile, anchor_i, false);
+            const int middle = allele_at(profile, middle_i, true);
+            if (anchor >= 0 && middle >= 0) ++pairs[anchor][middle];
+        }
+        const int same = pairs[0][0] + pairs[1][1];
+        const int cross = pairs[0][1] + pairs[1][0];
+        if (std::min(pairs[0][0] + pairs[0][1],
+                     pairs[1][0] + pairs[1][1]) < kMinAllelePairs ||
+            std::min(pairs[0][0] + pairs[1][0],
+                     pairs[0][1] + pairs[1][1]) < kMinAllelePairs ||
+            (same != 0 && cross != 0))
+            return std::nullopt;
+        // For a unanimous edge the exact one-sided binomial tail is 2^-N;
+        // p <= 0.001 is equivalent to at least ten independent pairs.
+        return parity_flip_at_p(same, cross, 1, kMaxHopParityP);
+    };
+    std::optional<bool> flip;
+    for (const int left_i : left_sites) {
+        const CandidateVariant& left = chunk.candidates[static_cast<size_t>(left_i)];
+        if (!left.bam_injected ||
+            (left.counts.category != VariantCategory::CleanHetSnp &&
+             !left.msa_verified)) continue;
+        for (const int right_i : right_sites) {
+            const CandidateVariant& right = chunk.candidates[static_cast<size_t>(right_i)];
+            if (!right.bam_injected ||
+                right.counts.category != VariantCategory::CleanHetSnp ||
+                right.key.type != VariantType::Snp ||
+                left.key.sort_pos() >= right.key.sort_pos() ||
+                right.key.sort_pos() - left.key.sort_pos() >
+                    2 * kMaxHopSpan) continue;
+            for (size_t middle_i = 0; middle_i < chunk.candidates.size(); ++middle_i) {
+                const CandidateVariant& middle = chunk.candidates[middle_i];
+                const hts_pos_t pos = middle.key.sort_pos();
+                if (middle.bam_injected || middle.phase_set > 0 ||
+                    middle.counts.n_uniq_alles != 2 ||
+                    middle.key.type == VariantType::Snp ||
+                    pos <= left.key.sort_pos() || pos >= right.key.sort_pos() ||
+                    pos - left.key.sort_pos() > kMaxHopSpan ||
+                    right.key.sort_pos() - pos > kMaxHopSpan)
+                    continue;
+                const std::optional<bool> left_cross =
+                    link(left_i, static_cast<int>(middle_i));
+                if (!left_cross) continue;
+                const std::optional<bool> right_cross =
+                    link(right_i, static_cast<int>(middle_i));
+                if (!right_cross) continue;
+                const bool candidate_flip =
+                    (left.hap_to_cons_alle[1] ^ static_cast<int>(*left_cross)) !=
+                    (right.hap_to_cons_alle[1] ^ static_cast<int>(*right_cross));
+                if (flip && *flip != candidate_flip) return std::nullopt;
+                flip = candidate_flip;
+            }
+        }
+    }
+    return flip;
+}
+
 // Visit the spatial chain of graph and recovered BAM phase sets from left to
 // right. A BAM subsolve may contain several phase sets whose HP labels are
 // independent. Keep those blocks separate until direct read evidence determines
@@ -3179,7 +3266,10 @@ size_t stitch_recovery_phase_sets_left_to_right(
                         window_i + 1 < windows.size() &&
                         windows[window_i + 1].left_phase_set ==
                             chain[i].gauge_phase_set;
-                    if (edge || !next_seam_needs_downstream)
+                    // A direct allele edge that favors the opposite parity
+                    // vetoes the gauge join, even when no later seam needs it.
+                    if ((!edge || edge->flip == gauge_flip) &&
+                        (edge || !next_seam_needs_downstream))
                         stitched = merge_phase_sets_in_place(
                             chunk, upstream_phase_set,
                             downstream_phase_set, gauge_flip);
@@ -3382,6 +3472,44 @@ size_t stitch_recovery_phase_sets_left_to_right(
                     trusted_used_blocks.count(downstream_source) != 0 &&
                     !has_end_to_end_support(downstream_source) &&
                     !reusable_by_source_path(downstream_source);
+                if (upstream_imported && downstream_imported) {
+                    const auto left_sites = initial_phase_set_candidates.find(
+                        upstream_source);
+                    const auto right_sites = initial_phase_set_candidates.find(
+                        downstream_source);
+                    if (left_sites != initial_phase_set_candidates.end() &&
+                        right_sites != initial_phase_set_candidates.end()) {
+                        const std::optional<bool> two_hop_flip =
+                            graph_indel_two_hop_flip(
+                                chunk, left_sites->second, right_sites->second);
+                        const hts_pos_t left_root = resolve_phase_set(
+                            chain[edge_i - 1].current_phase_set);
+                        const hts_pos_t right_root = resolve_phase_set(
+                            chain[edge_i].current_phase_set);
+                        const std::optional<bool> direct_flip =
+                            two_hop_flip ? aggregate_candidate_set_flip(
+                                chunk, left_sites->second,
+                                right_sites->second, opts) : std::nullopt;
+                        if (two_hop_flip &&
+                            (!direct_flip || *direct_flip == *two_hop_flip) &&
+                            left_root > 0 && right_root > 0 &&
+                            left_root != right_root &&
+                            merge_phase_sets_in_place(chunk, left_root,
+                                                      right_root, *two_hop_flip)) {
+                            for (auto& [source, target] : phase_set_aliases) {
+                                (void)source;
+                                if (resolve_phase_set(target) == right_root)
+                                    target = left_root;
+                            }
+                            phase_set_aliases[right_root] = left_root;
+                            phase_set_aliases[downstream_source] = left_root;
+                            trusted_used_blocks.insert(upstream_source);
+                            trusted_used_blocks.insert(downstream_source);
+                            ++joined;
+                        }
+                    }
+                    continue;
+                }
                 if (!graph_bam_edge) continue;
                 const hts_pos_t upstream_phase_set =
                     resolve_phase_set(chain[edge_i - 1].current_phase_set);

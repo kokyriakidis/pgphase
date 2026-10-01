@@ -2682,7 +2682,16 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             });
     };
     for (const TargetedWindowGroup& group : initial_groups) {
+        // All BAM sub-solves use chunk_id=-1. Scope their diagnostic output to
+        // this graph chunk and window so a later seam cannot overwrite it.
+        const std::string dump_prefix = opts.phase_matrix_dump_prefix.empty() ?
+            std::string() :
+            opts.phase_matrix_dump_prefix + ".recovery.chunk" +
+                std::to_string(chunk.region.chunk_id) + ".window" +
+                std::to_string(group.first_window);
         Options source_opts = sub;
+        if (!dump_prefix.empty())
+            source_opts.phase_matrix_dump_prefix = dump_prefix + ".initial";
         PhasingChunk source = process_chunk(group.region, source_opts, context);
         // Exact-CIGAR backfill is part of the ordinary source evidence.
         backfill(source, group, source_opts);
@@ -2713,6 +2722,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     isolated.region.end > seam.end) {
                     Options isolated_opts = sub;
                     isolated_opts.retry_windows = {{seam.beg, seam.end}};
+                    if (!dump_prefix.empty())
+                        isolated_opts.phase_matrix_dump_prefix =
+                            dump_prefix + ".focused";
                     PhasingChunk local = process_chunk(
                         isolated.region, isolated_opts, context);
                     backfill(local, isolated, isolated_opts);
@@ -2723,6 +2735,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                             local, isolated, windows, opts, local_preserve,
                             local_ordinary, local_sparse)) {
                         isolated_opts.add_unplaced_msa_observations = true;
+                        if (!dump_prefix.empty())
+                            isolated_opts.phase_matrix_dump_prefix =
+                                dump_prefix + ".focused.msa";
                         PhasingChunk local_retry = process_chunk(
                             isolated.region, isolated_opts, context);
                         // A focused replacement must actually carry a
@@ -2774,6 +2789,19 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                 remainder.past_last_window = wi;
                             groups.push_back(remainder);
                             discovered.push_back(std::move(source));
+                            if (!dump_prefix.empty()) {
+                                Options dump_opts = sub;
+                                dump_opts.phase_matrix_dump_prefix =
+                                    dump_prefix + ".focused";
+                                dump_recovery_phase_state(
+                                    discovered[discovered.size() - 2],
+                                    dump_opts, "recovery-source");
+                                dump_opts.phase_matrix_dump_prefix =
+                                    dump_prefix + ".remainder";
+                                dump_recovery_phase_state(
+                                    discovered.back(), dump_opts,
+                                    "recovery-source");
+                            }
                             continue;
                         }
                     }
@@ -2783,6 +2811,8 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         if (ordinary_retry ||
             (needs_retry && group.past_last_window - group.first_window == 1)) {
             source_opts.add_unplaced_msa_observations = true;
+            if (!dump_prefix.empty())
+                source_opts.phase_matrix_dump_prefix = dump_prefix + ".msa";
             PhasingChunk retried = process_chunk(group.region, source_opts, context);
             if (!preserve_source_rows || preserves_hets(source, retried)) {
                 source = std::move(retried);
@@ -2791,8 +2821,12 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         }
         groups.push_back(group);
         discovered.push_back(std::move(source));
-        dump_recovery_phase_state(discovered.back(), source_opts,
-                                  "recovery-source");
+        if (!dump_prefix.empty()) {
+            Options dump_opts = sub;
+            dump_opts.phase_matrix_dump_prefix = dump_prefix;
+            dump_recovery_phase_state(discovered.back(), dump_opts,
+                                      "recovery-source");
+        }
     }
 
     // Match graph alleles by their selected reference sequence, not their
@@ -4181,6 +4215,11 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 kSingletonValidationFlank);
         Options validation_opts = targeted_solve_options(opts);
         validation_opts.retry_windows = {{seam.beg, seam.end}};
+        if (!opts.phase_matrix_dump_prefix.empty())
+            validation_opts.phase_matrix_dump_prefix =
+                opts.phase_matrix_dump_prefix + ".validation.chunk" +
+                std::to_string(chunk.region.chunk_id) + ".window" +
+                std::to_string(wi);
         PhasingChunk full_source = process_chunk(validation, validation_opts, context);
         const std::optional<ValidatedSingletonBridge> bridge =
             validated_singleton_bridge(graph_chunk, seam, full_source, opts);
@@ -4377,6 +4416,9 @@ size_t recover_independent_bam_read_blocks_in_place(
 
     Options sub = targeted_solve_options(opts);
     sub.retry_windows.clear();
+    if (!opts.phase_matrix_dump_prefix.empty())
+        sub.phase_matrix_dump_prefix =
+            opts.phase_matrix_dump_prefix + ".whole-bam";
     PhasingChunk bam = process_chunk(region, sub, context);
 
     std::unordered_map<std::string_view, size_t> graph_read_by_qname;

@@ -61,3 +61,34 @@ ALT and the SNP-ALT read as deletion REF. The second read's deletion is shifted
 20 bp within the A run, so its exact-CIGAR REF call is a representation
 artifact. Raw CIGAR backfill cannot safely repair this gap; a local MSA or
 sequence-equivalence call with explicit base-quality handling is needed.
+
+## Clean-SNP recheck (2026-09-29)
+
+The repeat deletion is a poor orientation control. Among MAPQ-30 primary
+reads, exact deletion CIGAR calls occur on both parents (10 maternal, seven
+paternal), and REF calls likewise occur on both (23 maternal, 21 paternal).
+The earlier regression compared the left SNP with this deletion and therefore
+encoded an uncertain repeat-allele relation. The next clean SNP at
+58,391,091 is the stable right-block control: the left 58,366,458 ALT occurs
+on 26 paternal and zero maternal reads, while the right SNP ALT occurs on
+32 maternal and one paternal read in the parental allele audit. HiPhase puts
+their ALT alleles on opposite haplotypes (`0|1` left, `1|0` right). A rejected
+trial oriented both ALT alleles onto the same haplotype. The window regression
+now checks the two clean SNPs whenever a future stitch assigns them one PS.
+This check uses only the expected allele relationship at runtime; parental
+truth is used to establish the test expectation, never for phasing.
+
+At 10,727,690–10,746,628, the broad recovery-window overlap count also
+overstated direct bridge coverage. Only two distinct MAPQ-30 primary reads
+span the exact left SNP and right insertion coordinates, and neither has a
+local insertion CIGAR call. The BAM source PS split is therefore not a
+missing 35-read allele bridge.
+
+A 21–22 Mb owning-chunk replay under `/tmp/pgphase-21159-audit/` shows another
+shared-source-PS trap. Standalone BAM assigns both exact 21,159,070 `C>T` and
+21,172,487 `CA>C` rows PS 21,148,338. In its read-observation matrix, only
+one read profile covers both candidate indices, and the deletion allele is
+unknown on that read; there are zero callable boundary pairs. Recovery keeps
+the left SNP in PS 21,148,338 and places the deletion with the right graph
+block in PS 21,172,501. The apparent BAM PS continuity is an inherited label
+across a weak source edge, not an observed allele path.

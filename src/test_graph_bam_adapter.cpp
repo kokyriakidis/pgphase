@@ -803,6 +803,63 @@ int main() {
                     "recovery gauge: zero-read seam stays split, later clean edge joins");
     }
 
+    // A broad graph/BAM read gauge can disagree with the direct allele edge
+    // across one seam. The molecule calls must determine the joined parity.
+    {
+        constexpr hts_pos_t kLeft = 100;
+        constexpr hts_pos_t kRight = 200;
+        PhasingChunk replay;
+        for (const auto [pos, phase_set] :
+             {std::pair<hts_pos_t, hts_pos_t>{1000, kLeft},
+              {2000, kRight}}) {
+            CandidateVariant candidate;
+            candidate.key.pos = pos;
+            candidate.key.type = VariantType::Snp;
+            candidate.counts.n_uniq_alles = 2;
+            candidate.counts.alle_covs = {6, 6};
+            candidate.lcd_var_i_to_cate = kCandCleanHetSnp;
+            candidate.hap_to_cons_alle = {-1, 0, 1};
+            candidate.phase_set = phase_set;
+            replay.candidates.push_back(std::move(candidate));
+        }
+        for (int allele = 0; allele <= 1; ++allele) {
+            for (int copy = 0; copy < 6; ++copy) {
+                const int read_i = static_cast<int>(replay.reads.size());
+                ReadRecord read;
+                read.qname = "cross_" + std::to_string(allele) + "_" +
+                             std::to_string(copy);
+                read.mapq = 60;
+                replay.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.read_id = read_i;
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 1;
+                profile.alleles = {allele, 1 - allele};
+                profile.alt_qi = {60, 60};
+                replay.read_var_profile.push_back(std::move(profile));
+                replay.haps.push_back(0);
+                replay.phase_sets.push_back(kUnphasedReadPhaseSet);
+            }
+        }
+        rebuild_read_var_cr(replay);
+        RecoveryPhaseGauge gauge;
+        gauge.beg = 1000;
+        gauge.end = 2000;
+        gauge.graph_votes = {
+            PhaseSetGaugeVote{kLeft, 12, 0},
+            PhaseSetGaugeVote{kRight, 12, 0},
+        };
+        Options stitch_opts;
+        stitch_opts.min_block_link_reads = 1;
+        stitch_opts.block_link_window = 8;
+        const size_t joined = stitch_recovery_phase_sets_left_to_right(
+            replay, {{1000, 2000, kLeft, kRight}}, {gauge}, stitch_opts);
+        ok &= check(joined == 1 &&
+                    replay.candidates[1].phase_set == kLeft &&
+                    replay.candidates[1].hap_to_cons_alle[1] == 1,
+                    "recovery gauge: contradictory direct SNP edge sets parity");
+    }
+
     // The ordinary adjacent-block stitch cannot cross two disjoint read
     // cohorts. The DP fallback must find the supported injected site between
     // them, solve its two orientations, and join the right block atomically.

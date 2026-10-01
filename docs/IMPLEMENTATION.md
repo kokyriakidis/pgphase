@@ -74,7 +74,7 @@ holding its own FAI handle:
 | 2 | `build_graph_chunk`; with `--bam`, `exclude_ref_absent_graph_snps` | the catalog's sites become candidates and GAF rows become read profiles. Before graph phasing, high-MAPQ BAM bases validate clean biallelic SNPs: a graph SNP with no callable REF, decisive ALT support, and a substantial physical deletion allele is made ineligible and the chunk is rebuilt from the same GAF rows. Allele identity in the remaining graph sites is a **graph-walk identity**. |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)` | stage 1: the clean k-means over catalog sites |
-| 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets bounded gaps, imports independent BAM phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` joins blocks on decisive allele evidence, then source-block transfer atomically attaches supported graph flanks and can join adjacent graph blocks through one fully supported run before a weak BAM cut; a detached BAM-only run with no internal weak cut can also join a graph block through decisive physical SNP pairs |
+| 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets bounded gaps, imports independent BAM phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` joins blocks on decisive allele evidence, then source-block transfer atomically attaches supported graph flanks and can join adjacent graph blocks through one fully supported run before a weak BAM cut; a detached BAM-only run with no internal weak cut can also join a graph block through decisive physical SNP pairs; an MSA-verified BAM insertion run after a weak source cut can attach to the left block through established read HP votes while the later graph block remains independent; after a boundary deletion moves, a newly exposed deletion seam may attach only the BAM suffix certified by complementary deletion ALT calls |
 | 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve, stages independent read assignments, and records BAM alleles missing from graph read profiles at exact sequence-matched biallelic candidates; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six; reads without graph profiles remain output-only |
 | 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, first completes graph-only excluded-site rescue, then uses the recorded exact BAM alleles to fill still-unphased reads; neither pass changes candidates or joins phase sets |
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
@@ -181,7 +181,20 @@ its full `ref_len` as REF so its emitted allele describes the same sequence as
 the catalog candidate. Ordinary BAM SNPs have `ref_len = 1`. For a
 length-changing replacement, the indel writer retains `key.alt` after the left
 anchor and reports `SVLEN = alt_length - ref_len`; pure insertions and deletions
-keep their existing representation.
+keep their existing representation. Final graph output collapses records with
+identical normalized variant keys. If one copy is a valid phased heterozygote
+and the other is unphased, the phased copy wins; coverage breaks ties between
+copies with the same phase status. This preserves an MSA-verified BAM deletion
+in a recovery gap when an unphased catalog repeat row describes the same
+allele with slightly greater depth. The choice changes the emitted site row,
+not the already stitched candidate or read assignments. An injected, phased
+`NoisyCandHet` already passed the BAM sub-solve's MSA and alignment checks.
+The graph output reconstruction retains that category, its original category
+and bitmask even when its updated REF/ALT counts fall outside graph discovery
+allele-fraction thresholds. It also carries the MSA and alignment verification
+flags into duplicate selection, so a verified phased recovery row wins over an
+unphased graph repeat row of the same exact allele. These output decisions do
+not change candidate phasing or read HP labels.
 
 Phased-BAM output accumulates a read across every chunk that observed it. Site
 alleles are merged by site identity, and a conflicting duplicate observation is
@@ -356,21 +369,56 @@ that block; a tied side abstains. The winning same/cross count must pass the
 same exact binomial test. This distinguishes an 8--0 vote from a 104--96 vote
 even though both have raw margin eight. Their numeric HP labels are unrelated,
 so neither evidence from another imported block nor a pooled fixed-margin vote
-can orient them. After a seam stitch, transferred private BAM sites are checked
+can orient them. If the complete graph-to-graph transaction fails, an
+internal pair of imported BAM blocks can still join through one unphased graph
+indel. The graph site stays independent: its original graph read alleles must
+form two conflict-free links, one to an MSA-verified or clean BAM anchor on the
+left and one to a clean BAM SNP on the right. Each link needs an exact one-sided binomial parity p-value at most 0.001,
+including at least two calls of each allele on MAPQ-30 reads, within 25 kb
+of the graph site. Multiple qualifying paths must agree, and a significant
+direct BAM-block allele vote with opposite parity vetoes the join. The merged
+blocks are marked as reused before any later graph attachment is considered.
+After a seam stitch, transferred private BAM sites are checked
 against the source block's verified weak cuts. A far-side site that inherited
 the near graph PS is returned to its BAM allele gauge only when the
-near-side source has an earlier oriented private BAM locus in addition to
-its boundary locus, and the far-side component has no matching graph anchor.
-A one-locus source remains
-in the original stitch gauge because its cut cannot establish an independent
-near-side component. This preserves already supported graph-to-graph joins
-while preventing an unsupported source cut from carrying private alleles into
+near-side source has an earlier oriented private BAM locus or its
+boundary indel is attached to an oriented graph site with no callable read
+crossing the cut, and the far-side component has no matching graph anchor.
+A lone imported locus with no such anchor remains in the original stitch
+gauge. A clean SNP at the cut retains the ordinary physical bridge check,
+which can certify a SNP-to-deletion join after this transfer pass. These
+guards preserve supported graph-to-graph joins while preventing an unsupported
+source cut from carrying private alleles into
 the wrong graph block. Source reads that call the detached component but no
 other oriented source or graph component move with those sites and retain the
 BAM source's HP orientation. The new PS avoids IDs already used by
 variant blocks or reads. This prevents their old read PS from spanning a gap
 that the VCF blocks no longer span. The subsequent component-aware transfer
 may attach the local sites to a supported neighbor.
+
+At the final physical stitch, an MSA- and alignment-verified BAM insertion
+immediately after a source weak cut can start a separate local run. Its
+neighboring BAM rows join that run only while every consecutive allele edge
+passes the independent two-half binomial check at `p <= 0.01`; the run stops
+before a long indel that could duplicate the next graph allele. Reads already
+assigned to the left graph PS orient the insertion, with MAPQ at least 30,
+both insertion allele classes represented by at least two reads, and an exact
+same/cross binomial `p <= 0.05`. The left graph path must be supported. Only
+the certified BAM rows move into the left PS; the right catalog block and its
+read labels keep their own PS across later weak edges.
+
+A transferred MSA-verified right deletion can expose a new seam whose nearest
+callable clean SNPs lie just outside the seam. The physical stitch retries that
+phase-set pair with those nearest SNPs, including the preceding left SNP, only
+when both left SNP alleles are observed and all quality-bearing paired BAM
+calls agree on one orientation. A complete BAM source without weak or quality
+cuts may certify a mixed graph/BAM left block: an originally unphased graph
+SNP adopted from that source must match its exact source alleles and have a
+non-reversing direct read edge to the preceding clean graph SNP. A graph edge
+with no decisive direct vote may use two exact shared SNP anchors in that same
+complete source when every callable direct pair agrees; a direct reversal is
+a veto. The ordinary right-block
+path check still applies before the two phase sets merge.
 
 The first BAM transfer can split a graph phase set at a boundary SNP, exposing
 an interval that was connected when seams were first collected. Recovery makes
@@ -518,8 +566,11 @@ left flank of the next recovery seam, it defers the gauge-only join so that
 next seam can evaluate the right block independently. Without this guard, two
 read cohorts on opposite sides of a zero-read gap can inherit the same broad
 gauge, merge without a molecule linking them, and consume the anchor needed
-for the next recovery attempt. Other graph-only seams retain the existing
-gauge decision.
+for the next recovery attempt. Other graph-only seams retain the gauge
+decision only when a direct allele edge is absent or agrees with its parity.
+When the direct edge disagrees, the gauge
+join abstains and the ordinary allele-edge stitch can join the blocks in the
+molecule-supported orientation.
 
 Saved graph/BAM votes use the phase-set orientations that existed before any
 seam joined. If a preceding seam has absorbed and flipped the next seam's
@@ -791,6 +842,25 @@ Deletion flank bases come from the worker's reference cache, which normalizes
 soft-masked reference case. Both graph blocks still need continuous clean-SNP
 paths before a whole-block join.
 
+A later boundary move can expose a second deletion seam that was absent from
+the initial seam snapshot. The physical stitch collects that new seam before
+returning. When a BAM source has two overlapping, MSA-verified deletion rows
+with opposite haplotype alleles on the left and a single MSA-verified deletion
+on the right, BAM-channel read observations can orient the left source suffix.
+A read votes only if its BAM alignment has MAPQ at least 30, it calls ALT
+at exactly one left row, and it calls a binary allele at the right row. Its
+GAF MAPQ does not gate these BAM-channel allele calls. Exactly two
+MSA-verified BAM deletion rows may occupy the complementary locus. At least two distinct reads must represent each left
+haplotype, every voting read must agree on the orientation, and the one-sided
+fair-parity tail `2^-n` must be at most 0.001. Source weak or
+quality cuts between the complementary pair and the left boundary veto the
+join. The suffix split uses physical, minimally represented coordinates and
+starts at the complementary pair; preceding graph and BAM rows keep their
+existing phase set. Reads calling sites on both sides of that split lose their
+phase tags unless they also made the certified complementary-pair and
+right-deletion call. Those bridge reads retain the right block's PS and
+observed haplotype; the earlier graph and BAM prefix remains separate.
+
 For a graph clean SNP on the left and overlapping, opposite-haplotype
 MSA-verified BAM deletion rows on the right, the final stitch can instead
 use the read's established graph HP and its observed left SNP allele. This
@@ -806,7 +876,10 @@ orientation, pass the 0.001 wrong-parity bound, and both graph blocks must
 have supported clean-SNP paths before their complete phase sets join.
 
 An attached MSA-verified BAM indel can likewise orient the next clean
-graph substitution. A callable clean-SNP pair takes priority; the indel is considered
+graph substitution. After recovery creates a new left-boundary deletion inside
+an original target, the physical stitch revisits that new seam; the original
+graph seam may still point to an earlier graph SNP and miss the deletion.
+A callable clean-SNP pair takes priority; the indel is considered
 when no high-quality read calls both selected SNPs, or when the left flank has
 no clean SNP. The nearest eligible indel in the seam is chosen before read
 votes. MAPQ-30 primary reads must call the indel and right substitution at base
@@ -867,6 +940,44 @@ phase set. This keeps the phase-set gauge used for rescued reads consistent
 with the transferred sites. Equal-length graph substitutions use their first
 changed base as the recovery seam coordinate, so a right-hand MNP is included
 in the targeted bridge.
+
+When targeted recovery places an insertion at the right edge of an original
+seam, the physical stitch first tries the insertion allele. If it cannot
+support that link, a clean SNP on the left can pair with the first clean SNP
+later in the same right phase set, provided no other phased block intervenes.
+The pair is called directly from primary BAM bases at MAPQ and base quality
+30, scored against the same 0.001 wrong-parity bound, and checked against
+both blocks' existing SNP paths. This fallback runs after ordinary seams have
+settled so an established right-hand join is validated as part of the final
+right block before the left block joins. No repeat-indel allele is recoded.
+
+If the clean right SNP has no callable primary-read pair with the left SNP,
+this stitch can instead try a closer phased but noise-demoted SNP. It
+keeps each site's original allele and category. The selected pair needs
+MAPQ/base-quality-30 calls from both left allele classes, unanimous relative
+phase, and a one-sided random-parity probability at most 0.001. The noisy
+right SNP must independently agree with the next clean SNP in its block on
+both allele classes at the same probability bound. A complete, uncut BAM
+source can certify a mixed left block when its exact shared clean SNP and
+all adjacent phased graph rows have a consistent direct read link. For the
+right block, an absent first GAF SNP edge can be supplied by two exact clean
+SNPs shared with the same complete, uncut BAM source and agreeing in source
+orientation; later graph edges still follow the usual path check. Existing
+clean-SNP evidence takes priority, and the indel-only fallbacks never use a
+noise-demoted SNP before these checks.
+
+A readless graph block can attach to a neighboring read-bearing block
+inside a targeted recovery window using primary BAM SNP calls. The right
+block must have no assigned reads. Each of at least three independent MAPQ-30
+molecules must physically cross the seam and call at least two distinct clean
+SNPs on each side at base quality 30 or higher. All calls within each side
+must agree with that side’s phased alleles, all molecules must agree on the
+relative haplotype orientation, and the product of their mapping and base
+error bounds must be at most 0.001. Every interval between consecutive clean
+SNPs in the readless block must have a consistent physical read path and no
+contradictory paired call. Multiallelic positions are excluded from this
+check. The stitch transfers the readless block’s candidate phase labels and
+orientation; it does not manufacture read assignments.
 
 A readless imported BAM insertion block can inherit a neighboring graph
 phase set when its source path is complete and has no nonempty weak or quality
@@ -989,9 +1100,22 @@ belonged to different original graph blocks but the main BAM stitch joined
 them, that certified relation fills a missing or one-haplotype GAF edge only
 if GAF has no reversing vote. Every edge inside each original block still
 needs its normal two-haplotype support, apart from the single-site MSA deletion
-bypass described above. A reversing or otherwise unsupported edge keeps blocks
-separate, including the chr20 62.6 Mb counterexample. If
-the right block instead has an uncertified zero-vote graph-path cut beyond
+bypass described above. The final physical SNP stitch has one further path
+certificate for a right block imported from a complete BAM source. After at
+least one graph SNP edge has two agreeing votes on each haplotype and more
+agreement than reversal, the BAM source may carry that block across later
+balanced graph ties or edges with no callable graph pair. The source must have
+no weak or quality cuts, and the clean boundary SNP pair must independently
+pass the physical-read likelihood check. When the boundary uses a demoted
+BAM SNP with the independent clean-SNP confirmation described above, two
+exactly shared clean graph SNPs in that same complete source may also certify
+the first otherwise absent GAF edge. A graph edge supported on only one
+haplotype, or one with as many reversal as agreement votes, still blocks the
+join. This lets the BAM path supply missing GAF observations without treating
+its completeness as a replacement for contrary graph evidence. Other reversing
+or unsupported edges keep blocks separate, including the chr20 62.6 Mb
+counterexample. If the right block instead has an uncertified zero-vote
+graph-path cut beyond
 the seam, the stitch may move only the connected prefix. No primary
 BAM molecule may span the cut, no candidate in the right block may lie inside
 it, and no read observation profile may call right-block candidates on both
@@ -1018,6 +1142,13 @@ or longer boundary gaps stay separate.
 The BAM command is the parity baseline and supplies the targeted caller used by
 graph recovery. Its whole-chunk solve can also stage independent read assignments
 for graph output; it does not overwrite graph candidate phase labels.
+
+With `--phase-matrix-dump PREFIX`, each targeted BAM window writes its
+initial and any MSA retry matrices under a prefix containing the owning graph
+chunk and window index. The selected recovery source gets a separate dump.
+Focused retries and their remainder also have distinct names. The
+full-block validation solve and whole-chunk BAM read solve use their own
+prefixes, preserving the graph and recovery matrices for inspection.
 
 #### What the merge must preserve
 

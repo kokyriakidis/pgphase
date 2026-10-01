@@ -69,8 +69,10 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 23421003	23445252	24249	147	hiphase_same_sites	0.7755	114
 32215055	32233534	18479	86	hiphase_same_sites	0.8023	69
 32234664	32246127	11463	52	hiphase_same_sites	0.7308	38
+46727050	46748667	21617	183	hiphase_same_sites	0.8087	152
 47003897	47713869	709972	3001	hiphase_same_sites	0.9650	2896
 48971192	48982663	11471	98	hiphase_same_sites	0.9898	97
+54483506	54490229	6723	93	hiphase_same_sites	1.0000	93
 54547514	54569072	21558	181	hiphase_same_sites	0.8950	162
 54894127	54912022	17895	167	hiphase_same_sites	0.9042	151
 56662188	56679959	17771	165	hiphase_same_sites	0.8424	139
@@ -78,6 +80,7 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 60033052	60048237	15185	130	hiphase_same_sites	0.9154	119
 60453499	60467115	13616	119	hiphase_same_sites	0.9748	116
 61747506	61757551	10045	99	hiphase_same_sites	0.9091	90
+61757551	61773799	16248	111	hiphase_same_sites	0.9820	110
 64144256	64144722	466	54	hiphase_same_sites	0.9815	53
 # Additional current full-chr20 exact-key HiPhase joins with >=98% local
 # truth purity and >=95% on both concordant 10-kb flanks.
@@ -97,6 +100,9 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 # Counterexample: a repeat-insertion vote must not absorb this low-purity
 # singleton SNP when a clean SNP retry is exposed elsewhere in the chunk.
 36611593	36620864	9271	91	regression_control	0.0000	0
+# A demoted SNP at 37.466 Mb contradicts the next clean SNP; the two
+# flanking blocks must remain separate until their whole-block gauge agrees.
+37458817	37461999	3182	89	regression_control	0.0000	0
 # Newly exposed adjacent seam after the 64.140 Mb boundary-row transfer.
 64138752	64140314	1562	53	hiphase_same_sites	1.0000	53
 # Additional exact-key same-callset joins with >=80% local truth purity
@@ -116,3 +122,8 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 19373922	19395544	21622	140	hiphase_same_sites	0.7929	111
 21594343	21612458	18115	154	hiphase_same_sites	0.7662	118
 36332599	36354890	22291	179	hiphase_same_sites	0.8045	144
+# Readless right graph block joined by multi-SNP primary-read evidence.
+30673476	30673709	233	18	hiphase_same_sites	0.9737	38
+# Recovered right deletion joins a source-backed mixed graph/BAM left block.
+# Same-callset HiPhase leaves both left insertion alleles unphased.
+8166027	8172072	6045	62	none_spanning	0.0000	0

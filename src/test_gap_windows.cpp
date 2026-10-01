@@ -2,9 +2,8 @@
 //
 // These are integration tests, not unit tests: each one runs the pipeline binary
 // on one window of the real test data, parses the phased VCF and phased BAM it
-// produced, and scores the result against the parental truth. A window costs
-// about 1.2 s, so the whole panel is a few seconds and belongs in a normal test
-// run rather than in a benchmark script.
+// produced, and scores the result against the parental truth. Owning-chunk
+// replays are shared when multiple windows request identical pipeline inputs.
 //
 // WHY A WINDOW TEST AND NOT A UNIT TEST. Everything this session found in the
 // gap windows was invisible to unit tests and to read-level accuracy alike: a
@@ -46,6 +45,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <set>
@@ -146,7 +146,7 @@ struct Expectation {
 
 /// What one run of the pipeline produced on one window.
 struct Outcome {
-    std::string diagnosis;  // why a red span check is red; see explain_gap
+    std::string diagnosis;  // span status and missing-link evidence; see explain_gap
     /// Positions whose records put two DIFFERENT alleles on the SAME haplotype.
     /// Asserted at zero, not floored: one haplotype carries one allele.
     int hap_allele_conflicts = 0;
@@ -658,11 +658,17 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
         // These graph source blocks begin beyond the 50-kb test padding.
         // Replay their owning chunk so the tested flank gauges match production.
         << " -r 'CHM13#0#chr20:"
-        << (w.gap_left == 48971192 ? 48000001 :
+        << ((w.gap_left == 48971192 || w.gap_left == 48929511)
+                ? 48000001 :
             w.gap_left == 7047080 ? 7000001 :
+            w.gap_left == 8166027 ? 8000001 :
             w.gap_left == 514902 ? 1 :
             w.gap_left == 1180618 ? 1000001 :
             w.gap_left == 10727690 ? 10000001 :
+            w.gap_left == 20707556 ? 20000001 :
+            w.gap_left == 33211072 ? 33000001 :
+            w.gap_left == 30673476 ? 30000001 :
+            w.gap_left == 35328965 ? 35000001 :
             w.gap_left == 6513891 ? 6000001 :
             w.gap_left == 32431751 ? 32300001 :
             w.gap_left == 32234664 ? 32000001 :
@@ -678,18 +684,30 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
             w.gap_left == 39147805 ? 39000001 :
             (w.gap_left == 64138752 || w.gap_left == 64144256 ||
              w.gap_left == 64140314) ? 64000001 :
-            w.gap_left == 56662188 ? 56000001 :
+            (w.gap_left == 56662188 || w.gap_left == 56064697)
+                ? 56000001 :
             w.gap_left == 47003897 ? 47000001 :
-            w.gap_left == 54000001 ? 54000001 :
+            w.gap_left == 61757551 ? 61000001 :
+            w.gap_left == 37458817 ? 37000001 :
+            w.gap_left == 46727050 ? 46000001 :
+            (w.gap_left == 54000001 || w.gap_left == 54483506)
+                ? 54000001 :
             w.gap_left == 3000001 ? 3000001 :
-            (w.gap_left == 21179807 || w.gap_left == 21377985 ||
-             w.gap_left == 21435750 || w.gap_left == 21514518)
+            (w.gap_left == 21159070 || w.gap_left == 21179807 ||
+             w.gap_left == 21377985 || w.gap_left == 21435750 ||
+             w.gap_left == 21514518)
                 ? 21000001 : w.gap_left - 50000)
-        << "-" << (w.gap_left == 48971192 ? 49000000 :
+        << "-" << ((w.gap_left == 48971192 || w.gap_left == 48929511)
+                ? 49000000 :
             w.gap_left == 7047080 ? 8000000 :
+            w.gap_left == 8166027 ? 9000000 :
             w.gap_left == 514902 ? 1000000 :
             w.gap_left == 1180618 ? 2000000 :
             w.gap_left == 10727690 ? 11000000 :
+            w.gap_left == 20707556 ? 21000000 :
+            w.gap_left == 33211072 ? 34000000 :
+            w.gap_left == 30673476 ? 31000000 :
+            w.gap_left == 35328965 ? 36000000 :
             w.gap_left == 6513891 ? 7000000 :
             w.gap_left == 32431751 ? 32500000 :
             w.gap_left == 32234664 ? 33000000 :
@@ -705,19 +723,60 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
             w.gap_left == 39147805 ? 40000000 :
             (w.gap_left == 64138752 || w.gap_left == 64144256 ||
              w.gap_left == 64140314) ? 65000000 :
-            w.gap_left == 56662188 ? 57000000 :
+            (w.gap_left == 56662188 || w.gap_left == 56064697)
+                ? 57000000 :
             w.gap_left == 47003897 ? 48000000 :
-            w.gap_left == 54000001 ? 55000000 :
+            w.gap_left == 61757551 ? 62000000 :
+            w.gap_left == 37458817 ? 38000000 :
+            w.gap_left == 46727050 ? 47000000 :
+            (w.gap_left == 54000001 || w.gap_left == 54483506)
+                ? 55000000 :
             w.gap_left == 3000001 ? 4000000 :
-            (w.gap_left == 21179807 || w.gap_left == 21377985 ||
-             w.gap_left == 21435750 || w.gap_left == 21514518)
+            (w.gap_left == 21159070 || w.gap_left == 21179807 ||
+             w.gap_left == 21377985 || w.gap_left == 21435750 ||
+             w.gap_left == 21514518)
                 ? 22000000 : w.gap_right + 50000) << "'"
         << " -t " << test_threads() << " " << flags
         << " -o '" << outdir << "/candidates.tsv'"
         << " --phased-vcf-out '" << outdir << "/native.vcf'"
         << " --phased-bam-out '" << outdir << "/phased.bam'"
         << " > '" << outdir << "/stdout.log' 2> '" << outdir << "/stderr.log'";
-    return std::system(cmd.str().c_str()) == 0;
+    // Several gap cases replay the same owning chunk with identical inputs.
+    // Keep each case's expected output path while sharing the completed run.
+    const std::string command = cmd.str();
+    const std::string output_placeholder = "<output>";
+    std::string cache_key = p.workdir + "\n" + command;
+    for (size_t pos = 0; (pos = cache_key.find(outdir, pos)) !=
+                          std::string::npos; pos += output_placeholder.size())
+        cache_key.replace(pos, outdir.size(), output_placeholder);
+    const auto link_outputs = [](const std::filesystem::path& source_dir,
+                                 const std::filesystem::path& target_dir) {
+        std::error_code error;
+        std::filesystem::create_directories(target_dir, error);
+        if (error) return false;
+        for (const char* name : {"candidates.tsv", "native.vcf",
+                                 "phased.bam", "stdout.log", "stderr.log"}) {
+            const std::filesystem::path source = source_dir / name;
+            const std::filesystem::path target = target_dir / name;
+            if (source == target) continue;
+            std::filesystem::remove(target, error);
+            if (error) return false;
+            std::filesystem::create_hard_link(source, target, error);
+            if (error) return false;
+        }
+        return true;
+    };
+    static std::map<std::string, std::string> completed_runs;
+    const auto cached = completed_runs.find(cache_key);
+    if (cached != completed_runs.end())
+        return link_outputs(cached->second, outdir);
+    if (std::system(command.c_str()) != 0) return false;
+    const std::filesystem::path cache_dir =
+        std::filesystem::path(p.workdir) / ".replay-cache" /
+        ("run" + std::to_string(completed_runs.size()));
+    if (!link_outputs(outdir, cache_dir)) return false;
+    completed_runs.emplace(std::move(cache_key), cache_dir.string());
+    return true;
 }
 
 /// Memoised across test cases: Catch2 runs them in one process, and the panel
@@ -730,20 +789,32 @@ std::map<std::string, Outcome>& outcome_cache() {
 
 /// Why a window failed, in the three terms the cause can take.
 ///
-/// A red span check says the gap did not close; it does not say whether the
-/// gap CAN close, which is the first thing anyone iterating on recovery needs
-/// and the thing that used to cost a manual drilldown each time:
+/// Diagnose the span result using read coverage and phased interior sites.
+/// A failed span alone does not explain whether recovery has a molecular path:
 ///
 ///   UNCLOSEABLE -- some interior position is crossed by no read. No admission
 ///                  or linking change can help; a competitor spanning it is
 ///                  making a join its own reads do not support.
-///   NO SITES    -- reads cross, but the gap interior holds no phased het, so
-///                  the chain has nothing to step through. Admission.
+///   ADJACENT   -- no interior reference base exists; only a direct allele
+///                  link can join the neighboring boundary sites.
+///   NO SITES    -- reads cross, but the gap interior holds no phased het.
+///                  A direct flank link or another site would be needed.
 ///   NOT LINKED  -- reads cross AND interior sites are phased, but they did not
 ///                  end up in one phase set. Linking or orientation.
 ///
-/// Computed from what the run already wrote, so it costs no extra pipeline run.
+/// Connected windows are reported first: an already joined pair may need no
+/// interior heterozygote at all. Computed from existing output, without a
+/// second pipeline run.
 std::string explain_gap(const Paths& p, const Window& w, const Outcome& got) {
+    if (w.gap_right <= w.gap_left + 1) {
+        std::ostringstream o;
+        o << "gap diagnosis: adjacent boundary sites; distinct phase sets"
+             " touching the window " << got.blocks << " -- "
+          << (got.spans
+                  ? "CONNECTED (one phase set reaches both boundary positions)"
+                  : "ADJACENT SITES (a direct allele link is needed)");
+        return o.str();
+    }
     const ReadSpans& spans = input_read_spans(p, w);
     // thinnest read coverage strictly inside the gap, sampled on a grid
     const long long step = std::max<long long>(1, (w.gap_right - w.gap_left) / 200);
@@ -759,10 +830,13 @@ std::string explain_gap(const Paths& p, const Window& w, const Outcome& got) {
     o << "gap diagnosis: thinnest interior read coverage " << thinnest
       << " at " << thinnest_at << "; phased hets inside the gap " << got.in_gap_hets
       << "; distinct phase sets touching the window " << got.blocks << " -- ";
-    if (thinnest == 0)
+    if (got.spans)
+        o << "CONNECTED (one phase set reaches both boundary positions)";
+    else if (thinnest == 0)
         o << "UNCLOSEABLE (a position inside the gap is crossed by no read)";
     else if (got.in_gap_hets == 0)
-        o << "NO SITES (reads cross it, but nothing inside is phased: admission)";
+        o << "NO SITES (reads cross it, but a direct flank link or another"
+             " phased site is needed)";
     else
         o << "NOT LINKED (reads cross and interior sites are phased, but they did"
              " not join: linking or orientation)";
@@ -972,6 +1046,20 @@ TEST_CASE("anchored indel spans its VCF breakpoint",
     CHECK(outcome.in_gap_hets == 1);
 }
 
+TEST_CASE("adjacent gap diagnosis has no interior coverage", "[gap][unit]") {
+    Window window;
+    window.gap_left = 528827;
+    window.gap_right = 528828;
+    Outcome outcome;
+    outcome.blocks = 2;
+    CHECK(explain_gap(Paths{}, window, outcome).find("ADJACENT SITES") !=
+          std::string::npos);
+    outcome.spans = true;
+    outcome.blocks = 1;
+    CHECK(explain_gap(Paths{}, window, outcome).find("CONNECTED") !=
+          std::string::npos);
+}
+
 TEST_CASE("chr20 gap windows", "[gap][windows]") {
     const Paths p = paths();
     if (!p.complete()) {
@@ -1015,6 +1103,198 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
                          << " -- run scripts/refresh_gap_window_expectations.sh");
                 const Outcome got = measure(p, w, arm, flags, truth);
                 check_against(w, arm, got, it->second);
+                if (arm == "graph" && w.gap_left == 21159070) {
+                    // The 21-22 Mb recovery group includes several seams. A
+                    // broad MSA retry can add deletion observations while
+                    // silently removing this established boundary allele.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::set<std::string> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key == "21159070:C>T" ||
+                            key == "21172487:CA>C" ||
+                            key == "21172501:A>C") {
+                            CHECK(fields[9].find('|') != std::string::npos);
+                            const size_t colon = fields[9].rfind(':');
+                            REQUIRE(colon != std::string::npos);
+                            CHECK(fields[9].substr(colon + 1) != ".");
+                            sites.insert(key);
+                        }
+                    }
+                    CHECK(sites.size() == 3);
+                }
+                if (arm == "graph" && w.gap_left == 46727050) {
+                    // A callable clean SNP pair already joins this block.
+                    // A nearer noisy SNP cannot preempt that evidence.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "46727050:A>G" &&
+                            key != "46747598:C>CATATATAT" &&
+                            key != "46748667:T>C")
+                            continue;
+                        const size_t colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 3);
+                    const auto& left = sites.at("46727050:A>G");
+                    const auto& right = sites.at("46748667:T>C");
+                    CHECK(left.second != ".");
+                    CHECK(left.second == right.second);
+                    CHECK(left.first != right.first);
+                    CHECK(sites.at("46747598:C>CATATATAT") == right);
+                }
+                if (arm == "graph" && w.gap_left == 37458817) {
+                    // A noisy right SNP has an inconsistent link to its
+                    // next clean SNP. The indel fallback must not use that
+                    // noisy SNP to flip and absorb the whole right block.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::string> phase_sets;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "37458817:CA>C" &&
+                            key != "37461999:CTT>C" &&
+                            key != "37466820:T>A" &&
+                            key != "37482721:G>A")
+                            continue;
+                        const size_t colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        phase_sets.emplace(key, fields[9].substr(colon + 1));
+                    }
+                    REQUIRE(phase_sets.size() == 4);
+                    CHECK(phase_sets.at("37458817:CA>C") !=
+                          phase_sets.at("37461999:CTT>C"));
+                    CHECK(phase_sets.at("37461999:CTT>C") ==
+                          phase_sets.at("37466820:T>A"));
+                    CHECK(phase_sets.at("37466820:T>A") ==
+                          phase_sets.at("37482721:G>A"));
+                }
+                if (arm == "graph" && w.gap_left == 61757551) {
+                    // The demoted right SNP must agree with its downstream
+                    // clean SNP before its physical bridge joins whole blocks.
+                    // Also retain the previously closed left-hand gap.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "61747506:ATT>A" &&
+                            key != "61757551:G>A" &&
+                            key != "61773799:A>G" &&
+                            key != "61782778:C>T")
+                            continue;
+                        const size_t colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 4);
+                    const auto& left = sites.at("61757551:G>A");
+                    const auto& right = sites.at("61773799:A>G");
+                    CHECK(left.second != ".");
+                    CHECK(sites.at("61747506:ATT>A") == left);
+                    CHECK(left == right);
+                    CHECK(sites.at("61782778:C>T").second == right.second);
+                    CHECK(sites.at("61782778:C>T").first != right.first);
+                }
+                if (arm == "graph" && w.gap_left == 54483506) {
+                    // The clean SNP pair crosses the recovered insertion. Its
+                    // relative phase and the earlier downstream join must
+                    // both survive the owning-chunk stitch order.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "54483506:T>G" && key != "54490229:G>C" &&
+                            key != "54547514:T>A" && key != "54569072:C>T")
+                            continue;
+                        const size_t colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 4);
+                    const auto& left = sites.at("54483506:T>G");
+                    const auto& right = sites.at("54490229:G>C");
+                    const auto& downstream = sites.at("54547514:T>A");
+                    const auto& terminal = sites.at("54569072:C>T");
+                    CHECK(left.second != ".");
+                    CHECK(left.second == right.second);
+                    CHECK(right.second == downstream.second);
+                    CHECK(downstream.second == terminal.second);
+                    CHECK(left.first != right.first);
+                    CHECK(right.first == downstream.first);
+                    CHECK(downstream.first != terminal.first);
+                }
+                if (arm == "graph" && w.gap_left == 30673476) {
+                    // Parental SNP calls put these adjacent blocks on opposite
+                    // ALT haplotypes. The right orphan block must retain its
+                    // internal orientation after joining the left read block.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "30673476:G>C" &&
+                            key != "30673709:T>A" &&
+                            key != "30676069:T>C") continue;
+                        const size_t colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 3);
+                    const auto& left = sites.at("30673476:G>C");
+                    const auto& right = sites.at("30673709:T>A");
+                    const auto& terminal = sites.at("30676069:T>C");
+                    CHECK(left.second == right.second);
+                    CHECK(right.second == terminal.second);
+                    CHECK(left.first != right.first);
+                    CHECK(left.first == terminal.first);
+                }
                 if (arm == "graph" && w.gap_left == 64144256) {
                     // The BAM source has a weak cut before the left deletion.
                     // Close the two boundary alleles without importing the
@@ -1079,10 +1359,115 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
                     CHECK(first.first == middle.first);
                     CHECK(middle.first == last.first);
                 }
+                if (arm == "graph" && w.gap_left == 1180618) {
+                    // Read HP calls orient the short BAM insertion run, while
+                    // the later graph insertion stays behind its weak edge.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "1180618:T>A" &&
+                            key != "1194189:T>TATC" &&
+                            key != "1194227:TCACCAC>T" &&
+                            key != "1194230:C>T" &&
+                            key != "1194233:C>T" &&
+                            fields[1] != "1196967")
+                            continue;
+                        const auto colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 6);
+                    const auto& left = sites.at("1180618:T>A");
+                    CHECK(sites.at("1194189:T>TATC") == left);
+                    CHECK(sites.at("1194230:C>T") == left);
+                    CHECK(sites.at("1194233:C>T") == left);
+                    CHECK(sites.at("1194227:TCACCAC>T").second == left.second);
+                    CHECK(sites.at("1194227:TCACCAC>T").first != left.first);
+                    const auto graph = std::find_if(
+                        sites.begin(), sites.end(),
+                        [](const auto& item) {
+                            return item.first.substr(0, 8) == "1196967:";
+                        });
+                    REQUIRE(graph != sites.end());
+                    CHECK(graph->second.second != left.second);
+                }
+                if (arm == "graph" && w.gap_left == 12256072) {
+                    // The complete BAM source resolves tied graph edges, but
+                    // the physical SNP pair fixes the allele orientation.
+                    // Pin the exact left SNP, first recovered deletion, and
+                    // right SNP; a PS extent alone can hide a wrong join.
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != "12243047:C>G" &&
+                            key != "12256072:A>G" &&
+                            key != "12269535:TA>T" &&
+                            key != "12277078:G>T")
+                            continue;
+                        const auto colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 4);
+                    const auto& left = sites.at("12256072:A>G");
+                    CHECK(left.second != ".");
+                    CHECK(sites.at("12243047:C>G").second == left.second);
+                    CHECK(sites.at("12243047:C>G").first != left.first);
+                    CHECK(sites.at("12269535:TA>T") == left);
+                    CHECK(sites.at("12277078:G>T") == left);
+                }
+                if (arm == "graph" &&
+                    (w.gap_left == 48929511 || w.gap_left == 56064697)) {
+                    // Both joins depend on their owning 1-Mb chunk. Pin the
+                    // boundary alleles so a distant PS extent cannot mask a
+                    // switch or a missing physical variant at either end.
+                    const std::string left_key = w.gap_left == 48929511
+                        ? "48929511:GTGGA>G" : "56064697:G>A";
+                    const std::string right_key = w.gap_left == 48929511
+                        ? "48950388:C>T" : "56083708:TCA>T";
+                    std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
+                                      "/native.vcf");
+                    REQUIRE(vcf.good());
+                    std::map<std::string, std::pair<std::string, std::string>> sites;
+                    std::string line;
+                    while (std::getline(vcf, line)) {
+                        if (line.empty() || line[0] == '#') continue;
+                        const auto fields = split_tabs(line);
+                        if (fields.size() < 10) continue;
+                        const std::string key = fields[1] + ":" + fields[3] +
+                            ">" + fields[4];
+                        if (key != left_key && key != right_key) continue;
+                        const auto colon = fields[9].rfind(':');
+                        REQUIRE(colon != std::string::npos);
+                        sites.emplace(key, std::make_pair(
+                            fields[9].substr(0, 3), fields[9].substr(colon + 1)));
+                    }
+                    REQUIRE(sites.size() == 2);
+                    CHECK(sites.at(left_key).second != ".");
+                    CHECK(sites.at(right_key) == sites.at(left_key));
+                }
                 if (arm == "graph" && w.gap_left == 58366458) {
-                    // Both ALT alleles belong to the same parental haplotype.
-                    // A single exact CIGAR deletion misleadingly suggests the
-                    // opposite join; an equivalent shifted read disagrees.
+                    // The two clean SNP ALTs belong to opposite parents. The
+                    // intervening repeat deletion has nonsegregating CIGAR
+                    // calls, so it cannot certify the joined block's gauge.
                     std::ifstream vcf(p.workdir + "/graph/w" + window_key(w) +
                                       "/native.vcf");
                     REQUIRE(vcf.good());
@@ -1095,18 +1480,18 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
                         const std::string key = fields[1] + ":" + fields[3] +
                             ">" + fields[4];
                         if (key != "58366458:T>C" &&
-                            key != "58385702:CA>C") continue;
+                            key != "58391091:C>G") continue;
                         const auto colon = fields[9].rfind(':');
                         REQUIRE(colon != std::string::npos);
                         sites.emplace(key, std::make_pair(
                             fields[9].substr(0, 3), fields[9].substr(colon + 1)));
                     }
                     REQUIRE(sites.count("58366458:T>C") == 1);
-                    REQUIRE(sites.count("58385702:CA>C") == 1);
+                    REQUIRE(sites.count("58391091:C>G") == 1);
                     const auto& left = sites.at("58366458:T>C");
-                    const auto& right = sites.at("58385702:CA>C");
+                    const auto& right = sites.at("58391091:C>G");
                     if (left.second == right.second)
-                        CHECK(left.first == right.first);
+                        CHECK(left.first != right.first);
                 }
                 if (arm == "graph" &&
                     (w.gap_left == 7047080 || w.gap_left == 48971192 ||
@@ -1199,6 +1584,124 @@ TEST_CASE("recovery preserves complementary BAM deletion rows", "[gap][represent
     CHECK(rows == 2);
     CHECK(alleles == std::set<std::pair<std::string, std::string>>{
                          {"GA", "G"}, {"GAA", "G"}});
+}
+
+TEST_CASE("verified MSA insertion survives graph output classification",
+          "[gap][representation]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    // The 50-kb padding makes this exactly the 35–36 Mb owning chunk.
+    // The narrow panel replay keeps its existing accuracy floor and span gate.
+    Window w;
+    w.gap_left = 35050001;
+    w.gap_right = 35950000;
+    std::string dir;
+    REQUIRE(run_arm(p, w, "graph", "", dir));
+
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::map<std::string, std::string> phase_sets;
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10) continue;
+        const std::string key = fields[1] + ":" + fields[3] +
+            ">" + fields[4];
+        if (key != "35328965:A>AT" &&
+            key != "35342608:G>GAGATAGAT" &&
+            key != "35347817:CT>C")
+            continue;
+        const size_t colon = fields[9].rfind(':');
+        REQUIRE(colon != std::string::npos);
+        CHECK(fields[9].find('|') != std::string::npos);
+        phase_sets.emplace(key, fields[9].substr(colon + 1));
+    }
+    REQUIRE(phase_sets.size() == 3);
+    CHECK(phase_sets.at("35342608:G>GAGATAGAT") ==
+          phase_sets.at("35347817:CT>C"));
+    // The graph repeat allele independently links both imported BAM blocks.
+    CHECK(phase_sets.at("35328965:A>AT") ==
+          phase_sets.at("35342608:G>GAGATAGAT"));
+}
+
+TEST_CASE("a phased BAM deletion survives an unphased graph duplicate",
+          "[gap][representation]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    Window w;
+    w.gap_left = 20707556;
+    w.gap_right = 20731688;
+    std::string dir;
+    REQUIRE(run_arm(p, w, "graph", "", dir));
+
+    std::ifstream in(dir + "/native.vcf");
+    REQUIRE(in.good());
+    int recovered_rows = 0;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10 || fields[1] != "20711883" ||
+            fields[3] != "CA" || fields[4] != "C")
+            continue;
+        ++recovered_rows;
+        const std::string& sample = fields[9];
+        CHECK((sample.substr(0, 3) == "0|1" ||
+               sample.substr(0, 3) == "1|0"));
+        const auto colon = sample.rfind(':');
+        REQUIRE(colon != std::string::npos);
+        CHECK(sample.substr(colon + 1) != "0");
+        CHECK(sample.substr(colon + 1) != ".");
+    }
+    CHECK(recovered_rows == 1);
+}
+
+TEST_CASE("an unsupported BAM source cut keeps the far deletion independent",
+          "[gap][stitch-connectivity]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    // The BAM sub-solve assigns both sites one source PS, but no read calls
+    // both alleles. The downstream deletion is supported by the right block.
+    Window w;
+    w.gap_left = 33211072;
+    w.gap_right = 33227050;
+    std::string dir;
+    REQUIRE(run_arm(p, w, "weak_source_cut", "", dir));
+
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::map<std::string, std::pair<std::string, std::string>> sites;
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10 ||
+            (fields[1] != "33211072" && fields[1] != "33227050" &&
+             fields[1] != "33233843"))
+            continue;
+        const std::string& sample = fields[9];
+        const size_t colon = sample.rfind(':');
+        REQUIRE(colon != std::string::npos);
+        sites.emplace(fields[1], std::make_pair(
+            sample.substr(0, sample.find(':')), sample.substr(colon + 1)));
+    }
+    REQUIRE(sites.size() == 3);
+    CHECK(sites.at("33211072").second != sites.at("33227050").second);
+    CHECK(sites.at("33227050").second == sites.at("33233843").second);
+    CHECK(sites.at("33227050").first == sites.at("33233843").first);
 }
 
 TEST_CASE("graph SNPs bridge supported recovery blocks", "[gap][graph-bridge]") {
@@ -1819,6 +2322,9 @@ TEST_CASE("phased right reads bridge only the 64.140 Mb deletion row",
         const std::string key =
             fields[1] + ":" + fields[3] + ">" + fields[4];
         if (key != "64118182:T>C" &&
+            key != "64128828:G>C" &&
+            key != "64134226:CT>C" &&
+            key != "64134226:CTT>C" &&
             key != "64138752:CA>C" &&
             key != "64140314:AT>A" &&
             key != "64144256:CA>C" &&
@@ -1829,15 +2335,19 @@ TEST_CASE("phased right reads bridge only the 64.140 Mb deletion row",
         rows[key] = {fields[9].substr(0, 3),
                      fields[9].substr(separator + 1)};
     }
-    REQUIRE(rows.size() == 5);
+    REQUIRE(rows.size() == 8);
     const auto& left = rows.at("64140314:AT>A");
     const auto& right = rows.at("64144256:CA>C");
     const auto& complement = rows.at("64144256:CAA>C");
     CHECK(left.second == right.second);
     CHECK(right.second == complement.second);
     CHECK(rows.at("64118182:T>C").second != left.second);
-    // The preceding deletion remains the new seam; its CIGAR link is mixed.
-    CHECK(rows.at("64138752:CA>C").second != left.second);
+    CHECK(rows.at("64128828:G>C").second != left.second);
+    // The complementary BAM deletion pair certifies the intervening run;
+    // the graph SNP before it still lacks a paired allele edge.
+    CHECK(rows.at("64134226:CT>C").second == left.second);
+    CHECK(rows.at("64134226:CTT>C").second == left.second);
+    CHECK(rows.at("64138752:CA>C").second == left.second);
     CHECK(left.first != right.first);
     CHECK(right.first != complement.first);
 
@@ -1850,6 +2360,15 @@ TEST_CASE("phased right reads bridge only the 64.140 Mb deletion row",
     CHECK_FALSE(reads.switched);
     CHECK(reads.concordance() >= 0.99);
     CHECK(reads.separated() >= 0.72);
+
+    gap.gap_left = 64138752;
+    gap.gap_right = 64140314;
+    Outcome joined_reads;
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), joined_reads);
+    CHECK_FALSE(joined_reads.switched);
+    CHECK(joined_reads.concordance() >= 0.99);
+    CHECK(joined_reads.separated() >= 0.71);
 }
 
 TEST_CASE("multiallelic repeat rows do not certify an insertion-only join",
@@ -3124,6 +3643,57 @@ TEST_CASE("a newly imported BAM seam closes the 15.056 Mb gap",
               input_read_spans(p, gap), reads);
     CHECK_FALSE(reads.switched);
     CHECK(reads.concordance() >= 0.98);
+}
+
+TEST_CASE("recovered right deletion joins a source-backed graph block",
+          "[gap][stitch-connectivity]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    Window gap;
+    gap.gap_left = 8166027;
+    gap.gap_right = 8172072;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "stitch_source_graph_deletion_8m", "", dir));
+
+    std::ifstream in(dir + "/native.vcf");
+    REQUIRE(in.good());
+    std::map<std::string, std::pair<std::string, std::string>> calls;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10) continue;
+        const std::string key = fields[1] + ":" + fields[3] + ":" + fields[4];
+        if (key != "8165210:T:A" && key != "8166027:C:CTTTT" &&
+            key != "8166027:C:CTTTTTTT" && key != "8172072:GAGGAA:G" &&
+            key != "8176552:G:A")
+            continue;
+        const size_t separator = fields[9].rfind(':');
+        REQUIRE(separator != std::string::npos);
+        calls[key] = {fields[9].substr(0, 3), fields[9].substr(separator + 1)};
+    }
+    REQUIRE(calls.size() == 5);
+    const std::string phase_set = calls.at("8165210:T:A").second;
+    CHECK(phase_set != ".");
+    for (const auto& [key, call] : calls) {
+        INFO(key);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == phase_set);
+    }
+    CHECK(calls.at("8165210:T:A").first !=
+          calls.at("8176552:G:A").first);
+    CHECK(calls.at("8166027:C:CTTTT").first !=
+          calls.at("8166027:C:CTTTTTTT").first);
+
+    Outcome reads;
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), reads);
+    CHECK_FALSE(reads.switched);
+    CHECK(reads.concordance() >= 0.95);
 }
 
 TEST_CASE("adjacent anchors do not trigger a second BAM recovery solve",
