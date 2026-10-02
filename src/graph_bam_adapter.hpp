@@ -16,6 +16,7 @@
 
 #include <array>
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -120,6 +121,36 @@ void rebuild_read_var_cr(PhasingChunk& chunk);
 /// exactly one original ALT. Whole multiallelic candidates have no binary match.
 const std::string* selected_graph_candidate_alt(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
+
+/// Read one physical BAM base at a 1-based SNP coordinate. Returns 0 for REF,
+/// 2 for ALT, 1 for a deletion, and -1 when the base is not callable.
+int physical_snp_call(const bam1_t* alignment, hts_pos_t pos,
+                      char ref_base, char alt_base,
+                      int* base_quality = nullptr);
+
+/// Admit an overlapping second recovery solve only with callable nearest SNPs.
+/// Selected graph alleles are normalized to reference bases. A projected graph
+/// anchor needs independent paired molecules supporting both haplotypes and
+/// rejecting random parity at p <= 0.001, with consistent quality odds. BAM-only
+/// pairs retain the established source admission rule. If requested, graph_parity
+/// retains the admitted graph relation for stitching and is otherwise cleared.
+/// This does not stitch blocks.
+bool has_direct_snp_parity_for_retry(
+    const GraphChunkBuildResult& graph_chunk, const RecoverySeam& seam,
+    WorkerContext& context, int tid,
+    std::optional<bool>* graph_parity = nullptr);
+
+/// Certify a detached BAM run's source gauge and weak-cut-free extent.
+/// Oriented heterozygotes must belong to one source with a consistent flip;
+/// homozygous rows contribute neither a gauge nor a run boundary.
+bool bam_source_run_supported(const GraphChunkBuildResult& graph_chunk,
+                              hts_pos_t phase_set);
+
+/// Certify an imported site's original BAM path and its current block gauge.
+/// A relabeled site cannot borrow the destination block's source certificate;
+/// another oriented site from its own cut-free source must confirm the gauge.
+bool bam_source_site_path_supported(const GraphChunkBuildResult& graph_chunk,
+                                    size_t candidate_index);
 
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                                const std::vector<GraphReadAllele>& rows,

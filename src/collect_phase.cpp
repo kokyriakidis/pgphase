@@ -28,6 +28,25 @@ extern "C" {
 
 namespace pgphase_collect {
 
+double binomial_upper_tail(int n, int first, double p) {
+    const double log_term =
+        std::lgamma(static_cast<double>(n + 1)) -
+        std::lgamma(static_cast<double>(first + 1)) -
+        std::lgamma(static_cast<double>(n - first + 1)) +
+        static_cast<double>(first) * std::log(p) +
+        static_cast<double>(n - first) * std::log1p(-p);
+    double term = std::exp(log_term);
+    double tail = term;
+    for (int k = first; k < n; ++k) {
+        term *= static_cast<double>(n - k) /
+                static_cast<double>(k + 1) * p / (1.0 - p);
+        tail += term;
+    }
+    return std::min(1.0, tail);
+}
+
+
+
 // Read visit count / index (one slot per read).
 static inline int read_visit_count(const PhasingChunk& chunk) {
     return chunk.ordered_read_ids.empty() ? static_cast<int>(chunk.reads.size())
@@ -375,7 +394,7 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
     }
 
     // Observation rows: qname, var_idx, allele (0=ref,1=alt,-1=non-inf,-2=lowqual).
-    std::fprintf(fp, "#OBS\tqname\tvar_idx\tallele\n");
+    std::fprintf(fp, "#OBS\tqname\tvar_idx\tallele\tgraph_allele\tbam_allele\n");
     for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
         const ReadRecord& read = chunk.reads[read_i];
         if (read.is_skipped) continue;
@@ -384,8 +403,14 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
         for (int vi = prof.start_var_idx; vi <= prof.end_var_idx; ++vi) {
             if (!var_is_valid[vi]) continue;
             const int allele = prof.alleles[vi - prof.start_var_idx];
-            std::fprintf(fp, "OBS\t%s\t%d\t%d\n",
-                         read.qname.c_str(), global_to_vidx[vi], allele);
+            const size_t offset = static_cast<size_t>(vi - prof.start_var_idx);
+            const int graph_allele = offset < prof.graph_alleles.size()
+                ? prof.graph_alleles[offset] : -1;
+            const int bam_allele = offset < prof.bam_alleles.size()
+                ? prof.bam_alleles[offset] : -1;
+            std::fprintf(fp, "OBS\t%s\t%d\t%d\t%d\t%d\n",
+                         read.qname.c_str(), global_to_vidx[vi], allele,
+                         graph_allele, bam_allele);
         }
     }
     std::fclose(fp);
@@ -1039,7 +1064,7 @@ static std::optional<bool> direct_bam_snp_bridge_flip(
 // A single molecule may orient two complete BAM blocks only when it calls a
 // clean SNP in each and independently agrees with an MSA-verified indel in one
 // block. All calls must describe the same read; conflicting calls abstain.
-static std::optional<bool> corroborated_bam_block_flip(
+std::optional<bool> corroborated_bam_block_flip(
         const PhasingChunk& chunk, const std::vector<int>& first,
         const std::vector<int>& second) {
     constexpr int kMinMapq = 30;
@@ -1056,8 +1081,8 @@ static std::optional<bool> corroborated_bam_block_flip(
             continue;
         std::array<int, 2> snp_hap{};
         std::array<int, 2> indel_hap{};
-        std::array<hts_pos_t, 2> snp_pos{};
-        std::array<hts_pos_t, 2> indel_pos{};
+        std::array<std::array<hts_pos_t, 2>, 2> snp_pos{};
+        std::array<std::array<hts_pos_t, 2>, 2> indel_pos{};
         bool conflict = false;
         const auto score = [&](const std::vector<int>& sites, size_t side) {
             for (const int ci : sites) {
@@ -1071,18 +1096,25 @@ static std::optional<bool> corroborated_bam_block_flip(
                                 allele == cand.hap_to_cons_alle[2] ? 2 : 0;
                 if (hap == 0) continue;
                 int* target = nullptr;
+                std::array<hts_pos_t, 2>* positions = nullptr;
                 if (cand.key.type == VariantType::Snp &&
                     cand.counts.category == VariantCategory::CleanHetSnp &&
                     offset < profile.bam_base_qualities.size() &&
                     profile.bam_base_qualities[offset] >= kMinSnpBaseQuality) {
                     target = &snp_hap[side];
-                    snp_pos[side] = cand.key.sort_pos();
+                    positions = &snp_pos[side];
                 } else if (cand.key.type != VariantType::Snp &&
                            cand.msa_verified) {
                     target = &indel_hap[side];
-                    indel_pos[side] = cand.key.sort_pos();
+                    positions = &indel_pos[side];
                 }
                 if (target == nullptr) continue;
+                const hts_pos_t pos = cand.key.sort_pos();
+                if (*target == 0) *positions = {pos, pos};
+                else {
+                    (*positions)[0] = std::min((*positions)[0], pos);
+                    (*positions)[1] = std::max((*positions)[1], pos);
+                }
                 if (*target != 0 && *target != hap) conflict = true;
                 *target = hap;
             }
@@ -1094,11 +1126,16 @@ static std::optional<bool> corroborated_bam_block_flip(
             (indel_hap[0] != 0 && indel_hap[0] != snp_hap[0]) ||
             (indel_hap[1] != 0 && indel_hap[1] != snp_hap[1]))
             return std::nullopt;
+        // Keep all agreeing evidence: a later nearby SNP must not hide an
+        // earlier independent SNP. Extrema give the largest pair distance
+        // without allocating site lists or comparing every pair.
         const bool corroborated =
             (indel_hap[0] != 0 &&
-             std::llabs(snp_pos[0] - indel_pos[0]) >= kDistinctSiteDistance) ||
+             std::max(snp_pos[0][1] - indel_pos[0][0],
+                      indel_pos[0][1] - snp_pos[0][0]) >= kDistinctSiteDistance) ||
             (indel_hap[1] != 0 &&
-             std::llabs(snp_pos[1] - indel_pos[1]) >= kDistinctSiteDistance);
+             std::max(snp_pos[1][1] - indel_pos[1][0],
+                      indel_pos[1][1] - snp_pos[1][0]) >= kDistinctSiteDistance);
         if (!corroborated) continue;
         if (snp_hap[0] == snp_hap[1]) ++same;
         else ++cross;
@@ -3004,6 +3041,17 @@ size_t stitch_recovery_phase_sets_left_to_right(
                            bridge.right_phase_set == window.right_phase_set;
                 });
             if (physical != recovery_gauge->physical_snp_bridges.end()) {
+                // Independently validated physical relations must agree. A
+                // retry constraint cannot be hidden by an earlier bridge row.
+                if (std::any_of(
+                        recovery_gauge->physical_snp_bridges.begin(),
+                        recovery_gauge->physical_snp_bridges.end(),
+                        [&](const RecoveryPhysicalSnpBridge& bridge) {
+                            return bridge.left_phase_set == window.left_phase_set &&
+                                   bridge.right_phase_set == window.right_phase_set &&
+                                   bridge.flip != physical->flip;
+                        }))
+                    continue;
                 if ((outer_relation && *outer_relation != physical->flip) ||
                     (gauge_outer_relation &&
                      *gauge_outer_relation != physical->flip))
@@ -3974,6 +4022,83 @@ size_t stitch_recovery_phase_sets_left_to_right(
     return joined;
 }
 
+bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
+                                       const std::array<size_t, 2>& boundaries,
+                                       const Options& opts,
+                                       bool allow_complementary) {
+    constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMinLocalCoverage = 20;
+    constexpr double kMaxDropoutP = 0.01;
+    const hts_pos_t left = chunk.candidates[boundaries[0]].key.sort_pos();
+    const hts_pos_t right = chunk.candidates[boundaries[1]].key.sort_pos();
+    for (const size_t ci : boundaries) {
+        const CandidateVariant& boundary = chunk.candidates[ci];
+        if (!boundary.msa_verified || boundary.key.type == VariantType::Snp) continue;
+        // The opposite verified MSA event can have been collapsed to homozygous
+        // by the source solve. Its own diploid depths admit a retry, never a join.
+        const bool has_contrast = std::any_of(
+            chunk.candidates.begin(), chunk.candidates.end(),
+            [&boundary, &opts, allow_complementary](const CandidateVariant& other) {
+                const bool complementary = allow_complementary &&
+                    other.key.type == boundary.key.type &&
+                    (other.key.ref_len != boundary.key.ref_len ||
+                     other.key.alt != boundary.key.alt) &&
+                    boundary.phase_set > 0 && other.phase_set == boundary.phase_set &&
+                    boundary.hap_to_cons_alle[1] >= 0 &&
+                    boundary.hap_to_cons_alle[1] <= 1 &&
+                    boundary.hap_to_cons_alle[2] >= 0 &&
+                    boundary.hap_to_cons_alle[2] <= 1 &&
+                    boundary.hap_to_cons_alle[1] != boundary.hap_to_cons_alle[2] &&
+                    boundary.hap_to_cons_alle[1] == other.hap_to_cons_alle[2] &&
+                    boundary.hap_to_cons_alle[2] == other.hap_to_cons_alle[1];
+                return other.msa_verified &&
+                    other.key.type != VariantType::Snp &&
+                    (other.key.type != boundary.key.type || complementary) &&
+                    other.key.sort_pos() == boundary.key.sort_pos() &&
+                    other.lcd_var_i_to_cate == kCandNoisyCandHet &&
+                    other.counts.n_uniq_alles <= 2 &&
+                    other.counts.ref_cov >= opts.min_alt_depth &&
+                    other.counts.alt_cov >= opts.min_alt_depth &&
+                    other.counts.allele_fraction >= opts.min_af &&
+                    other.counts.allele_fraction <= opts.max_af;
+            });
+        if (!has_contrast) continue;
+        int covering = 0, called = 0, spanning = 0, crossing_called = 0;
+        for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+            const ReadRecord& read = chunk.reads[ri];
+            if (read.is_skipped || read.mapq < kMinMapq || read.mapq == kUnknownMapq)
+                continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+            const int offset = static_cast<int>(ci) - profile.start_var_idx;
+            const bool observed = profile.start_var_idx >= 0 && offset >= 0 &&
+                static_cast<size_t>(offset) < profile.alleles.size() &&
+                profile.alleles[offset] >= 0;
+            if (read.beg <= boundary.key.pos &&
+                read.end >= boundary.key.pos + boundary.key.ref_len) {
+                ++covering;
+                called += observed;
+            }
+            if (read.beg <= left && read.end >= right) {
+                ++spanning;
+                crossing_called += observed;
+            }
+        }
+        // A long seam can have sparse crossing coverage and deep local MSA.
+        // Significant dropout in both cohorts admits another solve; it never
+        // establishes a link. Correct the crossing test for the two endpoints.
+        const int missing = covering - called;
+        const int missing_crossing = spanning - crossing_called;
+        if (covering >= std::max(opts.min_depth, kMinLocalCoverage) &&
+            spanning >= opts.min_depth && missing > called &&
+            missing_crossing > crossing_called &&
+            binomial_upper_tail(covering, missing, 0.5) <= kMaxDropoutP &&
+            2.0 * binomial_upper_tail(spanning, missing_crossing, 0.5) <= kMaxDropoutP)
+            return true;
+    }
+    return false;
+}
+
 bool allele_depths_call_het(const CandidateVariant& var,
                                   const Options& opts);
 
@@ -4038,7 +4163,8 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
              two_allele_het(var)) &&
             (opts.upstream_assign_hap
                  ? (!var.is_homopolymer_indel || var.gap_link_supported ||
-                    (var.bam_injected && var.alignment_verified))
+                    (var.bam_injected && var.alignment_verified) ||
+                    (opts.joint_het_orientation && !hp_indel_blocks_link))
                  : !hp_indel_blocks_link)) {
             is_het[_vi] = true;
             het_var_idx.push_back(_vi);
@@ -4842,10 +4968,18 @@ void verify_chunk_invariants(const PhasingChunk& chunk,
         if (chunk.reads[i - 1].qname > chunk.reads[i].qname)
             fail("reads are not qname-sorted at index " + std::to_string(i) +
                  " (the cross-chunk stitch pairs them with a merge-join)");
-    for (size_t i = 0; i < chunk.read_var_profile.size(); ++i)
-        if (chunk.read_var_profile[i].read_id != static_cast<int>(i))
+    for (size_t i = 0; i < chunk.read_var_profile.size(); ++i) {
+        const ReadVariantProfile& profile = chunk.read_var_profile[i];
+        if (profile.read_id != static_cast<int>(i))
             fail("read_var_profile[" + std::to_string(i) + "].read_id is " +
-                 std::to_string(chunk.read_var_profile[i].read_id));
+                 std::to_string(profile.read_id));
+        // SNP bridge checks address qualities by the primary candidate offset.
+        // A shorter channel can discard a clean vote or give it to another site.
+        if (!profile.bam_base_qualities.empty() &&
+            profile.bam_base_qualities.size() != profile.alleles.size())
+            fail("BAM base qualities are not parallel to the allele profile for read " +
+                 chunk.reads[i].qname);
+    }
     if (region_hi > region_lo) {
         if (region_lo < chunk.ref_beg || region_hi > chunk.ref_end)
             fail("re-solved region " + std::to_string(region_lo) + "-" +

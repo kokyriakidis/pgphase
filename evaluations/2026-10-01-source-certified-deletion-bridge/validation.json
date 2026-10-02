@@ -1,0 +1,22 @@
+{
+  "binary_sha256": "71469b755c2020df6eb802d0198a2eecf6c7547c5626a7bf057db8917ab93ce6",
+  "production_build": "PASS, no warnings",
+  "unit_tests": "PASS, including 20 new source-path checks",
+  "predicate_assertions": 491,
+  "predicate_cases": 27,
+  "port_parity_assertions": 27,
+  "upstream_parity_assertions": 168696,
+  "native_window_commands": 105,
+  "native_window_seconds": 231.96,
+  "panel_windows": 93,
+  "panel_assertions": 4082,
+  "panel_cases": 53,
+  "panel_result": "PASS",
+  "chr20_seconds": 178.09,
+  "baseline_11m_regression": "FAIL as expected: 5 assertions",
+  "old_certificate_58m_regression": "FAIL as expected: 3 assertions",
+  "owning_11m_scored_before_and_after": 4092,
+  "owning_11m_correct_before_and_after": 4002,
+  "owning_11m_discordant_before_and_after": 90,
+  "tracked_competitor_targets_remaining": 14
+}

@@ -1,0 +1,30 @@
+Filters: [backfill-certificate]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+focused retry certifies its path after CIGAR backfill
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:1199
+...............................................................................
+
+src/test_gap_windows.cpp:1230: FAILED:
+  CHECK( sites.at("4766928").second == sites.at("4792960").second )
+with expansion:
+  "4570122" == "4878943"
+
+src/test_gap_windows.cpp:1231: FAILED:
+  CHECK( sites.at("4766928").first == sites.at("4792960").first )
+with expansion:
+  "0|1" == "1|0"
+
+src/test_gap_windows.cpp:1242: FAILED:
+  CHECK( reads.separated() >= 0.69 )
+with expansion:
+  0.4457142857 >= 0.69
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 17 | 14 passed | 3 failed

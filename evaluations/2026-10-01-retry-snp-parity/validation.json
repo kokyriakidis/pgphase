@@ -1,0 +1,22 @@
+{
+  "binary_sha256": "4bbc079c5b3d1bb8683536eefc1d6484dfd27d44b8e2cd2f6511e6c0ff871ea0",
+  "native_binary_sha256": "4bbc079c5b3d1bb8683536eefc1d6484dfd27d44b8e2cd2f6511e6c0ff871ea0",
+  "native_replays": 105,
+  "native_elapsed_seconds": 249.41,
+  "chr20_elapsed_seconds": 194.61,
+  "window_assertions": 4041,
+  "window_test_cases": 53,
+  "new_direct_checks": 47,
+  "predicate_assertions": 398,
+  "port_assertions": 27,
+  "upstream_assertions": 168696,
+  "span_expectations_changed": false,
+  "truth_floors_changed": false,
+  "new_default_chr20_panel_closures": 0,
+  "remaining_competitor_targets": 14,
+  "remaining_controls": 4,
+  "prior_retry_failing_checks": 7,
+  "normalization_only_failing_checks": 10,
+  "prior_conflict_failing_checks": 2,
+  "diff_check": "PASS"
+}

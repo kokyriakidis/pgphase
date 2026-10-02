@@ -12,6 +12,7 @@
 #include <memory>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,6 +62,494 @@ static GraphSite make_site(const std::string& id,
 
 int main() {
     bool ok = true;
+
+
+    {
+        // Exercise the production BAM query, graph projection and diploid
+        // count/quality checks together, without comparator or truth inputs.
+        char fasta_path[] = "/tmp/pgphase_retry_snp_XXXXXX";
+        const int fd = mkstemp(fasta_path);
+        ok &= check(fd >= 0, "SNP retry: create synthetic fixture");
+        if (fd >= 0) {
+            close(fd);
+            const std::string bam_path = std::string(fasta_path) + ".bam";
+            {
+                std::ofstream fasta(fasta_path);
+                // Soft masking must not remove physical REF calls.
+                fasta << ">chr1\n" << std::string(300, 'a') << '\n';
+            }
+            ok &= check(fai_build(fasta_path) == 0,
+                        "SNP retry: index synthetic reference");
+            const auto make_graph = [] {
+                GraphChunkBuildResult graph;
+                for (const hts_pos_t pos : {100, 200}) {
+                    CandidateVariant site;
+                    site.key.tid = 0;
+                    site.key.type = VariantType::Snp;
+                    site.key.pos = pos - 10;
+                    site.key.ref_len = 2;
+                    site.key.alt = ">10>20>30";
+                    site.counts.n_uniq_alles = 2;
+                    site.counts.category = VariantCategory::CleanHetSnp;
+                    site.phase_set = pos - 10;
+                    site.hap_to_cons_alle = {-1, 0, 1};
+                    graph.chunk.candidates.push_back(site);
+                    graph.site_meta.push_back(
+                        {"chr1", pos - 1, "AA", {pos == 100 ? "AC" : "AG"}});
+                    graph.site_allele_orig_idx.push_back({0, 1});
+                }
+                return graph;
+            };
+            const auto graph = make_graph();
+            const RecoverySeam seam{100, 200, 90, 190};
+            // counts: REF/REF, REF/ALT, ALT/REF, ALT/ALT.
+            const auto query = [&](const GraphChunkBuildResult& input,
+                                   const std::array<int, 4>& counts,
+                                   int mapq = 60, int flags = 0,
+                                   bool repeat_names = false,
+                                   int left_baseq = 40, int right_baseq = 40,
+                                   std::optional<bool>* graph_parity = nullptr) {
+                const char header_text[] =
+                    "@HD\tVN:1.6\tSO:coordinate\n@SQ\tSN:chr1\tLN:300\n";
+                std::unique_ptr<bam_hdr_t, HeaderDeleter> header(
+                    sam_hdr_parse(std::strlen(header_text), header_text));
+                std::unique_ptr<samFile, decltype(&hts_close)> output(
+                    sam_open(bam_path.c_str(), "wb"), hts_close);
+                std::unique_ptr<bam1_t, AlignmentDeleter> alignment(bam_init1());
+                if (!header || !output || !alignment ||
+                    sam_hdr_write(output.get(), header.get()) < 0)
+                    throw std::runtime_error("SNP retry fixture: write BAM header");
+                for (size_t cell = 0; cell < counts.size(); ++cell) {
+                    for (int i = 0; i < counts[cell]; ++i) {
+                        std::string bases(140, 'A');
+                        bases[19] = cell >= 2 ? 'C' : 'A';
+                        bases[119] = cell % 2 != 0 ? 'G' : 'A';
+                        std::string qualities(140, 'I');
+                        // 255 is the BAM missing-quality sentinel, not a high Q.
+                        qualities[19] = static_cast<char>(33 +
+                            (left_baseq == 255 ? 40 : left_baseq));
+                        qualities[119] = static_cast<char>(33 +
+                            (right_baseq == 255 ? 40 : right_baseq));
+                        std::string sam = "read" + std::to_string(cell) + "_" +
+                            std::to_string(repeat_names ? 0 : i) + "\t" +
+                            std::to_string(flags) + "\tchr1\t81\t" +
+                            std::to_string(mapq) + "\t140M\t*\t0\t0\t" +
+                            bases + "\t" + qualities;
+                        kstring_t line{sam.size(), sam.size() + 1, sam.data()};
+                        if (sam_parse1(&line, header.get(), alignment.get()) < 0)
+                            throw std::runtime_error("SNP retry fixture: parse read");
+                        if (left_baseq == 255) bam_get_qual(alignment.get())[19] = 255;
+                        if (right_baseq == 255) bam_get_qual(alignment.get())[119] = 255;
+                        if (sam_write1(output.get(), header.get(), alignment.get()) < 0)
+                            throw std::runtime_error("SNP retry fixture: write read");
+                    }
+                }
+                output.reset();
+                if (sam_index_build(bam_path.c_str(), 0) < 0)
+                    throw std::runtime_error("SNP retry fixture: index BAM");
+                Options opts;
+                opts.ref_fasta = fasta_path;
+                opts.bam_files = {bam_path};
+                WorkerContext context(opts);
+                return has_direct_snp_parity_for_retry(input, seam, context, 0, graph_parity);
+            };
+            ok &= check(query(graph, {8, 0, 0, 8}),
+                        "SNP retry: padded graph walks use selected physical bases");
+            ok &= check(query(graph, {0, 8, 8, 0}),
+                        "SNP retry: alternate connection remains eligible");
+            ok &= check(!query(graph, {2, 0, 0, 2}),
+                        "SNP retry: Q40 does not certify four unanimous molecules");
+            ok &= check(!query(graph, {0, 0, 0, 28}),
+                        "SNP retry: one haplotype does not certify diploid parity");
+            ok &= check(!query(graph, {8, 8, 8, 8}),
+                        "SNP retry: tied parity stays ineligible");
+            ok &= check(query(graph, {15, 1, 1, 15}),
+                        "SNP retry: decisive nonunanimous calls remain eligible");
+            ok &= check(!query(graph, {3, 1, 1, 3}),
+                        "SNP retry: weak 3:1 count evidence stays ineligible");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 29),
+                        "SNP retry: low MAPQ is not parity evidence");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 255),
+                        "SNP retry: missing MAPQ is not parity evidence");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 60, 0, false, 29),
+                        "SNP retry: low left base quality is excluded");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 60, 0, false, 40, 29),
+                        "SNP retry: low right base quality is excluded");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 60, 0, false, 255),
+                        "SNP retry: missing left base quality is excluded");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 60, 0, false, 40, 255),
+                        "SNP retry: missing right base quality is excluded");
+            for (const int flag : {BAM_FSECONDARY, BAM_FSUPPLEMENTARY,
+                                   BAM_FDUP, BAM_FQCFAIL})
+                ok &= check(!query(graph, {8, 0, 0, 8}, 60, flag),
+                            "SNP retry: nonprimary/failed molecules are excluded");
+            ok &= check(!query(graph, {8, 0, 0, 8}, 60, 0, true),
+                        "SNP retry: repeated read names cannot multiply support");
+            std::optional<bool> graph_parity = true;
+            ok &= check(query(graph, {8, 0, 0, 8}, 60, 0, false, 40, 40,
+                              &graph_parity) && graph_parity && !*graph_parity,
+                        "SNP retry: same graph relation reaches the stitch constraint");
+            ok &= check(query(graph, {0, 8, 8, 0}, 60, 0, false, 40, 40,
+                              &graph_parity) && graph_parity && *graph_parity,
+                        "SNP retry: swapped graph relation reaches the stitch constraint");
+            ok &= check(!query(graph, {2, 0, 0, 2}, 60, 0, false, 40, 40,
+                               &graph_parity) && !graph_parity,
+                        "SNP retry: failed admission clears an earlier relation");
+            auto modified = make_graph();
+            modified.site_meta[0].alts = {"AT", "AC"};
+            modified.site_allele_orig_idx[0] = {0, 2};
+            ok &= check(query(modified, {8, 0, 0, 8}),
+                        "SNP retry: decomposed graph row selects original ALT2");
+            modified.site_allele_orig_idx[0] = {0, 1};
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: a different ALT is not usable evidence");
+            modified = make_graph();
+            modified.site_meta[0].ref = "AAA";
+            modified.site_meta[0].alts = {"ACC"};
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: graph MNP is not a single-base SNP");
+            modified = make_graph();
+            modified.site_meta[0].alts = {"AAC"};
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: graph insertion is not a single-base SNP");
+            modified = make_graph();
+            modified.site_allele_orig_idx[0].clear();
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: missing graph allele mapping cannot certify parity");
+            modified = make_graph();
+            modified.chunk.candidates[0].counts.n_uniq_alles = 3;
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: whole multiallelic graph row is excluded");
+            modified = make_graph();
+            modified.chunk.candidates[0].hap_to_cons_alle = {-1, 0, 0};
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: homozygote cannot orient a boundary");
+            modified = make_graph();
+            modified.chunk.candidates[0].counts.category = VariantCategory::NoisyCandHet;
+            ok &= check(!query(modified, {8, 0, 0, 8}),
+                        "SNP retry: unverified noisy SNP cannot orient a boundary");
+            modified.chunk.candidates[0].msa_verified = true;
+            modified.chunk.candidates[0].alignment_verified = true;
+            ok &= check(query(modified, {8, 0, 0, 8}),
+                        "SNP retry: alignment/MSA-verified SNP remains eligible");
+            modified = make_graph();
+            for (size_t i = 0; i < 2; ++i) {
+                auto& site = modified.chunk.candidates[i];
+                site.bam_injected = true;
+                site.key.pos = i == 0 ? 100 : 200;
+                site.key.ref_len = 1;
+                site.key.alt = i == 0 ? "C" : "G";
+            }
+            modified.site_meta.clear();
+            modified.site_allele_orig_idx.clear();
+            ok &= check(query(modified, {8, 0, 0, 8}),
+                        "SNP retry: injected BAM SNPs retain exact sequence keys");
+            ok &= check(query(modified, {2, 0, 0, 2}),
+                        "SNP retry: existing BAM-only four-read admission is preserved");
+            ok &= check(query(modified, {0, 0, 0, 28}),
+                        "SNP retry: existing BAM-only source evidence is preserved");
+            ok &= check(query(modified, {3, 1, 1, 3}),
+                        "SNP retry: existing BAM-only dominant relation is preserved");
+            graph_parity = true;
+            ok &= check(query(modified, {8, 0, 0, 8}, 60, 0, false, 40, 40,
+                              &graph_parity) && !graph_parity,
+                        "SNP retry: BAM-only admission does not create a graph constraint");
+            modified.chunk.candidates[0] = graph.chunk.candidates[0];
+            modified.site_meta = graph.site_meta;
+            modified.site_allele_orig_idx = graph.site_allele_orig_idx;
+            ok &= check(!query(modified, {2, 0, 0, 2}),
+                        "SNP retry: mixed graph/BAM four-read vote needs count confidence");
+            ok &= check(!query(modified, {0, 0, 0, 28}),
+                        "SNP retry: mixed graph/BAM one-haplotype cohort stays ineligible");
+            ok &= check(!query(modified, {3, 1, 1, 3}),
+                        "SNP retry: mixed graph/BAM 3:1 split needs count confidence");
+            ok &= check(!query(modified, {20, 0, 2, 0}),
+                        "SNP retry: one haplotype's reversal cannot supply diploid support");
+            ok &= check(!query(modified, {20, 0, 5, 2}),
+                        "SNP retry: aggregate majority cannot override a haplotype reversal");
+            std::remove(bam_path.c_str());
+            std::remove((bam_path + ".bai").c_str());
+            std::remove((std::string(fasta_path) + ".fai").c_str());
+            std::remove(fasta_path);
+        }
+    }
+
+    {
+        const auto make_boundary = [] {
+            PhasingChunk chunk;
+            for (const hts_pos_t pos : {100, 200}) {
+                CandidateVariant site;
+                site.key.type = VariantType::Snp;
+                site.key.pos = pos;
+                site.key.ref_len = 1;
+                site.phase_set = pos;
+                site.hap_to_cons_alle = {-1, 0, 1};
+                chunk.candidates.push_back(site);
+            }
+            return chunk;
+        };
+        const std::vector<RecoverySeam> seams = {{100, 200, 100, 200}};
+        const auto make_gauge = [](bool flip) {
+            RecoveryPhaseGauge gauge;
+            gauge.beg = 90;
+            gauge.end = 210;
+            gauge.physical_snp_bridges.push_back({100, 200, flip});
+            return gauge;
+        };
+        Options opts;
+        auto boundary = make_boundary();
+        auto gauge = make_gauge(false);
+        ok &= check(stitch_recovery_phase_sets_left_to_right(
+                        boundary, seams, {gauge}, opts) == 1 &&
+                    boundary.candidates[1].phase_set == 100 &&
+                    boundary.candidates[1].hap_to_cons_alle[1] == 0,
+                    "physical constraint: same parity joins without reversing alleles");
+        boundary = make_boundary();
+        gauge = make_gauge(true);
+        ok &= check(stitch_recovery_phase_sets_left_to_right(
+                        boundary, seams, {gauge}, opts) == 1 &&
+                    boundary.candidates[1].phase_set == 100 &&
+                    boundary.candidates[1].hap_to_cons_alle[1] == 1,
+                    "physical constraint: alternate parity applies exactly one flip");
+        for (const bool first_flip : {false, true}) {
+            boundary = make_boundary();
+            gauge = make_gauge(first_flip);
+            gauge.physical_snp_bridges.push_back({100, 200, !first_flip});
+            ok &= check(stitch_recovery_phase_sets_left_to_right(
+                            boundary, seams, {gauge}, opts) == 0 &&
+                        boundary.candidates[1].phase_set == 200 &&
+                        boundary.candidates[1].hap_to_cons_alle[1] == 0,
+                        "physical constraint: contradictory relations veto either row order");
+        }
+        boundary = make_boundary();
+        gauge = make_gauge(false);
+        gauge.physical_snp_bridges.push_back({100, 200, false});
+        ok &= check(stitch_recovery_phase_sets_left_to_right(
+                        boundary, seams, {gauge}, opts) == 1,
+                    "physical constraint: agreeing duplicate evidence remains usable");
+    }
+
+    {
+        // Homozygotes inherit the BAM source's PS, but cannot orient it or
+        // extend its certified heterozygous interval across a weak cut.
+        constexpr hts_pos_t kRunPhaseSet = 80;
+        constexpr hts_pos_t kSourcePhaseSet = 40;
+        const auto make_run = [kSourcePhaseSet] {
+            GraphChunkBuildResult result;
+            for (const hts_pos_t pos : {100, 200}) {
+                CandidateVariant site;
+                site.key.type = VariantType::Snp;
+                site.key.pos = pos;
+                site.key.ref_len = 1;
+                site.phase_set = kRunPhaseSet;
+                site.hap_to_cons_alle = {-1, 0, 1};
+                site.bam_injected = true;
+                result.chunk.candidates.push_back(site);
+                RecoverySourceSite source;
+                source.candidate_index = result.chunk.candidates.size() - 1;
+                source.phase_set = kSourcePhaseSet;
+                source.hap1_allele = 0;
+                source.hap2_allele = 1;
+                source.can_adopt = true;
+                result.recovery_source_sites.push_back(source);
+            }
+            result.recovery_source_weak_cuts[kSourcePhaseSet] = {};
+            return result;
+        };
+        auto run = make_run();
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: exact source gauge is supported");
+        CandidateVariant homozygote;
+        homozygote.key.type = VariantType::Snp;
+        homozygote.key.pos = 150;
+        homozygote.phase_set = kRunPhaseSet;
+        homozygote.hap_to_cons_alle = {-1, 0, 0};
+        homozygote.bam_injected = true;
+        run.chunk.candidates.push_back(homozygote);
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: source-labelled homozygote is not a gauge veto");
+        run.chunk.candidates.back().key.pos = 50;
+        run.chunk.candidates.back().hap_to_cons_alle = {-1, 1, 1};
+        run.recovery_source_weak_cuts[kSourcePhaseSet] = {75, 200};
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: homozygote does not extend the run across a cut");
+        RecoverySourceSite homozygous_source;
+        homozygous_source.candidate_index = run.chunk.candidates.size() - 1;
+        homozygous_source.phase_set = kSourcePhaseSet;
+        homozygous_source.hap1_allele = 1;
+        homozygous_source.hap2_allele = 1;
+        run.recovery_source_sites.push_back(homozygous_source);
+        run.recovery_source_sites.push_back(homozygous_source);
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: duplicate homozygous provenance is not a gauge veto");
+        run.recovery_source_sites.resize(2);
+        run.chunk.candidates.back().hap_to_cons_alle = {-1, -1, -1};
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: malformed source-labelled row remains a veto");
+        run = make_run();
+        run.chunk.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+        run.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: a consistent source flip is supported");
+        run.chunk.candidates[1].hap_to_cons_alle = {-1, 0, 1};
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: conflicting heterozygous gauges remain a veto");
+        run = make_run();
+        run.recovery_source_weak_cuts[kSourcePhaseSet] = {150};
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: an interior weak cut remains a veto");
+        run.recovery_source_weak_cuts.clear();
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: missing path metadata is not a certificate");
+        run = make_run();
+        run.recovery_source_sites[1].phase_set = kSourcePhaseSet + 1;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: two independent sources remain separate");
+        run = make_run();
+        run.recovery_source_sites.push_back(run.recovery_source_sites.front());
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: duplicate heterozygous provenance remains ambiguous");
+        run = make_run();
+        run.chunk.candidates[0].bam_injected = false;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: a graph heterozygote needs a graph path");
+        run = make_run();
+        run.recovery_source_sites[0].can_adopt = false;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: an untranslatable allele gauge is rejected");
+        run = make_run();
+        run.chunk.candidates.resize(1);
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: a singleton cannot certify a path");
+        run.chunk.candidates.front() = homozygote;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: homozygotes alone cannot certify a path");
+    }
+
+    {
+        constexpr hts_pos_t kCurrentPhaseSet = 80;
+        constexpr hts_pos_t kOriginalPhaseSet = 40;
+        const auto make_source = [kOriginalPhaseSet] {
+            GraphChunkBuildResult result;
+            for (const hts_pos_t pos : {100, 200}) {
+                CandidateVariant row;
+                row.key.type = pos == 100 ? VariantType::Deletion : VariantType::Snp;
+                row.key.pos = pos;
+                row.key.ref_len = 1;
+                row.phase_set = kCurrentPhaseSet;
+                row.hap_to_cons_alle = {-1, 0, 1};
+                row.bam_injected = pos == 100;
+                result.chunk.candidates.push_back(row);
+                RecoverySourceSite source;
+                source.candidate_index = result.chunk.candidates.size() - 1;
+                source.phase_set = kOriginalPhaseSet;
+                source.hap1_allele = 0;
+                source.hap2_allele = 1;
+                source.can_adopt = true;
+                result.recovery_source_sites.push_back(source);
+            }
+            result.recovery_source_path_supported[kOriginalPhaseSet] = true;
+            result.recovery_source_weak_cuts[kOriginalPhaseSet] = {};
+            result.recovery_source_quality_cuts[kOriginalPhaseSet] = {};
+            return result;
+        };
+        auto source = make_source();
+        ok &= check(bam_source_site_path_supported(source, 0),
+                    "BAM site path: original source anchors a relabeled deletion");
+        source.chunk.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(bam_source_site_path_supported(source, 0),
+                    "BAM site path: consistent source reversal remains valid");
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 0, 1};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: deletion cannot reverse alone in its block");
+        source = make_source();
+        source.recovery_source_path_supported[kOriginalPhaseSet] = false;
+        source.recovery_source_path_supported[kCurrentPhaseSet] = true;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: destination certificate cannot hide an incomplete source");
+        source.recovery_source_path_supported.erase(kOriginalPhaseSet);
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: destination certificate cannot replace missing provenance");
+        source = make_source();
+        source.recovery_source_weak_cuts[kOriginalPhaseSet] = {150};
+        source.recovery_source_path_supported[kCurrentPhaseSet] = true;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: original weak cut vetoes a complete destination");
+        source = make_source();
+        source.recovery_source_quality_cuts[kOriginalPhaseSet] = {150};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: original quality cut remains a veto");
+        source = make_source();
+        source.recovery_source_weak_cuts[kCurrentPhaseSet] = {150};
+        ok &= check(bam_source_site_path_supported(source, 0),
+                    "BAM site path: unrelated destination cuts do not describe this source");
+        source = make_source();
+        source.recovery_source_sites.push_back(source.recovery_source_sites[0]);
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: duplicate deletion provenance is ambiguous");
+        source = make_source();
+        source.recovery_source_sites[0].can_adopt = false;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: untranslatable deletion cannot certify a join");
+        source = make_source();
+        source.recovery_source_sites[1].can_adopt = false;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: untranslatable anchor cannot certify a gauge");
+        source = make_source();
+        source.recovery_source_sites[1].phase_set = kOriginalPhaseSet + 1;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: a different source cannot anchor the deletion");
+        source = make_source();
+        source.chunk.candidates[1].phase_set = kCurrentPhaseSet + 1;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: original source anchor must be in the current block");
+        source = make_source();
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 1};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: a homozygote cannot certify orientation");
+        source = make_source();
+        source.chunk.candidates[1].key.type = VariantType::Deletion;
+        source.chunk.candidates[1].key.pos = 100;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: another allele at the same locus is not an anchor");
+        source = make_source();
+        source.chunk.candidates[0].hap_to_cons_alle = {-1, 0, 0};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: a homozygous deletion cannot certify parity");
+        source = make_source();
+        source.recovery_source_sites[0].hap2_allele = 2;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: a nonbiallelic source gauge is rejected");
+        source = make_source();
+        source.chunk.candidates[0].bam_injected = false;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: a graph-owned row needs graph certification");
+        source = make_source();
+        source.chunk.candidates[0].phase_set = kUnsetCandidatePhaseSet;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: an unphased row cannot orient a block");
+        ok &= check(!bam_source_site_path_supported(source, 2),
+                    "BAM site path: missing candidate is rejected");
+        constexpr size_t kLongInsertionLength = 65;
+        source = make_source();
+        source.chunk.candidates[0].key.type = VariantType::Insertion;
+        source.chunk.candidates[0].key.alt.assign(kLongInsertionLength, 'A');
+        ok &= check(bam_source_site_path_supported(source, 0),
+                    "BAM site path: a relabeled long insertion uses its original source");
+        source.recovery_source_path_supported[kOriginalPhaseSet] = false;
+        source.recovery_source_path_supported[kCurrentPhaseSet] = true;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: long insertion cannot borrow its destination certificate");
+        source.recovery_source_path_supported[kOriginalPhaseSet] = true;
+        source.recovery_source_quality_cuts[kOriginalPhaseSet] = {150};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: long insertion retains its original quality-cut veto");
+        source.recovery_source_quality_cuts[kOriginalPhaseSet].clear();
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: long insertion must share its source anchor gauge");
+    }
 
     GraphSiteCatalog catalog;
     catalog.sites.push_back(make_site("s1", 100, ">1>2>3", ">1>4>3"));
@@ -2077,6 +2566,75 @@ int main() {
                     "independent BAM block: primary and rescue assignments win");
     }
 
+    // Keeping an MSA homopolymer genotype for linking must not promote one
+    // noisy locus into unconditional read evidence. Use the same singleton
+    // confidence rule as inferred markers, without changing its genotype.
+    {
+        const auto msa_singleton = [](int concordant, int conflicting) {
+            PhasingChunk chunk;
+            CandidateVariant site;
+            site.key.pos = 1000;
+            site.key.type = VariantType::Deletion;
+            site.counts.n_uniq_alles = 2;
+            site.lcd_var_i_to_cate = kCandNoisyCandHet;
+            site.phase_set = 900;
+            site.hap_to_cons_alle = {-1, 0, 1};
+            site.bam_injected = true;
+            site.msa_verified = true;
+            site.is_homopolymer_indel = true;
+            site.read_rescue_requires_validation = true;
+            chunk.candidates.push_back(site);
+            const int primary_reads = concordant + conflicting;
+            for (int ri = 0; ri <= primary_reads; ++ri) {
+                chunk.reads.emplace_back();
+                const int hap = ri % 2 + 1;
+                chunk.haps.push_back(ri < primary_reads ? hap : 0);
+                chunk.phase_sets.push_back(ri < primary_reads ? 900 : 0);
+                ReadVariantProfile profile;
+                profile.read_id = ri;
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 0;
+                profile.alleles = {ri < concordant ? hap - 1 :
+                                   ri < primary_reads ? 2 - hap : 0};
+                chunk.read_var_profile.push_back(profile);
+            }
+            return chunk;
+        };
+        PhasingChunk noisy = msa_singleton(36, 12);
+        ok &= check(rescue_unphased_graph_reads(noisy) == 0 &&
+                    noisy.gap_haps.back() == 0,
+                    "MSA singleton: significant but noisy locus stays unassigned");
+        ok &= check(noisy.candidates[0].phase_set == 900 &&
+                    noisy.candidates[0].hap_to_cons_alle[1] == 0 &&
+                    noisy.candidates[0].hap_to_cons_alle[2] == 1,
+                    "MSA singleton: rejection preserves linked genotype");
+        PhasingChunk noisy_nonrepeat = msa_singleton(36, 12);
+        noisy_nonrepeat.candidates[0].is_homopolymer_indel = false;
+        ok &= check(rescue_unphased_graph_reads(noisy_nonrepeat) == 0,
+                    "MSA singleton: noisy nonrepeat row needs the same confidence");
+        PhasingChunk duplicate = msa_singleton(36, 12);
+        duplicate.candidates.push_back(duplicate.candidates.front());
+        for (auto& profile : duplicate.read_var_profile) {
+            profile.end_var_idx = 1;
+            profile.alleles.push_back(profile.alleles.front());
+        }
+        ok &= check(rescue_unphased_graph_reads(duplicate) == 0,
+                    "MSA singleton: duplicate rows at one locus cannot certify rescue");
+        PhasingChunk paired = msa_singleton(36, 12);
+        paired.candidates.push_back(paired.candidates.front());
+        paired.candidates.back().key.pos = 1100;
+        for (auto& profile : paired.read_var_profile) {
+            profile.end_var_idx = 1;
+            profile.alleles.push_back(profile.alleles.front());
+        }
+        ok &= check(rescue_unphased_graph_reads(paired) == 1,
+                    "MSA singleton: two independently located markers retain rescue");
+        PhasingChunk clean = msa_singleton(32, 0);
+        ok &= check(rescue_unphased_graph_reads(clean) == 1 &&
+                    clean.gap_haps.back() == 1,
+                    "MSA singleton: clean diploid primary support permits rescue");
+    }
+
     // Reads with only excluded-site observations are invisible to the clean
     // solve. Seven already phased molecules orient two sites statistically;
     // an eighth molecule can then be assigned without changing the candidates or
@@ -2367,6 +2925,40 @@ int main() {
         chunks[0].chunk.haps = saved_haps;
         chunks[0].chunk.phase_sets = saved_phase_sets;
         chunks[0].chunk.region.chunk_id = saved_chunk_id;
+    }
+
+    // A stale heterozygous internal consensus does not turn a homozygous
+    // category into a direct read marker. Independent primary association
+    // remains available through the ordinary inferred-marker path.
+    {
+        const auto singleton = [](VariantCategory category) {
+            PhasingChunk chunk;
+            CandidateVariant site;
+            site.key.type = VariantType::Insertion;
+            site.key.pos = 100;
+            site.counts.category = category;
+            site.phase_set = 100;
+            site.hap_to_cons_alle = {-1, 0, 1};
+            chunk.candidates.push_back(site);
+            chunk.reads.emplace_back();
+            chunk.haps = {0};
+            chunk.phase_sets = {0};
+            ReadVariantProfile profile;
+            profile.read_id = 0;
+            profile.start_var_idx = profile.end_var_idx = 0;
+            profile.alleles = {1};
+            chunk.read_var_profile.push_back(profile);
+            return chunk;
+        };
+        PhasingChunk noisy_hom = singleton(VariantCategory::NoisyCandHom);
+        ok &= check(rescue_unphased_graph_reads(noisy_hom) == 0,
+                    "hom singleton: stale noisy het orientation is not direct evidence");
+        PhasingChunk clean_hom = singleton(VariantCategory::CleanHom);
+        ok &= check(rescue_unphased_graph_reads(clean_hom) == 0,
+                    "hom singleton: stale clean het orientation is not direct evidence");
+        PhasingChunk het = singleton(VariantCategory::NoisyCandHet);
+        ok &= check(rescue_unphased_graph_reads(het) == 1 && het.gap_haps[0] == 2,
+                    "hom singleton: ordinary phased heterozygote remains usable");
     }
 
     // A BAM-observation rescue is additive across overlapping chunks. Once an

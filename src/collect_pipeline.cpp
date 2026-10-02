@@ -903,40 +903,49 @@ struct TargetedWindowGroup {
     size_t first_window = 0;
     size_t past_last_window = 0;
     bool focused_retry = false;
+    // A newly admitted conflicting-majority MSA retry can resolve a compound
+    // flank allele. Transfer its complete certified source path, including
+    // private rows outside the seam that define that allele's orientation.
+    bool preserve_source_flanks = false;
+    // A validated focused solve owns this one seam; the original matrix serves
+    // the other seams without copying its reads or running a second broad MSA.
+    std::optional<size_t> omitted_window;
 };
 
-// Exact binomial upper tail for local MSA retry admission.
-static double binomial_upper_tail(int n, int first, double p) {
-    const double log_term =
-        std::lgamma(static_cast<double>(n + 1)) -
-        std::lgamma(static_cast<double>(first + 1)) -
-        std::lgamma(static_cast<double>(n - first + 1)) +
-        static_cast<double>(first) * std::log(p) +
-        static_cast<double>(n - first) * std::log1p(-p);
-    double term = std::exp(log_term);
-    double tail = term;
-    for (int k = first; k < n; ++k) {
-        term *= static_cast<double>(n - k) /
-                static_cast<double>(k + 1) * p / (1.0 - p);
-        tail += term;
-    }
-    return std::min(1.0, tail);
+static bool group_owns_window(const TargetedWindowGroup& group, size_t wi) {
+    return group.first_window <= wi && wi < group.past_last_window &&
+        group.omitted_window != wi;
+}
+
+static bool group_omits_position(const std::vector<RecoverySeam>& windows,
+                                 const TargetedWindowGroup& group, hts_pos_t pos) {
+    return group.omitted_window &&
+        windows[*group.omitted_window].beg <= pos &&
+        pos <= windows[*group.omitted_window].end;
 }
 
 // A second MSA solve is admitted only for a two-block BAM boundary with
-// missing, dropped-out, or conflicting indel calls on crossing molecules.
-// Sparse conflicting pairs name one seam for a focused solve; other admission
-// signals retain the existing grouped solve and its source-row guard.
+// missing, dropped-out, or conflicting calls on crossing molecules. Before
+// CIGAR backfill, the first pass measures original MSA dropout; after it,
+// the ordinary pass measures the remaining paired-call defects.
+// Sparse conflicting pairs and deep indel dropout name one seam for a focused
+// solve; other signals retain the grouped solve and its source-row guard.
 static bool source_seam_needs_unplaced_msa(
         const PhasingChunk& source, const TargetedWindowGroup& group,
         const std::vector<RecoverySeam>& windows, const Options& opts,
         bool& preserve_source_rows, bool& ordinary_retry,
-        std::optional<size_t>& sparse_window) {
+        std::optional<size_t>& sparse_window,
+        bool only_original_dropout = false,
+        std::optional<size_t> only_window = std::nullopt,
+        bool allow_complementary = false,
+        bool* conflicting_majority = nullptr) {
+    if (conflicting_majority != nullptr) *conflicting_majority = false;
     preserve_source_rows = false;
     ordinary_retry = false;
     sparse_window.reset();
     if (source.read_var_profile.size() != source.reads.size()) return false;
     constexpr int kAdmissionMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
     constexpr int kAdmissionMinCrossingReads = 20;
     constexpr double kMissingPairMaxP = 0.01;
     constexpr int kDropoutMinPairedCalls = 6;
@@ -948,13 +957,15 @@ static bool source_seam_needs_unplaced_msa(
     constexpr int kMixedParityMinOpposingCalls = 2;
     constexpr double kMixedParityErrorRate = 0.05;
     constexpr double kMixedParityMaxP = 0.01;
-    constexpr double kDecisiveParityMaxP = 0.05;
     struct SourceRun {
         hts_pos_t phase_set;
         size_t first;
         size_t last;
     };
-    for (size_t wi = group.first_window; wi < group.past_last_window; ++wi) {
+    const size_t first = only_window.value_or(group.first_window);
+    const size_t past_last = only_window ? *only_window + 1 : group.past_last_window;
+    for (size_t wi = first; wi < past_last; ++wi) {
+        if (!group_owns_window(group, wi)) continue;
         const RecoverySeam& seam = windows[wi];
         std::vector<SourceRun> runs;
         for (size_t ci = 0; ci < source.candidates.size(); ++ci) {
@@ -985,11 +996,16 @@ static bool source_seam_needs_unplaced_msa(
         // retry without merging their allele representations. Grouped retries
         // still require unique boundaries, and the focused retry must retain
         // every original phased row before it replaces the source solve.
-        const auto unique_boundary = [&source](hts_pos_t pos) {
+        const std::array<size_t, 2> boundaries{left_i, right_i};
+        const bool mixed_msa_pair = only_original_dropout &&
+            msa_boundary_dropout_is_supported(source, boundaries, opts,
+                                               allow_complementary);
+        const auto unique_boundary = [&source, mixed_msa_pair](hts_pos_t pos) {
             return std::count_if(source.candidates.begin(),
                                  source.candidates.end(),
-                                 [pos](const CandidateVariant& candidate) {
-                                     return candidate.key.sort_pos() == pos;
+                                 [pos, mixed_msa_pair](const CandidateVariant& candidate) {
+                                     return (!mixed_msa_pair || is_phase_set_anchor(candidate)) &&
+                                         candidate.key.sort_pos() == pos;
                                  }) == 1;
         };
         const bool left_unique = unique_boundary(left_pos);
@@ -997,13 +1013,14 @@ static bool source_seam_needs_unplaced_msa(
         const bool unique_pair = left_unique && right_unique;
         const bool can_focus = group.focused_retry ||
             (group.past_last_window - group.first_window > 1 &&
-             (wi == group.first_window ||
+             (mixed_msa_pair || wi == group.first_window ||
               wi + 1 == group.past_last_window));
         const auto complementary_boundary = [&](size_t selected) {
             const CandidateVariant& first = source.candidates[selected];
             const CandidateVariant* other = nullptr;
             for (size_t ci = 0; ci < source.candidates.size(); ++ci) {
                 if (ci == selected ||
+                    (mixed_msa_pair && !is_phase_set_anchor(source.candidates[ci])) ||
                     source.candidates[ci].key.sort_pos() !=
                         first.key.sort_pos())
                     continue;
@@ -1012,7 +1029,10 @@ static bool source_seam_needs_unplaced_msa(
             }
             return other != nullptr &&
                 first.phase_set == other->phase_set &&
-                first.key.type == other->key.type &&
+                (first.key.type == other->key.type ||
+                 (mixed_msa_pair && first.msa_verified && other->msa_verified &&
+                  first.key.type != VariantType::Snp &&
+                  other->key.type != VariantType::Snp)) &&
                 first.hap_to_cons_alle[1] >= 0 &&
                 first.hap_to_cons_alle[1] <= 1 &&
                 first.hap_to_cons_alle[2] >= 0 &&
@@ -1026,6 +1046,13 @@ static bool source_seam_needs_unplaced_msa(
              (!left_unique && !complementary_boundary(left_i)) ||
              (!right_unique && !complementary_boundary(right_i))))
             continue;
+        const bool left_msa_snp = source.candidates[left_i].msa_verified &&
+            source.candidates[left_i].key.type == VariantType::Snp;
+        const bool right_msa_snp = source.candidates[right_i].msa_verified &&
+            source.candidates[right_i].key.type == VariantType::Snp;
+        if (only_original_dropout && !source.candidates[left_i].msa_verified &&
+            !source.candidates[right_i].msa_verified) continue;
+        int snp_calls[2] = {0, 0};
         int spanning = 0;
         int callable = 0;
         int left_alleles[2] = {0, 0};
@@ -1035,10 +1062,25 @@ static bool source_seam_needs_unplaced_msa(
         for (size_t ri = 0; ri < source.reads.size(); ++ri) {
             const ReadRecord& read = source.reads[ri];
             if (read.is_skipped || read.mapq < kAdmissionMinMapq ||
+                (only_original_dropout && read.mapq == kUnknownMapq) ||
                 read.beg > left_pos || read.end < right_pos)
                 continue;
             ++spanning;
             const ReadVariantProfile& profile = source.read_var_profile[ri];
+            if (only_original_dropout && profile.start_var_idx >= 0) {
+                for (size_t side = 0; side < boundaries.size(); ++side) {
+                    if (boundaries[side] <
+                        static_cast<size_t>(profile.start_var_idx))
+                        continue;
+                    const size_t offset = boundaries[side] -
+                        static_cast<size_t>(profile.start_var_idx);
+                    // Any known allele is a call, including a non-reference
+                    // allele at a multiallelic SNP. Only absence is dropout.
+                    if (offset < profile.alleles.size() &&
+                        profile.alleles[offset] >= 0)
+                        ++snp_calls[side];
+                }
+            }
             if (profile.start_var_idx < 0 ||
                 left_i < static_cast<size_t>(profile.start_var_idx) ||
                 right_i > static_cast<size_t>(profile.end_var_idx))
@@ -1063,6 +1105,30 @@ static bool source_seam_needs_unplaced_msa(
                 }
             }
         }
+        if (only_original_dropout) {
+            if (mixed_msa_pair && can_focus) {
+                preserve_source_rows = true;
+                sparse_window = wi;
+                return true;
+            }
+            // Backfill can supply these calls only after the source HP/PS solve.
+            // Test the original SNP matrix so a repaired call cannot conceal
+            // an under-supported consensus. Correct for the two endpoints
+            // when both boundaries are MSA SNPs.
+            const int missing = std::max(left_msa_snp ? spanning - snp_calls[0] : 0,
+                                         right_msa_snp ? spanning - snp_calls[1] : 0);
+            if (unique_pair &&
+                spanning >= std::max(opts.min_depth, kAdmissionMinCrossingReads) &&
+                missing > spanning - missing &&
+                (static_cast<int>(left_msa_snp) + static_cast<int>(right_msa_snp)) *
+                    binomial_upper_tail(spanning, missing, 0.5) <= kMissingPairMaxP) {
+                preserve_source_rows = true;
+                ordinary_retry = true;
+                sparse_window = wi;
+                return true;
+            }
+            continue;
+        }
         // A monomorphic indel call on molecules carrying both alleles of
         // the other boundary indicates allele dropout in the BAM profiles.
         // Use the exact two-sided tail for a balanced heterozygote to avoid
@@ -1084,31 +1150,56 @@ static bool source_seam_needs_unplaced_msa(
             preserve_source_rows = true;
             ordinary_retry = true;
         }
-        // A true diploid link has one allele parity. Retry MSA only when
-        // opposite calls exceed the error model AND neither parity has a
-        // decisive majority; an already supported link needs no new solve.
+        // These source blocks are still split. A decisive majority cannot
+        // conceal conflicting indel calls that exceed the sequencing-error
+        // model: MSA may repair the allele representation before stitching.
+        // Admission supplies no phase parity; transfer validates the new path.
         const int opposing = std::min(same_parity, cross_parity);
-        // Conflicting sparse indel calls have no statistically decisive
-        // parity. Retry just this seam if a grouped MSA would disturb sites
-        // elsewhere; unanimously oriented sparse calls do not need a retry.
+        // Test the observed majority, not the probability of unanimous calls:
+        // 6:1 votes have a 0.0625 tail under 50:50, while 7:0 has 0.0078125.
+        // Retry just this seam if a grouped MSA would disturb other sites;
+        // unanimously oriented sparse calls do not need a retry.
         if ((left_indel || right_indel) && same_parity > 0 &&
             cross_parity > 0 &&
             paired_biallelic >= kSparseMinPairedCalls &&
-            std::ldexp(1.0, -paired_biallelic) > kDecisivePairMaxP) {
+            binomial_upper_tail(paired_biallelic,
+                                std::max(same_parity, cross_parity), 0.5) >
+                kDecisivePairMaxP) {
             preserve_source_rows = true;
             if (!sparse_window) sparse_window = wi;
         }
+        // A strong majority is an existing link signal. Revisit it only for
+        // a compound flank representation: a verified phased MSA deletion
+        // covers the graph anchor, but the BAM has no SNP row for that base.
+        // Unplaced consensus reads can recover that missing allele context;
+        // ordinary noisy indel/SNP majorities need no new MSA solve.
+        const auto compound_flank = [&](hts_pos_t pos) {
+            if (std::any_of(source.candidates.begin(), source.candidates.end(),
+                    [pos](const CandidateVariant& candidate) {
+                        return candidate.key.type == VariantType::Snp && candidate.key.pos == pos;
+                    })) return false;
+            return std::any_of(source.candidates.begin(), source.candidates.end(),
+                [pos](const CandidateVariant& candidate) {
+                    return candidate.msa_verified && is_phase_set_anchor(candidate) &&
+                        candidate.key.type == VariantType::Deletion &&
+                        candidate.key.pos <= pos &&
+                        pos < candidate.key.pos + candidate.key.ref_len;
+                });
+        };
+        const bool decisive_majority = binomial_upper_tail(paired_biallelic,
+            std::max(same_parity, cross_parity), 0.5) <= kDecisivePairMaxP;
         if (unique_pair && (left_indel || right_indel) &&
+            (!decisive_majority || compound_flank(seam.beg) || compound_flank(seam.end)) &&
             paired_biallelic >=
                 std::max(opts.min_depth, kMixedParityMinPairedCalls) &&
             opposing >= kMixedParityMinOpposingCalls &&
             binomial_upper_tail(paired_biallelic, opposing,
-                                kMixedParityErrorRate) <= kMixedParityMaxP &&
-            binomial_upper_tail(paired_biallelic,
-                                std::max(same_parity, cross_parity), 0.5) >
-                kDecisiveParityMaxP) {
+                                kMixedParityErrorRate) <= kMixedParityMaxP) {
             preserve_source_rows = true;
             ordinary_retry = true;
+            if (conflicting_majority != nullptr &&
+                decisive_majority)
+                *conflicting_majority = true;
         }
         if (!unique_pair) continue;
         if (spanning < std::max(opts.min_depth, kAdmissionMinCrossingReads) ||
@@ -1225,7 +1316,10 @@ static const RecoverySeam* find_containing_window(
         [](hts_pos_t value, const RecoverySeam& window) { return value < window.beg; });
     if (after == first) return nullptr;
 
-    const auto& window = *std::prev(after);
+    const auto selected = std::prev(after);
+    if (!group_owns_window(group, static_cast<size_t>(selected - windows.begin())))
+        return nullptr;
+    const auto& window = *selected;
     return pos > window.beg && pos < window.end ? &window : nullptr;
 }
 
@@ -1331,44 +1425,6 @@ struct TransferredReadPhase {
 };
 
 } // namespace
-
-// Read one physical base from the retained original alignment. The BAM solve
-// has already freed its bulky parsed Digar vector, but keeps the bam1_t record.
-// Returns 0 for reference, 1 for a deletion, 2 for SNP ALT, -1 otherwise.
-int physical_snp_call(const bam1_t* aln, hts_pos_t pos,
-                      char ref_base, char alt_base,
-                      int* base_quality) {
-    if (aln == nullptr) return -1;
-    hts_pos_t ref_pos = aln->core.pos + 1;
-    int query_pos = 0;
-    const uint32_t* cigar = bam_get_cigar(aln);
-    for (uint32_t i = 0; i < aln->core.n_cigar; ++i) {
-        const int op = bam_cigar_op(cigar[i]);
-        const int len = bam_cigar_oplen(cigar[i]);
-        const int consumed = bam_cigar_type(op);
-        if ((consumed & 2) != 0 && ref_pos <= pos && pos < ref_pos + len) {
-            if (op == BAM_CDEL) return 1;
-            if (op != BAM_CMATCH && op != BAM_CEQUAL && op != BAM_CDIFF)
-                return -1;
-            const int qi = query_pos + static_cast<int>(pos - ref_pos);
-            if (qi < 0 || qi >= aln->core.l_qseq) return -1;
-            const char base = seq_nt16_str[bam_seqi(bam_get_seq(aln), qi)];
-            if (base_quality != nullptr)
-                *base_quality = bam_get_qual(aln)[qi];
-            // Reference FASTA can be soft-masked while BAM bases are encoded
-            // uppercase. Compare nucleotides, not their original case.
-            if (base == std::toupper(static_cast<unsigned char>(ref_base)))
-                return 0;
-            if (base == std::toupper(static_cast<unsigned char>(alt_base)))
-                return 2;
-            return -1;
-        }
-        if ((consumed & 2) != 0) ref_pos += len;
-        if ((consumed & 1) != 0) query_pos += len;
-        if (ref_pos > pos) break;
-    }
-    return -1;
-}
 
 namespace {
 
@@ -2461,106 +2517,6 @@ static std::optional<ValidatedSingletonBridge> validated_singleton_bridge(
         : std::nullopt;
 }
 
-// Re-solving a seam created inside a completed graph gap can reorient an
-// established block. Require a callable, directionally consistent SNP pair
-// before exposing that new pair to the BAM sub-solve.
-static bool has_direct_snp_parity_for_retry(
-        const PhasingChunk& chunk, const RecoverySeam& seam,
-        WorkerContext& context, int tid) {
-    constexpr int kMinMapq = 30;
-    constexpr int kMinBaseq = 30;
-    constexpr int kUnknownQuality = 255;
-    // Base-quality odds alone overstate a tiny 2:1 read split. Require at
-    // least four molecules and a 3:1 majority before using those odds.
-    constexpr int kMinPairedReads = 4;
-    constexpr double kMinDominantFraction = 0.75;
-    constexpr double kMaxWrongParity = 0.001;
-    if (context.bams.empty() || context.indexes.empty()) return false;
-    std::optional<size_t> left_i, right_i;
-    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        const CandidateVariant& candidate = chunk.candidates[ci];
-        if (candidate.key.type != VariantType::Snp ||
-            candidate.key.alt.size() != 1 ||
-            (candidate.counts.category != VariantCategory::CleanHetSnp &&
-             !(candidate.counts.category == VariantCategory::NoisyCandHet &&
-               candidate.msa_verified && candidate.alignment_verified)) ||
-            candidate.hap_to_cons_alle[1] < 0 ||
-            candidate.hap_to_cons_alle[1] > 1 ||
-            candidate.hap_to_cons_alle[2] !=
-                1 - candidate.hap_to_cons_alle[1])
-            continue;
-        if (candidate.phase_set == seam.left_phase_set &&
-            candidate.key.pos <= seam.beg &&
-            (!left_i || candidate.key.pos >
-                chunk.candidates[*left_i].key.pos))
-            left_i = ci;
-        if (candidate.phase_set == seam.right_phase_set &&
-            candidate.key.pos >= seam.end &&
-            (!right_i || candidate.key.pos <
-                chunk.candidates[*right_i].key.pos))
-            right_i = ci;
-    }
-    if (!left_i || !right_i) return false;
-    const CandidateVariant& left = chunk.candidates[*left_i];
-    const CandidateVariant& right = chunk.candidates[*right_i];
-    if (left.key.pos >= right.key.pos) return false;
-    const char left_ref = context.ref.base(
-        tid, left.key.pos, context.primary_header());
-    const char right_ref = context.ref.base(
-        tid, right.key.pos, context.primary_header());
-    if (left_ref == 'N' || right_ref == 'N') return false;
-    std::unique_ptr<hts_itr_t, decltype(&hts_itr_destroy)> iterator(
-        sam_itr_queryi(context.indexes.front().get(), tid,
-                       left.key.pos - 1, right.key.pos), &hts_itr_destroy);
-    if (!iterator) return false;
-    std::unique_ptr<bam1_t, AlignmentDeleter> alignment(bam_init1());
-    if (!alignment) return false;
-    std::unordered_set<std::string> seen;
-    std::array<int, 2> votes{};
-    double log_odds = 0.0;
-    while (sam_itr_next(context.bams.front()->get(), iterator.get(),
-                         alignment.get()) >= 0) {
-        const bam1_t* read = alignment.get();
-        if ((read->core.flag & (BAM_FUNMAP | BAM_FSECONDARY |
-                                BAM_FSUPPLEMENTARY | BAM_FDUP | BAM_FQCFAIL)) ||
-            read->core.qual < kMinMapq ||
-            read->core.qual == kUnknownQuality ||
-            seen.count(bam_get_qname(read)) != 0)
-            continue;
-        int left_quality = 0, right_quality = 0;
-        const int left_call = physical_snp_call(
-            read, left.key.pos, left_ref, left.key.alt[0], &left_quality);
-        const int right_call = physical_snp_call(
-            read, right.key.pos, right_ref, right.key.alt[0], &right_quality);
-        if ((left_call != 0 && left_call != 2) ||
-            (right_call != 0 && right_call != 2) ||
-            left_quality < kMinBaseq || right_quality < kMinBaseq ||
-            left_quality == kUnknownQuality ||
-            right_quality == kUnknownQuality)
-            continue;
-        seen.insert(bam_get_qname(read));
-        const bool left_hap1 = (left_call == 2) ==
-            (left.hap_to_cons_alle[1] == 1);
-        const bool right_hap1 = (right_call == 2) ==
-            (right.hap_to_cons_alle[1] == 1);
-        const bool flip = left_hap1 != right_hap1;
-        ++votes[flip ? 1 : 0];
-        const double p =
-            std::pow(10.0, -left_quality / 10.0) +
-            std::pow(10.0, -right_quality / 10.0) +
-            2.0 * std::pow(10.0, -read->core.qual / 10.0);
-        if (p > 0.0 && p < 0.5)
-            log_odds += (flip ? 1.0 : -1.0) *
-                std::log((1.0 - p) / p);
-    }
-    const int total = votes[0] + votes[1];
-    const int winner = std::max(votes[0], votes[1]);
-    return total >= kMinPairedReads &&
-           static_cast<double>(winner) / total >= kMinDominantFraction &&
-           (log_odds > 0.0) == (votes[1] > votes[0]) &&
-           std::abs(log_odds) >=
-               std::log((1.0 - kMaxWrongParity) / kMaxWrongParity);
-}
 
 bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
@@ -2576,6 +2532,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     if (solve_tid < 0) return false;
 
     std::vector<RecoverySeam> windows = collect_phase_set_seams(graph_chunk);
+    std::vector<RecoveryPhysicalSnpBridge> retry_bridges;
     if (completed_seams != nullptr) {
         // A BAM block imported by the first pass may split an old graph seam.
         // Retry its new phase-set pair only when physical SNP calls already
@@ -2599,9 +2556,18 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 // Adjacent anchors leave no unphased reference base for the
                 // second BAM solve. Re-solving them can retag reads without
                 // closing an actual gap.
-                return seam.end <= seam.beg + 1 ||
-                    !has_direct_snp_parity_for_retry(
-                        chunk, seam, context, solve_tid);
+                if (seam.end <= seam.beg + 1) return true;
+                std::optional<bool> graph_parity;
+                if (!has_direct_snp_parity_for_retry(
+                        graph_chunk, seam, context, solve_tid, &graph_parity))
+                    return true;
+                // Admission proved a graph SNP orientation, not just coverage.
+                // Carry that relation into the stitch so an indel edge cannot
+                // silently reverse the blocks that admitted this solve.
+                if (graph_parity)
+                    retry_bridges.push_back(RecoveryPhysicalSnpBridge{
+                        seam.left_phase_set, seam.right_phase_set, *graph_parity});
+                return false;
             }), windows.end());
     }
     if (windows.empty()) return false;
@@ -2664,21 +2630,36 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                               const TargetedWindowGroup& target_group,
                               const Options& target_opts) {
         for (size_t wi = target_group.first_window;
-             wi < target_group.past_last_window; ++wi)
+             wi < target_group.past_last_window; ++wi) {
+            if (!group_owns_window(target_group, wi)) continue;
             backfill_msa_observations(target, target_opts,
                                       windows[wi].beg, windows[wi].end);
+        }
     };
     const auto preserves_hets = [](const PhasingChunk& before,
-                                   const PhasingChunk& after) {
-        std::set<CandKey> after_hets;
+                                   const PhasingChunk& after,
+                                   bool preserve_clean_gauge = false) {
+        std::map<CandKey, const CandidateVariant*> after_hets;
         for (const CandidateVariant& candidate : after.candidates)
             if (is_phase_set_anchor(candidate))
-                after_hets.insert(cand_key_of(candidate));
+                after_hets.emplace(cand_key_of(candidate), &candidate);
+        std::map<hts_pos_t, std::pair<hts_pos_t, bool>> clean_gauges;
         return std::all_of(
             before.candidates.begin(), before.candidates.end(),
             [&](const CandidateVariant& candidate) {
-                return !is_phase_set_anchor(candidate) ||
-                    after_hets.count(cand_key_of(candidate)) != 0;
+                if (!is_phase_set_anchor(candidate)) return true;
+                const auto found = after_hets.find(cand_key_of(candidate));
+                if (found == after_hets.end()) return false;
+                if (!preserve_clean_gauge ||
+                    candidate.counts.category != VariantCategory::CleanHetSnp)
+                    return true;
+                const CandidateVariant& next = *found->second;
+                const bool flip = candidate.hap_to_cons_alle[1] == next.hap_to_cons_alle[2];
+                if (!flip && candidate.hap_to_cons_alle[1] != next.hap_to_cons_alle[1])
+                    return false;
+                const auto [gauge, inserted] = clean_gauges.emplace(candidate.phase_set,
+                    std::make_pair(next.phase_set, flip));
+                return inserted || gauge->second == std::make_pair(next.phase_set, flip);
             });
     };
     for (const TargetedWindowGroup& group : initial_groups) {
@@ -2693,20 +2674,61 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         if (!dump_prefix.empty())
             source_opts.phase_matrix_dump_prefix = dump_prefix + ".initial";
         PhasingChunk source = process_chunk(group.region, source_opts, context);
-        // Exact-CIGAR backfill is part of the ordinary source evidence.
+        // Measure SNP dropout in the matrix used by the source solve before
+        // exact-CIGAR backfill hides it. A newly admitted retry retains every
+        // source heterozygote; filling calls after solving does not rephase them.
+        bool raw_preserve = false;
+        bool raw_ordinary = false;
+        std::optional<size_t> raw_sparse;
+        const bool raw_needs_retry = source_seam_needs_unplaced_msa(
+            source, group, windows, opts, raw_preserve, raw_ordinary,
+            raw_sparse, true);
+        // Scan every requested seam before backfill hides its original dropout.
+        // A rejected earlier request must not suppress a later independent one.
+        std::vector<size_t> focused_windows;
+        std::vector<size_t> original_dropout_windows;
+        for (size_t wi = group.first_window; wi < group.past_last_window; ++wi) {
+            bool preserve = false, ordinary = false;
+            std::optional<size_t> requested;
+            if (source_seam_needs_unplaced_msa(source, group, windows, opts,
+                    preserve, ordinary, requested, true, wi, true) && !ordinary) {
+                original_dropout_windows.push_back(wi);
+            }
+        }
         backfill(source, group, source_opts);
+        TargetedWindowGroup remainder = group;
+        bool focused_accepted = false;
         bool preserve_source_rows = false;
         bool ordinary_retry = false;
         std::optional<size_t> sparse_window;
-        const bool needs_retry = source_seam_needs_unplaced_msa(
+        bool conflicting_majority = false;
+        const bool filled_needs_retry = source_seam_needs_unplaced_msa(
             source, group, windows, opts, preserve_source_rows,
-            ordinary_retry, sparse_window);
-        const bool isolated_edge = sparse_window && !ordinary_retry &&
-            group.past_last_window - group.first_window > 1 &&
-            (*sparse_window == group.first_window ||
-             *sparse_window + 1 == group.past_last_window);
-        if (isolated_edge) {
-            const size_t wi = *sparse_window;
+            ordinary_retry, sparse_window, false, std::nullopt, false,
+            &conflicting_majority);
+        if (!filled_needs_retry && raw_needs_retry) {
+            preserve_source_rows = true;
+            ordinary_retry = raw_ordinary;
+            sparse_window = raw_sparse;
+        }
+        const bool needs_retry = filled_needs_retry || raw_needs_retry;
+        // Try the established selection first. If it fails certification,
+        // later original-dropout requests still get an independent attempt.
+        // One accepted source owns the seam; importing overlapping focused
+        // context from multiple solves would duplicate source evidence.
+        if (sparse_window && !ordinary_retry) focused_windows.push_back(*sparse_window);
+        for (const size_t wi : original_dropout_windows)
+            if (!sparse_window || wi != *sparse_window || ordinary_retry)
+                focused_windows.push_back(wi);
+        for (const size_t wi : focused_windows) {
+            if (group.past_last_window - group.first_window <= 1) break;
+            const bool fallback = !sparse_window || ordinary_retry || wi != *sparse_window;
+            const bool original_dropout = fallback
+                ? std::binary_search(original_dropout_windows.begin(),
+                                     original_dropout_windows.end(), wi)
+                : raw_needs_retry && !raw_ordinary;
+            const std::string focused_prefix = dump_prefix.empty() ? std::string() :
+                dump_prefix + ".focused.seam" + std::to_string(wi);
             const RecoverySeam& seam = windows[wi];
             const auto left = phase_set_extents.find(seam.left_phase_set);
             const auto right = phase_set_extents.find(seam.right_phase_set);
@@ -2718,28 +2740,61 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 isolated.focused_retry = true;
                 isolated.region.beg = std::max(chunk.ref_beg, left->second.first);
                 isolated.region.end = std::min(chunk.ref_end, right->second.second);
+                // Singleton graph blocks need BAM solve context as well as
+                // their one anchor. Use the existing flank, bounded by the chunk.
+                if (original_dropout && isolated.region.beg == seam.beg)
+                    isolated.region.beg = std::max(chunk.ref_beg,
+                        seam.beg - kTargetedSolveFlankMin);
+                if (original_dropout && isolated.region.end == seam.end)
+                    isolated.region.end = std::min(chunk.ref_end,
+                        seam.end + kTargetedSolveFlankMin);
                 if (isolated.region.beg < seam.beg &&
                     isolated.region.end > seam.end) {
                     Options isolated_opts = sub;
                     isolated_opts.retry_windows = {{seam.beg, seam.end}};
                     if (!dump_prefix.empty())
                         isolated_opts.phase_matrix_dump_prefix =
-                            dump_prefix + ".focused";
+                            focused_prefix;
                     PhasingChunk local = process_chunk(
                         isolated.region, isolated_opts, context);
+                    bool local_raw_preserve = false, local_raw_ordinary = false;
+                    std::optional<size_t> local_raw_sparse;
+                    const bool local_raw_retry = source_seam_needs_unplaced_msa(
+                        local, isolated, windows, opts, local_raw_preserve,
+                        local_raw_ordinary, local_raw_sparse, true, std::nullopt,
+                        fallback);
                     backfill(local, isolated, isolated_opts);
                     bool local_preserve = false;
                     bool local_ordinary = false;
                     std::optional<size_t> local_sparse;
                     if (source_seam_needs_unplaced_msa(
                             local, isolated, windows, opts, local_preserve,
-                            local_ordinary, local_sparse)) {
+                            local_ordinary, local_sparse) ||
+                        (local_raw_retry && !local_raw_ordinary)) {
                         isolated_opts.add_unplaced_msa_observations = true;
+                        if (local_raw_retry && !local_raw_ordinary) {
+                            isolated_opts.joint_het_orientation = true;
+                            isolated_opts.link_by_alleles = true;
+                        }
                         if (!dump_prefix.empty())
                             isolated_opts.phase_matrix_dump_prefix =
-                                dump_prefix + ".focused.msa";
+                                focused_prefix + ".msa";
                         PhasingChunk local_retry = process_chunk(
                             isolated.region, isolated_opts, context);
+                        if (isolated_opts.joint_het_orientation) {
+                            for (CandidateVariant& candidate : local_retry.candidates) {
+                                if (candidate.msa_verified &&
+                                    candidate.key.type != VariantType::Snp &&
+                                    candidate.lcd_var_i_to_cate == kCandNoisyCandHet)
+                                    candidate.read_rescue_requires_validation = true;
+                            }
+                        }
+                        // Certify the matrix that transfer will actually use.
+                        // Post-solve CIGAR calls can introduce a conflicting
+                        // cut even when the raw MSA source path was complete.
+                        backfill(local_retry, isolated, isolated_opts);
+                        if (!dump_prefix.empty())
+                            dump_recovery_phase_state(local_retry, isolated_opts, "trial-source");
                         // A focused replacement must actually carry a
                         // read-supported BAM path across both graph flanks.
                         // Retaining row keys alone does not prevent an MSA
@@ -2769,6 +2824,36 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                     local_retry, source_ps);
                             if (path.site_count >= 2 &&
                                 path.weak_cuts.empty()) {
+                                if (fallback) {
+                                    // A newly selected source can retain old
+                                    // keys yet orient its added MSA rows poorly.
+                                    // Independently certify the flank relation
+                                    // with the existing physical SNP cut check.
+                                    std::optional<size_t> previous_snp;
+                                    bool reaches_right = false;
+                                    for (size_t ci = 0; ci < local_retry.candidates.size(); ++ci) {
+                                        const CandidateVariant& site = local_retry.candidates[ci];
+                                        if (site.phase_set != source_ps ||
+                                            !is_phase_set_anchor(site) ||
+                                            site.counts.category != VariantCategory::CleanHetSnp)
+                                            continue;
+                                        const hts_pos_t pos = site.key.sort_pos();
+                                        if (pos <= seam.beg) {
+                                            previous_snp = ci;
+                                            continue;
+                                        }
+                                        if (!previous_snp ||
+                                            !high_quality_snp_cut_support(local_retry,
+                                                *previous_snp, ci, source_ps))
+                                            break;
+                                        previous_snp = ci;
+                                        if (pos >= seam.end) {
+                                            reaches_right = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!reaches_right) continue;
+                                }
                                 complete_source_span = true;
                                 break;
                             }
@@ -2776,50 +2861,50 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                         if (complete_source_span &&
                             preserves_hets(local, local_retry)) {
                             local = std::move(local_retry);
-                            backfill(local, isolated, isolated_opts);
                             // The focused source owns this seam's observations
                             // and gauge. The original solve keeps its other
                             // seams, without repeating the broad MSA.
                             groups.push_back(isolated);
                             discovered.push_back(std::move(local));
-                            TargetedWindowGroup remainder = group;
                             if (wi == group.first_window)
                                 remainder.first_window = wi + 1;
-                            else
+                            else if (wi + 1 == group.past_last_window)
                                 remainder.past_last_window = wi;
-                            groups.push_back(remainder);
-                            discovered.push_back(std::move(source));
+                            else
+                                remainder.omitted_window = wi;
+                            focused_accepted = true;
                             if (!dump_prefix.empty()) {
                                 Options dump_opts = sub;
-                                dump_opts.phase_matrix_dump_prefix =
-                                    dump_prefix + ".focused";
-                                dump_recovery_phase_state(
-                                    discovered[discovered.size() - 2],
-                                    dump_opts, "recovery-source");
-                                dump_opts.phase_matrix_dump_prefix =
-                                    dump_prefix + ".remainder";
-                                dump_recovery_phase_state(
-                                    discovered.back(), dump_opts,
-                                    "recovery-source");
+                                dump_opts.phase_matrix_dump_prefix = focused_prefix;
+                                dump_recovery_phase_state(discovered.back(), dump_opts,
+                                                          "recovery-source");
                             }
-                            continue;
+                            break;
                         }
                     }
                 }
             }
         }
-        if (ordinary_retry ||
-            (needs_retry && group.past_last_window - group.first_window == 1)) {
+        if (!focused_accepted &&
+            (ordinary_retry ||
+             (needs_retry && group.past_last_window - group.first_window == 1))) {
             source_opts.add_unplaced_msa_observations = true;
             if (!dump_prefix.empty())
                 source_opts.phase_matrix_dump_prefix = dump_prefix + ".msa";
             PhasingChunk retried = process_chunk(group.region, source_opts, context);
-            if (!preserve_source_rows || preserves_hets(source, retried)) {
+            if (conflicting_majority) {
+                for (CandidateVariant& candidate : retried.candidates)
+                    if (candidate.msa_verified && is_phase_set_anchor(candidate))
+                        candidate.read_rescue_requires_validation = true;
+            }
+            if (!preserve_source_rows || preserves_hets(source, retried, conflicting_majority)) {
                 source = std::move(retried);
+                remainder.preserve_source_flanks = conflicting_majority;
                 backfill(source, group, source_opts);
             }
         }
-        groups.push_back(group);
+        if (remainder.first_window == remainder.past_last_window) continue;
+        groups.push_back(std::move(remainder));
         discovered.push_back(std::move(source));
         if (!dump_prefix.empty()) {
             Options dump_opts = sub;
@@ -2886,7 +2971,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             const RecoverySeam& after = expanded[wi];
             const auto group = std::find_if(
                 groups.begin(), groups.end(), [wi](const TargetedWindowGroup& value) {
-                    return value.first_window <= wi && wi < value.past_last_window;
+                    return group_owns_window(value, wi);
                 });
             covered = group != groups.end() &&
                 before.left_phase_set == after.left_phase_set &&
@@ -3023,6 +3108,16 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         }
     }
 
+    // A validated focused replacement or conflicting-majority retry must
+    // carry its whole selected source path through transfer. Dropping private flank rows truncates evidence
+    // and can remove sites that a later recovery pass would otherwise find.
+    // Cache each path once for admission here and stitch metadata below.
+    std::vector<std::map<hts_pos_t, SourcePathEvidence>> source_paths(discovered.size());
+    for (size_t gi = 0; gi < discovered.size(); ++gi) {
+        for (const hts_pos_t ps : selected_source_phase_sets[gi])
+            source_paths[gi].emplace(ps, source_phase_set_path_evidence(discovered[gi], ps));
+    }
+
     for (size_t gi = 0; gi < discovered.size(); ++gi) {
         const PhasingChunk& src = discovered[gi];
         if (src.read_var_profile.size() != src.reads.size()) continue;
@@ -3033,6 +3128,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         for (size_t ci = 0; ci < src.candidates.size(); ++ci) {
             const CandidateVariant& cand = src.candidates[ci];
             const CandKey key = cand_key_of(cand);
+            if (group_omits_position(windows, groups[gi], key.pos)) continue;
             const ParentCandidateMatch parent =
                 find_parent_candidate(parent_cand_index, parent_seq_index, key,
                                       chunk.candidates.size());
@@ -3156,7 +3252,12 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
 
                 continue;
             }
-            if (member == nullptr) continue;
+            const auto path = source_paths[gi].find(cand.phase_set);
+            const bool complete_source_anchor =
+                (groups[gi].focused_retry || groups[gi].preserve_source_flanks) &&
+                is_phase_set_anchor(cand) && path != source_paths[gi].end() &&
+                path->second.site_count >= 2 && path->second.weak_cuts.empty();
+            if (member == nullptr && !complete_source_anchor) continue;
             // Admit what the solve itself would admit; the emitter's own
             // category gate runs later and independently.
             if ((cand.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
@@ -3206,6 +3307,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 if (ci >= src.candidates.size()) break;
                 if (prof.alleles[k] < 0) continue;
                 const CandKey observed_key = cand_key_of(src.candidates[ci]);
+                if (group_omits_position(windows, groups[gi], observed_key.pos)) continue;
                 per_read.emplace(observed_key,
                                  std::make_pair(prof.alleles[k],
                                                 k < prof.alt_qi.size() ? prof.alt_qi[k] : 0));
@@ -3269,8 +3371,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     for (const auto& [source, mapped] : phase_set_remap) {
         if (selected_source_phase_sets[source.first].count(source.second) == 0)
             continue;
-        SourcePathEvidence path = source_phase_set_path_evidence(
-            discovered[source.first], source.second);
+        SourcePathEvidence path = std::move(source_paths[source.first].at(source.second));
         graph_chunk.recovery_source_path_supported.emplace(
             mapped, path.site_count >= 2 && path.weak_cuts.empty());
         graph_chunk.recovery_source_weak_cuts.emplace(
@@ -3348,6 +3449,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         constexpr double kMaxPhysicalBridgeError = 0.01;
         for (size_t wi = groups[gi].first_window;
              wi < groups[gi].past_last_window; ++wi) {
+            if (!group_owns_window(groups[gi], wi)) continue;
             const RecoverySeam& seam = windows[wi];
             std::vector<const SourceSite*> left_candidates;
             std::vector<const SourceSite*> right_candidates;
@@ -3424,6 +3526,15 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     RecoveryPhysicalSnpBridge{
                         seam.left_phase_set, seam.right_phase_set,
                         *supported_flip});
+        }
+        for (size_t wi = groups[gi].first_window;
+             wi < groups[gi].past_last_window; ++wi) {
+            if (!group_owns_window(groups[gi], wi)) continue;
+            const RecoverySeam& seam = windows[wi];
+            for (const RecoveryPhysicalSnpBridge& bridge : retry_bridges)
+                if (bridge.left_phase_set == seam.left_phase_set &&
+                    bridge.right_phase_set == seam.right_phase_set)
+                    gauge.physical_snp_bridges.push_back(bridge);
         }
         graph_chunk.recovery_phase_gauges.push_back(std::move(gauge));
     }
@@ -3977,7 +4088,8 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 int del_by_hap[2] = {0, 0};
                 int graph_del_alt = 0, graph_del_ref = 0;
                 int graph_ref_alt = 0, graph_ref_ref = 0;
-                int physical_alt = 0, source_conflicts = 0;
+                int physical_alt = 0;
+                std::array<std::array<int, 2>, 2> source_event_calls{};
                 int source_ref = 0, source_del = 0;
                 // -1 = uncallable, 0 = exact reference, 1 = deletion,
                 // 2 = physical SNP ALT. Cache these calls for read transfer.
@@ -4012,7 +4124,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                             static_cast<size_t>(offset) < profile.alleles.size()) {
                             const int allele = profile.alleles[offset];
                             if (allele == 0 || allele == 1) {
-                                if (allele != physical) ++source_conflicts;
+                                ++source_event_calls[physical][allele];
                                 if (physical == 0) ++source_ref;
                                 else ++source_del;
                             }
@@ -4041,7 +4153,16 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 const int deletion_hap =
                     deletion.hap_to_cons_alle[1] == 1 ? 0 : 1;
                 const int reference_hap = 1 - deletion_hap;
-                if (physical_alt != 0 || source_conflicts != 0 ||
+                // Independent physical events must agree with the MSA alleles
+                // on both sides of the diploid contrast. Test their association
+                // with the same Fisher threshold as the graph contrast; one
+                // sequencing error must not veto a well-supported projection.
+                const bool source_events_agree =
+                    source_event_calls[0][0] > source_event_calls[0][1] &&
+                    source_event_calls[1][1] > source_event_calls[1][0] &&
+                    fisher_exact_two_tail(source_event_calls[0][0], source_event_calls[0][1],
+                        source_event_calls[1][0], source_event_calls[1][1]) <= kOverlapAlleleMaxP;
+                if (physical_alt != 0 || !source_events_agree ||
                     source_ref == 0 || source_del == 0 ||
                     graph_del_alt == 0 || graph_ref_ref == 0 ||
                     graph_ref_alt != 0 ||
@@ -4133,7 +4254,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         if (seam.end - seam.beg < kMinSingletonGap) continue;
         const auto group = std::find_if(
             groups.begin(), groups.end(), [wi](const TargetedWindowGroup& g) {
-                return g.first_window <= wi && wi < g.past_last_window;
+                return group_owns_window(g, wi);
             });
         if (group == groups.end()) continue;
         const size_t source_id = static_cast<size_t>(group - groups.begin());

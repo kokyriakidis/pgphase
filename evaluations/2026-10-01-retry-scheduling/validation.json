@@ -1,0 +1,27 @@
+{
+  "binary_sha256": "6855d83085f088e53135ce716b4c8e842532012474cdab3276bdee85483008dc",
+  "build_errors": 0,
+  "new_compile_warnings": 0,
+  "unit_tests": "PASS",
+  "predicates": {
+    "cases": 31,
+    "assertions": 684
+  },
+  "port_parity": {
+    "cases": 9,
+    "assertions": 27
+  },
+  "original_longcalld_c_parity": {
+    "cases": 7,
+    "assertions": 168696
+  },
+  "window_tests": {
+    "cases": 54,
+    "assertions": 4118,
+    "native_commands": 106,
+    "established_native_seconds": 235.71,
+    "new_matrix_native_seconds": 16.276418021006975
+  },
+  "new_tracked_closures": 0,
+  "competitor_targets_remaining": 13
+}

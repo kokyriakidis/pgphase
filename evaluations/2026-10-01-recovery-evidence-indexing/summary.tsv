@@ -1,0 +1,11 @@
+metric	before	after
+output_reads	256570	256570
+phased_truth_reads	237070	237070
+correct	229890	229890
+discordant	7180	7180
+read_phase_sets	692	692
+vcf_keys	62368	62368
+vcf_blocks	341	341
+span_n50_bp	672998	672998
+changed_read_hp_ps	0	0
+tracked_open_gaps	13	13

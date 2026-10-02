@@ -1,0 +1,19 @@
+{
+  "read_names_equal": true,
+  "hp_changed": 0,
+  "ps_changed": 609,
+  "vcf_keys_equal": true,
+  "vcf_genotypes_changed": 0,
+  "vcf_phase_sets_changed": 60,
+  "panel_gaps": 93,
+  "panel_spans_before": 74,
+  "panel_spans_after": 75,
+  "panel_span_changes": [
+    {
+      "left": 11573074,
+      "right": 11586531,
+      "before": false,
+      "after": true
+    }
+  ]
+}

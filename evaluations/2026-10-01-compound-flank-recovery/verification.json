@@ -1,0 +1,34 @@
+{
+  "binary_sha256": "0dee719443489efb56f5f33efc69c0c825f93904477af1c25d55cde63206f733",
+  "native_panel_commands": 105,
+  "native_panel_seconds": 234.81,
+  "extra_matrix_command": {
+    "args": [
+      "collect-graph-variation",
+      "--ref",
+      "test_data/chm13v2.0.chr20.renamed.fa",
+      "--bam",
+      "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+      "--sites",
+      "test_data/chr20.sites.striped.vcf.gz",
+      "--gaf",
+      "test_data/HG002.chr20.annotated.coord.gaf.gz",
+      "-r",
+      "CHM13#0#chr20:57000001-58000000",
+      "-t",
+      "4",
+      "--phase-matrix-dump",
+      "/tmp/pgphase-gap-next16/final-panel-score2/retry_scheduling_57m/w57050001-57950000/matrix",
+      "-o",
+      "/tmp/pgphase-gap-next16/final-panel-score2/retry_scheduling_57m/w57050001-57950000/candidates.tsv",
+      "--phased-vcf-out",
+      "/tmp/pgphase-gap-next16/final-panel-score2/retry_scheduling_57m/w57050001-57950000/native.vcf",
+      "--phased-bam-out",
+      "/tmp/pgphase-gap-next16/final-panel-score2/retry_scheduling_57m/w57050001-57950000/phased.bam"
+    ],
+    "binary_sha256": "0dee719443489efb56f5f33efc69c0c825f93904477af1c25d55cde63206f733",
+    "returncode": 0,
+    "elapsed_seconds": 16.513081238997984
+  },
+  "whole_chromosome_log": "final 0 179.69"
+}

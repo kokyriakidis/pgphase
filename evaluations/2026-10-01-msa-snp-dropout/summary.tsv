@@ -1,0 +1,11 @@
+measure	before	after
+output_reads	256570	256570
+phased_reads	237070	237071
+scored	237070	237071
+correct	229890	229892
+discordant	7180	7179
+concordance	0.9697135867043489	0.9697179326024693
+read_phase_sets	692	690
+vcf_keys	62368	62368
+vcf_blocks	341	340
+span_n50	672998	684798

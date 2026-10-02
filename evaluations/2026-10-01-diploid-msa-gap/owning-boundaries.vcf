@@ -1,0 +1,35 @@
+##fileformat=VCFv4.2
+##fileDate=20261001
+##source=pgphase collect-bam-variation
+##FILTER=<ID=PASS,Description="All filters passed">
+##FILTER=<ID=LowQual,Description="Low quality variant">
+##FILTER=<ID=RefCall,Description="Reference call candidate">
+##FILTER=<ID=NoCall,Description="Site has depth=0 resulting in no call">
+##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the variant described in this record">
+##INFO=<ID=CLEAN,Number=0,Type=Flag,Description="Clean-region variant (SNP or simple indel in non-repetitive region)">
+##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of structural variant">
+##INFO=<ID=SVLEN,Number=A,Type=Integer,Description="Difference in length between REF and ALT alleles">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total depth">
+##INFO=<ID=REFC,Number=1,Type=Integer,Description="Reference allele count">
+##INFO=<ID=ALTC,Number=1,Type=Integer,Description="Alternate allele count">
+##INFO=<ID=LQC,Number=1,Type=Integer,Description="Low-quality observation count">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Alternate allele fraction">
+##INFO=<ID=CAT,Number=1,Type=String,Description="pgPhase candidate category">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles">
+##FORMAT=<ID=VAF,Number=A,Type=Float,Description="Variant allele fraction">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set anchor coordinate">
+##contig=<ID=CHM13#0#chr20,length=66210255>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE
+CHM13#0#chr20	15039543	.	A	G	60	PASS	END=15039543;CLEAN;DP=58;REFC=23;ALTC=35;LQC=0;AF=0.603448;CAT=CLEAN_HET_SNP	GT:DP:AD:VAF:GQ:PS	0|1:58:23,35:0.603:60:15039543
+CHM13#0#chr20	15056025	.	G	A	60	PASS	END=15056025;DP=72;REFC=42;ALTC=30;LQC=0;AF=0.416667;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	0|1:72:42,30:0.417:60:15039543
+CHM13#0#chr20	15071132	.	ATGTATACACACACGTGTGTGTATACGCACACCTGTG	A	60	PASS	END=15071168;SVTYPE=DEL;SVLEN=-36;DP=11;REFC=6;ALTC=5;LQC=0;AF=0.454545;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	1|0:11:6,5:0.455:60:15039543
+CHM13#0#chr20	15100456	.	CT	C	60	PASS	END=15100457;DP=13;REFC=8;ALTC=5;LQC=0;AF=0.384615;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	1|0:13:8,5:0.385:60:15039543
+CHM13#0#chr20	15100456	.	CTT	C	60	PASS	END=15100458;DP=13;REFC=9;ALTC=4;LQC=0;AF=0.307692;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	0|1:13:9,4:0.308:60:15039543
+CHM13#0#chr20	15329499	.	A	T	60	PASS	END=15329499;CLEAN;DP=92;REFC=36;ALTC=56;LQC=0;AF=0.608696;CAT=CLEAN_HET_SNP	GT:DP:AD:VAF:GQ:PS	1|0:92:36,56:0.609:60:15518376
+CHM13#0#chr20	15351845	.	C	CT	60	PASS	END=15351845;DP=8;REFC=6;ALTC=2;LQC=0;AF=0.25;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	1|0:8:6,2:0.250:36:15518376
+CHM13#0#chr20	15351845	.	CT	C	60	PASS	END=15351846;DP=59;REFC=36;ALTC=23;LQC=0;AF=0.389831;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	0|1:59:36,23:0.390:60:15518376
+CHM13#0#chr20	15367755	.	A	AATCT	60	PASS	END=15367755;DP=79;REFC=37;ALTC=42;LQC=0;AF=0.531646;CAT=NOISY_CAND_HET	GT:DP:AD:VAF:GQ:PS	1|0:79:37,42:0.532:60:15518376
+CHM13#0#chr20	15380509	.	C	T	60	PASS	END=15380509;CLEAN;DP=61;REFC=31;ALTC=30;LQC=0;AF=0.491803;CAT=CLEAN_HET_SNP	GT:DP:AD:VAF:GQ:PS	1|0:61:31,30:0.492:60:15518376

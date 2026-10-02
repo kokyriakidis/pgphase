@@ -1,0 +1,4 @@
+left	right	gap_bp	left_ref	left_alt	right_ref	right_alt	hiphase_ps	local_reads	local_correct	left_reads	left_correct	right_reads	right_correct	same_orientation	same_calls	panel
+528850	542052	13202	TGA	T	CT	C	130540	205	203	34	34	42	42	1	1	0
+39848887	39856144	7257	TTATATAATACACATTATATATTA	T	C	T	39273205	181	181	45	45	39	39	1	1	0
+54684758	54702072	17314	CCT	C	G	A	54453020	225	221	45	45	42	42	1	1	0

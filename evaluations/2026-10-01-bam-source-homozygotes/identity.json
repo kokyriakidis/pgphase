@@ -1,0 +1,8 @@
+{
+  "read_qnames_identical": true,
+  "read_hp_ps_changes": 0,
+  "vcf_rows_identical": true,
+  "before_read_count": 256586,
+  "after_read_count": 256586,
+  "binary_sha256": "db1363f2f0b084b4981c467a0993cf067c6f07ceddab0f4a68388fe60f2868d0"
+}

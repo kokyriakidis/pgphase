@@ -1,0 +1,2 @@
+snp_left	snp_right	physical_ref_ref	physical_alt_alt	physical_mixed	paired_calls_agree_with_profiles	right_gt_without_constraint	right_gt_with_constraint	corrected_read_truth
+61757551	61773799	6	4	0	10	1|0	0|1	368/379

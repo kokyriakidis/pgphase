@@ -1,0 +1,16 @@
+{
+  "binary_sha256": "564f1920ca5bba5141de86d7a4da486f6502e134c58245f3893f7ad82c41c307",
+  "native_commands": 105,
+  "native_seconds": 202.24,
+  "window_cases": 53,
+  "window_assertions": 4041,
+  "predicate_cases": 27,
+  "predicate_assertions": 491,
+  "new_predicate_assertions": 93,
+  "port_assertions": 27,
+  "upstream_assertions": 168696,
+  "expectations_weakened": false,
+  "new_tracked_chr20_closures": 0,
+  "remaining_competitor_targets": 14,
+  "final_binary_matches_native_runs": true
+}

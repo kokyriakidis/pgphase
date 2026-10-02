@@ -1,0 +1,17 @@
+{
+  "binary_sha256": "0cc4bebba8942741f174d032af0cd2360bd679d0a6c2db1c8129e4a8452cd186",
+  "new_deletion_assertions": 104,
+  "predicate_assertions": 398,
+  "predicate_cases": 26,
+  "new_moved_deletion_assertions": 17,
+  "upstream_assertions": 168696,
+  "port_assertions": 27,
+  "window_panel_status": "all 105 final native commands executed concurrently, then all assertions scored with exact-command and binary-hash checks",
+  "tracked_targets_remaining": 14,
+  "window_assertions": 4023,
+  "window_cases": 52,
+  "panel_windows": 92,
+  "native_commands": 105,
+  "native_workers": 4,
+  "native_seconds": 234.08
+}

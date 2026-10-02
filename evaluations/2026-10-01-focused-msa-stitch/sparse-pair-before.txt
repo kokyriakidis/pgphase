@@ -1,0 +1,25 @@
+Filters: [sparse-pair]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+conflicting sparse pairs retry with their observed binomial tail
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:1134
+...............................................................................
+
+src/test_gap_windows.cpp:1182: FAILED:
+  CHECK( site.second == boundary.second )
+with expansion:
+  "54830474" == "54569072"
+
+src/test_gap_windows.cpp:1192: FAILED:
+  CHECK( reads.separated() >= 0.98 )
+with expansion:
+  0.5192307692 >= 0.98
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 41 | 39 passed | 2 failed

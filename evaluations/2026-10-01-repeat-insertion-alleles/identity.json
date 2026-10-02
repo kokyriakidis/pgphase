@@ -1,0 +1,12 @@
+{
+  "read_names_equal": true,
+  "hp_changed": 0,
+  "ps_changed": 0,
+  "vcf_keys_equal": true,
+  "vcf_genotypes_changed": 0,
+  "vcf_phase_sets_changed": 0,
+  "panel_gaps": 93,
+  "panel_spans_before": 75,
+  "panel_spans_after": 75,
+  "panel_span_changes": []
+}

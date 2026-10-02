@@ -1,0 +1,23 @@
+#tid	11	chunk	-1	flags	0	n_vars	11
+VAR	0	57836194	X	4	2	1	G	57836194	0	1	0	0	0	36	35	0.49295774647887325
+#META	0	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	1	57838346	X	4	2	1	A	57836194	1	0	0	0	0	32	33	0.50769230769230766
+#META	1	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	2	57841772	X	4	2	1	A	57836194	1	0	0	0	0	34	29	0.46031746031746029
+#META	2	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	3	57854342	D	256	1	1		57836194	0	1	0	0	0	27	24	0.47058823529411764
+#META	3	msa_verified=1	homopolymer=1	gap_link_supported=0
+VAR	4	57854342	D	256	1	2		57836194	1	0	0	0	0	15	19	0.55882352941176472
+#META	4	msa_verified=1	homopolymer=1	gap_link_supported=0
+VAR	5	57866713	X	4	2	1	A	57866713	1	0	0	0	0	29	37	0.56060606060606055
+#META	5	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	6	57869275	X	4	2	1	T	57866713	1	0	0	0	0	31	39	0.55714285714285716
+#META	6	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	7	57886300	I	512	1	0	T	57866713	1	1	0	0	0	21	40	0.65573770491803274
+#META	7	msa_verified=1	homopolymer=0	gap_link_supported=0
+VAR	8	57886584	X	4	2	1	T	57866713	1	0	0	0	0	30	29	0.49152542372881358
+#META	8	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	9	57900855	X	4	2	1	C	57866713	1	0	0	0	0	43	30	0.41095890410958902
+#META	9	msa_verified=0	homopolymer=0	gap_link_supported=0
+VAR	10	57911734	X	4	2	1	A	57866713	0	1	0	0	0	33	37	0.52857142857142858
+#META	10	msa_verified=0	homopolymer=0	gap_link_supported=0

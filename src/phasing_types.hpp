@@ -838,6 +838,9 @@ struct CandidateVariant {
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).
     bool is_homopolymer_indel = false;
+    // Focused diploid or compound-flank MSA retained this genotype for linking.
+    // One-locus read rescue still needs independent primary-site confidence.
+    bool read_rescue_requires_validation = false;
     // Recomputed from clean-site evidence for MSA indel bridges in recovery gaps.
     bool gap_link_supported = false;
     // Set only by select_gap_link_sites, only for an MSA-verified homopolymer

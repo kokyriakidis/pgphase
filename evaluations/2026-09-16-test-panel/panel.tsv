@@ -127,3 +127,17 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 # Recovered right deletion joins a source-backed mixed graph/BAM left block.
 # Same-callset HiPhase leaves both left insertion alleles unphased.
 8166027	8172072	6045	62	none_spanning	0.0000	0
+# Additional full-chr20 closures from high-quality single-base source repair.
+# These are continuity controls, not a newly measured competitor comparison.
+14446295	14458292	11997	111	regression_control	0.0000	0
+53945086	53947946	2860	64	regression_control	0.0000	0
+53947946	53962801	14855	119	regression_control	0.0000	0
+# Fresh HiPhase comparison on the identical current callset: >=98% local
+# purity and >=95% concordant, disjoint 10-kb parental flanks.
+# The 39.848 Mb case requires its owning chunk; a short replay already spans it.
+528850	542052	13202	133	hiphase_same_sites	0.9549	129
+39848887	39856144	7257	99	hiphase_same_sites	0.9798	97
+54684758	54702072	17314	156	hiphase_same_sites	0.8590	138
+# 2026-10-01: guarded physical deletion bridge; replay the complete 11--12 Mb
+# source context. HiPhase's one-block correctly separated fraction is 118/134.
+11573074	11586531	13457	134	hiphase	0.8805	125

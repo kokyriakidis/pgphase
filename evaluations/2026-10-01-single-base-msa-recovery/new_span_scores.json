@@ -1,0 +1,138 @@
+[
+  {
+    "left": 14446295,
+    "right": 14458292,
+    "physical_spanners": 12,
+    "scorable_in_gap": 111,
+    "baseline-full": {
+      "scored": 533,
+      "correct": 515,
+      "concordance": 0.9662288930581614,
+      "separated": 0.5675675675675675,
+      "left_votes": [
+        0,
+        2
+      ],
+      "right_votes": [
+        2,
+        185
+      ]
+    },
+    "fixed-full": {
+      "scored": 515,
+      "correct": 506,
+      "concordance": 0.9825242718446602,
+      "separated": 0.7657657657657657,
+      "left_votes": [
+        0,
+        234
+      ],
+      "right_votes": [
+        3,
+        186
+      ]
+    }
+  },
+  {
+    "left": 23792418,
+    "right": 23806565,
+    "physical_spanners": 4,
+    "scorable_in_gap": 109,
+    "baseline-full": {
+      "scored": 466,
+      "correct": 387,
+      "concordance": 0.8304721030042919,
+      "separated": 0.22935779816513763,
+      "left_votes": [
+        0,
+        0
+      ],
+      "right_votes": [
+        0,
+        186
+      ]
+    },
+    "fixed-full": {
+      "scored": 465,
+      "correct": 432,
+      "concordance": 0.9290322580645162,
+      "separated": 0.5321100917431193,
+      "left_votes": [
+        111,
+        13
+      ],
+      "right_votes": [
+        185,
+        0
+      ]
+    }
+  },
+  {
+    "left": 53945086,
+    "right": 53947946,
+    "physical_spanners": 43,
+    "scorable_in_gap": 64,
+    "baseline-full": {
+      "scored": 456,
+      "correct": 444,
+      "concordance": 0.9736842105263158,
+      "separated": 0.375,
+      "left_votes": [
+        0,
+        190
+      ],
+      "right_votes": [
+        0,
+        0
+      ]
+    },
+    "fixed-full": {
+      "scored": 440,
+      "correct": 432,
+      "concordance": 0.9818181818181818,
+      "separated": 0.265625,
+      "left_votes": [
+        0,
+        190
+      ],
+      "right_votes": [
+        0,
+        209
+      ]
+    }
+  },
+  {
+    "left": 53947946,
+    "right": 53962801,
+    "physical_spanners": 9,
+    "scorable_in_gap": 119,
+    "baseline-full": {
+      "scored": 503,
+      "correct": 491,
+      "concordance": 0.9761431411530815,
+      "separated": 0.5966386554621849,
+      "left_votes": [
+        0,
+        185
+      ],
+      "right_votes": [
+        0,
+        0
+      ]
+    },
+    "fixed-full": {
+      "scored": 487,
+      "correct": 479,
+      "concordance": 0.9835728952772074,
+      "separated": 0.6050420168067226,
+      "left_votes": [
+        0,
+        185
+      ],
+      "right_votes": [
+        0,
+        206
+      ]
+    }
+  }
+]

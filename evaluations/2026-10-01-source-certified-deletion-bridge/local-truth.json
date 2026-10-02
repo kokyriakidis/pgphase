@@ -1,0 +1,105 @@
+{
+  "hiphase": {
+    "input_reads": 134,
+    "truth_read_names": 134,
+    "scored": 125,
+    "correct": 118,
+    "discordant": 7,
+    "concordance": 0.944,
+    "separated": 0.8805970149253731,
+    "phase_sets": {
+      "11262361": {
+        "true": 118,
+        "false": 7
+      }
+    },
+    "flanks": {
+      "11262361": {
+        "left": {
+          "true": 64,
+          "false": 3
+        },
+        "right": {
+          "true": 64,
+          "false": 4
+        }
+      }
+    }
+  },
+  "before": {
+    "input_reads": 134,
+    "truth_read_names": 134,
+    "scored": 111,
+    "correct": 108,
+    "discordant": 3,
+    "concordance": 0.972972972972973,
+    "separated": 0.47761194029850745,
+    "phase_sets": {
+      "11477908": {
+        "true": 64,
+        "false": 3
+      },
+      "1011586531": {
+        "true": 21
+      },
+      "11586531": {
+        "true": 23
+      }
+    },
+    "flanks": {
+      "11477908": {
+        "left": {
+          "true": 64,
+          "false": 3
+        },
+        "right": {
+          "true": 10
+        }
+      },
+      "1011586531": {
+        "right": {
+          "true": 21
+        }
+      },
+      "11586531": {
+        "right": {
+          "true": 23
+        }
+      }
+    }
+  },
+  "after": {
+    "input_reads": 134,
+    "truth_read_names": 134,
+    "scored": 111,
+    "correct": 108,
+    "discordant": 3,
+    "concordance": 0.972972972972973,
+    "separated": 0.6492537313432836,
+    "phase_sets": {
+      "11477908": {
+        "true": 87,
+        "false": 3
+      },
+      "1011477908": {
+        "true": 21
+      }
+    },
+    "flanks": {
+      "11477908": {
+        "left": {
+          "true": 64,
+          "false": 3
+        },
+        "right": {
+          "true": 33
+        }
+      },
+      "1011477908": {
+        "right": {
+          "true": 21
+        }
+      }
+    }
+  }
+}

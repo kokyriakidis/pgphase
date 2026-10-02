@@ -61,12 +61,6 @@ std::vector<RegionChunk> build_region_chunks(const Options& opts,
  */
 std::vector<RegionChunk> load_region_chunks(const Options& opts);
 
-/// Read one physical BAM base at a 1-based SNP coordinate. Returns 0 for REF,
-/// 2 for ALT, 1 for a deletion, and -1 when the base is not callable.
-int physical_snp_call(const bam1_t* alignment, hts_pos_t pos,
-                      char ref_base, char alt_base,
-                      int* base_quality = nullptr);
-
 /**
  * @brief Streaming driver: batch by `reg_chunk_i`, write TSV/VCF incrementally.
  * @param opts Output paths, reference, and BAM list.

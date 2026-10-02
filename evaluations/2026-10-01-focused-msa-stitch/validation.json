@@ -1,0 +1,16 @@
+{
+  "binary_sha256": "3025c32fac735725cffc34bb9d9ab529b2389411d8ad21e979505af6b85d2fe4",
+  "native_pipeline_panel_cases": 51,
+  "native_pipeline_panel_assertions": 4010,
+  "native_panel_failures_before_new_floor_calibration": 1,
+  "new_certificate_accepted_baseline_separation": 0.64,
+  "new_certificate_previous_estimated_floor": 0.69,
+  "all_assertions_rechecked_against_unchanged_native_outputs": true,
+  "final_panel_cases_passed": 51,
+  "final_panel_assertions_passed": 4010,
+  "new_certificate_native_rerun_assertions_passed": 17,
+  "sparse_pair_native_rerun_assertions_passed": 49,
+  "predicate_assertions_passed": 294,
+  "port_parity_assertions_passed": 27,
+  "upstream_parity_assertions_passed": 168696
+}

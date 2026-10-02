@@ -16,6 +16,10 @@
 
 namespace pgphase_collect {
 
+/// Exact upper binomial tail P(X >= first), for 0 <= first <= n and 0 < p < 1.
+double binomial_upper_tail(int n, int first, double p);
+
+
 // ════════════════════════════════════════════════════════════════════════════
 // Candidate-category bitmask flags
 // ════════════════════════════════════════════════════════════════════════════
@@ -118,6 +122,18 @@ bool select_stitch_orientation(const std::array<int, 4>& votes,
 /// the position must fall inside a retry window.
 bool allele_depths_call_het(const CandidateVariant& var, const Options& opts);
 
+/// Request MSA retry when a verified indel boundary loses significant coverage
+/// both locally and on gap-crossing reads, with a verified opposite indel
+/// representation carrying diploid allele depths. Boundary indices must be valid and
+/// ordered, with one profile per read. This predicate supplies no phase
+/// orientation or stitch certificate. allow_complementary also admits distinct,
+/// already phased complementary alleles of the same indel type; callers use
+/// this for fallback requests without changing their established first choice.
+bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
+                                       const std::array<size_t, 2>& boundaries,
+                                       const Options& opts,
+                                       bool allow_complementary = false);
+
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,
@@ -130,6 +146,13 @@ bool stitch_phase_sets_by_alleles(PhasingChunk& chunk,
                                   hts_pos_t upstream_phase_set,
                                   hts_pos_t downstream_phase_set,
                                   const Options& opts);
+
+/// Orient complete BAM blocks from agreeing, quality-bearing SNP calls on
+/// both sides and an independent MSA indel on the same molecule. Abstain on
+/// conflicting calls. Returns whether the second block needs a haplotype flip.
+std::optional<bool> corroborated_bam_block_flip(
+    const PhasingChunk& chunk, const std::vector<int>& first,
+    const std::vector<int>& second);
 
 /// Stitch imported BAM phase sets through each explicit graph seam from left
 /// to right. Each BAM block keeps its independent gauge. Incomplete graph/BAM

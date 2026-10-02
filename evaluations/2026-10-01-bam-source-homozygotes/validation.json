@@ -1,0 +1,14 @@
+{
+  "binary_sha256": "db1363f2f0b084b4981c467a0993cf067c6f07ceddab0f4a68388fe60f2868d0",
+  "native_commands": 105,
+  "native_workers": 4,
+  "native_elapsed_seconds": 238.21,
+  "new_adapter_checks": 15,
+  "predicate_assertions": 398,
+  "port_parity_assertions": 27,
+  "upstream_parity_assertions": 168696,
+  "window_assertions": 4023,
+  "window_cases": 52,
+  "panel_windows": 92,
+  "diff_check": "pass"
+}

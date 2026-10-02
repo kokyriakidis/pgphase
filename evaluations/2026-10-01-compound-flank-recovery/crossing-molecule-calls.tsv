@@ -1,0 +1,12 @@
+read	mapq	physical_beg	physical_end	before_DEL2	before_DEL1	before_SNP	after_DEL2	after_DEL1	after_SNP	HiPhase_DEL2_raw	HiPhase_DEL1_raw	HiPhase_SNP_raw	HiPhase_qualities
+m84031_231217_034919_s2/103091828/ccs	60	523495	544902	0	-1	-1	0	1	-1	Reference	Alternate	NoOverlap	20,20,0
+m84031_231217_034919_s2/106563210/ccs	60	521801	544894	0	-1	-1	0	0	-1	Reference	Reference	NoOverlap	20,20,0
+m84031_231217_034919_s2/207817933/ccs	60	524127	542400	0	-1	-1	1	1	-1	Alternate	Alternate	NoOverlap	20,20,0
+m84031_231217_034919_s2/25231981/ccs	60	524808	543650	0	-1	-1	0	0	-1	Reference	Reference	NoOverlap	20,20,0
+m84031_231217_034919_s2/44044370/ccs	60	527805	556735	0	1	0	1	1	0	Alternate	Alternate	Reference	20,20,160
+m84031_231217_034919_s2/6686489/ccs	60	527025	551584	0	0	1	0	0	1	Reference	Reference	Alternate	20,20,160
+m84031_231217_062403_s3/113443584/ccs	60	519919	542114	0	-1	-1	1	0	-1	Alternate	Reference	NoOverlap	20,20,0
+m84031_231217_062403_s3/124850543/ccs	60	518842	545067	0	0	1	0	0	1	Reference	Reference	Alternate	20,20,160
+m84031_231217_062403_s3/145100683/ccs	60	525363	545782	0	0	0	1	0	0	Alternate	Reference	Reference	20,20,160
+m84031_231217_062403_s3/247203259/ccs	60	526058	543829	0	-1	-1	1	0	-1	Alternate	Reference	NoOverlap	20,20,0
+m84031_231217_062403_s3/36635314/ccs	60	528313	552487	0	1	0	1	1	0	Alternate	Alternate	Reference	20,20,160

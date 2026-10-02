@@ -1,0 +1,82 @@
+{
+  "baseline": {
+    "gap": {
+      "truth_reads": 151,
+      "phased": 92,
+      "correct": 88,
+      "accuracy": 0.9565217391304348
+    },
+    "left": {
+      "truth_reads": 271,
+      "phased": 242,
+      "correct": 242,
+      "accuracy": 1.0
+    },
+    "right": {
+      "truth_reads": 208,
+      "phased": 194,
+      "correct": 193,
+      "accuracy": 0.9948453608247423
+    }
+  },
+  "final_owning": {
+    "gap": {
+      "truth_reads": 151,
+      "phased": 92,
+      "correct": 89,
+      "accuracy": 0.967391304347826
+    },
+    "left": {
+      "truth_reads": 271,
+      "phased": 242,
+      "correct": 242,
+      "accuracy": 1.0
+    },
+    "right": {
+      "truth_reads": 208,
+      "phased": 194,
+      "correct": 193,
+      "accuracy": 0.9948453608247423
+    }
+  },
+  "final_chr20": {
+    "gap": {
+      "truth_reads": 151,
+      "phased": 92,
+      "correct": 89,
+      "accuracy": 0.967391304347826
+    },
+    "left": {
+      "truth_reads": 271,
+      "phased": 242,
+      "correct": 242,
+      "accuracy": 1.0
+    },
+    "right": {
+      "truth_reads": 208,
+      "phased": 194,
+      "correct": 193,
+      "accuracy": 0.9948453608247423
+    }
+  },
+  "hiphase_diagnostic": {
+    "gap": {
+      "truth_reads": 151,
+      "phased": 137,
+      "correct": 118,
+      "accuracy": 0.8613138686131386
+    },
+    "left": {
+      "truth_reads": 271,
+      "phased": 182,
+      "correct": 182,
+      "accuracy": 1.0
+    },
+    "right": {
+      "truth_reads": 208,
+      "phased": 199,
+      "correct": 196,
+      "accuracy": 0.9849246231155779
+    }
+  }
+}

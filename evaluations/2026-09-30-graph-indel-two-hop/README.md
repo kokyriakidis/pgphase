@@ -12,8 +12,11 @@ insertion at 35,342,608. These remain two distinct candidate rows. The graph
 site's read alleles form a consistent chain: 15 left-boundary pairs are 9
 ALT/ALT and 6 REF/REF; 11 pairs to the right clean SNP at 35,357,391 are
 9 ALT/ALT and 2 REF/REF. All these reads are MAPQ 60. The BAM MSA insertion
-row calls 28 of its graph-ALT reads REF, explaining why an exact BAM-row
-stitch missed this path.
+row contains 28 graph-ALT reads called REF after recovery's exact-CIGAR
+backfill, explaining why an exact BAM-row stitch missed this path. The
+2026-10-01 source audit separates that backfill from the initial MSA calls:
+the initial source has 2 REF/9 ALT observations, while post-solve backfill
+expands it to 54 REF/10 ALT because CIGAR shifts the insertion within the repeat.
 
 The new fallback uses an unphased graph indel only as an allele bridge between
 two adjacent imported BAM blocks. Each hop requires a one-sided exact binomial parity p-value at most 0.001 on

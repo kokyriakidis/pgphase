@@ -1391,7 +1391,8 @@ static bool graph_snp_path_supported(
                     continue;
             }
             if (disconnected_pair != nullptr &&
-                (no_graph_edge || (report_one_hap_cut && votes[2] == 0)))
+                (no_graph_edge || (report_one_hap_cut && agree > votes[2] &&
+                                  (votes[0] == 0 || votes[1] == 0))))
                 *disconnected_pair = {left_pos, right_pos};
             return false;
         }
@@ -1800,6 +1801,10 @@ static int physical_substitution_call(
 // overlapping locus. Keep both rows and use their exact CIGAR ALT calls to
 // orient the next graph SNP; a REF call at either row is ambiguous when the
 // other deletion removes its reference span.
+static int physical_equivalent_deletion_call(
+        const bam1_t* read, const CandidateVariant& deletion,
+        WorkerContext& context, int tid, int min_baseq);
+
 static bool stitch_complementary_deletions_to_snp(
         GraphChunkBuildResult& gc, WorkerContext& context, int tid,
         const RecoverySeam& seam, hts_pos_t left_ps, hts_pos_t right_ps,
@@ -1889,26 +1894,16 @@ static bool stitch_complementary_deletions_to_snp(
         if ((right_call != 0 && right_call != 2) ||
             right_quality < kMinBaseq || right_quality == kUnknownQuality)
             continue;
-        int query_index = -1;
-        const int a_call = bam_exact_indel_allele(
-            read, a, kMinBaseq, &query_index);
-        const int b_call = bam_exact_indel_allele(
-            read, b, kMinBaseq, &query_index);
+        // Score only a verified ALT of exactly one row. Shift equivalence
+        // recovers the same deletion; another length never supplies its REF.
+        const int a_call = physical_equivalent_deletion_call(
+            read, a, context, tid, kMinBaseq);
+        const int b_call = physical_equivalent_deletion_call(
+            read, b, context, tid, kMinBaseq);
         if ((a_call == 1) == (b_call == 1)) continue;
         const CandidateVariant& deletion = a_call == 1 ? a : b;
-        bool exact_flanks = true;
-        for (const hts_pos_t pos :
-             {deletion.key.pos - 1,
-              deletion.key.pos + deletion.key.ref_len}) {
-            const char ref = context.ref.base(
-                tid, pos, context.primary_header());
-            if (ref == 'N' ||
-                physical_snp_call(read, pos, ref, 'N') != 0) {
-                exact_flanks = false;
-                break;
-            }
-        }
-        if (!exact_flanks) continue;
+        // Equivalence already verifies the actual placement's Q30 flanks.
+        // A flank of the original key may lie inside the shifted deletion.
         seen.insert(bam_get_qname(read));
         ++allele_support[a_call == 1 ? 0 : 1];
         const bool left_hap1 = deletion.hap_to_cons_alle[1] == 1;
@@ -1939,89 +1934,8 @@ static bool stitch_complementary_deletions_to_snp(
 static int physical_equivalent_deletion_call(
         const bam1_t* read, const CandidateVariant& deletion,
         WorkerContext& context, int tid, int min_baseq) {
-    constexpr hts_pos_t kMaxEquivalentShift = 32;
-    constexpr hts_pos_t kMaxDeletionLength = 64;
-    constexpr int kUnknownQuality = 255;
-    const hts_pos_t target_pos = deletion.key.pos;
-    const hts_pos_t length = deletion.key.ref_len;
-    if (target_pos <= kMaxEquivalentShift || length <= 0 ||
-        length > kMaxDeletionLength) return -1;
-    const hts_pos_t window_beg = target_pos - kMaxEquivalentShift;
-    const hts_pos_t window_end = target_pos + length + kMaxEquivalentShift;
-    struct IndelEvent {
-        int op;
-        hts_pos_t pos;
-        hts_pos_t length;
-    };
-    std::vector<IndelEvent> indels;
-    hts_pos_t ref_pos = read->core.pos + 1;
-    const uint32_t* cigar = bam_get_cigar(read);
-    for (uint32_t ci = 0; ci < read->core.n_cigar; ++ci) {
-        const int op = bam_cigar_op(cigar[ci]);
-        const hts_pos_t op_length = bam_cigar_oplen(cigar[ci]);
-        if ((op == BAM_CINS && ref_pos >= window_beg &&
-             ref_pos <= window_end) ||
-            (op == BAM_CDEL && ref_pos < window_end &&
-             ref_pos + op_length > window_beg))
-            indels.push_back(IndelEvent{op, ref_pos, op_length});
-        if (bam_cigar_type(op) & 2) ref_pos += op_length;
-    }
-    const auto equivalent = [&](const IndelEvent& event) {
-        if (event.op != BAM_CDEL || event.length != length ||
-            event.pos < target_pos - kMaxEquivalentShift ||
-            event.pos > target_pos + kMaxEquivalentShift)
-            return false;
-        const hts_pos_t beg = std::min(target_pos, event.pos);
-        const hts_pos_t end = std::max(target_pos, event.pos) + length;
-        std::string ref;
-        ref.reserve(static_cast<size_t>(end - beg));
-        for (hts_pos_t pos = beg; pos < end; ++pos) {
-            const char base = context.ref.base(
-                tid, pos, context.primary_header());
-            if (base == 'N') return false;
-            ref.push_back(base);
-        }
-        std::string expected = ref;
-        expected.erase(static_cast<size_t>(target_pos - beg),
-                       static_cast<size_t>(length));
-        ref.erase(static_cast<size_t>(event.pos - beg),
-                  static_cast<size_t>(length));
-        return ref == expected;
-    };
-    std::optional<size_t> selected;
-    for (size_t i = 0; i < indels.size(); ++i) {
-        if (!equivalent(indels[i])) continue;
-        if (selected) return -1;
-        selected = i;
-    }
-    const hts_pos_t observed_pos = selected ?
-        indels[*selected].pos : target_pos;
-    const hts_pos_t check_beg = std::min(target_pos, observed_pos);
-    const hts_pos_t check_end = std::max(target_pos, observed_pos) + length;
-    // A second indel outside the verified reference span does not change the
-    // allele. An indel within it makes either the ALT or REF call ambiguous.
-    for (size_t i = 0; i < indels.size(); ++i) {
-        if (selected && i == *selected) continue;
-        const IndelEvent& event = indels[i];
-        const bool overlaps = event.op == BAM_CINS ?
-            event.pos >= check_beg - 1 && event.pos <= check_end :
-            event.pos <= check_end &&
-                event.pos + event.length > check_beg - 1;
-        if (overlaps) return -1;
-    }
-    for (hts_pos_t pos = check_beg - 1; pos <= check_end; ++pos) {
-        if (selected && pos >= observed_pos &&
-            pos < observed_pos + length)
-            continue;
-        const char ref = context.ref.base(
-            tid, pos, context.primary_header());
-        int base_quality = 0;
-        if (ref == 'N' ||
-            physical_snp_call(read, pos, ref, 'N', &base_quality) != 0 ||
-            base_quality < min_baseq || base_quality == kUnknownQuality)
-            return -1;
-    }
-    return selected ? 1 : 0;
+    return bam_equivalent_deletion_allele(
+        read, deletion, context.ref, tid, context.primary_header(), min_baseq);
 }
 
 // Verify that a boundary deletion retains the orientation of its nearest
@@ -2481,6 +2395,23 @@ static int physical_equivalent_insertion_call(
             physical_snp_call(read, pos, ref, 'N', &quality) != 0 ||
             quality < min_baseq || quality == kUnknownQuality)
             return -1;
+    }
+    // Preserve the existing nearby-indel interference check. Only a verified
+    // shifted ALT can replace an apparent REF outside that bounded search;
+    // unrelated edits elsewhere in a long repeat do not weaken a callable ALT.
+    if (nearby_indels == 0 && target_bases.size() > kShortInsertionMaxLength) {
+        const int query_index = bam_shifted_repeat_insertion_query_index(
+            read, insertion, context.ref, tid, context.primary_header(), min_baseq);
+        if (query_index >= 0) {
+            if (allele_quality != nullptr) {
+                int quality = kUnknownQuality;
+                for (size_t offset = 0; offset < target_bases.size(); ++offset)
+                    quality = std::min(quality, static_cast<int>(
+                        qualities[query_index + offset]));
+                *allele_quality = quality;
+            }
+            return 1;
+        }
     }
     if (allele_quality != nullptr)
         *allele_quality = nearby_indels == 1 ? observed_quality : min_baseq;
@@ -3343,14 +3274,10 @@ static bool stitch_snp_to_msa_insertion(
         kLongInsertionMaxWrongParity : kMaxWrongParity;
     const double threshold = std::log((1.0 - max_wrong_parity) /
                                       max_wrong_parity);
-    const auto right_source_path = gc.recovery_source_path_supported.find(right_ps);
+    // Earlier transfers can relabel the insertion. Only its original BAM
+    // source and a consistent current allele gauge certify that source path.
     const bool complete_right_source = long_insertion &&
-        right_source_path != gc.recovery_source_path_supported.end() &&
-        right_source_path->second &&
-        (gc.recovery_source_weak_cuts.count(right_ps) == 0 ||
-         gc.recovery_source_weak_cuts.at(right_ps).empty()) &&
-        (gc.recovery_source_quality_cuts.count(right_ps) == 0 ||
-         gc.recovery_source_quality_cuts.at(right_ps).empty());
+        bam_source_site_path_supported(gc, *insertion_i);
     if ((!long_insertion && allele_support[0] < kMinSupportPerAllele) ||
         allele_support[1] < kMinSupportPerAllele ||
         std::abs(log_odds) < threshold ||
@@ -3419,12 +3346,13 @@ static bool stitch_snp_to_msa_insertion(
     // The left phase set was already joined before this seam. Verify its
     // boundary-side SNP suffix, then orient only the new right source; splitting
     // the established left block would undo its previously supported join.
+    // The suffix check does not change the selected clean-SNP parity.
     return cut.first > 0 && cut.first < cut.second &&
         graph_snp_path_supported(
             gc, left_ps, nullptr, original_graph_phase_sets,
             stitched_graph_phase_sets, false, false, cut.second) &&
         merge_phase_sets_in_place(chunk, left_ps, right_ps,
-                                  log_odds > 0.0);
+                                  selected_flip);
 }
 
 // A recovered deletion can be the right boundary of a graph seam even when
@@ -3465,13 +3393,9 @@ static bool stitch_snp_to_msa_deletion(
     }
     if (!deletion_i) return false;
     const CandidateVariant& deletion = chunk.candidates[*deletion_i];
-    const auto source_path = gc.recovery_source_path_supported.find(right_ps);
-    if (source_path == gc.recovery_source_path_supported.end() ||
-        !source_path->second ||
-        (gc.recovery_source_weak_cuts.count(right_ps) != 0 &&
-         !gc.recovery_source_weak_cuts.at(right_ps).empty()) ||
-        (gc.recovery_source_quality_cuts.count(right_ps) != 0 &&
-         !gc.recovery_source_quality_cuts.at(right_ps).empty()) ||
+    // Transfer can move this deletion into a different BAM block. Its new
+    // PS does not identify its original path or certify its allele gauge.
+    if (!bam_source_site_path_supported(gc, *deletion_i) ||
         !graph_snp_path_supported(gc, left_ps, nullptr,
                                   original_graph_phase_sets,
                                   stitched_graph_phase_sets, false, true) ||
@@ -3635,7 +3559,8 @@ static std::optional<size_t> physical_graph_snp_edge_supported(
         const GraphChunkBuildResult& gc, WorkerContext& context, int tid,
         hts_pos_t phase_set, const std::pair<hts_pos_t, hts_pos_t>& cut,
         const std::map<std::string, hts_pos_t>* original_graph_phase_sets,
-        const std::map<std::string, hts_pos_t>* stitched_graph_phase_sets) {
+        const std::map<std::string, hts_pos_t>* stitched_graph_phase_sets,
+        bool require_significant_votes = false) {
     constexpr int kMinMapq = 30;
     constexpr int kMinBaseq = 30;
     constexpr int kMinPairedReads = 2;
@@ -3687,6 +3612,8 @@ static std::optional<size_t> physical_graph_snp_edge_supported(
     if (!alignment) return std::nullopt;
     std::unordered_set<std::string> seen;
     int paired = 0;
+    int same = 0, cross = 0;
+    std::array<int, 2> supporting_haps{};
     double log_odds = 0.0;
     while (sam_itr_next(context.bams.front()->get(), iterator.get(),
                         alignment.get()) >= 0) {
@@ -3717,17 +3644,29 @@ static std::optional<size_t> physical_graph_snp_edge_supported(
             (chunk.candidates[*left_i].hap_to_cons_alle[1] == 1);
         const bool right_hap1 = (right_call == 2) ==
             (chunk.candidates[*right_i].hap_to_cons_alle[1] == 1);
-        if (left_hap1 != right_hap1) return std::nullopt;
+        if (left_hap1 != right_hap1) {
+            ++cross;
+        } else {
+            ++same;
+            ++supporting_haps[left_hap1 ? 0 : 1];
+        }
         const double p = std::pow(10.0, -left_quality / 10.0) +
             std::pow(10.0, -right_quality / 10.0) +
             2.0 * std::pow(10.0, -read->core.qual / 10.0);
         if (p <= 0.0 || p >= 0.5) continue;
-        log_odds += std::log((1.0 - p) / p);
+        log_odds += (left_hap1 == right_hap1 ? 1.0 : -1.0) *
+            std::log((1.0 - p) / p);
         ++paired;
     }
     const double threshold = std::log((1.0 - kMaxWrongParity) /
                                       kMaxWrongParity);
-    return paired >= kMinPairedReads && log_odds >= threshold ?
+    // A lone high-quality cohort is insufficient when this check supplies
+    // a new clean-SNP path. Require both haplotypes and a decisive count tail;
+    // signed quality odds keep opposing molecules in the error bound.
+    return paired >= kMinPairedReads && log_odds >= threshold &&
+        ((!require_significant_votes && cross == 0) ||
+         (supporting_haps[0] > 0 && supporting_haps[1] > 0 &&
+          source_graph_vote_supported(same, cross, 0, kMaxWrongParity))) ?
         right_i : std::nullopt;
 }
 
@@ -4013,66 +3952,6 @@ static void attach_readless_insertion_source_blocks(
             break;
         }
     }
-}
-
-// A detached BAM run has no catalog SNPs for graph_snp_path_supported to
-// inspect. Its original source path still certifies the run if every row
-// belongs to the same oriented source and no weak cut falls inside it.
-static bool bam_source_run_supported(const GraphChunkBuildResult& gc,
-                                     hts_pos_t phase_set) {
-    const PhasingChunk& chunk = gc.chunk;
-    std::vector<const RecoverySourceSite*> source_by_candidate(
-        chunk.candidates.size(), nullptr);
-    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
-        if (site.candidate_index >= chunk.candidates.size() ||
-            chunk.candidates[site.candidate_index].phase_set != phase_set)
-            continue;
-        const RecoverySourceSite*& slot =
-            source_by_candidate[site.candidate_index];
-        if (slot != nullptr) return false;
-        slot = &site;
-    }
-
-    hts_pos_t source_ps = 0;
-    hts_pos_t first = std::numeric_limits<hts_pos_t>::max();
-    hts_pos_t last = 0;
-    int orientation = -1;
-    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        const CandidateVariant& candidate = chunk.candidates[ci];
-        if (candidate.phase_set != phase_set) continue;
-        const RecoverySourceSite* found = source_by_candidate[ci];
-        if (!candidate.bam_injected || found == nullptr) return false;
-        const RecoverySourceSite& site = *found;
-        if (!site.can_adopt || site.phase_set <= 0 ||
-            candidate.hap_to_cons_alle[1] < 0 ||
-            candidate.hap_to_cons_alle[2] < 0 ||
-            candidate.hap_to_cons_alle[1] == candidate.hap_to_cons_alle[2] ||
-            site.hap1_allele < 0 || site.hap2_allele < 0 ||
-            site.hap1_allele == site.hap2_allele ||
-            (source_ps > 0 && source_ps != site.phase_set))
-            return false;
-        const bool same =
-            candidate.hap_to_cons_alle[1] == site.hap1_allele &&
-            candidate.hap_to_cons_alle[2] == site.hap2_allele;
-        const bool swapped =
-            candidate.hap_to_cons_alle[1] == site.hap2_allele &&
-            candidate.hap_to_cons_alle[2] == site.hap1_allele;
-        if (!same && !swapped) return false;
-        const int row_orientation = swapped;
-        if (orientation >= 0 && orientation != row_orientation) return false;
-        orientation = row_orientation;
-        source_ps = site.phase_set;
-        const hts_pos_t pos = candidate.key.sort_pos();
-        first = std::min(first, pos);
-        last = std::max(last, pos);
-    }
-    if (source_ps <= 0 || first >= last) return false;
-    const auto cuts = gc.recovery_source_weak_cuts.find(source_ps);
-    if (cuts == gc.recovery_source_weak_cuts.end()) return false;
-    return std::none_of(cuts->second.begin(), cuts->second.end(),
-                        [first, last](hts_pos_t cut) {
-                            return first <= cut && cut < last;
-                        });
 }
 
 // Direct BAM bases restore the clean-SNP bridge evidence that a targeted
@@ -4922,13 +4801,30 @@ static void stitch_physical_allele_seams(
                 left_site->pos, *left_i, original_graph_phase_sets,
                 stitched_graph_phase_sets))
             continue;
-        // Prefer a callable clean-SNP pair. When none crosses the seam, a
-        // nearer MSA indel can still supply exact physical allele evidence.
-        if (!noisy_bridge && paired == 0 && right_i && right_site &&
-            stitch_msa_indel_to_snp(
+        // A nearer right deletion may be callable when the clean SNP pair
+        // is not. Its original-source path and current gauge are checked by
+        // the helper before it can orient the entire right block.
+        if (!noisy_bridge && paired == 0 && left_i && left_site &&
+            left_site->ref.size() == 1 &&
+            stitch_snp_to_msa_deletion(
                 gc, context, tid, seam, left_ps, right_ps,
-                right_site->pos, right_site->ref, right_site->alt, *right_i,
-                original_graph_phase_sets, stitched_graph_phase_sets))
+                left_site->pos, left_site->ref[0], left_site->alt[0],
+                *left_i, original_graph_phase_sets,
+                stitched_graph_phase_sets))
+            continue;
+        // Prefer the clean-SNP pair. Without callable pairs, a nearer left
+        // MSA locus may bridge the gap even though the left SNP exists. Try
+        // separate complementary rows before the single-indel helper, which
+        // rejects overlapping alleles. Both retain their full path checks.
+        if (!noisy_bridge && paired == 0 && right_i && right_site &&
+            (stitch_complementary_deletions_to_snp(
+                 gc, context, tid, seam, left_ps, right_ps,
+                 right_site->pos, right_site->ref, right_site->alt, *right_i,
+                 original_graph_phase_sets, stitched_graph_phase_sets) ||
+             stitch_msa_indel_to_snp(
+                 gc, context, tid, seam, left_ps, right_ps,
+                 right_site->pos, right_site->ref, right_site->alt, *right_i,
+                 original_graph_phase_sets, stitched_graph_phase_sets)))
             continue;
         // Independent reads from one haplotype can establish the diploid
         // parity; requiring observations from both haplotypes discards valid
@@ -5002,14 +4898,25 @@ static void stitch_physical_allele_seams(
                                              kMaxWrongParity))
                 continue;
         }
-        if (paired == 0 || std::abs(log_odds) < threshold ||
-            !(graph_snp_path_supported(gc, left_ps, nullptr,
-                                       original_graph_phase_sets,
-                                       stitched_graph_phase_sets) ||
-              bam_source_run_supported(gc, left_ps) ||
-              ((noisy_bridge || deletion_snp_retry) &&
-               complete_mixed_left_path(left_ps, *left_i))))
-            continue;
+        if (paired == 0 || std::abs(log_odds) < threshold) continue;
+        std::pair<hts_pos_t, hts_pos_t> left_cut;
+        bool left_path = graph_snp_path_supported(
+            gc, left_ps, &left_cut, original_graph_phase_sets,
+            stitched_graph_phase_sets, false, false, 0, true) ||
+            bam_source_run_supported(gc, left_ps) ||
+            ((noisy_bridge || deletion_snp_retry) &&
+             complete_mixed_left_path(left_ps, *left_i));
+        // A newly merged block may contain a one-haplotype GAF edge. Direct
+        // Q30 BAM pairs can corroborate that edge without relaxing the path
+        // check elsewhere: the prefix already passed and the helper checks
+        // the full suffix. A dominant GAF reversal never supplies a cut here.
+        if (!left_path && left_cut.first > 0) {
+            left_path = physical_graph_snp_edge_supported(
+                gc, context, tid, left_ps, left_cut,
+                original_graph_phase_sets, stitched_graph_phase_sets, true)
+                    .has_value();
+        }
+        if (!left_path) continue;
         std::pair<hts_pos_t, hts_pos_t> disconnected;
         const auto source_path = gc.recovery_source_path_supported.find(right_ps);
         const auto weak_cuts = gc.recovery_source_weak_cuts.find(right_ps);

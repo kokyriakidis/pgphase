@@ -1,0 +1,62 @@
+Filters: postsolve MSA backfill includes indel VCF boundary anchors
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test-before is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+postsolve MSA backfill includes indel VCF boundary anchors
+  an insertion at a singleton seam retains its exact ALT
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:879
+...............................................................................
+
+src/test_phase_predicates.cpp:882: FAILED:
+  REQUIRE( backfill_msa_observations(chunk, opts, 102, 102) == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+postsolve MSA backfill includes indel VCF boundary anchors
+  a deletion at the right boundary retains its exact ALT
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:889
+...............................................................................
+
+src/test_phase_predicates.cpp:893: FAILED:
+  REQUIRE( backfill_msa_observations(chunk, opts, 100, 102) == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+postsolve MSA backfill includes indel VCF boundary anchors
+  reference observations also use the VCF anchor
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:898
+...............................................................................
+
+src/test_phase_predicates.cpp:902: FAILED:
+  REQUIRE( backfill_msa_observations(chunk, opts, 102, 102) == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+postsolve MSA backfill includes indel VCF boundary anchors
+  the internal indel base cannot admit an out-of-window anchor
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:906
+...............................................................................
+
+src/test_phase_predicates.cpp:908: FAILED:
+  CHECK( backfill_msa_observations(chunk, opts, 103, 107) == 0 )
+with expansion:
+  1 == 0
+
+src/test_phase_predicates.cpp:910: FAILED:
+  CHECK( chunk.read_var_profile[0].start_var_idx == -1 )
+with expansion:
+  0 == -1
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 37 | 32 passed | 5 failed

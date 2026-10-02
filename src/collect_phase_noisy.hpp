@@ -17,9 +17,30 @@
 
 #include <array>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 namespace pgphase_collect {
+
+/// Inclusive insertion positions producing the same reference edit, with the
+/// inserted motif rotated at each step. Reference boundaries and ambiguous
+/// bases stop the interval; no alignment or distance cutoff is involved.
+std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
+    hts_pos_t pos, const std::string& alt, const PhasingChunk& chunk);
+std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
+    hts_pos_t pos, const std::string& alt, ReferenceCache& reference,
+    int tid, const bam_hdr_t* header);
+
+/// Query index of a shifted multi-base insertion ALT whose reference edit and
+/// full crossed path match the candidate with known base qualities. Return -1
+/// for exact placement, missing, different or compound events. This only calls
+/// an ALT; it never changes source observations, assignments or candidate rows.
+int bam_shifted_repeat_insertion_query_index(
+    const bam1_t* read, const CandidateVariant& insertion,
+    const PhasingChunk& chunk, int min_baseq);
+int bam_shifted_repeat_insertion_query_index(
+    const bam1_t* read, const CandidateVariant& insertion,
+    ReferenceCache& reference, int tid, const bam_hdr_t* header, int min_baseq);
 
 /// Call a site only when both consensus alignment paths agree with exact local flanks.
 int call_msa_site_allele(const std::array<AlnStr, 2>& alignments,
@@ -34,6 +55,15 @@ void add_msa_site_observations(const Options& opts,
                                 std::vector<CandidateVariant>& vars,
                                 std::vector<ReadVariantProfile>& profiles,
                                 const std::array<AlnStr, 2>* consensuses = nullptr);
+
+/// Remove consensus-derived calls outside each physical BAM alignment and
+/// recount depths in O(observations + sites). Bounds are one-based, inclusive;
+/// indels require both surviving flanks. Profiles must align with reads.
+/// Used by unplaced-read recovery; ordinary upstream BAM MSA is unchanged.
+void restrict_msa_observations_to_read_coverage(
+    const std::vector<ReadRecord>& reads,
+    std::vector<CandidateVariant>& vars,
+    std::vector<ReadVariantProfile>& profiles);
 
 /// Fill the strand tallies of candidates whose counts the MSA path built,
 /// derived in one sweep from the read profiles. update_variant_depth_fields
@@ -62,7 +92,32 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
 int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
                            int min_bq, int* alt_qi);
 
-/// Fill missing observations at admitted MSA sites from every overlapping BAM read.
+/// Return 1 for an exact or sequence-equivalent deletion, 0 for verified REF,
+/// and -1 for missing, low-quality, compound, or different-allele observations.
+/// Candidate coordinates and allele rows are preserved. Reference belongs to
+/// the calling worker; this check performs no alignment.
+int bam_equivalent_deletion_allele(const bam1_t* read,
+                                    const CandidateVariant& deletion,
+                                    ReferenceCache& reference, int tid,
+                                    const bam_hdr_t* header, int min_baseq);
+
+/// Recover missing ALT calls for shifted, single-base MSA insertions in targeted
+/// recovery windows, inclusive of their VCF anchors. Require MAPQ30 and Q30
+/// sequence-equivalent CIGAR evidence;
+/// Preserve existing calls and complex alleles. Reindex profiles before phasing.
+/// Returns the number of added calls; ordinary BAM runs with no windows are inert.
+int backfill_shifted_msa_insertions(PhasingChunk& chunk, const Options& opts);
+
+/// Update the primary allele, growing the sparse range and retaining the site
+/// offsets of populated provenance channels. New sites have no BAM base quality.
+void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi,
+                                         ReadVariantProfile& profile);
+
+/// Fill missing observations at admitted MSA sites from overlapping BAM reads.
+/// `beg` and `end` are inclusive VCF anchors; CIGAR calls retain internal keys.
+/// Missing ALT at a simple phased deletion can use Q30/MAPQ30 edit equivalence
+/// with a clean SNP confirming the source gauge. Exact contrasts, separate
+/// allele rows and existing MSA calls are preserved.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);
 
