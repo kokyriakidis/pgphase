@@ -1,0 +1,38 @@
+{
+  "vcf_sample_fields_changed": {
+    "PS": 124
+  },
+  "non_sample_vcf_columns_changed": 0,
+  "vcf_genotypes_changed": 0,
+  "all_phased_primary_reads_after": 237199,
+  "gap": {
+    "left": 5511231,
+    "right": 5531924,
+    "truth_scorable_physical_overlaps": 166,
+    "local_phased_overlaps": 139,
+    "correct_by_whole_phase_set_orientation": 136,
+    "main_block_ps": 5531924,
+    "main_block_phased": 131,
+    "main_block_correct": 131,
+    "local_by_phase_set": {
+      "5531924": {
+        "phased": 131,
+        "correct": 131
+      },
+      "1005531924": {
+        "phased": 8,
+        "correct": 5
+      }
+    }
+  },
+  "validation": {
+    "predicate_assertions": 1020,
+    "predicate_cases": 42,
+    "window_assertions": 7092,
+    "window_cases": 69,
+    "fresh_native_panel_requests": 105,
+    "native_panel_seconds": 394.17,
+    "full_chr20_seconds": 291.3715120900015,
+    "binary_sha256": "aa3b89bb6f6f5a49a4fc72e0c83577bfade869165e60f2c8556a48bf5e0026d4"
+  }
+}

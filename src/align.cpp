@@ -1071,8 +1071,9 @@ int wfa_collect_aln_str(const Options& opts, const uint8_t* target, int tlen,
 
 static int score_consensus_read_alignment(const Options& opts, const AlnStr& aln) {
     int score = 0;
-    int i = 0;
-    while (i < aln.aln_len) {
+    const int end = std::min(aln.target_end, aln.query_end);
+    int i = std::max(aln.target_beg, aln.query_beg);
+    while (i <= end) {
         const uint8_t target = aln.target_aln[static_cast<size_t>(i)];
         const uint8_t query = aln.query_aln[static_cast<size_t>(i)];
         if (target == 5 && query == 5) {
@@ -1087,7 +1088,7 @@ static int score_consensus_read_alignment(const Options& opts, const AlnStr& aln
 
         const bool target_gap = target == 5;
         int gap_len = 0;
-        while (i < aln.aln_len &&
+        while (i <= end &&
                (aln.target_aln[static_cast<size_t>(i)] == 5) == target_gap &&
                (aln.query_aln[static_cast<size_t>(i)] == 5) != target_gap) {
             ++gap_len;
@@ -1668,8 +1669,10 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                                [static_cast<size_t>(k)].data();
             // cons-vs-read aln: slot (k+1)*2 - 1.
             const size_t cons_read_slot = static_cast<size_t>((k + 1) * 2 - 1);
+            // abPOA IDs index the original input, before partial reads were
+            // filtered. The cluster number does not identify a read's bounds.
             make_cons_read_aln_str(cons_row, read_row, msa_len,
-                                   info.fully_covers[static_cast<size_t>(ci)],
+                                   info.fully_covers[static_cast<size_t>(read_i)],
                                    aln_strs[static_cast<size_t>(ci)][cons_read_slot]);
             const size_t ref_read_slot = static_cast<size_t>((k + 1) * 2);
             if (collect_ref_read_aln_str) {
@@ -1700,6 +1703,49 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
 // ════════════════════════════════════════════════════════════════════════════
 // WFA2 alignment of noisy-region reads with per-haplotype separation.
 // ════════════════════════════════════════════════════════════════════════════
+
+// Only two lengths of the same inserted homopolymer establish the contrast
+// used by local recovery. Check their common reference coordinate
+// before spending WFA work on reads that cannot contribute such observations.
+static bool has_shared_msa_insertion_contrast(const AlnStr& first, const AlnStr& second) {
+    constexpr uint8_t kMsaGap = 5;
+    const auto insertions = [](const AlnStr& aln) {
+        std::vector<std::pair<int, std::vector<uint8_t>>> result;
+        int ref_pos = 0;
+        for (int i = 0; i < aln.aln_len;) {
+            if (aln.target_aln[static_cast<size_t>(i)] != kMsaGap) {
+                ++ref_pos;
+                ++i;
+                continue;
+            }
+            std::vector<uint8_t> allele;
+            while (i < aln.aln_len && aln.target_aln[static_cast<size_t>(i)] == kMsaGap) {
+                const uint8_t base = aln.query_aln[static_cast<size_t>(i++)];
+                if (base != kMsaGap) allele.push_back(base);
+            }
+            if (!allele.empty()) result.emplace_back(ref_pos, std::move(allele));
+        }
+        return result;
+    };
+    const auto left = insertions(first);
+    const auto right = insertions(second);
+    size_t li = 0, ri = 0;
+    while (li < left.size() && ri < right.size()) {
+        if (left[li].first < right[ri].first) ++li;
+        else if (right[ri].first < left[li].first) ++ri;
+        else {
+            const auto& a = left[li].second;
+            const auto& b = right[ri].second;
+            if (a.size() != b.size() && a.front() < 4 && a.front() == b.front() &&
+                std::all_of(a.begin(), a.end(), [&a](uint8_t base) { return base == a.front(); }) &&
+                std::all_of(b.begin(), b.end(), [&b](uint8_t base) { return base == b.front(); }))
+                return true;
+            ++li;
+            ++ri;
+        }
+    }
+    return false;
+}
 
 int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_reads,
                                            NoisyReadInfo& info,
@@ -1774,6 +1820,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
     if (n_cons != 2) return 0;
 
     // Build alignment strings for each haplotype.
+    std::vector<bool> placed(static_cast<size_t>(n), false);
     for (int hap = 1; hap <= 2; ++hap) {
         const int ci = hap - 1;
         const int n_hap = clu_n_seqs[static_cast<size_t>(ci)];
@@ -1802,6 +1849,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             make_cons_read_aln_str(cons_row, read_row, msa_len,
                                    info.fully_covers[static_cast<size_t>(i)],
                                    aln_strs[static_cast<size_t>(ci)][cons_read_slot]);
+            placed[static_cast<size_t>(i)] = true;
             const size_t ref_read_slot = static_cast<size_t>((k_out + 1) * 2);
             if (collect_ref_read_aln_str) {
                 make_ref_read_aln_str(opts,
@@ -1838,17 +1886,20 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
     // with 65 covering reads is recorded at DP 16 (5 ref / 11 alt), which puts it
     // in LOW_COV, keeps it out of the clean classes, and leaves a 7.3 kb link to
     // 39,848,887 with agree=0 conflict=0 despite 36 reads spanning both.
-    if (unassigned != nullptr) {
+    const bool local_insertion_recall = opts.recall_unplaced_msa_insertions &&
+        !opts.add_unplaced_msa_observations;
+    if (unassigned != nullptr && (!local_insertion_recall ||
+            has_shared_msa_insertion_contrast(aln_strs[0][0], aln_strs[1][0]))) {
         for (int i = 0; i < n; ++i) {
             if (info.lens[static_cast<size_t>(i)] <= 0) continue;
-            if (info.phase_sets[static_cast<size_t>(i)] == ps &&
-                (info.haps[static_cast<size_t>(i)] == 1 ||
-                 info.haps[static_cast<size_t>(i)] == 2)) {
-                continue;
-            }
+            // A prior HP label does not mean this read entered the MSA:
+            // homopolymer consensuses deliberately exclude partial reads.
+            if (placed[static_cast<size_t>(i)]) continue;
+            const int cover = info.fully_covers[static_cast<size_t>(i)];
+            if (noisyIsNotCover(cover)) continue;
 
             std::array<AlnStr, 2> cons_read_alns;
-            std::array<int, 2> scores;
+            std::array<int, 2> scores{};
             for (int ci = 0; ci < 2; ++ci) {
                 wfa_collect_aln_str(
                     opts,
@@ -1858,24 +1909,32 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                     info.lens[static_cast<size_t>(i)],
                     kNoisyBothCover, kWfaNoHeuristic, kWfaAffine2p,
                     cons_read_alns[static_cast<size_t>(ci)]);
-                scores[static_cast<size_t>(ci)] = score_consensus_read_alignment(
-                    opts, cons_read_alns[static_cast<size_t>(ci)]);
+                // Retain the complete consensus axis for reference composition,
+                // but do not score an uncovered end as a deletion. The partial
+                // WFA entry point crops that axis before composition.
+                wfa_trim_aln_str(cover, cons_read_alns[static_cast<size_t>(ci)]);
+                if (!local_insertion_recall)
+                    scores[static_cast<size_t>(ci)] = score_consensus_read_alignment(
+                        opts, cons_read_alns[static_cast<size_t>(ci)]);
             }
             // A one-point difference is noise, not evidence: these reads are
             // being admitted into a trusted graph-phased block, so require the
             // winning consensus to win by a real margin.  Committing on any
             // non-zero score is the same failure mode --min-read-margin exists
             // to fix in the k-means path.
-            if (std::abs(scores[0] - scores[1]) < opts.msa_ambiguity_margin) {
+            if (local_insertion_recall ||
+                std::abs(scores[0] - scores[1]) < opts.msa_ambiguity_margin) {
                 if (unassigned != nullptr) {
                     UnassignedMsaRead read;
                     read.read_id = info.noisy_read_ids[static_cast<size_t>(i)];
                     for (int ci = 0; ci < 2; ++ci) {
                         auto& aln = read.ref_read[ci];
                         make_ref_read_aln_str(opts, aln_strs[ci][0], cons_read_alns[ci], aln);
-                        // Composition leaves bounds unset; these are full-cover reads.
+                        // Composition leaves bounds unset. Restore the covered
+                        // interval before any site can consume this read.
                         aln.target_beg = aln.query_beg = 0;
                         aln.target_end = aln.query_end = aln.aln_len - 1;
+                        wfa_trim_aln_str(cover, aln);
                         // Composing two left-aligned paths can move an indel
                         // within a repeat. Restore reference coordinates before
                         // comparing the two paths at a verified MSA site.

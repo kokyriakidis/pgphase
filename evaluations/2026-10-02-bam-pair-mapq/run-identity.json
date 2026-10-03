@@ -1,0 +1,17 @@
+{
+  "binary_sha256": "be30679a86113af54f4a885b29361f8914e9bee6ff3870c698023efc9fe2b5e8",
+  "full_run": "final-full",
+  "pre_move_binary_sha256": "5b821618e8f79c8be5df64865b4fa26928a4114056aab235d84895e92a00b716",
+  "baseline_binary_sha256": "860544d71c534e13ca37e0b23d806b0d62ef58c4a8c6d6bd2995f04cb76381e6",
+  "full_run_elapsed_seconds": 256.93,
+  "full_run_exit_code": 0,
+  "selected_windows": {
+    "cases": 5,
+    "assertions": 142
+  },
+  "predicate_tests": {
+    "cases": 37,
+    "assertions": 822
+  },
+  "standalone_units_pass": true
+}

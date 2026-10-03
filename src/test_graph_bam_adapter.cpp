@@ -63,6 +63,160 @@ static GraphSite make_site(const std::string& id,
 int main() {
     bool ok = true;
 
+    {
+        GraphSiteCatalog catalog;
+        GraphSite site = make_site("snp_branch", 100, ">1>2>3>4>5", ">1>8>3>4>5");
+        site.ref = "A";
+        site.alts = {"C", "CT", "AT", "G", "CC", "T"};
+        for (const std::string walk : {">1>8>3>9>5", ">1>2>3>9>5",
+                                        ">1>6>3>9>5", ">1>8>3>1>8>3",
+                                        ">1<8>3>9>5"})
+            site.allele_walks.push_back(parse_graph_walk(walk));
+        catalog.sites.push_back(site);
+        const auto make_chunk = [&] {
+            GraphChunkBuildResult graph;
+            CandidateVariant snp;
+            snp.counts.n_uniq_alles = 2;
+            snp.counts.category = VariantCategory::CleanHetSnp;
+            snp.counts.alle_covs = {10, 10};
+            snp.counts.ref_cov = 10;
+            snp.counts.alt_cov = 10;
+            snp.phase_set = 100;
+            snp.hap_to_cons_alle = {-1, 0, 1};
+            graph.chunk.candidates = {snp};
+            graph.site_ids = {"snp_branch:1"};
+            graph.site_meta = {{"chr1", 100, "A", site.alts}};
+            graph.site_allele_orig_idx = {{0, 1}};
+            for (const std::string name : {"alt", "ref", "unknown", "repeat", "reverse_node",
+                                            "duplicate", "conflict", "same_branch_conflict",
+                                            "low_mapq", "known"}) {
+                ReadRecord read;
+                read.qname = name;
+                read.mapq = 60;
+                graph.chunk.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.read_id = static_cast<int>(graph.chunk.reads.size() - 1);
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 0;
+                profile.alleles = {name == "known" ? 0 : -1};
+                profile.alt_qi = {-1};
+                graph.chunk.read_var_profile.push_back(profile);
+            }
+            graph.chunk.haps.assign(graph.chunk.reads.size(), 1);
+            graph.chunk.phase_sets.assign(graph.chunk.reads.size(), 100);
+            return graph;
+        };
+        const auto row = [](const std::string& name, int allele, int mapq = 60) {
+            return GraphReadAllele{"snp_branch", "chr1", 100, name, allele, mapq, false};
+        };
+        const std::vector<GraphReadAllele> rows{
+            row("alt", 2), row("ref", 3), row("unknown", 4), row("repeat", 5),
+            row("reverse_node", 6), row("duplicate", 2), row("duplicate", 2),
+            row("conflict", 2), row("conflict", 3),
+            row("same_branch_conflict", 1), row("same_branch_conflict", 2),
+            row("low_mapq", 2, 5), row("known", 2)};
+        Options opts;
+        opts.min_mapq = 30;
+        GraphChunkBuildResult graph = make_chunk();
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 3,
+                    "SNP branch: only unique eligible missing calls are added once");
+        const auto allele = [&](const std::string& name) {
+            return profile_for_read(graph.chunk, name)->alleles[0];
+        };
+        ok &= check(allele("alt") == 1 && allele("ref") == 0 && allele("duplicate") == 1,
+                    "SNP branch: exact local branch survives another catalog indel");
+        for (const std::string name : {"unknown", "repeat", "reverse_node", "conflict",
+                                        "same_branch_conflict", "low_mapq"})
+            ok &= check(allele(name) == -1, "SNP branch: ambiguous calls abstain: " + name);
+        ok &= check(allele("known") == 0 && graph.chunk.candidates[0].counts.alle_covs ==
+                    std::vector<int>{10, 10} && graph.chunk.candidates[0].phase_set == 100 &&
+                    graph.chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1} &&
+                    graph.chunk.haps == std::vector<int>(10, 1) &&
+                    graph.chunk.phase_sets == std::vector<hts_pos_t>(10, 100),
+                    "SNP branch: preserve existing calls, genotype counts and gauges");
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 0,
+                    "SNP branch: applying supplementation twice is idempotent");
+        graph = make_chunk();
+        auto reversed = rows;
+        std::reverse(reversed.begin(), reversed.end());
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), reversed, graph, opts) == 3 &&
+                    allele("conflict") == -1 && allele("same_branch_conflict") == -1,
+                    "SNP branch: source order cannot choose a conflicted allele");
+        graph = make_chunk();
+        Options narrowed = opts;
+        narrowed.max_af = 0.52;
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, narrowed) == 0 &&
+                    allele("alt") == -1 && allele("ref") == -1,
+                    "SNP branch: evidence contradicting the frozen genotype cannot strengthen it");
+        graph = make_chunk();
+        graph.chunk.candidates[0].phase_set = 0;
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 0,
+                    "SNP branch: unphased candidates cannot gain stitching evidence");
+        graph = make_chunk();
+        catalog.sites[0].conditional_parent_alleles = {1};
+        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 0,
+                    "SNP branch: conditional child cannot bypass parent gating");
+    }
+
+    {
+        CandidateVariant graph;
+        graph.graph_site = true;
+        graph.key.pos = 90;
+        graph.key.alt = ">10>20>30";
+        graph.counts.n_uniq_alles = 2;
+        graph.counts.category = VariantCategory::RepeatHetIndel;
+        graph.lcd_var_i_to_cate = kLongcalldRepHetVar;
+        CandidateVariant source;
+        source.key.pos = 101;
+        source.key.type = VariantType::Deletion;
+        source.key.ref_len = 1;
+        source.counts.category = VariantCategory::NoisyCandHet;
+        source.counts.n_uniq_alles = 2;
+        source.counts.ref_cov = 11;
+        source.counts.alt_cov = 13;
+        source.lcd_var_i_to_cate = kCandNoisyCandHet;
+        source.msa_verified = true;
+        source.phase_set = 95;
+        source.hap_to_cons_alle = {-1, 1, 0};
+        const CandidateVariant original_graph = graph;
+        ok &= check(adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: unphased catalog allele retains verified BAM genotype");
+        ok &= check(graph.key.pos == 101 && graph.key.alt.empty() &&
+                    graph.key.type == VariantType::Deletion && graph.key.ref_len == 1 &&
+                    graph.counts.category == VariantCategory::NoisyCandHet &&
+                    graph.counts.alle_covs == std::vector<int>{11, 13} &&
+                    graph.hap_to_cons_alle == std::array<int, 3>{-1, 1, 0} &&
+                    graph.phase_set == 96 && graph.msa_verified &&
+                    graph.alignment_verified && graph.bam_injected && graph.graph_site,
+                    "shared MSA: key, counts, phase gauge and validation stay together");
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 97) &&
+                    graph.phase_set == 96,
+                    "shared MSA: cannot overwrite an already phased catalog row");
+        graph = original_graph;
+        source.msa_verified = false;
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: an unverified noisy candidate cannot own the allele");
+        source.msa_verified = true;
+        source.hap_to_cons_alle = {-1, 1, 1};
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: homozygotes cannot supply an oriented genotype");
+        source.hap_to_cons_alle = {-1, 1, 2};
+        source.counts.n_uniq_alles = 3;
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: a multiallelic source cannot replace a binary row");
+        source.hap_to_cons_alle = {-1, 1, 0};
+        source.counts.n_uniq_alles = 2;
+        graph.counts.n_uniq_alles = 3;
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: binary source cannot claim a whole snarl");
+        graph = original_graph;
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 0),
+                    "shared MSA: mapped source label must be phased");
+        graph.counts.category = VariantCategory::CleanHetIndel;
+        ok &= check(!adopt_unphased_graph_allele_from_bam(graph, source, 96),
+                    "shared MSA: only a demoted repeat can change ownership");
+    }
+
 
     {
         // Exercise the production BAM query, graph projection and diploid
@@ -330,6 +484,183 @@ int main() {
     }
 
     {
+        PhasingChunk pair;
+        pair.candidates.resize(2);
+        for (CandidateVariant& site : pair.candidates) {
+            site.bam_injected = true;
+            site.hap_to_cons_alle = {-1, 0, 1};
+        }
+        constexpr int kVoteCount = 32;
+        constexpr int kMinMapq = 30;
+        constexpr double kMaxP = 0.001;
+        for (int ri = 0; ri < kVoteCount; ++ri) {
+            ReadRecord read;
+            read.qname = "paired-molecule-" + std::to_string(ri);
+            read.mapq = 10;
+            pair.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {ri % 2, ri % 2};
+            profile.bam_alleles = profile.alleles;
+            profile.bam_mapq = 60;
+            pair.read_var_profile.push_back(std::move(profile));
+        }
+        const auto supported = [&] {
+            return local_run_boundary_flip(pair, 0, 1, kMinMapq, kMaxP);
+        };
+        const auto same = supported();
+        ok &= check(same && !*same,
+                    "BAM pair: low GAF MAPQ cannot discard mapped BAM votes");
+        for (ReadVariantProfile& profile : pair.read_var_profile)
+            profile.bam_alleles[1] = 1 - profile.bam_alleles[0];
+        const auto cross = supported();
+        ok &= check(cross && *cross,
+                    "BAM pair: parity uses BAM calls rather than working calls");
+        for (ReadRecord& read : pair.reads) read.mapq = 60;
+        for (const int mapq : {10, 255}) {
+            for (ReadVariantProfile& profile : pair.read_var_profile)
+                profile.bam_mapq = mapq;
+            ok &= check(!supported(),
+                        "BAM pair: GAF MAPQ cannot certify low or unknown BAM MAPQ");
+        }
+        for (ReadVariantProfile& profile : pair.read_var_profile) {
+            profile.bam_mapq = 60;
+            profile.bam_alleles = {-1, -1};
+        }
+        ok &= check(!supported(),
+                    "BAM pair: missing source calls cannot borrow working calls");
+        pair.candidates[1].bam_injected = false;
+        const auto mixed = supported();
+        ok &= check(mixed && !*mixed,
+                    "mixed pair: retain the established working-matrix parity");
+        for (ReadRecord& read : pair.reads) read.mapq = 10;
+        ok &= check(!supported(),
+                    "mixed pair: BAM MAPQ cannot certify the graph observations");
+        pair.candidates[1].bam_injected = true;
+        for (ReadVariantProfile& profile : pair.read_var_profile)
+            profile.bam_alleles = {0, 0};
+        ok &= check(!supported(),
+                    "BAM pair: one allele class cannot orient both haplotypes");
+    }
+
+    {
+        // The complementary pair's downstream certificate must not strand
+        // its cut-free BAM prefix. This proof cannot borrow a graph gauge,
+        // ambiguous deletion REF calls, or a favorable earlier SNP.
+        const auto make_prefix = [] {
+            GraphChunkBuildResult result;
+            for (size_t ci = 0; ci < 4; ++ci) {
+                CandidateVariant site;
+                site.key.pos = ci == 0 ? 121 : ci == 1 ? 150 : 201;
+                site.key.type = ci == 0 ? VariantType::Insertion :
+                    ci == 1 ? VariantType::Snp : VariantType::Deletion;
+                site.key.ref_len = ci == 0 ? 0 : ci == 3 ? 2 : 1;
+                site.key.alt = ci < 2 ? "C" : "";
+                site.counts.category = ci == 1 ? VariantCategory::CleanHetSnp :
+                    VariantCategory::CleanHetIndel;
+                site.phase_set = 80;
+                site.hap_to_cons_alle = {-1, ci == 2 ? 0 : 1, ci == 2 ? 1 : 0};
+                site.bam_injected = site.msa_verified = site.alignment_verified = true;
+                result.chunk.candidates.push_back(site);
+                RecoverySourceSite origin;
+                origin.candidate_index = ci;
+                origin.phase_set = 40;
+                origin.hap1_allele = site.hap_to_cons_alle[1];
+                origin.hap2_allele = site.hap_to_cons_alle[2];
+                origin.can_adopt = true;
+                result.recovery_source_sites.push_back(origin);
+            }
+            result.recovery_source_weak_cuts[40] = {250};
+            for (int ri = 0; ri < 18; ++ri) {
+                ReadRecord read;
+                read.qname = "prefix-molecule-" + std::to_string(ri);
+                read.mapq = 5;
+                result.chunk.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 3;
+                const int snp = ri < 12 ? 0 : 1;
+                profile.bam_alleles = {-1, snp, 1 - snp, snp};
+                profile.alleles = {-1, -1, -1, -1};
+                profile.bam_mapq = 60;
+                result.chunk.read_var_profile.push_back(std::move(profile));
+            }
+            return result;
+        };
+        auto prefix = make_prefix();
+        const auto supported = [&] {
+            return bam_prefix_before_deletion_pair(prefix, 2, 3, 110);
+        };
+        ok &= check(supported() == std::optional<hts_pos_t>(120),
+                    "BAM prefix: retain all audited rows before the supported pair");
+        for (CandidateVariant& row : prefix.chunk.candidates)
+            std::swap(row.hap_to_cons_alle[1], row.hap_to_cons_alle[2]);
+        ok &= check(supported() == std::optional<hts_pos_t>(120),
+                    "BAM prefix: a uniform source gauge reversal remains valid");
+        prefix = make_prefix();
+        prefix.chunk.read_var_profile[0].bam_alleles[1] = 1;
+        ok &= check(!supported(), "BAM prefix: one opposing molecule vetoes transfer");
+        for (const int mapq : {10, 255}) {
+            prefix = make_prefix();
+            for (ReadVariantProfile& read : prefix.chunk.read_var_profile)
+                read.bam_mapq = mapq;
+            ok &= check(!supported(), "BAM prefix: reject low or unknown BAM MAPQ");
+        }
+        prefix = make_prefix();
+        for (ReadVariantProfile& read : prefix.chunk.read_var_profile)
+            read.bam_alleles = {-1, 0, 1, 0};
+        ok &= check(!supported(), "BAM prefix: one haplotype does not certify diploidy");
+        for (const int deletion_call : {0, 1}) {
+            prefix = make_prefix();
+            for (ReadVariantProfile& read : prefix.chunk.read_var_profile)
+                read.bam_alleles[2] = read.bam_alleles[3] = deletion_call;
+            ok &= check(!supported(), "BAM prefix: double REF or ALT abstains");
+        }
+        prefix = make_prefix();
+        for (size_t ri = 0; ri < prefix.chunk.reads.size(); ++ri)
+            prefix.chunk.reads[ri].qname = "duplicate-" + std::to_string(ri % 2);
+        ok &= check(!supported(), "BAM prefix: duplicate names cannot inflate support");
+        prefix = make_prefix();
+        prefix.recovery_source_weak_cuts[40] = {150};
+        ok &= check(!supported(), "BAM prefix: an internal weak cut vetoes transfer");
+        prefix = make_prefix();
+        prefix.recovery_source_quality_cuts[40] = {150};
+        ok &= check(!supported(), "BAM prefix: an internal quality cut vetoes transfer");
+        prefix = make_prefix();
+        prefix.recovery_source_weak_cuts.clear();
+        ok &= check(!supported(), "BAM prefix: an unaudited source is not certified");
+        prefix = make_prefix();
+        prefix.recovery_source_sites.erase(prefix.recovery_source_sites.begin());
+        ok &= check(!supported(), "BAM prefix: missing row provenance vetoes transfer");
+        prefix = make_prefix();
+        prefix.recovery_source_sites[0].phase_set = 41;
+        ok &= check(!supported(), "BAM prefix: another source cannot inherit the certificate");
+        prefix = make_prefix();
+        std::swap(prefix.chunk.candidates[0].hap_to_cons_alle[1],
+                  prefix.chunk.candidates[0].hap_to_cons_alle[2]);
+        ok &= check(!supported(), "BAM prefix: inconsistent original gauges veto transfer");
+        prefix = make_prefix();
+        prefix.chunk.candidates[0].bam_injected = false;
+        ok &= check(!supported(), "BAM prefix: catalog rows require their own certificate");
+        prefix = make_prefix();
+        prefix.chunk.candidates[0].hap_to_cons_alle = {-1, 0, 0};
+        ok &= check(supported() == std::optional<hts_pos_t>(150),
+                    "BAM prefix: homozygotes do not extend the certified interval");
+        prefix = make_prefix();
+        prefix.chunk.candidates.push_back(prefix.chunk.candidates[2]);
+        ok &= check(!supported(), "BAM prefix: a third oriented deletion row vetoes transfer");
+        prefix = make_prefix();
+        auto nearer = prefix.chunk.candidates[1];
+        nearer.key.pos = 180;
+        prefix.chunk.candidates.push_back(nearer);
+        auto origin = prefix.recovery_source_sites[1];
+        origin.candidate_index = 4;
+        prefix.recovery_source_sites.push_back(origin);
+        ok &= check(!supported(), "BAM prefix: do not bypass an uncalled nearest clean SNP");
+    }
+
+    {
         // Homozygotes inherit the BAM source's PS, but cannot orient it or
         // extend its certified heterozygous interval across a weak cut.
         constexpr hts_pos_t kRunPhaseSet = 80;
@@ -382,7 +713,15 @@ int main() {
         run.recovery_source_sites.push_back(homozygous_source);
         ok &= check(bam_source_run_supported(run, kRunPhaseSet),
                     "BAM run: duplicate homozygous provenance is not a gauge veto");
+        run.chunk.candidates.back().counts.category = VariantCategory::NoisyCandHom;
+        run.chunk.candidates.back().hap_to_cons_alle = {-1, 0, 1};
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: stale homozygous orientation cannot extend a path cut");
+        run.chunk.candidates.back().counts.category = VariantCategory::CleanHom;
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: clean homozygous orientation is not provenance");
         run.recovery_source_sites.resize(2);
+        run.chunk.candidates.back().counts.category = VariantCategory::CleanHetSnp;
         run.chunk.candidates.back().hap_to_cons_alle = {-1, -1, -1};
         ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
                     "BAM run: malformed source-labelled row remains a veto");
@@ -413,6 +752,38 @@ int main() {
         run.chunk.candidates[0].bam_injected = false;
         ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
                     "BAM run: a graph heterozygote needs a graph path");
+        // A physical insertion bridge can independently orient an attached
+        // component. Its shared graph rows still need exact source lineage,
+        // not the component's new numeric phase-set label.
+        run.recovery_source_weak_cuts[kSourcePhaseSet] = {250};
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: downstream source cut lies outside the component");
+        std::swap(run.chunk.candidates[0].hap_to_cons_alle[1],
+                  run.chunk.candidates[0].hap_to_cons_alle[2]);
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: a reversed graph row cannot borrow the source gauge");
+        std::swap(run.chunk.candidates[0].hap_to_cons_alle[1],
+                  run.chunk.candidates[0].hap_to_cons_alle[2]);
+        run.recovery_source_sites[0].can_adopt = false;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: an untranslatable graph allele remains a veto");
+        run.recovery_source_sites[0].can_adopt = true;
+        run.recovery_source_sites.erase(run.recovery_source_sites.begin());
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: missing graph provenance remains a veto");
+        run = make_run();
+        run.recovery_source_quality_cuts[kSourcePhaseSet] = {150};
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
+                    "BAM run: an internal quality cut cannot certify a component");
+        run.chunk.candidates[0].bam_injected = false;
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: an internal quality cut remains a veto");
+        run.recovery_source_quality_cuts[kSourcePhaseSet] = {250};
+        ok &= check(bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: a later quality cut does not disconnect earlier rows");
+        run.recovery_source_weak_cuts[kSourcePhaseSet] = {150};
+        ok &= check(!bam_source_run_supported(run, kRunPhaseSet, true),
+                    "shared BAM run: an internal weak cut remains a veto");
         run = make_run();
         run.recovery_source_sites[0].can_adopt = false;
         ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
@@ -424,6 +795,104 @@ int main() {
         run.chunk.candidates.front() = homozygote;
         ok &= check(!bam_source_run_supported(run, kRunPhaseSet),
                     "BAM run: homozygotes alone cannot certify a path");
+    }
+
+    {
+        const auto make_island = [] {
+            GraphChunkBuildResult gc;
+            for (size_t ci = 0; ci < 4; ++ci) {
+                CandidateVariant row;
+                row.key.pos = ci == 3 ? 200 : 100 + 10 * ci;
+                row.key.type = VariantType::Snp;
+                row.counts.category = VariantCategory::CleanHetSnp;
+                row.phase_set = ci == 2 ? 90 : 80;
+                row.hap_to_cons_alle = ci == 3 ? std::array<int, 3>{-1, 0, 1} :
+                    std::array<int, 3>{-1, 1, 0};
+                row.bam_injected = ci != 2;
+                gc.chunk.candidates.push_back(row);
+                RecoverySourceSite source;
+                source.candidate_index = ci;
+                source.phase_set = 40;
+                source.hap1_allele = 1;
+                source.hap2_allele = 0;
+                source.can_adopt = true;
+                gc.recovery_source_sites.push_back(source);
+            }
+            CandidateVariant graph_anchor = gc.chunk.candidates[0];
+            graph_anchor.key.pos = 105;
+            graph_anchor.bam_injected = false;
+            gc.chunk.candidates.push_back(graph_anchor);
+            RecoverySourceSite shared = gc.recovery_source_sites[0];
+            shared.candidate_index = 4;
+            shared.clean_shared_snp = true;
+            gc.recovery_source_sites.push_back(shared);
+            gc.recovery_source_weak_cuts[40] = {130};
+            for (int ri = 0; ri < 2; ++ri) {
+                ReadRecord read;
+                read.qname = "island-read-" + std::to_string(ri);
+                gc.chunk.reads.push_back(std::move(read));
+                ReadVariantProfile profile;
+                profile.start_var_idx = 0;
+                profile.end_var_idx = 3;
+                profile.alleles = {-1, -1, ri == 1 ? 0 : -1, 1};
+                gc.chunk.read_var_profile.push_back(std::move(profile));
+                RecoverySourceRead source;
+                source.read_index = ri;
+                source.phase_set = 40;
+                source.hap = 1;
+                gc.recovery_source_reads.push_back(source);
+            }
+            gc.chunk.haps = {2, 2};
+            gc.chunk.phase_sets = {80, 80};
+            return gc;
+        };
+        auto gc = make_island();
+        detach_bam_sites_across_weak_cuts(gc);
+        const hts_pos_t detached_ps = gc.chunk.candidates[3].phase_set;
+        ok &= check(detached_ps > 0 && detached_ps != 80 && detached_ps != 90,
+                    "source island: the closest owner's label cannot hide an earlier owner's tail");
+        ok &= check(gc.chunk.candidates[0].phase_set == 80 &&
+                    gc.chunk.candidates[1].phase_set == 80 &&
+                    gc.chunk.candidates[2].phase_set == 90,
+                    "source island: established near components remain separate");
+        ok &= check(gc.chunk.candidates[3].hap_to_cons_alle[1] == 1 &&
+                    gc.chunk.candidates[3].hap_to_cons_alle[2] == 0,
+                    "source island: detached allele gauge matches its original source");
+        ok &= check(gc.chunk.phase_sets[0] == detached_ps && gc.chunk.haps[0] == 1,
+                    "source island: an exclusive source read follows the restored gauge");
+        ok &= check(gc.chunk.phase_sets[1] == 80 && gc.chunk.haps[1] == 2,
+                    "source island: a read supporting another component keeps its near assignment");
+        gc = make_island();
+        gc.chunk.read_var_profile[1].alleles[0] = 0;
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: a physical bridge preserves an additional owner's join");
+        gc = make_island();
+        gc.chunk.candidates[3].bam_injected = false;
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: a certified far catalog anchor preserves its existing join");
+        gc = make_island();
+        gc.recovery_source_sites.back().clean_shared_snp = false;
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: an additional owner requires a shared clean SNP in this component");
+        gc = make_island();
+        gc.chunk.candidates[2].phase_set = 40;
+        gc.recovery_source_sites.back().clean_shared_snp = false;
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: the original source label still owns the nearest row");
+        gc = make_island();
+        gc.recovery_source_weak_cuts[40] = {115, 130};
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: an older component's owner is not reopened at a later cut");
+        gc = make_island();
+        gc.recovery_source_weak_cuts[40].clear();
+        detach_bam_sites_across_weak_cuts(gc);
+        ok &= check(gc.chunk.candidates[3].phase_set == 80,
+                    "source island: an uncut source is unchanged");
     }
 
     {
@@ -508,6 +977,14 @@ int main() {
         source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 1};
         ok &= check(!bam_source_site_path_supported(source, 0),
                     "BAM site path: a homozygote cannot certify orientation");
+        source = make_source();
+        source.chunk.candidates[1].counts.category = VariantCategory::NoisyCandHom;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: stale homozygous labels cannot anchor a gauge");
+        source = make_source();
+        source.chunk.candidates[0].counts.category = VariantCategory::CleanHom;
+        ok &= check(!bam_source_site_path_supported(source, 0),
+                    "BAM site path: stale homozygous deletion cannot certify parity");
         source = make_source();
         source.chunk.candidates[1].key.type = VariantType::Deletion;
         source.chunk.candidates[1].key.pos = 100;
@@ -3069,6 +3546,247 @@ int main() {
             std::remove(fasta_path);
             std::remove((std::string(fasta_path) + ".fai").c_str());
         }
+    }
+
+    {
+        const std::string header_text = "@SQ\tSN:chr\tLN:1000\n";
+        const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+            sam_hdr_parse(header_text.size(), header_text.c_str()), bam_hdr_destroy);
+        const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> alignment(
+            bam_init1(), bam_destroy1);
+        const std::string sam = "quality\t0\tchr\t100\t60\t5M1D4M\t*\t0\t0\tACGTCGTTA\tIIIIIIIII";
+        kstring_t line{0, 0, nullptr};
+        kputs(sam.c_str(), &line);
+        const int parsed = sam_parse1(&line, header.get(), alignment.get());
+        std::free(line.s);
+        ok &= check(parsed >= 0, "physical SNP quality: parse fixture");
+        if (parsed >= 0) {
+            const auto quality = [&](hts_pos_t pos, char ref, char alt, int allele) {
+                return bam_snp_observation_quality(alignment.get(), pos, ref, alt, allele);
+            };
+            ok &= check(quality(100, 'a', 'g', 0) == 40 &&
+                        quality(102, 'a', 'g', 1) == 40,
+                        "physical SNP quality: matching REF/ALT keeps measured quality");
+            ok &= check(quality(100, 'A', 'G', 1) == 0 &&
+                        quality(102, 'A', 'G', 0) == 0,
+                        "physical SNP quality: MSA cannot borrow opposite-allele quality");
+            ok &= check(quality(101, 'A', 'G', 0) == 0 &&
+                        quality(101, 'A', 'G', 1) == 0,
+                        "physical SNP quality: a third BAM base is not a certificate");
+            ok &= check(quality(105, 'A', 'G', 0) == 0 &&
+                        quality(105, 'A', 'G', 1) == 0 &&
+                        quality(99, 'A', 'G', 0) == 0 &&
+                        quality(110, 'A', 'G', 0) == 0,
+                        "physical SNP quality: deleted and uncovered positions abstain");
+            bam_get_qual(alignment.get())[0] = 255;
+            ok &= check(quality(100, 'A', 'G', 0) == 0,
+                        "physical SNP quality: absent quality cannot certify an allele");
+            bam_get_qual(alignment.get())[0] = 40;
+            ok &= check(quality(100, 'A', 'G', -1) == 0 &&
+                        quality(100, 'A', 'G', 2) == 0 &&
+                        quality(100, 'A', 'A', 0) == 0 &&
+                        quality(100, 'N', 'G', 0) == 0 &&
+                        quality(100, 'A', 'N', 0) == 0 &&
+                        bam_snp_observation_quality(nullptr, 100, 'A', 'G', 0) == 0,
+                        "physical SNP quality: only a known binary nucleotide contrast certifies");
+        }
+    }
+
+    {
+        const auto make_seed = [] {
+            PhasingChunk seed;
+            seed.reads.resize(1);
+            seed.haps = {2};
+            seed.phase_sets = {100};
+            seed.read_var_profile.resize(1);
+            auto& profile = seed.read_var_profile[0];
+            profile.read_id = 0;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {0, 0};
+            profile.bam_alleles = {0, 0};
+            profile.bam_base_qualities = {40, 40};
+            profile.bam_mapq = 60;
+            for (const hts_pos_t pos : {100, 250}) {
+                CandidateVariant candidate;
+                candidate.key.pos = pos;
+                candidate.key.type = VariantType::Snp;
+                candidate.key.ref_len = 1;
+                candidate.key.alt = "T";
+                candidate.counts.category = VariantCategory::CleanHetSnp;
+                candidate.hap_to_cons_alle = {-1, 0, 1};
+                candidate.phase_set = 100;
+                seed.candidates.push_back(candidate);
+            }
+            return seed;
+        };
+        const auto seed = make_seed();
+        auto corrected = make_seed();
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(corrected) == 1 &&
+                    corrected.haps == std::vector<int>{1} &&
+                    corrected.phase_sets == seed.phase_sets &&
+                    corrected.reads[0].n_clean_agree_snps == 2 &&
+                    corrected.reads[0].n_clean_conflict_snps == 0 &&
+                    corrected.candidates[0].hap_to_cons_alle == seed.candidates[0].hap_to_cons_alle &&
+                    corrected.candidates[1].phase_set == seed.candidates[1].phase_set,
+                    "physical SNP refresh: repair inherited HP without changing the gauge");
+        const auto make_certified_seed = [&] {
+            auto chunk = make_seed();
+            chunk.candidates[0].counts.category = VariantCategory::NoisyCandHet;
+            chunk.candidates[0].msa_verified = true;
+            chunk.candidates[0].bam_injected = true;
+            chunk.read_var_profile[0].bam_base_qualities[1] = 0;
+            // Sixteen conflict-free molecules pass the existing singleton
+            // association/Wilson gates; both alleles need physical support.
+            for (int i = 0; i < 16; ++i) {
+                chunk.reads.emplace_back();
+                chunk.reads.back().qname = "support_" + std::to_string(i);
+                chunk.haps.push_back(0);
+                chunk.phase_sets.push_back(100);
+                auto profile = chunk.read_var_profile[0];
+                profile.read_id = i + 1;
+                profile.alleles = {i % 2, i % 2};
+                profile.bam_alleles = profile.alleles;
+                profile.bam_base_qualities = {40, 40};
+                chunk.read_var_profile.push_back(std::move(profile));
+            }
+            return chunk;
+        };
+        auto msa = make_certified_seed();
+        msa.candidates[0].counts.category = VariantCategory::NoisyCandHet;
+        msa.candidates[0].msa_verified = true;
+        msa.candidates[0].bam_injected = true;
+        msa.read_var_profile[0].bam_base_qualities[1] = 0;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 1 &&
+                    msa.haps[0] == 1 && msa.phase_sets[0] == seed.phase_sets[0] &&
+                    std::all_of(msa.haps.begin() + 1, msa.haps.end(), [](int hap) { return hap == 0; }) &&
+                    msa.reads[0].n_clean_agree_snps == 0,
+                    "physical SNP refresh: independently verified MSA SNP corrects indel HP");
+        msa = make_certified_seed();
+        msa.candidates[0].counts.category = VariantCategory::NoisyCandHet;
+        msa.candidates[0].msa_verified = true;
+        msa.candidates[0].bam_injected = true;
+        msa.read_var_profile[0].bam_alleles[1] = 1;
+        msa.read_var_profile[0].alleles[1] = 1;
+        msa.read_var_profile[0].bam_base_qualities[1] = 40;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0 && msa.haps[0] == 2,
+                    "physical SNP refresh: contradictory clean SNP vetoes MSA witness");
+        msa = make_certified_seed();
+        msa.read_var_profile[0].bam_alleles[1] = 1;
+        msa.read_var_profile[0].alleles[1] = 1;
+        msa.read_var_profile[0].bam_base_qualities[1] = 10;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0 && msa.haps[0] == 2,
+                    "physical SNP refresh: weak clean contradiction vetoes a noisy singleton");
+        msa = make_certified_seed();
+        msa.read_var_profile[0].bam_alleles[1] = 1;
+        msa.read_var_profile[0].alleles[1] = 1;
+        msa.read_var_profile[0].bam_base_qualities[1] = 0;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 1 && msa.haps[0] == 1,
+                    "physical SNP refresh: an uncertified clean call cannot veto correction");
+        msa = make_certified_seed();
+        auto extra_clean = msa.candidates[1];
+        extra_clean.key.pos = 500;
+        msa.candidates.push_back(extra_clean);
+        extra_clean.key.pos = 750;
+        msa.candidates.push_back(extra_clean);
+        for (auto& profile : msa.read_var_profile) {
+            profile.end_var_idx = 3;
+            profile.bam_base_qualities[1] = 40;
+            profile.alleles.push_back(profile.alleles[0]);
+            profile.bam_alleles.push_back(profile.bam_alleles[0]);
+            profile.bam_base_qualities.push_back(40);
+            profile.alleles.push_back(-1);
+            profile.bam_alleles.push_back(-1);
+            profile.bam_base_qualities.push_back(0);
+        }
+        msa.read_var_profile[0].alleles[3] = 1;
+        msa.read_var_profile[0].bam_alleles[3] = 1;
+        msa.read_var_profile[0].bam_base_qualities[3] = 10;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 1 &&
+                    msa.haps[0] == 1 && msa.reads[0].n_clean_agree_snps == 2,
+                    "physical SNP refresh: spaced Q30 clean witnesses retain their certificate");
+        msa = make_certified_seed();
+        msa.candidates[0].counts.category = VariantCategory::NoisyCandHet;
+        msa.candidates[0].msa_verified = true;
+        msa.candidates[0].bam_injected = false;
+        msa.read_var_profile[0].bam_base_qualities[1] = 0;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0,
+                    "physical SNP refresh: MSA flag without imported source cannot certify HP");
+        msa = make_certified_seed();
+        auto farther = msa.candidates[1];
+        farther.key.pos = 500;
+        msa.candidates.push_back(std::move(farther));
+        for (size_t ri = 0; ri < msa.read_var_profile.size(); ++ri) {
+            auto& profile = msa.read_var_profile[ri];
+            profile.end_var_idx = 2;
+            profile.alleles.push_back(profile.alleles[0]);
+            profile.bam_alleles.push_back(profile.bam_alleles[0]);
+            profile.bam_base_qualities[1] = 0;
+            profile.bam_base_qualities.push_back(ri == 0 ? 0 : 40);
+        }
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 1 && msa.haps[0] == 1,
+                    "physical SNP refresh: farther clean anchors retain missing nearest-site evidence");
+        msa = make_certified_seed();
+        msa.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0 && msa.haps[0] == 2,
+                    "physical SNP refresh: an MSA gauge reversed against clean SNPs abstains");
+        msa = make_certified_seed();
+        for (auto& profile : msa.read_var_profile) {
+            profile.alleles = {0, 0};
+            profile.bam_alleles = {0, 0};
+        }
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0,
+                    "physical SNP refresh: one-sided site support cannot certify a singleton");
+        msa = make_certified_seed();
+        msa.reads.resize(2);
+        msa.haps.resize(2);
+        msa.phase_sets.resize(2);
+        msa.read_var_profile.resize(2);
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(msa) == 0,
+                    "physical SNP refresh: one agreeing molecule cannot certify an MSA gauge");
+        auto rejected = make_seed();
+        rejected.read_var_profile[0].bam_base_qualities[1] = 29;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0 &&
+                    rejected.haps == seed.haps,
+                    "physical SNP refresh: one quality-bearing locus is insufficient");
+        rejected = make_seed();
+        rejected.read_var_profile[0].bam_mapq = 255;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: unknown MAPQ abstains");
+        rejected = make_seed();
+        rejected.read_var_profile[0].bam_mapq = 29;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: low MAPQ abstains");
+        rejected = make_seed();
+        rejected.read_var_profile[0].bam_alleles[1] = 1;
+        rejected.read_var_profile[0].alleles[1] = 1;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0 &&
+                    rejected.haps == seed.haps,
+                    "physical SNP refresh: conflicting physical calls abstain");
+        rejected = make_seed();
+        rejected.read_var_profile[0].alleles[1] = 1;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: provenance disagreements cannot add support");
+        rejected = make_seed();
+        rejected.candidates[1].key.pos = 100;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: duplicate descriptions are one locus");
+        rejected = make_seed();
+        rejected.candidates[1].key.pos = 199;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: adjacent loci are not independent witnesses");
+        rejected = make_seed();
+        rejected.candidates[1].counts.category = VariantCategory::NoisyCandHet;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: noisy SNPs cannot replace clean witnesses");
+        rejected = make_seed();
+        rejected.candidates[1].phase_set = 200;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: independent phase sets cannot supply the gauge");
+        rejected = make_seed();
+        rejected.haps[0] = 0;
+        ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
+                    "physical SNP refresh: unassigned reads remain for ordinary rescue");
     }
 
     std::ostringstream sites;

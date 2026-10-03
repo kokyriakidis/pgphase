@@ -1,0 +1,20 @@
+g++ -O3 -std=c++17 -Wall -Wextra -MMD -MP -o test_graph_bam_adapter src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o src/edlib.o /home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib/lib/libwfa.a /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/lib/libabpoa.a src/gbz_ffi/target/release/libpgphase_gbz_ffi.a -lhts -lm -lz -lpthread -ldl -lrt
+g++ -O3 -std=c++17 -Wall -Wextra -MMD -MP -o test_noise_filter src/test_noise_filter.cpp src/graph_bam_adapter.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o src/edlib.o /home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib/lib/libwfa.a /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/lib/libabpoa.a src/gbz_ffi/target/release/libpgphase_gbz_ffi.a -lhts -lm -lz -lpthread -ldl -lrt
+g++ -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o test_phase_predicates src/test_phase_predicates.cpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o src/edlib.o /home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib/lib/libwfa.a /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/lib/libabpoa.a -lhts -lm -lz -lpthread
+./test_phase_predicates
+===============================================================================
+All tests passed (958 assertions in 41 test cases)
+
+./test_graph_sites
+ALL PASS
+./test_graph_bam_adapter
+ALL PASS
+./test_noise_filter
+--- test_homopolymer ---
+--- test_tandem_repeat ---
+--- test_low_complexity ---
+--- test_is_noisy_site ---
+--- test_graph_noise_filter ---
+--- test_trim_to_minimal_vcf ---
+--- test_edge_cases ---
+ALL PASS

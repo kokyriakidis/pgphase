@@ -1,0 +1,28 @@
+{
+  "old_phased_snps": 57769,
+  "retained_phased_snps": 57769,
+  "split_or_reoriented_old_blocks": [],
+  "joined_old_blocks": [
+    {
+      "after_ps": 1684336,
+      "before_ps": [
+        1684336,
+        2264117
+      ]
+    },
+    {
+      "after_ps": 4878943,
+      "before_ps": [
+        4713175,
+        4878943
+      ]
+    },
+    {
+      "after_ps": 16715242,
+      "before_ps": [
+        16715242,
+        17521342
+      ]
+    }
+  ]
+}

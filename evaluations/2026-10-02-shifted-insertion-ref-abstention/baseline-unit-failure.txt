@@ -1,0 +1,26 @@
+Filters: repeat insertion calls retain equivalent ALT beyond the old search bound
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test-predicates-baseline is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+repeat insertion calls retain equivalent ALT beyond the old search bound
+  a contradictory independent SNP cannot certify the insertion source gauge
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:1946
+...............................................................................
+
+src/test_phase_predicates.cpp:1950: FAILED:
+  CHECK( backfill_msa_observations(chunk, opts, 100, 100) == 0 )
+with expansion:
+  1 == 0
+
+src/test_phase_predicates.cpp:1951: FAILED:
+  CHECK( chunk.read_var_profile[0].start_var_idx == -1 )
+with expansion:
+  0 == -1
+
+===============================================================================
+test cases:   1 |   0 passed | 1 failed
+assertions: 138 | 136 passed | 2 failed

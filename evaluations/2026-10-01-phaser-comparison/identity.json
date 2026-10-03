@@ -1,0 +1,75 @@
+{
+  "source_commit": "94410d04ba8acda80b56feb9a3ec562249c2328d",
+  "local_date": "2026-10-01",
+  "timezone": "America/Los_Angeles",
+  "cpu_model": "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz",
+  "logical_cpus": 20,
+  "worker_threads": 8,
+  "hiphase_io_threads": 4,
+  "materialization_io_threads": 4,
+  "pysam_version": "0.24.0",
+  "python_version": "3.12.14",
+  "timing_repetitions": 1,
+  "run_order": [
+    "pgphase",
+    "hiphase_dv",
+    "hiphase_pg_calls",
+    "pgphase_materialization"
+  ],
+  "outputs": "/tmp/pgphase-hiphase-comparison-2026-10-01",
+  "tools": {
+    "pgphase": {
+      "binary": "/home/kokyriakidis/Downloads/pgphase/pgphase",
+      "sha256": "0dee719443489efb56f5f33efc69c0c825f93904477af1c25d55cde63206f733"
+    },
+    "hiphase": {
+      "binary": "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/hiphase",
+      "sha256": "4a949e4b3de9bea21d24c656f8b7ab1a8b4cec87e87be707099eec56eac63996",
+      "version": "hiphase 1.6.0-ac3f399"
+    }
+  },
+  "inputs": {
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": {
+      "size_bytes": 1628148107,
+      "mtime_ns": 1777684529398316204
+    },
+    "test_data/chm13v2.0.chr20.renamed.fa": {
+      "size_bytes": 67037899,
+      "mtime_ns": 1777580431186148146
+    },
+    "test_data/chr20.sites.striped.vcf.gz": {
+      "size_bytes": 656334074,
+      "mtime_ns": 1779089336279080637
+    },
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": {
+      "size_bytes": 840749997,
+      "mtime_ns": 1778217680609834235
+    },
+    "test_data/derived/chr20_truth_hap.tsv": {
+      "size_bytes": 12679829,
+      "mtime_ns": 1789660880088322588
+    },
+    "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/HG002.chr20.normalized.bam": {
+      "size_bytes": 1628148146,
+      "mtime_ns": 1789269777332323671
+    },
+    "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/chm13v2.0.chr20.normalized.fa": {
+      "size_bytes": 67037891,
+      "mtime_ns": 1789269839189329938
+    },
+    "/home/kokyriakidis/Downloads/pgphase-eval-data/shared_calls/chr20/deepvariant.vcf.gz": {
+      "size_bytes": 4179323,
+      "mtime_ns": 1789270459266339021,
+      "sha256": "5fae49db5c57cb837623049eaa19b7456738836cf1f02865acd0de6f979c4c4d"
+    },
+    "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/input.vcf.gz": {
+      "size_bytes": 1316667,
+      "mtime_ns": 1790913644731167994,
+      "sha256": "0606d7b60047a68fdd66d713d8848d850cb44c7913736542b12be5a00af4ee09"
+    }
+  },
+  "default_realignment_fallbacks": {
+    "hiphase_dv": 5,
+    "hiphase_pg_calls": 8
+  }
+}

@@ -1,0 +1,3 @@
+Filters: a single seam admits focused recovery of complementary BAM rows
+===============================================================================
+All tests passed (44 assertions in 1 test case)

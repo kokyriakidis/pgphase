@@ -1,0 +1,842 @@
+[
+  {
+    "file": "matrix-replay-24-free-indels.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 1,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.004903,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.003143,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.002795,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-free-indels.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 1,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.003993,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.002627,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.002499,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-free-indels.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.004915,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.004197,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.004068,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-free-indels.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.004078,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.003023,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.002908,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local-free-indels.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 1,
+    "selected_extra": 1,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 1756,
+        "elapsed_seconds": 0.038616,
+        "winner": 0,
+        "same_cost": 49,
+        "flip_cost": 50
+      },
+      {
+        "fold": 0,
+        "rows": 878,
+        "elapsed_seconds": 0.019835,
+        "winner": 0,
+        "same_cost": 19,
+        "flip_cost": 20
+      },
+      {
+        "fold": 1,
+        "rows": 878,
+        "elapsed_seconds": 0.022759,
+        "winner": 1,
+        "same_cost": 29,
+        "flip_cost": 28
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local-free-indels.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 1,
+    "selected_extra": 1,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 1756,
+        "elapsed_seconds": 0.042131,
+        "winner": 0,
+        "same_cost": 3261,
+        "flip_cost": 3262
+      },
+      {
+        "fold": 0,
+        "rows": 878,
+        "elapsed_seconds": 0.023253,
+        "winner": 0,
+        "same_cost": 1260,
+        "flip_cost": 1261
+      },
+      {
+        "fold": 1,
+        "rows": 878,
+        "elapsed_seconds": 0.023961,
+        "winner": 1,
+        "same_cost": 2000,
+        "flip_cost": 1999
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local-free-indels.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 1825,
+        "elapsed_seconds": 0.039902,
+        "winner": 1,
+        "same_cost": 123,
+        "flip_cost": 120
+      },
+      {
+        "fold": 0,
+        "rows": 918,
+        "elapsed_seconds": 0.024988,
+        "winner": 1,
+        "same_cost": 59,
+        "flip_cost": 55
+      },
+      {
+        "fold": 1,
+        "rows": 907,
+        "elapsed_seconds": 0.02081,
+        "winner": 1,
+        "same_cost": 64,
+        "flip_cost": 63
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local-free-indels.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 1825,
+        "elapsed_seconds": 0.053287,
+        "winner": 1,
+        "same_cost": 15085,
+        "flip_cost": 15082
+      },
+      {
+        "fold": 0,
+        "rows": 918,
+        "elapsed_seconds": 0.023054,
+        "winner": 1,
+        "same_cost": 5840,
+        "flip_cost": 5836
+      },
+      {
+        "fold": 1,
+        "rows": 907,
+        "elapsed_seconds": 0.026135,
+        "winner": 1,
+        "same_cost": 9245,
+        "flip_cost": 9244
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 0,
+    "selected_extra": 0,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 3426,
+        "elapsed_seconds": 0.086237,
+        "winner": 1,
+        "same_cost": 180,
+        "flip_cost": 177
+      },
+      {
+        "fold": 0,
+        "rows": 1690,
+        "elapsed_seconds": 0.041029,
+        "winner": 1,
+        "same_cost": 95,
+        "flip_cost": 92
+      },
+      {
+        "fold": 1,
+        "rows": 1736,
+        "elapsed_seconds": 0.04618,
+        "winner": null,
+        "same_cost": 85,
+        "flip_cost": 85
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 0,
+    "selected_extra": 0,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 3426,
+        "elapsed_seconds": 0.096487,
+        "winner": 1,
+        "same_cost": 241245,
+        "flip_cost": 241242
+      },
+      {
+        "fold": 0,
+        "rows": 1690,
+        "elapsed_seconds": 0.058533,
+        "winner": 1,
+        "same_cost": 119410,
+        "flip_cost": 119407
+      },
+      {
+        "fold": 1,
+        "rows": 1736,
+        "elapsed_seconds": 0.05833,
+        "winner": null,
+        "same_cost": 121835,
+        "flip_cost": 121835
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 2,
+    "selected_extra": 2,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 3439,
+        "elapsed_seconds": 0.0811,
+        "winner": 1,
+        "same_cost": 222,
+        "flip_cost": 221
+      },
+      {
+        "fold": 0,
+        "rows": 1699,
+        "elapsed_seconds": 0.041284,
+        "winner": 1,
+        "same_cost": 120,
+        "flip_cost": 119
+      },
+      {
+        "fold": 1,
+        "rows": 1740,
+        "elapsed_seconds": 0.047964,
+        "winner": 0,
+        "same_cost": 98,
+        "flip_cost": 99
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24-hi-local.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 2,
+    "selected_extra": 2,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 3439,
+        "elapsed_seconds": 0.108132,
+        "winner": 1,
+        "same_cost": 254949,
+        "flip_cost": 254948
+      },
+      {
+        "fold": 0,
+        "rows": 1699,
+        "elapsed_seconds": 0.05909,
+        "winner": 1,
+        "same_cost": 126198,
+        "flip_cost": 126197
+      },
+      {
+        "fold": 1,
+        "rows": 1740,
+        "elapsed_seconds": 0.052029,
+        "winner": 0,
+        "same_cost": 128748,
+        "flip_cost": 128749
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 0,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.007033,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.007093,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.00261,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 0,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.003874,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.00293,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.00296,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 2,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.00613,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.003411,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.002712,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-24.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": false,
+    "variables": 0,
+    "selected_extra": 2,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "elapsed_seconds": 0.002958,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "elapsed_seconds": 0.002806,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "elapsed_seconds": 0.002518,
+        "winner": null,
+        "same_cost": 0,
+        "flip_cost": 0
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7-hi-local.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 274,
+        "elapsed_seconds": 0.005583,
+        "winner": 1,
+        "same_cost": 42,
+        "flip_cost": 37
+      },
+      {
+        "fold": 0,
+        "rows": 133,
+        "elapsed_seconds": 0.003859,
+        "winner": 1,
+        "same_cost": 23,
+        "flip_cost": 16
+      },
+      {
+        "fold": 1,
+        "rows": 141,
+        "elapsed_seconds": 0.003763,
+        "winner": 0,
+        "same_cost": 19,
+        "flip_cost": 21
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7-hi-local.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 274,
+        "elapsed_seconds": 0.005933,
+        "winner": 1,
+        "same_cost": 2538,
+        "flip_cost": 1493
+      },
+      {
+        "fold": 0,
+        "rows": 133,
+        "elapsed_seconds": 0.006519,
+        "winner": 1,
+        "same_cost": 1895,
+        "flip_cost": 1056
+      },
+      {
+        "fold": 1,
+        "rows": 141,
+        "elapsed_seconds": 0.006544,
+        "winner": 1,
+        "same_cost": 643,
+        "flip_cost": 437
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7-hi-local.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 11,
+    "selected_extra": 11,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 359,
+        "elapsed_seconds": 0.008111,
+        "winner": 1,
+        "same_cost": 107,
+        "flip_cost": 104
+      },
+      {
+        "fold": 0,
+        "rows": 185,
+        "elapsed_seconds": 0.006304,
+        "winner": 1,
+        "same_cost": 60,
+        "flip_cost": 55
+      },
+      {
+        "fold": 1,
+        "rows": 174,
+        "elapsed_seconds": 0.00413,
+        "winner": 0,
+        "same_cost": 46,
+        "flip_cost": 48
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7-hi-local.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 11,
+    "selected_extra": 11,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 359,
+        "elapsed_seconds": 0.009117,
+        "winner": 1,
+        "same_cost": 5109,
+        "flip_cost": 3022
+      },
+      {
+        "fold": 0,
+        "rows": 185,
+        "elapsed_seconds": 0.006297,
+        "winner": 1,
+        "same_cost": 3809,
+        "flip_cost": 2138
+      },
+      {
+        "fold": 1,
+        "rows": 174,
+        "elapsed_seconds": 0.00567,
+        "winner": 1,
+        "same_cost": 1299,
+        "flip_cost": 884
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7.json",
+    "mode": "centered",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 275,
+        "elapsed_seconds": 0.007465,
+        "winner": 1,
+        "same_cost": 36,
+        "flip_cost": 30
+      },
+      {
+        "fold": 0,
+        "rows": 133,
+        "elapsed_seconds": 0.00583,
+        "winner": 1,
+        "same_cost": 20,
+        "flip_cost": 12
+      },
+      {
+        "fold": 1,
+        "rows": 142,
+        "elapsed_seconds": 0.003442,
+        "winner": 0,
+        "same_cost": 16,
+        "flip_cost": 18
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7.json",
+    "mode": "centered",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 5,
+    "selected_extra": 5,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 275,
+        "elapsed_seconds": 0.008532,
+        "winner": 1,
+        "same_cost": 2740,
+        "flip_cost": 1694
+      },
+      {
+        "fold": 0,
+        "rows": 133,
+        "elapsed_seconds": 0.006898,
+        "winner": 1,
+        "same_cost": 2100,
+        "flip_cost": 636
+      },
+      {
+        "fold": 1,
+        "rows": 142,
+        "elapsed_seconds": 0.004397,
+        "winner": 0,
+        "same_cost": 640,
+        "flip_cost": 1058
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7.json",
+    "mode": "all",
+    "weights": "uniform",
+    "connected": true,
+    "variables": 11,
+    "selected_extra": 11,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 361,
+        "elapsed_seconds": 0.006933,
+        "winner": 1,
+        "same_cost": 100,
+        "flip_cost": 96
+      },
+      {
+        "fold": 0,
+        "rows": 186,
+        "elapsed_seconds": 0.007466,
+        "winner": 1,
+        "same_cost": 56,
+        "flip_cost": 50
+      },
+      {
+        "fold": 1,
+        "rows": 175,
+        "elapsed_seconds": 0.004487,
+        "winner": 0,
+        "same_cost": 43,
+        "flip_cost": 45
+      }
+    ]
+  },
+  {
+    "file": "matrix-replay-7.json",
+    "mode": "all",
+    "weights": "snp_priority",
+    "connected": true,
+    "variables": 11,
+    "selected_extra": 11,
+    "expected_flip": 1,
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 361,
+        "elapsed_seconds": 0.006029,
+        "winner": 1,
+        "same_cost": 5510,
+        "flip_cost": 3427
+      },
+      {
+        "fold": 0,
+        "rows": 186,
+        "elapsed_seconds": 0.004232,
+        "winner": 1,
+        "same_cost": 4219,
+        "flip_cost": 1302
+      },
+      {
+        "fold": 1,
+        "rows": 175,
+        "elapsed_seconds": 0.004121,
+        "winner": 0,
+        "same_cost": 1291,
+        "flip_cost": 2125
+      }
+    ]
+  }
+]

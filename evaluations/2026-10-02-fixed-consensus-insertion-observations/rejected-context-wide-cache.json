@@ -1,0 +1,1073 @@
+{
+  "binary_sha256": "500a82dd327cd271e587805ed40b9e1d29b9c7eb6c9303d0536082209e4bc011",
+  "input_stat": {
+    "test_data/chm13v2.0.chr20.renamed.fa": [
+      67037899,
+      1777580431186148146
+    ],
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": [
+      1628148107,
+      1777684529398316204
+    ],
+    "test_data/chr20.sites.striped.vcf.gz": [
+      656334074,
+      1779089336279080637
+    ],
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": [
+      840749997,
+      1778217680609834235
+    ]
+  },
+  "runs": {
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:39000001-40000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run0",
+      "hashes": {
+        "native.vcf": "1b82293bf2302f1719f60b1c9cec0a02ef01195f5b502c149687aea55bec9d13",
+        "phased.bam": "ff8a886c5355187c419ef328bfd76c27d8834c4ba5443f4bb0c930a50e358fac",
+        "stderr.log": "d3e0bb61d3f176905ef4d39c3560d8e43457af91dce55a006a6c9ab99a70bad1",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4876be59528ecd37c31050665cb363730c157d242052e64b02e4f4df25b671da"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:54000001-55000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run1",
+      "hashes": {
+        "native.vcf": "5f7a58a8fd7cdd31bd6d93f4209d6b4f8b99ae6310d75cc89adf5175b7610112",
+        "phased.bam": "7942fe829e32f7505e1bf1d051d868dc8a58296b49232a231e0b162c2eb996af",
+        "stderr.log": "12f72cd0efdfdeab2f449cdec8d2bc866a8c18c121eae67c27704cd6f04f7ce7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4216707497da1d467ba680d28f38561eb13ab2bdfed4a3ecf61a0735dd5802eb"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:58000001-59000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run2",
+      "hashes": {
+        "native.vcf": "f8f5c1fac4fbc11de325cec3f202f9e777a5a12cf7046c7970a4a3f8511b50ed",
+        "phased.bam": "7f12fe1d4ff4de6cf1e803ce10bd24ade6cb7e6a32bdf66c616029345213fbf5",
+        "stderr.log": "a85f7557602a883bdc8f1412ddb5fc9ae3eb62c4d63dbaea8c2624ce35d8d3e5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c36832774ebc09915ade453919f65d31997317af50ffa3e5070bbb8de775b3e1"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:4000001-5000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run3",
+      "hashes": {
+        "native.vcf": "a36fedcba526296b70168245c5d84aadcb86f9356271e2594040a34788cdff08",
+        "phased.bam": "5b6a90ab8a650af5720bc157fbd6344d644fdfb150f72a40c8010c4f0be8c726",
+        "stderr.log": "cdb37e9d2ea844f3495a337f17c44e6b51334c56fbd390e2659d7a0049bbc3f5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0848761a3e44cb795ac464e313cb8b8ea34b853c5a366af482df3551a6d33c9d"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:3802321-3940461\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run4",
+      "hashes": {
+        "native.vcf": "f23f4ee7b63a3c7628cae1c9877c4abe51d7477b6e11a5623fec56dfcae926fb",
+        "phased.bam": "35927d711b33a2572c887d0eb2656812365e183d15128f746b21d0099a16410f",
+        "stderr.log": "98784e73846e2104ddc193a49cd21f385a0ed577c705b0086c6535abf81cc49a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "17a7004a2b8102d472a129a2deeb328cf0caf2eb394efb5a1277ad30ebf8bece"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:4716928-4842960\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run5",
+      "hashes": {
+        "native.vcf": "71ae0160f9af780fdaa549d5b40b76ae3cd0edbf91f7a28c8a764418dec5cfa8",
+        "phased.bam": "8a553cbff5c6b2ec6075237d359c023810dccf0fe780e4b687765a4ff412e0fa",
+        "stderr.log": "51bb7605d47946b494c5622f25030e1c847dddc7a71ad50034cb7e9df02b89ad",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "96b476ad5c98963d653bb7409ad40eb4850f8189aa4f27188e0679a9c7a07580"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:5259406-5395085\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run6",
+      "hashes": {
+        "native.vcf": "a279760110e5164979cb6b59a95caa51591d54e990e292dba77a95ee25415553",
+        "phased.bam": "d9987c5cfc8476ff09ef53b8d65a2bb458e15f09842d6c507935f6ad7d5e2bf2",
+        "stderr.log": "9e2bd1924a4cba95ace46167222244d1b426c14582357efa18b0852612ad1886",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ecde36571ee9e45edb9e91f7edb8610f407af3444a30027578d0d1405dadfe96"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:22930600-23058891\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run7",
+      "hashes": {
+        "native.vcf": "1a466d873d1bfe09cea1f3f42856817b3b803d30371f1c3c22515355a9c5f7d1",
+        "phased.bam": "86aa11147364ecbb3e50de046954db1f4fd8819d787fee1234a7f429d3566f35",
+        "stderr.log": "f65ddcad14ce37f6f99ad401c8550861d50ab29bd82bd791d8e3d47c37f52abe",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d8c06cf38cb1d7aeecb0ea97288a9bc04322cbf910a1a4900834f87150551117"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:25979591-26138679\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run8",
+      "hashes": {
+        "native.vcf": "89a2cdbe00ca3ee3ebe55f29694d65afa9e84fc97bf37eae9ff0b7b229f47caf",
+        "phased.bam": "0177f35888711972c4ba0d09853556de7ad76a89e36ec71ee84c93989310cf40",
+        "stderr.log": "3012f69d9874c5491c6e82fd8103d04efca90c08aa2105c1e53c788d8f938603",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "2a34c0a7d805391f8b7c58ace88d26fb2477c24776e50016e735714e876fcfc6"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:59983052-60108235\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run9",
+      "hashes": {
+        "native.vcf": "040c83b92c9db4acbf6dce0204e135bddc57c2583125858cd427d80466b43819",
+        "phased.bam": "84c61d180f49a98715a24463eb7b33b90b155a021932c2f166db5b611969b809",
+        "stderr.log": "da92d2f726756d9e97eb2c2d05db75a48155c8b79f53112262ab8e70c86ccd03",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0e7e744a418ef1fd0b33cb8ebac10238baf26c3073bc0fe3d948b585c6170520"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:6528161-6632248\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run10",
+      "hashes": {
+        "native.vcf": "25f62d05f4be82b90ab62ca5fcabecdb007b75f13946f2eb98e35e6fc3d01d56",
+        "phased.bam": "3a3279116aa07ddcfb61bdfc0d5c3d8286ec9fbf006bd3028ed379f8faa1a2ed",
+        "stderr.log": "2127a1b69ec8bc35addf07d6bfd91cadcf046a1f9ae61301b591e5c1c94805c6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5622e62770dfa9cefc0b8bf5ce1f872b9832c0a7fd8a0fc2297627822b117786"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:6000001-7000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run11",
+      "hashes": {
+        "native.vcf": "c8dd4650a2c8814223e2d93d66ebef10a9d947c97a65ad38637e5ea144b9c972",
+        "phased.bam": "4556d3e73e9bcc1b6c00b81e2756df03f49ca9b1a7d2c42070b5dd17d3e4ba29",
+        "stderr.log": "ca619481acd5eccfa6e8b709f4c3bc4ed4e58d6aa52fe3fbcd9445adcfed5fe3",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ab079adaa5832f6972fd9a0d6ca9eb9c89fe534eb24cadb1f0dfd0ad0b3cd1af"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:21000001-22000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run12",
+      "hashes": {
+        "native.vcf": "bcd1d412fd38bb807c03e741f526d97192c19b4a4d06acc955d0832a6f61889b",
+        "phased.bam": "e6afb86f60c8903a1ebeff55a3b3d2ecaa9bda41edbe2ba68ba854931e6272db",
+        "stderr.log": "7cbdc2491466532a039a3ef91911ae87019a913c8b327ee805df2d47b778b65a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c5da68cab21dc51637458217a1afd03348e3362e683e9dbdcd84708599db34b0"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:11205370-11312360\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run13",
+      "hashes": {
+        "native.vcf": "4bfb7be7e0e266717765317eb66bdb97d09865f54e041a8c2a7f07dd1ddc1cb2",
+        "phased.bam": "2d66afe21b354981245d672a484c5808ec23b63aad2ab1af6fe2cd96b73833d3",
+        "stderr.log": "0e5bc8890b9abcc26481489791ac2cc23ff4121e0642b48f69abbcaed1a448b2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "838608f05c51473f4eddef21dec10b1d685987f941815d86b065b6ca5d59b5a8"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:12219536-12327077\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run14",
+      "hashes": {
+        "native.vcf": "75f5d800d364953c15e3c3ea3e9f442f3f2753e3982cff57f12525f79bbec2e3",
+        "phased.bam": "662f5b5ff19fb8433a70d75e7c39810af531488fc5ded06f4d5d75036adbd7da",
+        "stderr.log": "f17b006a3135e4b3fd96d1a746b137706840491185ac8017d8e92cbafb4a4490",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ae918fdf2f33dccdb1430d4d649b7b1567698f496eea53256459c21f90581dc1"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:15045642-15151261\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run15",
+      "hashes": {
+        "native.vcf": "96044859930016befab8bd362d14a89e153f2b423677a45a666ab61f0bf6a4d6",
+        "phased.bam": "0d7b0984e794139be32af964f783b1acc80bc5d2ef213ecf4fb1759bcbe3f6e8",
+        "stderr.log": "a66a4545bc88fd6b64dc9a19b358449a2cc3cc1542f00099bba48b3fe394126c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "69985860e159fdd4507235b89ad668e79507881a5e3aefb54ea71604477e9c34"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:48175787-48279445\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run16",
+      "hashes": {
+        "native.vcf": "927b06106a4dc6764a02c5e8ee420d8623f8e586b454b721712e3e909f39775c",
+        "phased.bam": "922428ef3d031fd9650c7eaa6a894db7f93b911c2b1a6feb168222f64ebd4cfb",
+        "stderr.log": "59b320eea850fea4f3cac22d599be77fd100b667dd2cd0772235b4e69b12684c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9c3783e625bab5b9edb2e3822c063206c81f1b90662414228266b84c43d5a06f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:56100368-56206525\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run17",
+      "hashes": {
+        "native.vcf": "0e47a019b423bbc0e8fd288c4520a683264cff0924affa3562c9723f4e236d16",
+        "phased.bam": "91d42e30c179701cf3b1ae0afb7632015437adcf37cd6d9234d928727a704ad0",
+        "stderr.log": "fb81a592905c9b473ad300457c394ad0cff9e7731ed5abfc0bb1daaa3e6f920f",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "77d5c91d0351ced65b668eadb427c09029a2d9d3c4003f94ed90f4cf5562809e"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:1036625-1160921\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run18",
+      "hashes": {
+        "native.vcf": "d1c51edcb148ba4ad3dad1604e41febce8f836106e9dddf764ef14d4a0f5f87b",
+        "phased.bam": "d65289c3ce24cf5466a127c74bf1971323d7479072c40d062afdb39c096bf7a1",
+        "stderr.log": "a863af5e8ae86b5e70a4032c17f46845b5f642e98a1b9564f3bfaefa43530037",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "cb1f190b3955a28884f383b3ba3d882e340290547f2d8f219a6052087634338f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:3523979-3646663\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run19",
+      "hashes": {
+        "native.vcf": "f9ec14b24b538f8454820ef5eb952b5150723d804d5d1378f5649c311d77521a",
+        "phased.bam": "185738a2d5b2ed9b40abe5d21710812e0a1d1671f6784cebf7431cdd09368e68",
+        "stderr.log": "5fc23506843e55258ce8983c4b46423524e581c6cf8bfba593174a4b443d5766",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "7f7f90526d66a491b9af8ca81a95394b45fbf9d7cfb79be61a346a6c643008a5"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:20825468-20945876\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run20",
+      "hashes": {
+        "native.vcf": "ed6b46f9479ee3efe2732d3385b2f2e4365d4918e2bc71af0702677158c43a41",
+        "phased.bam": "d700e27f57bf6bf55109955d4243878881a9cd3acdcab6b0f538ee7fc750b086",
+        "stderr.log": "af554e1a19bc5ed7439b3c07db744d1a7ca5601348d83bbf421eddb2c7d734b0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "de6aafb2e6094f828caeafcc4a1861562ba193ac39b167b31d0d426e331f2a7b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:21686539-21807517\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run21",
+      "hashes": {
+        "native.vcf": "983f7fc1eaadd5cb1d74c53a616b57de024a028dac3fa64dda0a6189d02eb363",
+        "phased.bam": "c01ca04e0aaad25633b86872e20440e71824cd11e51b4798977e5a3256ce71dc",
+        "stderr.log": "eb775817718ced015c3bcbe577af943dfd2fe95076d9accad817adb668f17000",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "da51dff009a1688a8108d8a79f87cbe4ac8d444725e02cc3665fc282dbd0a0c4"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:24307615-24429633\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run22",
+      "hashes": {
+        "native.vcf": "d62757dc508f3e5ae1c68d2fdacd1d9eef569222b64c4dedb1a2baf6013beaa7",
+        "phased.bam": "15427509bc8b2768fc0193562410a6f059cc90334817ae58df7625858a4f28b9",
+        "stderr.log": "1e8286aab0fec7a2b27a577e81d3e921095a29ad3f07d639028e4a1eaaddbac9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0976021d81b5432cd91cbf4c39395a41dc99ba5fd7419ba1a2137ee1526e2fc0"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:24531764-24651281\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run23",
+      "hashes": {
+        "native.vcf": "7ec2629a1b9a4488e2b81ca8243353c69b0d9d8aacdcf26a9cce58d34a2170bc",
+        "phased.bam": "0991b3ceec0208807f6a17913895540cba90fdcfe20c51d3bd8d276071475cc4",
+        "stderr.log": "50a246357a5dad87dfeb34f4a29e32c47659ab990e342c8f450853175ffd87e6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "fc87030ed8ebeb3e220af1af3443bf30f9195b21c5ab8298ba66f73d2b94f574"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:41850800-41969471\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run24",
+      "hashes": {
+        "native.vcf": "173b6770a0445b037e8985b9554686adcdb60b8ff076252e33f089a0050dab79",
+        "phased.bam": "e25c75507d74e35360b7aa9d55c873971f9ca0737e30ab7c3134c565f7291138",
+        "stderr.log": "a2491d52098616e75dceb84491cd15dfd35e6ca80f27e62ea56f550f95a18e41",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1975299889f6c29917db7654d3adb8209db096990fc0a148d987acada5a8e569"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:47586774-47709910\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run25",
+      "hashes": {
+        "native.vcf": "42a89c6e933a828af35ea7a5e96ed034d56caec1a69c0210bf2295d3d3d4e52e",
+        "phased.bam": "217c3f8f11232ae50302bed9da33851976d3373e69812b263c14d0ec3e0e0f16",
+        "stderr.log": "b86b9c1ddba9599fa18534a818ff3eef2a8c7abc1f06535ed4f1cf0922d6a47e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e0f6756dc928d65bf96e960dfcaca63da139cc6e77c1a4da992fa639759cadfd"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:47972132-48093584\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run26",
+      "hashes": {
+        "native.vcf": "f047fbe8de594d1a00ab90e35b7a64cfca978e8e1e0ebef2644b587da6e65c27",
+        "phased.bam": "ef9856fe55dded7381a4d8cd4404a4af208d80d2582ef8a67292ba1c81186dc8",
+        "stderr.log": "67e6be4363e37857dab44663f6feea6b6d64a35de31c1ff10633817eea9a9bb5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e204a1220c530ba1a295d756709d59e2f781d612f4a0a46bdc70fd0ae3da4571"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:48000001-49000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run27",
+      "hashes": {
+        "native.vcf": "e7c81d61b1fc8573d8b62f21eb127691238e443cfd2e877bd7e380133947f2ad",
+        "phased.bam": "1cd3162c17f231bd34e383b588859564ebaac920710b7a3f9dd145d3a4edd3e4",
+        "stderr.log": "cdf0d1539a40582b6ca04a8b1adebe0d771593350ab6da2d60695cd05643ddc2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ca15d498d04be81ca850d1ef0a015ffec4c480285b74dfde6cf5d0ad1bf7a0b5"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:56000001-57000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run28",
+      "hashes": {
+        "native.vcf": "a50ce041a2f1a7fa3f6592d7cc5193db3687eeb09c7841f9e78469d73f2445e9",
+        "phased.bam": "1000fb2593a7a5e0801c64086e05c99f14acf435e098c15e9f3eab274ea9b6fc",
+        "stderr.log": "c340f9cc07e3d8f264ee5b9419ac3b5e23fe3d0a541b85c81afb4bb7eab6a3f8",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ad72ddf3be81c42741e78b5e25d730ff1a16a28a44a3b3ad1b6bb201cc1d89ff"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:56273427-56393002\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run29",
+      "hashes": {
+        "native.vcf": "b83cf97f4a2e2d4becef3fcc85eb85a0adf0f6ce1d0e7c7679c2a0a2665f1af0",
+        "phased.bam": "a44437903049c169c72600ccb11c16f73d58e8052f99500da6b43167253eaff4",
+        "stderr.log": "096adb608351fa3e22dd2e81af72fb825f9e2119d768451cd1fc5782c6ba94ef",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "09f48470c810c997e06de16612a3a3855cc62563650cfda5f4b16d091d395f80"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:61614136-61740751\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run30",
+      "hashes": {
+        "native.vcf": "466eacbb6254c767fa7f5daf24a2bf7f1e706c58d4883d8d0009fb96d0a5deb0",
+        "phased.bam": "fa07928353cc5c645d83184a82a90c0f653a7edb3f2176c84eb95d976b865195",
+        "stderr.log": "244398125faecf5437d847f781926e8c4e6a1a6edee2cba8ede245389b6d6cce",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "038bac03b78ae366e78238b359ef263da8d393e76e85a68f59928b2e2426b739"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:63895865-64018892\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run31",
+      "hashes": {
+        "native.vcf": "dda1f6da12057150d520c9893c69c5099aeb3b48891c016d702283456b40f2f2",
+        "phased.bam": "2c24cd73a4b066794299770f77c9fcb65b747a19ac9590c4bde68a44ca80f253",
+        "stderr.log": "c0eee85113971f583c05f5b22d9710eccbea30caab9c2c256837447f85d82edd",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b3fa4d698b0fc587b8757ad76231df8732db0ab9e08ce1fc1f00f9de97758c76"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:32300001-32500000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run32",
+      "hashes": {
+        "native.vcf": "e4c0e6bb317fdb518a3b1b95e22500ec195a0599b4dfa258bc01e0294d2cbdb6",
+        "phased.bam": "1cadf227b6874ec8ef5a31361246ecc605a9eda969727c0b0a4e6a152aaea932",
+        "stderr.log": "1beec014dea189f63fd0245f9ed6f7a71c6e6bf63d9bf0450fc794be9b152405",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "2e5ef57addc2e1b0dc743a85b5554c879740eeb8d04e8827722d639c28fc0bab"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:38000001-39000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run33",
+      "hashes": {
+        "native.vcf": "612b9a0c5e9e4e46165ce5c650dbdf01c2eeccf3607bcf6dc0c7399780ba3812",
+        "phased.bam": "c218255011e8979a23045264ea43d111667dbaabe653f9caf5af53d166be3f62",
+        "stderr.log": "810560e1feeb7a35700125595961beea32aaeb46b14dfccccc34c407b64fa1c7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c743d921962c646026adc5ec946f9767361f919b5f2397a4cf7c059e72d2ed5a"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:1-1000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run34",
+      "hashes": {
+        "native.vcf": "42b8211b7179d88da1258bc78e54b123902a9c16dc15db64ec070c907b0d24d2",
+        "phased.bam": "e7b1bee5b3805d0c3390388f5dda2f62aedcdf1ac287f13439fa32f71321faab",
+        "stderr.log": "8e4d90c32936d7577e9cdcdd5f82bb99409c77ce81e7b34dfa222be52f8358f1",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0157dc4b605772265cc60b577ffd4706d87ed5d705925f08172f77d01e3e8cde"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:1458171-1573721\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run35",
+      "hashes": {
+        "native.vcf": "b03cd2c95a7b1c0bd999ebc61c3845cfd6ad9c40b149287cb004b85833dfbd79",
+        "phased.bam": "c0e2972c7709aecc2980a2cd84526ef5a90dfdd76c7e02d708cc6d3ccd79edf4",
+        "stderr.log": "375c44e205c3fa61765461b936cb31dcf2c4d70597f020426ea84613fbbcbdd2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "f289789937d0fa6e39b4195abf967f7e6d20124fccb79142bdd4beb173f7cbe5"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:3479324-3592977\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run36",
+      "hashes": {
+        "native.vcf": "35c01bcb9fd0793664a50cab1862393d9eb3d543f756d624d36678787924fa83",
+        "phased.bam": "233570421ff3c28ec321cdf9b756b7c8a10e49d122cef44b8f2e5ab3eaa73194",
+        "stderr.log": "37950a9edbf2710f5cc733ac2b4a87ac0f8a661448e63e093b2892e6217d8cee",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4d7f6e3ff9b048ad64297d122106427f11d7d05995e41e70ffc22a56a8ab4be0"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:7000001-8000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run37",
+      "hashes": {
+        "native.vcf": "53a8c45de09a4a38d8af8c8462e3a7c01cd39be0b1a315a3fb99cceeab1e0316",
+        "phased.bam": "9418fae5bbadc0911a420d8a30c3397a530e0365c1917bfe23ff8b948f530db1",
+        "stderr.log": "bbe8020f995cca41e1524a0d65847d8d0a784c0f8863ae53ad49a70a8920dc3e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c23b8e1b2e0f5bbf59c762bb4555ee9999276e2714c1a2dce9262145bc3a54b7"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:8588940-8712670\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run38",
+      "hashes": {
+        "native.vcf": "943971b5793c15780c82118888e1bd3d88602f5b50755cad78d98beeda0d91da",
+        "phased.bam": "d7a2bb06c51ff83d02aed8bf1974293b24b076cd1fb08d56abad32ef3f179328",
+        "stderr.log": "fcbfbc9d61e507ec4b7f2a759f80d7d623ca1020153d806d09f92e9c9c4f7c2e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "eab5495d770214d68132b679bd6f0e18cf83cab370d5d9cf8ce97e6c7d3749de"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:13780800-13894727\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run39",
+      "hashes": {
+        "native.vcf": "725f46f1eac2157e0f5617bbd2c19bc02df9a9c0f48701cc613dd12966302d21",
+        "phased.bam": "171808fbf43847cad61da02cf0beb328d50f2d4318b59e2b5d1b615b058dc498",
+        "stderr.log": "0e1cf466320827b287be67de1c33f031cc44af70332ee652e1a376c5517abf15",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4d90fb213513628e348e7997dba2899c477dce10209b0f877e64c83f851530e9"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:15006025-15121132\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run40",
+      "hashes": {
+        "native.vcf": "12f22f9ebc61bc1a997ed155945c07d40a86ab6a5e436f20f20eb74b44765e96",
+        "phased.bam": "24b6bb6f9d18c7c30973e4c2a926fb5a05a5804b701532ce10cf858ecbb4b43c",
+        "stderr.log": "9c4d49f76107041c7a885571e8e5af1ec94e6affc4a1fb00c00d96037a941ac2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e5b38a107852f2529d42113ba653c50a16b128e558a3ad13dbcf7108d7788343"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:17815146-17933198\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run41",
+      "hashes": {
+        "native.vcf": "f3f2b57e238bce529dfdedc5a05513ba1bfe89d1477ec1785ee588206b81d2b1",
+        "phased.bam": "726ecfd2e2f590d0e0eca0154f4f4d9c31dd708c8228f87f7ff69369f429dd45",
+        "stderr.log": "d2ed71be440fd0847cf9adbab3b42173720a5fadcc6e3d115f5f1ed9efeab390",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "760ef4c62f826c8151eb05080026ce35c3cae92c1fe230a55bebcc7afcdcceec"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:18933414-19049993\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run42",
+      "hashes": {
+        "native.vcf": "c9b8d41dda08ef00f2c9c5b350c12f529c0491b09f0a433f52a00ba420ce878c",
+        "phased.bam": "764f888fdf13556bc2ae825e0bb3d077e119232caeb6d50de2377c1d01099a30",
+        "stderr.log": "6830d3e5b96422d5f0d306725b6e8377630b01dfb3864d422a3b1ddd4e6a7b8a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d3cbbbbf6352192863baa415b0349a31685f409fd7655953be80983ec3c84008"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:23000001-24000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run43",
+      "hashes": {
+        "native.vcf": "30a293f5831586df817a7384247db078ee5c7e0eec88c90128760fcf2b46f43e",
+        "phased.bam": "80d90131cb7401f99694b5f209e20b05ce481c75069484c9d47c9d39887f31d2",
+        "stderr.log": "8f05e4c1fb163b4bb634c2c9ba9daf74b9c9a318f332e1e02df59345e026c394",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d2a43371a2f73e5bd2dbf10c8e2405dcfbc99c93b53abd762280ca6c5776d528"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:32165055-32283534\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run44",
+      "hashes": {
+        "native.vcf": "d551dbf7ac40b5d9ec43fab2a7bb7425bd27f5de16f1cfb740979acba5251914",
+        "phased.bam": "325dccdc520b2f7b0b01d0ec5877cf680d8ecea8367d6fc5ae1f19cdd524d466",
+        "stderr.log": "276175f7bf3ffc3c86cfc321a43084487c8529cead262264dd5393abad1823ac",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b20d7f5f0710a0b2a5b3dd067b73cb4a42fd4330ddde74cecfbbe463a8f7863c"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:32000001-33000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run45",
+      "hashes": {
+        "native.vcf": "1b89dfe22df55d61d326f24850546e6660f4b53d3a733f938bf0c2e7faa778b3",
+        "phased.bam": "37d7864280f4eda62db4836b69ea975faacd5f4795b6f1ab91ca4b5704149e9e",
+        "stderr.log": "14e702ae9b70737bfa24f88a533adf1a7d087028914f69846b58beb4be7c043d",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ce6541ce4018260516a3b0114689f8cb5ff0e4148748ef4900839151c5b78208"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:46000001-47000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run46",
+      "hashes": {
+        "native.vcf": "6c1827943daa4798746869658841bed561fa25454bad5c7ec50afeb1f3eb859a",
+        "phased.bam": "0615d7ed53b787ce790c12e21334ff86ab89a1d2770b50535966fb7ba6e1de78",
+        "stderr.log": "544d7bedd7cce722019124c74f31b2411b2d05b2cd6d0a1e40eb730bfeec9491",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d66dc3e8d6b54442d1ca60d1ceeea71148a91a2c680ea32868dce00c2006b58e"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:47000001-48000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run47",
+      "hashes": {
+        "native.vcf": "02b94e17e87404aeb91fec25aec6ad0df72d6f425f98a69ef4c79669b272ffd1",
+        "phased.bam": "2c45c752373da8a2a954e66b7d9fc8ed6514d86648924aa1920ae4c6eb5dcd4d",
+        "stderr.log": "c6eee30809c39e79eba22454304f9b640e81d09f8368fea8ee96a5107d8ba9f3",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5a321ff1e5d01a2e8d08821ff7f37fcabe91493dd9d62728a439536278f0704a"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:54497514-54619072\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run48",
+      "hashes": {
+        "native.vcf": "2b7ff95327e2f6200c757bec846853f3f7d5ce3f32fbf97f8b19ec5aee5012cd",
+        "phased.bam": "9a65940f072cd4ec926d4e93795d14f9e47640b2479b4506758fc85c31e03d46",
+        "stderr.log": "f86edf07ca555da0b1a825c35700b520a8e84c8e70485c640a7d07699e3ce958",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9d0b3ddcab357cb53153bb5c2cdf42815711ae95f12caa2ef54f44e71c8eb313"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:54844127-54962022\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run49",
+      "hashes": {
+        "native.vcf": "e1347255b57d06ff8d489f7abc8968cb34e0bf2c498a5a9069b95f6c2c3b9b60",
+        "phased.bam": "d882bb66d34094e0e450b7f6c8626425f26bb16fa1b21f407bac7c05b6a63f1c",
+        "stderr.log": "4bf18e0c77f4196242ba8003df9a11b866b20ff3241103cf68c2eb0aaf36d931",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9032daf471719f0fef5090e0932551fe7953b215c16ce0cba0f8e6f86d4631e1"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:59775454-59892960\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run50",
+      "hashes": {
+        "native.vcf": "296a91e65adb21353f93888c8c17f3aec41587d667be485c81c668f2e330f048",
+        "phased.bam": "f6bf97e5bf2b29c66d36c969243e08f4cba5985bfc144c9f70605460b829701c",
+        "stderr.log": "e72bf896f357aa0d988e39f356ea2b251d54a87e40a0de87f6eff5f063eafb4a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "106e25c058ca54f536917058da36b5992dcb1cfdc4895598aa6be3cd97c55bb8"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:59983052-60098237\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run51",
+      "hashes": {
+        "native.vcf": "040c83b92c9db4acbf6dce0204e135bddc57c2583125858cd427d80466b43819",
+        "phased.bam": "36b7af9afdef125fcea7781bdb41e1ad59010cbac23aabb74ed59c287fea9181",
+        "stderr.log": "8e15ca5283de4729bdddb28cc3d5124bde1a00f96a44d9126e99acb617d46dfa",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3e032af1c1defc908187c0588130a9dc4f5a4854563778732923cbb22a1ca03b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:60403499-60517115\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run52",
+      "hashes": {
+        "native.vcf": "f5170447bdb04ad49352f5cf3279bd4a4d6f5ac0c3612037a68a4b9ca9a55e83",
+        "phased.bam": "5228fa251918a86f51e7531a1b50e8cc60cbec68ebf548d08b30e7f3a1060623",
+        "stderr.log": "77b936792c1ea7ff8fcbe3ec49326eaf9e69e6c18a1262fa97070a381ddcfa57",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8059bc84d25ba608f354fa1105bc7cb24a666de174007bc32fb76af34a528787"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:61697506-61807551\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run53",
+      "hashes": {
+        "native.vcf": "d5a02127e1c3d4120051226895c583cd28b4fdaead766a21a4e639711fff2d55",
+        "phased.bam": "e4e0e8a302b419f2da7b8843191d734ba7c8df1698aabfa81a8fc716c0c83694",
+        "stderr.log": "c102aa934ef58da4fef060fc0ed007c1eb166d2a593353b80a495fce0d7c4c36",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1e80bb57655f391e63cdcc0499523c102d3f8316c2bdb3fc3f13920ca86fa04b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:61000001-62000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run54",
+      "hashes": {
+        "native.vcf": "25c0ea59a7909bc8489e5b43c171f64a633a8df26c4ab7ed36967c69a755ffd0",
+        "phased.bam": "e4d6c44ab43b6702a951258a7d4f5bf95ea6345169cdc2ecd34c6b7329692d08",
+        "stderr.log": "eac8f3c3380c68d94dbe0563e1d434b2ed33abc978a4468b96e142635096b650",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "55de455b2153e7f6462dcf7a225f4f00b3d4bfa3336f3d552772b5803d60cc58"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:64000001-65000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run55",
+      "hashes": {
+        "native.vcf": "bde30fa74a1ae312b382aeaf3a1ff96b6f0f64ec12f34ccb709e15625eefface",
+        "phased.bam": "9ba9df2c1049d43f5c83b0137f7e50e9ee1f917eb2b27be1daa03e7059048683",
+        "stderr.log": "50baadb106d72d4850e482a16ba78447dbcd36e3368bef76a6bccfe7618d26a0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "beb885d6783b8eb5170b01b3933f0a781d1030e844977324de5cd7702255554c"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:13000001-14000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run56",
+      "hashes": {
+        "native.vcf": "c4be85b45f189817fc36db12e38be346cd592fba7d5018f9f52a455afc17550b",
+        "phased.bam": "142069a09b9e54c1c7724a5105fc305dfa4597fc2439441235ee60a6a996b291",
+        "stderr.log": "3a7f79a3183813ad9f65e18b387b0745a5313f50d7b2393628ee5364fb722df7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9eb7d2b2e50ad45a37d435a27dc18eb090f24f728748b7ac2cdca1e02f89cbd1"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:5206785-5313741\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run57",
+      "hashes": {
+        "native.vcf": "22ed5ea3dae1563d24e987a7c07e9f1c0187497cf95884b0be32fa8ee4cf9623",
+        "phased.bam": "04f84196fefcf44601faa6d9b9b9378a51e32b9f48e1f9e3979e854093484387",
+        "stderr.log": "c5c0940ad8f58ffc63040f35f457d2a1b39a0ce2a5c4a5dedbf0288ba5bc0b86",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "652975b131c7a00d0e39a43f25edcfbfc183a57d009cbda00127bb6df44eff29"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:12000001-13000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run58",
+      "hashes": {
+        "native.vcf": "afb8914c3be1bb285c1d0c8759516c9c740d91db120b1db46406f9ff3e81788a",
+        "phased.bam": "e3a211d205cb1d4e236ee7e8177e2a5ce0d726e99d5c1a1b2b0e3d7fcc79204f",
+        "stderr.log": "d4e54d03874f69d2f28d76f4492690e5eed19418f9d37b3f1c997a8a2c7fe8c5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4ba43892e049e743d624a254bb3c490d13d1618abb55a82a6a8b40d8cb390a14"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:21773066-21894359\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run59",
+      "hashes": {
+        "native.vcf": "24805e5a2006f4b8780c46719a4178cee64a2d27f26968bd3893c8c09a8e03e4",
+        "phased.bam": "e6538712a57f7ab1e8db9f72cdca193bc04a9d9316fc202c530f22b1f54a3df1",
+        "stderr.log": "f533f9f4ca5d29c5523658e1ae31abd67dcdace0249bcc118706af221d283cce",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "428134027eb8b4d05834dfdef0ce8c74788bc306c463ff3a33aa6ccaab6dd9c4"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:35448368-35566845\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run60",
+      "hashes": {
+        "native.vcf": "483f70e147301fb451231018e61da410e83b72b17a4249084f8b8ee775e46734",
+        "phased.bam": "a0c87bad832e76540d61fd18f29cfc35594c76bb27a706bdcb9c552865ad6841",
+        "stderr.log": "66e978737b3d39d32f61773cb63a329e7b518671b0aa2ae1d0085f39fcd43bc2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c309dc4647ab85192cfb46be08ae82c958c218f567cb1801adc0f5293ff45098"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:50498245-50612066\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run61",
+      "hashes": {
+        "native.vcf": "afb27374cdbbe9a901412de3cee1434ac90f1eed8d359461dc4c920d09e9fd2d",
+        "phased.bam": "756fb1d6496d59b5d188f34d6f8594afa8baa9ff43b00d05be583ccec12e2891",
+        "stderr.log": "3f76949286cdae7b986000cca5597d6e50020409ae262f9abe20f52685581f49",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "695ddf3188b5add524a6d2c8d0fae90bf077da8f7f5223d7bc09a7ca0522267b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:19000001-20000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run62",
+      "hashes": {
+        "native.vcf": "fe27ad76b92bb18967e26e71806669f25d322efa41d4303cdbfd17311fbd2fe6",
+        "phased.bam": "c95ce17046e823cbf499132fcb74929772ce4af19d5d416394a23ef075a25554",
+        "stderr.log": "799f15d25372a7fe96f06faef2f9d2c98489d36f1bd750ffe6fc10414aa57d3a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5c4bb929e4d03d7e6f97b091632f114b6e299b59f7ed0f9da50af378e9d6c3ce"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:36000001-37000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run63",
+      "hashes": {
+        "native.vcf": "cb72a5a98817d14e3510a9bc6ceb871e1e7fc433f1a19ff8569c01231d1600d5",
+        "phased.bam": "96436eab8947b4924ba74388b660ac83a3815ff2ef12db1745aa8489c60671c0",
+        "stderr.log": "da7c25624e1ae8342c38dd6e6b1935e05ccaf338b8687e1aa2f4c0cedff335fb",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "bcadc4f430e32d60ca1d4f61f09f4b8eac51bba2befdff46b0381d5e4bfafddc"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:37000001-38000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run64",
+      "hashes": {
+        "native.vcf": "54c5d86691677f581236d7673c7d681fd45baa3a4d3514a6a1ca901b4a56c633",
+        "phased.bam": "cec13c371ec6dc4508140fe400133c19425bc0da933dc832393f261687646ccb",
+        "stderr.log": "b556a5d795cd16491e21200c8737a7db9768b83b5772c6aa8701bdaf5d56fb50",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e053b93231b2f74ed03b0f3519a6fc8f2e0ff6e9d69f82292f0d687c34bc8d62"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:3913987-4031464\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run65",
+      "hashes": {
+        "native.vcf": "dad69150fe76c07c140f7a8223e88e9e4ae8f1c7ba16ea2be7d723f1715f8b4e",
+        "phased.bam": "3b0a9fea6d3fb70abc4ac35a487adfaf43ae73ddbb8b4de453da2d680d57ca14",
+        "stderr.log": "29e9b338f8881cee42ad3c622c0d3ad76ffb39c7d74d561378d8b6225b17a72b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9ead0e1deb82b944d2f285df0f989530fd4f8f49e81d0aa25149eed4263471b3"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:15000001-16000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run66",
+      "hashes": {
+        "native.vcf": "f5b5e2a1216b27b6884e5f3229b430f6cafc810b4d4bbd8e86d0105c7602f567",
+        "phased.bam": "88eaa0c894726d28569eeb6e3a50a1d5a8da90971739f4308223a5a34ad646c1",
+        "stderr.log": "6bba3d087eecdaacd051067e8449ed40930e1b2628420194f77ae9e2461e6e7d",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "be7daa6e2234b8da93d5b039c5129f740919adad848695c9ebe03b58a9baab05"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:21080205-21198338\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run67",
+      "hashes": {
+        "native.vcf": "78b7febbe5f8ea960cdcc37d6ffccdbca7a37e7ee5d949d1d8eb5d852df7af20",
+        "phased.bam": "845b079a22974ef88c5cffbb91b6ee8c86740f195f147fc9d31cc82830741f02",
+        "stderr.log": "c5c3bd97d49dfa513b826be75f2f33028df395aebe98db7fcff6cd80cb71175d",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ae63c243a78e1268ea87b16ba0413ea955cd181b6ee41ff2f9b5b2603f1359f8"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:23742418-23856565\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run68",
+      "hashes": {
+        "native.vcf": "6b33281b9789a1f66dada343b5511c85c8bbca9bed3b403b24644f6d90a931fa",
+        "phased.bam": "dc92b226d87a9a814665ff6a5c3c3dfdcd90d13183a8ade62d52b3ef1a73e32b",
+        "stderr.log": "2762cad1f546ae532867d1e6d7519821581dad4e5e2150cf2551e90d43857c11",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "990ca0e9555c226feefa042b603c576a57b01359025792f6288aeb06ca36759f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:35000001-36000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run69",
+      "hashes": {
+        "native.vcf": "7a9243746c57d24799b8b3bbdae53c101b86b79b2148fd462d50262b1b463fc3",
+        "phased.bam": "3bdf404325b1fe4a629a345a4c39ba67d8a668195d02c84dbb7b9807a93b2625",
+        "stderr.log": "8067fded8eef1422efb6fd0149a7f1da84a8c42b8dbd29f188bda311bf2a61fc",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "693f2e83b7bc597c60459c1ec99247f5a11377d29b855cdea7a06dc892a97e54"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:57804341-57916713\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run70",
+      "hashes": {
+        "native.vcf": "05fb070489dee96888a6167a201a8a43907dfdae02b27941aca848c92521ca5d",
+        "phased.bam": "ca35175efd8ab823985bd39f42396f9de2c9aa04332c26adc1f3aaeabe13cb97",
+        "stderr.log": "873d4036a70519c2abdcaeed92a4e1dbce89ba58ec0279cdd08e7ce02691392c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "92d651a17fd5fef041e8b5c121259b53150b2f0320f76a4c660e9a81964722e2"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:58316458-58435702\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run71",
+      "hashes": {
+        "native.vcf": "60fb15b97bbf9508f6c176bc0fa51a53cbd36dad7a345072e2d326336dd3c60c",
+        "phased.bam": "3af7eae79e85d456a698b6a9b090c0ef797ac3d903348fdea03155bef9acecf8",
+        "stderr.log": "294c1d7027d2c190389820e0680c82f8af8767d2c59d83424772b97c481d6e1e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b9966060e0d08eee24a6207badb46de4de0f6dc2efbb43c689f28c6ab1445310"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:1000001-2000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run72",
+      "hashes": {
+        "native.vcf": "da5bdeb9ea114eb53a628a4e13d9fb3f8f866256170db641773e3fed0fc78049",
+        "phased.bam": "48da20038d589b23b5115f4ffc7c220d01596382c4a8280015c95d1539bebc16",
+        "stderr.log": "9a8d915071a8c3d4f4717eb5804f2e7f8d21363049e82f7af395085f1d903881",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "bccf66ff94109ecd4d237ecaf25a5206fc6aaf7b1f9c759139613f98fd6b6b5f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:10000001-11000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run73",
+      "hashes": {
+        "native.vcf": "c3c351a226a8dbb29c2f1feed69a556abd11d81064eed924fdad5262ab612092",
+        "phased.bam": "e78219423fe8fca28af6c7c1a5a2167ccd1e75f63b290941903e992db0724fab",
+        "stderr.log": "d0831f2e2edf9f21ee31d2236a85fe6b981962188d924d6206aa5da7a3015576",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "09ce5eab74656f89ae57f9161341b21b8ab32313c9fd592ac72e4ad1e964b39a"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:30000001-31000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run74",
+      "hashes": {
+        "native.vcf": "a870acf508104620f63040784f90330bede9cf61c6b4f63eb9f7da7d65934302",
+        "phased.bam": "6a3e92c52170af7c52455cb91ca57fcd8d5b21bc1d311fb5916b83f9bb2fc94e",
+        "stderr.log": "1160c6360de5f73e7c2c6cc24d489f5a244636570c1f2fc0f3b673cc87e01d80",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1e90d2dfd65127e9b601c3e150fbebdf47969cb42dc8a4c3ff46926708aac5fc"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:8000001-9000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run75",
+      "hashes": {
+        "native.vcf": "c4c432471e37e10e6039c654896c4ae683f224efad8dabade6ecc7c21181a73b",
+        "phased.bam": "a8c072f3f1ad21cadfb24b6ded3a2283192bf0099385c38fd7fad48c7bee15bf",
+        "stderr.log": "a6b4e634ba40a608e5f12e1b9c576c8f009f129557cea2b59fd1bd5deb7e5edf",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "945ca1656f58b2d9ca46d0549b83ecb13a250d20aec9d600ac5731e1138f9f4d"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:14000001-15000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run76",
+      "hashes": {
+        "native.vcf": "82d4daeff9aad595b70784ac70534c170d5e22776ec3a4a7d475942a7a056e7a",
+        "phased.bam": "30e24bdae3994c412f089da4026c4981c88f77d990ff9119ac3b114a3f16e90c",
+        "stderr.log": "2d7215667527cfeccd850209d08b535c7562c7a5d0f1058798efc009ae66559c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3aeab9c230a433a8307ab0cf7abf806e740d7e7d96e1d4ae0c89556b0ec27fe1"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:53000001-54000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run77",
+      "hashes": {
+        "native.vcf": "5b83ed9309728de680e498850e5935e30640b74ca41c2719055fdf88057bd4f5",
+        "phased.bam": "964b44f606c543f2fb26966d4800c91af6f08c2a19e5273f790d8e2c7c444c6d",
+        "stderr.log": "99b314a188f8a007a4cab84a227aec5d3639655ad188a83cdd4ff124286c9da4",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "cd10cad03d0c35de2de3e08f329116106be60559fa6527216a8aa80298fd4674"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:478850-592052\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run78",
+      "hashes": {
+        "native.vcf": "ebe0b3c9ff721b51e14b06b1dd11959860de152d7cacd1c7ba130f38d61904bf",
+        "phased.bam": "f59ca3c491a94e63c0612a88b13c7ff9cf75cbe467ec2675b174b02d7e8280f5",
+        "stderr.log": "c7b0479709e850d7532e435a78c4465eda72c8c06e6a47c87d25c60698ed0150",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "49189c3368880d6ba1edafbef704fb053a527e53e084860b949e1ac361db7f60"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:11185279-11312361\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run79",
+      "hashes": {
+        "native.vcf": "f82ee31732e62743ce2b1b0416dfb22b4c2f336da837505e1eaa17b166728f6b",
+        "phased.bam": "12b00b1f6c9b309247f8fc75d8916466fe9481d772c3537054707d2414e072fe",
+        "stderr.log": "9aaff06f82de35b76d663d2d3cc1e1c4ed0c52872ac14a6a8b86a4397d5ef9df",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "515d0a5eeef7c6e314e2a83ebf7fe65d0441d3823304e292f0204c97e0fa459f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:20000001-21000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run80",
+      "hashes": {
+        "native.vcf": "5ca5e68dc63b50fabbaa28744ed69284758c31891e2929461e49114f695a7376",
+        "phased.bam": "955cdae09f1ace703b5cf17328700073a801f99f69eab9e9a9a9580fb92de39f",
+        "stderr.log": "a9e29ad036d6b8df1eea166e604ada3accdb202eb4afb2a0c5d9d0b1938a197b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "597779c97557e4da37ddf360c8b4e9535f7071ea9a020b53a59cd862dc3be552"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:33000001-34000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run81",
+      "hashes": {
+        "native.vcf": "0dcdd4c538e000ab919a34bfdc63316a742c1183541eae863448368516cfff75",
+        "phased.bam": "3a1008f0f842e0f4218873efd27a79b90b53ad1bcaf20ac0503c01e5513c6254",
+        "stderr.log": "e59750e53ecc76047a216b41b77f4574d1c379455015cfa1514b3b647874ca0c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "2d0d350afa074a5c2c735a4d74951ff2fc473b907a09a42e5efb1d387e75ccff"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:38233000-38343000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run82",
+      "hashes": {
+        "native.vcf": "c395f70ddc80c916b83007a40dfb6af39cd8690e3f06a3a1684702b61cf622e3",
+        "phased.bam": "00337a0706a8c70f4a0b0027d0023ac5c3f5c90ddf7b38ed1dccc9e881d6c9d9",
+        "stderr.log": "c4b91b1cbd31aa002aa71ea66c0c34533aece9f76dea3aac380937d03e434de6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6518b2ebf4efbe641da8a63af978a65949b66cb1eb3de8d6577ace275689057f"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:51185063-51312081\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run83",
+      "hashes": {
+        "native.vcf": "b082ed0bf53e429159baf3007e8010508469d5b03070cd760f0cf8622824dfb7",
+        "phased.bam": "fb431f9530bb88c2e431c182354f0e447406043ee2af13d188454b4c28c62435",
+        "stderr.log": "3d79f4c1096c001093eb24dc8174848d8ca125f16ffee4217b48c3f850fef703",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "7629840e6db12da2facaa44511a60c1bda8371fbc4a5aa8ca990ca378a1ec008"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:51000001-52000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run84",
+      "hashes": {
+        "native.vcf": "13921120c8b8a1ce294d7683600f000733d43bb74d36e690fc605b58cfcda21d",
+        "phased.bam": "6ce8055e9a21230af92165450d1d950250ddb2ed717f25aed3a27ade4fecb175",
+        "stderr.log": "8edb40d5de12a8c5356fec6ae8382a07689523db65af7884b31eb233b2f117d7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6468e30164cbe5d263d755c6a5132c0c7bdf694361c2ff58cf011631ce00c9b5"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:19000000-20000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run85",
+      "hashes": {
+        "native.vcf": "fe27ad76b92bb18967e26e71806669f25d322efa41d4303cdbfd17311fbd2fe6",
+        "phased.bam": "c95ce17046e823cbf499132fcb74929772ce4af19d5d416394a23ef075a25554",
+        "stderr.log": "ef86b516db3dea1b645ac4f52774f40dab0b3a12f0e2f4ad9c07caa0e8881846",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5c4bb929e4d03d7e6f97b091632f114b6e299b59f7ed0f9da50af378e9d6c3ce"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:62000001-63000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run86",
+      "hashes": {
+        "native.vcf": "81e04c80b0ade100469d56bca3eec7de1fe94dd20da030ae363a123e390f0571",
+        "phased.bam": "baa7dea85beba690fc96603b7e1028f014147ee522cbf1da24e77d599fb4f31b",
+        "stderr.log": "d52acb6ca003d113f0bdc093da983aad299f6ed7781ce112f2b476fa1e7d420c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "80b72dc7c906c70d57c3df5e53d586dbdc7c5d5ec559f78c47e7e85e907c81d3"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:3000001-4000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run87",
+      "hashes": {
+        "native.vcf": "907acddea16530e2faf2d005ec73dd97ae60f4c43b4baa58f6c58bd68b116cf1",
+        "phased.bam": "f2b66343f2efd7c697d1b9a19417cfe2ef84a15d7be4a1ff647c12d2b75ba77f",
+        "stderr.log": "cfb9da430b7ef8527db60e34dcbbe12942843023f976f9ab6f5d6425cf43abed",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "04567fbc93789d802650156e79c55a31ebe7cc64930f7d7bc02e7e31b1d7d34b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:31950001-33050000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run88",
+      "hashes": {
+        "native.vcf": "641feea0186cddae5d69cefbb95dcd1bfd4653852e47fc365ee2547c027c5241",
+        "phased.bam": "846f486b023e6ea5b02d2959b75837a530ea07ee63e5a4c4793c85c3383c2a6f",
+        "stderr.log": "367b8289e0892260686acb7fcac2e3adee0c1969aa4b98cb76c327dcb76fdc0f",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ffa36f00ca473056c7c56de71c5f2589bd10b18e2c7873355be259f54bb7059b"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:60000001-61000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run89",
+      "hashes": {
+        "native.vcf": "8ac2b116cf25695ac44e4ea21cf0bb4a6691a46a6d563ad1dcafbf0cf320a495",
+        "phased.bam": "bedbca989c8c079bf958d41487e2905da882b5e282729b9a332b0371152dd2c4",
+        "stderr.log": "f0850e008e36646b99643b03ea533e2f35d0766b316032d26dad5579195e8be0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "33a3c15932a9b181b298046d77a96bffed808ca83cd75c53477b93afa9e7d179"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:18000001-19000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run90",
+      "hashes": {
+        "native.vcf": "f781be41b2e3c6ce232dddeb456845441eeb76ccc543a1b1982982a683922706",
+        "phased.bam": "5c4673719b3c610b3249a806c5f593b703ce244b17d2591406084edfb5a4f25b",
+        "stderr.log": "4c9145ff79a985338577dada9af889713be1bb62d77e39b04cd52aa8434bd9c6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "85761906aa7a4610ddf6597f2edc94377a5fd40edcba9e88115ff4eb79f59b85"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:59000001-60000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run91",
+      "hashes": {
+        "native.vcf": "2c99add1f8eca6ba6978806bb4e58263fbf27930df935339f6c5147e5a86c7ec",
+        "phased.bam": "5ff6def714f05860213eab273046f1f25a517daab2e9496ef0b5805b6b0d464f",
+        "stderr.log": "b4e824e9429c7a8578fb018f2fee83ee43e7302e93d5bc169215b54111f5c5ae",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3d68a15facd5d937c2093c8ecc500bb248684e78b50dd6bc5ceb10d46cc30d1a"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:22900001-23100000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run92",
+      "hashes": {
+        "native.vcf": "c8fa965b7df0567a7e9dc1fc2bb59bfb2d07ac392642ef86ec36619d4abcbe56",
+        "phased.bam": "d3494122f13013811016db7d6243b8d806c172d81f3b82caee4aef5d055319d0",
+        "stderr.log": "adbdcb5e79c449a30e629da002bdb17a4b8db0f8c6a226226ed357d2809aca96",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8f2beb1e84e777a294cc071cc6e43914b9b2547b11b9cf23b2f544f8dbb60306"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:22000001-24000000\",\"-t\",\"4\",\"--chunk-size\",\"1000000\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run93",
+      "hashes": {
+        "native.vcf": "7b7ce012d4d428d44fb8d37959aadb102a288a7b087e08f5f432fbd3ac69f432",
+        "phased.bam": "ff515403198b21cf8bfa7e41d0624ae59071a783a4a9d694234729e10b748e20",
+        "stderr.log": "8d89d159fbef7ed1c84d247fcac77ad31fd11a05cbcda732b6d7bab37959f467",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5692474e2a7ac5dae411cb03c98aa0340474ac172c61ae4db935298b0d281df2"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:22500001-23500000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run94",
+      "hashes": {
+        "native.vcf": "7548bb2bbb2df888ccf497765e6ebeef12a66e85e5b5641c388c6c5dd22f2faa",
+        "phased.bam": "682c597c9b255f2fe921c53ff7adc21bd13f2958a90db968db04aaf8ef97bd93",
+        "stderr.log": "d66094d36bc09fd77ded939f5c06573de2d1dced370c2aaa9f6773d769981c41",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "656ae0b1132bbdbc6dd7dbba348ace08e3f83f4f07fd6970cb81a6fb3d8ec273"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:11000001-12000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run95",
+      "hashes": {
+        "native.vcf": "fbf04524ea3e9a489a862466b42f769686b4e323e9ac61d82ca947d193a1ba87",
+        "phased.bam": "c3299767c18c56c315829746573b8046f63515bcd6e291d48085386be1161e47",
+        "stderr.log": "679d84739a96feb74631af7e0864a8aa1401d2f2c259d8e7a2480c02ed5a0168",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "754dd8741e94cb769c6fd7b8f0a445fe5a959da74845540be41fca247a1e49dc"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:41000001-42000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run96",
+      "hashes": {
+        "native.vcf": "dbc29149dcd168e8fda2fc656f9f8a6814d4d06776ec3931c295878b09b2bb7c",
+        "phased.bam": "05b5137418529e2f6c2b424e287d590ef2bda60c3fd8fb6e71eb9233c6832796",
+        "stderr.log": "051e097c1c5c1e20ee4607decd11397524a2bc789cfba8030247b77ce6b5c0b9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ee870483cbb93748f7cd7f9b4de2d5276766f1907d8f469d05c0854ed0176e79"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:5000001-6000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run97",
+      "hashes": {
+        "native.vcf": "a0358d3365cbe1dba070c487d56c17574e8c6934540a20e33d640f20e235b4c0",
+        "phased.bam": "b4809d7e9d6428880ec893cd53dc95a515f06556f8292b719d8715670fc912cb",
+        "stderr.log": "0d0292b8f18c117e67e8aab4a92b929cd4d3a6972a887f1adb6e3c22aa9bf339",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "15941442120ce4e3c046e2c88122bda78c520caa734b5b74f819997766115169"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:34000001-35000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run98",
+      "hashes": {
+        "native.vcf": "30c4f78b6b3fca323e84ea04876b605b82d3db209bfdeefdee4234fe8ee8d586",
+        "phased.bam": "5dafad312eeb1da87aead3cde6362f99990c64387dd12cc8791dc44ff3dfd774",
+        "stderr.log": "69851bd6ee15e52efd6b8c7aaa127683508e7d9fcf0a0221dae1a1b302df0071",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "365505494f94065a0d861ac17db015ee612db5c7843e213d9537203ab300ffc9"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:17566778-17675527\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run99",
+      "hashes": {
+        "native.vcf": "bdf5a62277e06599fe436e90da1f66ca8a3a64cd67fbb43cb16434338db73749",
+        "phased.bam": "21f146161bb990435be9d1ea17524f255dd545c495baa42afd8636956c23476c",
+        "stderr.log": "3d0dadd3faca3d68dae875a19733e5850180c49fd13440271cc5256da3676590",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1c68f39c8883eea845b4db9fe0ffbd5c60f50dc6e996850e568651ca5c0b9096"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:55250000-55550000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run100",
+      "hashes": {
+        "native.vcf": "a0684f1b7a06fe0627b14fe0b37f6e12e37b402806eee9b667d96f997cd243dc",
+        "phased.bam": "c795e5c1d61f0d64cf6ee83d5998593b3c6f28661ad864d321e8b2d3805af435",
+        "stderr.log": "ef0fd8ce7cba0be316fcca3aef0561f5f247d39e546c8ab091b16d3fdb4e767a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "f014700c015a5f5bf7863e579da1771b5e017093c644d16e736813648e995e2a"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:30700000-30860000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run101",
+      "hashes": {
+        "native.vcf": "e66277a573cfafefa5c259bc7cc3ca976c641c62e4bee1f5120619bf757fc05a",
+        "phased.bam": "a84b6a553528dd3feb344bb50119601437427a4f99d59aea6feac23c4ea8682c",
+        "stderr.log": "6e910fb8c13ff7debd19e321fd3ef8b3d9f5bce25a24de62279289328b8cfdaf",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9a6c11de72108931d4b6d07df0a966ae26f0a848b4cf29d6c9a07fac6355b0fb"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:17000001-18000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run102",
+      "hashes": {
+        "native.vcf": "bcda0b566f3593e4338e035527839b06aa4306fa15e8cf47b8d65e3e6f5ba4bc",
+        "phased.bam": "b605f290d725a8d8e9c8b8caae6fcfec6b57bdb8fc642df10bc5daf0b1b86037",
+        "stderr.log": "ff63d9c938594de2df901e39e77e9f030f6148a4eb33e94d81947bb9c699d630",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8dce9a634add2c9ce6b6abf4a476ed236ae4ad6ab51595fe12133e1a4037a392"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:14950001-16000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run103",
+      "hashes": {
+        "native.vcf": "512152fd794ea35b9ff152d398e9c64ffe05409d0e193dbb6bada0317512acc3",
+        "phased.bam": "87817b4a44f5b5ff39691214729a614383d02542e85a00c9e64547a47066e92a",
+        "stderr.log": "8bdfb03748280a994c189263ee4b155306edb20afc23ff3a5124e5ae6f4a278a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "7a064a5badf6b6b46eaff1f2b1230f4236517cb724407c55935db481cabae717"
+      }
+    },
+    "[\"collect-graph-variation\",\"--ref\",\"test_data/chm13v2.0.chr20.renamed.fa\",\"--bam\",\"test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam\",\"--sites\",\"test_data/chr20.sites.striped.vcf.gz\",\"--gaf\",\"test_data/HG002.chr20.annotated.coord.gaf.gz\",\"-r\",\"CHM13#0#chr20:16950001-18000000\",\"-t\",\"4\",\"-o\",\"<output>/candidates.tsv\",\"--phased-vcf-out\",\"<output>/native.vcf\",\"--phased-bam-out\",\"<output>/phased.bam\"]": {
+      "source": "test_data/tmp_gap_next33/final-native/run104",
+      "hashes": {
+        "native.vcf": "5f41d091680dd1fc8db5c0946741f389b24def7c8c19c851c10a46c52298eff8",
+        "phased.bam": "f9e3d181a037eedb5a0859fed0d83051b31cf676746a4ff9817a2c20a39efdeb",
+        "stderr.log": "6edf74e778f9c71012e0c2e758b380d36ccaa3842698c1d0f7ce567aa30f4146",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "06f02a0d9b96fdae4418f229b2a14f5afe5635a2b8aa3b962daf044c0c563bf5"
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+ok: HiFi TSV golden match (83542a7da30ae8fe5a51be530d971d36348aa576b6749823b50fbfaaccdce664), t1 vs t4 deterministic; sites=569
+ok: HiFi phased VCF golden match (32adfed193fd31a21dd1be61d40fbb0642d48c8a1405f05d71710b3879857692), t1 vs t4 deterministic
+ok: ONT TSV golden match (162702cffef6d0b26aff8189983092472c7d2070788818398a8a938dfbe43dc3); sites=689
+ok: ONT phased VCF golden match (29e5994c31c4ae9545fb5c933c5ed1434935caac714b51138cd1f7561d1ecc84)

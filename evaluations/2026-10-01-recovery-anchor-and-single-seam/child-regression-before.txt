@@ -1,0 +1,20 @@
+Filters: focused BAM recovery retains insertion representations of graph child SNPs
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+focused BAM recovery retains insertion representations of graph child SNPs
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4372
+...............................................................................
+
+src/test_gap_windows.cpp:4400: FAILED:
+  REQUIRE( calls.count("59679069:A>AT") == 1 )
+with expansion:
+  0 == 1
+
+===============================================================================
+test cases: 1 | 1 failed
+assertions: 6 | 5 passed | 1 failed

@@ -1,0 +1,37 @@
+{
+  "gap": [
+    64128828,
+    64134226
+  ],
+  "mapq30_spanning_reads": 27,
+  "exclusive_alt_pairs": {
+    "1/0/1": 6,
+    "0/1/0": 12
+  },
+  "abstaining_pairs": {
+    "0/0/0": 2,
+    "1/0/0": 5,
+    "0/-1/-1": 1,
+    "1/-1/-1": 1
+  },
+  "local_before": {
+    "phased": 45,
+    "correct": 44,
+    "discordant": 1,
+    "dominant_correct": 22,
+    "truth_scorable_overlaps": 54,
+    "read_phase_sets": 5
+  },
+  "local_after": {
+    "phased": 45,
+    "correct": 44,
+    "discordant": 1,
+    "dominant_correct": 39,
+    "truth_scorable_overlaps": 54,
+    "read_phase_sets": 2
+  },
+  "full_chr20_truth_transitions": {
+    "True->True": 229974,
+    "False->False": 7153
+  }
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "path": "test_data/tmp_gap_next27/insertion-bam-refresh/phased.bam",
+    "phased": 136,
+    "correct": 109,
+    "discordant": 27,
+    "blocks": 1,
+    "dominant_correct": 109,
+    "overlap_reads": 154
+  },
+  {
+    "path": "test_data/tmp_gap_next27/atomic-quality-snp-gauge/phased.bam",
+    "phased": 136,
+    "correct": 131,
+    "discordant": 5,
+    "blocks": 1,
+    "dominant_correct": 131,
+    "overlap_reads": 154
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "phased": 144,
+    "correct": 138,
+    "discordant": 6,
+    "blocks": 1,
+    "dominant_correct": 138,
+    "overlap_reads": 154
+  }
+]

@@ -28,6 +28,18 @@ extern "C" {
 
 namespace pgphase_collect {
 
+bool is_phase_set_anchor(const CandidateVariant& candidate) {
+    if (candidate.phase_set <= 0 ||
+        candidate.counts.category == VariantCategory::CleanHom ||
+        candidate.counts.category == VariantCategory::NoisyCandHom)
+        return false;
+    const int hap1 = candidate.hap_to_cons_alle[1];
+    const int hap2 = candidate.hap_to_cons_alle[2];
+    // Graph rows can retain other allele IDs. Only a complete genotype that
+    // projects to REF/ALT for this row can supply a phase boundary.
+    return hap1 >= 0 && hap2 >= 0 && ((hap1 == 1) != (hap2 == 1));
+}
+
 double binomial_upper_tail(int n, int first, double p) {
     const double log_term =
         std::lgamma(static_cast<double>(n + 1)) -
@@ -395,6 +407,7 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
 
     // Observation rows: qname, var_idx, allele (0=ref,1=alt,-1=non-inf,-2=lowqual).
     std::fprintf(fp, "#OBS\tqname\tvar_idx\tallele\tgraph_allele\tbam_allele\n");
+    std::fprintf(fp, "#BAMQ\tqname\tvar_idx\tphysical_base_quality\n");
     for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
         const ReadRecord& read = chunk.reads[read_i];
         if (read.is_skipped) continue;
@@ -411,6 +424,10 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
             std::fprintf(fp, "OBS\t%s\t%d\t%d\t%d\t%d\n",
                          read.qname.c_str(), global_to_vidx[vi], allele,
                          graph_allele, bam_allele);
+            if (offset < prof.bam_base_qualities.size())
+                std::fprintf(fp, "BAMQ\t%s\t%d\t%u\n", read.qname.c_str(),
+                             global_to_vidx[vi],
+                             static_cast<unsigned>(prof.bam_base_qualities[offset]));
         }
     }
     std::fclose(fp);
@@ -755,6 +772,228 @@ static std::optional<bool> significant_parity_flip(
     return significant_parity_flip(
         counts[0][0] + counts[1][1],
         counts[0][1] + counts[1][0]);
+}
+
+void retain_recovery_bam_evidence(
+        const PhasingChunk& source,
+        const std::vector<std::pair<hts_pos_t, hts_pos_t>>& phase_set_remap,
+        RecoveryPhaseGauge& gauge) {
+    gauge.bam_sites.clear();
+    gauge.bam_reads.clear();
+    const std::map<hts_pos_t, hts_pos_t> labels(
+        phase_set_remap.begin(), phase_set_remap.end());
+    std::vector<int> site_index(source.candidates.size(), -1);
+    for (size_t ci = 0; ci < source.candidates.size(); ++ci) {
+        const CandidateVariant& candidate = source.candidates[ci];
+        const auto label = labels.find(candidate.phase_set);
+        if (!is_phase_set_anchor(candidate)) continue;
+        site_index[ci] = static_cast<int>(gauge.bam_sites.size());
+        gauge.bam_sites.push_back(RecoveryBamSite{
+            candidate.key, label == labels.end() ? 0 : label->second,
+            candidate.hap_to_cons_alle[1], candidate.hap_to_cons_alle[2],
+            candidate.key.type == VariantType::Snp &&
+                candidate.counts.category == VariantCategory::CleanHetSnp,
+            candidate.phase_set});
+    }
+    for (size_t ri = 0; ri < source.reads.size(); ++ri) {
+        const ReadRecord& read = source.reads[ri];
+        if (read.is_skipped || ri >= source.read_var_profile.size()) continue;
+        const ReadVariantProfile& profile = source.read_var_profile[ri];
+        if (profile.start_var_idx < 0) continue;
+        RecoveryBamRead saved;
+        saved.qname = read.qname;
+        saved.mapq = read.mapq;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            const size_t ci = static_cast<size_t>(profile.start_var_idx) + offset;
+            if (ci >= site_index.size()) break;
+            if (site_index[ci] < 0 || profile.alleles[offset] < 0) continue;
+            saved.observations.emplace_back(
+                static_cast<size_t>(site_index[ci]), profile.alleles[offset]);
+            saved.base_qualities.push_back(offset < profile.bam_base_qualities.size()
+                ? profile.bam_base_qualities[offset] : 0);
+        }
+        if (!saved.observations.empty()) gauge.bam_reads.push_back(std::move(saved));
+    }
+    std::sort(gauge.bam_reads.begin(), gauge.bam_reads.end(),
+        [](const RecoveryBamRead& a, const RecoveryBamRead& b) {
+            return a.qname < b.qname;
+        });
+    // Alternative alignments must not vote as independent molecules. Exclude
+    // repeated names entirely rather than choosing one alignment's alleles.
+    size_t retained = 0;
+    for (size_t first = 0; first < gauge.bam_reads.size();) {
+        size_t past = first + 1;
+        while (past < gauge.bam_reads.size() &&
+               gauge.bam_reads[past].qname == gauge.bam_reads[first].qname) ++past;
+        if (past == first + 1) {
+            if (retained != first)
+                gauge.bam_reads[retained] = std::move(gauge.bam_reads[first]);
+            ++retained;
+        }
+        first = past;
+    }
+    gauge.bam_reads.resize(retained);
+}
+
+std::optional<bool> complete_recovery_block_flip(
+        const PhasingChunk& chunk, const RecoveryPhaseGauge& gauge,
+        hts_pos_t upstream_phase_set, hts_pos_t downstream_phase_set,
+        const std::vector<int>& upstream_candidates,
+        const std::vector<int>& downstream_candidates, int min_mapq) {
+    if (upstream_phase_set <= 0 || downstream_phase_set <= 0 ||
+        upstream_phase_set == downstream_phase_set) return std::nullopt;
+    const std::array<hts_pos_t, 2> phase_sets{
+        upstream_phase_set, downstream_phase_set};
+    std::array<bool, 2> source_side{};
+    for (const RecoveryBamSite& site : gauge.bam_sites)
+        for (size_t side = 0; side < 2; ++side)
+            source_side[side] = source_side[side] || site.phase_set == phase_sets[side];
+    if (!source_side[0] && !source_side[1]) return std::nullopt;
+    const std::array<const std::vector<int>*, 2> candidates{
+        &upstream_candidates, &downstream_candidates};
+    std::array<bool, 2> source_flip{};
+    std::array<hts_pos_t, 2> roots{};
+    for (size_t side = 0; side < 2; ++side) {
+        std::optional<bool> basis;
+        for (const int ci : *candidates[side]) {
+            const CandidateVariant& live = chunk.candidates[static_cast<size_t>(ci)];
+            roots[side] = live.phase_set;
+            if (!source_side[side]) continue;
+            for (const RecoveryBamSite& saved : gauge.bam_sites) {
+                if (saved.phase_set != phase_sets[side] ||
+                    saved.key.tid != live.key.tid || saved.key.pos != live.key.pos ||
+                    saved.key.type != live.key.type || saved.key.ref_len != live.key.ref_len ||
+                    saved.key.alt != live.key.alt) continue;
+                const bool flip = saved.hap1_allele != live.hap_to_cons_alle[1];
+                if ((live.hap_to_cons_alle[1] != saved.hap1_allele &&
+                     live.hap_to_cons_alle[1] != saved.hap2_allele) ||
+                    (basis && *basis != flip)) return std::nullopt;
+                basis = flip;
+            }
+        }
+        // Complete evidence is in the saved BAM gauge. A live private row
+        // supplies its current basis; conflicting rows cannot form one block.
+        if (source_side[side] && !basis) return std::nullopt;
+        source_flip[side] = basis.value_or(false);
+    }
+    std::array<std::pair<int, int>, 2> label_votes{};
+    DiploidLinkCounts counts{};
+    DiploidLinkCounts physical_counts{};
+    constexpr int kMinPhysicalMapq = 30;
+    constexpr int kMinPhysicalBaseq = 30;
+    constexpr int kMissingBaseQuality = 255;
+    int snp_same = 0;
+    int snp_cross = 0;
+    size_t graph_read_i = 0;
+    for (const RecoveryBamRead& read : gauge.bam_reads) {
+        constexpr int kUnknownMapq = 255;
+        if (read.mapq < min_mapq || read.mapq == kUnknownMapq) continue;
+        // Both lists are qname ordered. No read-index alias survives transfer
+        // or sorting, and each source molecule contributes at most one vote.
+        while (graph_read_i < chunk.reads.size() &&
+               chunk.reads[graph_read_i].qname < read.qname) ++graph_read_i;
+        std::array<std::array<int, 2>, 2> all{};
+        std::array<std::array<int, 2>, 2> snps{};
+        std::array<std::array<int, 2>, 2> physical{};
+        const auto add = [&](size_t side, int allele, int hap1, int hap2,
+                             bool clean_snp, uint8_t quality) {
+            const int hap = allele == hap1 ? 0 : allele == hap2 ? 1 : -1;
+            if (hap < 0) return;
+            ++all[side][static_cast<size_t>(hap)];
+            if (clean_snp) {
+                ++snps[side][static_cast<size_t>(hap)];
+                if (read.mapq >= kMinPhysicalMapq && quality >= kMinPhysicalBaseq && quality != kMissingBaseQuality)
+                    ++physical[side][static_cast<size_t>(hap)];
+            }
+        };
+        for (size_t oi = 0; oi < read.observations.size(); ++oi) {
+            const auto& observation = read.observations[oi];
+            const RecoveryBamSite& site = gauge.bam_sites[observation.first];
+            for (size_t side = 0; side < 2; ++side)
+                if (source_side[side] && site.phase_set == phase_sets[side])
+                    add(side, observation.second, site.hap1_allele,
+                        site.hap2_allele, site.clean_snp,
+                        oi < read.base_qualities.size() ? read.base_qualities[oi] : 0);
+        }
+        for (size_t side = 0; side < 2; ++side) {
+            if (source_side[side]) continue;
+            if (graph_read_i >= chunk.reads.size() ||
+                chunk.reads[graph_read_i].qname != read.qname ||
+                chunk.reads[graph_read_i].is_skipped ||
+                graph_read_i >= chunk.read_var_profile.size()) continue;
+            const ReadVariantProfile& profile = chunk.read_var_profile[graph_read_i];
+            for (const int ci : *candidates[side]) {
+                if (ci < profile.start_var_idx || ci > profile.end_var_idx) continue;
+                const size_t offset = static_cast<size_t>(ci - profile.start_var_idx);
+                if (offset >= profile.alleles.size()) continue;
+                const CandidateVariant& site = chunk.candidates[static_cast<size_t>(ci)];
+                add(side, profile.alleles[offset], site.hap_to_cons_alle[1],
+                    site.hap_to_cons_alle[2], site.key.type == VariantType::Snp &&
+                        site.counts.category == VariantCategory::CleanHetSnp,
+                        offset < profile.bam_base_qualities.size()
+                            ? profile.bam_base_qualities[offset] : 0);
+            }
+        }
+        if (physical[0][0] != physical[0][1] && physical[1][0] != physical[1][1])
+            ++physical_counts[physical[0][1] > physical[0][0] ? 1 : 0]
+                             [physical[1][1] > physical[1][0] ? 1 : 0];
+        // Block HP consistency uses all its physical calls, including reads
+        // that do not reach the other block. Otherwise the far side's gauge
+        // disappears merely because bridging reads were tagged to the left.
+        if (graph_read_i < chunk.reads.size() &&
+            chunk.reads[graph_read_i].qname == read.qname &&
+            graph_read_i < chunk.haps.size() && graph_read_i < chunk.phase_sets.size()) {
+            const int hap = chunk.haps[graph_read_i];
+            const hts_pos_t ps = chunk.phase_sets[graph_read_i];
+            for (size_t side = 0; side < 2; ++side) {
+                if (ps != roots[side] || (hap != 1 && hap != 2) ||
+                    physical[side][0] == physical[side][1]) continue;
+                const int physical_hap = physical[side][1] > physical[side][0] ? 1 : 0;
+                const int expected = (physical_hap ^ source_flip[side]) + 1;
+                if (hap == expected) ++label_votes[side].first;
+                else ++label_votes[side].second;
+            }
+        }
+        std::array<int, 2> haps{-1, -1};
+        for (size_t side = 0; side < 2; ++side) {
+            // A tied SNP call abstains; indels cannot override clean SNPs.
+            const auto& votes = snps[side][0] + snps[side][1] > 0
+                ? snps[side] : all[side];
+            if (votes[0] != votes[1]) haps[side] = votes[1] > votes[0] ? 1 : 0;
+        }
+        if (haps[0] < 0 || haps[1] < 0) continue;
+        ++counts[static_cast<size_t>(haps[0])][static_cast<size_t>(haps[1])];
+        if (snps[0][0] + snps[0][1] > 0 && snps[1][0] + snps[1][1] > 0) {
+            if (haps[0] == haps[1]) ++snp_same;
+            else ++snp_cross;
+        }
+    }
+    // Whole-block orientation needs evidence on both parental haplotypes.
+    if (counts[0][0] + counts[0][1] == 0 ||
+        counts[1][0] + counts[1][1] == 0 ||
+        counts[0][0] + counts[1][0] == 0 ||
+        counts[0][1] + counts[1][1] == 0) return std::nullopt;
+    const std::optional<bool> flip = significant_parity_flip(counts);
+    const std::optional<bool> snp_flip = significant_parity_flip(snp_same, snp_cross);
+    if (flip && snp_flip && *flip != *snp_flip) return std::nullopt;
+    // A whole-block join needs a physical clean-SNP certificate on both
+    // parental haplotypes. A clean row label does not certify its MSA calls.
+    if (physical_counts[0][0] + physical_counts[0][1] == 0 ||
+        physical_counts[1][0] + physical_counts[1][1] == 0 ||
+        physical_counts[0][0] + physical_counts[1][0] == 0 ||
+        physical_counts[0][1] + physical_counts[1][1] == 0) return std::nullopt;
+    // A correctly oriented neighbor cannot mask a source block whose calls
+    // significantly contradict its own HP tags. Test each block separately.
+    for (const auto& labels : label_votes) {
+        const std::optional<bool> conflict = significant_parity_flip(labels.first, labels.second);
+        if (conflict && *conflict) return std::nullopt;
+        if (!chunk.reads.empty() && chunk.haps.size() == chunk.reads.size() &&
+            chunk.phase_sets.size() == chunk.reads.size() && !conflict)
+            return std::nullopt;
+    }
+    const std::optional<bool> physical_flip = significant_parity_flip(physical_counts);
+    if (!physical_flip || (flip && *flip != *physical_flip)) return std::nullopt;
+    return *physical_flip ^ source_flip[0] ^ source_flip[1];
 }
 
 static std::optional<SupportedAlleleEdge> strongest_phase_set_edge(
@@ -4022,6 +4261,292 @@ size_t stitch_recovery_phase_sets_left_to_right(
     return joined;
 }
 
+// Certify every coordinate cut in the current block, rather than asking one
+// molecule to cover a block that may be hundreds of kilobases long. Successive
+// callable observations on a molecule cover disjoint intervals, so its vote
+// is counted once at each cut. Difference arrays check cut support; aggregated
+// edges also certify connectivity, so interleaved components cannot pass.
+// Block results are cached by the caller and no dense site-pair matrix is built.
+static bool has_supported_recovery_block_path(
+        const PhasingChunk& chunk, const std::vector<int>& sites,
+        int min_support, int min_mapq) {
+    if (sites.size() < 2) return false;
+    const int first = sites.front();
+    const int last = sites.back();
+    if (chunk.candidates[static_cast<size_t>(first)].key.sort_pos() >=
+        chunk.candidates[static_cast<size_t>(last)].key.sort_pos()) return false;
+    std::vector<int> local_index(static_cast<size_t>(last - first + 1), -1);
+    for (size_t i = 0; i < sites.size(); ++i)
+        local_index[static_cast<size_t>(sites[i] - first)] = static_cast<int>(i);
+    std::vector<std::array<int, 3>> delta(sites.size());
+    std::map<std::pair<int, int>, std::array<int, 3>> edge_votes;
+    constexpr int kUnknownMapq = 255;
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        const ReadRecord& read = chunk.reads[ri];
+        if (read.is_skipped || read.mapq < min_mapq || read.mapq == kUnknownMapq ||
+            ri >= chunk.read_var_profile.size()) continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+        if (profile.start_var_idx < 0 || profile.alleles.empty()) continue;
+        const int beg = std::max(first, profile.start_var_idx);
+        const int end = std::min(last, profile.start_var_idx +
+                                      static_cast<int>(profile.alleles.size()) - 1);
+        int previous = -1;
+        int previous_hap = -1;
+        for (int ci = beg; ci <= end; ++ci) {
+            const int local = local_index[static_cast<size_t>(ci - first)];
+            const int allele = profile.alleles[
+                static_cast<size_t>(ci - profile.start_var_idx)];
+            if (local < 0 || allele < 0) continue;
+            const CandidateVariant& site = chunk.candidates[static_cast<size_t>(ci)];
+            const int hap = allele == site.hap_to_cons_alle[1] ? 0 :
+                            allele == site.hap_to_cons_alle[2] ? 1 : -1;
+            if (previous >= 0) {
+                const size_t vote = hap >= 0 && hap == previous_hap
+                    ? static_cast<size_t>(hap) : 2;
+                ++delta[static_cast<size_t>(previous)][vote];
+                --delta[static_cast<size_t>(local)][vote];
+                ++edge_votes[{previous, local}][vote];
+            }
+            previous = local;
+            previous_hap = hap;
+        }
+    }
+    constexpr int kDiploidMinSupport = 2;
+    std::array<int, 3> crossing{};
+    for (size_t i = 0; i + 1 < sites.size(); ++i) {
+        for (size_t vote = 0; vote < crossing.size(); ++vote)
+            crossing[vote] += delta[i][vote];
+        // Complementary rows describe one locus, not an independent bridge.
+        if (chunk.candidates[static_cast<size_t>(sites[i])].key.sort_pos() ==
+            chunk.candidates[static_cast<size_t>(sites[i + 1])].key.sort_pos())
+            continue;
+        const int consistent = crossing[0] + crossing[1];
+        if (crossing[0] == 0 || crossing[1] == 0 ||
+            consistent < std::max(kDiploidMinSupport, min_support) ||
+            consistent <= crossing[2]) return false;
+    }
+    // Crossing every coordinate cut is necessary but does not prove a
+    // connected observation graph: A--C and B--D can interleave without any
+    // shared allele call. Require supported edges to connect all actual rows.
+    std::vector<int> roots(sites.size());
+    std::vector<size_t> component_sizes(sites.size(), 1);
+    for (size_t i = 0; i < roots.size(); ++i) roots[i] = static_cast<int>(i);
+    const auto root_of = [&](int node) {
+        while (roots[static_cast<size_t>(node)] != node) {
+            roots[static_cast<size_t>(node)] = roots[static_cast<size_t>(
+                roots[static_cast<size_t>(node)])];
+            node = roots[static_cast<size_t>(node)];
+        }
+        return node;
+    };
+    for (const auto& [edge, votes] : edge_votes) {
+        const int consistent = votes[0] + votes[1];
+        if (votes[0] == 0 || votes[1] == 0 ||
+            consistent < std::max(kDiploidMinSupport, min_support) ||
+            consistent <= votes[2]) continue;
+        int left = root_of(edge.first);
+        int right = root_of(edge.second);
+        if (left == right) continue;
+        if (component_sizes[static_cast<size_t>(left)] <
+            component_sizes[static_cast<size_t>(right)]) std::swap(left, right);
+        roots[static_cast<size_t>(right)] = left;
+        component_sizes[static_cast<size_t>(left)] +=
+            component_sizes[static_cast<size_t>(right)];
+    }
+    return component_sizes[static_cast<size_t>(root_of(0))] == sites.size();
+}
+
+size_t stitch_complete_recovery_phase_blocks(
+        PhasingChunk& chunk, const std::vector<RecoverySeam>& windows,
+        const std::vector<RecoveryPhaseGauge>& gauges, const Options& opts,
+        const std::unordered_map<hts_pos_t, bool>& source_paths,
+        const std::set<hts_pos_t>& graph_paths) {
+    const int min_support = std::max(1, opts.min_block_link_reads);
+    const auto oriented = [](const CandidateVariant& candidate) {
+        return candidate.phase_set > 0 &&
+               candidate.hap_to_cons_alle[1] >= 0 &&
+               candidate.hap_to_cons_alle[2] >= 0 &&
+               candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2];
+    };
+    std::map<hts_pos_t, std::pair<size_t, int>> initial_orientations;
+    std::map<hts_pos_t, std::vector<int>> initial_phase_set_candidates;
+    std::vector<int> initial_hap1_alleles;
+    initial_hap1_alleles.reserve(chunk.candidates.size());
+    std::vector<hts_pos_t> initial_phase_sets;
+    initial_phase_sets.reserve(chunk.candidates.size());
+    for (size_t candidate_i = 0; candidate_i < chunk.candidates.size();
+         ++candidate_i) {
+        const CandidateVariant& candidate = chunk.candidates[candidate_i];
+        initial_phase_sets.push_back(candidate.phase_set);
+        initial_hap1_alleles.push_back(candidate.hap_to_cons_alle[1]);
+        if (!oriented(candidate)) continue;
+        initial_orientations.try_emplace(
+            candidate.phase_set,
+            std::make_pair(candidate_i, candidate.hap_to_cons_alle[1]));
+        initial_phase_set_candidates[candidate.phase_set].push_back(
+            static_cast<int>(candidate_i));
+    }
+    const auto flipped_from_initial = [&](hts_pos_t phase_set) {
+        const auto initial = initial_orientations.find(phase_set);
+        if (initial == initial_orientations.end()) return false;
+        const CandidateVariant& candidate =
+            chunk.candidates[initial->second.first];
+        return candidate.hap_to_cons_alle[1] != initial->second.second;
+    };
+
+    std::map<hts_pos_t, hts_pos_t> phase_set_aliases;
+    const auto resolve_phase_set = [&phase_set_aliases](hts_pos_t phase_set) {
+        for (;;) {
+            const auto alias = phase_set_aliases.find(phase_set);
+            if (alias == phase_set_aliases.end() || alias->second == phase_set)
+                return phase_set;
+            phase_set = alias->second;
+        }
+    };
+
+    std::map<hts_pos_t, bool> reusable_block_cache;
+    const auto has_supported_path = [&](hts_pos_t source_phase_set) {
+        const auto cached = reusable_block_cache.find(source_phase_set);
+        if (cached != reusable_block_cache.end()) return cached->second;
+        const auto found = initial_phase_set_candidates.find(source_phase_set);
+        const bool supported = found != initial_phase_set_candidates.end() &&
+            has_supported_recovery_block_path(chunk, found->second,
+                                              min_support, opts.min_mapq);
+        reusable_block_cache.emplace(source_phase_set, supported);
+        return supported;
+    };
+
+    size_t joined = 0;
+    // Complete source evidence is a final pass: earlier genotype recovery and
+    // protected joins must finish before a new connection changes membership.
+    // Preflight every atomic block and edge, then apply only constant PS/HP
+    // unions. No candidate is added, demoted, or re-genotyped by this pass.
+    for (const RecoverySeam& window : windows) {
+      for (const RecoveryPhaseGauge& gauge : gauges) {
+        const hts_pos_t left_root = resolve_phase_set(window.left_phase_set);
+        const hts_pos_t right_root = resolve_phase_set(window.right_phase_set);
+        if (left_root <= 0 || right_root <= 0 || left_root == right_root) continue;
+        if (gauge.beg > window.beg || gauge.end < window.end ||
+            gauge.bam_reads.empty()) continue;
+        const auto imported = [&](hts_pos_t source) {
+            return std::find(gauge.imported_phase_sets.begin(),
+                             gauge.imported_phase_sets.end(), source) !=
+                gauge.imported_phase_sets.end();
+        };
+        const auto certified = [&](hts_pos_t source) {
+            const auto sites = initial_phase_set_candidates.find(source);
+            if (sites == initial_phase_set_candidates.end()) return false;
+            const hts_pos_t root = resolve_phase_set(source);
+            const bool flipped = flipped_from_initial(source);
+            for (const int ci : sites->second) {
+                const size_t index = static_cast<size_t>(ci);
+                const CandidateVariant& site = chunk.candidates[index];
+                if (site.phase_set != root || !oriented(site) ||
+                    (site.hap_to_cons_alle[1] != initial_hap1_alleles[index]) != flipped)
+                    return false;
+            }
+            if (imported(source)) {
+                if (source_paths.count(source) == 0 || !source_paths.at(source))
+                    return false;
+                // A source certificate covers its saved rows, not graph rows
+                // absorbed by an earlier attachment into the same PS label.
+                const bool source_covers_block = std::all_of(
+                    sites->second.begin(), sites->second.end(), [&](int ci) {
+                        const VariantKey& key = chunk.candidates[static_cast<size_t>(ci)].key;
+                        return std::any_of(gauge.bam_sites.begin(), gauge.bam_sites.end(),
+                            [&](const RecoveryBamSite& saved) {
+                                return saved.phase_set == source && saved.key.tid == key.tid &&
+                                    saved.key.pos == key.pos && saved.key.type == key.type &&
+                                    saved.key.ref_len == key.ref_len && saved.key.alt == key.alt;
+                            });
+                    });
+                if (source_covers_block) return true;
+            }
+            return sites->second.size() == 1 || has_supported_path(source) ||
+                graph_paths.count(source) != 0;
+        };
+        std::vector<hts_pos_t> chain{window.left_phase_set};
+        std::vector<hts_pos_t> last_sources{window.left_phase_set};
+        std::set<hts_pos_t> seen_roots{left_root};
+        bool valid = true;
+        bool has_bam_block = imported(window.left_phase_set) || imported(window.right_phase_set);
+        const auto append = [&](hts_pos_t source) {
+            const hts_pos_t root = resolve_phase_set(source);
+            if (root == resolve_phase_set(chain.back())) {
+                last_sources.back() = source;
+                return;
+            }
+            // Interleaved blocks cannot be represented by one linear chain.
+            if (root <= 0 || !seen_roots.insert(root).second) valid = false;
+            else {
+                chain.push_back(source);
+                last_sources.push_back(source);
+            }
+        };
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+            const CandidateVariant& site = chunk.candidates[ci];
+            const hts_pos_t pos = site.key.sort_pos();
+            if (site.bam_injected && pos > window.beg && pos < window.end &&
+                imported(initial_phase_sets[ci]) &&
+                initial_phase_set_candidates.count(initial_phase_sets[ci]) != 0) {
+                has_bam_block = true;
+                append(initial_phase_sets[ci]);
+            }
+        }
+        append(window.right_phase_set);
+        if (!valid || !has_bam_block || chain.size() < 2) continue;
+        for (size_t i = 0; i < chain.size(); ++i)
+            if (!certified(chain[i]) || !certified(last_sources[i])) valid = false;
+        if (!valid) continue;
+        // A root may already contain several baseline atoms. Certifying just
+        // the seam's visible endpoint would hide an internal gauge change.
+        for (const auto& atom : initial_phase_set_candidates)
+            if (seen_roots.count(resolve_phase_set(atom.first)) != 0 &&
+                !certified(atom.first)) valid = false;
+        if (!valid) continue;
+        std::vector<bool> flips;
+        bool outer_flip = false;
+        for (size_t edge_i = 1; edge_i < chain.size(); ++edge_i) {
+            // A baseline attachment may have absorbed the entry BAM block.
+            // Its full source evidence still owns the component's inner edge.
+            const hts_pos_t upstream = last_sources[edge_i - 1];
+            const hts_pos_t downstream = chain[edge_i];
+            const auto& left_sites = initial_phase_set_candidates.at(upstream);
+            const auto& right_sites = initial_phase_set_candidates.at(downstream);
+            std::optional<bool> flip = complete_recovery_block_flip(
+                chunk, gauge, upstream, downstream, left_sites, right_sites,
+                std::min(opts.min_mapq, opts.recovery_min_mapq));
+            if (!flip) { valid = false; break; }
+            const std::optional<bool> transferred = aggregate_candidate_set_flip(
+                chunk, left_sites, right_sites, opts);
+            if (transferred && *transferred != *flip) { valid = false; break; }
+            flips.push_back(*flip);
+            outer_flip ^= *flip;
+        }
+        if (!valid) continue;
+        const std::optional<bool> outer = aggregate_candidate_set_flip(chunk,
+            initial_phase_set_candidates.at(window.left_phase_set),
+            initial_phase_set_candidates.at(window.right_phase_set), opts);
+        if (outer && *outer != outer_flip) continue;
+        bool cumulative_flip = false;
+        for (size_t edge_i = 1; edge_i < chain.size(); ++edge_i) {
+            cumulative_flip ^= flips[edge_i - 1];
+            const hts_pos_t absorbed = resolve_phase_set(chain[edge_i]);
+            // All roots are positive and distinct; no intervening mutation
+            // occurs after preflight, so each union has valid preconditions.
+            merge_phase_sets_in_place(chunk, left_root, absorbed, cumulative_flip);
+            for (auto& alias : phase_set_aliases)
+                if (resolve_phase_set(alias.second) == absorbed) alias.second = left_root;
+            phase_set_aliases[absorbed] = left_root;
+            phase_set_aliases[chain[edge_i]] = left_root;
+            ++joined;
+        }
+
+      }
+    }
+    return joined;
+}
+
 bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
                                        const std::array<size_t, 2>& boundaries,
                                        const Options& opts,
@@ -4097,6 +4622,53 @@ bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
             return true;
     }
     return false;
+}
+
+bool msa_source_conflict_is_supported(const PhasingChunk& chunk,
+                                      const std::array<size_t, 2>& boundaries,
+                                      const Options& opts) {
+    const auto& left = chunk.candidates[boundaries[0]];
+    const auto& right = chunk.candidates[boundaries[1]];
+    if (!is_phase_set_anchor(left) || !is_phase_set_anchor(right) ||
+        left.phase_set != right.phase_set ||
+        left.key.sort_pos() >= right.key.sort_pos() ||
+        !((left.msa_verified && left.key.type != VariantType::Snp) ||
+          (right.msa_verified && right.key.type != VariantType::Snp)))
+        return false;
+    constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMinPairs = 6;
+    constexpr int kMinConflicts = 2;
+    constexpr double kErrorRate = 0.05;
+    constexpr double kMaxConflictP = 0.01;
+    std::array<int, 3> votes{};
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        const auto& read = chunk.reads[ri];
+        if (read.is_skipped || read.mapq < kMinMapq || read.mapq == kUnknownMapq ||
+            read.beg > left.key.sort_pos() || read.end < right.key.pos ||
+            ri >= chunk.phase_sets.size() || chunk.phase_sets[ri] != left.phase_set ||
+            ri >= chunk.read_var_profile.size()) continue;
+        const auto& profile = chunk.read_var_profile[ri];
+        if (profile.start_var_idx < 0) continue;
+        std::array<int, 2> haps{};
+        for (size_t side = 0; side < 2; ++side) {
+            const int offset = static_cast<int>(boundaries[side]) - profile.start_var_idx;
+            if (offset < 0 || static_cast<size_t>(offset) >= profile.alleles.size()) continue;
+            const int allele = profile.alleles[static_cast<size_t>(offset)];
+            if (allele < 0) continue;
+            const auto& site = chunk.candidates[boundaries[side]];
+            haps[side] = allele == site.hap_to_cons_alle[1] ? 1
+                       : allele == site.hap_to_cons_alle[2] ? 2 : 0;
+        }
+        if (haps[0] != 0 && haps[1] != 0)
+            ++votes[haps[0] == haps[1] ? static_cast<size_t>(haps[0] - 1) : 2];
+    }
+    const int pairs = votes[0] + votes[1] + votes[2];
+    // Both consistent haplotypes already support the ordinary path. Retry
+    // only an edge missing one of them with conflicts above the error model.
+    return std::min(votes[0], votes[1]) == 0 &&
+        pairs >= std::max(opts.min_depth, kMinPairs) && votes[2] >= kMinConflicts &&
+        binomial_upper_tail(pairs, votes[2], kErrorRate) <= kMaxConflictP;
 }
 
 bool allele_depths_call_het(const CandidateVariant& var,
@@ -4352,8 +4924,10 @@ bool allele_depths_call_het(const CandidateVariant& var, const Options& opts) {
     if (!var.alignment_verified) return false;
     const hts_pos_t pos = var.key.sort_pos();
     bool inside_window = false;
+    // Recovery windows are closed VCF anchor intervals, like MSA backfill.
+    // Excluding the right anchor can collapse the very allele being stitched.
     for (const auto& [beg, end] : opts.retry_windows)
-        if (pos >= beg && pos < end) {
+        if (pos >= beg && pos <= end) {
             inside_window = true;
             break;
         }

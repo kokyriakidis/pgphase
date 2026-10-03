@@ -1,0 +1,154 @@
+{
+  "binary_sha256": "860544d71c534e13ca37e0b23d806b0d62ef58c4a8c6d6bd2995f04cb76381e6",
+  "baseline_binary_sha256": "9e50548ea3690f94d4922571c3bd2958f287cb7f5118bcc2dbc36c9360933d35",
+  "full_chr20": {
+    "before": {
+      "output_reads": 256601,
+      "phased_reads": 237127,
+      "scored": 237127,
+      "correct": 229974,
+      "discordant": 7153,
+      "concordance": 0.9698347299126628,
+      "read_phase_sets": 674,
+      "vcf_keys": 63492,
+      "vcf_blocks": 338,
+      "span_n50": 756878
+    },
+    "after": {
+      "output_reads": 256601,
+      "phased_reads": 237127,
+      "scored": 237127,
+      "correct": 229974,
+      "discordant": 7153,
+      "concordance": 0.9698347299126628,
+      "read_phase_sets": 673,
+      "vcf_keys": 63492,
+      "vcf_blocks": 337,
+      "span_n50": 756878
+    },
+    "lost_keys": 0,
+    "gained_keys": 0
+  },
+  "proof": {
+    "reference_edit": {
+      "left_vcf_pos": 1196894,
+      "right_vcf_pos": 1196967,
+      "inserted_length": 155,
+      "bare_reference_mismatch_offsets": [
+        55,
+        210
+      ],
+      "common_snp": {
+        "pos": 1196950,
+        "ref": "C",
+        "alt": "T",
+        "ref_cov": 2,
+        "alt_cov": 76
+      },
+      "equal_on_common_background": true
+    },
+    "paired_calls": {
+      "0/0": 36,
+      "1/1": 40
+    },
+    "exact_comparison": {
+      "reads_before": 256601,
+      "reads_after": 256601,
+      "read_hap_changes": 0,
+      "read_ps_changes": 2030,
+      "read_only_assignment_changes": 0,
+      "read_ps_transitions": {
+        "1450106/1142089": 2030
+      },
+      "lost_vcf_keys": 0,
+      "gained_vcf_keys": 0,
+      "changed_vcf_rows": 712,
+      "changed_gt_depth_or_other_fields": 0
+    },
+    "connection": {
+      "left_gt_ps": [
+        "0|1",
+        "1142089"
+      ],
+      "right_gt_ps": [
+        "0|1",
+        "1142089"
+      ]
+    }
+  },
+  "target": {
+    "left": 1196894,
+    "right": 1196967,
+    "pgphase_phased": 78,
+    "pgphase_correct": 78,
+    "pgphase_errors": 0,
+    "hiphase_dv_phased": 78,
+    "hiphase_dv_correct": 78,
+    "hiphase_dv_errors": 0,
+    "newly_phased_reads": 0
+  },
+  "remaining_audit": {
+    "coordinate_targets": 42,
+    "competitor_records": 53,
+    "extent_gaps": 316,
+    "centromeric_exclusion": [
+      25000000,
+      30000000
+    ],
+    "minimum_local_and_flank_purity": 0.95,
+    "saved_pg_calls_competitor_is_oct1_callset": true
+  },
+  "panel": {
+    "coordinate_cases": 95,
+    "spans": 81,
+    "open_historical_targets": 10,
+    "open_controls": 4
+  },
+  "validation": {
+    "native_replays": 105,
+    "native_replay_elapsed_seconds": 379.55,
+    "extra_matrix_replays": [
+      {
+        "region": "57000001-58000000",
+        "elapsed_seconds": 16.27
+      },
+      {
+        "region": "1000001-2000000",
+        "elapsed_seconds": 18.24
+      }
+    ],
+    "window_cases": 61,
+    "window_assertions": 4730,
+    "predicate_cases": 37,
+    "predicate_assertions": 822,
+    "unit_tests": "pass",
+    "baseline_new_window": "fails span assertion (12/13 passed)",
+    "full_chr20_elapsed_seconds": 277.71
+  },
+  "rejected_trials": {
+    "merge_before_read_rescue": {
+      "owning_phased": 4045,
+      "owning_correct": 4027,
+      "owning_errors": 18,
+      "reason": "Rebuilds output-only read groups under merged core labels; their gauge relation was not certified."
+    },
+    "drop_nested_snp_backfill": {
+      "owning_phased": 4021,
+      "owning_correct": 4010,
+      "owning_errors": 11,
+      "reason": "Loses established source support and splits older allele connections."
+    },
+    "site_wide_nested_snp_validation": {
+      "owning_phased": 4039,
+      "owning_correct": 4027,
+      "owning_errors": 12,
+      "reason": "Drops six reads and still pools two uncertain singletons across the new core join."
+    },
+    "site_wide_all_indel_validation": {
+      "owning_phased": 4034,
+      "owning_correct": 4022,
+      "owning_errors": 12,
+      "reason": "Drops correct assignments in multiple control chunks and increases errors at 58 Mb."
+    }
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "input_unique_reads": 272016,
+  "primary_unique_reads": 272016,
+  "normalized_sam_sha256": "ffcf9961676781563816a185e755232bf208974486cc245035aaf7da8bfe45a5",
+  "bam_records_identical": true,
+  "reference_sequences_identical": true,
+  "input_flag_counts": {
+    "16": 132964,
+    "0": 139052
+  },
+  "tools": {
+    "pgphase": {
+      "input_reads": 272016,
+      "phased_reads": 237098,
+      "phased_percent": 87.16325510264102,
+      "unphased_reads": 34918,
+      "truth_scored": 237098,
+      "truth_unavailable": 0,
+      "truth_correct": 229923,
+      "truth_errors": 7175,
+      "accuracy_percent": 96.97382516933926,
+      "correct_yield_percent": 84.52554261514028,
+      "read_phase_sets": 680,
+      "vcf_records": 62850,
+      "hets": 62443,
+      "phased_hets": 62443,
+      "vcf_blocks": 337,
+      "span_n50_bp": 739888,
+      "largest_block_bp": 1723925,
+      "wall_seconds": 147.49,
+      "user_seconds": 923.03,
+      "system_seconds": 87.9,
+      "max_rss_kib": 21102556,
+      "primary_only": {
+        "input_reads": 272016,
+        "phased_reads": 237098,
+        "phased_percent": 87.16325510264102,
+        "unphased_reads": 34918,
+        "truth_scored": 237098,
+        "truth_unavailable": 0,
+        "truth_correct": 229923,
+        "truth_errors": 7175,
+        "accuracy_percent": 96.97382516933926,
+        "correct_yield_percent": 84.52554261514028,
+        "read_phase_sets": 680
+      },
+      "output_alignment_counts_by_rank": {
+        "0": 256586
+      },
+      "materialization": {
+        "wall_seconds": 94.38,
+        "user_seconds": 312.69,
+        "system_seconds": 4.67,
+        "max_rss_kib": 79188
+      },
+      "full_bam_wall_seconds": 241.87
+    },
+    "hiphase_dv": {
+      "input_reads": 272016,
+      "phased_reads": 233353,
+      "phased_percent": 85.78649785306747,
+      "unphased_reads": 38663,
+      "truth_scored": 233353,
+      "truth_unavailable": 0,
+      "truth_correct": 223800,
+      "truth_errors": 9553,
+      "accuracy_percent": 95.90620219152957,
+      "correct_yield_percent": 82.27457208399505,
+      "read_phase_sets": 196,
+      "vcf_records": 225391,
+      "hets": 79996,
+      "phased_hets": 77123,
+      "vcf_blocks": 196,
+      "span_n50_bp": 1005183,
+      "largest_block_bp": 3024470,
+      "wall_seconds": 87.87,
+      "user_seconds": 719.06,
+      "system_seconds": 41.38,
+      "max_rss_kib": 408260,
+      "primary_only": {
+        "input_reads": 272016,
+        "phased_reads": 233353,
+        "phased_percent": 85.78649785306747,
+        "unphased_reads": 38663,
+        "truth_scored": 233353,
+        "truth_unavailable": 0,
+        "truth_correct": 223800,
+        "truth_errors": 9553,
+        "accuracy_percent": 95.90620219152957,
+        "correct_yield_percent": 82.27457208399505,
+        "read_phase_sets": 196
+      },
+      "output_alignment_counts_by_rank": {
+        "0": 272016
+      }
+    },
+    "hiphase_pg_calls": {
+      "input_reads": 272016,
+      "phased_reads": 230138,
+      "phased_percent": 84.60458208340685,
+      "unphased_reads": 41878,
+      "truth_scored": 230138,
+      "truth_unavailable": 0,
+      "truth_correct": 216061,
+      "truth_errors": 14077,
+      "accuracy_percent": 93.88323527622556,
+      "correct_yield_percent": 79.42951885183224,
+      "read_phase_sets": 200,
+      "vcf_records": 62850,
+      "hets": 62443,
+      "phased_hets": 60035,
+      "vcf_blocks": 200,
+      "span_n50_bp": 919153,
+      "largest_block_bp": 2788940,
+      "wall_seconds": 71.38,
+      "user_seconds": 652.63,
+      "system_seconds": 42.47,
+      "max_rss_kib": 234740,
+      "primary_only": {
+        "input_reads": 272016,
+        "phased_reads": 230138,
+        "phased_percent": 84.60458208340685,
+        "unphased_reads": 41878,
+        "truth_scored": 230138,
+        "truth_unavailable": 0,
+        "truth_correct": 216061,
+        "truth_errors": 14077,
+        "accuracy_percent": 93.88323527622556,
+        "correct_yield_percent": 79.42951885183224,
+        "read_phase_sets": 200
+      },
+      "output_alignment_counts_by_rank": {
+        "0": 272016
+      }
+    }
+  },
+  "same_callset_preserved": true,
+  "materialized_tags_preserved": true,
+  "overlap": {
+    "hiphase_dv": {
+      "both_phased": 227642,
+      "pgphase_only": 9456,
+      "competitor_only": 5711,
+      "pgphase_only_correct": 6099,
+      "competitor_only_correct": 4141,
+      "common_full_block_accuracy": {
+        "pgphase": 98.32280510626335,
+        "hiphase_dv": 96.49317788457314
+      },
+      "common_independently_oriented": {
+        "pgphase": {
+          "input_reads": 227642,
+          "phased_reads": 227642,
+          "phased_percent": 100.0,
+          "unphased_reads": 0,
+          "truth_scored": 227642,
+          "truth_unavailable": 0,
+          "truth_correct": 223868,
+          "truth_errors": 3774,
+          "accuracy_percent": 98.34213370116235,
+          "correct_yield_percent": 98.34213370116235,
+          "read_phase_sets": 570
+        },
+        "hiphase_dv": {
+          "input_reads": 227642,
+          "phased_reads": 227642,
+          "phased_percent": 100.0,
+          "unphased_reads": 0,
+          "truth_scored": 227642,
+          "truth_unavailable": 0,
+          "truth_correct": 219700,
+          "truth_errors": 7942,
+          "accuracy_percent": 96.51118862072904,
+          "correct_yield_percent": 96.51118862072904,
+          "read_phase_sets": 188
+        }
+      }
+    },
+    "hiphase_pg_calls": {
+      "both_phased": 227703,
+      "pgphase_only": 9395,
+      "competitor_only": 2435,
+      "pgphase_only_correct": 6761,
+      "competitor_only_correct": 1572,
+      "common_full_block_accuracy": {
+        "pgphase": 98.00573554147289,
+        "hiphase_pg_calls": 94.19682656794157
+      },
+      "common_independently_oriented": {
+        "pgphase": {
+          "input_reads": 227703,
+          "phased_reads": 227703,
+          "phased_percent": 100.0,
+          "unphased_reads": 0,
+          "truth_scored": 227703,
+          "truth_unavailable": 0,
+          "truth_correct": 223193,
+          "truth_errors": 4510,
+          "accuracy_percent": 98.01934976702107,
+          "correct_yield_percent": 98.01934976702107,
+          "read_phase_sets": 513
+        },
+        "hiphase_pg_calls": {
+          "input_reads": 227703,
+          "phased_reads": 227703,
+          "phased_percent": 100.0,
+          "unphased_reads": 0,
+          "truth_scored": 227703,
+          "truth_unavailable": 0,
+          "truth_correct": 214489,
+          "truth_errors": 13214,
+          "accuracy_percent": 94.19682656794157,
+          "correct_yield_percent": 94.19682656794157,
+          "read_phase_sets": 199
+        }
+      }
+    }
+  }
+}

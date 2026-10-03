@@ -1,0 +1,64 @@
+[
+  {
+    "left": 7264321,
+    "right": 7280346,
+    "input_overlaps": 136,
+    "pgphase": {
+      "phased": 126,
+      "correct": 117,
+      "discordant": 9,
+      "read_blocks": 3
+    },
+    "hiphase_pg_calls_default": {
+      "phased": 97,
+      "correct": 96,
+      "discordant": 1,
+      "read_blocks": 2,
+      "vcf_span": false
+    },
+    "hiphase_pg_calls_local": {
+      "phased": 122,
+      "correct": 120,
+      "discordant": 2,
+      "read_blocks": 1,
+      "vcf_span": true
+    },
+    "saved_hiphase_dv": {
+      "phased": 125,
+      "correct": 123,
+      "discordant": 2,
+      "read_blocks": 1
+    }
+  },
+  {
+    "left": 24121713,
+    "right": 24131707,
+    "input_overlaps": 115,
+    "pgphase": {
+      "phased": 60,
+      "correct": 60,
+      "discordant": 0,
+      "read_blocks": 3
+    },
+    "hiphase_pg_calls_default": {
+      "phased": 79,
+      "correct": 59,
+      "discordant": 20,
+      "read_blocks": 2,
+      "vcf_span": false
+    },
+    "hiphase_pg_calls_local": {
+      "phased": 93,
+      "correct": 89,
+      "discordant": 4,
+      "read_blocks": 1,
+      "vcf_span": true
+    },
+    "saved_hiphase_dv": {
+      "phased": 93,
+      "correct": 93,
+      "discordant": 0,
+      "read_blocks": 1
+    }
+  }
+]

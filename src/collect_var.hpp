@@ -47,7 +47,8 @@ struct CrangesOwner {
 };
 
 // Total order on VariantKey: negative if *var1 < *var2, zero if equal, positive if greater.
-/// Build a VariantKey from a VCF-form record (anchor-trimmed).
+/// Build a physical key from a VCF allele pair. Consume the common prefix,
+/// then any remaining indel suffix context, preserving BAM repeat placement.
 VariantKey vcf_to_variant_key(int tid, hts_pos_t vcf_pos,
                               const std::string& ref, const std::string& alt);
 

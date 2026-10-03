@@ -1,0 +1,40 @@
+Filters: complementary deletion recovery closes the owning 50 Mb gap
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+complementary deletion recovery closes the owning 50 Mb gap
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5358
+...............................................................................
+
+src/test_gap_windows.cpp:5377: FAILED:
+  CHECK( reads.spans )
+with expansion:
+  false
+
+src/test_gap_windows.cpp:5379: FAILED:
+  CHECK( reads.scored >= 3887 )
+with expansion:
+  3877 (0xf25) >= 3887 (0xf2f)
+
+src/test_gap_windows.cpp:5380: FAILED:
+  CHECK( reads.correct >= 3876 )
+with expansion:
+  3867 (0xf1b) >= 3876 (0xf24)
+
+src/test_gap_windows.cpp:5409: FAILED:
+  CHECK( longer.second == snp.second )
+with expansion:
+  "50491033" == "50562066"
+
+src/test_gap_windows.cpp:5413: FAILED:
+  CHECK( longer.first == snp.first )
+with expansion:
+  "1|0" == "0|1"
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 27 | 22 passed | 5 failed

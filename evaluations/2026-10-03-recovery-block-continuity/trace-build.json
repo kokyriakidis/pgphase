@@ -1,0 +1,6 @@
+{
+  "production_binary_sha256": "629badc0b446294ee4e0f1c4b4a43c738406ac7dbed9023995b6796e3fb0f05f",
+  "production_phase_source_sha256": "854c6c7bf5920103fa58c50cbf0d618ee99d486acf9fdcf8645bda59e0db33e3",
+  "trace_binary_sha256": "deb77e7683262ec8f322f1b72a5d64cbf0cee901ed3ff5fe1864ac554afb1867",
+  "diagnostic_source": "test_data/tmp_gap_fix41/trace-build/collect_phase_trace.cpp"
+}

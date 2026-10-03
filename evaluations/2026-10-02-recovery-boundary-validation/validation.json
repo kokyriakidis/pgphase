@@ -1,0 +1,80 @@
+{
+  "baseline_binary_sha256": "598eb8f99b1e14d1ce25eb9a8ef0305bea60b9b44089c2a3f41f9a05c95ac676",
+  "binary_sha256": "b8c2d78e9bd67136f2a1fa191cdc898aafdf37009ba35932202f4b899a18eaee",
+  "native_replays": 105,
+  "native_replay_seconds": 205.97,
+  "full_chr20_seconds": 154.47,
+  "full_output_identity": {
+    "read_tags_identical": true,
+    "vcf_records_identical": true
+  },
+  "full_metrics": {
+    "before": {
+      "output_reads": 256601,
+      "phased_reads": 237118,
+      "scored": 237118,
+      "correct": 229956,
+      "discordant": 7162,
+      "concordance": 0.9697956291804081,
+      "read_phase_sets": 675,
+      "vcf_keys": 63401,
+      "vcf_blocks": 338,
+      "span_n50": 756878
+    },
+    "after": {
+      "output_reads": 256601,
+      "phased_reads": 237118,
+      "scored": 237118,
+      "correct": 229956,
+      "discordant": 7162,
+      "concordance": 0.9697956291804081,
+      "read_phase_sets": 675,
+      "vcf_keys": 63401,
+      "vcf_blocks": 338,
+      "span_n50": 756878
+    },
+    "lost_keys": 0,
+    "gained_keys": 0
+  },
+  "predicates": {
+    "cases": 34,
+    "assertions": 775,
+    "passed": true
+  },
+  "standalone_units_passed": true,
+  "windows": {
+    "passed": true,
+    "cases": 57,
+    "assertions": 4573
+  },
+  "extra_native_replays": [
+    {
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:57000001-58000000",
+        "-t",
+        "4",
+        "--phase-matrix-dump",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_next18/endpoint-scored/retry_scheduling_57m/w57050001-57950000/matrix",
+        "-o",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_next18/endpoint-scored/retry_scheduling_57m/w57050001-57950000/candidates.tsv",
+        "--phased-vcf-out",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_next18/endpoint-scored/retry_scheduling_57m/w57050001-57950000/native.vcf",
+        "--phased-bam-out",
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_next18/endpoint-scored/retry_scheduling_57m/w57050001-57950000/phased.bam"
+      ],
+      "binary_sha256": "b8c2d78e9bd67136f2a1fa191cdc898aafdf37009ba35932202f4b899a18eaee",
+      "returncode": 0,
+      "elapsed_seconds": 16.3068166289886
+    }
+  ]
+}

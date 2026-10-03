@@ -1,0 +1,17 @@
+[
+  {
+    "chunk": 3,
+    "before_label": "insertion-snp-correction",
+    "changed_tags": 2
+  },
+  {
+    "chunk": 7,
+    "before_label": "insertion-projection",
+    "changed_tags": 0
+  },
+  {
+    "chunk": 24,
+    "before_label": "insertion-projection",
+    "changed_tags": 0
+  }
+]

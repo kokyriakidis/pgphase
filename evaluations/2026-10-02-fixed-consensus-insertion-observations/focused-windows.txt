@@ -1,0 +1,3 @@
+Filters: complementary insertion recall cannot invert its SNP flanks,focused recovery retains a supported partial path inside a graph seam,padded graph repeats retain the verified BAM genotype
+===============================================================================
+All tests passed (1354 assertions in 3 test cases)

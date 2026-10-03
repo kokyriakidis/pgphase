@@ -1,0 +1,158 @@
+[
+  {
+    "chunk": 7,
+    "counts": {
+      "tested": 355
+    },
+    "examples": []
+  },
+  {
+    "chunk": 17,
+    "counts": {
+      "tested": 5554,
+      "mismatch": 131,
+      "mismatch_q30": 128
+    },
+    "examples": [
+      {
+        "read": "m84031_231217_062403_s3/56429885/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/56429885/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/96472377/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/96472377/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_034919_s2/68813112/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_034919_s2/68813112/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/166725936/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/166725936/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/190781205/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/190781205/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/173998178/ccs",
+        "pos": 17518750,
+        "alt": "C",
+        "ref": "T",
+        "base": "T",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      },
+      {
+        "read": "m84031_231217_062403_s3/173998178/ccs",
+        "pos": 17518760,
+        "alt": "C",
+        "ref": "G",
+        "base": "A",
+        "quality": 40,
+        "msa_allele": 1,
+        "flags": 512,
+        "mapq": 60
+      }
+    ]
+  },
+  {
+    "chunk": 24,
+    "counts": {
+      "tested": 2510
+    },
+    "examples": []
+  }
+]

@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,6 +31,15 @@ std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
 std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
     hts_pos_t pos, const std::string& alt, ReferenceCache& reference,
     int tid, const bam_hdr_t* header);
+
+/// Compare two pure insertion edits on the same supplied reference background.
+/// Positions are 1-based insertion coordinates; reference_between covers
+/// [left_pos, right_pos). The caller may supply verified common SNP alleles.
+/// Ambiguous bases, reversed positions and incomplete background abstain.
+bool insertion_edits_are_equivalent(
+    hts_pos_t left_pos, std::string_view left_alt,
+    hts_pos_t right_pos, std::string_view right_alt,
+    std::string_view reference_between);
 
 /// Query index of a shifted multi-base insertion ALT whose reference edit and
 /// full crossed path match the candidate with known base qualities. Return -1
@@ -113,11 +123,28 @@ int backfill_shifted_msa_insertions(PhasingChunk& chunk, const Options& opts);
 void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi,
                                          ReadVariantProfile& profile);
 
+/// Temporarily fill jointly missing complementary MSA deletion calls for retry
+/// admission. MAPQ30/Q30 exact or equivalent ALT proves the other row's ALT
+/// absence; third alleles, compound events and existing calls are not projected.
+/// Callers must restore profiles and the read index before transferring evidence:
+/// a physical homopolymer call alone is not a validated read-rescue marker.
+int backfill_complementary_msa_deletions(PhasingChunk& chunk, const Options& opts,
+                                        hts_pos_t beg, hts_pos_t end);
+
 /// Fill missing observations at admitted MSA sites from overlapping BAM reads.
 /// `beg` and `end` are inclusive VCF anchors; CIGAR calls retain internal keys.
 /// Missing ALT at a simple phased deletion can use Q30/MAPQ30 edit equivalence
-/// with a clean SNP confirming the source gauge. Exact contrasts, separate
-/// allele rows and existing MSA calls are preserved.
+/// with a clean SNP confirming the source gauge, including when exact-position
+/// REF misses an equivalent shifted ALT. Missing SNP evidence retains the
+/// source ALT-absence contrast; contradictory SNP evidence leaves it unknown.
+/// Separate allele rows and existing MSA calls are preserved. For a missing insertion
+/// call, a Q30/MAPQ30 equivalent shifted edit takes precedence over an exact-
+/// coordinate REF call only with the same independent SNP gauge check; no
+/// candidate key, genotype or phase label is changed. For an unpaired binary
+/// insertion, a verified shifted ALT contradicted by an independent clean SNP
+/// stays unknown, never literal REF. Missing SNP evidence and complementary
+/// MSA contrasts retain their existing source projection. Site depth fields
+/// remain the discovery genotype census, not the enlarged recovery matrix.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);
 

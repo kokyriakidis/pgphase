@@ -12641,3 +12641,1297 @@ Scoring passes 4,157 assertions / 55 cases; predicates 697 / 32; port parity
 with the existing vendored abPOA unused SIMD helper warning. No production
 truth/competitor/coordinate/read-name exception or new alignment is introduced.
 SHA256: 0dee719443489efb56f5f33efc69c0c825f93904477af1c25d55cde63206f733.
+
+## 2026-10-01: fresh HiPhase / pgphase metrics and runtime comparison
+
+Report and reproducible runner:
+`evaluations/2026-10-01-phaser-comparison/README.md`.
+
+Ran committed pgphase `94410d0` and unmodified HiPhase `1.6.0-ac3f399`
+sequentially with eight worker threads on full HG002 / CHM13 chr20. Native
+HiPhase uses the existing DeepVariant calls made from the same BAM. A second
+HiPhase arm uses the fresh pgphase calls with phase labels removed. Normalized
+SAM hashes verify identical input records, including sequence, qualities and
+tags, between the annotated BAM and its linear-contig reheader; reference
+sequences match. All 272,016 input reads are unique primary alignments.
+
+| Metric | pgphase graph + recovery | HiPhase / DeepVariant | HiPhase / pgphase calls |
+| --- | ---: | ---: | ---: |
+| Phased reads | 237,098 | 233,353 | 230,138 |
+| Phased / input | 87.1633% | 85.7865% | 84.6046% |
+| Truth correct | 229,923 | 223,800 | 216,061 |
+| Truth errors | 7,175 | 9,553 | 14,077 |
+| Truth accuracy | 96.9738% | 95.9062% | 93.8832% |
+| Read PS | 680 | 196 | 200 |
+| VCF blocks | 337 | 196 | 200 |
+| VCF span N50 | 739,888 bp | 1,005,183 bp | 919,153 bp |
+| Native wall time | 147.49 s | 87.87 s | 71.38 s |
+| Peak RSS | 20.125 GiB | 0.389 GiB | 0.224 GiB |
+
+Pgphase phases 3,745 more reads than native HiPhase, produces 6,123 more
+correct assignments and 2,378 fewer errors (+1.0676 accuracy points), while
+HiPhase wins runtime, memory and block N50. On the 227,642 shared phased reads,
+independently orienting blocks on that subset gives 98.3421% versus 96.5112%.
+Full-block orientations give 98.3228% versus 96.4932%. HiPhase-only reads remain:
+5,711 tagged, 4,141 truth-correct under its complete block orientations.
+
+The graph command's BAM is a compact unaligned HP/PS table, not full original
+alignments. Timed four-I/O-thread Python materialization and indexing of a full
+alignment BAM adds 94.38 s, without changing any assignment. Comparable full
+indexed BAM delivery therefore costs pgphase 241.87 s versus native HiPhase
+87.87 s. This is a measured postprocessing implementation, not an optimized
+native writer. The 15,430 input reads omitted from pgphase's 256,586-row tag
+file remain unphased in the common denominator, avoiding inflated coverage.
+
+Both tools' native truth totals reproduce prior certified results. Every phased
+read has truth; each PS is independently majority-oriented. Same-callset HiPhase
+preserves all 62,850 VCF keys and unordered genotypes. Runtime measurements are
+one invocation each with existing filesystem cache; no statistical speed claim
+or cold-cache benchmark. External alignment/calling/catalog/truth preparation
+and evaluation are excluded. Pgphase's internal BAM recovery is included;
+native HiPhase starts from its pre-called DeepVariant VCF. No pipeline code or
+existing test expectation changes in this evaluation. Raw resource logs,
+identities, results.tsv, metrics.json and reproducible scripts are retained.
+
+## 2026-10-01: correct recovery anchors and single-seam focused retries
+
+Report: `evaluations/2026-10-01-recovery-anchor-and-single-seam/README.md`.
+Baseline is committed `94410d0` and the fresh comparison above.
+
+Share a strict recovery anchor predicate: positive PS, non-homozygous category,
+both internal alleles known, exactly one selected ALT. Stale unequal labels on
+classified homozygotes and incomplete allele gauges cannot define source runs,
+path cuts or transfer anchors. Multiallelic `1|2` remains valid; projected `0|0`
+does not. Unknown transferred gauges still veto certification.
+
+Backfill missing MSA insertions using existing Q30/MAPQ30 equivalent-repeat
+edit checks before accepting exact-coordinate REF. Require an independently
+callable clean SNP confirming the same source gauge, as in deletion repair.
+Keep original rows, coordinates, gauges and existing MSA calls. Removing that
+SNP requirement reopened the protected 41.9008 Mb gap and lost 20 old keys;
+that experiment is rejected. Refreshing all assigned MSA observations during
+focused retries also regressed protected rows and is rejected.
+
+A single-seam group now admits the same focused full-adjacent-phase-set solve
+as an outer seam of a multi-seam group. Complementary co-located boundary rows
+remain separate. Existing phased-row preservation, complete source path and
+transfer validation stay mandatory; no stitching threshold is relaxed.
+The full window suite exposed another admission bug: a rejected focused trial
+could authorize broad unplaced-read MSA for nonunique boundaries. That broad
+fallback split the protected 4.767 Mb short replay although the full chromosome
+retained its span. Recheck the broad fallback's own unique-boundary admission;
+focused-only evidence cannot bypass the focused source-path certificate. This
+restores the short replay without changing its committed expectations.
+
+This closes 10,727,690–10,746,628 in its owning chunk and the full chromosome.
+The SNP, 16-base deletion and insertion ALT connect on one haplotype, opposite
+the four-base deletion, matching HiPhase's allele relation. Local correct reads
+rise 134 -> 136 of 143; errors 9 -> 7. HiPhase is still better locally at
+136/141 (five errors): three repeat-only reads are wrong only in pgphase and
+four other reads are also wrong in HiPhase. Their relevant MSA region is
+already complete; truncation does not explain the remaining ambiguity.
+The new regression protects all six flank/bridge rows, relative allele parity,
+parental flank orientation and local correct/error counts. The existing panel
+case now requires spans=1 and both intervening deletion rows. Its existing
+98% whole-chunk floor stays; it is not a 98% local-accuracy measurement.
+
+The newly triggered 59 Mb retry phases 15 extra reads and corrects 12 prior
+errors: correct 3,654 -> 3,681, errors 14 -> 2. Two old graph SNP descriptions
+are replaced in the emitted VCF by physical insertion representations, matching
+DeepVariant: 59,679,069 A>AT and 59,757,500 T>TC. The old graph rows remain
+internal. Physical MAPQ30 base calls are 57 A / 2 T and 61 T / 1 C respectively;
+most insertion calls lie one base later. The new owning-chunk regression pins
+both insertions, opposite ALT haplotypes, one PS, correct parental flanks and
+at most two errors. The anchor fix at 34 Mb separately leaves five correct
+reads unphased while correcting three errors.
+
+Fix the de novo MSA helper's cluster-index/read-index confusion when obtaining
+coverage flags after filtering. The partial-first synthetic test fails on old
+code and passes after. The local upstream longcallD helper has the same defect;
+the ordinary wrapper sorts full-cover reads first, so this latent helper bug
+is not a demonstrated cause of the remaining chr20 gaps.
+
+Full chr20: phased/scored 237,098 -> 237,118; correct 229,923 -> 229,956;
+errors 7,175 -> 7,162; accuracy 96.973825% -> 96.979563%. Read PS 680 -> 675;
+VCF rows 62,850 -> 63,401 (553 added, two representation corrections), VCF
+blocks 337 -> 338; span N50 739,888 -> 756,878 bp. All 77 previously closed
+tracked gaps survive; tracked spans become 78/93, with only 10.727 Mb newly
+closed. Eleven historical competitor targets and four controls remain open.
+Truth/competitor are evaluation-only; no new alignment stage or production
+fixture exception. The earlier sequential runtime comparison is preserved.
+
+Final validation passes: windows 4,573 assertions / 57 cases; predicates
+762 / 34; port parity 27 / 9; original-C phase parity 168,696 / 7; standalone
+units all pass. The 93-coordinate panel adds two dedicated owning-chunk tests
+without dropping existing cases or weakening their floors. The 105 fresh
+native commands plus the separate 57 Mb matrix run use the final binary;
+source fixes include the fallback guard exposed by the first window suite.
+Full chr20 takes 184.07 s with other validation active; this is not a new fair
+runtime comparison. Build passes with the existing vendored abPOA unused SIMD
+helper warning and no new warnings. Final SHA256:
+598eb8f99b1e14d1ce25eb9a8ef0305bea60b9b44089c2a3f41f9a05c95ac676.
+
+## 2026-10-02 — Recovery right-anchor boundary and rejected admissions
+
+Fix the closed-interval mismatch in `allele_depths_call_het`: recovery seam
+windows and MSA backfill include both VCF anchors, but scoped heterozygote
+repair excluded the right endpoint. Use `pos <= end`, still evaluated at
+`VariantKey::sort_pos()`. The failing-before predicate test and SNP/insertion/
+deletion singleton tests preserve all depth, repeat and verification guards.
+Standalone BAM calling with no retry window is unchanged.
+
+Full chr20 read HP/PS pairs and VCF data rows are identical to the accepted
+2026-10-01 recovery state: 237,118 phased/scored, 229,956 correct, 7,162 errors,
+96.979563% accuracy; 675 read PS; 338 VCF blocks; 756,878 bp span N50; 78/93
+tracked coordinate spans. This is a latent boundary fix, not another measured
+chr20 gap closure. Preserve all previous uncommitted fixes and regressions.
+
+Reject the physical REF-only graph-anchor trial. At 21,172,501 all 61
+callable BAM bases are REF; the remaining 17 reads overlap a deletion, which
+is not REF evidence. Removing that phase anchor exposes the true clean SNP
+at 21,183,846 and improves aggregate correct/errors by +2/-1. However, it
+fragments the neighboring 21.179 Mb read block: dominant correct fraction
+falls below its 0.85 floor to 0.673913. The 21,172,487 deletion stays in a
+separate block, despite a coordinate extent newly spanning its historical
+gap. Coordinate coverage alone cannot certify boundary-allele connectivity.
+Keep the old phase-label regression and all old floors. The trial's helper,
+new owning-chunk test and changed span expectation are removed.
+
+Also reject admitting source MSA rows based solely on `msa_verified`, before
+`alignment_verified` is supplied by transfer. At 19 Mb it adds 34 assignments,
+only 17 correct, and leaves the tracked target's 125/94/31 phased/correct/errors
+unchanged. Source MSA verification is not a substitute for the existing
+admission evidence. A homopolymer deletion ALT backfill trial likewise does
+not change the 21 Mb outcome and is removed.
+
+Findings, rejected trial metrics and regression failures are preserved in
+`evaluations/2026-10-02-recovery-boundary-validation/`. No truth or competitor
+input enters production, and no gap expectation is relaxed in this round.
+
+Final validation: 105 fresh native command replays and the separately generated
+57 Mb matrix replay match the final binary SHA256; windows pass 4,573 assertions
+in 57 cases, predicates pass 775 assertions in 34 cases, standalone units pass.
+Build succeeds with no new warnings. Final binary SHA256:
+`b8c2d78e9bd67136f2a1fa191cdc898aafdf37009ba35932202f4b899a18eaee`.
+
+### 2026-10-02: retain supported partial BAM paths inside graph seams
+
+The 36,332,599–36,354,890 target was inside a broader graph seam ending at
+36,381,019. Its initial BAM source assigned one numeric PS across an insertion
+and deletion even though the observation path was weak: 14 consistent paired
+calls on one haplotype, 12 conflicts, and no consistent pairs on the other.
+The focused MSA retry restored the insertion's depth from 24 (20 REF/4 ALT) to
+74 (50 REF/24 ALT), but the full-seam acceptance rule discarded this partial
+repair because an independent downstream source block remained separate.
+
+Admit focused retries for significant internal MSA-indel conflicts, including
+those exposed after CIGAR backfill. Use physical anchor order without moving
+candidate rows or profile offsets. Only source-assigned, non-skipped, known
+MAPQ30 molecules physically spanning both callable diploid sites vote.
+Require the configured minimum depth or six pairs, two conflicts, binomial
+upper-tail p <= 0.01 under a 5% error model, and a missing consistent haplotype.
+This is observation admission, not a stitch certificate.
+
+Allow a partial replacement only when every old heterozygote survives, every
+old clean-SNP gauge remains consistent, every previously supported source edge
+survives, and a weak edge inside the seam becomes supported. A replacement PS
+cannot merge two old source gauges. Ordinary transfer and stitching decide
+later cross-block connections. Track internal-conflict admission separately so
+a rejected focused trial cannot authorize a broad MSA fallback. The internal
+conflict check precedes two-block admission within each seam.
+
+Owning 36 Mb replay: 3,783/3,620/163 phased/correct/errors becomes
+3,790/3,637/153. Gap-overlapping reads remain 172 phased, improving from
+158 correct/14 errors (91.8605%) to 166/6 (96.5116%). Native HiPhase with
+DeepVariant calls on the same BAM has 172/162/10 (94.1860%). HiPhase with
+pgphase calls has 162/158/4 (97.5309%): higher purity on fewer assignments.
+The target SNP and deletion share ALT parity; the intermediate insertion is
+opposite. Disjoint parental flank votes agree in orientation.
+
+Reject the first prototype's unordered internal-edge detection and overly broad
+retry admission: its full run adds 137 phased reads but 52 errors. Also reject
+moving internal conflicts behind legacy admission: it changes a larger block's
+gauge, losing 328 correct assignments and adding 335 errors. It also creates a
+new coordinate span at 19 Mb while the exact gap boundary alleles still have
+different PS labels; that extent is not a closed target. Neither prototype
+is the accepted implementation. Preserve the target's exact allele regression,
+the 19 Mb separation regression, and all old panel accuracy floors. Measurements
+and rejected trials are in `evaluations/2026-10-02-partial-source-recovery/`.
+
+Final chr20: 237,127 phased/scored reads, 229,974 correct, 7,153 errors,
+96.983473% accuracy. Relative to the accepted boundary-validation baseline:
++9 phased, +18 correct, -9 errors. Read PS: 675 -> 674; VCF blocks remain 338;
+span N50 remains 756,878 bp. All 63,401 old VCF keys survive; 91 new keys are
+present. Tracked coordinate spans: 78/93 -> 79/93, with no old closure lost.
+The only new target is 36,332,599–36,354,890, whose exact SNP/insertion/deletion
+phase labels and relative allele parity are also verified in the full run.
+Ten historical competitor targets and four controls remain open.
+
+Validation: 105 fresh native replays matched to the final SHA256 and exact
+normalized command, plus a separately generated 57 Mb matrix replay. Window
+tests pass 4,646 assertions in 59 cases; predicates pass 791 assertions in 35
+cases; standalone units pass. The new 36 Mb regression fails on the baseline
+binary (7/30 assertions), including the exact connection and the local accuracy
+requirements. The owning 19 Mb separation control passes; full-chromosome
+evaluation additionally protects against changes in larger stitched blocks
+that an owning-chunk replay does not expose. No existing floor is relaxed,
+and parental truth and competitor results remain evaluation-only inputs.
+Build succeeds without new warnings; `git diff --check` passes. Final binary:
+`97378a42d9ad82cf9afde4cb328a0637eb14d767de5eeb629fe4f69c5a44cbb1`.
+
+### 2026-10-02: preserve observed long insertions in a transferred BAM run
+
+The source run after the 1.180 Mb weak cut contains a cleanly linked chain
+through SNP 1,194,233 and the 155-bp insertion at 1,196,894. Their paired
+observations support both source haplotypes (33/33) with no conflicts. The
+left-read gauge was already supported, but transfer stopped at an insertion
+length guard intended for physical length-based allele calls. That guard is
+not appropriate for existing, observed source rows. Remove it from this run
+transfer; retain the p <= 0.01 paired-edge certificate at every step, the
+independent left-read gauge, and the stop before the first graph-owned row.
+Physical insertion calling retains its existing 128-base limit.
+
+Only the insertion's VCF PS changes, from 1,450,106 to 1,142,089. All 63,492
+VCF keys, genotypes, depths and 256,601 read HP/PS pairs survive unchanged.
+Full chr20 remains 237,127 phased/scored, 229,974 correct, 7,153 errors,
+96.983473% accuracy, 674 read PS, 338 VCF blocks and 756,878 bp span N50.
+Gap-overlapping pgphase reads remain 90/90 correct; native HiPhase has 91/91.
+This fixes variant-path continuity, not the remaining read-block split. The
+73-bp seam to the graph representation at 1,196,967 remains open. The right
+graph block has two one-haplotype SNP edges at 1.349--1.352 Mb; bypassing one
+weak graph SNP alone does not resolve the join. Never report coordinate span
+as complete read-block parity.
+
+Add the owning 1--2 Mb case to the committed panel with spans=1, retain every
+old floor, and require the exact SNP/insertion allele gauge, unchanged separate
+graph row, parental flank consistency and zero local errors. Baseline binary
+fails the exact connection (1/34 assertions); final binary passes. Panel now
+contains 94 coordinate cases, of which 80 span. A fresh audit nominates 43
+current accurate competitor bridges, excluding 25--30 Mb, with >=95% local
+purity and agreeing disjoint parental flanks. Preserve both baseline/current
+lists and the reproducible audit in `evaluations/2026-10-02-long-insertion-run/`.
+
+Reject grouped/reordered source-path votes: local controls match, but the full
+run loses 31 phased reads, 52 correct assignments and 299 old VCF keys while
+adding 21 errors. Restore the accepted source audit. Also reject broader
+crossing-dropout admission (extra runtime without output improvements) and
+off-seam shifted-insertion recall: at 33.314 Mb its 41/57 correct reads still
+trail HiPhase using the saved pgphase callset (51/53). No trial relaxes old expectations or enters
+the final binary. Truth and competitor inputs remain evaluation-only.
+
+Validation: 105 fresh native command replays plus the separate 57 Mb matrix
+replay match final binary SHA256. Window tests pass 4,696 assertions in 60
+cases; predicates pass 791 assertions in 35 cases; standalone units pass.
+Build succeeds without new warnings, and `git diff --check` passes. Final
+binary SHA256:
+`9e50548ea3690f94d4922571c3bd2958f287cb7f5118bcc2dbc36c9360933d35`.
+
+## 2026-10-02 — Join equivalent insertions on the common BAM background
+
+Close the remaining 73 bp seam at chr20:1196894–1196967. The two 155 bp
+insertions differ on bare FASTA at edited-string offsets 55/210 but match
+exactly after the verified homozygous 1196950 C→T SNP (2 REF/76 ALT calls)
+is included. Keep both rows and all observations. Require genomic REF in the
+graph binary pair, known BAM/GAF MAPQ >=30, both allele classes, zero opposing
+paired calls, p<=0.001, complete graph SNP paths and a consistent connection
+to the next clean SNP. Evidence is 36 REF/REF plus 40 ALT/ALT reads.
+
+Certify after recovery finalizes its candidate indices, then apply after read
+rescue and independent BAM assignment. The core proof does not certify the
+output-only groups' relative gauge. Recompute core parity from current candidate
+alleles after cross-chunk flips, relabel the entire downstream core PS across
+all batch chunks, and preserve every output-only assignment. An earlier-merge
+trial pooled eight existing read rescues with an independently gauged cohort
+and raised owning errors from 10 to 18. Rejected nested-SNP removal and broader
+singleton-validation trials lost supported links or correct reads. No such
+restrictions enter the accepted binary; individual complex-context singleton
+allele uncertainty remains a separate issue.
+
+Final full chr20: 237127 phased/scored, 229974 correct, 7153 discordant,
+96.983473% concordance. All read HP values, all 63492 VCF keys and all GT/depth
+fields are unchanged. Only 2030 core read PS and 712 VCF PS fields change.
+Read phase sets 674→673, VCF blocks 338→337; span N50 stays 756878 bp. Both
+pgphase and the existing native HiPhase/DV run place 78/78 local reads correctly;
+this is a continuity improvement, with no additional phased reads. Eight-thread
+run takes 277.71 s, versus 281.99 s for the prior run; these are not isolated
+runtime measurements.
+
+Add the seam to the committed owning-chunk panel with spans=1, the retained
+insertion row, exact allele-gauge checks and parental read checks. Preserve all
+old read floors and the owning ceiling of 10 errors. Panel is now 95 coordinate
+cases / 81 spans. A fresh audit excluding 25–30 Mb finds 316 extent gaps and
+42 distinct accurate competitor-supported targets (53 records), down from
+317/43/54. Nominations still need exact representation/path investigation.
+Saved-pgphase-callset HiPhase uses the Oct 1 VCF, not the current output.
+
+Validation: 105 fresh native replays verified against final SHA256, separate
+fresh 1 Mb/57 Mb matrices, 4730 assertions in 61 window cases, 822 assertions
+in 37 predicate cases, and standalone units pass. Accepted baseline fails the
+new gap span assertion. Full evidence, rejected trials, scripts and test logs
+are in `evaluations/2026-10-02-equivalent-insertion-stitch/`. Production is truth
+and competitor agnostic. Final binary SHA256:
+`860544d71c534e13ca37e0b23d806b0d62ef58c4a8c6d6bd2995f04cb76381e6`.
+
+## 2026-10-02 — Match stitch MAPQ to pure BAM candidate-pair observations
+
+Fix `local_run_boundary_flip`: two BAM-injected sites use BAM-channel alleles
+and BAM MAPQ, rather than certifying the working matrix with GAF MAPQ. Graph
+and mixed pairs retain their previous behavior. Missing BAM calls cannot
+borrow working calls. Keep shared read eligibility, both observed allele
+classes, deterministic read-half agreement and the same binomial cutoff.
+Move the helper to the graph/BAM adapter for direct tests. The eight added
+regression assertions fail five checks with the old implementation and pass
+with the correction. No thresholds or candidate representations change.
+
+Six owning-chunk audits find 23/29/39/59/30/27 high-MAPQ physically spanning
+reads at 4.866/24.121/34.094/41.879/61.738/64.128 Mb respectively. The first two
+have zero callable boundary pairs; 34 Mb has one, and 61 Mb has two from one
+allele class. At 64 Mb, 18 mutually exclusive BAM deletion ALT observations
+unanimously link the SNP to the deletion pair (12 plus six). This is a local
+certificate, not a certificate for both complete blocks: internal missing and
+contradictory graph edges remain. Preserve the separation regression and
+independent read-only gauges; do not force a whole-block join from those votes.
+
+Fresh final-build chr20 (eight threads, 256.93 s) exactly preserves all 256601
+read HP/PS pairs and all 63492 VCF rows. Counts stay 237127 phased/scored,
+229974 correct, 7153 discordant, 96.983473%; 673 read PS, 337 VCF blocks,
+756878 bp span N50. No new fixture gap closes; 42 competitor-supported
+coordinate nominations remain. All standalone units and 822 predicate
+assertions / 37 cases pass; five fresh owning-window tests pass 142 assertions.
+The complete 95-coordinate panel is not rerun and no expectation changes.
+Build has no new warnings; diff check passes. Details and reproducible audits:
+`evaluations/2026-10-02-bam-pair-mapq/`. Production uses neither truth nor
+competitor output. Final binary SHA256:
+`be30679a86113af54f4a885b29361f8914e9bee6ff3870c698023efc9fe2b5e8`.
+
+## 2026-10-02 — Preserve the certified BAM prefix at a deletion-pair transfer
+
+Close chr20:64128828–64134226 by correcting a transfer boundary that stranded
+connected earlier BAM anchors. Source 64068280 has a weak cut only at 64140314,
+after the clean SNP and complementary deletion pair. Eighteen exclusive-ALT
+BAM triples (12 plus six), both allele classes and zero opposing molecules
+certify the nearest clean SNP's relation to the pair. Transfer now includes
+the earlier cut-free source run after the preceding catalog footprint, provided
+all moved anchors have exact adoptable provenance and the same source gauge.
+Weak/quality cuts, graph/foreign/unknown anchors, ambiguous deletion pairs,
+unknown/low BAM MAPQ, and opposing molecules veto expansion. The pre-existing
+pair-to-right certificate remains mandatory. Later ordinary stitching joins
+the catalog blocks separately. No truth, competitor, coordinate special case,
+new realignment, allele merge or loosened threshold enters production.
+
+Correct the preceding 64 Mb audit's ownership diagnosis: 64121546 and 64128828
+are BAM rows, not catalog SNPs. Their missing GAF calls do not mean that their
+original BAM prefix is disconnected. The source trace records the actual cut.
+
+Fresh final chr20 (eight threads, 292.54 s with concurrent native replays):
+237127 phased/scored, 229974 correct, 7153 discordant, 96.983473%, all unchanged.
+Every read retains its individual truth classification. Read PS 673→670,
+VCF blocks 337→336, 63492 keys and span N50 756878 bp unchanged; 3993 read tag
+tuples and 2460 VCF rows change through block orientation/label propagation,
+with no lost or gained keys. The prototype and extracted helper have identical
+full outputs. Local 44/45 read concordance remains unchanged; dominant correctly
+placed reads improve 22/54→39/54. Native HiPhase has 48/49 locally, saved-Oct1
+pgphase-callset HiPhase 49/49. This is continuity improvement, not local yield
+or accuracy parity. Three native-HiPhase-correct reads remain unphased, two with
+no callable BAM matrix observations and one with four; retain their evidence
+for investigation.
+
+Add the target to the owning-chunk panel: 96 coordinate cases / 82 spans. Assert
+exact SNP/complementary-deletion orientation, parental flank agreement, read
+separation and the unchanged owning ceiling of three errors. Update old 64 Mb
+catalog-separation checks to require the intended independently certified join
+and its allele relation; retain all old read floors. New helper unit tests and
+baseline-failing connection checks cover the mechanism. Fresh noncentromeric
+extent audit: 315 gaps, 41 distinct competitor-supported nominations (51 records),
+down from 316/42/53. These are nominations, not verified exact allele bridges.
+
+Build without warnings, standalone units, 822 predicate assertions / 37 cases,
+and 4761 window assertions / 61 cases pass. All 105 fresh native replay requests
+are verified against the final binary SHA256 and complete in 390.30 s.
+Detailed evidence and final gate logs are recorded in
+`evaluations/2026-10-02-complementary-deletion-prefix/`.
+Final binary SHA256:
+`98037cb463527b02e6acb31393d1d2d71cca92323d6922942d9367d868291e3d`.
+
+
+## 2026-10-02 — Preserve shared BAM component identity at an insertion bridge
+
+Close chr20:34046350–34055920 with the existing decisive physical BAM evidence:
+eight REF and twelve ALT insertion-to-SNP molecules. Graph attachment relabels
+source 34018169 as catalog PS 34018168. The local retained prefix is cut-free,
+although its original source has a later weak cut at 34058504. Permit the
+physical insertion stitch to certify that prefix from exact adoptable source
+provenance, including graph-owned shared rows, with a consistent allele gauge
+and no weak/quality cut inside its actual heterozygous extent.
+
+Correct the coupled orphan-transfer bug: the nearest source row before a cut
+can belong to a different graph owner and conceal an earlier owner's far-side
+private island. Additional owner checks require an exact shared clean SNP in
+the immediately preceding source component, preserve physical read bridges and
+far-side catalog anchors, and restore detached sites and exclusive reads to
+their original BAM gauge together. Keep the original source label in the
+closest-row search; excluding it reopened protected joins. Move the actual
+detachment function to the adapter for synthetic gauge/read regressions.
+The all-historical-owner trial is rejected because it split protected joins
+and lowered span N50. The refined code preserves every accepted 53–54 Mb tag
+and VCF row exactly. No truth, competitor, coordinate exception, realignment,
+allele merge or lowered evidence threshold enters production.
+
+Local gap: pgphase changes two blocks into one, retaining 118 correct / 123
+phased / five discordant, exactly matching native-DV HiPhase and saved-Oct1
+pgphase-callset HiPhase. Owning 34–35 Mb gains seven correct reads with no
+additional error: 3560/3532/28 → 3567/3539/28 phased/correct/discordant.
+Fresh final chr20 (eight threads, 295.76 s with concurrent replay jobs):
+237127→237134 phased/scored, 229974→229981 correct, 7153 discordant unchanged,
+96.983473%→96.983562%. Every previously phased read retains its individual
+truth classification. Read PS 670→669; VCF blocks 336→335; 63492 keys and
+756878 bp span N50 unchanged. Exactly 179 read tag tuples and three VCF rows
+change; zero keys lost or gained. Changes are confined to the owning 34 Mb
+chunk. Extent audit remains 315 gaps / 41 distinct competitor-supported
+nominations (51 records: 34 native-DV, 17 saved-pgphase-callset). The new break
+was hidden by overlapping orphan extents, so that audit count does not fall.
+
+Extend the panel to 97 coordinate cases / 83 required spans, with owning-chunk
+context, exact insertion and opposite right-SNP genotype relation, parental
+flank agreement, read separation, and unchanged old read floors. The accepted
+pre-fix binary fails eight of 29 new connection assertions. All standalone
+units, 822 predicate assertions / 37 cases, and 4806 window assertions / 62
+cases pass. All 105 fresh native requests complete in 393.85 s against the
+frozen final SHA256; an additional matrix regression runs natively. Build has
+no new warnings; diff check passes. Details, rejected-scope evidence and final
+results are in `evaluations/2026-10-02-shared-source-component/`.
+Final binary SHA256:
+`06b32560fe18b80332994314fa9bbcaa3962bbbc445bb4108f05cf27e7f3602c`.
+
+## 2026-10-02 — Certify both graph paths at an MSA deletion bridge
+
+Close chr20:47751480–47762233 using seven physical BAM boundary pairs (three
+REF, four ALT; signed quality log odds 33.8683). One-sided agreeing graph
+edges on both flanks had been rejected without using their independent clean
+BAM SNP evidence. Extend the existing insertion bridge's left edge certificate
+to deletions, and apply the same certificate to a reported right edge. Each
+edge requires two independent Q30 primary SNP pairs with no opposing molecule,
+existing likelihood bound, passing prefix and suffix paths. A separate nearest
+suffix-SNP-to-deletion link checks the boundary's inherited gauge. Dominant
+GAF reversals, ambiguous alleles and invalid qualities remain vetoes; both
+boundary allele classes remain required. No truth, competitor, fixture
+coordinate, realignment, allele merge or threshold relaxation enters production.
+
+Physical left/right edge pairs have MAPQ 60 and Q35–Q40 bases, with log odds
+15.8691/16.2861. The exact deletion and first right SNP share ALT orientation;
+the next right SNP is opposite. Owning 47–48 Mb retains all 3993 phased reads,
+3957 correct / 36 discordant, while VCF blocks fall 2→1 and span N50 improves
+749000→997144 bp. Local continuity improves from two blocks to one and correct
+reads in the dominant block 38/84→70/84 input overlaps. Local accuracy stays
+70/83 correct with 13 errors; native-DV HiPhase has 74/76 with two errors.
+This fixes the parental connection, not local read-accuracy parity. Those
+existing read-tagging errors remain a separate task and are not relabeled by
+this change.
+
+Fresh final chr20 (eight threads, 247.68 s): 237134 phased/scored, 229981 correct,
+7153 discordant, 96.983562%, all unchanged. Every read retains its individual
+truth classification. Read PS 669→667; VCF blocks 335→334; 63492 keys and
+756878 bp N50 unchanged. Exactly 1285 read tags and 261 VCF rows change; zero
+keys lost/gained. Audit avoids 25–30 Mb: 314 extent gaps, 40 distinct
+competitor-supported nominations (50 records: 33 native-DV, 17 saved-Oct1
+pgphase-callset), down from 315/41/51. These are nominations, not proven links.
+The 62.410 Mb repeat deletion is retained, not lost in transfer, but its few
+physical links disagree; do not force it. At 7.280 Mb a low-depth normalized
+graph SNP's six observations contrast with 51 REF / two ALT high-quality BAM
+bases, and its first GAF edge is tied. The physical path fix keeps that case
+split rather than treating the tie as one-sided confirmation.
+
+Panel grows to 98 coordinate cases / 84 spans with exact allele and parental
+checks, owning read/error floors and local separation. The pre-fix binary
+fails six of 27 new assertions. All standalone units, 822 predicate assertions /
+37 cases, and 4849 window assertions / 63 cases pass. All 105 fresh native
+requests complete in 342.85 s against the frozen binary; one additional matrix
+regression is native. No new build warnings; diff check passes. Reports and
+logs: `evaluations/2026-10-02-deletion-physical-paths/`.
+Final binary SHA256:
+`684a95a62fe10ec32df68c8043bf0fbb730794c167ce54573c1ad2d56c546f9c`.
+
+## 2026-10-02: padded indel identity and verified BAM genotype retention
+
+The graph/BAM sequence converter retained a shared suffix after consuming the
+full common prefix of unequal-length VCF alleles. `ACG→ATCG` therefore looked
+like a replacement instead of the BAM insertion of T. Trim the remaining
+suffix after the prefix, preserving the established repeat placement and the
+nonmatching spans of complex replacements. Trimming the suffix first shifts
+repeat alleles away from BAM/MSA and was rejected.
+
+The corrected identity exposed a second defect: matching a phased MSA call to
+an unphased graph repeat kept the graph demotion and discarded the BAM
+genotype. A normalization-only chr20 run lost four verified calls at 10.488935,
+10.891999, 35.490917 and 41.885034 Mb. Transfer now preserves the physical key,
+counts, genotype, MSA proof and source gauge together on that exact binary row.
+Its observations come from the source solve. Validated complete source flanks
+retain the same admission as private BAM rows. Differing source claims remain
+independent; established graph phases and whole multiallelic rows are not
+overwritten. The fix is restricted to suffix-padded unphased graph repeats;
+adopting other unphased repeats changed correct read assignments in trials.
+
+An independent SNP-branch projection trial lost private BAM evidence by
+changing the recovery seams, and was removed. Lowering physical SNP stitch BQ
+30→20 changed no output in 28 owning chunks and was restored. Two physical
+deletion pairs at 4.866153–4.874129 Mb suggested a wrong parental join despite
+source certificates: errors rose 16→448, with 428 correct reads becoming wrong.
+The trial was removed. Flank base quality is not a deletion-allele error model.
+A new owning/local regression allows only the correct opposite allele relation
+and preserved read accuracy; the rejected trial fails six assertions.
+
+The final chr20 run preserves every HP/PS tag, every individual truth
+classification and all 63492 VCF records exactly. Phased/scored 237134; correct
+229981; discordant 7153; concordance 96.983562%; read PS 667; VCF blocks 334;
+span N50 756878 bp. No additional gap closure is claimed. Wall time 276.61 s at
+eight threads while panel runs executed concurrently; not a runtime comparison.
+
+All units, 872 predicate assertions / 39 cases and 4929 window assertions /
+65 cases pass. The four-call transfer regression fails three assertions on the
+normalization-only binary. Existing 98 coordinate cases / 84 required spans and
+their floors remain unchanged. All 105 native panel requests use the frozen
+binary, completing in 372.52 s, plus one native matrix request. Production is
+truth agnostic and introduces no realignment, allele merging or stitch threshold
+relaxation. Details: `evaluations/2026-10-02-padded-indel-context/`.
+Final binary SHA256:
+`00c7e302c47a3c1fe58d6a4fa5ef647fc1d8030171ce362482a8cb3db794af91`.
+
+
+## 2026-10-02 — Recover exact SNP branches from complex catalog alleles
+
+The full-walk binary graph projection drops a SNP observation when a read
+carries another catalog ALT, even if its local oriented SNP branch is exactly
+identical to the selected allele. Seven such ALT calls at 20,523,889 repair the
+right graph path and join 20,506,159 C→CT to 20,517,197 A→AAT in the owning
+20–21 Mb chunk and full chromosome. The insertion ALTs remain opposite; the
+SNP is on the left insertion's ALT haplotype. No allele is merged or realigned.
+
+After graph phasing, supplement only missing observations at already phased
+clean binary SNPs. Require a unique oriented three-node REF/ALT branch in each
+catalog walk, retain the original source-walk conflict veto and mapping-quality
+floor, skip parent-gated children, and require the combined evidence to remain
+heterozygous under the existing AF filters. Initial genotype counts, categories,
+phase labels and read gauges are preserved. Both workers use the same helper.
+
+The AF guard is required: an ungated projection strengthens a false 3/3 SNP at
+7.280 Mb with 42 new REF calls and leaves eight previously phased reads
+unassigned. Broad unplaced-MSA admission and a physical homo-REF anchor veto
+also altered established correct assignments; neither trial is retained.
+The final 7 Mb replay has exactly unchanged tags and truth assignments.
+
+Full chr20: phased/scored 237,134; correct 229,981; discordant 7,153; accuracy
+96.983562%, all unchanged. Every phased read retains its truth classification.
+Read phase sets fall 667→665, VCF blocks 334→333. N50 stays 756,878 bp and
+all 63,492 variant keys/allele genotypes remain. Locally pgphase has 109/110
+correct phased reads versus saved native-DV HiPhase's 107/109. Independent read
+rescues remain separate: dominant correct local reads improve 65→78 of 111
+input overlaps, still below HiPhase's 107. This is one exact connection, not
+complete read-block continuity parity.
+
+Extend the permanent panel to 99 coordinate cases / 85 required spans, with
+exact keys, ALT parity, parental flanks, owning counts and local error checks.
+The accepted pre-fix binary fails six assertions in the new regression.
+Units cover projection uniqueness, source conflicts, AF compatibility and
+preserving original gauges. Details, rejected trials, chromosome comparison,
+evidence-channel changes and the remaining 40 noncentromeric nominations are
+in `evaluations/2026-10-02-catalog-snp-branches/`. The whole extent audit has
+313 gaps; an overlapping block extent hid this newly fixed exact split from
+the preceding nomination list, so that list's 40 distinct targets is unchanged.
+
+Validation: all standalone units pass; phase predicates pass 872 assertions /
+39 cases; the expanded window suite passes 5,708 assertions / 66 cases. Its
+105 fresh native requests use the frozen final binary and complete in 343.08 s,
+plus the required additional native replay requests. Build has no new warnings.
+Final SHA256: `cb3b4ad62fb671abb1f375e02a48a44b1eac2553158b7ab39bc6c9755d94fc06`.
+
+
+## 2026-10-02 — Same-current-callset joint-gap controls
+
+Fresh targeted HiPhase runs on the accepted current pgphase VCF and the same
+BAM, using 100 kb context on each side, establish that these site records can
+support a joint connection. Local-only HiPhase spans 7.264321–7.280346 Mb
+with 120/122 correct phased local reads (pgphase 117/126, three read PS), and
+24.121713–24.131707 Mb with 89/93 (pgphase 60/60, three read PS). The
+spanning blocks have zero discordant reads on disjoint 10 kb flanks:
+42/42 and 52/52, then 29/29 and 45/45. Saved native-DV HiPhase has 123/125
+and 93/93 respectively. Each fresh local window run takes about one second.
+
+Default HiPhase on the same pgphase callset does not span either pair;
+24 Mb is only 59/79 correct in two read blocks. The local control changes
+allele calling as well as the solver, so it is not proof that A* alone fixes
+our matrix. It also still uses local alignment; no new alignment method or
+production change is made. HiPhase uses eligible genotypes jointly, whereas
+our independent graph/BAM solves and narrower centered-site MEC fallback do
+not offer a general joint solve over every usable gap observation. The next
+control must compare joint phasing on exactly identical read/site matrices,
+retain the complete established flank gauges, and evaluate both relative
+orientations without forced joins. Details and measurements:
+`evaluations/2026-10-02-joint-gap-controls/`.
+
+## 2026-10-02 — Joint gap solve on identical observation matrices
+
+Replay the unchanged production exact MEC kernel on fresh owning-chunk
+matrices, with complete flank gauges and both relative orientations. Including
+all usable binary graph/BAM gap sites increases variables 5→11 at 7.28 Mb,
+but independent read halves still disagree. At 24.13 Mb the current matrix
+remains disconnected, including when boundary indels are free. Thus removing
+eligibility restrictions alone does not fix these cases.
+
+Extract actual HiPhase local calls from serial trace output, checking variant
+and BAM record counts. At the 7,280,356 SNP, HiPhase marks 12 callable graph
+observations ambiguous and calls three oppositely. Substituting the shared
+HiPhase calls makes SNP-priority MEC prefer the correct connection overall
+and in both read halves. At 24 Mb, HiPhase has 29 callable left/right pairs;
+pgphase has zero of those pairs, already in the BAM source before transfer.
+Two MAPQ-60 reads reach the right clean SNPs, but lack pgphase insertion calls.
+With HiPhase calls, all usable sites and free boundary indels, joint MEC
+prefers the correct orientation overall and in both halves. Centered-site
+filtering or frozen imported boundary indels loses this result. The final
+24 Mb parity margins remain only 3, 4 and 1 cost units.
+
+A linked synthetic probe reproduces an MSA representation defect: the
+selected four-T insertion is ALT, literal reference is zero, but an exact
+eight-T read matching the other verified consensus is unknown on that row.
+This disagrees with complementary source-row ALT-absence semantics and can
+also disable the one-error fallback, which requires both consensuses to
+classify. A future repair should preserve both rows and require the exact
+other consensus, keeping unrelated third alleles unknown. Copying independent
+HiPhase REF/ALT calls would not preserve this diploid representation.
+
+The two-orientation kernel takes 4–9 ms at 7 Mb and 23–53 ms at 24 Mb,
+including subprocess overhead; matrix loading is additional. These are
+diagnostic objective/orientation results, not emitted-tag or chromosome
+accuracy measurements. No production behavior, binary or test expectation
+changes. Full evidence, costs, scripts and limitations are retained in
+`evaluations/2026-10-02-joint-matrix-investigation/`.
+
+## 2026-10-02 — Complementary insertion calls and inherited read HP
+
+Repair a reproduced unplaced-read MSA observation loss: a read exactly matching
+one verified insertion consensus was unknown on the complementary insertion
+row. Zero represents absence of that row's ALT, so recognize the other complete
+consensus only with an identical reference footprint, common query flanks and
+exactly one selected ALT. Both composed read paths must agree. Keep separate
+rows and allele identities; unrelated third alleles remain unknown to the exact
+caller. The existing one-edit, strictly closer consensus fallback is unchanged.
+An exact-only restriction lost 50 correct reads and was rejected. Broader new
+joint/dropout recovery triggers regressed whole-chromosome assignments and were
+removed; no new joint solver or detector is accepted.
+
+After the final graph/BAM chunk stitch, recovery chunks correct inherited HP
+only with concordant Q30, known-MAPQ30 physical single-base clean SNP calls in
+that read's final PS, agreeing with the primary channel and separated by at
+least 100 bases. Duplicate coordinates count once and conflicting eligible
+SNPs veto correction. This modifies assigned read HP/scoring counters only;
+no candidates, genotypes, phase sets or stitch votes change. Compared with the
+insertion fix alone it repairs 36 incorrect assignments and worsens one. A
+primary-graph-only alternative loses two correct reads in the 3 Mb replay and
+was rejected. Production uses neither truth nor competitor observations.
+
+Same-input whole chr20, starting binary cb3b4ad6 → final 2f0513f6:
+
+- Phased truth-scored reads: 237,134 → 237,172 (+38).
+- Correct: 229,981 → 230,022 (+41); discordant: 7,153 → 7,150 (-3).
+- Accuracy: 96.983562% → 96.985310%.
+- Read PS: 665 → 661; VCF blocks remain 333.
+- VCF keys: 63,492 → 63,630, no lost key.
+- Block span N50: 756,878 → 774,189 bp.
+- All 57,769 previously phased SNP keys retain their old within-block gauge;
+  no old SNP block splits or internally reorients. Three old SNP-block pairs
+  merge, which does not imply all intermediate indel boundaries join.
+
+Individual read tradeoffs remain: 54 correct→incorrect, 67 incorrect→correct,
+45 unphased→correct, ten unphased→incorrect and 17 correct→unphased. The exact
+17.502614–17.521341 Mb gap closes with the correct relative parental gauge in
+full chr20 and both owning chunks. Its local reads worsen from 131/136 to
+109/136 correct (80.15%); same-BAM HiPhase DV is 138/144 (95.83%). Thus correct
+block connection is verified, but competitor-level local read accuracy is not.
+The 4.866–4.874 Mb exact pair remains split; its owning chunk phases 26 more
+reads, 16 correctly, with ten additional errors. Record that explicit cost
+rather than claim an accuracy improvement everywhere.
+
+Add the new connection to the permanent panel (100 coordinates, 86 required
+connections), with spans=1, exact representations and independent parental
+majorities from a 16–18 Mb replay. Add the 24 Mb owning anti-inversion test,
+which retains both four-T/eight-T rows and 60/60 correct local reads. Keep all
+prior connection and orientation assertions. Explicitly accept the measured
+4 Mb read-count/error tradeoff and two 17 Mb owning read-score floors
+98.65%/98.71% instead of 99%; do not refresh the panel wholesale. Physical SNP
+correction restores the existing 3 Mb 98% floor. The 7.28 Mb and 24.13 Mb
+boundary gaps remain open, pending usable allele evidence, not forced joins.
+
+Unit tests, 906 assertions in 40 predicate cases, and BAM HiFi/ONT golden gates
+pass; HiFi one/four-thread outputs remain deterministic. The expanded suite passes 7,031 assertions across 68 test cases. Fresh
+final-binary native window outputs are rescored with binary/argument/input/
+output checks.
+Full run wall time 251.48 seconds at eight threads is not a controlled runtime
+comparison. Detailed results, rejected controls and final regression logs:
+`evaluations/2026-10-02-complementary-insertion-recovery/`.
+
+
+## 2026-10-02 — Keep physical SNP certificates with their recovered allele
+
+Fix graph recovery quality provenance: original CIGAR quality certifies an MSA
+SNP observation only when the literal BAM base calls that same REF/ALT. Keep
+MSA calls in the matrix even when they lack that physical certificate. Two
+singleton bridge checks use the same helper. Overlapping solves can retain
+one allele but supply quality from the other; certify the retained call and
+replace old quality when a replay replaces its observation, including with
+zero. A permanent truth-independent matrix regression at 3,597,791 reproduces
+ALT borrowing the later REF call's Q40 and requires quality zero afterward.
+`BAMQ` diagnostic rows expose these certificates without altering OBS fields.
+
+Permit an imported, phased MSA SNP to repair inherited read HP after its gauge
+passes the existing singleton association/Wilson gates against physical clean
+SNPs of the same PS. Use every covered clean SNP at least 100 bases away, one
+vote per molecule, and abstain on clean conflicts. Cache the result per site;
+read HP does not certify a site. Keep MSA witness counters separate from clean
+counters. A physically matching clean call below Q30 can veto a correction
+relying on a noisy SNP, but cannot assign HP. Two spaced Q30 clean SNPs retain
+their existing certificate. This fixes the unchanged 11.599 Mb owning error
+ceiling after an initial candidate regressed it from 90 to 91. No truth,
+competitor calls, fixture coordinates or new realignment enters production.
+
+Reject the unrestricted single-MSA-SNP rule: it costs 26 correct owning reads
+near 15.07 Mb. Reject nearest-only gauge selection: 14 physical links at
+17.50 Mb fail the existing confidence bound; complete covered clean context
+retains 19 coherent links. Preserve these rejected controls in the evaluation.
+
+Final full chr20 against the accepted complementary-insertion/BAM-refresh
+baseline: truth-scored phased reads 237,172 -> 237,170; correct assignments
+230,022 -> 230,043; discordant assignments 7,150 -> 7,127; conditional accuracy
+96.985310% -> 96.994983%. 29 incorrect reads become correct, seven correct
+reads become incorrect, and two fallback reads abstain (one formerly correct,
+one incorrect). Read phase sets 661, variant keys 63,630, VCF blocks 333 and
+span N50 774,189 bp stay unchanged. Zero VCF rows change. No new gap closes.
+
+At 17.502614–17.521341 Mb, full-chromosome local accuracy improves 109/136 ->
+131/136 (96.32%), with errors 27 -> 5 and parental connection preserved. Saved
+same-BAM HiPhase DV has 138/144 correct (95.83%); it still phases eight more
+local reads. Strengthen the permanent owning replay to >=131 correct and <=5
+errors; restore older 17 Mb 99% owning floors and raise the 15.056 Mb guard to
+99%. Keep every exact span and parental-orientation requirement. The permanent
+panel remains 100 coordinates/86 required connections; adding the quality
+provenance replay brings the suite to 69 cases.
+
+Final binary SHA256
+`95f94fdd04210a95e295131288ca21398065ac0d0afe1364c7c586fc892e63aa`.
+Build, all units, 906 predicate assertions/40 cases, 7,038 window assertions/69
+cases, and HiFi/ONT BAM goldens pass. First run 105 fresh native panel requests;
+rescore only with binary/argument/input-stat/output-hash checks, and execute
+uncached additional requests natively. Full run 297.21 seconds at eight threads
+and concurrent native panel 394.91 seconds are not controlled runtime comparisons.
+Detailed evidence, rejected controls, final measurements and regression logs:
+`evaluations/2026-10-02-verified-snp-read-recovery/`.
+
+## 2026-10-02: preserve partial MSA reads and their coverage limits
+
+The haplotype-aware unplaced-read pass incorrectly equated a prior HP/PS label
+with actual MSA membership. Homopolymer consensus construction excludes partial
+reads, but those labeled reads were skipped again during recovery. Unlabeled
+partial reads were aligned and scored as full-cover reads, and ambiguous
+reference/read composition restored full bounds. Even a no-cover read could
+enter a cluster. The permanent synthetic prefix/suffix regression, linked
+against the starting implementation, fails all five sections.
+
+Track initial MSA membership, skip no-cover reads, and recover the other reads
+against fixed consensuses. Retain the complete consensus axis for reference
+composition; trim using the read's own original coverage flags. Score only the
+covered intersection and restore coverage bounds on ambiguous composed paths
+before normalization and site recall. An uncovered end cannot cast a deletion
+or haplotype vote, even at a one-point assignment margin. Preserve consensus
+construction, separate candidate rows, retry admission and stitch thresholds.
+The ordinary upstream BAM pass remains unchanged. Production uses no truth,
+competitor calls, fixture coordinates or new alignment method.
+
+Final binary SHA256
+`74218715db7412bb7d0e88633b14ec6c85e3220047b6e9ce1d6df6210c7d7df4`.
+Fresh full chr20 preserves all 237,170 truth-scored phased reads, 230,043 correct
+assignments and 7,127 errors (96.994983%). Every scored read retains its
+correctness state. One read moves to an independent BAM PS with unchanged HP;
+31 VCF records change only counts and derived allele fractions. All 63,630
+keys and every VCF genotype/PS remain unchanged. Read PS 661, VCF blocks 333,
+span N50 774,189 bp. No additional gap closes; the 7.28/24.12 Mb cases stay open.
+The owning 7–8 Mb replay retains one more ALT at 7,047,081 without changing
+genotype, phase orientation or read assignments.
+
+Build and units pass with no new warnings. Predicate suite: 962 assertions/41
+cases. Fresh native panel: 105 requests followed by verified scoring reuse;
+7,038 window assertions/69 cases pass. The 100-coordinate panel and all 86
+required connections, span equality, parental checks and read-score expectations
+remain intact. HiFi/ONT TSV/VCF goldens and HiFi thread determinism pass.
+Full chr20 296.22 seconds/eight threads; concurrent native panel 395.12 seconds,
+not controlled runtime comparisons. Behavior documentation is updated.
+Evidence: `evaluations/2026-10-02-partial-msa-coverage/`.
+
+## 2026-10-02: recall missing homopolymer insertion calls with fixed source gauges
+
+The initial haplotype-aware recovery MSA omitted reads outside its selected
+clusters, even when both fixed consensuses could establish their local allele.
+At 24.12 Mb, separate four-T/eight-T rows therefore lacked many observations
+available in the BAM. Request local unplaced-read recall for the initial
+targeted source solve. Align against both existing consensus axes without
+assigning a whole-region cluster. Admit only separate homopolymer insertion
+length contrasts inside requested seams, with disjoint one-base error
+neighborhoods, complementary calls, physical flanks and the existing AF gate.
+
+Defer these observations until ordinary discovery and phasing finish. Coalesce
+exact-key/read duplicates, reject contradictions, fill only unknown calls at
+surviving MSA-verified phased heterozygotes, and preserve already phased source
+membership and its allele gauge. Update counts and the read index; genotypes,
+categories and source phase sets stay fixed. Standard graph transfer/stitch
+rules still apply. No row merging, new alignment method, truth, competitor
+calls, fixture coordinates or lowered stitch thresholds enter production.
+
+Reject whole-source rephasing with all recalled sites: chr20 loses 1,023 keys
+and errors rise from 7,127 to 9,469. Reject insertion recall throughout the full
+solve context: errors rise by 32 and five existing assertions fail in four
+cases. Exact-only recall also loses owning coverage. Restricting coordinates
+alone is insufficient; retain source membership and the distinct homopolymer
+contrast. The accepted narrowed pass satisfies every existing regression.
+
+Full chr20: truth-scored phased reads 237,170 -> 237,199; correct assignments
+230,043 -> 230,072; discordant assignments unchanged at 7,127; conditional
+accuracy 96.994983% -> 96.995350%. Exactly 29 read tags change, all previously
+unphased reads now truth-correct. Every old HP/PS tag and scored read correctness
+state survives. All 63,630 variant keys and every VCF GT/PS survive; only two
+insertion records change counts/fractions/quality (DP 11 -> 60). Read PS 661,
+VCF blocks 333 and span N50 774,189 bp stay unchanged. No old block merges and
+no new gap closes: the coordinate panel remains 100 windows/86 connections.
+
+The owning 24–25 Mb replay gains 29 correct reads with errors fixed at two.
+Within the 24.121713–24.131707 Mb gap, 60/60 correct -> 89/89, no errors and
+three independent blocks. Same-BAM HiPhase DV has 93/93 in one block; that
+continuity advantage remains. Strengthen the existing owning/local floors to
+protect all 89 correct overlaps, separate rows and rejection of the wrong
+flank join. The starting binary fails four new coverage assertions. A new
+synthetic test rejects literal-REF, different-position and tandem-repeat
+contrasts while preserving fixed consensus membership.
+
+Final binary SHA256
+`d3b5ad20b227cc051d1d5280a6aa4fc82cbc1c1bc9393082aa5533005456a1c8`.
+Build, all units, 981 predicate assertions/42 cases, 7,038 window assertions/69
+cases, HiFi/ONT TSV/VCF goldens and HiFi thread determinism pass. All span,
+parental-orientation, accuracy and coverage gates remain. Run 105 fresh native
+panel requests, then score verified final-binary outputs with exact-argument,
+input-stat and output-hash checks; uncached requests execute natively. Chr20
+295.28 seconds/eight threads and concurrent panel 395.26 seconds are validation
+timings, not controlled runtime comparisons. Behavior documentation is updated.
+Evidence: `evaluations/2026-10-02-fixed-consensus-insertion-observations/`.
+
+## 2026-10-02: Distinguish an absent SNP gauge from explicit contradiction
+
+Recovery's existing shifted-repeat insertion check recognized a physical ALT,
+but its boolean source-SNP certificate conflated no callable SNP with a
+contradictory Q30 clean SNP. A failed certificate could retain exact-anchor
+REF, manufacturing the opposite sequence allele. Retain three states internally:
+no callable independent gauge, coherent ALT gauge, and contradiction. For an
+unpaired binary insertion, a verified shifted ALT explicitly contradicted by
+an independent clean SNP remains unknown. Missing SNP evidence and separate
+complementary MSA insertion contrasts retain their current source projection.
+Deletion admission, existing observations, keys, GT/PS, alignment and stitch
+criteria stay unchanged. No truth or fixture coordinates enter production.
+
+Reject broad complementary-pair CIGAR admission: chr20 errors 7,127 -> 9,342,
+2,292 previously correct reads become wrong, and no panel gap gains a span.
+Preserving read-source membership is insufficient: owning 2–3 Mb errors
+62 -> 1,091. Freezing source-path certificates also fails that inversion and
+raises owning 19 Mb errors 41 -> 381. Restore all those trials. A broad unpaired
+missing-certificate abstention improves local 41 Mb tags but reopens the required
+1.180618–1.194189 Mb connection, loses three correct chr20 reads net, and makes
+13 formerly correct reads wrong. Reject it; do not lower its span gate.
+
+The retained explicit-conflict correction exactly preserves full chr20:
+237,199 scored / 230,072 correct / 7,127 errors, 96.995350% accuracy, 661 read PS,
+63,630 VCF keys, 333 blocks and 774,189 bp N50. Every read HP/PS and VCF row is
+unchanged. The coordinate panel remains 100 windows / 86 spans; no new gap
+closure is claimed. Strengthen the permanent representation/transfer test with
+an owning 2–3 Mb replay protecting both source insertion rows, at least 4,088
+scored / 4,026 correct reads and at most 62 errors. Keep all previous expectations
+and original owning coverage floors. The contradictory-SNP regression fails
+the starting implementation in two assertions.
+
+Build, all units, 987 predicate assertions/42 cases and HiFi/ONT TSV/VCF goldens
+pass; HiFi thread determinism remains. Final SHA256
+`b36dd6d8ea32b1f1707b64efc51878b2d8641344ef1b0f009f08eee94b1bac0b`.
+The whole chromosome takes 292.18 s/eight threads and 105 fresh native panel
+requests 387.70 s/four concurrent workers, validation timings only. The living
+implementation documentation describes the three evidence states and source
+contrast scope. Evidence: `evaluations/2026-10-02-shifted-insertion-ref-abstention/`.
+Complete window validation passes 7,060 assertions/69 cases. Verify the 105
+fresh native requests against binary/input/output identities before scoring;
+the added owning 2 Mb request runs natively. No panel floor or span is lowered.
+
+
+### 2026-10-02 — Reject repeat-refresh and backfill-census perturbations
+
+Investigate owning 19 Mb with native local-MSA traces and chromosome guards.
+All 58 assigned reads cover 19.377 Mb. The existing independent local caller
+classifies 42 and abstains on 16; every callable row agrees with the port's
+source call. This corrects the earlier interpretation of exact local calls
+being reversed. CIGAR versus composed-MSA repeat footprints remain different;
+composition's consensus axes match. The source's 10/14 insertion contrast
+segregates poorly, while DV calls the longer insertion homozygous. No production
+truth/competitor-based genotype demotion is introduced.
+
+Reject broad local refresh, exact paired refresh and anchored source solving:
+they lose sites or correct reads and do not fix the target. Also reject updating
+source DP/AD/AF/strand fields from the enlarged post-solve backfill matrix.
+Immediate and post-source-selection recounts both produce 237,244 scored /
+230,088 correct / 7,156 discordant chr20 reads, including 13 correct-to-wrong
+transitions; tracked spans stay 86/100. Delaying the recount does not fix the
+regression, so source-selection timing is not an established root cause.
+Discovery genotype counts remain distinct from supplementary linkage evidence.
+Document that contract and protect it with insertion/SNP regressions. The
+rejected recount fails 15 assertions in the new guard; restored predicates
+pass 1,020 assertions/42 cases. All standalone units, HiFi/ONT goldens and
+7,060 window assertions/69 cases pass; no expectations are relaxed.
+
+The final binary is byte-identical to the accepted b36dd6d8 executable:
+237,199 scored / 230,072 correct / 7,127 errors, 333 VCF blocks and N50 774,189.
+No new closure is retained. Native rejected trial timings and validated cache
+reuse are identified separately in
+`evaluations/2026-10-02-recovery-callable-depth/README.md`.
+
+## 2026-10-02: Close the 5.511 Mb gap to increase chromosome NG50
+
+Rank the noncentromeric competitor-supported nominations by simulated union
+of complete adjacent VCF phase-set extents. Use half the reference chromosome
+length (66,210,255 bp) for NG50, separately from the summed-span N50 denominator.
+The 38 audited nominations are not an exhaustive missed-gap census. Nine have
+positive modeled NG50 gain; select 5.511231–5.531924 Mb from four tied largest
+gains because its physical boundary representations and flank gauges agree.
+The 62.623 Mb candidate's internal-switch counterexample remains protected.
+
+Two MAPQ60 BAM reads call opposite alleles at both deletion boundaries. Targeted
+recovery retains those pairs; the larger whole-flank validation omits the
+right MSA deletion calls on partial reads and its original eligibility/singleton
+screen cannot use that boundary. Preserve the established certificate first.
+Only after it fails, permit a downstream MSA-verified heterozygous deletion and
+apply existing seam observation backfill to the reused full solve. Discovery
+counts, genotypes and source orientations stay fixed. Require multiple exact
+physical pairs, both haplotypes, unanimous parity, matching deletion REF bases,
+full graph/BAM gauge validation and no source weak cut. Upstream eligibility,
+ordinary SNP statistics and stitch conflict checks remain. No truth, competitor
+call, hard-coded coordinate, MSA row merge or new alignment method is added.
+
+Reject broader MEC filtering and boundary admission: they lose correct reads
+or cross the upstream source cut. A downstream-deletion-first trial reopens
+the required 23 and 47 Mb connections, loses three correct chr20 assignments,
+adds one error and loses a key. Its NG50 stays 633,077 bp. Trying the established
+certificate first preserves both owning replays exactly and retains the target.
+
+Full chr20 NG50 **633,077 -> 643,699 bp (+10,622 bp; +1.68%)**. N50 stays
+774,189 bp. The 755,168 bp joined block covers 5,393,615–6,148,782. All 237,199
+scored reads, 230,072 correct assignments and 7,127 errors survive unchanged
+(96.995350%); every individual truth-correctness state is preserved. All 63,630
+keys and unordered genotypes survive; no old SNP gauge becomes mixed. VCF blocks
+333 -> 332, truth-scored read PS 661 -> 659. Only the targeted old blocks merge.
+The main gap block has 131/131 correct overlaps; eight other phased overlaps
+remain independent (five correct, three errors). Saved HiPhase has 136/136 in
+its main block, so equal local coverage/purity is not claimed.
+
+Add the measured gap to the permanent panel: 101 coordinates / 87 spans,
+versus 100 / 86 before. Extend the owning 5 Mb regression with opposite boundary
+GT, shared PS, parental orientation and 4,024 scored / 4,001 correct / at most
+23 errors, plus 131 main-block correct overlaps. The starting binary fails three
+new assertions. No existing individual span, coverage or accuracy gate is lowered.
+Build, all units, 1,020 predicate assertions/42 cases, 7,092 window assertions/69
+cases and HiFi/ONT TSV/VCF goldens pass; HiFi thread determinism is preserved.
+
+Final SHA256 `aa3b89bb6f6f5a49a4fc72e0c83577bfade869165e60f2c8556a48bf5e0026d4`.
+Whole chr20 takes 291.37 s/eight threads and 105 fresh native panel requests
+394.17 s/four concurrent workers, validation timings only. Final window scoring
+verifies binary, normalized CLI, input stats and output hashes before cache reuse;
+uncached requests run natively. Behavior documentation describes certificate
+priority, boundary fallback and discovery-count preservation.
+Evidence: `evaluations/2026-10-02-ng50-gap-priority/`.
+
+
+## 2026-10-03: Repair shifted deletion REF lookup without changing source contrasts
+
+Investigate NG50-priority HiPhase nominations at 57.085410–57.104654 and
+61.738239–61.747506 Mb, excluding the centromere. Either complete neighboring
+block join would project NG50 643,699 -> 672,998 bp; neither is newly closed.
+At 57 Mb the singleton physical read carries a five-base repeat deletion, while
+both native DV and BAM MSA describe the diploid locus as +3/-2 consensus alleles.
+At 61 Mb partial homopolymer MSA reads omit useful molecules, but three shifted
+ALT deletions conflict with independent clean left-SNP source orientation.
+Physical edit equivalence alone cannot certify an entire block gauge.
+
+Fix a narrower observation bug: exact-position deletion REF can hide an
+edit-equivalent shifted ALT beyond the candidate footprint. Before filling a
+new REF at a simple phased MSA deletion, apply the existing MAPQ30/Q30 edit
+certificate and independent clean-SNP source gauge. Agreeing SNP evidence admits
+ALT; contradictory callable SNP evidence leaves it unknown. Absent SNP evidence
+preserves the source's ALT-absence contrast, matching insertion recovery.
+Separate colocated alleles and existing MSA calls remain authoritative;
+candidate keys, source GT/PS and discovery depth fields stay frozen.
+
+Reject isolated homopolymer observation admission even with clean-SNP checks:
+full chr20 loses 530 correct reads, adds 580 discordant reads and reopens the
+48.929/56.064 Mb joins (87 -> 85 panel spans). Reject turning every shifted ALT
+with no SNP gauge into unknown: seven 48.929 Mb source zero contrasts disappear,
+forcing a different source solve and losing 195 owning-chunk variant keys.
+Its full run loses 202 keys and six previously correct reads and reopens those
+two joins despite improved aggregate conditional accuracy. Broad physical-only
+61 Mb recall gains five correct local overlaps but adds ten owning-chunk errors;
+before-solve recall loses 209 correct and adds 236 discordant assignments.
+
+The retained correction preserves full chr20 HP/PS tuples and VCF rows exactly:
+237,199 scored / 230,072 correct / 7,127 discordant (96.995350%), 659 scored
+read phase sets, 63,630 keys, 332 VCF blocks, N50 774,189 bp, NG50 643,699 bp.
+No old phased SNP or block gauge is lost; all 87/101 coordinate spans survive.
+The local target scores remain 127/145 correct at 57 Mb and 79/83 at 61 Mb.
+Saved same-BAM native-DV HiPhase has 139/139 and 91/92, respectively; saved
+HiPhase with pgphase calls is much worse at 57 Mb (96/137) but retains 91/92
+at 61 Mb. Competitor outputs are reused, not a new runtime measurement.
+
+Synthetic regression checks fail three assertions on the starting source.
+The final correction passes all 1,031 predicate assertions/42 cases. Add a
+61–62 Mb owning-chunk guard protecting 3,452 scored / 3,423 correct / at most
+29 errors, positive phased clean boundary SNPs and the supported parental
+relation if those SNPs acquire a common PS. It rejects the before-solve trial
+on both correctness and error limits. Full window tests pass 7,113 assertions
+in 70 cases. Existing exact span, accuracy and coverage gates remain unchanged.
+Build, standalone units and HiFi/ONT goldens pass with no new warnings; HiFi
+one/four-thread outputs agree. Update living behavior documentation.
+
+Final SHA256 `244d3e8f39b91c5ac17d9ad3c5c05a28ad42223a9cb12db681c77e0c571ef3a8`.
+Full chr20 takes 300.63 s/eight threads; 105 fresh native requests take 401.92 s
+with four concurrent workers. These concurrent validations are not controlled
+runtime comparisons. Window rescoring verifies executable, normalized CLI,
+input stats and output hashes; the new uncached owning case runs natively.
+Evidence: `evaluations/2026-10-03-shifted-deletion-source-gauge/`.
+
+
+## 2026-10-03: Check independent BAM block injection and whole-block context
+
+Test user-proposed gap-only BAM phasing followed by intact block transfer and
+stitching at chr20:61.738239–61.747506 Mb. Native BAM runs take 0.3–0.6 s.
+Exact, +100 bp and +1 kb regions phase 69/69 correct local reads but emit only
+one phased SNP, so they supply no chain across the gap. +10 kb produces
+63/61/2 phased/correct/discordant; +50 kb produces 53/41/12 under either
+MAPQ30 or MAPQ5. The actual graph seam plus 1 kb produces 55/41/14. Current
+graph+recovery retains 83/79/4, versus saved same-BAM native-DV HiPhase 92/91/1.
+These scores use majority orientation separately per local output PS, not
+whole-chromosome PS orientation.
+
+Trace the accepted recovery source: PS61690751 has 14 phased sites. All seven
+private phased seam rows reach the graph table as independent PS61690752 with
+unchanged source GT. Injection does not split them. Shared graph SNPs retain
+catalog representation and graph membership with BAM provenance. The later
+stitch separates the right deletion at a weak source edge: both callable
+source pairs from SNP61738239 to deletion61747507 are ALT/ALT, and both conflict
+with the source's opposite haplotype alleles. No consistent source pair exists.
+
+A negative control that trusts nominal BAM PS and clears source cuts makes the
+private gap rows share one block but leaves the next graph block independent.
+It improves one correct owning-chunk read and local purity 79/83 -> 80/83, yet
+puts the SNP and deletion ALTs on opposite haplotypes in that common block.
+Reject; aggregate read accuracy alone cannot validate allele connection.
+Extend the permanent owning61 test to require the supported SNP/deletion GT
+relation whenever the pair shares a PS. A future correctly oriented join is
+allowed. The control fails exactly this new orientation guard.
+
+Broaden transfer to all phased private flank rows and shared unphased-repeat
+adoption. Four initial owning chunks retain every truth state and add 92/28/16/81
+VCF keys at 61/57/48/56 Mb, but full chr20 converts 3,622 previously correct
+reads to incorrect, reopens four protected gaps, loses 13 phased SNPs and reduces
+accuracy 96.995350% -> 95.509795%. Reject. Narrow to complete cut-free private
+source blocks, keeping shared graph-site adoption rules. Initial owning61/23/53
+replays preserve all truth states, but full chr20 loses 31 scored and 26 correct
+reads, converts 35 correct reads to incorrect, loses ten phased SNPs and reopens
+the 54.547514–54.569072 Mb gap; N50 774,189 -> 739,888 bp. Reject that as well.
+No expectation is weakened to retain extra variant rows.
+
+Restore production source and binary byte-for-byte to accepted SHA256
+244d3e8f39b91c5ac17d9ad3c5c05a28ad42223a9cb12db681c77e0c571ef3a8. No new gap
+closes. Keep only the stronger orientation regression and evaluation records.
+All standalone units, 1,031 predicate assertions/42 cases and 7,121 isolated
+window assertions/70 cases pass. Existing 87/101 coordinate spans and all
+coverage/accuracy limits remain. Reuse verified 105 native outputs only after
+binary/CLI/input/output hash checks; the expanded owning case runs natively.
+Give each runner a fresh PGPHASE_TEST_WORKDIR: its hard-linked replay cache is
+unsafe for diagnostic processes sharing output paths; discard the contaminated
+shared-directory validation. Full rejected trials take 254.98/243.35 s with
+eight threads; these are concurrent validation timings, not runtime comparisons.
+
+Design implication: complete BAM block evidence should remain immutable and
+separate from live graph ownership. Use full source site/read matrices for
+pairwise orientation, retain source identities across numeric PS collisions,
+and mutate labels only after connection checks succeed. Copying all flank
+sites into the active candidate table changes downstream ownership before
+stitching. The proposed separate-evidence design is not implemented by the
+rejected trials. Living behavior documentation remains unchanged.
+Evidence: evaluations/2026-10-03-bam-block-transfer/.
+
+
+## 2026-10-03: Keep complete BAM evidence separate and stitch finalized blocks
+
+Implement the separate-evidence design following the rejected broad flank-site
+transfer trials. Each selected source PS keeps every phased heterozygous source
+row and callable read observation, including context outside the seam, in an
+immutable source matrix. Matrix indices and source-scoped labels are independent
+of graph candidate ownership. Duplicate molecule names are excluded from voting.
+Existing graph adoption and emitted allele representations remain intact.
+
+Score whole source blocks by molecule, prioritizing clean SNPs. Source/live allele
+bases must translate consistently. A new whole-block edge needs known MAPQ30/Q30
+physical SNP support from both haplotypes, a significant same/cross binomial vote,
+and independently significant agreement with each block's current HP gauge.
+Conflicting complete/transferred channels veto; all internal block paths and all
+consecutive edges are checked before constant PS/HP unions. Truth and competitor
+labels are used only for validation, never production decisions.
+
+An initial route inside shared recovery changed downstream genotype recovery and
+lost 16 phased SNPs and 734 previously correct read assignments. Adding path
+checks alone still lost 11 phased SNPs. Running after the shared solver but before
+source attachment preserved the sites yet gave a wrong owning37 join: 3,561
+correct/46 discordant became 3,415/191 despite a 53/0 physical SNP edge. Per-block
+vote totals alone did not fix it. Source attachment and retries still replayed
+older ownership/gauge decisions after that premature connection. Move complete
+block stitching after both recovery passes and all source attachments, using the
+final live labels and allele/read gauges. Do not interpret saved pre-attachment
+graph vote totals as final orientations. Keep both passes' immutable matrices
+and path certificates for this final route: retry replacement of active gauges
+must not erase first-pass source evidence. Consider every covering solve. A
+source label reused after an old block was absorbed is ambiguous across solves
+and cannot share one path certificate. Restore the existing shared seam solver
+unchanged; no existing genotype recovery or join is bypassed.
+
+Accepted full chr20 has exact read-tag and VCF-row parity with baseline SHA256
+244d3e8f39b91c5ac17d9ad3c5c05a28ad42223a9cb12db681c77e0c571ef3a8:
+237,199 truth-scored, 230,072 correct, 7,127 discordant, 96.995350%; 63,630 variant
+keys, 332 VCF blocks, N50 774,189 bp and NG50 643,699 bp. The coordinate panel
+remains 87/101 connected. This implementation retains complete evidence and a
+validated stitch route, but closes no additional chr20 gap under its certificates.
+Native full-run wall time is 291.01 s with eight threads, concurrent with panel
+validation; do not treat that as a runtime comparison.
+
+Add an owning37 regression allowing a future correct closure while enforcing
+coverage, truth correctness, discordance and parental orientation. The accepted
+implementation passes 11 assertions; the premature-join negative control fails
+four guards (3,606 scored, 3,415 correct, 191 discordant, switched). Unit tests
+include complete outside-gap context, source independence/PS remapping, both
+haplotypes, missing/unknown/low qualities, SNP priority, ties, duplicate molecules,
+raw/live frame changes, missing/conflicting per-block HP gauges, internal cuts,
+homozygous fake anchors and atomic multi-block joins. All standalone units and
+1,193 predicate assertions/44 cases pass. No expectation is weakened.
+Evidence: evaluations/2026-10-03-complete-bam-block-evidence/.
+Final gap validation passes 7,132 assertions/71 cases with 105 hash-verified
+native replays of the final binary plus fresh diagnostics. Both recovery passes'
+matrices are retained. Final owning37/61/65 read tags and VCF rows also match the
+accepted baseline exactly. Main build and git diff whitespace checks pass.
+
+
+### 2026-10-03 — Keep flank BAM evidence and certify current block paths
+
+Investigate noncentromeric chr20:50,548,245–50,562,066. Immutable source selection
+incorrectly reused strict injection ownership: a source block starting exactly
+at the right seam endpoint was absent. Retain all eligible phased source rows
+and callable observations, including context-only blocks. Preserve their local
+BAM identity with no live remapped label unless the block actually transfers;
+raw coordinate PS equality cannot give a context block graph ownership. The
+source snapshot grows from 27 left rows/252 reads to 118 rows/514 reads, including
+91 right rows. All 12 MAPQ60 physical spanning molecules survive, versus 2.
+
+The final complete-source stitch also required one molecule to observe both
+ends of a 435 kb graph block. Replace that with supported successive-observation
+edges and coordinate-cut evidence, cached per current block. Every distinct cut
+must have both haplotypes, configured minimum support, and more agreement than
+conflict. Supported edges must connect all actual rows. Difference-array cut
+support alone can accept interleaved disconnected A–C and B–D components; the
+new topology negative control reproduces that false join and guards it.
+
+A source path certificate covers only its saved rows. If an earlier attachment
+absorbed other graph rows into the same PS, certify the expanded current block
+independently; a valid 57 kb source subset cannot certify a 421 kb current root.
+Connected-chain, disconnected-cut, internal-switch, unknown-MAPQ, context-only
+PS collision, interleaved-component and absorbed-row regressions pass alongside
+the existing physical SNP and per-block HP checks. The initial implementation
+fails seven assertions in the connected-chain/absorbed-row tests. The cut-only
+trial fails the separate interleaved-component regression. No threshold,
+parental truth, competitor label or coordinate-specific production decision is
+added. No row is merged or re-aligned by these fixes.
+
+The owning 50 Mb target output is unchanged: 3,877 truth-scored, 3,867 correct,
+10 discordant, identical read tags and VCF rows. The seam remains open: retaining
+the right calls does not repair the left complementary deletion observations,
+which are unknown on all 12 spanners. Only two callable insertion pairs survive,
+with one haplotype and no clean-SNP pair. Original CIGARs contain several deletion
+lengths, absent deletions and low-quality bases; the old 6/6 BAM HP aggregate is
+not an allele certificate. Keep this distinct from a coverage-filter bug.
+Evidence: evaluations/2026-10-03-recovery-block-continuity/ and
+ evaluations/2026-10-03-gap-50548-stitch-audit/.
+
+Final native chr20 retains exact read-tag and VCF-row parity with the accepted
+baseline: 237,199 truth-scored, 230,072 correct, 7,127 discordant (96.995350%);
+63,630 keys, 332 VCF blocks, span N50 774,189 bp, 87/101 panel seams connected.
+No phased SNP is lost and no old block changes parental gauge. No additional
+chr20 gap closes. Final full-run time is 288.07 s with eight threads, concurrent
+with panel validation; this is not a competitor runtime comparison. All
+standalone unit binaries and 1,259 predicate assertions/44 cases pass. The final
+incremental main build introduces no warnings; the earlier header rebuild has
+only the existing abPOA SIMD unused-function warning. No expectation is changed.
+
+Final window validation passes 7,132 assertions/71 cases, using 105 fresh native
+requests from the final binary plus fresh uncached diagnostic runs. Cached
+outputs are verified against the final binary SHA256, input file metadata and
+all output hashes. No floor, ceiling or span expectation is weakened. The final
+binary SHA256 is
+`629badc0b446294ee4e0f1c4b4a43c738406ac7dbed9023995b6796e3fb0f05f`.
+
+
+### 2026-10-03: Complementary deletion evidence selects the full source retry
+
+Closed chr20:50,548,245–50,562,066 outside the centromere. Both left-boundary
+MSA deletion rows are homopolymer indels, so independent literal-REF backfill
+left all twelve MAPQ60 spanners unknown at both rows and hid the source conflict
+from focused retry admission. A jointly missing complementary pair can now use
+MAPQ30/Q30 exact or sequence-equivalent CIGAR ALT as temporary diagnostic
+calls: the matching row gets ALT and the other gets ALT absence. Third alleles,
+compound edits, extra MSA alternatives and existing calls abstain. Both rows
+must have complementary biallelic genotypes in the same source PS and lie in
+the seam. No genotype, count, key or phase label changes in this step.
+
+Restore profiles and their interval index before source validation/transfer.
+Only the accepted existing full-block BAM/MSA retry supplies imported phasing
+and read-rescue evidence. Persisting the diagnostic calls was rejected: it
+added 125 erroneous new chr20 assignments and dropped accuracy to 96.945774%.
+The accepted scoped design closes the target without those erroneous new
+assignments. Production uses neither truth nor competitor data and adds no
+realignment stage or merged rows.
+
+The owning 50–51 Mb chunk has 3,887 truth-scored, 3,876 correct and 11 discordant
+reads, versus 3,877 / 3,867 / 10. Two separate deletion ALTs remain opposite;
+the two-base deletion ALT and right A→G ALT are on the same haplotype. The
+114 kb replay remains open because it lacks complete adjacent block context.
+The committed panel therefore uses the owning chunk, changes only this span
+expectation 0→1 and TOTAL 87→88, and requires both separate deletion rows.
+A dedicated owning regression checks parental orientation, coverage and the
+11-error ceiling; the original binary fails five of 27 assertions and the
+accepted binary passes all 27. New pair unit tests reproduce six failures in
+the previous implementation; final predicates pass 1,325 assertions/45 cases.
+
+Final native chr20: 237,209 truth-scored, 230,081 correct, 7,128 discordant
+(96.995055%), versus 237,199 / 230,072 / 7,127 (96.995350%). Net +9 correct
+and +1 discordant; accuracy decreases 0.000295 percentage points. Read PS
+659→656, VCF blocks 332→331, N50 774,189→790,093 bp, NG50 unchanged at
+643,699 bp; tracked intervals 87/101→88/101. Only the target joins old VCF
+blocks. The retry adds 556 keys and removes one low-depth SNP at 50,719,983
+beside retained insertion alternatives; it changes one SNP projection at
+50,562,679 beside a newly retained insertion. These representation changes
+are disclosed in the evaluation and are not claimed as verified literal SNP
+genotypes. Whole-block parental read gauges remain protected by the owning
+regression. Full-run time 289.57 s at eight threads, concurrent with panel
+validation, is not a competitor runtime comparison. All standalone units pass.
+Evidence: evaluations/2026-10-03-complementary-deletion-backfill/.
+
+Final gap validation passes 7,155 assertions/72 cases. The final cache includes
+105 fresh native panel requests plus the fresh owning-chunk run, with final
+binary, normalized argument, input metadata and output-hash checks; additional
+uncached diagnostics execute natively. No existing floor, ceiling or accepted
+connection is weakened. Main build and `git diff --check` pass, with no new
+warnings in the current change. Final binary SHA256:
+`094186bd72b9a2b96cc888519d7e326ff205b8ef63d74d519554a0245beed6cc`.

@@ -1,0 +1,504 @@
+{
+  "gap": [
+    50548245,
+    50562066
+  ],
+  "production_sha256": "7a1d6458699e5d6ac02d53cc1efa11737d0341c3d2e9ee9a10958b6d0fa46eb7",
+  "input_primary_overlaps": 119,
+  "physical_primary_spanners": 12,
+  "spanner_mapq_distribution": {
+    "60": 12
+  },
+  "mapq30_spanners": 12,
+  "mapq30_spanners_present_in_live_matrix": 12,
+  "mapq30_spanners_present_in_source_matrix": 12,
+  "mapq30_spanners_present_in_saved_matrix": 2,
+  "all_raw_source_blocks": {
+    "50491033": {
+      "n_sites": 28,
+      "first": 50491033,
+      "last": 50548246
+    },
+    "50562066": {
+      "n_sites": 91,
+      "first": 50562066,
+      "last": 50611339
+    }
+  },
+  "retained_source_blocks": {
+    "50491033": {
+      "n_sites": 27,
+      "first": 50491033,
+      "last": 50548246
+    }
+  },
+  "mapq30_spanners_with_callable_left_source": 2,
+  "read_details": [
+    {
+      "qname": "m84031_231217_062403_s3/25627674/ccs",
+      "beg": 50540996,
+      "end": 50562610,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50540996,
+        "end": 50562610,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [
+        {
+          "pos": 50543099,
+          "gt": [
+            1,
+            0
+          ],
+          "allele": 0,
+          "quality": 0
+        }
+      ],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/163056055/ccs",
+      "beg": 50541443,
+      "end": 50564006,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50541443,
+        "end": 50564006,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [
+        {
+          "pos": 50543099,
+          "gt": [
+            1,
+            0
+          ],
+          "allele": 0,
+          "quality": 0
+        }
+      ],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/131141302/ccs",
+      "beg": 50543204,
+      "end": 50566758,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50543204,
+        "end": 50566758,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/102372840/ccs",
+      "beg": 50543943,
+      "end": 50566420,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50543943,
+        "end": 50566420,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/30281812/ccs",
+      "beg": 50544389,
+      "end": 50566775,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50544389,
+        "end": 50566775,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/217974262/ccs",
+      "beg": 50545192,
+      "end": 50565642,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50545192,
+        "end": 50565642,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/49349070/ccs",
+      "beg": 50545327,
+      "end": 50563300,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50545327,
+        "end": 50563300,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/127994023/ccs",
+      "beg": 50545676,
+      "end": 50563294,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50545676,
+        "end": 50563294,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/125176998/ccs",
+      "beg": 50546596,
+      "end": 50573107,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50546596,
+        "end": 50573107,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/101581948/ccs",
+      "beg": 50546858,
+      "end": 50574495,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50546858,
+        "end": 50574495,
+        "mapq": 60,
+        "skip": false,
+        "hp": 1,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/241173941/ccs",
+      "beg": 50546860,
+      "end": 50564342,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50546860,
+        "end": 50564342,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/98238767/ccs",
+      "beg": 50546890,
+      "end": 50568222,
+      "mapq": 60,
+      "source_tag": {
+        "beg": 50546890,
+        "end": 50568222,
+        "mapq": 60,
+        "skip": false,
+        "hp": 2,
+        "ps": 50491033
+      },
+      "saved_callable_sites": [],
+      "live_deletion_calls": {
+        "1": -1,
+        "2": -1
+      },
+      "source_deletion_calls": {
+        "1": -1,
+        "2": -1
+      }
+    }
+  ],
+  "outcomes": {
+    "pgphase": {
+      "phased_truth_reads_overlapping_gap": 107,
+      "correct_using_whole_block_orientation": 100,
+      "discordant": 7,
+      "spanning_reads_phased": 12,
+      "spanning_read_tags": {
+        "m84031_231217_062403_s3/25627674/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_034919_s2/163056055/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_062403_s3/131141302/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_034919_s2/102372840/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_034919_s2/30281812/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_034919_s2/217974262/ccs": [
+          2,
+          50562066
+        ],
+        "m84031_231217_062403_s3/49349070/ccs": [
+          2,
+          50562066
+        ],
+        "m84031_231217_062403_s3/127994023/ccs": [
+          2,
+          50562066
+        ],
+        "m84031_231217_062403_s3/125176998/ccs": [
+          2,
+          50562066
+        ],
+        "m84031_231217_034919_s2/101581948/ccs": [
+          1,
+          50562066
+        ],
+        "m84031_231217_062403_s3/241173941/ccs": [
+          2,
+          50562066
+        ],
+        "m84031_231217_034919_s2/98238767/ccs": [
+          2,
+          50562066
+        ]
+      }
+    },
+    "hiphase_dv": {
+      "phased_truth_reads_overlapping_gap": 114,
+      "correct_using_whole_block_orientation": 111,
+      "discordant": 3,
+      "spanning_reads_phased": 12,
+      "spanning_read_tags": {
+        "m84031_231217_062403_s3/25627674/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_034919_s2/163056055/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_062403_s3/131141302/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_034919_s2/102372840/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_034919_s2/30281812/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_034919_s2/217974262/ccs": [
+          1,
+          50127297
+        ],
+        "m84031_231217_062403_s3/49349070/ccs": [
+          1,
+          50127297
+        ],
+        "m84031_231217_062403_s3/127994023/ccs": [
+          1,
+          50127297
+        ],
+        "m84031_231217_062403_s3/125176998/ccs": [
+          1,
+          50127297
+        ],
+        "m84031_231217_034919_s2/101581948/ccs": [
+          2,
+          50127297
+        ],
+        "m84031_231217_062403_s3/241173941/ccs": [
+          1,
+          50127297
+        ],
+        "m84031_231217_034919_s2/98238767/ccs": [
+          1,
+          50127297
+        ]
+      }
+    },
+    "hiphase_pg_calls": {
+      "phased_truth_reads_overlapping_gap": 109,
+      "correct_using_whole_block_orientation": 103,
+      "discordant": 6,
+      "spanning_reads_phased": 12,
+      "spanning_read_tags": {
+        "m84031_231217_062403_s3/25627674/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_034919_s2/163056055/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_062403_s3/131141302/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_034919_s2/102372840/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_034919_s2/30281812/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_034919_s2/217974262/ccs": [
+          2,
+          49964968
+        ],
+        "m84031_231217_062403_s3/49349070/ccs": [
+          2,
+          49964968
+        ],
+        "m84031_231217_062403_s3/127994023/ccs": [
+          2,
+          49964968
+        ],
+        "m84031_231217_062403_s3/125176998/ccs": [
+          2,
+          49964968
+        ],
+        "m84031_231217_034919_s2/101581948/ccs": [
+          1,
+          49964968
+        ],
+        "m84031_231217_062403_s3/241173941/ccs": [
+          2,
+          49964968
+        ],
+        "m84031_231217_034919_s2/98238767/ccs": [
+          2,
+          49964968
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "native_request": 3,
+    "scored": 3870,
+    "correct": 3844,
+    "discordant": 26,
+    "concordance": 0.99328165374677
+  },
+  {
+    "native_request": 87,
+    "scored": 3847,
+    "correct": 3771,
+    "discordant": 76,
+    "concordance": 0.9802443462438264
+  },
+  {
+    "native_request": 102,
+    "scored": 4078,
+    "correct": 4023,
+    "discordant": 55,
+    "concordance": 0.9865129965669446
+  }
+]

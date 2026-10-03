@@ -16,6 +16,8 @@
 # regression. Either way the gap has lost the evidence that closes it,
 # which a spans check alone can still pass by finding another way across.
 arm	window	pos	ref	alt	category_when_recorded
+graph	10727690-10746628	10746473	CCTTT	C	NOISY_CAND_HET
+graph	10727690-10746628	10746473	CCTTTCTTTCTTTCTTT	C	NOISY_CAND_HET
 graph	4766928-4792960	4766929	T	TA	CLEAN_HET_INDEL
 graph	4766928-4792960	4778793	C	CTTT	CLEAN_HET_INDEL
 graph	4766928-4792960	4778793	C	CTTTT	CLEAN_HET_INDEL
@@ -1286,3 +1288,19 @@ graph	54684758-54702072	54684759	CCT	C	NOISY_CAND_HET
 # Complementary noisy MSA rows retained by the diploid source retry.
 graph	15351845-15367755	15351846	C	CT	NOISY_CAND_HET
 graph	15351845-15367755	15351846	CT	C	NOISY_CAND_HET
+# Internal MSA insertion-to-deletion path retained without forcing source joins.
+graph	36332599-36354890	36343993	C	CA	NOISY_CAND_HET
+graph	36332599-36354890	36354891	CATAT	C	NOISY_CAND_HET
+# Common-background insertion whose original BAM representation must survive.
+graph	1196894-1196967	1196895	A	ACCAGCCTGGGCAACATGGTGAAACTCTGTCTCTATAAATTAGCTGGATGTGGTGGTGTGACCCTGGAGTCCCAACTACTTGAGAGGCTGAGGTGGGAGGATTGCTTGAGCCCAGGAGGTGGAGGTTGTGGTGAGCCATGATCACACCACTGTACT	NOISY_CAND_HET
+# Exact unchanged BAM insertion supplies the shared-source physical bridge.
+graph	34046350-34055920	34046351	T	TTATATATTTATATATATTTATATATATATTTA	NOISY_CAND_HET
+# Exact MSA deletion retained by the independently checked physical bridge.
+graph	47751480-47762233	47751481	CT	C	NOISY_CAND_HET
+graph	20506159-20517197	20506160	C	CT	NOISY_CAND_HET
+
+graph	5511231-5531924	5511232	CAAT	C	CLEAN_HET_INDEL
+
+# Complementary deletion rows retained separately by the focused source retry.
+graph	50548245-50562066	50548246	CA	C	NOISY_CAND_HET
+graph	50548245-50562066	50548246	CAA	C	NOISY_CAND_HET

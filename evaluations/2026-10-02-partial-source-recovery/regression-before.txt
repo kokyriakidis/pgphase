@@ -1,0 +1,52 @@
+Filters: [partial-source]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+focused recovery retains a supported partial path inside a graph seam
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4372
+...............................................................................
+
+src/test_gap_windows.cpp:4409: FAILED:
+  CHECK( call.second == left.second )
+with expansion:
+  "36549255" == "36286778"
+with message:
+  36354890:CATAT>C
+
+src/test_gap_windows.cpp:4412: FAILED:
+  CHECK( left.first == deletion.first )
+with expansion:
+  "0|1" == "1|0"
+
+src/test_gap_windows.cpp:4420: FAILED:
+  CHECK( chunk_reads.correct >= 3637 )
+with expansion:
+  3620 (0xe24) >= 3637 (0xe35)
+
+src/test_gap_windows.cpp:4421: FAILED:
+  CHECK( chunk_reads.discordant() <= 153 )
+with expansion:
+  163 <= 153
+
+src/test_gap_windows.cpp:4432: FAILED:
+  CHECK( local_reads.correct >= 166 )
+with expansion:
+  158 >= 166
+
+src/test_gap_windows.cpp:4433: FAILED:
+  CHECK( local_reads.discordant() <= 6 )
+with expansion:
+  14 <= 6
+
+src/test_gap_windows.cpp:4434: FAILED:
+  CHECK( local_reads.concordance() >= 0.96 )
+with expansion:
+  0.9186046512 >= 0.96
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 30 | 23 passed | 7 failed

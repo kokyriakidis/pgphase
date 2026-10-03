@@ -1,0 +1,349 @@
+{
+  "lost_phased_snps": [
+    [
+      48279728,
+      "G",
+      "A"
+    ],
+    [
+      48285952,
+      "C",
+      "G"
+    ],
+    [
+      48308901,
+      "C",
+      "T"
+    ],
+    [
+      48315054,
+      "A",
+      "G"
+    ],
+    [
+      48368686,
+      "G",
+      "A"
+    ],
+    [
+      48368687,
+      "A",
+      "T"
+    ],
+    [
+      48392475,
+      "A",
+      "G"
+    ],
+    [
+      48440178,
+      "C",
+      "T"
+    ],
+    [
+      48522468,
+      "C",
+      "A"
+    ],
+    [
+      48522469,
+      "G",
+      "T"
+    ],
+    [
+      48526071,
+      "A",
+      "G"
+    ],
+    [
+      48526226,
+      "G",
+      "C"
+    ],
+    [
+      48526263,
+      "C",
+      "G"
+    ],
+    [
+      48542004,
+      "C",
+      "T"
+    ],
+    [
+      48542324,
+      "T",
+      "C"
+    ],
+    [
+      48583659,
+      "A",
+      "C"
+    ],
+    [
+      48593703,
+      "G",
+      "A"
+    ],
+    [
+      48593713,
+      "A",
+      "G"
+    ],
+    [
+      48601727,
+      "G",
+      "A"
+    ],
+    [
+      48684874,
+      "C",
+      "T"
+    ],
+    [
+      48684875,
+      "G",
+      "A"
+    ],
+    [
+      48726101,
+      "A",
+      "C"
+    ],
+    [
+      48726103,
+      "A",
+      "C"
+    ],
+    [
+      48726105,
+      "A",
+      "C"
+    ],
+    [
+      48726107,
+      "A",
+      "C"
+    ],
+    [
+      48726109,
+      "A",
+      "C"
+    ],
+    [
+      48726111,
+      "A",
+      "C"
+    ],
+    [
+      48726113,
+      "A",
+      "C"
+    ],
+    [
+      48726115,
+      "A",
+      "C"
+    ],
+    [
+      48761812,
+      "G",
+      "T"
+    ],
+    [
+      48809373,
+      "C",
+      "T"
+    ],
+    [
+      48809374,
+      "A",
+      "G"
+    ],
+    [
+      48816512,
+      "A",
+      "G"
+    ],
+    [
+      48836963,
+      "C",
+      "G"
+    ],
+    [
+      48886195,
+      "C",
+      "T"
+    ],
+    [
+      48886197,
+      "G",
+      "C"
+    ],
+    [
+      48886201,
+      "G",
+      "A"
+    ],
+    [
+      48890955,
+      "C",
+      "T"
+    ],
+    [
+      48901655,
+      "C",
+      "T"
+    ],
+    [
+      48901656,
+      "A",
+      "G"
+    ],
+    [
+      48903110,
+      "T",
+      "C"
+    ],
+    [
+      48903111,
+      "G",
+      "A"
+    ],
+    [
+      56136263,
+      "C",
+      "G"
+    ],
+    [
+      56136264,
+      "G",
+      "A"
+    ]
+  ],
+  "old_snp_blocks_with_mixed_gauge": {
+    "48950389": [
+      {
+        "new_ps": "48878199",
+        "flipped": false,
+        "snps": 862
+      },
+      {
+        "new_ps": "48950389",
+        "flipped": false,
+        "snps": 4
+      }
+    ],
+    "56040613": [
+      {
+        "new_ps": "56040613",
+        "flipped": true,
+        "snps": 3
+      },
+      {
+        "new_ps": "56083708",
+        "flipped": false,
+        "snps": 40
+      }
+    ]
+  },
+  "new_blocks_containing_multiple_old_vcf_blocks": {},
+  "panel_spanned_before": 87,
+  "panel_spanned_after": 85,
+  "changed_panel_spans": [
+    {
+      "left": 48929511,
+      "right": 48950388,
+      "before": true,
+      "after": false
+    },
+    {
+      "left": 56064697,
+      "right": 56083708,
+      "before": true,
+      "after": false
+    }
+  ],
+  "open_panel_windows": [
+    {
+      "left": 3852321,
+      "right": 3890461,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 15095642,
+      "right": 15101261,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 48929511,
+      "right": 48950388,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 56064697,
+      "right": 56083708,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21823066,
+      "right": 21844359,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 35498368,
+      "right": 35516845,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 50548245,
+      "right": 50562066,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 36611593,
+      "right": 36620864,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 37458817,
+      "right": 37461999,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 3963987,
+      "right": 3981464,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21130205,
+      "right": 21148338,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21159070,
+      "right": 21172487,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 57854341,
+      "right": 57866713,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 58366458,
+      "right": 58385702,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19373922,
+      "right": 19395544,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21594343,
+      "right": 21612458,
+      "competitor": "hiphase_same_sites"
+    }
+  ]
+}

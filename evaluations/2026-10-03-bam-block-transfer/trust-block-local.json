@@ -1,0 +1,11 @@
+[
+  {
+    "path": "test_data/tmp_gap_next38/trust-block/61/phased.bam",
+    "phased": 83,
+    "correct": 80,
+    "discordant": 3,
+    "blocks": 4,
+    "dominant_correct": 41,
+    "overlap_reads": 96
+  }
+]

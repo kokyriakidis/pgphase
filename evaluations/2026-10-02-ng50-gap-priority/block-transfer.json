@@ -1,0 +1,106 @@
+{
+  "lost_phased_snps": [],
+  "old_snp_blocks_with_mixed_gauge": {},
+  "new_blocks_containing_multiple_old_vcf_blocks": {
+    "5531924": {
+      "5393615": {
+        "flipped": false,
+        "variants": 124,
+        "extent": [
+          5393615,
+          5511231
+        ]
+      },
+      "5531924": {
+        "flipped": false,
+        "variants": 875,
+        "extent": [
+          5531924,
+          6148782
+        ]
+      }
+    }
+  },
+  "panel_spanned_before": 86,
+  "panel_spanned_after": 87,
+  "changed_panel_spans": [
+    {
+      "left": 5511231,
+      "right": 5531924,
+      "before": false,
+      "after": true
+    }
+  ],
+  "open_panel_windows": [
+    {
+      "left": 3852321,
+      "right": 3890461,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 15095642,
+      "right": 15101261,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 21823066,
+      "right": 21844359,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 35498368,
+      "right": 35516845,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 50548245,
+      "right": 50562066,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 36611593,
+      "right": 36620864,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 37458817,
+      "right": 37461999,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 3963987,
+      "right": 3981464,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21130205,
+      "right": 21148338,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21159070,
+      "right": 21172487,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 57854341,
+      "right": 57866713,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 58366458,
+      "right": 58385702,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19373922,
+      "right": 19395544,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21594343,
+      "right": 21612458,
+      "competitor": "hiphase_same_sites"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "path": "test_data/tmp_gap_next37/baseline/57/phased.bam",
+    "phased": 145,
+    "correct": 127,
+    "discordant": 18,
+    "blocks": 3,
+    "dominant_correct": 74,
+    "overlap_reads": 155
+  },
+  {
+    "path": "test_data/tmp_gap_next37/gauge-preserved/57/phased.bam",
+    "phased": 145,
+    "correct": 127,
+    "discordant": 18,
+    "blocks": 3,
+    "dominant_correct": 74,
+    "overlap_reads": 155
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "phased": 139,
+    "correct": 139,
+    "discordant": 0,
+    "blocks": 1,
+    "dominant_correct": 139,
+    "overlap_reads": 155
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.bam",
+    "phased": 137,
+    "correct": 96,
+    "discordant": 41,
+    "blocks": 1,
+    "dominant_correct": 96,
+    "overlap_reads": 155
+  }
+]

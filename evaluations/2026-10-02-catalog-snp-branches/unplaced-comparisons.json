@@ -1,0 +1,143 @@
+{
+  "17": {
+    "before": {
+      "output_reads": 4219,
+      "scored": 4082,
+      "correct": 4052,
+      "discordant": 30,
+      "concordance": 0.9926506614404703,
+      "read_phase_sets": 10,
+      "vcf_keys": 998,
+      "vcf_blocks": 5,
+      "span_n50": 502337
+    },
+    "after": {
+      "output_reads": 4219,
+      "scored": 4133,
+      "correct": 4090,
+      "discordant": 43,
+      "concordance": 0.9895959351560609,
+      "read_phase_sets": 9,
+      "vcf_keys": 998,
+      "vcf_blocks": 4,
+      "span_n50": 502337
+    },
+    "transitions": {
+      "(True, True)": 4047,
+      "(False, False)": 28,
+      "(None, True)": 42,
+      "(None, False)": 12,
+      "(True, False)": 3,
+      "(True, None)": 2,
+      "(False, True)": 1,
+      "(False, None)": 1
+    },
+    "tags": 692,
+    "lost_keys": 0,
+    "new_keys": 0
+  },
+  "24": {
+    "before": {
+      "output_reads": 4061,
+      "scored": 3895,
+      "correct": 3893,
+      "discordant": 2,
+      "concordance": 0.9994865211810012,
+      "read_phase_sets": 7,
+      "vcf_keys": 1234,
+      "vcf_blocks": 3,
+      "span_n50": 864711
+    },
+    "after": {
+      "output_reads": 4088,
+      "scored": 3945,
+      "correct": 3928,
+      "discordant": 17,
+      "concordance": 0.9956907477820025,
+      "read_phase_sets": 8,
+      "vcf_keys": 1232,
+      "vcf_blocks": 3,
+      "span_n50": 854131
+    },
+    "transitions": {
+      "(True, True)": 3881,
+      "(None, True)": 47,
+      "(True, False)": 12,
+      "(None, False)": 3,
+      "(False, False)": 2
+    },
+    "tags": 136,
+    "lost_keys": 2,
+    "new_keys": 0
+  },
+  "34": {
+    "before": {
+      "output_reads": 3896,
+      "scored": 3567,
+      "correct": 3539,
+      "discordant": 28,
+      "concordance": 0.9921502663302495,
+      "read_phase_sets": 8,
+      "vcf_keys": 748,
+      "vcf_blocks": 5,
+      "span_n50": 847391
+    },
+    "after": {
+      "output_reads": 3896,
+      "scored": 3568,
+      "correct": 3539,
+      "discordant": 29,
+      "concordance": 0.991872197309417,
+      "read_phase_sets": 9,
+      "vcf_keys": 748,
+      "vcf_blocks": 5,
+      "span_n50": 847391
+    },
+    "transitions": {
+      "(True, True)": 3538,
+      "(True, False)": 1,
+      "(False, False)": 28,
+      "(None, True)": 1
+    },
+    "tags": 7,
+    "lost_keys": 0,
+    "new_keys": 0
+  },
+  "7": {
+    "before": {
+      "output_reads": 4461,
+      "scored": 4091,
+      "correct": 3926,
+      "discordant": 165,
+      "concordance": 0.9596675629430457,
+      "read_phase_sets": 18,
+      "vcf_keys": 690,
+      "vcf_blocks": 9,
+      "span_n50": 465511
+    },
+    "after": {
+      "output_reads": 4473,
+      "scored": 4128,
+      "correct": 3965,
+      "discordant": 163,
+      "concordance": 0.9605135658914729,
+      "read_phase_sets": 15,
+      "vcf_keys": 683,
+      "vcf_blocks": 9,
+      "span_n50": 465511
+    },
+    "transitions": {
+      "(True, True)": 3881,
+      "(False, True)": 34,
+      "(False, False)": 124,
+      "(True, None)": 9,
+      "(None, True)": 50,
+      "(True, False)": 36,
+      "(False, None)": 7,
+      "(None, False)": 3
+    },
+    "tags": 3207,
+    "lost_keys": 7,
+    "new_keys": 0
+  }
+}

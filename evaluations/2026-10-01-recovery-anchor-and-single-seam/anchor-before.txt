@@ -1,0 +1,35 @@
+Filters: [recovery-anchor]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_phase_predicates is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+recovery anchors require a complete heterozygous genotype
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:28
+...............................................................................
+
+src/test_phase_predicates.cpp:48: FAILED:
+  CHECK_FALSE( is_phase_set_anchor(site) )
+with expansion:
+  !true
+
+src/test_phase_predicates.cpp:50: FAILED:
+  CHECK_FALSE( is_phase_set_anchor(site) )
+with expansion:
+  !true
+
+src/test_phase_predicates.cpp:53: FAILED:
+  CHECK_FALSE( is_phase_set_anchor(site) )
+with expansion:
+  !true
+
+src/test_phase_predicates.cpp:55: FAILED:
+  CHECK_FALSE( is_phase_set_anchor(site) )
+with expansion:
+  !true
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 14 | 10 passed | 4 failed

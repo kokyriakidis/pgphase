@@ -1,0 +1,23 @@
+	Command being timed: "/home/kokyriakidis/micromamba/envs/bench-phasers/bin/hiphase --threads 8 --ignore-read-groups --reference test_data/chm13v2.0.chr20.renamed.fa --bam test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam --vcf /tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/input.vcf.gz --output-bam /tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.bam --output-vcf /tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.vcf.gz"
+	User time (seconds): 652.63
+	System time (seconds): 42.47
+	Percent of CPU this job got: 973%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:11.38
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 234740
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 22273495
+	Voluntary context switches: 908441
+	Involuntary context switches: 8047
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

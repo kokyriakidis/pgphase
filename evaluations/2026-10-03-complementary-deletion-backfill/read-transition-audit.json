@@ -1,0 +1,271 @@
+{
+  "transitions_by_start_mb": {
+    "3": {
+      "(None, True)": 8,
+      "(True, False)": 1,
+      "(False, None)": 1,
+      "(True, None)": 1
+    },
+    "4": {
+      "(None, True)": 15,
+      "(None, False)": 2
+    },
+    "5": {
+      "(None, True)": 24,
+      "(None, False)": 21
+    },
+    "6": {
+      "(True, None)": 3,
+      "(None, True)": 6,
+      "(None, False)": 4
+    },
+    "8": {
+      "(None, False)": 17,
+      "(None, True)": 18
+    },
+    "11": {
+      "(True, None)": 1,
+      "(False, True)": 1,
+      "(None, True)": 13
+    },
+    "13": {
+      "(None, True)": 8,
+      "(None, False)": 11,
+      "(False, None)": 5,
+      "(True, None)": 3,
+      "(True, False)": 1,
+      "(False, True)": 1
+    },
+    "15": {
+      "(True, False)": 1,
+      "(None, True)": 4,
+      "(True, None)": 2
+    },
+    "17": {
+      "(None, False)": 4,
+      "(None, True)": 1
+    },
+    "19": {
+      "(None, True)": 5
+    },
+    "21": {
+      "(True, None)": 2,
+      "(None, True)": 18,
+      "(None, False)": 15,
+      "(False, True)": 34,
+      "(True, False)": 35
+    },
+    "22": {
+      "(None, True)": 9,
+      "(None, False)": 9
+    },
+    "33": {
+      "(None, False)": 2,
+      "(None, True)": 1,
+      "(True, False)": 4,
+      "(False, True)": 3
+    },
+    "36": {
+      "(None, False)": 8,
+      "(None, True)": 7
+    },
+    "37": {
+      "(None, False)": 4,
+      "(None, True)": 3,
+      "(True, None)": 1
+    },
+    "38": {
+      "(None, True)": 2,
+      "(None, False)": 2
+    },
+    "40": {
+      "(None, True)": 4,
+      "(False, None)": 1
+    },
+    "45": {
+      "(None, True)": 2,
+      "(None, False)": 1,
+      "(True, False)": 1
+    },
+    "48": {
+      "(None, True)": 1,
+      "(None, False)": 2,
+      "(True, False)": 8,
+      "(False, None)": 3
+    },
+    "49": {
+      "(None, False)": 3,
+      "(None, True)": 3
+    },
+    "50": {
+      "(None, True)": 10,
+      "(False, True)": 4,
+      "(True, False)": 5
+    },
+    "52": {
+      "(None, True)": 7,
+      "(None, False)": 5
+    },
+    "55": {
+      "(None, False)": 1,
+      "(None, True)": 5
+    },
+    "56": {
+      "(None, True)": 13,
+      "(None, False)": 4
+    },
+    "57": {
+      "(None, True)": 20,
+      "(None, False)": 10
+    },
+    "61": {
+      "(True, None)": 3,
+      "(False, True)": 1
+    },
+    "64": {
+      "(None, True)": 2
+    }
+  },
+  "new_phase_assignments": {
+    "1002475250": {
+      "True": 3
+    },
+    "1003804997": {
+      "True": 2
+    },
+    "1003947822": {
+      "True": 3
+    },
+    "1004878943": {
+      "True": 21,
+      "False": 9
+    },
+    "1004570123": {
+      "False": 2,
+      "True": 4
+    },
+    "1005239261": {
+      "True": 14,
+      "False": 12
+    },
+    "1006582249": {
+      "True": 6,
+      "False": 4
+    },
+    "1008106315": {
+      "False": 17,
+      "True": 18
+    },
+    "1011447790": {
+      "True": 13
+    },
+    "1013619764": {
+      "True": 8,
+      "False": 11
+    },
+    "1015518376": {
+      "True": 1
+    },
+    "1015039543": {
+      "True": 3
+    },
+    "1017883198": {
+      "False": 4,
+      "True": 6
+    },
+    "1021249192": {
+      "True": 10,
+      "False": 8
+    },
+    "1021456826": {
+      "True": 7,
+      "False": 4
+    },
+    "1021487652": {
+      "True": 1,
+      "False": 3
+    },
+    "1021961092": {
+      "True": 9,
+      "False": 9
+    },
+    "1033229076": {
+      "False": 2
+    },
+    "1033819342": {
+      "True": 1
+    },
+    "1036069696": {
+      "False": 8,
+      "True": 7
+    },
+    "1037466820": {
+      "False": 4,
+      "True": 3
+    },
+    "1038151373": {
+      "True": 1
+    },
+    "1038132901": {
+      "True": 1,
+      "False": 1
+    },
+    "1038294482": {
+      "False": 1
+    },
+    "1040642556": {
+      "True": 4
+    },
+    "1045372437": {
+      "True": 2,
+      "False": 1
+    },
+    "1046875643": {
+      "True": 1
+    },
+    "1048147227": {
+      "False": 2
+    },
+    "1049062203": {
+      "False": 2,
+      "True": 2
+    },
+    "1049768952": {
+      "False": 1,
+      "True": 1
+    },
+    "50127297": {
+      "True": 4
+    },
+    "1050127297": {
+      "True": 6
+    },
+    "1052217752": {
+      "True": 7,
+      "False": 5
+    },
+    "1055612031": {
+      "False": 1
+    },
+    "1055824242": {
+      "True": 5
+    },
+    "1056447411": {
+      "True": 12,
+      "False": 4
+    },
+    "1056671109": {
+      "True": 1
+    },
+    "1057661366": {
+      "True": 12
+    },
+    "1057823769": {
+      "True": 8,
+      "False": 10
+    },
+    "1063896021": {
+      "True": 2
+    }
+  }
+}

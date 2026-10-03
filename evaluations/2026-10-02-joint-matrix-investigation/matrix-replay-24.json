@@ -1,0 +1,438 @@
+[
+  {
+    "mode": "centered",
+    "left_ps": 24103779,
+    "right_ps": 24517362,
+    "variable_scope": [
+      24103779,
+      24142287
+    ],
+    "extra_candidates": [
+      {
+        "index": 65,
+        "pos": 24109492,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 3,
+        "alt": ">115917086>115917093",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.2698412698412698,
+        "calls": {
+          "0": 46,
+          "1": 17
+        }
+      },
+      {
+        "index": 68,
+        "pos": 24119939,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 4,
+        "alt": ">115917550>115917555",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.29333333333333333,
+        "calls": {
+          "0": 53,
+          "1": 22
+        }
+      }
+    ],
+    "selected_extra": 0,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "uniform",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.007033,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.007093,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.00261,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 85
+      },
+      {
+        "false": 3452,
+        "true": 1
+      }
+    ],
+    "expected_flip": 1
+  },
+  {
+    "mode": "centered",
+    "left_ps": 24103779,
+    "right_ps": 24517362,
+    "variable_scope": [
+      24103779,
+      24142287
+    ],
+    "extra_candidates": [
+      {
+        "index": 65,
+        "pos": 24109492,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 3,
+        "alt": ">115917086>115917093",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.2698412698412698,
+        "calls": {
+          "0": 46,
+          "1": 17
+        }
+      },
+      {
+        "index": 68,
+        "pos": 24119939,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 4,
+        "alt": ">115917550>115917555",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.29333333333333333,
+        "calls": {
+          "0": 53,
+          "1": 22
+        }
+      }
+    ],
+    "selected_extra": 0,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "snp_priority",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.003874,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.00293,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.00296,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 85
+      },
+      {
+        "false": 3452,
+        "true": 1
+      }
+    ],
+    "expected_flip": 1
+  },
+  {
+    "mode": "all",
+    "left_ps": 24103779,
+    "right_ps": 24517362,
+    "variable_scope": [
+      24103779,
+      24142287
+    ],
+    "extra_candidates": [
+      {
+        "index": 65,
+        "pos": 24109492,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 3,
+        "alt": ">115917086>115917093",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.2698412698412698,
+        "calls": {
+          "0": 46,
+          "1": 17
+        }
+      },
+      {
+        "index": 68,
+        "pos": 24119939,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 4,
+        "alt": ">115917550>115917555",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.29333333333333333,
+        "calls": {
+          "0": 53,
+          "1": 22
+        }
+      }
+    ],
+    "selected_extra": 2,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "uniform",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.00613,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.003411,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002712,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 85
+      },
+      {
+        "false": 3452,
+        "true": 1
+      }
+    ],
+    "expected_flip": 1
+  },
+  {
+    "mode": "all",
+    "left_ps": 24103779,
+    "right_ps": 24517362,
+    "variable_scope": [
+      24103779,
+      24142287
+    ],
+    "extra_candidates": [
+      {
+        "index": 65,
+        "pos": 24109492,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 3,
+        "alt": ">115917086>115917093",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.2698412698412698,
+        "calls": {
+          "0": 46,
+          "1": 17
+        }
+      },
+      {
+        "index": 68,
+        "pos": 24119939,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 4,
+        "alt": ">115917550>115917555",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.29333333333333333,
+        "calls": {
+          "0": 53,
+          "1": 22
+        }
+      }
+    ],
+    "selected_extra": 2,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "snp_priority",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002958,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002806,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002518,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 85
+      },
+      {
+        "false": 3452,
+        "true": 1
+      }
+    ],
+    "expected_flip": 1
+  }
+]

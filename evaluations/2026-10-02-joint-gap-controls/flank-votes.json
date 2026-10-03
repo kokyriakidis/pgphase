@@ -1,0 +1,28 @@
+[
+  {
+    "left": 7264321,
+    "right": 7280346,
+    "local_hiphase_pg_calls_phase_set": 7206650,
+    "disjoint_flank_parental_votes": [
+      {
+        "true": 42
+      },
+      {
+        "true": 52
+      }
+    ]
+  },
+  {
+    "left": 24121713,
+    "right": 24131707,
+    "local_hiphase_pg_calls_phase_set": 24103779,
+    "disjoint_flank_parental_votes": [
+      {
+        "true": 29
+      },
+      {
+        "true": 45
+      }
+    ]
+  }
+]

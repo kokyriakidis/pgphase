@@ -1,0 +1,29 @@
+[
+  {
+    "path": "/tmp/pgphase-gap-next27/before-20/phased.bam",
+    "phased": 110,
+    "correct": 109,
+    "discordant": 1,
+    "blocks": 4,
+    "dominant_correct": 65,
+    "overlap_reads": 111
+  },
+  {
+    "path": "/tmp/pgphase-gap-next27/supplement3-20/phased.bam",
+    "phased": 110,
+    "correct": 109,
+    "discordant": 1,
+    "blocks": 2,
+    "dominant_correct": 78,
+    "overlap_reads": 111
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "phased": 109,
+    "correct": 107,
+    "discordant": 2,
+    "blocks": 1,
+    "dominant_correct": 107,
+    "overlap_reads": 111
+  }
+]

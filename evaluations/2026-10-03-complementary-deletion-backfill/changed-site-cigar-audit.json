@@ -1,0 +1,72 @@
+{
+  "50562679": [
+    {
+      "parent": "MATERNAL",
+      "base": "C",
+      "following_insertion": "",
+      "reads": 25
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "ACACACACAT",
+      "reads": 22
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "T",
+      "following_insertion": "",
+      "reads": 2
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "ACACACAT",
+      "reads": 6
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "AAT",
+      "reads": 1
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "ACACACACACAT",
+      "reads": 1
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "",
+      "reads": 1
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "C",
+      "following_insertion": "ACACAT",
+      "reads": 1
+    }
+  ],
+  "50719983": [
+    {
+      "parent": "PATERNAL",
+      "base": "T",
+      "following_insertion": "",
+      "reads": 28
+    },
+    {
+      "parent": "MATERNAL",
+      "base": "T",
+      "following_insertion": "",
+      "reads": 20
+    },
+    {
+      "parent": "PATERNAL",
+      "base": "A",
+      "following_insertion": "",
+      "reads": 1
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "path": "test_data/tmp_gap_next31/before-17/phased.bam",
+    "phased": 136,
+    "correct": 109,
+    "discordant": 27,
+    "blocks": 1,
+    "dominant_correct": 109,
+    "overlap_reads": 154
+  },
+  {
+    "path": "test_data/tmp_gap_next31/certified-17.bam",
+    "phased": 136,
+    "correct": 109,
+    "discordant": 27,
+    "blocks": 1,
+    "dominant_correct": 109,
+    "overlap_reads": 154
+  }
+]

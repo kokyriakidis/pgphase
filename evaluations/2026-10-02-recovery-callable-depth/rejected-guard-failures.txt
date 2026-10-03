@@ -1,0 +1,98 @@
+Filters: repeat insertion calls retain equivalent ALT beyond the old search bound
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_phase_predicates-rejected is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+repeat insertion calls retain equivalent ALT beyond the old search bound
+  supplementary insertion calls preserve the discovery genotype census
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:1921
+...............................................................................
+
+src/test_phase_predicates.cpp:1935: FAILED:
+  CHECK( counts.alle_covs == std::vector<int>{3, 2} )
+with expansion:
+  { 0, 1 } == { 3, 2 }
+
+src/test_phase_predicates.cpp:1936: FAILED:
+  CHECK( counts.total_cov == 5 )
+with expansion:
+  1 == 5
+
+src/test_phase_predicates.cpp:1937: FAILED:
+  CHECK( counts.ref_cov == 3 )
+with expansion:
+  0 == 3
+
+src/test_phase_predicates.cpp:1938: FAILED:
+  CHECK( counts.alt_cov == 2 )
+with expansion:
+  1 == 2
+
+src/test_phase_predicates.cpp:1939: FAILED:
+  CHECK( counts.allele_fraction == Approx(0.4) )
+with expansion:
+  1.0 == Approx( 0.4 )
+
+src/test_phase_predicates.cpp:1940: FAILED:
+  CHECK( counts.forward_ref == 2 )
+with expansion:
+  0 == 2
+
+src/test_phase_predicates.cpp:1941: FAILED:
+  CHECK( counts.reverse_ref == 1 )
+with expansion:
+  0 == 1
+
+src/test_phase_predicates.cpp:1943: FAILED:
+  CHECK( counts.reverse_alt == 1 )
+with expansion:
+  0 == 1
+
+src/test_phase_predicates.cpp:1948: FAILED:
+  CHECK( counts.alle_covs == std::vector<int>{3, 2} )
+with expansion:
+  { 0, 1 } == { 3, 2 }
+
+src/test_phase_predicates.cpp:1949: FAILED:
+  CHECK( counts.total_cov == 5 )
+with expansion:
+  1 == 5
+
+-------------------------------------------------------------------------------
+repeat insertion calls retain equivalent ALT beyond the old search bound
+  supplementary SNP calls do not reclassify the source genotype
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:1951
+...............................................................................
+
+src/test_phase_predicates.cpp:1965: FAILED:
+  CHECK( snp.counts.alle_covs == std::vector<int>{2, 3} )
+with expansion:
+  { 1, 0 } == { 2, 3 }
+
+src/test_phase_predicates.cpp:1966: FAILED:
+  CHECK( snp.counts.total_cov == 5 )
+with expansion:
+  1 == 5
+
+src/test_phase_predicates.cpp:1967: FAILED:
+  CHECK( snp.counts.ref_cov == 2 )
+with expansion:
+  1 == 2
+
+src/test_phase_predicates.cpp:1968: FAILED:
+  CHECK( snp.counts.alt_cov == 3 )
+with expansion:
+  0 == 3
+
+src/test_phase_predicates.cpp:1969: FAILED:
+  CHECK( snp.counts.allele_fraction == Approx(0.6) )
+with expansion:
+  0.0 == Approx( 0.6 )
+
+===============================================================================
+test cases:   1 |   0 passed |  1 failed
+assertions: 171 | 156 passed | 15 failed

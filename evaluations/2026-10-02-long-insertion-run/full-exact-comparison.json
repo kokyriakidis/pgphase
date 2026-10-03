@@ -1,0 +1,15 @@
+{
+  "unchanged_read_tags": 256601,
+  "unchanged_vcf_keys": 63492,
+  "changed_calls": [
+    {
+      "key": [
+        1196894,
+        "A",
+        "ACCAGCCTGGGCAACATGGTGAAACTCTGTCTCTATAAATTAGCTGGATGTGGTGGTGTGACCCTGGAGTCCCAACTACTTGAGAGGCTGAGGTGGGAGGATTGCTTGAGCCCAGGAGGTGGAGGTTGTGGTGAGCCATGATCACACCACTGTACT"
+      ],
+      "before": "0|1:77:36,41:0.532:60:1450106",
+      "after": "0|1:77:36,41:0.532:60:1142089"
+    }
+  ]
+}

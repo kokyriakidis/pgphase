@@ -1,0 +1,36 @@
+Filters: phased MSA retains*
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_phase_predicates is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+phased MSA retains excluded partial reads without inventing coverage
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:154
+...............................................................................
+
+src/test_phase_predicates.cpp:192: FAILED:
+  REQUIRE( unassigned.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+phased MSA retains excluded partial reads without inventing coverage
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:154
+...............................................................................
+
+src/test_phase_predicates.cpp:196: FAILED:
+  CHECK( aln.query_beg > 0 )
+with expansion:
+  0 > 0
+
+src/test_phase_predicates.cpp:196: FAILED:
+  CHECK( aln.query_beg > 0 )
+with expansion:
+  0 > 0
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 17 | 14 passed | 3 failed

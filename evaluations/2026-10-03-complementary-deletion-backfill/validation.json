@@ -1,0 +1,17 @@
+{
+  "binary_sha256": "094186bd72b9a2b96cc888519d7e326ff205b8ef63d74d519554a0245beed6cc",
+  "native_requests": 106,
+  "native_precompute_seconds": 404.69009161097347,
+  "full_seconds": 289.5670710899867,
+  "unit_binaries": "all pass",
+  "predicate_assertions": 1325,
+  "predicate_cases": 45,
+  "window_assertions": 7155,
+  "window_cases": 72,
+  "owning_assertions": 27,
+  "owning_before_failed_assertions": 5,
+  "pair_before_failed_assertions": 6,
+  "full_before": "test_data/tmp_gap_fix41/full-final",
+  "full_after": "test_data/tmp_gap_fix42/full-narrow",
+  "truth": "test_data/derived/chr20_truth_hap.tsv"
+}

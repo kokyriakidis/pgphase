@@ -1,0 +1,72 @@
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+chr20 gap windows
+  graph / window 4766928-4792960
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:1482
+...............................................................................
+
+src/test_gap_windows.cpp:946: FAILED:
+  CHECK( got.concordance() >= want.min_concordance )
+with expansion:
+  0.9775510204 >= 0.98
+with messages:
+  window 4766928-4792960 (26032 bp), arm 'graph'; best competitor hiphase at
+  88%
+  measured: spans=yes in_gap_hets=7 blocks=1 tagged=490 scored=490 concordance=
+  0.977551 discordant=11 separated=0.64 (112/175)
+  gap diagnosis: thinnest interior read coverage 60 at 4773168; phased hets
+  inside the gap 7; distinct phase sets touching the window 1 -- CONNECTED (one
+  phase set reaches both boundary positions)
+  arm 'graph' window 4766928: positions putting two alleles on one haplotype =
+  0
+  clean hets inside the gap left without a phase set: 0
+  required sites: 0 not retrieved, 0 retrieved but unused
+
+-------------------------------------------------------------------------------
+physical bridges survive their owning graph chunks
+  chr20:3573979
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:2651
+...............................................................................
+
+src/test_gap_windows.cpp:2771: FAILED:
+  CHECK( earlier_reads.concordance() >= 0.98 )
+with expansion:
+  0.9779792746 >= 0.98
+
+src/test_gap_windows.cpp:2797: FAILED:
+  CHECK( reads.concordance() >= bridge.min_chunk_concordance )
+with expansion:
+  0.9779792746 >= 0.98
+
+-------------------------------------------------------------------------------
+focused recovery retains a supported partial path inside a graph seam
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4452
+...............................................................................
+
+src/test_gap_windows.cpp:4501: FAILED:
+  CHECK( chunk_reads.discordant() <= 153 )
+with expansion:
+  155 <= 153
+
+-------------------------------------------------------------------------------
+padded graph repeats retain the verified BAM genotype
+  owning chunk beginning 41000001
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4869
+...............................................................................
+
+src/test_gap_windows.cpp:4901: FAILED:
+  CHECK( owning.scored >= replay.scored )
+with expansion:
+  4146 (0x1032) >= 4154 (0x103a)
+
+===============================================================================
+test cases:   69 |   65 passed | 4 failed
+assertions: 7038 | 7033 passed | 5 failed

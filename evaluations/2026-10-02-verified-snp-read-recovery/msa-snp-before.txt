@@ -1,0 +1,1 @@
+FAIL: physical SNP refresh: independently verified MSA SNP corrects indel HP

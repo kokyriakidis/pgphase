@@ -1,0 +1,23 @@
+[
+  {
+    "path": "test_data/tmp_gap_next30/owning-17.bam",
+    "scored": 8290,
+    "correct": 8229,
+    "discordant": 61,
+    "concordance": 0.9926417370325694
+  },
+  {
+    "path": "/tmp/pgphase-window-tests-next30-four/repeat_deletion_parental_orientation_4m/w4866153-4874129/phased.bam",
+    "scored": 3870,
+    "correct": 3844,
+    "discordant": 26,
+    "concordance": 0.99328165374677
+  },
+  {
+    "path": "/tmp/pgphase-window-tests-next30-clean/stitch_single_molecule_3573979/w3050001-3950000/phased.bam",
+    "scored": 3847,
+    "correct": 3769,
+    "discordant": 78,
+    "concordance": 0.9797244606186639
+  }
+]

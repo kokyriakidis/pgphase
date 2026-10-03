@@ -1,0 +1,8 @@
+g++ -O3 -std=c++17 -Wall -Wextra -MMD -MP -I/home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib -I/home/kokyriakidis/Downloads/pgphase/third_party/abPOA/include -I/home/kokyriakidis/Downloads/pgphase/third_party/edlib/edlib/include -c src/align.cpp -o src/align.o
+In file included from /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/include/abpoa.h:5,
+                 from src/align.cpp:34:
+/home/kokyriakidis/Downloads/pgphase/third_party/abPOA/include/simd_instruction.h:430:14: warning: ‘void* SIMDMalloc(size_t, size_t)’ defined but not used [-Wunused-function]
+  430 | static void *SIMDMalloc(size_t size, size_t align) {
+      |              ^~~~~~~~~~
+g++ -O3 -std=c++17 -Wall -Wextra -MMD -MP -o pgphase src/main.o src/collect_pipeline.o src/build_catalog.o src/graph_collect.o src/bam_digar.o src/noise_filter.o src/collect_var.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/align.o src/collect_bam_output.o src/collect_output.o src/graph_bam_adapter.o src/graph_sites.o src/graph_query.o src/sdust.o src/cgranges.o src/kalloc.o src/edlib.o /home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib/lib/libwfa.a /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/lib/libabpoa.a src/gbz_ffi/target/release/libpgphase_gbz_ffi.a -lhts -lm -lz -lpthread -ldl -lrt
+g++ -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o test_phase_predicates src/test_phase_predicates.cpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o src/edlib.o /home/kokyriakidis/Downloads/pgphase/third_party/WFA2-lib/lib/libwfa.a /home/kokyriakidis/Downloads/pgphase/third_party/abPOA/lib/libabpoa.a -lhts -lm -lz -lpthread

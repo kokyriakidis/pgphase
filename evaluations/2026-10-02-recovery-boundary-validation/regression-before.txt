@@ -1,0 +1,50 @@
+Filters: [reference-anchor]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+a REF-only physical SNP cannot remain a graph seam anchor
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4422
+...............................................................................
+
+src/test_gap_windows.cpp:4462: FAILED:
+  CHECK( left.second == right.second )
+with expansion:
+  "21148338" == "21172501"
+
+src/test_gap_windows.cpp:4465: FAILED:
+  CHECK( unsupported.first == "0/1" )
+with expansion:
+  "0|1" == "0/1"
+
+src/test_gap_windows.cpp:4466: FAILED:
+  CHECK( unsupported.second.empty() )
+with expansion:
+  false
+
+src/test_gap_windows.cpp:4473: FAILED:
+  CHECK( vcf_outcome.spans )
+with expansion:
+  false
+
+src/test_gap_windows.cpp:4479: FAILED:
+  CHECK( flanks.correct >= 3115 )
+with expansion:
+  3110 (0xc26) >= 3115 (0xc2b)
+
+src/test_gap_windows.cpp:4489: FAILED:
+  CHECK( reads.scored >= 166 )
+with expansion:
+  160 >= 166
+
+src/test_gap_windows.cpp:4490: FAILED:
+  CHECK( reads.correct >= 151 )
+with expansion:
+  146 >= 151
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 26 | 19 passed | 7 failed

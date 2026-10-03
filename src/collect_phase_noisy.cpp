@@ -1037,51 +1037,26 @@ int bam_equivalent_deletion_allele(
         }, min_baseq, nullptr);
 }
 
-static int bam_recovery_deletion_allele(
-        const bam1_t* read, const CandidateVariant& deletion,
-        const PhasingChunk& chunk, int min_baseq, int* alt_qi) {
-    const int exact = bam_exact_indel_allele(read, deletion, min_baseq, alt_qi);
-    // Source zero is an ALT-absence contrast, including complementary MSA
-    // alleles. Preserve every callable exact observation and recover only a
-    // missing, independently verified ALT at the unchanged row.
-    if (exact >= 0) return exact;
-    // A one-versus-other MSA locus needs its original multi-allele gauge.
-    // Certifying one shifted deletion alone cannot orient a new read there.
-    if (std::any_of(chunk.candidates.begin(), chunk.candidates.end(),
-                    [&deletion](const CandidateVariant& other) {
-                        return other.msa_verified &&
-                            other.key.type != VariantType::Snp &&
-                            other.key.pos == deletion.key.pos &&
-                            exact_comp_var_site(&other.key, &deletion.key) != 0;
-                    }))
-        return -1;
-    constexpr int kMinRepairMapq = 30;
+// Edit equivalence certifies the allele, not the source block's orientation.
+// Reuse the deletion repair's independent physical SNP gauge for insertions.
+static std::optional<bool> physical_snp_source_alt_gauge(
+        const bam1_t* read, const CandidateVariant& variant,
+        const PhasingChunk& chunk, int min_baseq) {
     constexpr int kMinRepairBaseq = 30;
-    constexpr int kUnknownMapq = 255;
-    if (read->core.qual < kMinRepairMapq || read->core.qual == kUnknownMapq)
-        return -1;
-    const int shifted = equivalent_deletion_allele(read, deletion,
-        [&chunk](hts_pos_t pos) {
-            const hts_pos_t offset = pos - chunk.ref_beg;
-            if (offset < 0 || static_cast<size_t>(offset) >= chunk.ref_seq.size())
-                return 'N';
-            return kNt4Bases[base_to_nt4(chunk.ref_seq[static_cast<size_t>(offset)])];
-        }, std::max(min_baseq, kMinRepairBaseq), alt_qi);
-    if (shifted != 1 || deletion.phase_set <= 0 ||
-        deletion.hap_to_cons_alle[1] < 0 || deletion.hap_to_cons_alle[1] > 1 ||
-        deletion.hap_to_cons_alle[2] != 1 - deletion.hap_to_cons_alle[1])
-        return -1;
     constexpr hts_pos_t kMinCorroboratingSnpSpacing = 100;
-    const int deletion_hap = deletion.hap_to_cons_alle[1] == 1 ? 1 : 2;
+    if (!is_phase_set_anchor(variant) || variant.hap_to_cons_alle[1] > 1 ||
+        variant.hap_to_cons_alle[2] > 1)
+        return std::nullopt;
+    const int variant_hap = variant.hap_to_cons_alle[1] == 1 ? 1 : 2;
     bool corroborated = false;
     for (const CandidateVariant& snp : chunk.candidates) {
-        if (snp.phase_set != deletion.phase_set ||
+        if (snp.phase_set != variant.phase_set ||
             snp.counts.category != VariantCategory::CleanHetSnp ||
             snp.key.type != VariantType::Snp || snp.key.ref_len != 1 ||
             snp.key.alt.size() != 1 || snp.ref_base > 3 ||
             snp.hap_to_cons_alle[1] < 0 || snp.hap_to_cons_alle[1] > 1 ||
             snp.hap_to_cons_alle[2] != 1 - snp.hap_to_cons_alle[1] ||
-            std::llabs(snp.key.pos - deletion.key.pos) < kMinCorroboratingSnpSpacing)
+            std::llabs(snp.key.pos - variant.key.pos) < kMinCorroboratingSnpSpacing)
             continue;
         int qi = -1;
         if (!bam_aligned_base_quality(read, snp.key.pos,
@@ -1092,12 +1067,53 @@ static int bam_recovery_deletion_allele(
             base == seq_nt16_table[static_cast<unsigned char>(snp.key.alt[0])] ? 1 : -1;
         if (allele < 0) continue;
         const int snp_hap = allele == snp.hap_to_cons_alle[1] ? 1 : 2;
-        if (snp_hap != deletion_hap) return -1;
+        if (snp_hap != variant_hap) return false;
         corroborated = true;
     }
+    return corroborated ? std::optional<bool>{true} : std::nullopt;
+}
+
+static int bam_recovery_deletion_allele(
+        const bam1_t* read, const CandidateVariant& deletion,
+        const PhasingChunk& chunk, int min_baseq, int* alt_qi) {
+    const int exact = bam_exact_indel_allele(read, deletion, min_baseq, alt_qi);
+    // Exact ALT already identifies this edit. Exact-position REF can still
+    // contain the same deletion shifted beyond this row's footprint.
+    if (exact == 1) return exact;
+    // A one-versus-other MSA locus needs its original multi-allele gauge.
+    // Certifying one shifted deletion alone cannot orient a new read there.
+    if (std::any_of(chunk.candidates.begin(), chunk.candidates.end(),
+                    [&deletion](const CandidateVariant& other) {
+                        return other.msa_verified &&
+                            other.key.type != VariantType::Snp &&
+                            other.key.pos == deletion.key.pos &&
+                            exact_comp_var_site(&other.key, &deletion.key) != 0;
+                    }))
+        return exact;
+    constexpr int kMinRepairMapq = 30;
+    constexpr int kMinRepairBaseq = 30;
+    constexpr int kUnknownMapq = 255;
+    if (read->core.qual < kMinRepairMapq || read->core.qual == kUnknownMapq)
+        return exact;
+    const int shifted = equivalent_deletion_allele(read, deletion,
+        [&chunk](hts_pos_t pos) {
+            const hts_pos_t offset = pos - chunk.ref_beg;
+            if (offset < 0 || static_cast<size_t>(offset) >= chunk.ref_seq.size())
+                return 'N';
+            return kNt4Bases[base_to_nt4(chunk.ref_seq[static_cast<size_t>(offset)])];
+        }, std::max(min_baseq, kMinRepairBaseq), alt_qi);
+    if (shifted != 1 || deletion.phase_set <= 0 ||
+        deletion.hap_to_cons_alle[1] < 0 || deletion.hap_to_cons_alle[1] > 1 ||
+        deletion.hap_to_cons_alle[2] != 1 - deletion.hap_to_cons_alle[1])
+        return exact;
     // Allele certainty alone cannot orient a newly observed repeat allele.
     // Require a separate clean SNP on this molecule in the same source gauge.
-    return corroborated ? 1 : -1;
+    const std::optional<bool> gauge =
+        physical_snp_source_alt_gauge(read, deletion, chunk, min_baseq);
+    // Without a physical SNP, zero retains the MSA ALT-absence contrast.
+    // A contradictory SNP makes this new call unknown rather than literal REF.
+    if (!gauge) return exact;
+    return *gauge ? 1 : -1;
 }
 
 // Keep the candidate coordinates: equivalence is an allele observation,
@@ -1198,6 +1214,28 @@ std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
     return insertion_equivalent_positions_impl(pos, alt, [&](hts_pos_t base) {
         return reference.base(tid, base, header);
     });
+}
+
+bool insertion_edits_are_equivalent(
+        hts_pos_t left_pos, std::string_view left_alt,
+        hts_pos_t right_pos, std::string_view right_alt,
+        std::string_view reference_between) {
+    if (left_pos < 1 || right_pos < left_pos || left_alt.empty() ||
+        left_alt.size() != right_alt.size() ||
+        reference_between.size() != static_cast<size_t>(right_pos - left_pos))
+        return false;
+    const size_t shift = reference_between.size();
+    const size_t length = left_alt.size();
+    // Compare ALT + crossed background with crossed background + ALT.
+    // No alignment, motif search limit or temporary edited strings are needed.
+    for (size_t i = 0; i < shift + length; ++i) {
+        const char left = i < length ? left_alt[i] : reference_between[i - length];
+        const char right = i < shift ? reference_between[i] : right_alt[i - shift];
+        if (base_to_nt4(left) > 3 || base_to_nt4(right) > 3 ||
+            base_to_nt4(left) != base_to_nt4(right))
+            return false;
+    }
+    return true;
 }
 
 // Certify a missing ALT by its reference edit, not its CIGAR coordinate.
@@ -1323,6 +1361,87 @@ int backfill_shifted_msa_insertions(PhasingChunk& chunk, const Options& opts) {
     return added;
 }
 
+int backfill_complementary_msa_deletions(PhasingChunk& chunk, const Options& opts,
+                                        hts_pos_t beg, hts_pos_t end) {
+    // A homopolymer MSA row is an ALT-versus-other contrast, so a literal
+    // CIGAR REF call alone cannot restore its allele. Two complementary rows
+    // in one source block define the complete diploid contrast: a verified
+    // ALT of exactly one row also proves ALT absence at the other row.
+    std::map<hts_pos_t, std::vector<int>> deletion_loci;
+    for (size_t vi = 0; vi < chunk.candidates.size(); ++vi) {
+        const CandidateVariant& var = chunk.candidates[vi];
+        const hts_pos_t pos = var.key.sort_pos();
+        if (pos >= beg && pos <= end && var.msa_verified &&
+            var.key.type == VariantType::Deletion)
+            deletion_loci[var.key.pos].push_back(static_cast<int>(vi));
+    }
+    std::vector<std::pair<int, int>> deletion_pairs;
+    for (const auto& [pos, locus] : deletion_loci) {
+        (void)pos;
+        if (locus.size() != 2) continue;
+        const CandidateVariant& first = chunk.candidates[locus[0]];
+        const CandidateVariant& second = chunk.candidates[locus[1]];
+        const auto eligible = [](const CandidateVariant& var) {
+            return var.key.ref_len > 0 && var.key.ref_len <= kMaxEquivalentDeletionLength &&
+                var.msa_insertion_alts.empty() && var.counts.n_uniq_alles == 2 &&
+                var.counts.category == VariantCategory::NoisyCandHet &&
+                var.lcd_var_i_to_cate == kCandNoisyCandHet &&
+                var.phase_set > 0 && var.hap_to_cons_alle[1] >= 0 &&
+                var.hap_to_cons_alle[1] <= 1 &&
+                var.hap_to_cons_alle[2] == 1 - var.hap_to_cons_alle[1];
+        };
+        if (eligible(first) && eligible(second) &&
+            first.key.ref_len != second.key.ref_len &&
+            first.phase_set == second.phase_set &&
+            first.hap_to_cons_alle[1] == second.hap_to_cons_alle[2])
+            deletion_pairs.emplace_back(locus[0], locus[1]);
+    }
+    if (deletion_pairs.empty()) return 0;
+    int added = 0;
+    for (size_t read_i = 0; read_i < chunk.reads.size(); ++read_i) {
+        const auto& read = chunk.reads[read_i];
+        if (read.is_skipped || !read.alignment || read.mapq < opts.min_mapq) continue;
+        const bam1_t* bam = read.alignment.get();
+        constexpr int kMinPairMapq = 30;
+        constexpr int kMinPairBaseq = 30;
+        constexpr int kUnknownMapq = 255;
+        if (read.mapq >= kMinPairMapq && read.mapq != kUnknownMapq) {
+            ReadVariantProfile& profile = chunk.read_var_profile[read_i];
+            const auto unknown = [&](int vi) {
+                return vi < profile.start_var_idx || vi > profile.end_var_idx ||
+                    profile.alleles[static_cast<size_t>(vi - profile.start_var_idx)] < 0;
+            };
+            const auto reference_base = [&chunk](hts_pos_t pos) {
+                const hts_pos_t offset = pos - chunk.ref_beg;
+                if (offset < 0 || static_cast<size_t>(offset) >= chunk.ref_seq.size())
+                    return 'N';
+                return kNt4Bases[base_to_nt4(chunk.ref_seq[static_cast<size_t>(offset)])];
+            };
+            for (const auto& [first, second] : deletion_pairs) {
+                // Existing MSA projections own their gauge. Only restore a
+                // jointly absent pair; never overwrite or complete one call
+                // using a different physical observation path.
+                if (!unknown(first) || !unknown(second)) continue;
+                int first_qi = -1;
+                int second_qi = -1;
+                const int baseq = std::max(opts.min_bq, kMinPairBaseq);
+                const int first_call = equivalent_deletion_allele(
+                    bam, chunk.candidates[first], reference_base, baseq, &first_qi);
+                const int second_call = equivalent_deletion_allele(
+                    bam, chunk.candidates[second], reference_base, baseq, &second_qi);
+                if ((first_call == 1) == (second_call == 1)) continue;
+                const bool first_alt = first_call == 1;
+                const int qi = first_alt ? first_qi : second_qi;
+                update_read_var_profile_with_allele(first, first_alt ? 1 : 0, qi, profile);
+                update_read_var_profile_with_allele(second, first_alt ? 0 : 1, qi, profile);
+                added += 2;
+            }
+        }
+    }
+    if (added > 0) rebuild_read_variant_index(chunk);
+    return added;
+}
+
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end) {
     std::vector<int> sites;
@@ -1387,16 +1506,59 @@ int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
             // Exact CIGARs can miss a deletion at another repeat placement.
             // Repair only an independently certified missing ALT; callable
             // binary MSA contrasts retain their original source gauge.
-            const int allele = var.key.type == VariantType::Deletion &&
+            int allele = var.key.type == VariantType::Deletion &&
                                var.key.ref_len <= kMaxEquivalentDeletionLength
                 ? bam_recovery_deletion_allele(bam, var, chunk, opts.min_bq, &qi)
                 : bam_exact_indel_allele(bam, var, opts.min_bq, &qi);
+            // An exact-coordinate REF call can be the same insertion shifted
+            // elsewhere in its repeat. Certify the unchanged edit before
+            // adding that missing observation; existing MSA contrasts above
+            // remain authoritative, including co-located complementary rows.
+            constexpr int kMinShiftedInsertionMapq = 30;
+            constexpr int kMinShiftedInsertionBaseq = 30;
+            constexpr int kUnknownMapq = 255;
+            if (var.key.type == VariantType::Insertion && allele != 1 &&
+                read.mapq >= kMinShiftedInsertionMapq && read.mapq != kUnknownMapq) {
+                const int shifted_qi = bam_shifted_repeat_insertion_query_index(
+                    bam, var, chunk, std::max(opts.min_bq, kMinShiftedInsertionBaseq));
+                if (shifted_qi >= 0) {
+                    const std::optional<bool> gauge =
+                        physical_snp_source_alt_gauge(bam, var, chunk, opts.min_bq);
+                    if (gauge.value_or(false)) {
+                        allele = 1;
+                    } else if (gauge) {
+                        // Separate complementary rows use ALT absence rather
+                        // than literal REF. Preserve that source contrast until
+                        // a joint call certifies both rows' allele gauge.
+                        const bool complementary = std::any_of(
+                            sites.begin(), sites.end(), [&](int other_i) {
+                                const CandidateVariant& other = chunk.candidates[other_i];
+                                return other.key.type == VariantType::Insertion &&
+                                    other.key.pos == var.key.pos && other.key.alt != var.key.alt &&
+                                    other.phase_set == var.phase_set &&
+                                    is_phase_set_anchor(var) && is_phase_set_anchor(other) &&
+                                    var.hap_to_cons_alle[1] >= 0 && var.hap_to_cons_alle[1] <= 1 &&
+                                    var.hap_to_cons_alle[2] == 1 - var.hap_to_cons_alle[1] &&
+                                    other.hap_to_cons_alle[1] == var.hap_to_cons_alle[2] &&
+                                    other.hap_to_cons_alle[2] == var.hap_to_cons_alle[1];
+                            });
+                        // For an unpaired binary row the exact-anchor REF
+                        // lookup missed its ALT. Contradictory clean SNPs mean
+                        // unknown, not evidence for the opposite allele.
+                        if (!complementary) allele = -1;
+                    }
+                    qi = shifted_qi;
+                }
+            }
             if (allele < 0) continue;
             update_read_var_profile_with_allele(vi, allele, qi, profile);
             ++added;
         }
     }
     if (added == 0) return 0;
+    // Post-solve CIGAR calls extend linkage evidence, not the discovery
+    // genotype. Preserve that census: re-genotyping from this supplementary
+    // projection can change retry admission and the existing block gauge.
     rebuild_read_variant_index(chunk);
     return added;
 }
@@ -2062,6 +2224,18 @@ static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key
     const std::string alt = key.type == VariantType::Deletion ? std::string() : key.alt;
     if (site.query == site.ref) return 0;
     if (site.query == alt) return 1;
+    // Separate insertion rows use zero for absence of their own ALT. When
+    // both haplotypes insert, literal REF cannot represent the other allele.
+    // Project only an exact, complete diploid contrast with common flanks;
+    // unrelated insertion sequences retain their unknown allele identity.
+    if (key.type == VariantType::Insertion &&
+        context[0].covered && context[1].covered &&
+        context[0].ref == site.ref && context[1].ref == site.ref &&
+        context[0].flank_query == context[1].flank_query &&
+        ((context[0].query == alt) != (context[1].query == alt))) {
+        const auto& other = context[context[0].query == alt ? 1 : 0];
+        if (site.query == other.query) return 0;
+    }
     // The non-deleted haplotype may carry a verified substitution within the
     // deletion footprint. Require its exact consensus sequence, not just length.
     if (key.type == VariantType::Deletion && site.query.size() == site.ref.size())
@@ -2130,6 +2304,8 @@ static int local_allele_distance(const std::string& first, const std::string& se
     return edits + (i < first.size() || j < second.size());
 }
 
+static constexpr int kMaxLocalAlleleEdits = 1;
+
 static int call_local_msa_allele(const AlnStr& read, const VariantKey& key,
                                      hts_pos_t ref_beg, const std::array<AlnStr, 2>& consensuses,
                                      const std::vector<std::string>* insertion_alts = nullptr) {
@@ -2161,7 +2337,6 @@ static int call_local_msa_allele(const AlnStr& read, const VariantKey& key,
     // Permit one local sequencing error only when the two fixed haplotypes
     // differ solely at this site and one allele is strictly closer. Cluster
     // membership itself never supplies the answer.
-    constexpr int kMaxLocalAlleleEdits = 1;
     return distances[best] <= kMaxLocalAlleleEdits ? alleles[best] : -1;
 }
 
@@ -2400,8 +2575,15 @@ void restrict_msa_observations_to_read_coverage(
     for (CandidateVariant& var : vars) update_variant_depth_fields(var);
 }
 
-int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
-                        const VariantKeySet* site_whitelist) {
+struct DeferredMsaObservation {
+    VariantKey key;
+    int read_id;
+    int allele;
+};
+
+static int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                        const VariantKeySet* site_whitelist,
+                        std::vector<DeferredMsaObservation>* deferred) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
     // Enter with noisy_reg_beg/end from the interval tree.
     hts_pos_t noisy_reg_beg = reg.beg;
@@ -2443,12 +2625,15 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     std::array<std::vector<int>, 2> clu_read_ids{};
     std::array<std::vector<AlnStr>, 2> aln_strs{};
     std::vector<UnassignedMsaRead> unassigned;
+    const bool recall_unplaced = opts.add_unplaced_msa_observations ||
+        opts.recall_unplaced_msa_insertions;
     const int n_cons = collect_noisy_reg_aln_strs(
         opts, chunk, noisy_reg_beg, noisy_reg_end,
         read_ids, ref_seq,
         clu_n_seqs, clu_read_ids, aln_strs,
-        // A non-null pointer also admits unplaced reads into the MSA clusters.
-        opts.add_unplaced_msa_observations ? &unassigned : nullptr);
+        // A broad retry may extend clusters. Local insertion recall instead
+        // composes both fixed paths and defers read-local allele observations.
+        recall_unplaced ? &unassigned : nullptr);
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
@@ -2468,9 +2653,75 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     // A real neighboring variant is valid flank sequence, not alignment noise.
     std::array<AlnStr, 2> consensuses;
     if (n_cons == 2) consensuses = {aln_strs[0][0], aln_strs[1][0]};
-    if (opts.add_unplaced_msa_observations)
+    if (opts.recall_unplaced_msa_insertions && !opts.add_unplaced_msa_observations &&
+        deferred != nullptr && !unassigned.empty()) {
+        // Discovery must finish on the original BAM evidence. Feeding these
+        // calls back between MSA regions can change later consensuses and
+        // remove an already discovered allele representation.
+        std::vector<bool> eligible(noisy_vars.size(), false);
+        for (size_t vi = 0; vi < noisy_vars.size(); ++vi) {
+            const CandidateVariant& site = noisy_vars[vi];
+            if (site.key.type != VariantType::Insertion || site.key.ref_len != 0 ||
+                site.counts.category != VariantCategory::NoisyCandHet ||
+                !site.msa_insertion_alts.empty() || site.key.alt.empty() ||
+                site.key.alt.find_first_not_of(site.key.alt.front()) != std::string::npos)
+                continue;
+            // The full neighboring blocks supply context, not permission to
+            // change their read evidence at unrelated repeat contrasts.
+            const hts_pos_t anchor = site.key.pos - 1;
+            if (!std::any_of(opts.retry_windows.begin(), opts.retry_windows.end(),
+                    [anchor](const auto& window) {
+                        return window.first <= anchor && anchor <= window.second;
+                    })) continue;
+            eligible[vi] = std::any_of(noisy_vars.begin(), noisy_vars.end(),
+                [&site](const CandidateVariant& other) {
+                    return other.key.type == VariantType::Insertion &&
+                        other.key.pos == site.key.pos && other.key.ref_len == 0 &&
+                        other.key.alt != site.key.alt && other.msa_insertion_alts.empty() &&
+                        !other.key.alt.empty() && other.key.alt.front() == site.key.alt.front() &&
+                        other.key.alt.find_first_not_of(site.key.alt.front()) == std::string::npos &&
+                        other.counts.category == VariantCategory::NoisyCandHet &&
+                        // One-base error neighborhoods of the two insertion
+                        // lengths must not overlap when recalling new reads.
+                        std::llabs(static_cast<long long>(other.key.alt.size()) -
+                                   static_cast<long long>(site.key.alt.size())) >
+                            2 * kMaxLocalAlleleEdits;
+                });
+        }
+        auto recalled_vars = noisy_vars;
+        auto recalled_profiles = init_read_profiles(chunk.reads.size());
+        add_msa_site_observations(opts, unassigned, noisy_reg_beg,
+            recalled_vars, recalled_profiles, n_cons == 2 ? &consensuses : nullptr);
+        restrict_msa_observations_to_read_coverage(chunk.reads, recalled_vars, recalled_profiles);
+        for (const UnassignedMsaRead& read : unassigned) {
+            ReadVariantProfile& profile = recalled_profiles[read.read_id];
+            for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+                if (profile.alleles[offset] < 0) continue;
+                const size_t vi = static_cast<size_t>(profile.start_var_idx) + offset;
+                if (!eligible[vi]) continue;
+                // Two independent non-reference rows describe one diploid
+                // contrast. A third allele can be REF to both; that cannot
+                // certify either fixed haplotype. Require complementary calls.
+                const bool complementary = std::any_of(
+                    recalled_vars.begin(), recalled_vars.end(),
+                    [&](const CandidateVariant& other) {
+                        const size_t oi = static_cast<size_t>(&other - recalled_vars.data());
+                        if (oi == vi || !eligible[oi] ||
+                            other.key.pos != recalled_vars[vi].key.pos ||
+                            static_cast<int>(oi) < profile.start_var_idx) return false;
+                        const size_t other_offset = oi - static_cast<size_t>(profile.start_var_idx);
+                        return other_offset < profile.alleles.size() &&
+                            profile.alleles[other_offset] == 1 - profile.alleles[offset];
+                    });
+                if (!complementary) continue;
+                deferred->push_back({recalled_vars[vi].key, read.read_id,
+                                     profile.alleles[offset]});
+            }
+        }
+    } else if (opts.add_unplaced_msa_observations) {
         add_msa_site_observations(opts, unassigned, noisy_reg_beg,
                                   noisy_vars, noisy_rvp, n_cons == 2 ? &consensuses : nullptr);
+    }
     // Partial consensus alignments may inherit a cluster allele beyond their
     // physical BAM coverage. Remove those synthetic calls before rephasing.
     if (opts.add_unplaced_msa_observations)
@@ -2482,6 +2733,65 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         /*admit_all_in_region=*/false);
 }
 
+int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                        const VariantKeySet* site_whitelist) {
+    return collect_noisy_vars1(chunk, opts, noisy_reg_i, site_whitelist, nullptr);
+}
+
+static bool apply_deferred_msa_observations(PhasingChunk& chunk,
+                            std::vector<DeferredMsaObservation>& observations) {
+    std::sort(observations.begin(), observations.end(),
+        [](const DeferredMsaObservation& a, const DeferredMsaObservation& b) {
+            const int cmp = exact_comp_var_site(&a.key, &b.key);
+            return cmp != 0 ? cmp < 0 : a.read_id < b.read_id;
+        });
+    bool changed = false;
+    size_t ci = 0;
+    for (size_t oi = 0; oi < observations.size();) {
+        const DeferredMsaObservation& observation = observations[oi];
+        size_t end = oi + 1;
+        int allele = observation.allele;
+        while (end < observations.size() &&
+               exact_comp_var_site(&observation.key, &observations[end].key) == 0 &&
+               observation.read_id == observations[end].read_id) {
+            if (observations[end].allele != allele) allele = -1;
+            ++end;
+        }
+        while (ci < chunk.candidates.size() &&
+               exact_comp_var_site(&chunk.candidates[ci].key, &observation.key) < 0) ++ci;
+        if (allele >= 0 && ci < chunk.candidates.size() &&
+            exact_comp_var_site(&chunk.candidates[ci].key, &observation.key) == 0) {
+            CandidateVariant& site = chunk.candidates[ci];
+            if (site.msa_verified && is_phase_set_anchor(site) &&
+                static_cast<size_t>(allele) < site.counts.alle_covs.size()) {
+                const int hap = chunk.haps[observation.read_id];
+                // A fixed source label belongs to its own block gauge. Local
+                // recall may extend that membership, not silently move the
+                // read to another independently oriented source block.
+                if ((hap == 1 || hap == 2) && chunk.phase_sets[observation.read_id] > 0 &&
+                    (chunk.phase_sets[observation.read_id] != site.phase_set ||
+                     site.hap_to_cons_alle[hap] != allele)) {
+                    oi = end;
+                    continue;
+                }
+                ReadVariantProfile& profile = chunk.read_var_profile[observation.read_id];
+                const int offset = static_cast<int>(ci) - profile.start_var_idx;
+                if (profile.start_var_idx < 0 || offset < 0 ||
+                    static_cast<size_t>(offset) >= profile.alleles.size() ||
+                    profile.alleles[static_cast<size_t>(offset)] < 0) {
+                    update_read_var_profile_with_allele(static_cast<int>(ci), allele, -1, profile);
+                    ++site.counts.alle_covs[static_cast<size_t>(allele)];
+                    ++site.counts.total_cov;
+                    update_variant_depth_fields(site);
+                    changed = true;
+                }
+            }
+        }
+        oi = end;
+    }
+    return changed;
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // collect_noisy_vars_step4
 // ════════════════════════════════════════════════════════════════════════════
@@ -2490,12 +2800,13 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
 static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
                            const VariantKeySet* site_whitelist,
                            const std::vector<int>& regions,
-                           std::vector<bool>& done) {
+                           std::vector<bool>& done,
+                           std::vector<DeferredMsaObservation>& deferred) {
     while (true) {
         bool any_done = false, any_new_var = false;
         for (int reg_idx : regions) {
             if (done[static_cast<size_t>(reg_idx)]) continue;
-            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist);
+            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist, &deferred);
             if (ret >= 0) {
                 done[static_cast<size_t>(reg_idx)] = true;
                 any_done = true;
@@ -2525,7 +2836,13 @@ void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
     const int n_regs = static_cast<int>(chunk.noisy_regions.size());
 
     std::vector<bool> done(static_cast<size_t>(n_regs), false);
-    run_noisy_pass(chunk, opts, site_whitelist, sorted, done);
+    std::vector<DeferredMsaObservation> deferred;
+    run_noisy_pass(chunk, opts, site_whitelist, sorted, done, deferred);
+    if (apply_deferred_msa_observations(chunk, deferred)) {
+        // Keep the original BAM phase gauges and genotypes. Transfer and
+        // stitching will evaluate the expanded matrix in the graph chunk.
+        rebuild_read_variant_index(chunk);
+    }
 }
 
 } // namespace pgphase_collect

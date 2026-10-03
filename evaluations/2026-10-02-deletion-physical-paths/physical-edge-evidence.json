@@ -1,0 +1,82 @@
+[
+  {
+    "left": 47671540,
+    "right": 47689418,
+    "paired_reads": 2,
+    "log_odds_existing_orientation": 15.869149540017265,
+    "calls": [
+      {
+        "name": "m84031_231217_062403_s3/179704932/ccs",
+        "mapq": 60,
+        "bases": [
+          "G",
+          "C"
+        ],
+        "qualities": [
+          35,
+          35
+        ],
+        "haplotypes": [
+          2,
+          2
+        ]
+      },
+      {
+        "name": "m84031_231217_062403_s3/232920831/ccs",
+        "mapq": 60,
+        "bases": [
+          "G",
+          "C"
+        ],
+        "qualities": [
+          40,
+          40
+        ],
+        "haplotypes": [
+          2,
+          2
+        ]
+      }
+    ]
+  },
+  {
+    "left": 47764156,
+    "right": 47781656,
+    "paired_reads": 2,
+    "log_odds_existing_orientation": 16.28610690397433,
+    "calls": [
+      {
+        "name": "m84031_231217_034919_s2/163646852/ccs",
+        "mapq": 60,
+        "bases": [
+          "T",
+          "T"
+        ],
+        "qualities": [
+          40,
+          35
+        ],
+        "haplotypes": [
+          1,
+          1
+        ]
+      },
+      {
+        "name": "m84031_231217_034919_s2/169936023/ccs",
+        "mapq": 60,
+        "bases": [
+          "T",
+          "T"
+        ],
+        "qualities": [
+          40,
+          40
+        ],
+        "haplotypes": [
+          1,
+          1
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,356 @@
+[
+  {
+    "chunk": 4,
+    "left": 4866153,
+    "right": 4874129,
+    "mapq30_spanning_primary_reads": 23,
+    "pairs": [
+      {
+        "left_row": [
+          "4866154",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "right_row": [
+          "4874130",
+          "D",
+          "256",
+          "1",
+          "3",
+          ""
+        ],
+        "bam_allele_pairs": {}
+      }
+    ],
+    "pgphase": {
+      "phased": 40,
+      "correct": 40,
+      "discordant": 0
+    },
+    "hiphase_dv": {
+      "phased": 51,
+      "correct": 50,
+      "discordant": 1
+    },
+    "hiphase_pg_calls": {
+      "phased": 56,
+      "correct": 51,
+      "discordant": 5
+    }
+  },
+  {
+    "chunk": 24,
+    "left": 24121713,
+    "right": 24131707,
+    "mapq30_spanning_primary_reads": 29,
+    "pairs": [
+      {
+        "left_row": [
+          "24121714",
+          "I",
+          "256",
+          "1",
+          "0",
+          "TTTT"
+        ],
+        "right_row": [
+          "24131708",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "bam_allele_pairs": {}
+      },
+      {
+        "left_row": [
+          "24121714",
+          "I",
+          "256",
+          "1",
+          "0",
+          "TTTTTTTT"
+        ],
+        "right_row": [
+          "24131708",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "bam_allele_pairs": {}
+      }
+    ],
+    "pgphase": {
+      "phased": 60,
+      "correct": 60,
+      "discordant": 0
+    },
+    "hiphase_dv": {
+      "phased": 93,
+      "correct": 93,
+      "discordant": 0
+    },
+    "hiphase_pg_calls": {
+      "phased": 79,
+      "correct": 59,
+      "discordant": 20
+    }
+  },
+  {
+    "chunk": 34,
+    "left": 34094604,
+    "right": 34102867,
+    "mapq30_spanning_primary_reads": 39,
+    "pairs": [
+      {
+        "left_row": [
+          "34094605",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "right_row": [
+          "34102868",
+          "I",
+          "256",
+          "1",
+          "0",
+          "TG"
+        ],
+        "bam_allele_pairs": {
+          "0/0": 1
+        }
+      },
+      {
+        "left_row": [
+          "34094605",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "right_row": [
+          "34102868",
+          "D",
+          "256",
+          "1",
+          "2",
+          ""
+        ],
+        "bam_allele_pairs": {
+          "0/1": 1
+        }
+      }
+    ],
+    "pgphase": {
+      "phased": 75,
+      "correct": 75,
+      "discordant": 0
+    },
+    "hiphase_dv": {
+      "phased": 76,
+      "correct": 76,
+      "discordant": 0
+    },
+    "hiphase_pg_calls": {
+      "phased": 87,
+      "correct": 58,
+      "discordant": 29
+    }
+  },
+  {
+    "chunk": 41,
+    "left": 41879449,
+    "right": 41880908,
+    "mapq30_spanning_primary_reads": 59,
+    "pairs": [
+      {
+        "left_row": [
+          "41879450",
+          "I",
+          "256",
+          "1",
+          "0",
+          "GA"
+        ],
+        "right_row": [
+          "41880909",
+          "I",
+          "256",
+          "1",
+          "0",
+          "CACACACACACACA"
+        ],
+        "bam_allele_pairs": {
+          "0/0": 50,
+          "0/1": 5,
+          "1/0": 4
+        }
+      },
+      {
+        "left_row": [
+          "41879450",
+          "I",
+          "256",
+          "1",
+          "0",
+          "GA"
+        ],
+        "right_row": [
+          "41880909",
+          "I",
+          "256",
+          "1",
+          "0",
+          "CACACACACACACACACA"
+        ],
+        "bam_allele_pairs": {
+          "0/0": 54,
+          "0/1": 1,
+          "1/1": 4
+        }
+      }
+    ],
+    "pgphase": {
+      "phased": 81,
+      "correct": 62,
+      "discordant": 19
+    },
+    "hiphase_dv": {
+      "phased": 81,
+      "correct": 78,
+      "discordant": 3
+    },
+    "hiphase_pg_calls": {
+      "phased": 80,
+      "correct": 80,
+      "discordant": 0
+    }
+  },
+  {
+    "chunk": 61,
+    "left": 61738239,
+    "right": 61747506,
+    "mapq30_spanning_primary_reads": 30,
+    "pairs": [
+      {
+        "left_row": [
+          "61738239",
+          "X",
+          "256",
+          "1",
+          "1",
+          "G"
+        ],
+        "right_row": [
+          "61747507",
+          "D",
+          "256",
+          "1",
+          "2",
+          ""
+        ],
+        "bam_allele_pairs": {
+          "1/1": 2
+        }
+      }
+    ],
+    "pgphase": {
+      "phased": 83,
+      "correct": 79,
+      "discordant": 4
+    },
+    "hiphase_dv": {
+      "phased": 92,
+      "correct": 91,
+      "discordant": 1
+    },
+    "hiphase_pg_calls": {
+      "phased": 92,
+      "correct": 91,
+      "discordant": 1
+    }
+  },
+  {
+    "chunk": 64,
+    "left": 64128828,
+    "right": 64134226,
+    "mapq30_spanning_primary_reads": 27,
+    "pairs": [
+      {
+        "left_row": [
+          "64128828",
+          "X",
+          "4",
+          "2",
+          "1",
+          "C"
+        ],
+        "right_row": [
+          "64134227",
+          "D",
+          "256",
+          "1",
+          "1",
+          ""
+        ],
+        "bam_allele_pairs": {
+          "0/0": 2,
+          "0/1": 12,
+          "1/0": 11
+        }
+      },
+      {
+        "left_row": [
+          "64128828",
+          "X",
+          "4",
+          "2",
+          "1",
+          "C"
+        ],
+        "right_row": [
+          "64134227",
+          "D",
+          "256",
+          "1",
+          "2",
+          ""
+        ],
+        "bam_allele_pairs": {
+          "0/0": 14,
+          "1/0": 5,
+          "1/1": 6
+        }
+      }
+    ],
+    "pgphase": {
+      "phased": 45,
+      "correct": 44,
+      "discordant": 1
+    },
+    "hiphase_dv": {
+      "phased": 49,
+      "correct": 48,
+      "discordant": 1
+    },
+    "hiphase_pg_calls": {
+      "phased": 49,
+      "correct": 49,
+      "discordant": 0
+    },
+    "exclusive_deletion_alt_pairs": {
+      "0/1/0": 12,
+      "1/0/1": 6
+    }
+  }
+]

@@ -1,0 +1,47 @@
+Filters: local MSA recall*
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test-predicates-before is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+local MSA recall preserves fixed consensus membership
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:225
+...............................................................................
+
+src/test_phase_predicates.cpp:267: FAILED:
+  CHECK( counts[1] == 3 )
+with expansion:
+  4 == 3
+
+src/test_phase_predicates.cpp:272: FAILED:
+  REQUIRE( recalled.size() == 1 )
+with expansion:
+  0 == 1
+
+-------------------------------------------------------------------------------
+local MSA recall preserves fixed consensus membership
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:225
+...............................................................................
+
+src/test_phase_predicates.cpp:267: FAILED:
+  CHECK( counts[1] == 3 )
+with expansion:
+  4 == 3
+
+-------------------------------------------------------------------------------
+local MSA recall preserves fixed consensus membership
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:225
+...............................................................................
+
+src/test_phase_predicates.cpp:266: FAILED:
+  CHECK( counts[0] == 3 )
+with expansion:
+  4 == 3
+
+===============================================================================
+test cases:  1 | 1 failed
+assertions: 12 | 8 passed | 4 failed

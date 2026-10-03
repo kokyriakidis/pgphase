@@ -1,0 +1,472 @@
+AUDIT CONS beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=-1 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=440 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=440 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=448 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=448 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=454 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=454 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=462 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=462 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATAGAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=464 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=464 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=475 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=475 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=424 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=424 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=452 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=452 bounds=0,235,0,235/236 covered=1 seq=TAT|TATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=404 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=404 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=449 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=449 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=451 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=451 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=437 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=437 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=414 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=414 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=455 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=455 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=457 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=457 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=459 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=459 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=460 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=460 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=442 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=442 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=443 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=443 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=466 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=466 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=468 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=468 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=471 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=471 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=445 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=445 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=476 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=476 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=478 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=478 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATATAGAG|AGA call=0
+AUDIT RAW ci=0 rid=480 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=480 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=481 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=481 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=482 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=482 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=487 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=487 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=488 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=488 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=477 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=477 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=432 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=432 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=412 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=412 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=439 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=439 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=461 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=461 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AG call=0
+AUDIT RAW ci=0 rid=425 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=425 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=436 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=436 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=438 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=438 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=472 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=472 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT CONS beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=-1 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=453 bounds=0,232,0,232/233
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=453 bounds=0,232,0,232/233 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=470 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=470 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=473 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=473 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=430 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=430 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=446 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=446 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=463 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=463 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=479 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=479 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=431 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=431 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=429 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=429 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=467 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=467 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=483 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=483 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=485 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=485 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=486 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=486 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=458 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=458 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=469 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=469 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=484 bounds=0,230,0,230/231
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=484 bounds=0,230,0,230/231 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=428 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=428 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=450 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=450 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=456 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=456 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT CONS beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=-1 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=440 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=440 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=448 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=448 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=454 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=454 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=462 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=462 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATAGAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=464 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=464 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=475 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=475 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=424 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=424 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=452 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=452 bounds=0,235,0,235/236 covered=1 seq=TAT|TATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=404 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=404 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=449 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=449 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=451 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=451 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=437 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=437 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=414 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=414 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=455 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=455 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=457 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=457 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=459 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=459 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=460 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=460 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=442 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=442 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=443 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=443 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=466 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=466 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=468 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=468 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=471 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=471 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=445 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=445 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=476 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=476 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=478 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=478 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATATAGAG|AGA call=1
+AUDIT RAW ci=0 rid=480 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=480 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=481 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=481 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=482 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=482 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=487 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=487 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=488 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=488 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=477 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=477 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=432 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=432 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=412 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=412 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=439 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=439 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=461 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=461 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AG call=1
+AUDIT RAW ci=0 rid=425 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=425 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=436 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=436 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=438 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=438 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=472 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=472 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT CONS beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=-1 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=453 bounds=0,232,0,232/233
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=453 bounds=0,232,0,232/233 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=470 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=470 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=473 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=473 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=430 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=430 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=446 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=446 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=463 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=463 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=479 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=479 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=431 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=431 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=429 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=429 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=467 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=467 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=483 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=483 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=485 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=485 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=486 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=486 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=458 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=458 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=469 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=469 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=484 bounds=0,230,0,230/231
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=484 bounds=0,230,0,230/231 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=428 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=428 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=450 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=450 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=456 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=456 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT CONS beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=-1 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1626 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1626 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1634 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1634 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1640 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1640 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1648 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1648 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATAGAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1650 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1650 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1661 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1661 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1610 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1610 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1638 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1638 bounds=0,235,0,235/236 covered=1 seq=TAT|TATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1590 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1590 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1635 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1635 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1637 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1637 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1623 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1623 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1600 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1600 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1641 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1641 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1643 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1643 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1645 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1645 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1646 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1646 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1628 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1628 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1629 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1629 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1652 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1652 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1654 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1654 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1657 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1657 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1631 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1631 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1662 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1662 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1664 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1664 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATATAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1666 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1666 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1667 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1667 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1668 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1668 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1673 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1673 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1674 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1674 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1663 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1663 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1618 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1618 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1598 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1598 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1625 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1625 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1647 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1647 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AG call=0
+AUDIT RAW ci=0 rid=1611 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1611 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1622 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1622 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1624 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1624 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT RAW ci=0 rid=1658 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=0 rid=1658 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=0
+AUDIT CONS beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=-1 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1639 bounds=0,232,0,232/233
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1639 bounds=0,232,0,232/233 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1656 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1656 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1659 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1659 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1616 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1616 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1632 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1632 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1649 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1649 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1665 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1665 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1617 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1617 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1615 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1615 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1653 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1653 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1669 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1669 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1671 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1671 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1672 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1672 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1644 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1644 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1655 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1655 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1670 bounds=0,230,0,230/231
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1670 bounds=0,230,0,230/231 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1614 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1614 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1636 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1636 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT RAW ci=1 rid=1642 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=0 alt=ATATATAGAG valid=1 ci=1 rid=1642 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=1
+AUDIT CONS beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=-1 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1626 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1626 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1634 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1634 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1640 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1640 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1648 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1648 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATAGAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1650 bounds=0,236,0,236/237
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1650 bounds=0,236,0,236/237 covered=1 seq=TAT|ATATATATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1661 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1661 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1610 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1610 bounds=0,235,0,235/236 covered=1 seq=TAT|ATATATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1638 bounds=0,235,0,235/236
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1638 bounds=0,235,0,235/236 covered=1 seq=TAT|TATAGAGAGAG|AGA call=-1
+AUDIT RAW ci=0 rid=1590 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1590 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1635 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1635 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1637 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1637 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1623 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1623 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1600 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1600 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1641 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1641 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1643 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1643 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1645 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1645 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1646 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1646 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1628 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1628 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1629 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1629 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1652 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1652 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1654 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1654 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1657 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1657 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1631 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1631 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1662 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1662 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1664 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1664 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATATAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1666 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1666 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1667 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1667 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1668 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1668 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1673 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1673 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1674 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1674 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1663 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1663 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1618 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1618 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1598 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1598 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1625 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1625 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1647 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1647 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AG call=1
+AUDIT RAW ci=0 rid=1611 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1611 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1622 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1622 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATAGAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1624 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1624 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT RAW ci=0 rid=1658 bounds=0,233,0,233/234
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=0 rid=1658 bounds=0,233,0,233/234 covered=1 seq=TAT|ATATATATAGAGAG|AGA call=1
+AUDIT CONS beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=-1 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1639 bounds=0,232,0,232/233
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1639 bounds=0,232,0,232/233 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1656 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1656 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1659 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1659 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1616 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1616 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1632 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1632 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1649 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1649 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1665 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1665 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1617 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1617 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1615 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1615 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1653 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1653 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1669 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1669 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1671 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1671 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1672 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1672 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1644 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1644 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAGAG|AGA call=-1
+AUDIT RAW ci=1 rid=1655 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1655 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1670 bounds=0,230,0,230/231
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1670 bounds=0,230,0,230/231 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1614 bounds=0,231,0,231/232
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1614 bounds=0,231,0,231/232 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1636 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1636 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0
+AUDIT RAW ci=1 rid=1642 bounds=0,229,0,229/230
+AUDIT READ beg=19377209 vi=1 alt=ATATATATAGAGAG valid=1 ci=1 rid=1642 bounds=0,229,0,229/230 covered=1 seq=TAT|ATATATAGAG|AGA call=0

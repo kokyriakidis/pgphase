@@ -1,0 +1,35 @@
+Filters: complementary insertion recall cannot invert its SNP flanks
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+complementary insertion recall cannot invert its SNP flanks
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5041
+...............................................................................
+
+src/test_gap_windows.cpp:5088: FAILED:
+  CHECK( owning.scored >= 3924 )
+with expansion:
+  3895 (0xf37) >= 3924 (0xf54)
+
+src/test_gap_windows.cpp:5089: FAILED:
+  CHECK( owning.correct >= 3922 )
+with expansion:
+  3893 (0xf35) >= 3922 (0xf52)
+
+src/test_gap_windows.cpp:5099: FAILED:
+  CHECK( local.scored >= 89 )
+with expansion:
+  60 >= 89
+
+src/test_gap_windows.cpp:5100: FAILED:
+  CHECK( local.correct >= 89 )
+with expansion:
+  60 >= 89
+
+===============================================================================
+test cases:    1 |    0 passed | 1 failed
+assertions: 1268 | 1264 passed | 4 failed

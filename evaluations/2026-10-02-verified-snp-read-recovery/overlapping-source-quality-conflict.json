@@ -1,0 +1,15 @@
+{
+  "position_1based": 3597791,
+  "read": "m84031_231217_034919_s2/16389926/ccs",
+  "ref": "A",
+  "alt": "G",
+  "physical_base": "A",
+  "physical_base_quality": 40,
+  "bam_mapq": 60,
+  "first_source_allele": 1,
+  "later_source_allele": 0,
+  "retained_allele": 1,
+  "certificate_before_atomic_transfer": 40,
+  "certificate_after_atomic_transfer": 0,
+  "test": "overlapping recovery solves cannot exchange SNP quality certificates"
+}

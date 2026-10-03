@@ -1,0 +1,47 @@
+{
+  "reference_edit": {
+    "left_vcf_pos": 1196894,
+    "right_vcf_pos": 1196967,
+    "inserted_length": 155,
+    "bare_reference_mismatch_offsets": [
+      55,
+      210
+    ],
+    "common_snp": {
+      "pos": 1196950,
+      "ref": "C",
+      "alt": "T",
+      "ref_cov": 2,
+      "alt_cov": 76
+    },
+    "equal_on_common_background": true
+  },
+  "paired_calls": {
+    "0/0": 36,
+    "1/1": 40
+  },
+  "exact_comparison": {
+    "reads_before": 256601,
+    "reads_after": 256601,
+    "read_hap_changes": 0,
+    "read_ps_changes": 2030,
+    "read_only_assignment_changes": 0,
+    "read_ps_transitions": {
+      "1450106/1142089": 2030
+    },
+    "lost_vcf_keys": 0,
+    "gained_vcf_keys": 0,
+    "changed_vcf_rows": 712,
+    "changed_gt_depth_or_other_fields": 0
+  },
+  "connection": {
+    "left_gt_ps": [
+      "0|1",
+      "1142089"
+    ],
+    "right_gt_ps": [
+      "0|1",
+      "1142089"
+    ]
+  }
+}

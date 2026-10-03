@@ -1,0 +1,4 @@
+FAIL: BAM run: stale homozygous orientation cannot extend a path cut
+FAIL: BAM run: clean homozygous orientation is not provenance
+FAIL: BAM site path: stale homozygous labels cannot anchor a gauge
+FAIL: BAM site path: stale homozygous deletion cannot certify parity

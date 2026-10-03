@@ -1,0 +1,13 @@
+{
+  "source_sites": 118,
+  "source_blocks": {
+    "50491033": 27,
+    "50562066": 91
+  },
+  "saved_reads": 514,
+  "physical_spanners": 12,
+  "physical_spanners_retained": 12,
+  "context_only_source_blocks": [
+    50562066
+  ]
+}

@@ -89,7 +89,8 @@ graph	5256785-5263741	1	1	0.96	0.32
 graph	12256072-12269535	1	0	0.99	0.80
 graph	21823066-21844359	0	1	0.94	0.35
 graph	35498368-35516845	0	1	0.99	0.52
-graph	50548245-50562066	0	2	0.98	0.53
+# Complete owning-chunk MSA retry closes the complementary deletion seam.
+graph	50548245-50562066	1	2	0.98	0.53
 graph	64138752-64140314	1	1	0.99	0.71
 graph	3963987-3981464	0	1	0.97	0.50
 graph	15351845-15367755	1	1	0.99	0.52
@@ -106,10 +107,12 @@ graph	19403172-19414720	1	0	0.98	0.86
 graph	36611593-36620864	0	1	0.95	0.34
 # Newly tracked same-callset HiPhase joins, measured in owning chunks.
 graph	1180618-1194189	1	0	0.99	0.56
-graph	10727690-10746628	0	0	0.98	0.40
+# 2026-10-01: single-seam focused retry retains both complementary deletion
+# rows and the correct SNP/insertion connection in the complete owning chunk.
+graph	10727690-10746628	1	2	0.98	0.83
 graph	19373922-19395544	0	4	0.98	0.42
 graph	21594343-21612458	0	2	0.93	0.38
-graph	36332599-36354890	0	0	0.95	0.80
+graph	36332599-36354890	1	1	0.95	0.80
 graph	30673476-30673709	1	0	0.99	0.77
 graph	37458817-37461999	0	0	0.98	0.00
 graph	8166027-8172072	1	2	0.99	0.81
@@ -120,7 +123,25 @@ graph	53947946-53962801	1	1	0.99	0.60
 graph	528850-542052	1	1	0.99	0.42
 graph	39848887-39856144	1	1	0.98	1.00
 graph	54684758-54702072	1	1	0.98	0.83
-graph	TOTAL	77	1288	0.74	0.10
+graph	TOTAL	88	1291	0.74	0.10
 # 2026-10-01: graph arm closes the 11.573 Mb owning-chunk gap without
 # changing HP assignments or discordant counts; existing floors stay intact.
 graph	11573074-11586531	1	0	0.97	0.64
+# 2026-10-02: source paired alleles retain the 155-bp insertion in the left run.
+graph	1194233-1196894	1	0	0.99	0.92
+# 2026-10-02: same core allele connection without merging independent read rescues.
+graph	1196894-1196967	1	1	0.99	0.99
+# 2026-10-02: exact SNP-to-complementary-deletion orientation in the owning chunk.
+graph	64128828-64134226	1	0	0.99	0.72
+# 2026-10-02: independently certified shared-source insertion bridge.
+graph	34046350-34055920	1	1	0.99	0.95
+# 2026-10-02: independently checked internal SNP edges at a deletion seam.
+graph	47751480-47762233	1	0	0.99	0.83
+# 2026-10-02: missing SNP branch calls restore a supported insertion connection.
+graph	20506159-20517197	1	1	0.99	0.70
+
+# 2026-10-02: exact complementary insertion observations; complete 16-18 Mb context.
+graph	17502614-17521341	1	0	0.99	0.85
+
+# Owning 5-6 Mb replay: preserve all reads and the opposite deletion ALTs.
+graph	5511231-5531924	1	1	0.99	0.78

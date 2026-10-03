@@ -141,3 +141,30 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 # 2026-10-01: guarded physical deletion bridge; replay the complete 11--12 Mb
 # source context. HiPhase's one-block correctly separated fraction is 118/134.
 11573074	11586531	13457	134	hiphase	0.8805	125
+# 2026-10-02: observed long BAM insertion run, owning 1--2 Mb replay.
+# Native HiPhase places all 91 truth-scorable gap-overlapping reads correctly.
+1194233	1196894	2661	91	hiphase	1.0000	91
+# 2026-10-02: shifted BAM/graph insertions agree on a verified common SNP background.
+# Native HiPhase places all 78 truth-scorable overlapping reads in one correct block.
+1196894	1196967	73	78	hiphase	1.0000	78
+# 2026-10-02: complementary deletion transfer retains its cut-free BAM prefix.
+# Native HiPhase correctly places 48/54 truth-scorable overlaps in one block.
+64128828	64134226	5398	54	hiphase	0.8888	49
+# 2026-10-02: shared BAM component retains its lineage after graph attachment.
+# Both HiPhase callsets correctly place 118/123 overlaps in one block.
+34046350	34055920	9570	123	hiphase	0.9593	123
+# 2026-10-02: physical SNP pairs corroborate internal edges on both flanks.
+# Native HiPhase places 74/76 phased gap overlaps correctly; pgphase retains
+# its existing 70/83 local read accuracy while fixing the parental connection.
+47751480	47762233	10753	84	hiphase	0.9736	76
+# 2026-10-02: exact SNP branches restore the right graph path without re-genotyping.
+# Native HiPhase places 107/111 input overlaps correctly in one block (109 phased).
+20506159	20517197	11038	111	hiphase	0.9639	109
+
+# 2026-10-02: complementary insertion recall connects the established SNP gauges.
+# Local read purity is 109/136 (80.15%); the parental connection is retained.
+17502614	17521341	18727	154	hiphase	0.8961	144
+
+# 2026-10-02: NG50-priority gap; full validation retains the partial-read deletion calls.
+# Native DV HiPhase: 136/136 correct local reads; projected chr20 NG50 gain 10,622 bp.
+5511231	5531924	20693	166	hiphase	0.8193	139

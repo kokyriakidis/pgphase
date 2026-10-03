@@ -96,6 +96,10 @@ struct GraphChunkBuildResult {
     /// Read-assignment gauge for each targeted BAM solve. The final stitch uses
     /// it when separate allele rows do not share a callable observation.
     std::vector<RecoveryPhaseGauge> recovery_phase_gauges;
+    /// Core insertion joins certified on the final recovery matrix. Candidate
+    /// indices stay stable through chunk stitching; apply after read rescue so
+    /// output-only groups retain their independently assigned HP/PS gauges.
+    std::vector<std::pair<size_t, size_t>> equivalent_insertion_joins;
     PhasingChunk chunk;
     // Snarl site ID per candidate (parallel to chunk.candidates).
     std::vector<std::string> site_ids;
@@ -107,6 +111,13 @@ struct GraphChunkBuildResult {
     // Sites that survived Phase 1 but were dropped in Phase 2.
     std::vector<FilteredGraphSite> filtered_sites;
 };
+
+/// Retain a verified binary BAM genotype on an unphased padded catalog repeat.
+/// The caller must establish exact allele identity, suffix padding and an unused
+/// source phase-set label; parallel graph metadata continues to describe it.
+bool adopt_unphased_graph_allele_from_bam(CandidateVariant& graph,
+                                         const CandidateVariant& source,
+                                         hts_pos_t phase_set);
 
 // Convert graph-space allele observations into a PhasingChunk for phasing.
 // Applies parent-snarl gating, multi-allelic→biallelic decomposition,
@@ -122,11 +133,26 @@ void rebuild_read_var_cr(PhasingChunk& chunk);
 const std::string* selected_graph_candidate_alt(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
 
+/// Fill missing phased SNP observations from unique, identical catalog branches.
+/// Keeps the original candidate counts, genotypes, PS labels and read gauges;
+/// conflicting source observations, repeated branches and gated children abstain.
+/// Supplemental depth must preserve heterozygosity under the original AF limits.
+/// Returns the number of observations added and rebuilds the profile index once.
+size_t supplement_phased_snp_branches(const GraphSiteCatalogView& catalog,
+    const std::vector<GraphReadAllele>& rows, GraphChunkBuildResult& graph_chunk,
+    const Options& opts);
+
 /// Read one physical BAM base at a 1-based SNP coordinate. Returns 0 for REF,
 /// 2 for ALT, 1 for a deletion, and -1 when the base is not callable.
 int physical_snp_call(const bam1_t* alignment, hts_pos_t pos,
                       char ref_base, char alt_base,
                       int* base_quality = nullptr);
+
+/// Quality of an existing SNP observation only when the original aligned BAM
+/// base calls that same REF/ALT allele. Missing quality, a third base, an indel
+/// or a contradictory MSA-derived allele supplies no physical certificate.
+uint8_t bam_snp_observation_quality(const bam1_t* alignment, hts_pos_t pos,
+                                  char ref_base, char alt_base, int allele);
 
 /// Admit an overlapping second recovery solve only with callable nearest SNPs.
 /// Selected graph alleles are normalized to reference bases. A projected graph
@@ -140,11 +166,38 @@ bool has_direct_snp_parity_for_retry(
     WorkerContext& context, int tid,
     std::optional<bool>* graph_parity = nullptr);
 
+/// Certify a candidate pair's parity with a one-sided binomial test and
+/// agreeing read halves. Pure BAM pairs use BAM observations and BAM MAPQ;
+/// other pairs retain the working matrix and graph read eligibility.
+/// Returns whether the target's current haplotype orientation must flip.
+std::optional<bool> local_run_boundary_flip(
+    const PhasingChunk& chunk, size_t source_index, size_t target_index,
+    int min_mapq = 0, double max_p = 0.05);
+
+/// Find the BAM prefix of a complementary deletion pair after its rightward
+/// bridge is independently certified. A nearest clean SNP must have unanimous
+/// exclusive-ALT pairs on both allele classes. Every moved anchor must share
+/// that source gauge and lie in the same audited weak-cut-free run. Catalog
+/// anchors up to graph_end stay independent; returns the first BAM coordinate.
+std::optional<hts_pos_t> bam_prefix_before_deletion_pair(
+    const GraphChunkBuildResult& graph_chunk, size_t first_index,
+    size_t second_index, hts_pos_t graph_end);
+
 /// Certify a detached BAM run's source gauge and weak-cut-free extent.
 /// Oriented heterozygotes must belong to one source with a consistent flip;
-/// homozygous rows contribute neither a gauge nor a run boundary.
+/// homozygous rows contribute neither a gauge nor a run boundary. When an
+/// independently called bridge admits shared graph rows, those rows need the
+/// same exact source provenance. Only cuts inside the current extent matter.
 bool bam_source_run_supported(const GraphChunkBuildResult& graph_chunk,
-                              hts_pos_t phase_set);
+                              hts_pos_t phase_set,
+                              bool include_shared_graph = false);
+
+/// Detach private BAM islands attached across an audited weak source cut.
+/// Eligible owners in the preceding source component are checked independently.
+/// Catalog anchors and observed read bridges preserve additional owners' joins.
+/// Detached sites and exclusive source reads recover
+/// their original BAM gauge and an independent phase-set label.
+void detach_bam_sites_across_weak_cuts(GraphChunkBuildResult& graph_chunk);
 
 /// Certify an imported site's original BAM path and its current block gauge.
 /// A relabeled site cannot borrow the destination block's source certificate;
@@ -202,6 +255,12 @@ void phase_graph_chunks(std::vector<GraphChunkBuildResult>& graph_chunks,
 /// changes candidate phasing or joins phase sets.
 size_t rescue_unphased_graph_reads(
     PhasingChunk& chunk, const std::vector<RecoverySeam>& recovery_windows = {});
+
+/// Refresh inherited read HP using agreeing Q30, MAPQ30 physical SNP calls in
+/// its final PS. Clean graph SNPs need two distinct loci at least 100 bases apart;
+/// an imported MSA SNP may certify alone after physical links to clean SNPs
+/// validate its gauge. Contradictions abstain; candidate gauges and PS stay fixed.
+size_t refresh_recovered_read_haps_from_bam_snps(PhasingChunk& chunk);
 
 /// Read links between one independently solved BAM block and one graph block.
 /// Rows are BAM haplotypes and columns are graph haplotypes.

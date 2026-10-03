@@ -1,0 +1,18 @@
+{
+  "baseline_binary_sha256": "7a1d6458699e5d6ac02d53cc1efa11737d0341c3d2e9ee9a10958b6d0fa46eb7",
+  "final_binary_sha256": "629badc0b446294ee4e0f1c4b4a43c738406ac7dbed9023995b6796e3fb0f05f",
+  "files": {
+    "src/collect_phase.cpp": "854c6c7bf5920103fa58c50cbf0d618ee99d486acf9fdcf8645bda59e0db33e3",
+    "src/collect_phase.hpp": "844410095e789cbd4125d56febde0af2a63de924b44a0339b7a7f5943b868dbc",
+    "src/collect_pipeline.cpp": "5ae42b2295ff08ce9097d05d7f8b068248bb08ad0999bed8bd4e6d94fc3957a2",
+    "src/phasing_types.hpp": "084a2f66ac278f459a19e0740010c7a8fdfae494d0ba89db639142c99208083a",
+    "src/test_phase_predicates.cpp": "5682e20c5f19f175795b78ce9ce722496dbe60a19cae96b731a8493ce319f062",
+    "docs/IMPLEMENTATION.md": "c34f0eebf4f31a9557b16fc320426b0344060049923c21bfec6418990f07a535",
+    "CHECKPOINT.md": "e9162b93a7bafea16f8115cb2fc859befd5acce3d46fa0a2f7958796d8f329f4"
+  },
+  "predicate_assertions": 1259,
+  "predicate_cases": 44,
+  "window_assertions": 7132,
+  "window_cases": 71,
+  "native_requests": 105
+}

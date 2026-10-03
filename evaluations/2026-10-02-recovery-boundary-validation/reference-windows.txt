@@ -1,0 +1,46 @@
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+chr20 gap windows
+  graph / window 21179807-21183846
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:1471
+...............................................................................
+
+src/test_gap_windows.cpp:938: FAILED:
+  CHECK( got.separated() >= want.min_separated )
+with expansion:
+  0.6739130435 >= 0.85
+with messages:
+  window 21179807-21183846 (4039 bp), arm 'graph'; best competitor
+  hiphase_same_sites at 90.37%
+  measured: spans=yes in_gap_hets=0 blocks=20 tagged=3327 scored=3327
+  concordance=0.936279 discordant=212 separated=0.673913 (62/92)
+  gap diagnosis: thinnest interior read coverage 67 at 21182707; phased hets
+  inside the gap 0; distinct phase sets touching the window 20 -- CONNECTED
+  (one phase set reaches both boundary positions)
+  arm 'graph' window 21179807: positions putting two alleles on one haplotype =
+  0
+  clean hets inside the gap left without a phase set: 0
+  required sites: 0 not retrieved, 0 retrieved but unused
+
+-------------------------------------------------------------------------------
+chr20 gap windows
+  graph / window 21159070-21172487
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:1471
+...............................................................................
+
+src/test_gap_windows.cpp:1498: FAILED:
+  CHECK( fields[9].find('|') != std::string::npos )
+with expansion:
+  18446744073709551615 (0xffffffffffffffff)
+  !=
+  18446744073709551615 (0xffffffffffffffff)
+
+===============================================================================
+test cases:   58 |   57 passed | 1 failed
+assertions: 4599 | 4597 passed | 2 failed

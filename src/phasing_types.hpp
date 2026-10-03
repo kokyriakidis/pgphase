@@ -472,7 +472,10 @@ struct Options {
     /// tandem-repeat deletion as independent hets -- the exact false bridge that
     /// function exists to prevent.
     bool force_noisy_msa = false;
-    /// Windows the retry is re-solving, in reference coordinates. Carried so the
+    // Recovery can recall complementary insertion alleles against fixed
+    // consensuses without admitting reads into a whole-region cluster.
+    bool recall_unplaced_msa_insertions = false;
+    /// Closed VCF anchor intervals [beg, end] that the retry is re-solving. Carried so the
     /// het-seeding repair in iter_update_var_hap_cons_phase_set can be confined
     /// to them: outside a failed window the provisional-label collapse is not
     /// this pass's business to repair.
@@ -948,6 +951,28 @@ struct RecoveryPhysicalSnpBridge {
     hts_pos_t pre_attach_source_phase_set = 0;
 };
 
+/// Immutable BAM evidence uses its own site indices, independent of the live
+/// graph table. Context sites can support a stitch without owning output rows.
+struct RecoveryBamSite {
+    VariantKey key;
+    hts_pos_t phase_set = 0;
+    int hap1_allele = -1;
+    int hap2_allele = -1;
+    bool clean_snp = false;
+    // Local BAM identity survives even when this block owns no injected row.
+    // phase_set is zero for context-only blocks: their coordinate PS must not
+    // accidentally alias a live graph or another solve's imported label.
+    hts_pos_t source_phase_set = 0;
+};
+
+struct RecoveryBamRead {
+    std::string qname;
+    int mapq = 0;
+    std::vector<std::pair<size_t, int>> observations;
+    // Parallel physical BAM SNP certificates; zero means absent/contradictory.
+    std::vector<uint8_t> base_qualities;
+};
+
 /// Phase gauge supplied by one targeted BAM solve. Imported phase sets already
 /// use this gauge; graph phase sets acquire it through shared-read votes.
 struct RecoveryPhaseGauge {
@@ -959,6 +984,9 @@ struct RecoveryPhaseGauge {
     std::vector<PhaseSetGaugeVote> graph_votes;
     std::vector<RecoveryBlockGaugeVote> block_votes;
     std::vector<RecoveryPhysicalSnpBridge> physical_snp_bridges;
+    std::vector<RecoveryBamSite> bam_sites;
+    // Sorted by qname; repeated molecules are excluded by the snapshot builder.
+    std::vector<RecoveryBamRead> bam_reads;
 };
 
 struct ReadVariantProfile {
@@ -973,8 +1001,8 @@ struct ReadVariantProfile {
     // Original BAM observations, retained before GAF injection/MSA replacement.
     std::vector<int> bam_alleles;
     std::vector<int> bam_qi;
-    // Per-site BAM base quality retained for SNP bridge validation. Zero means
-    // the BAM call has no quality-bearing aligned base.
+    // Physical SNP quality certifies agreement with the original CIGAR base.
+    // Zero means absent quality or no matching original BAM REF/ALT call.
     std::vector<uint8_t> bam_base_qualities;
     int bam_mapq = -1;  // Mapping quality of this channel's BAM alignment.
 };

@@ -1,0 +1,43 @@
+{
+  "binary_sha256": "684a95a62fe10ec32df68c8043bf0fbb730794c167ce54573c1ad2d56c546f9c",
+  "before_binary_sha256": "06b32560fe18b80332994314fa9bbcaa3962bbbc445bb4108f05cf27e7f3602c",
+  "native_requests": 105,
+  "native_panel_elapsed_seconds": 342.85,
+  "full_chr20_elapsed_seconds": 247.68,
+  "additional_matrix_runs": [
+    {
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:57000001-58000000",
+        "-t",
+        "4",
+        "--phase-matrix-dump",
+        "/tmp/pgphase-gap-next25/final-tests/retry_scheduling_57m/w57050001-57950000/matrix",
+        "-o",
+        "/tmp/pgphase-gap-next25/final-tests/retry_scheduling_57m/w57050001-57950000/candidates.tsv",
+        "--phased-vcf-out",
+        "/tmp/pgphase-gap-next25/final-tests/retry_scheduling_57m/w57050001-57950000/native.vcf",
+        "--phased-bam-out",
+        "/tmp/pgphase-gap-next25/final-tests/retry_scheduling_57m/w57050001-57950000/phased.bam"
+      ],
+      "binary_sha256": "684a95a62fe10ec32df68c8043bf0fbb730794c167ce54573c1ad2d56c546f9c",
+      "returncode": 0,
+      "elapsed_seconds": 16.32662548898952
+    }
+  ],
+  "window_assertions": 4849,
+  "window_cases": 63,
+  "predicate_assertions": 822,
+  "predicate_cases": 37,
+  "panel_coordinates": 98,
+  "required_spans": 84
+}

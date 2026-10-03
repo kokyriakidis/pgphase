@@ -1,0 +1,38 @@
+[
+  {
+    "path": "/tmp/pgphase-gap-next22/baseline-34/phased.bam",
+    "phased": 123,
+    "correct": 118,
+    "discordant": 5,
+    "blocks": 2,
+    "dominant_correct": 68,
+    "overlap_reads": 123
+  },
+  {
+    "path": "/tmp/pgphase-gap-next24/corrected-34/phased.bam",
+    "phased": 123,
+    "correct": 118,
+    "discordant": 5,
+    "blocks": 1,
+    "dominant_correct": 118,
+    "overlap_reads": 123
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "phased": 123,
+    "correct": 118,
+    "discordant": 5,
+    "blocks": 1,
+    "dominant_correct": 118,
+    "overlap_reads": 123
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.bam",
+    "phased": 123,
+    "correct": 118,
+    "discordant": 5,
+    "blocks": 1,
+    "dominant_correct": 118,
+    "overlap_reads": 123
+  }
+]

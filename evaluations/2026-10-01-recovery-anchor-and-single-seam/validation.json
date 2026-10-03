@@ -1,0 +1,53 @@
+{
+  "binary_sha256": "598eb8f99b1e14d1ce25eb9a8ef0305bea60b9b44089c2a3f41f9a05c95ac676",
+  "build": "passed; existing vendored abPOA unused SIMD helper warning",
+  "standalone_units": "passed",
+  "predicates": {
+    "assertions": 762,
+    "cases": 34,
+    "passed": true
+  },
+  "port_parity": {
+    "assertions": 27,
+    "cases": 9,
+    "passed": true
+  },
+  "upstream_phase_parity": {
+    "assertions": 168696,
+    "cases": 7,
+    "passed": true
+  },
+  "windows": {
+    "assertions": 4573,
+    "cases": 57,
+    "passed": true
+  },
+  "fresh_native_commands": 106,
+  "panel_native_commands": 105,
+  "additional_matrix_command": [
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-r",
+    "CHM13#0#chr20:57000001-58000000",
+    "-t",
+    "4",
+    "--phase-matrix-dump",
+    "/tmp/pgphase-gap-next17/verified-scored/retry_scheduling_57m/w57050001-57950000/matrix",
+    "-o",
+    "/tmp/pgphase-gap-next17/verified-scored/retry_scheduling_57m/w57050001-57950000/candidates.tsv",
+    "--phased-vcf-out",
+    "/tmp/pgphase-gap-next17/verified-scored/retry_scheduling_57m/w57050001-57950000/native.vcf",
+    "--phased-bam-out",
+    "/tmp/pgphase-gap-next17/verified-scored/retry_scheduling_57m/w57050001-57950000/phased.bam"
+  ],
+  "full_chromosome_exit_code": 0,
+  "full_chromosome_elapsed_seconds": 184.07,
+  "full_chromosome_runtime_is_not_a_sequential_benchmark": true
+}

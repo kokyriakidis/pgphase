@@ -1,0 +1,53 @@
+Filters: [deletion-pair]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test-before is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+recovery jointly calls complementary MSA deletions
+  a verified two-base ALT supplies both missing binary contrasts
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:1487
+...............................................................................
+
+src/test_phase_predicates.cpp:1488: FAILED:
+  CHECK( fill() == 2 )
+with expansion:
+  0 == 2
+
+src/test_phase_predicates.cpp:1489: FAILED:
+  CHECK( chunk.read_var_profile[0].alleles == std::vector<int>{0, 1} )
+with expansion:
+  {  } == { 0, 1 }
+
+-------------------------------------------------------------------------------
+recovery jointly calls complementary MSA deletions
+  exact and left-shifted one-base ALTs keep the other contrast zero
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:1502
+...............................................................................
+
+src/test_phase_predicates.cpp:1505: FAILED:
+  CHECK( fill() == 2 )
+with expansion:
+  0 == 2
+
+src/test_phase_predicates.cpp:1506: FAILED:
+  CHECK( chunk.read_var_profile[0].alleles == std::vector<int>{1, 0} )
+with expansion:
+  {  } == { 1, 0 }
+
+src/test_phase_predicates.cpp:1505: FAILED:
+  CHECK( fill() == 2 )
+with expansion:
+  0 == 2
+
+src/test_phase_predicates.cpp:1506: FAILED:
+  CHECK( chunk.read_var_profile[0].alleles == std::vector<int>{1, 0} )
+with expansion:
+  {  } == { 1, 0 }
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 61 | 55 passed | 6 failed

@@ -1,0 +1,31 @@
+{
+  "baseline_commit": "94410d04ba8acda80b56feb9a3ec562249c2328d",
+  "baseline_binary_sha256": "0dee719443489efb56f5f33efc69c0c825f93904477af1c25d55cde63206f733",
+  "final_binary_sha256": "598eb8f99b1e14d1ce25eb9a8ef0305bea60b9b44089c2a3f41f9a05c95ac676",
+  "full_command": [
+    "./pgphase",
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-t",
+    "8",
+    "-r",
+    "CHM13#0#chr20",
+    "-o",
+    "/tmp/pgphase-gap-next17/verified/candidates.tsv",
+    "--phased-vcf-out",
+    "/tmp/pgphase-gap-next17/verified/phased.vcf",
+    "--phased-bam-out",
+    "/tmp/pgphase-gap-next17/verified/phased.bam"
+  ],
+  "baseline_outputs": "/tmp/pgphase-hiphase-comparison-2026-10-01/pgphase",
+  "final_outputs": "/tmp/pgphase-gap-next17/verified",
+  "input_primary_unique_reads": 272016,
+  "runtime_is_not_sequential_benchmark": true
+}

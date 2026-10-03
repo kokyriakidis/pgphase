@@ -1,0 +1,329 @@
+{
+  "source_phase_set": 61690751,
+  "source_phased_sites": 14,
+  "source_extent": [
+    61690751,
+    61747507
+  ],
+  "rows": [
+    {
+      "source": {
+        "pos": 61690751,
+        "type": "X",
+        "length": 1,
+        "alt": "C",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61694623,
+        "type": "X",
+        "length": 1,
+        "alt": "A",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61695029,
+        "type": "X",
+        "length": 1,
+        "alt": "C",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61697459,
+        "type": "D",
+        "length": 4,
+        "alt": "",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61698833,
+        "type": "X",
+        "length": 1,
+        "alt": "T",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61725696,
+        "type": "X",
+        "length": 1,
+        "alt": "A",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61732321,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": null,
+      "final": null
+    },
+    {
+      "source": {
+        "pos": 61737963,
+        "type": "D",
+        "length": 1,
+        "alt": "",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": {
+        "pos": 61737963,
+        "type": "D",
+        "length": 1,
+        "alt": "",
+        "ps": 61690752,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "final": {
+        "pos": 61737963,
+        "type": "D",
+        "length": 1,
+        "alt": "",
+        "ps": 61487312,
+        "hap1": 1,
+        "hap2": 0
+      }
+    },
+    {
+      "source": {
+        "pos": 61738226,
+        "type": "D",
+        "length": 20,
+        "alt": "",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": {
+        "pos": 61738226,
+        "type": "D",
+        "length": 20,
+        "alt": "",
+        "ps": 61690752,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "final": {
+        "pos": 61738226,
+        "type": "D",
+        "length": 20,
+        "alt": "",
+        "ps": 61487312,
+        "hap1": 1,
+        "hap2": 0
+      }
+    },
+    {
+      "source": {
+        "pos": 61738233,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": {
+        "pos": 61738233,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690752,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "final": {
+        "pos": 61738233,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61487312,
+        "hap1": 0,
+        "hap2": 1
+      }
+    },
+    {
+      "source": {
+        "pos": 61738235,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": {
+        "pos": 61738235,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690752,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "final": {
+        "pos": 61738235,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61487312,
+        "hap1": 0,
+        "hap2": 1
+      }
+    },
+    {
+      "source": {
+        "pos": 61738237,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": {
+        "pos": 61738237,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690752,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "final": {
+        "pos": 61738237,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61487312,
+        "hap1": 0,
+        "hap2": 1
+      }
+    },
+    {
+      "source": {
+        "pos": 61738239,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690751,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "transferred": {
+        "pos": 61738239,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61690752,
+        "hap1": 1,
+        "hap2": 0
+      },
+      "final": {
+        "pos": 61738239,
+        "type": "X",
+        "length": 1,
+        "alt": "G",
+        "ps": 61487312,
+        "hap1": 0,
+        "hap2": 1
+      }
+    },
+    {
+      "source": {
+        "pos": 61747507,
+        "type": "D",
+        "length": 2,
+        "alt": "",
+        "ps": 61690751,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "transferred": {
+        "pos": 61747507,
+        "type": "D",
+        "length": 2,
+        "alt": "",
+        "ps": 61690752,
+        "hap1": 0,
+        "hap2": 1
+      },
+      "final": {
+        "pos": 61747507,
+        "type": "D",
+        "length": 2,
+        "alt": "",
+        "ps": 61755063,
+        "hap1": 0,
+        "hap2": 1
+      }
+    }
+  ],
+  "boundary_pairs": [
+    {
+      "read": "m84031_231217_034919_s2/189139067/ccs",
+      "left_allele": 1,
+      "right_allele": 1,
+      "source_consistent": false,
+      "mapq": 60,
+      "skipped": 0,
+      "hap": 2,
+      "ps": 61690751
+    },
+    {
+      "read": "m84031_231217_034919_s2/135598173/ccs",
+      "left_allele": 1,
+      "right_allele": 1,
+      "source_consistent": false,
+      "mapq": 60,
+      "skipped": 0,
+      "hap": 2,
+      "ps": 61690751
+    }
+  ],
+  "assigned_pair_votes": {
+    "conflicting": 2
+  }
+}

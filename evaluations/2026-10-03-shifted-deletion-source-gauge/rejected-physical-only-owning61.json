@@ -1,0 +1,35 @@
+{
+  "before": {
+    "output_reads": 4013,
+    "scored": 3452,
+    "correct": 3423,
+    "discordant": 29,
+    "concordance": 0.9915990730011588,
+    "read_phase_sets": 14,
+    "vcf_keys": 496,
+    "vcf_blocks": 8,
+    "span_n50": 250203
+  },
+  "after": {
+    "output_reads": 4013,
+    "scored": 3479,
+    "correct": 3440,
+    "discordant": 39,
+    "concordance": 0.9887898821500432,
+    "read_phase_sets": 16,
+    "vcf_keys": 496,
+    "vcf_blocks": 9,
+    "span_n50": 242646
+  },
+  "changed_read_tags": 29,
+  "changed_vcf_rows": 1,
+  "lost_keys": 0,
+  "gained_keys": 0,
+  "read_truth_transitions": {
+    "(True, True)": 3422,
+    "(None, False)": 10,
+    "(None, True)": 18,
+    "(False, False)": 29,
+    "(True, None)": 1
+  }
+}

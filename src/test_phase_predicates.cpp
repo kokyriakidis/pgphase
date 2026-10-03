@@ -25,6 +25,267 @@
 
 using namespace pgphase_collect;
 
+TEST_CASE("padded graph indels use the emitted physical BAM key",
+          "[recovery][representation]") {
+    const auto check_key = [](hts_pos_t pos, const std::string& ref,
+                              const std::string& alt, VariantType type,
+                              hts_pos_t expected_pos, int ref_len,
+                              const std::string& expected_alt) {
+        const VariantKey raw = vcf_to_variant_key(11, pos, ref, alt);
+        CHECK(raw.tid == 11);
+        CHECK(raw.type == type);
+        CHECK(raw.pos == expected_pos);
+        CHECK(raw.ref_len == ref_len);
+        CHECK(raw.alt == expected_alt);
+        std::string emitted_ref = ref;
+        std::string emitted_alt = alt;
+        trim_to_minimal_vcf(pos, emitted_ref, emitted_alt);
+        const VariantKey emitted =
+            vcf_to_variant_key(11, pos, emitted_ref, emitted_alt);
+        CHECK(exact_comp_var_site(&raw, &emitted) == 0);
+    };
+    SECTION("common suffix is context rather than inserted or deleted bases") {
+        check_key(100, "ACG", "ATCG", VariantType::Insertion, 101, 0, "T");
+        check_key(100, "ATCG", "ACG", VariantType::Deletion, 101, 1, "");
+    }
+    SECTION("complex replacements retain their nonmatching reference and ALT") {
+        check_key(100, "ACG", "ATTG", VariantType::Insertion, 101, 1, "TT");
+        check_key(100, "ATTG", "ACG", VariantType::Deletion, 101, 2, "C");
+    }
+    SECTION("minimal indels and padded SNPs keep their existing convention") {
+        check_key(100, "A", "AT", VariantType::Insertion, 101, 0, "T");
+        check_key(100, "AT", "A", VariantType::Deletion, 101, 1, "");
+        check_key(100, "ACG", "ATG", VariantType::Snp, 101, 1, "T");
+    }
+}
+
+TEST_CASE("graph indel context trimming preserves BAM repeat placement",
+          "[recovery][representation]") {
+    const VariantKey deletion = vcf_to_variant_key(11, 100, "TAA", "TA");
+    CHECK(deletion.type == VariantType::Deletion);
+    CHECK(deletion.pos == 102);
+    CHECK(deletion.ref_len == 1);
+    CHECK(deletion.alt.empty());
+    const VariantKey insertion = vcf_to_variant_key(11, 100, "TAA", "TAAA");
+    CHECK(insertion.type == VariantType::Insertion);
+    CHECK(insertion.pos == 103);
+    CHECK(insertion.ref_len == 0);
+    CHECK(insertion.alt == "A");
+}
+
+TEST_CASE("recovery anchors require a complete heterozygous genotype",
+          "[recovery-anchor]") {
+    CandidateVariant site;
+    site.phase_set = 100;
+    site.counts.category = VariantCategory::CleanHetSnp;
+    site.hap_to_cons_alle = {-1, 0, 1};
+    CHECK(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 1, 0};
+    CHECK(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 1, 2};
+    CHECK(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 2, 1};
+    CHECK(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 2, 3};
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 1, 1};
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 0, 0};
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, -1, 1};
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 1, -1};
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.hap_to_cons_alle = {-1, 0, 1};
+    site.counts.category = VariantCategory::CleanHom;
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.counts.category = VariantCategory::NoisyCandHom;
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.counts.category = VariantCategory::NoisyCandHet;
+    CHECK(is_phase_set_anchor(site));
+    site.phase_set = 0;
+    CHECK_FALSE(is_phase_set_anchor(site));
+    site.phase_set = -1;
+    CHECK_FALSE(is_phase_set_anchor(site));
+}
+
+TEST_CASE("de novo MSA uses each clustered read's coverage flags",
+          "[msa][coverage]") {
+    Options opts;
+    opts.min_af = 0.3;
+    NoisyReadInfo info;
+    info.n_reads = 6;
+    const std::string reference = "ACGTACGTACGTACGTACGT";
+    for (int i = 0; i < info.n_reads; ++i) {
+        const std::string sequence = i == 5 ? reference.substr(1) : reference;
+        std::vector<uint8_t> bases;
+        for (const char base : sequence) bases.push_back(base_to_nt4(base));
+        info.noisy_read_ids.push_back(100 + i);
+        info.lens.push_back(static_cast<int>(bases.size()));
+        info.seqs.push_back(std::move(bases));
+        // The partial read is not in a cluster. Its flag must not be borrowed
+        // by cluster zero's full-cover reads, particularly the leading DEL.
+        info.fully_covers.push_back(i == 0 ? kNoisyRightCover : kNoisyBothCover);
+    }
+    std::vector<uint8_t> ref;
+    for (const char base : reference) ref.push_back(base_to_nt4(base));
+    std::array<int, 2> counts{};
+    std::array<std::vector<int>, 2> ids;
+    std::array<std::vector<AlnStr>, 2> alignments;
+    const int n_cons = wfa_collect_noisy_aln_str_no_ps_hap(
+        opts, info, ref.data(), static_cast<int>(ref.size()), true,
+        counts, ids, alignments);
+    REQUIRE(n_cons > 0);
+    bool found = false;
+    for (int ci = 0; ci < n_cons; ++ci) {
+        for (int ri = 0; ri < counts[ci]; ++ri) {
+            const AlnStr& aln = alignments[ci][2 * ri + 1];
+            CHECK(ids[ci][ri] != 100);
+            CHECK(aln.target_beg == 0);
+            CHECK(aln.query_beg == 0);
+            CHECK(aln.target_end == aln.aln_len - 1);
+            CHECK(aln.query_end == aln.aln_len - 1);
+            found |= ids[ci][ri] == 105;
+        }
+    }
+    CHECK(found);
+}
+
+TEST_CASE("phased MSA retains excluded partial reads without inventing coverage",
+          "[msa][coverage]") {
+    Options opts;
+    opts.noisy_reg_flank_len = 3;
+    // Even a one-point assignment margin must not turn an uncovered end
+    // into a haplotype vote.
+    opts.msa_ambiguity_margin = 1;
+    const std::string reference = "ACG" + std::string(20, 'T') + "GCA";
+    NoisyReadInfo info;
+    const auto add_read = [&](const std::string& sequence, int hap, int cover) {
+        std::vector<uint8_t> bases;
+        for (const char base : sequence) bases.push_back(base_to_nt4(base));
+        info.noisy_read_ids.push_back(100 + info.n_reads++);
+        info.lens.push_back(static_cast<int>(bases.size()));
+        info.quals.emplace_back(bases.size(), 40);
+        info.seqs.push_back(std::move(bases));
+        info.fully_covers.push_back(cover);
+        info.haps.push_back(hap);
+        info.phase_sets.push_back(hap == 0 ? 0 : 100);
+    };
+    for (int i = 0; i < 3; ++i) {
+        add_read(reference, 1, kNoisyBothCover);
+        add_read("ACG" + std::string(24, 'T') + "GCA", 2, kNoisyBothCover);
+    }
+    int hap = 1;
+    int cover = kNoisyRightCover;
+    SECTION("a phased suffix was excluded from the MSA") {}
+    SECTION("an unphased suffix has the same coverage limits") { hap = 0; }
+    SECTION("a phased prefix was excluded from the MSA") { cover = kNoisyLeftCover; }
+    SECTION("an unphased prefix has the same coverage limits") {
+        hap = 0;
+        cover = kNoisyLeftCover;
+    }
+    SECTION("a read with neither covered end contributes no alignment") {
+        hap = 0;
+        cover = kNoisyNoCover;
+    }
+    add_read(cover == kNoisyRightCover ? std::string(10, 'T') + "GCA"
+                                      : "ACG" + std::string(10, 'T'), hap, cover);
+    std::vector<uint8_t> ref;
+    for (const char base : reference) ref.push_back(base_to_nt4(base));
+    std::array<int, 2> counts{};
+    std::array<std::vector<int>, 2> ids;
+    std::array<std::vector<AlnStr>, 2> alignments;
+    std::vector<UnassignedMsaRead> unassigned;
+    REQUIRE(wfa_collect_noisy_aln_str_with_ps_hap(
+        opts, false, info, 100, 3, 3, ref.data(), static_cast<int>(ref.size()),
+        true, counts, ids, alignments, &unassigned) == 2);
+    // The suffix fits both consensuses equally. Its missing repeat prefix
+    // provides neither a haplotype vote nor deletion observations.
+    REQUIRE(counts[0] == 3);
+    REQUIRE(counts[1] == 3);
+    if (cover == kNoisyNoCover) {
+        CHECK(unassigned.empty());
+        return;
+    }
+    REQUIRE(unassigned.size() == 1);
+    CHECK(unassigned[0].read_id == 106);
+    for (const AlnStr& aln : unassigned[0].ref_read) {
+        CHECK(aln.target_beg == 0);
+        CHECK(aln.target_end == aln.aln_len - 1);
+        if (cover == kNoisyRightCover) {
+            CHECK(aln.query_beg > 0);
+            CHECK(aln.query_end == aln.aln_len - 1);
+        } else {
+            CHECK(aln.query_beg == 0);
+            CHECK(aln.query_end < aln.aln_len - 1);
+        }
+    }
+}
+
+TEST_CASE("local MSA recall preserves fixed consensus membership",
+          "[msa][recovery][observations]") {
+    Options opts;
+    opts.recall_unplaced_msa_insertions = true;
+    opts.add_unplaced_msa_observations = false;
+    opts.msa_ambiguity_margin = 1;
+    const std::string reference = "ACG" + std::string(20, 'T') + "GCA";
+    bool literal_ref = false, different_locus = false, tandem_insertion = false;
+    SECTION("two alternate insertions share one reference anchor") {}
+    SECTION("literal reference and one insertion do not establish the contrast") {
+        literal_ref = true;
+    }
+    SECTION("insertions at different anchors do not establish the contrast") {
+        different_locus = true;
+    }
+    SECTION("tandem-repeat insertions do not establish a homopolymer contrast") {
+        tandem_insertion = true;
+    }
+    NoisyReadInfo info;
+    for (int i = 0; i < 7; ++i) {
+        const int hap = i == 6 ? 0 : i % 2 + 1;
+        const std::string sequence = tandem_insertion
+            ? "ACG" + std::string(20, 'T') + (hap == 1 ? "TATA" : "TATATATA") + "GCA"
+            : different_locus && hap == 2
+            ? "ACG" + std::string(20, 'T') + "G" + std::string(8, 'A') + "CA"
+            : "ACG" + std::string(hap == 1 ? (literal_ref ? 20 : 24) : 28, 'T') + "GCA";
+        std::vector<uint8_t> bases;
+        for (const char base : sequence) bases.push_back(base_to_nt4(base));
+        info.noisy_read_ids.push_back(100 + i);
+        info.lens.push_back(static_cast<int>(bases.size()));
+        info.quals.emplace_back(bases.size(), 40);
+        info.seqs.push_back(std::move(bases));
+        info.fully_covers.push_back(kNoisyBothCover);
+        info.haps.push_back(hap);
+        info.phase_sets.push_back(hap == 0 ? 0 : 100);
+        ++info.n_reads;
+    }
+    std::vector<uint8_t> ref;
+    for (const char base : reference) ref.push_back(base_to_nt4(base));
+    std::array<int, 2> counts{};
+    std::array<std::vector<int>, 2> ids;
+    std::array<std::vector<AlnStr>, 2> alignments;
+    std::vector<UnassignedMsaRead> recalled;
+    REQUIRE(wfa_collect_noisy_aln_str_with_ps_hap(
+        opts, false, info, 100, 3, 3, ref.data(), static_cast<int>(ref.size()),
+        true, counts, ids, alignments, &recalled) == 2);
+    CHECK(counts[0] == 3);
+    CHECK(counts[1] == 3);
+    if (literal_ref || different_locus || tandem_insertion) {
+        CHECK(recalled.empty());
+        return;
+    }
+    REQUIRE(recalled.size() == 1);
+    CHECK(recalled[0].read_id == 106);
+    const std::array<AlnStr, 2> consensuses{alignments[0][0], alignments[1][0]};
+    VariantKey key;
+    key.pos = 103;
+    key.type = VariantType::Insertion;
+    key.alt = "TTTT";
+    CHECK(call_msa_site_allele(recalled[0].ref_read, key, 100, &consensuses) == 0);
+    key.alt = "TTTTTTTT";
+    CHECK(call_msa_site_allele(recalled[0].ref_read, key, 100, &consensuses) == 1);
+}
+
 namespace {
 
 /// A chunk carrying only the reference slice the predicate reads.
@@ -404,9 +665,30 @@ TEST_CASE("allele_depths_call_het: every exclusion in order") {
     }
     SECTION("the position must fall inside a window") {
         CHECK_FALSE(allele_depths_call_het(het_candidate(2500), opts));
-        // The window is half-open: [beg, end).
+        // Recovery seams include both VCF anchors: [beg, end].
         CHECK(allele_depths_call_het(het_candidate(1000), opts));
-        CHECK_FALSE(allele_depths_call_het(het_candidate(2000), opts));
+        CHECK(allele_depths_call_het(het_candidate(2000), opts));
+        CHECK_FALSE(allele_depths_call_het(het_candidate(2001), opts));
+    }
+    SECTION("single-anchor seams admit their SNP and indel boundary rows") {
+        constexpr hts_pos_t kAnchor = 2000;
+        Options singleton = opts;
+        singleton.retry_windows = {{kAnchor, kAnchor}};
+        for (const VariantType type : {VariantType::Snp, VariantType::Insertion,
+                                       VariantType::Deletion}) {
+            CandidateVariant boundary = het_candidate(kAnchor);
+            boundary.key.type = type;
+            if (type != VariantType::Snp) {
+                boundary.key.pos = kAnchor + 1;
+                boundary.lcd_var_i_to_cate = kCandCleanHetIndel;
+            }
+            REQUIRE(boundary.key.sort_pos() == kAnchor);
+            CHECK(allele_depths_call_het(boundary, singleton));
+            --boundary.key.pos;
+            CHECK_FALSE(allele_depths_call_het(boundary, singleton));
+            boundary.key.pos += 2;
+            CHECK_FALSE(allele_depths_call_het(boundary, singleton));
+        }
     }
     SECTION("joint orientation makes the verdict chunk-wide") {
         Options joint = opts;
@@ -458,7 +740,6 @@ TEST_CASE("allele_depths_call_het: every exclusion in order") {
         CHECK(allele_depths_call_het(v, opts));
     }
 }
-
 
 TEST_CASE("MSA indel retry checks local and crossing dropout independently",
           "[recovery][msa][admission]") {
@@ -578,6 +859,107 @@ TEST_CASE("MSA indel retry checks local and crossing dropout independently",
             chunk.read_var_profile[ri].alleles[0] = 0;
         }
         CHECK(msa_boundary_dropout_is_supported(chunk, {0, 2}, opts));
+    }
+}
+
+TEST_CASE("MSA conflicts inside one source PS can request a focused retry",
+          "[recovery][msa][admission][source-conflict]") {
+    const auto make_chunk = [] {
+        PhasingChunk chunk;
+        CandidateVariant left = het_candidate(1000);
+        CandidateVariant right = het_candidate(2000);
+        left.key.type = VariantType::Insertion;
+        left.lcd_var_i_to_cate = kCandNoisyCandHet;
+        left.counts.category = VariantCategory::NoisyCandHet;
+        left.msa_verified = true;
+        right.key.type = VariantType::Deletion;
+        right.counts.category = VariantCategory::NoisyCandHet;
+        right.msa_verified = true;
+        left.phase_set = right.phase_set = 1000;
+        left.hap_to_cons_alle = right.hap_to_cons_alle = {-1, 0, 1};
+        chunk.candidates = {left, right};
+        for (int ri = 0; ri < 26; ++ri) {
+            ReadRecord read;
+            read.qname = "molecule" + std::to_string(ri);
+            read.beg = 900;
+            read.end = 2100;
+            read.mapq = 60;
+            chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.read_id = ri;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {ri < 14 ? 1 : 0, 1};
+            chunk.read_var_profile.push_back(std::move(profile));
+            chunk.haps.push_back(ri < 14 ? 2 : 1);
+            chunk.phase_sets.push_back(1000);
+        }
+        return chunk;
+    };
+    PhasingChunk chunk = make_chunk();
+    Options opts;
+    opts.min_depth = 6;
+    const auto admits = [&opts](const PhasingChunk& input) {
+        return msa_source_conflict_is_supported(input, {0, 1}, opts);
+    };
+    SECTION("a nominal PS with a conflicting weak internal edge is retried") {
+        CHECK(admits(chunk));
+    }
+    SECTION("different source gauges do not establish an internal conflict") {
+        chunk.candidates[1].phase_set = 2000;
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("homozygotes and unphased rows cannot name a path edge") {
+        chunk.candidates[1].counts.category = VariantCategory::NoisyCandHom;
+        CHECK_FALSE(admits(chunk));
+        chunk = make_chunk();
+        chunk.candidates[1].phase_set = 0;
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("clean SNP pairs do not request indel MSA") {
+        for (auto& site : chunk.candidates) site.key.type = VariantType::Snp;
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("both consistent haplotypes already support the ordinary path") {
+        chunk.read_var_profile[0].alleles = {0, 0};
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("small or nonsignificant conflicting cohorts are insufficient") {
+        chunk.reads.resize(5);
+        CHECK_FALSE(admits(chunk));
+        chunk = make_chunk();
+        for (size_t ri = 14; ri < 25; ++ri)
+            chunk.read_var_profile[ri].alleles = {1, 1};
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("low and unknown MAPQ, skipped and other PS reads do not contribute") {
+        for (int mode = 0; mode < 4; ++mode) {
+            chunk = make_chunk();
+            for (size_t ri = 14; ri < chunk.reads.size(); ++ri) {
+                if (mode == 0) chunk.reads[ri].mapq = 29;
+                if (mode == 1) chunk.reads[ri].mapq = 255;
+                if (mode == 2) chunk.reads[ri].is_skipped = true;
+                if (mode == 3) chunk.phase_sets[ri] = 2000;
+            }
+            CHECK_FALSE(admits(chunk));
+        }
+    }
+    SECTION("a profile outside the physical molecule cannot supply a pair") {
+        for (size_t ri = 14; ri < chunk.reads.size(); ++ri)
+            chunk.reads[ri].end = 1500;
+        CHECK_FALSE(admits(chunk));
+    }
+    SECTION("missing or third-allele observations are not conflicts") {
+        for (const int allele : {-1, 2}) {
+            chunk = make_chunk();
+            for (size_t ri = 14; ri < chunk.reads.size(); ++ri)
+                chunk.read_var_profile[ri].alleles[0] = allele;
+            CHECK_FALSE(admits(chunk));
+        }
+    }
+    SECTION("co-located alternatives are one locus, not an internal cut") {
+        chunk.candidates[1].key.pos = chunk.candidates[0].key.pos;
+        CHECK_FALSE(admits(chunk));
     }
 }
 
@@ -1077,6 +1459,104 @@ TEST_CASE("equivalent deletion calls preserve separate allele rows",
     }
 }
 
+TEST_CASE("recovery jointly calls complementary MSA deletions",
+          "[msa][recovery][representation][deletion-pair]") {
+    const auto make_chunk = [](const std::string& cigar, const std::string& sequence) {
+        PhasingChunk chunk = shifted_insertion_chunk(cigar, sequence);
+        chunk.ref_seq = "CAAAAAGC";
+        CandidateVariant& first = chunk.candidates.front();
+        first.key = del_key(103, 1);
+        first.msa_verified = true;
+        first.is_homopolymer_indel = true;
+        first.phase_set = 100;
+        first.hap_to_cons_alle = {-1, 0, 1};
+        first.counts.category = VariantCategory::NoisyCandHet;
+        first.counts.n_uniq_alles = 2;
+        first.counts.alle_covs = {20, 20};
+        first.counts.total_cov = 40;
+        CandidateVariant second = first;
+        second.key.ref_len = 2;
+        second.hap_to_cons_alle = {-1, 1, 0};
+        chunk.candidates.push_back(second);
+        return chunk;
+    };
+    Options opts;
+    opts.min_bq = 30;
+    PhasingChunk chunk = make_chunk("4M2D2M", "CAAAGC");
+    const auto fill = [&]() { return backfill_complementary_msa_deletions(chunk, opts, 102, 102); };
+    SECTION("ordinary backfill does not promote physical pair calls to rescue evidence") {
+        CHECK(backfill_msa_observations(chunk, opts, 102, 102) == 0);
+        CHECK(chunk.read_var_profile[0].start_var_idx == -1);
+        CHECK(fill() == 2);
+    }
+    SECTION("a verified two-base ALT supplies both missing binary contrasts") {
+        CHECK(fill() == 2);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0, 1});
+        CHECK(chunk.candidates.size() == 2);
+        CHECK(chunk.candidates[0].key.ref_len == 1);
+        CHECK(chunk.candidates[1].key.ref_len == 2);
+        CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+        CHECK(chunk.candidates[1].hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        for (const auto& candidate : chunk.candidates) {
+            CHECK(candidate.counts.alle_covs == std::vector<int>{20, 20});
+            CHECK(candidate.counts.total_cov == 40);
+            CHECK(candidate.phase_set == 100);
+        }
+        CHECK(fill() == 0);
+    }
+    SECTION("exact and left-shifted one-base ALTs keep the other contrast zero") {
+        for (const auto& cigar : {"3M1D4M", "2M1D5M"}) {
+            chunk = make_chunk(cigar, "CAAAAGC");
+            CHECK(fill() == 2);
+            CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        }
+    }
+    SECTION("a third deletion length or literal REF does not identify a haplotype") {
+        for (const auto& read : std::array<std::pair<std::string, std::string>, 2>{
+                std::make_pair("3M3D2M", "CAAGC"),
+                std::make_pair("8M", "CAAAAAGC")}) {
+            chunk = make_chunk(read.first, read.second);
+            CHECK(fill() == 0);
+            CHECK(chunk.read_var_profile[0].start_var_idx == -1);
+        }
+    }
+    SECTION("existing MSA contrasts are never overwritten or completed from another gauge") {
+        update_read_var_profile_with_allele(0, 1, -1, chunk.read_var_profile[0]);
+        CHECK(fill() == 0);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1});
+    }
+    SECTION("independent blocks cannot manufacture a complementary locus") {
+        chunk.candidates[1].phase_set = 200;
+        CHECK(fill() == 0);
+        chunk.candidates[1].phase_set = 100;
+        chunk.candidates[1].hap_to_cons_alle = {-1, 0, 1};
+        CHECK(fill() == 0);
+    }
+    SECTION("both rows must lie in the targeted seam") {
+        CHECK(backfill_complementary_msa_deletions(chunk, opts, 103, 106) == 0);
+    }
+    SECTION("compound edits and low or missing qualities remain unknown") {
+        chunk = make_chunk("3M1I1M2D2M", "CAATAGC");
+        CHECK(fill() == 0);
+        chunk = make_chunk("4M2D2M", "CAAAGC");
+        for (const int quality : {29, 255}) {
+            bam_get_qual(chunk.reads[0].alignment.get())[3] = quality;
+            CHECK(fill() == 0);
+        }
+        bam_get_qual(chunk.reads[0].alignment.get())[3] = 40;
+        for (const int mapq : {5, 255}) {
+            chunk.reads[0].mapq = mapq;
+            CHECK(fill() == 0);
+        }
+    }
+    SECTION("a third MSA alternative prevents a two-row projection") {
+        CandidateVariant other = chunk.candidates[0];
+        other.key.ref_len = 3;
+        chunk.candidates.push_back(other);
+        CHECK(fill() == 0);
+    }
+}
+
 TEST_CASE("recovery fills missing shifted deletion ALT observations",
           "[msa][recovery][representation][deletion-backfill]") {
     const auto make_chunk = [](const std::string& cigar,
@@ -1126,14 +1606,37 @@ TEST_CASE("recovery fills missing shifted deletion ALT observations",
         CHECK(fill(chunk) == 0);
         CHECK(chunk.read_var_profile[0].start_var_idx == -1);
     }
-    SECTION("callable exact contrasts remain unchanged") {
+    SECTION("an exact-position REF must not hide a certified shifted ALT") {
         PhasingChunk chunk = make_chunk("5M1D2M", "CAAAAGC");
+        int qi = -1;
+        REQUIRE(bam_exact_indel_allele(chunk.reads[0].alignment.get(),
+            chunk.candidates[0], 30, &qi) == 0);
         REQUIRE(fill(chunk) == 1);
-        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
-        chunk = make_chunk("4M1I4M", "CAAAAAAGC");
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1});
+        CHECK(chunk.candidates[0].phase_set == 100);
+        CHECK(chunk.candidates[0].key.pos == 103);
+    }
+    SECTION("a different event keeps its exact binary contrast") {
+        PhasingChunk chunk = make_chunk("4M1I4M", "CAAAAAAGC");
         chunk.candidates[0].key.ref_len = 3;
         REQUIRE(fill(chunk) == 1);
         CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+    }
+    SECTION("a shifted ALT preserves an absent gauge and rejects a contradictory one") {
+        for (const bool contradiction : {false, true}) {
+            PhasingChunk chunk = make_chunk("5M1D2M", "CAAAAGC");
+            if (contradiction) {
+                chunk.candidates[1].hap_to_cons_alle[1] = 1;
+                chunk.candidates[1].hap_to_cons_alle[2] = 0;
+            } else {
+                chunk.candidates[1].phase_set = 200;
+            }
+            CHECK(fill(chunk) == (contradiction ? 0 : 1));
+            if (contradiction)
+                CHECK(chunk.read_var_profile[0].start_var_idx == -1);
+            else
+                CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+        }
     }
     SECTION("colocated MSA alternatives retain their binary source contrast") {
         PhasingChunk chunk = make_chunk("4M1I4M", "CAAAAAAGC");
@@ -1310,6 +1813,76 @@ TEST_CASE("targeted recovery calls a shifted single-base insertion before phasin
     }
 }
 
+TEST_CASE("MSA insertion rows retain the other verified insertion allele",
+          "[msa][recovery][complementary-indels]") {
+    const auto alignment = [](const std::string& target, const std::string& query) {
+        REQUIRE(target.size() == query.size());
+        AlnStr result;
+        for (char base : target) result.target_aln.push_back(base == '-' ? 5 : base_to_nt4(base));
+        for (char base : query) result.query_aln.push_back(base == '-' ? 5 : base_to_nt4(base));
+        result.aln_len = static_cast<int>(target.size());
+        result.target_end = result.query_end = result.aln_len - 1;
+        return result;
+    };
+    const AlnStr four = alignment("ACG----TGC", "ACGTTTTTGC");
+    const AlnStr eight = alignment("ACG--------TGC", "ACGTTTTTTTTTGC");
+    const AlnStr seven = alignment("ACG-------TGC", "ACGTTTTTTTTGC");
+    const AlnStr six = alignment("ACG------TGC", "ACGTTTTTTTGC");
+    const VariantKey four_key = ins_key(103, "TTTT");
+    const VariantKey eight_key = ins_key(103, "TTTTTTTT");
+    std::array<AlnStr, 2> consensuses{four, eight};
+    SECTION("exact diploid alleles project to complementary rows") {
+        CHECK(call_msa_site_allele({four, four}, four_key, 100, &consensuses) == 1);
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100, &consensuses) == 0);
+        CHECK(call_msa_site_allele({four, four}, eight_key, 100, &consensuses) == 0);
+        CHECK(call_msa_site_allele({eight, eight}, eight_key, 100, &consensuses) == 1);
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100) == -1);
+        CHECK(call_msa_site_allele({seven, seven}, four_key, 100, &consensuses) == -1);
+        CHECK(call_msa_site_allele({four, eight}, four_key, 100, &consensuses) == -1);
+    }
+    SECTION("missing selected allele or incomplete contrast stays unknown") {
+        consensuses = {eight, eight};
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100, &consensuses) == -1);
+        consensuses = {four, eight};
+        consensuses[0].target_beg = 1;
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100, &consensuses) == -1);
+        consensuses = {four, eight};
+        consensuses[0].query_aln[0] = 4;
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100, &consensuses) == -1);
+    }
+    SECTION("different consensus flanks do not certify an insertion contrast") {
+        consensuses[0].query_aln[0] = base_to_nt4('T');
+        CHECK(call_msa_site_allele({eight, eight}, four_key, 100, &consensuses) == -1);
+    }
+    SECTION("existing one-error recall uses the diploid contrast without merging") {
+        CandidateVariant first;
+        first.key = four_key;
+        first.counts.category = VariantCategory::NoisyCandHet;
+        first.counts.alle_covs = {1, 1};
+        first.counts.total_cov = 2;
+        CandidateVariant second = first;
+        second.key = eight_key;
+        std::vector<CandidateVariant> candidates{first, second};
+        std::vector<ReadVariantProfile> profiles(2);
+        UnassignedMsaRead supported;
+        supported.read_id = 0;
+        supported.ref_read = {seven, seven};
+        UnassignedMsaRead ambiguous;
+        ambiguous.read_id = 1;
+        ambiguous.ref_read = {six, six};
+        Options opts;
+        add_msa_site_observations(opts, {supported, ambiguous}, 100,
+                                  candidates, profiles, &consensuses);
+        REQUIRE(candidates.size() == 2);
+        CHECK(exact_comp_var_site(&candidates[0].key, &four_key) == 0);
+        CHECK(exact_comp_var_site(&candidates[1].key, &eight_key) == 0);
+        CHECK(profiles[0].alleles == std::vector<int>{0, 1});
+        CHECK(profiles[1].start_var_idx == -1);
+        CHECK(candidates[0].counts.alle_covs == std::vector<int>{2, 1});
+        CHECK(candidates[1].counts.alle_covs == std::vector<int>{1, 2});
+    }
+}
+
 TEST_CASE("MSA deletion rows retain a verified alternate-absent insertion allele",
           "[msa][recovery][complementary-indels]") {
     const auto alignment = [](const std::string& target, const std::string& query) {
@@ -1407,7 +1980,7 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
           "[msa][recovery][representation][insertion]") {
     std::string reference = "G";
     for (int i = 0; i < 20; ++i) reference += "ATCT";
-    reference += "C";
+    reference += std::string(120, 'C');
     const auto make_chunk = [&reference](int offset = 45, const std::string& inserted = "ATCT") {
         const std::string sequence = reference.substr(0, offset) + inserted + reference.substr(offset);
         PhasingChunk chunk = shifted_insertion_chunk(
@@ -1429,6 +2002,18 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
         return bam_shifted_repeat_insertion_query_index(
             target.reads[0].alignment.get(), target.candidates[0], target, 30);
     };
+    const auto add_snp = [](PhasingChunk& target) {
+        CandidateVariant snp;
+        snp.key.type = VariantType::Snp;
+        snp.key.pos = 201;
+        snp.key.ref_len = 1;
+        snp.key.alt = "G";
+        snp.ref_base = 1; // C in the physically aligned flank.
+        snp.counts.category = VariantCategory::CleanHetSnp;
+        snp.phase_set = 101;
+        snp.hap_to_cons_alle = {-1, 0, 1};
+        target.candidates.push_back(snp);
+    };
     SECTION("a 44-base shift calls ALT without changing the source gauge or row") {
         CHECK(insertion_equivalent_positions(101, "ATCT", chunk) ==
               std::make_pair(hts_pos_t{101}, hts_pos_t{181}));
@@ -1444,6 +2029,103 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
         CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
         CHECK(chunk.haps == std::vector<int>{2});
         CHECK(chunk.read_var_profile[0].alleles.empty());
+    }
+    SECTION("recovery backfill does not call an equivalent shifted ALT reference") {
+        Options opts;
+        add_snp(chunk);
+        REQUIRE(backfill_msa_observations(chunk, opts, 100, 100) == 1);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1});
+        CHECK(chunk.candidates[0].key.pos == 101);
+        CHECK(chunk.candidates[0].key.alt == "ATCT");
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
+    }
+    SECTION("supplementary insertion calls preserve the discovery genotype census") {
+        Options opts;
+        add_snp(chunk);
+        auto& counts = chunk.candidates[0].counts;
+        counts.alle_covs = {3, 2};
+        counts.total_cov = 5;
+        counts.ref_cov = 3;
+        counts.alt_cov = 2;
+        counts.allele_fraction = 0.4;
+        counts.forward_ref = 2;
+        counts.reverse_ref = 1;
+        counts.forward_alt = counts.reverse_alt = 1;
+        REQUIRE(backfill_msa_observations(chunk, opts, 100, 100) == 1);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1});
+        CHECK(counts.alle_covs == std::vector<int>{3, 2});
+        CHECK(counts.total_cov == 5);
+        CHECK(counts.ref_cov == 3);
+        CHECK(counts.alt_cov == 2);
+        CHECK(counts.allele_fraction == Approx(0.4));
+        CHECK(counts.forward_ref == 2);
+        CHECK(counts.reverse_ref == 1);
+        CHECK(counts.forward_alt == 1);
+        CHECK(counts.reverse_alt == 1);
+        CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        CHECK(chunk.haps == std::vector<int>{2});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
+        CHECK(backfill_msa_observations(chunk, opts, 100, 100) == 0);
+        CHECK(counts.alle_covs == std::vector<int>{3, 2});
+        CHECK(counts.total_cov == 5);
+    }
+    SECTION("supplementary SNP calls do not reclassify the source genotype") {
+        Options opts;
+        add_snp(chunk);
+        auto& snp = chunk.candidates.back();
+        snp.msa_verified = true;
+        snp.counts.category = VariantCategory::NoisyCandHet;
+        snp.lcd_var_i_to_cate = kCandNoisyCandHet;
+        snp.counts.alle_covs = {2, 3};
+        snp.counts.ref_cov = 2;
+        snp.counts.alt_cov = 3;
+        snp.counts.total_cov = 5;
+        snp.counts.allele_fraction = 0.6;
+        REQUIRE(backfill_msa_observations(chunk, opts, 201, 201) == 1);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+        CHECK(snp.counts.alle_covs == std::vector<int>{2, 3});
+        CHECK(snp.counts.total_cov == 5);
+        CHECK(snp.counts.ref_cov == 2);
+        CHECK(snp.counts.alt_cov == 3);
+        CHECK(snp.counts.allele_fraction == Approx(0.6));
+        CHECK(snp.counts.category == VariantCategory::NoisyCandHet);
+        CHECK(snp.phase_set == 101);
+        CHECK(snp.hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+        CHECK(chunk.haps == std::vector<int>{2});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
+    }
+    SECTION("recovery preserves an existing MSA contrast and independent row gauges") {
+        Options opts;
+        update_read_var_profile_with_allele(0, 0, -1, chunk.read_var_profile[0]);
+        CHECK(backfill_msa_observations(chunk, opts, 100, 100) == 0);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+        chunk = make_chunk();
+        CandidateVariant other = chunk.candidates[0];
+        other.key.alt = "ATCTATCT";
+        other.hap_to_cons_alle = {-1, 0, 1};
+        chunk.candidates.push_back(other);
+        add_snp(chunk);
+        REQUIRE(backfill_msa_observations(chunk, opts, 100, 100) == 2);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates.size() == 3);
+        CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        CHECK(chunk.candidates[1].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+        CHECK(chunk.haps == std::vector<int>{2});
+    }
+    SECTION("an absent SNP gauge does not reinterpret the existing source projection") {
+        Options opts;
+        REQUIRE(backfill_msa_observations(chunk, opts, 100, 100) == 1);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+        CHECK(chunk.haps == std::vector<int>{2});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
+    }
+    SECTION("a contradictory independent SNP cannot certify the insertion source gauge") {
+        Options opts;
+        add_snp(chunk);
+        chunk.candidates.back().hap_to_cons_alle = {-1, 1, 0};
+        CHECK(backfill_msa_observations(chunk, opts, 100, 100) == 0);
+        CHECK(chunk.read_var_profile[0].start_var_idx == -1);
+        CHECK(chunk.haps == std::vector<int>{2});
     }
     SECTION("motif rotations and shifts in either direction preserve the edit") {
         chunk = make_chunk(44, "TATC");
@@ -1495,13 +2177,15 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
               std::make_pair(hts_pos_t{1}, hts_pos_t{9}));
     }
     SECTION("compound insertion and deletion paths are not certified") {
-        chunk = shifted_insertion_chunk("13M4I32M4I37M",
+        chunk = shifted_insertion_chunk("13M4I32M4I" +
+            std::to_string(reference.size() - 45) + "M",
             reference.substr(0, 13) + "ATCT" + reference.substr(13, 32) +
             "ATCT" + reference.substr(45));
         chunk.ref_seq = reference;
         chunk.candidates[0].key = ins_key(101, "ATCT");
         CHECK(call(chunk) == -1);
-        chunk = shifted_insertion_chunk("25M1D19M4I37M",
+        chunk = shifted_insertion_chunk("25M1D19M4I" +
+            std::to_string(reference.size() - 45) + "M",
             reference.substr(0, 25) + reference.substr(26, 19) +
             "ATCT" + reference.substr(45));
         chunk.ref_seq = reference;
@@ -1777,4 +2461,485 @@ TEST_CASE("recovery MSA calls stay inside physical read coverage", "[msa-coverag
     CHECK(vars[5].counts.allele_fraction == Approx(0.5));
     CHECK(vars[8].counts.total_cov == 1);
     CHECK(vars[9].counts.total_cov == 0);
+}
+
+TEST_CASE("insertion edit identity includes the common haplotype background",
+          "[msa][recovery][representation][insertion-equivalence]") {
+    CHECK(insertion_edits_are_equivalent(100, "ACGT", 102, "GTAC", "AC"));
+    CHECK(insertion_edits_are_equivalent(100, "acgt", 102, "gtac", "ac"));
+    // The same insertions disagree on the genomic background and agree only
+    // after the independently called common C->T substitution is included.
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AT", 102, "AT", "AC"));
+    CHECK(insertion_edits_are_equivalent(100, "AT", 102, "AT", "AT"));
+    CHECK(insertion_edits_are_equivalent(100, "AC", 100, "ac", ""));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AC", 100, "AT", ""));
+    CHECK_FALSE(insertion_edits_are_equivalent(102, "AC", 100, "AC", "AC"));
+    CHECK_FALSE(insertion_edits_are_equivalent(0, "AC", 2, "AC", "AC"));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "", 100, "", ""));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AC", 102, "ACA", "AC"));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AC", 102, "AC", "A"));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AN", 102, "AN", "AN"));
+    CHECK_FALSE(insertion_edits_are_equivalent(100, "AC", 102, "AC", "AN"));
+}
+
+TEST_CASE("core phase-set joins preserve independent output-only read gauges",
+          "[recovery][stitch][read-only-gauge]") {
+    for (const bool flip : {false, true}) {
+        PhasingChunk chunk;
+        chunk.reads.resize(4);
+        chunk.haps = {1, 2, 0, 0};
+        chunk.phase_sets = {100, 200, 0, 0};
+        chunk.gap_haps = {0, 0, 1, 2};
+        chunk.gap_phase_sets = {0, 0, 100 + kGapFillPsOffset, 200 + kGapFillPsOffset};
+        chunk.bam_fallback_haps = {0, 0, 2, 1};
+        chunk.bam_fallback_phase_sets = {0, 0, 100 + kBamFallbackPsOffset,
+                                        200 + kBamFallbackPsOffset};
+        CandidateVariant left, right;
+        left.key = ins_key(100, "AC");
+        right.key = ins_key(200, "AC");
+        left.phase_set = 100;
+        right.phase_set = 200;
+        left.hap_to_cons_alle = {-1, 0, 1};
+        right.hap_to_cons_alle = {-1, flip ? 1 : 0, flip ? 0 : 1};
+        chunk.candidates = {left, right};
+        REQUIRE(merge_phase_sets_in_place(chunk, 100, 200, flip));
+        CHECK(chunk.candidates[0].hap_to_cons_alle == chunk.candidates[1].hap_to_cons_alle);
+        CHECK(chunk.candidates[1].phase_set == 100);
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{100, 100, 0, 0});
+        CHECK(chunk.haps[1] == (flip ? 1 : 2));
+        CHECK(chunk.gap_haps == std::vector<int>{0, 0, 1, 2});
+        CHECK(chunk.gap_phase_sets == std::vector<hts_pos_t>{
+            0, 0, 100 + kGapFillPsOffset, 200 + kGapFillPsOffset});
+        CHECK(chunk.bam_fallback_haps == std::vector<int>{0, 0, 2, 1});
+        CHECK(chunk.bam_fallback_phase_sets == std::vector<hts_pos_t>{
+            0, 0, 100 + kBamFallbackPsOffset, 200 + kBamFallbackPsOffset});
+    }
+}
+
+
+TEST_CASE("complete BAM evidence retains context independently of graph ownership",
+          "[recovery][complete-block]") {
+    PhasingChunk source;
+    for (int ci = 0; ci < 4; ++ci) {
+        CandidateVariant site;
+        site.key.pos = 100 + ci * 100;
+        site.key.type = VariantType::Snp;
+        site.phase_set = ci < 2 ? 100 : 300;
+        site.hap_to_cons_alle = {-1, 0, 1};
+        site.counts.category = VariantCategory::CleanHetSnp;
+        source.candidates.push_back(site);
+    }
+    for (int ri = 0; ri < 20; ++ri) {
+        ReadRecord read;
+        read.qname = "molecule-" + std::to_string(ri);
+        read.mapq = 60;
+        source.reads.push_back(std::move(read));
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 3;
+        // Only the context sites call both blocks. The live gap rows (1,2)
+        // cannot establish this connection without the independent snapshot.
+        profile.alleles = {ri % 2, -1, -1, ri % 2};
+        profile.bam_base_qualities = {40, 0, 0, 40};
+        source.read_var_profile.push_back(std::move(profile));
+    }
+    RecoveryPhaseGauge gauge;
+    retain_recovery_bam_evidence(source, {{100, 101}, {300, 301}}, gauge);
+    PhasingChunk graph;
+    graph.candidates = {source.candidates[1], source.candidates[2]};
+    graph.candidates[0].phase_set = 101;
+    graph.candidates[1].phase_set = 301;
+    const auto flip = [&]() {
+        return complete_recovery_block_flip(graph, gauge, 101, 301, {0}, {1}, 5);
+    };
+    REQUIRE(gauge.bam_sites.size() == 4);
+    REQUIRE(gauge.bam_reads.size() == 20);
+    REQUIRE(flip().has_value());
+    CHECK_FALSE(*flip());
+    CHECK(graph.candidates.size() == 2);
+    CHECK(graph.candidates[0].phase_set == 101);
+    CHECK(source.candidates[0].phase_set == 100);
+    SECTION("clean labels cannot replace physical allele certificates") {
+        for (auto& read : gauge.bam_reads) read.base_qualities.clear();
+        CHECK_FALSE(flip());
+    }
+    SECTION("low-quality SNP bases cannot certify a whole-block join") {
+        for (auto& read : gauge.bam_reads)
+            std::fill(read.base_qualities.begin(), read.base_qualities.end(), 5);
+        CHECK_FALSE(flip());
+    }
+    SECTION("low MAPQ calls remain observations but cannot certify a join") {
+        for (auto& read : gauge.bam_reads) read.mapq = 5;
+        CHECK_FALSE(flip());
+    }
+    SECTION("missing base qualities cannot masquerade as high quality") {
+        for (auto& read : gauge.bam_reads)
+            std::fill(read.base_qualities.begin(), read.base_qualities.end(), 255);
+        CHECK_FALSE(flip());
+    }
+    SECTION("physical calls cannot contradict the block's existing read HP gauge") {
+        for (const auto& saved : gauge.bam_reads) {
+            ReadRecord read;
+            read.qname = saved.qname;
+            read.mapq = saved.mapq;
+            graph.reads.push_back(std::move(read));
+            graph.haps.push_back(2 - saved.observations.front().second);
+            graph.phase_sets.push_back(graph.phase_sets.size() < 10 ? 101 : 301);
+        }
+        CHECK_FALSE(flip());
+        for (int& hap : graph.haps) hap = 3 - hap;
+        REQUIRE(flip().has_value());
+        CHECK_FALSE(*flip());
+    }
+    SECTION("one agreeing block cannot hide its neighbor's contradictory HP tags") {
+        for (size_t ri = 0; ri < gauge.bam_reads.size(); ++ri) {
+            const auto& saved = gauge.bam_reads[ri];
+            ReadRecord read;
+            read.qname = saved.qname;
+            graph.reads.push_back(std::move(read));
+            const int allele = saved.observations.front().second;
+            graph.haps.push_back(ri < 10 ? 2 - allele : 1 + allele);
+            graph.phase_sets.push_back(ri < 10 ? 101 : 301);
+        }
+        CHECK_FALSE(flip());
+    }
+    SECTION("independent gauges can need a flip") {
+        for (auto& site : gauge.bam_sites)
+            if (site.phase_set == 301) std::swap(site.hap1_allele, site.hap2_allele);
+        std::swap(graph.candidates[1].hap_to_cons_alle[1],
+                  graph.candidates[1].hap_to_cons_alle[2]);
+        REQUIRE(flip().has_value());
+        CHECK(*flip());
+    }
+    SECTION("one haplotype cannot certify a whole-block connection") {
+        for (auto& read : gauge.bam_reads)
+            for (auto& observation : read.observations) observation.second = 0;
+        CHECK_FALSE(flip());
+    }
+    SECTION("balanced evidence abstains") {
+        for (size_t ri = 0; ri < gauge.bam_reads.size(); ++ri)
+            if (ri % 2 == 0) gauge.bam_reads[ri].observations.back().second ^= 1;
+        CHECK_FALSE(flip());
+    }
+    SECTION("unknown and low mapping qualities do not vote") {
+        for (size_t ri = 0; ri < gauge.bam_reads.size(); ++ri)
+            gauge.bam_reads[ri].mapq = ri % 2 == 0 ? 255 : 4;
+        CHECK_FALSE(flip());
+    }
+    SECTION("alternative alignments do not multiply support") {
+        for (auto& read : source.reads) read.qname = "one-molecule";
+        retain_recovery_bam_evidence(source, {{100, 101}, {300, 301}}, gauge);
+        CHECK(gauge.bam_reads.empty());
+        CHECK_FALSE(flip());
+    }
+    SECTION("flank-only blocks preserve reads without aliasing graph PS labels") {
+        source.candidates[0].hap_to_cons_alle = {-1, 0, 0};
+        retain_recovery_bam_evidence(source, {{100, 101}}, gauge);
+        REQUIRE(gauge.bam_sites.size() == 3);
+        CHECK(gauge.bam_sites[0].key.pos == 200);
+        CHECK(gauge.bam_sites[0].phase_set == 101);
+        CHECK(gauge.bam_sites[0].source_phase_set == 100);
+        CHECK(gauge.bam_sites[1].phase_set == 0);
+        CHECK(gauge.bam_sites[1].source_phase_set == 300);
+        CHECK(gauge.bam_sites[2].phase_set == 0);
+        CHECK(gauge.bam_sites[2].source_phase_set == 300);
+        REQUIRE(gauge.bam_reads.size() == 20);
+        for (const auto& read : gauge.bam_reads) {
+            REQUIRE(read.observations.size() == 1);
+            CHECK(read.observations.front().first == 2);
+        }
+        // A raw source coordinate equal to a graph PS does not grant ownership.
+        CHECK_FALSE(complete_recovery_block_flip(
+            graph, gauge, 300, 301, {0}, {1}, 5));
+    }
+    SECTION("clean SNPs cannot be outvoted by repetitive indels") {
+        RecoveryBamSite indel = gauge.bam_sites.front();
+        indel.clean_snp = false;
+        indel.key.type = VariantType::Deletion;
+        for (int i = 0; i < 10; ++i) {
+            indel.phase_set = i < 5 ? 101 : 301;
+            gauge.bam_sites.push_back(indel);
+        }
+        for (auto& read : gauge.bam_reads) {
+            const int hap = read.observations.front().second;
+            for (size_t ci = 4; ci < gauge.bam_sites.size(); ++ci)
+                read.observations.emplace_back(ci, ci < 9 ? hap : 1 - hap);
+        }
+        REQUIRE(flip().has_value());
+        CHECK_FALSE(*flip());
+    }
+    SECTION("snapshot survives source destruction and numeric PS collisions") {
+        source.candidates.clear();
+        source.reads.clear();
+        source.read_var_profile.clear();
+        graph.candidates[0].phase_set = 100;
+        REQUIRE(flip().has_value());
+        CHECK_FALSE(*flip());
+        CHECK_FALSE(complete_recovery_block_flip(graph, gauge, 101, 101, {}, {}, 5));
+    }
+    SECTION("graph flanks are scored by molecule name in their current gauge") {
+        for (const auto& source_read : source.reads) {
+            ReadRecord read;
+            read.qname = source_read.qname;
+            read.mapq = source_read.mapq;
+            graph.reads.push_back(std::move(read));
+        }
+        std::sort(graph.reads.begin(), graph.reads.end(),
+                  [](const ReadRecord& a, const ReadRecord& b) { return a.qname < b.qname; });
+        graph.read_var_profile.clear();
+        for (const auto& read : graph.reads) {
+            const int hap = std::stoi(read.qname.substr(9)) % 2;
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {hap, -1};
+            profile.bam_base_qualities = {40, 0};
+            graph.read_var_profile.push_back(std::move(profile));
+        }
+        const auto graph_flip = complete_recovery_block_flip(
+            graph, gauge, 900, 301, {0}, {1}, 5);
+        REQUIRE(graph_flip.has_value());
+        CHECK_FALSE(*graph_flip);
+        std::swap(graph.candidates[0].hap_to_cons_alle[1],
+                  graph.candidates[0].hap_to_cons_alle[2]);
+        const auto reversed = complete_recovery_block_flip(
+            graph, gauge, 900, 301, {0}, {1}, 5);
+        REQUIRE(reversed.has_value());
+        CHECK(*reversed);
+    }
+}
+
+TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
+          "[recovery][complete-block][stitch]") {
+    PhasingChunk chunk;
+    for (int ci = 0; ci < 4; ++ci) {
+        CandidateVariant site;
+        site.key.pos = 500 + ci * 1000;
+        site.key.type = VariantType::Snp;
+        site.counts.category = VariantCategory::CleanHetSnp;
+        site.phase_set = 100 + ci * 100;
+        site.hap_to_cons_alle = {-1, ci == 3 ? 1 : 0, ci == 3 ? 0 : 1};
+        site.bam_injected = ci == 1 || ci == 2;
+        chunk.candidates.push_back(site);
+    }
+    RecoveryPhaseGauge gauge;
+    gauge.beg = 0;
+    gauge.end = 4000;
+    gauge.imported_phase_sets = {200, 300};
+    RecoveryBlockGaugeVote left;
+    left.graph_phase_set = 100;
+    left.bam_phase_set = 200;
+    left.counts = {{{10, 0}, {0, 10}}};
+    left.shared_candidate_same = 8;
+    RecoveryBlockGaugeVote right;
+    right.graph_phase_set = 400;
+    right.bam_phase_set = 300;
+    right.counts = {{{0, 10}, {10, 0}}};
+    right.shared_candidate_cross = 8;
+    gauge.block_votes = {left, right};
+    PhasingChunk source;
+    source.candidates = {chunk.candidates[1], chunk.candidates[2]};
+    for (int ri = 0; ri < 40; ++ri) {
+        ReadRecord read;
+        read.qname = "bridge-" + std::to_string(ri);
+        read.mapq = 60;
+        source.reads.push_back(std::move(read));
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 1;
+        profile.alleles = {ri % 2, ri % 2};
+        profile.bam_base_qualities = {40, 40};
+        source.read_var_profile.push_back(std::move(profile));
+    }
+    for (size_t ri = 0; ri < source.reads.size(); ++ri) {
+        ReadRecord read;
+        read.qname = source.reads[ri].qname;
+        read.mapq = 60;
+        chunk.reads.push_back(std::move(read));
+    }
+    std::sort(chunk.reads.begin(), chunk.reads.end(),
+              [](const ReadRecord& a, const ReadRecord& b) { return a.qname < b.qname; });
+    for (const auto& read : chunk.reads) {
+        const int allele = std::stoi(read.qname.substr(7)) % 2;
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 3;
+        profile.alleles = {allele, -1, -1, allele};
+        profile.bam_base_qualities = {40, 0, 0, 40};
+        chunk.read_var_profile.push_back(std::move(profile));
+        const int original_i = std::stoi(read.qname.substr(7));
+        chunk.phase_sets.push_back(100 + (original_i / 10) * 100);
+        chunk.haps.push_back(original_i < 30 ? 1 + allele : 2 - allele);
+    }
+    retain_recovery_bam_evidence(source, {{200, 200}, {300, 300}}, gauge);
+    Options opts;
+    const std::unordered_map<hts_pos_t, bool> complete{{200, true}, {300, true}};
+    const RecoverySeam seam{500, 3500, 100, 400};
+    SECTION("complete source observations close the full chain") {
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {gauge}, opts, complete, {}) == 3);
+        REQUIRE(chunk.candidates.size() == 4);
+        for (const auto& site : chunk.candidates) {
+            CHECK(site.phase_set == 100);
+            CHECK(site.hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+        }
+    }
+    SECTION("an earlier attachment flips live blocks but keeps source evidence immutable") {
+        chunk.candidates.front().hap_to_cons_alle = {-1, 1, 0};
+        for (size_t ri = 0; ri < chunk.haps.size(); ++ri)
+            if (chunk.phase_sets[ri] == 100) chunk.haps[ri] = 3 - chunk.haps[ri];
+        gauge.block_votes.front().counts = {{{0, 10}, {10, 0}}};
+        gauge.block_votes.front().shared_candidate_same = 0;
+        gauge.block_votes.front().shared_candidate_cross = 8;
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {gauge}, opts, complete, {}) == 3);
+        for (const auto& site : chunk.candidates) {
+            CHECK(site.phase_set == 100);
+            CHECK(site.hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        }
+        CHECK(gauge.bam_sites.front().hap1_allele == 0);
+    }
+    SECTION("an internal source cut cannot be hidden by a large block vote") {
+        const std::unordered_map<hts_pos_t, bool> broken{{200, false}, {300, true}};
+        stitch_complete_recovery_phase_blocks(chunk, {seam}, {gauge}, opts, broken, {});
+        CHECK(chunk.candidates.front().phase_set != chunk.candidates.back().phase_set);
+    }
+    SECTION("local flank votes cannot certify an internally unsupported graph block") {
+        CandidateVariant context = chunk.candidates.front();
+        context.key.pos = 100;
+        chunk.candidates.insert(chunk.candidates.begin(), context);
+        for (auto& profile : chunk.read_var_profile) {
+            profile.end_var_idx = 4;
+            profile.alleles.insert(profile.alleles.begin(), -1);
+            profile.bam_base_qualities.insert(profile.bam_base_qualities.begin(), 0);
+        }
+        stitch_complete_recovery_phase_blocks(chunk, {seam}, {gauge}, opts, complete, {});
+        CHECK(chunk.candidates.front().phase_set != chunk.candidates.back().phase_set);
+    }
+    SECTION("overlapping reads certify a long graph flank without one end-to-end read") {
+        CandidateVariant context = chunk.candidates.front();
+        context.key.pos = 100;
+        chunk.candidates.insert(chunk.candidates.begin(), context);
+        context.key.pos = 300;
+        chunk.candidates.insert(chunk.candidates.begin() + 1, context);
+        for (auto& profile : chunk.read_var_profile) {
+            profile.end_var_idx += 2;
+            profile.alleles.insert(profile.alleles.begin(), 2, -1);
+            profile.bam_base_qualities.insert(profile.bam_base_qualities.begin(), 2, 0);
+        }
+        // A--B and B--C are supported by different molecules on both
+        // haplotypes. No molecule calls both ends of the graph block.
+        for (int ri = 15; ri >= 0; --ri) {
+            ReadRecord read;
+            read.qname = "aaa-context-" + std::to_string(ri);
+            read.mapq = 60;
+            chunk.reads.insert(chunk.reads.begin(), std::move(read));
+            ReadVariantProfile profile;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 5;
+            profile.alleles.assign(6, -1);
+            const int first = ri < 8 ? 0 : 1;
+            profile.alleles[first] = ri % 2;
+            profile.alleles[first + 1] = ri % 2;
+            chunk.read_var_profile.insert(chunk.read_var_profile.begin(), profile);
+            chunk.phase_sets.insert(chunk.phase_sets.begin(), 100);
+            chunk.haps.insert(chunk.haps.begin(), 1 + ri % 2);
+        }
+        SECTION("connected chains preserve the full flank orientation") {
+            CHECK(stitch_complete_recovery_phase_blocks(
+                chunk, {seam}, {gauge}, opts, complete, {}) == 3);
+            for (const auto& site : chunk.candidates) {
+                CHECK(site.phase_set == 100);
+                CHECK(site.hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+            }
+        }
+        SECTION("interleaved disconnected components cannot masquerade as one path") {
+            context.key.pos = 700;
+            chunk.candidates.insert(chunk.candidates.begin() + 3, context);
+            for (auto& profile : chunk.read_var_profile) {
+                profile.end_var_idx += 1;
+                profile.alleles.insert(profile.alleles.begin() + 3, -1);
+                if (!profile.bam_base_qualities.empty())
+                    profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 3, 0);
+            }
+            // A--C and B--D cross every coordinate cut, but no molecule
+            // establishes the orientation between those two components.
+            for (size_t ri = 0; ri < 16; ++ri) {
+                auto& alleles = chunk.read_var_profile[ri].alleles;
+                alleles.assign(7, -1);
+                const int first = ri < 8 ? 0 : 1;
+                alleles[first] = static_cast<int>(ri % 2);
+                alleles[first + 2] = static_cast<int>(ri % 2);
+            }
+            CHECK(stitch_complete_recovery_phase_blocks(
+                chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        }
+        SECTION("a disconnected cut cannot inherit a certificate from its neighbors") {
+            for (size_t ri = 8; ri < 16; ++ri)
+                chunk.read_var_profile[ri].alleles[2] = -1;
+            CHECK(stitch_complete_recovery_phase_blocks(
+                chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        }
+        SECTION("an internal switch cannot be hidden by correct boundary votes") {
+            std::swap(chunk.candidates[1].hap_to_cons_alle[1],
+                      chunk.candidates[1].hap_to_cons_alle[2]);
+            CHECK(stitch_complete_recovery_phase_blocks(
+                chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        }
+        SECTION("unknown mapping quality cannot certify internal connectivity") {
+            for (size_t ri = 0; ri < 16; ++ri) chunk.reads[ri].mapq = 255;
+            CHECK(stitch_complete_recovery_phase_blocks(
+                chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        }
+    }
+    SECTION("an imported source certificate does not cover unsupported absorbed rows") {
+        CandidateVariant context = chunk.candidates[1];
+        context.key.pos = 1700;
+        chunk.candidates.insert(chunk.candidates.begin() + 2, context);
+        for (auto& profile : chunk.read_var_profile) {
+            profile.end_var_idx += 1;
+            profile.alleles.insert(profile.alleles.begin() + 2, -1);
+            profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 2, 0);
+        }
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        CHECK(chunk.candidates.front().phase_set != chunk.candidates.back().phase_set);
+    }
+    SECTION("a homozygous row cannot fabricate an imported block anchor") {
+        CandidateVariant hom = chunk.candidates[1];
+        hom.key.pos = 2000;
+        hom.phase_set = 500;
+        hom.hap_to_cons_alle = {-1, 0, 0};
+        chunk.candidates.insert(chunk.candidates.begin() + 2, hom);
+        for (auto& profile : chunk.read_var_profile) {
+            profile.end_var_idx = 4;
+            profile.alleles.insert(profile.alleles.begin() + 2, -1);
+            profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 2, 0);
+        }
+        gauge.imported_phase_sets.push_back(500);
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {gauge}, opts, complete, {}) == 3);
+        CHECK(chunk.candidates.front().phase_set == chunk.candidates.back().phase_set);
+        CHECK(chunk.candidates[2].hap_to_cons_alle == std::array<int, 3>{-1, 0, 0});
+    }
+    SECTION("a retry without the old block cannot hide earlier complete evidence") {
+        RecoveryPhaseGauge retry;
+        retry.beg = gauge.beg;
+        retry.end = gauge.end;
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {retry, gauge}, opts, complete, {}) == 3);
+        CHECK(chunk.candidates.front().phase_set == chunk.candidates.back().phase_set);
+    }
+    SECTION("missing current read gauge cannot certify a new whole-block join") {
+        std::fill(chunk.phase_sets.begin(), chunk.phase_sets.end(), 0);
+        CHECK(stitch_complete_recovery_phase_blocks(
+            chunk, {seam}, {gauge}, opts, complete, {}) == 0);
+        CHECK(chunk.candidates.front().phase_set != chunk.candidates.back().phase_set);
+    }
+    SECTION("without the source matrix the live gap sites lack a connection") {
+        gauge.bam_sites.clear();
+        gauge.bam_reads.clear();
+        stitch_complete_recovery_phase_blocks(chunk, {seam}, {gauge}, opts, complete, {});
+        CHECK(chunk.candidates.front().phase_set != chunk.candidates.back().phase_set);
+    }
 }

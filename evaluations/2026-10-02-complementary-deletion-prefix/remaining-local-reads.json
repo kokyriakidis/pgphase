@@ -1,0 +1,43 @@
+{
+  "local_hiphase_phased": 49,
+  "local_pgphase_phased": 45,
+  "hiphase_correct_pgphase_unphased": [
+    {
+      "qname": "m84031_231217_034919_s2/239534209/ccs",
+      "start": 64120122,
+      "end": 64143294,
+      "mapq": 60,
+      "hiphase_hp": 2,
+      "hiphase_ps": 63182011,
+      "callable_bam_sites": 4,
+      "target_calls": {
+        "64128828": 0,
+        "64134227": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/230622031/ccs",
+      "start": 64129207,
+      "end": 64142951,
+      "mapq": 60,
+      "hiphase_hp": 2,
+      "hiphase_ps": 63182011,
+      "callable_bam_sites": 0,
+      "target_calls": {
+        "64134227": -1
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/135792500/ccs",
+      "start": 64130439,
+      "end": 64142557,
+      "mapq": 60,
+      "hiphase_hp": 2,
+      "hiphase_ps": 63182011,
+      "callable_bam_sites": 0,
+      "target_calls": {
+        "64134227": -1
+      }
+    }
+  ]
+}

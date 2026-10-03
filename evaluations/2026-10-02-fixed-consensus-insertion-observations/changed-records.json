@@ -1,0 +1,64 @@
+[
+  {
+    "key": [
+      "24121713",
+      "C",
+      "CTTTTTTTT"
+    ],
+    "before": [
+      "CHM13#0#chr20",
+      "24121713",
+      ".",
+      "C",
+      "CTTTTTTTT",
+      "60",
+      "PASS",
+      "END=24121713;DP=11;REFC=8;ALTC=3;LQC=0;AF=0.272727;CAT=NOISY_CAND_HET",
+      "GT:DP:AD:VAF:GQ:PS",
+      "1|0:11:8,3:0.273:57:24103779"
+    ],
+    "after": [
+      "CHM13#0#chr20",
+      "24121713",
+      ".",
+      "C",
+      "CTTTTTTTT",
+      "60",
+      "PASS",
+      "END=24121713;DP=60;REFC=31;ALTC=29;LQC=0;AF=0.483333;CAT=NOISY_CAND_HET",
+      "GT:DP:AD:VAF:GQ:PS",
+      "1|0:60:31,29:0.483:60:24103779"
+    ]
+  },
+  {
+    "key": [
+      "24121713",
+      "C",
+      "CTTTT"
+    ],
+    "before": [
+      "CHM13#0#chr20",
+      "24121713",
+      ".",
+      "C",
+      "CTTTT",
+      "60",
+      "PASS",
+      "END=24121713;DP=11;REFC=5;ALTC=6;LQC=0;AF=0.545455;CAT=NOISY_CAND_HET",
+      "GT:DP:AD:VAF:GQ:PS",
+      "0|1:11:5,6:0.545:60:24103779"
+    ],
+    "after": [
+      "CHM13#0#chr20",
+      "24121713",
+      ".",
+      "C",
+      "CTTTT",
+      "60",
+      "PASS",
+      "END=24121713;DP=60;REFC=31;ALTC=29;LQC=0;AF=0.483333;CAT=NOISY_CAND_HET",
+      "GT:DP:AD:VAF:GQ:PS",
+      "0|1:60:31,29:0.483:60:24103779"
+    ]
+  }
+]

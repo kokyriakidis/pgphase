@@ -3,6 +3,7 @@
 #include "graph_bam_adapter.hpp"
 
 #include "collect_phase.hpp"
+#include "collect_phase_noisy.hpp"
 #include "fisher_exact.hpp"
 #include "noise_filter.hpp"
 
@@ -349,6 +350,31 @@ void rebuild_read_var_cr(PhasingChunk& chunk) {
     }
     cr_index(cr);
     chunk.read_var_cr.reset(cr);
+}
+
+bool adopt_unphased_graph_allele_from_bam(CandidateVariant& graph,
+                                         const CandidateVariant& source,
+                                         hts_pos_t phase_set) {
+    if (!graph.graph_site || graph.bam_injected || graph.phase_set > 0 ||
+        graph.counts.category != VariantCategory::RepeatHetIndel ||
+        graph.counts.n_uniq_alles != 2 || phase_set <= 0 ||
+        source.counts.category != VariantCategory::NoisyCandHet ||
+        !source.msa_verified || source.counts.n_uniq_alles != 2 ||
+        !is_phase_set_anchor(source) || source.hap_to_cons_alle[1] > 1 ||
+        source.hap_to_cons_alle[2] > 1)
+        return false;
+    // Exact matching has already proved the allele meaning. Keep the single
+    // catalog row, but carry the BAM key, genotype and proof together so its
+    // original repeat demotion cannot hide the recovered VCF call. Catalog
+    // walk metadata and selected ALT indices remain in the parallel arrays.
+    graph = source;
+    graph.graph_site = true;
+    graph.bam_injected = true;
+    graph.alignment_verified = true;
+    graph.phase_set = phase_set;
+    if (graph.counts.alle_covs.empty())
+        graph.counts.alle_covs = {graph.counts.ref_cov, graph.counts.alt_cov};
+    return true;
 }
 
 size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
@@ -1178,6 +1204,157 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     return out;
 }
 
+size_t supplement_phased_snp_branches(const GraphSiteCatalogView& catalog,
+        const std::vector<GraphReadAllele>& rows, GraphChunkBuildResult& graph_chunk,
+        const Options& opts) {
+    // Full-walk genotyping has already fixed the candidates and their gauges.
+    // Other catalog alleles can still carry the exact same local SNP branch;
+    // recovering those observations must not repeat genotype classification.
+    PhasingChunk& chunk = graph_chunk.chunk;
+    std::unordered_map<std::string, const GraphSite*> sites;
+    for (size_t si = 0; si < catalog.size(); ++si)
+        sites.emplace(graph_site_key_str(catalog[si]), &catalog[si]);
+    struct Projection {
+        size_t candidate;
+        std::vector<int> alleles;
+    };
+    std::unordered_map<std::string, std::vector<Projection>> projections;
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        const CandidateVariant& candidate = chunk.candidates[ci];
+        if (candidate.counts.category != VariantCategory::CleanHetSnp ||
+            !is_phase_set_anchor(candidate)) continue;
+        const std::string* sequence = selected_graph_candidate_alt(graph_chunk, ci);
+        if (sequence == nullptr) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        const MinimalVcfId id = minimal_vcf_id(meta.pos, meta.ref, *sequence);
+        if (id.ref_len != 1 || id.alt_len != 1 || *id.ref == *id.alt) continue;
+        std::string sid = graph_chunk.site_ids[ci];
+        auto found = sites.find(sid);
+        if (found == sites.end()) {
+            const size_t separator = sid.rfind(':');
+            if (separator == std::string::npos) continue;
+            sid.resize(separator);
+            found = sites.find(sid);
+        }
+        if (found == sites.end()) continue;
+        const GraphSite& site = *found->second;
+        const size_t alt_i = static_cast<size_t>(graph_chunk.site_allele_orig_idx[ci][1]);
+        if (alt_i >= site.allele_walks.size() || site.allele_walks.size() <= 2 ||
+            !site.conditional_parent_alleles.empty()) continue;
+        const GraphWalk& ref = site.allele_walks[0];
+        const GraphWalk& alt = site.allele_walks[alt_i];
+        if (ref.size() < 3 || ref.size() != alt.size()) continue;
+        // An isolated node substitution between identical oriented neighbors
+        // identifies the SNP without aligning or interpreting another indel.
+        size_t branch = 0;
+        while (branch < ref.size() && ref[branch] == alt[branch]) ++branch;
+        if (branch == 0 || branch + 1 >= ref.size() ||
+            !std::equal(ref.begin() + branch + 1, ref.end(), alt.begin() + branch + 1)) continue;
+        Projection projection{ci, std::vector<int>(site.allele_walks.size(), -1)};
+        for (size_t ai = 0; ai < site.allele_walks.size(); ++ai) {
+            const GraphWalk& walk = site.allele_walks[ai];
+            int occurrences = 0;
+            int allele = -1;
+            for (size_t wi = 1; wi + 1 < walk.size(); ++wi) {
+                if (!(walk[wi - 1] == ref[branch - 1]) ||
+                    !(walk[wi + 1] == ref[branch + 1])) continue;
+                if (walk[wi] == ref[branch]) allele = 0;
+                else if (walk[wi] == alt[branch]) allele = 1;
+                else continue;
+                ++occurrences;
+            }
+            // Repeated or opposing branches do not locate a unique SNP call.
+            if (occurrences == 1) projection.alleles[ai] = allele;
+        }
+        if (projection.alleles[0] == 0 && projection.alleles[alt_i] == 1)
+            projections[sid].push_back(std::move(projection));
+    }
+    if (projections.empty()) return 0;
+    std::unordered_map<std::string, size_t> read_index;
+    read_index.reserve(chunk.reads.size());
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri)
+        read_index.emplace(chunk.reads[ri].qname, ri);
+    std::vector<size_t> profile_index(chunk.reads.size(), chunk.read_var_profile.size());
+    for (size_t pi = 0; pi < chunk.read_var_profile.size(); ++pi) {
+        const int ri = chunk.read_var_profile[pi].read_id;
+        if (ri >= 0 && static_cast<size_t>(ri) < profile_index.size()) profile_index[ri] = pi;
+    }
+    struct ProposedCall {
+        size_t candidate;
+        int original_allele;
+        int allele;
+    };
+    std::vector<std::vector<ProposedCall>> proposed(chunk.reads.size());
+    for (const GraphReadAllele& row : rows) {
+        const auto source = projections.find(row.site_id);
+        const auto read = read_index.find(row.read_name);
+        if (source == projections.end() || read == read_index.end() ||
+            row.allele < 0 || row.mapq < opts.min_mapq || chunk.reads[read->second].is_skipped ||
+            profile_index[read->second] >= chunk.read_var_profile.size()) continue;
+        for (const Projection& projection : source->second) {
+            if (static_cast<size_t>(row.allele) >= projection.alleles.size()) continue;
+            proposed[read->second].push_back({projection.candidate, row.allele,
+                                            projection.alleles[row.allele]});
+        }
+    }
+    std::vector<std::array<int, 2>> extra_counts(chunk.candidates.size(), {0, 0});
+    for (size_t ri = 0; ri < proposed.size(); ++ri) {
+        auto& calls = proposed[ri];
+        if (calls.empty()) continue;
+        std::sort(calls.begin(), calls.end(),
+                  [](const ProposedCall& a, const ProposedCall& b) {
+                      return a.candidate < b.candidate;
+                  });
+        ReadVariantProfile& profile = chunk.read_var_profile[profile_index[ri]];
+        for (size_t beg = 0; beg < calls.size();) {
+            size_t end = beg + 1;
+            bool conflicted = false;
+            while (end < calls.size() && calls[end].candidate == calls[beg].candidate) {
+                conflicted |= calls[end].original_allele != calls[beg].original_allele;
+                ++end;
+            }
+            const int ci = static_cast<int>(calls[beg].candidate);
+            const int allele = calls[beg].allele;
+            // Preserve the builder's duplicate-observation veto. Re-entering
+            // a snarl with different walks cannot create a first-wins call.
+            const bool known = profile.start_var_idx >= 0 &&
+                ci >= profile.start_var_idx && ci <= profile.end_var_idx &&
+                profile.alleles[static_cast<size_t>(ci - profile.start_var_idx)] >= 0;
+            if (!conflicted && allele >= 0 && !known) {
+                ++extra_counts[ci][allele];
+            } else {
+                calls[beg].allele = -1;
+            }
+            for (size_t duplicate = beg + 1; duplicate < end; ++duplicate)
+                calls[duplicate].allele = -1;
+            beg = end;
+        }
+    }
+    std::vector<bool> eligible(chunk.candidates.size(), false);
+    for (size_t ci = 0; ci < extra_counts.size(); ++ci) {
+        const auto& counts = chunk.candidates[ci].counts;
+        const int ref = counts.ref_cov + extra_counts[ci][0];
+        const int alt = counts.alt_cov + extra_counts[ci][1];
+        const double af = ref + alt > 0 ? static_cast<double>(alt) / (ref + alt) : 0.0;
+        // Do not strengthen a frozen heterozygote when the recovered branch
+        // evidence contradicts its genotype under the original AF filters.
+        eligible[ci] = af >= opts.min_af && af <= opts.max_af;
+    }
+    size_t added = 0;
+    for (size_t ri = 0; ri < proposed.size(); ++ri) {
+        if (proposed[ri].empty()) continue;
+        ReadVariantProfile& profile = chunk.read_var_profile[profile_index[ri]];
+        for (const ProposedCall& call : proposed[ri]) {
+            if (call.allele < 0 || !eligible[call.candidate]) continue;
+            update_read_var_profile_with_allele(
+                static_cast<int>(call.candidate), call.allele, -1, profile);
+            ++added;
+        }
+    }
+    if (added != 0) rebuild_read_var_cr(chunk);
+    return added;
+}
+
 const std::string* selected_graph_candidate_alt(
         const GraphChunkBuildResult& graph_chunk, size_t candidate_index) {
     if (candidate_index >= graph_chunk.chunk.candidates.size() ||
@@ -1230,6 +1407,21 @@ int physical_snp_call(const bam1_t* aln, hts_pos_t pos,
         if (ref_pos > pos) break;
     }
     return -1;
+}
+
+uint8_t bam_snp_observation_quality(const bam1_t* alignment, hts_pos_t pos,
+                                  char ref_base, char alt_base, int allele) {
+    constexpr int kMissingBaseQuality = 255;
+    if (allele < 0 || allele > 1 || base_to_nt4(ref_base) > 3 ||
+        base_to_nt4(alt_base) > 3 || base_to_nt4(ref_base) == base_to_nt4(alt_base))
+        return 0;
+    int quality = 0;
+    const int physical = physical_snp_call(
+        alignment, pos, ref_base, alt_base, &quality);
+    // MSA can move an observation relative to the original CIGAR. Its allele
+    // remains usable, but cannot borrow the quality of a different BAM base.
+    return physical == (allele == 0 ? 0 : 2) && quality != kMissingBaseQuality
+        ? static_cast<uint8_t>(quality) : 0;
 }
 
 // Re-solving a seam created inside a completed graph gap can reorient an
@@ -1994,6 +2186,155 @@ static size_t rescue_unphased_graph_read_layer(
     return rescued;
 }
 
+static bool msa_snp_has_physical_gauge(const PhasingChunk& chunk, size_t site_i) {
+    constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMinBaseQuality = 30;
+    constexpr hts_pos_t kIndependentSnpDistance = 100;
+    const CandidateVariant& site = chunk.candidates[site_i];
+    RescueSiteVote vote;
+    for (const auto& profile : chunk.read_var_profile) {
+        if (profile.read_id < 0 ||
+            chunk.reads[static_cast<size_t>(profile.read_id)].is_skipped ||
+            profile.bam_mapq < kMinMapq || profile.bam_mapq == kUnknownMapq ||
+            profile.start_var_idx < 0 ||
+            site_i < static_cast<size_t>(profile.start_var_idx)) continue;
+        const size_t site_offset = site_i - static_cast<size_t>(profile.start_var_idx);
+        const auto physical_allele = [&](size_t offset) {
+            if (offset >= profile.alleles.size() || offset >= profile.bam_alleles.size() ||
+                offset >= profile.bam_base_qualities.size() ||
+                profile.bam_base_qualities[offset] < kMinBaseQuality ||
+                profile.alleles[offset] != profile.bam_alleles[offset]) return -1;
+            return profile.bam_alleles[offset];
+        };
+        const int allele = physical_allele(site_offset);
+        if (allele < 0 || allele > 1) continue;
+        int anchor_hap = -1;
+        bool conflict = false;
+        // A nearest-site lookup discards molecules whose usable SNP is farther
+        // into the same block. Use every covered clean SNP, but give each
+        // molecule only one vote and abstain if its clean gauge disagrees.
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            const CandidateVariant& anchor = chunk.candidates[
+                static_cast<size_t>(profile.start_var_idx) + offset];
+            if (anchor.phase_set != site.phase_set ||
+                anchor.key.type != VariantType::Snp || anchor.key.ref_len != 1 ||
+                anchor.counts.category != VariantCategory::CleanHetSnp ||
+                !is_oriented_biallelic_candidate(anchor) ||
+                std::llabs(anchor.key.sort_pos() - site.key.sort_pos()) <
+                    kIndependentSnpDistance) continue;
+            const int observed = physical_allele(offset);
+            if (observed < 0 || observed > 1) continue;
+            const int hap = observed == anchor.hap_to_cons_alle[1] ? 0 : 1;
+            if (anchor_hap >= 0 && anchor_hap != hap) { conflict = true; break; }
+            anchor_hap = hap;
+        }
+        if (conflict || anchor_hap < 0) continue;
+        ++vote.primary_counts[static_cast<size_t>(anchor_hap)][static_cast<size_t>(allele)];
+    }
+    RescueMarker marker;
+    marker.phase_set = site.phase_set;
+    marker.allele_to_hap = {site.hap_to_cons_alle[1] == 0 ? 1 : 2,
+                          site.hap_to_cons_alle[1] == 1 ? 1 : 2};
+    // Certify against stable SNP alleles, never the read HP being repaired.
+    // Reuse singleton rescue's association test and discordance confidence
+    // bound, including support for both haplotypes and both site alleles.
+    return rescue_singleton_has_primary_support(vote, marker);
+}
+
+size_t refresh_recovered_read_haps_from_bam_snps(PhasingChunk& chunk) {
+    constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMinBaseQuality = 30;
+    constexpr hts_pos_t kDistinctSnpDistance = 100;
+    size_t refreshed = 0;
+    std::vector<int8_t> msa_certified(chunk.candidates.size(), -1);
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        if (chunk.reads[ri].is_skipped || chunk.haps[ri] == 0 ||
+            chunk.phase_sets[ri] <= 0) continue;
+        const auto& profile = chunk.read_var_profile[ri];
+        if (profile.bam_mapq < kMinMapq || profile.bam_mapq == kUnknownMapq)
+            continue;
+        int proposed_hap = 0, observations = 0, clean_observations = 0;
+        hts_pos_t first = 0, last = 0, last_counted = 0, last_clean = 0;
+        hts_pos_t first_clean = 0;
+        unsigned weak_clean_haps = 0;
+        bool verified_msa_witness = false;
+        bool conflict = false;
+        for (size_t offset = 0; offset < profile.alleles.size(); ++offset) {
+            if (offset >= profile.bam_alleles.size() ||
+                offset >= profile.bam_base_qualities.size()) break;
+            const uint8_t quality = profile.bam_base_qualities[offset];
+            if (quality == 0) continue;
+            const size_t candidate_i = static_cast<size_t>(profile.start_var_idx) + offset;
+            const auto& candidate = chunk.candidates[candidate_i];
+            const bool clean = candidate.counts.category == VariantCategory::CleanHetSnp;
+            const bool verified_msa = candidate.bam_injected && candidate.msa_verified &&
+                candidate.counts.category == VariantCategory::NoisyCandHet;
+            if (candidate.phase_set != chunk.phase_sets[ri] ||
+                candidate.key.type != VariantType::Snp || candidate.key.ref_len != 1 ||
+                (!clean && !verified_msa) ||
+                !is_phase_set_anchor(candidate)) continue;
+            const int allele = profile.bam_alleles[offset];
+            if (allele < 0 || allele != profile.alleles[offset]) continue;
+            const int hap = allele == candidate.hap_to_cons_alle[1] ? 1 :
+                            allele == candidate.hap_to_cons_alle[2] ? 2 : 0;
+            if (hap == 0) continue;
+            if (quality < kMinBaseQuality) {
+                if (clean) weak_clean_haps |= 1u << hap;
+                continue;
+            }
+            if (verified_msa) {
+                if (msa_certified[candidate_i] < 0)
+                    msa_certified[candidate_i] = msa_snp_has_physical_gauge(chunk, candidate_i);
+                if (msa_certified[candidate_i] == 0) continue;
+            }
+            if (proposed_hap != 0 && proposed_hap != hap) { conflict = true; break; }
+            const hts_pos_t pos = candidate.key.sort_pos();
+            if (proposed_hap == 0) first = last = pos;
+            first = std::min(first, pos);
+            last = std::max(last, pos);
+            proposed_hap = hap;
+            verified_msa_witness |= verified_msa;
+            if (clean && (clean_observations == 0 || pos != last_clean)) {
+                if (clean_observations == 0) first_clean = pos;
+                ++clean_observations;
+                last_clean = pos;
+            }
+            // Candidate order is coordinate order; duplicate descriptions of
+            // one base must not increase read confidence.
+            if (observations == 0 || pos != last_counted) {
+                ++observations;
+                last_counted = pos;
+            }
+        }
+        // Imported HP may still reflect the preceding indel clustering.
+        // A source-phased MSA SNP also verified by Q30 BAM bases and an
+        // independent clean-SNP gauge can correct an indel-derived HP alone.
+        // Graph-only SNPs retain their spaced two-locus rule.
+        // Any contrary eligible SNP above vetoes both certificates.
+        if (conflict || proposed_hap == 0 || proposed_hap == chunk.haps[ri] ||
+            (!verified_msa_witness && last - first < kDistinctSnpDistance)) continue;
+        // A low-quality physical clean call cannot assign HP, but it is still
+        // contrary evidence against overriding HP with one noisy locus. The
+        // original spaced Q30 clean-SNP certificate remains sufficient.
+        const bool independent_clean_witness = clean_observations >= 2 &&
+            last_clean - first_clean >= kDistinctSnpDistance;
+        if (verified_msa_witness && !independent_clean_witness &&
+            (weak_clean_haps & (1u << (3 - proposed_hap))) != 0) continue;
+        chunk.haps[ri] = proposed_hap;
+        auto& read = chunk.reads[ri];
+        read.n_clean_agree_snps = clean_observations;
+        read.n_bridge_agree_snps = observations - clean_observations;
+        read.n_bridge_conflict_snps = 0;
+        read.n_clean_conflict_snps = 0;
+        read.hap_score_margin = observations;
+        read.n_vars_scored = observations;
+        ++refreshed;
+    }
+    return refreshed;
+}
+
 size_t rescue_unphased_graph_reads(
         PhasingChunk& chunk,
         const std::vector<RecoverySeam>& recovery_windows) {
@@ -2184,11 +2525,283 @@ void flush_graph_phase_bam_after_merge(
     }
 }
 
+// A seam stitch can absorb a whole BAM PS even when its source-path audit found
+// a cut inside it. Keep graph-to-graph joins already validated by the stitch,
+// but remove private BAM sites on the far side of an unsupported cut from the
+// near graph block. Those sites retain their exact BAM allele orientation and
+// may form or attach to a local block in the subsequent component-aware pass.
+void detach_bam_sites_across_weak_cuts(GraphChunkBuildResult& gc) {
+    PhasingChunk& chunk = gc.chunk;
+    std::map<hts_pos_t, std::vector<const RecoverySourceSite*>> by_source;
+    std::map<hts_pos_t, std::vector<const RecoverySourceRead*>> reads_by_source;
+    for (const RecoverySourceRead& read : gc.recovery_source_reads)
+        if (read.phase_set > 0 && read.read_index < chunk.reads.size())
+            reads_by_source[read.phase_set].push_back(&read);
+    std::set<hts_pos_t> occupied;
+    std::set<hts_pos_t> source_ids;
+    for (const CandidateVariant& candidate : chunk.candidates)
+        if (candidate.phase_set > 0) occupied.insert(candidate.phase_set);
+    for (const hts_pos_t read_ps : chunk.phase_sets)
+        if (read_ps > 0) occupied.insert(read_ps);
+    for (const hts_pos_t gap_ps : chunk.gap_phase_sets)
+        if (gap_ps > 0) occupied.insert(gap_ps);
+    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+        if (site.phase_set > 0) source_ids.insert(site.phase_set);
+        if (site.phase_set > 0 && site.can_adopt &&
+            site.candidate_index < chunk.candidates.size())
+            by_source[site.phase_set].push_back(&site);
+    }
+
+    for (const auto& [source_ps, sites] : by_source) {
+        const auto found = gc.recovery_source_weak_cuts.find(source_ps);
+        if (found == gc.recovery_source_weak_cuts.end()) continue;
+        const std::vector<hts_pos_t>& cuts = found->second;
+        for (size_t cut_i = 0; cut_i < cuts.size(); ++cut_i) {
+            const hts_pos_t cut = cuts[cut_i];
+            const hts_pos_t next_cut = cut_i + 1 < cuts.size()
+                ? cuts[cut_i + 1]
+                : std::numeric_limits<hts_pos_t>::max();
+            // Several graph blocks can own rows before the same source cut.
+            // The closest row's owner cannot certify another owner's far-side
+            // island; inspect each owner independently rather than strand it.
+            std::map<hts_pos_t, hts_pos_t> near_positions;
+            for (const RecoverySourceSite* site : sites) {
+                const CandidateVariant& candidate =
+                    chunk.candidates[site->candidate_index];
+                const hts_pos_t pos = candidate.key.sort_pos();
+                if (pos <= cut && candidate.phase_set > 0)
+                    near_positions[candidate.phase_set] = std::max(
+                        near_positions[candidate.phase_set], pos);
+            }
+            // Additional owners must reach the component immediately before
+            // this cut. A label last seen before an older cut may have a later
+            // independently certified join; retain the legacy closest-owner
+            // check without reopening that unrelated earlier component. An
+            // additional graph owner needs an exact shared clean SNP here;
+            // inherited indel-only labels cannot certify its source gauge.
+            const hts_pos_t previous_cut = cut_i == 0 ? 0 : cuts[cut_i - 1];
+            hts_pos_t closest_pos = 0;
+            for (const auto& entry : near_positions)
+                closest_pos = std::max(closest_pos, entry.second);
+            for (auto owner = near_positions.begin(); owner != near_positions.end();) {
+                const bool shared_anchor = std::any_of(
+                    sites.begin(), sites.end(), [&](const RecoverySourceSite* site) {
+                        const CandidateVariant& row = chunk.candidates[site->candidate_index];
+                        const hts_pos_t pos = row.key.sort_pos();
+                        return site->clean_shared_snp && site->can_adopt &&
+                            !row.bam_injected && is_phase_set_anchor(row) &&
+                            row.phase_set == owner->first && previous_cut < pos && pos <= cut;
+                    });
+                if (owner->second != closest_pos &&
+                    (owner->second <= previous_cut || !shared_anchor))
+                    owner = near_positions.erase(owner);
+                else
+                    ++owner;
+            }
+            for (const auto& [near_ps, near_pos] : near_positions) {
+                if (near_ps == source_ps) continue;
+                bool graph_anchored = false;
+                std::vector<const RecoverySourceSite*> far_sites;
+                for (const RecoverySourceSite* site : sites) {
+                    const CandidateVariant& candidate =
+                        chunk.candidates[site->candidate_index];
+                    const hts_pos_t pos = candidate.key.sort_pos();
+                    if (pos <= cut || pos > next_cut ||
+                        candidate.phase_set != near_ps)
+                        continue;
+                    if (!candidate.bam_injected)
+                        graph_anchored = true;
+                    else if (site->hap1_allele >= 0 &&
+                             site->hap2_allele >= 0 &&
+                             site->hap1_allele != site->hap2_allele)
+                        far_sites.push_back(site);
+                }
+                if (graph_anchored || far_sites.empty()) continue;
+
+                // A lone imported site before the cut can be anchored by a graph
+                // block. Detach its far-side site only when no recovery read calls
+                // a site on each side; a physical bridge may already certify the
+                // graph join despite this weak BAM-source path.
+                const bool earlier_bam_site = std::any_of(
+                    sites.begin(), sites.end(), [&](const RecoverySourceSite* site) {
+                        const CandidateVariant& candidate =
+                            chunk.candidates[site->candidate_index];
+                        return candidate.phase_set == near_ps &&
+                               candidate.bam_injected &&
+                               candidate.key.sort_pos() < near_pos &&
+                               site->hap1_allele >= 0 &&
+                               site->hap2_allele >= 0 &&
+                               site->hap1_allele != site->hap2_allele;
+                    });
+                if (!earlier_bam_site) {
+                    // A clean SNP at the cut can still make a certified physical
+                    // SNP-to-deletion bridge after this transfer pass.
+                    const bool indel_cut = std::any_of(
+                        sites.begin(), sites.end(), [&](const RecoverySourceSite* site) {
+                            const CandidateVariant& candidate =
+                                chunk.candidates[site->candidate_index];
+                            return candidate.phase_set == near_ps &&
+                                   candidate.key.sort_pos() == near_pos &&
+                                   candidate.key.type != VariantType::Snp;
+                        });
+                    if (!indel_cut) continue;
+                    const bool graph_anchor = std::any_of(
+                        chunk.candidates.begin(), chunk.candidates.end(),
+                        [near_ps, cut](const CandidateVariant& candidate) {
+                            return candidate.phase_set == near_ps &&
+                                   !candidate.bam_injected &&
+                                   candidate.key.sort_pos() <= cut &&
+                                   candidate.hap_to_cons_alle[1] >= 0 &&
+                                   candidate.hap_to_cons_alle[2] >= 0 &&
+                                   candidate.hap_to_cons_alle[1] !=
+                                       candidate.hap_to_cons_alle[2];
+                        });
+                    if (!graph_anchor) continue;
+                }
+                // An additional owner is an orphan only when no observed read
+                // connects its near anchors to this island. Retain any existing
+                // physical bridge, even if the BAM source split at this cut.
+                if (!earlier_bam_site || near_pos != closest_pos) {
+                    std::set<size_t> far_indices;
+                    for (const RecoverySourceSite* site : far_sites)
+                        far_indices.insert(site->candidate_index);
+                    const bool crossing_read = std::any_of(
+                        chunk.read_var_profile.begin(),
+                        chunk.read_var_profile.end(),
+                        [&](const ReadVariantProfile& profile) {
+                            if (profile.start_var_idx < 0) return false;
+                            bool near_call = false;
+                            bool far_call = false;
+                            for (size_t offset = 0;
+                                 offset < profile.alleles.size(); ++offset) {
+                                if (profile.alleles[offset] < 0) continue;
+                                const size_t ci = static_cast<size_t>(
+                                    profile.start_var_idx) + offset;
+                                if (ci >= chunk.candidates.size()) break;
+                                const CandidateVariant& candidate =
+                                    chunk.candidates[ci];
+                                near_call |= candidate.phase_set == near_ps &&
+                                    candidate.key.sort_pos() <= cut;
+                                far_call |= far_indices.count(ci) != 0;
+                                if (near_call && far_call) return true;
+                            }
+                            return false;
+                        });
+                    if (crossing_read) continue;
+                }
+                const auto same_alleles = [&chunk](const RecoverySourceSite* site) {
+                    const CandidateVariant& candidate =
+                        chunk.candidates[site->candidate_index];
+                    return candidate.hap_to_cons_alle[1] == site->hap1_allele &&
+                           candidate.hap_to_cons_alle[2] == site->hap2_allele;
+                };
+                const auto reversed_alleles = [&chunk](
+                        const RecoverySourceSite* site) {
+                    const CandidateVariant& candidate =
+                        chunk.candidates[site->candidate_index];
+                    return candidate.hap_to_cons_alle[1] == site->hap2_allele &&
+                           candidate.hap_to_cons_alle[2] == site->hap1_allele;
+                };
+                if (std::any_of(far_sites.begin(), far_sites.end(),
+                                [&](const RecoverySourceSite* site) {
+                                    return !same_alleles(site) &&
+                                           !reversed_alleles(site);
+                                }))
+                    continue;
+                hts_pos_t local_ps = source_ps;
+                while (local_ps <= 0 || occupied.count(local_ps) != 0 ||
+                       (local_ps != source_ps && source_ids.count(local_ps) != 0))
+                    ++local_ps;
+                occupied.insert(local_ps);
+                const auto flip_hap = [](int hap) {
+                    return hap == 1 ? 2 : (hap == 2 ? 1 : hap);
+                };
+                for (const RecoverySourceSite* site : far_sites) {
+                    CandidateVariant& candidate =
+                        chunk.candidates[site->candidate_index];
+                    if (reversed_alleles(site)) {
+                        std::swap(candidate.hap_to_cons_alle[1],
+                                  candidate.hap_to_cons_alle[2]);
+                        std::swap(candidate.hap_to_alle_profile[1],
+                                  candidate.hap_to_alle_profile[2]);
+                        candidate.hap_alt = flip_hap(candidate.hap_alt);
+                        candidate.hap_ref = flip_hap(candidate.hap_ref);
+                    }
+                    candidate.phase_set = local_ps;
+                    candidate.gap_link_supported = false;
+                }
+                // The site split must carry its source reads too. Otherwise a
+                // read calling only this detached component can retain near_ps
+                // through an unrelated homozygous row, creating a false read
+                // phase-set span across the weak cut.
+                std::set<size_t> detached_indices;
+                for (const RecoverySourceSite* site : far_sites)
+                    detached_indices.insert(site->candidate_index);
+                for (const RecoverySourceRead* read : reads_by_source[source_ps]) {
+                    const size_t ri = read->read_index;
+                    if (ri >= chunk.phase_sets.size() ||
+                        ri >= chunk.read_var_profile.size() ||
+                        chunk.phase_sets[ri] != near_ps ||
+                        (read->hap != 1 && read->hap != 2))
+                        continue;
+                    const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+                    if (profile.start_var_idx < 0) continue;
+                    bool sees_detached = false;
+                    bool sees_other = false;
+                    const auto has_call = [&profile](size_t offset) {
+                        return (offset < profile.alleles.size() &&
+                                profile.alleles[offset] >= 0) ||
+                               (offset < profile.graph_alleles.size() &&
+                                profile.graph_alleles[offset] >= 0) ||
+                               (offset < profile.bam_alleles.size() &&
+                                profile.bam_alleles[offset] >= 0);
+                    };
+                    for (const RecoverySourceSite* site : sites) {
+                        const size_t ci = site->candidate_index;
+                        if (ci < static_cast<size_t>(profile.start_var_idx) ||
+                            ci > static_cast<size_t>(profile.end_var_idx))
+                            continue;
+                        const size_t offset =
+                            ci - static_cast<size_t>(profile.start_var_idx);
+                        if (!has_call(offset)) continue;
+                        if (detached_indices.count(ci) != 0)
+                            sees_detached = true;
+                        else if (site->hap1_allele >= 0 &&
+                                 site->hap2_allele >= 0 &&
+                                 site->hap1_allele != site->hap2_allele)
+                            sees_other = true;
+                    }
+                    // Graph observations can also support the near block even
+                    // when none of its sites are shared with this BAM source.
+                    // Do not move a read that still calls such an anchor.
+                    for (size_t offset = 0; offset < profile.alleles.size() &&
+                                            !sees_other; ++offset) {
+                        const size_t ci =
+                            static_cast<size_t>(profile.start_var_idx) + offset;
+                        if (ci >= chunk.candidates.size()) break;
+                        const CandidateVariant& candidate = chunk.candidates[ci];
+                        if (has_call(offset) &&
+                            candidate.phase_set == near_ps &&
+                            candidate.hap_to_cons_alle[1] >= 0 &&
+                            candidate.hap_to_cons_alle[2] >= 0 &&
+                            candidate.hap_to_cons_alle[1] !=
+                                candidate.hap_to_cons_alle[2])
+                            sees_other = true;
+                    }
+                    if (!sees_detached || sees_other) continue;
+                    chunk.phase_sets[ri] = local_ps;
+                    chunk.haps[ri] = read->hap;
+                }
+            }
+        }
+    }
+}
+
 bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
                                     size_t candidate_index) {
     if (candidate_index >= gc.chunk.candidates.size()) return false;
     const CandidateVariant& candidate = gc.chunk.candidates[candidate_index];
-    if (!candidate.bam_injected || candidate.phase_set <= 0) return false;
+    if (!candidate.bam_injected || !is_phase_set_anchor(candidate)) return false;
     const RecoverySourceSite* source = nullptr;
     for (const RecoverySourceSite& site : gc.recovery_source_sites) {
         if (site.candidate_index != candidate_index) continue;
@@ -2224,9 +2837,10 @@ bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
             continue;
         const CandidateVariant& row = gc.chunk.candidates[site.candidate_index];
         if (row.phase_set != candidate.phase_set) continue;
-        // A homozygote supplies neither orientation nor an independent anchor.
-        if (row.hap_to_cons_alle[1] >= 0 &&
-            row.hap_to_cons_alle[1] == row.hap_to_cons_alle[2])
+        // Classified homozygotes can retain stale unequal allele labels.
+        // Unknown source gauges still fail the orientation check below.
+        if (!is_phase_set_anchor(row) && row.hap_to_cons_alle[1] >= 0 &&
+            row.hap_to_cons_alle[2] >= 0)
             continue;
         if (orientation(row, site) != parity) return false;
         anchored |= row.key.sort_pos() != candidate.key.sort_pos();
@@ -2234,11 +2848,199 @@ bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
     return anchored;
 }
 
-// A detached BAM run has no catalog SNPs for graph_snp_path_supported to
-// inspect. Its original source path still certifies the run if every phased
-// heterozygote belongs to one oriented source and no weak cut falls inside it.
+// Require both observed allele classes and the same significant orientation
+// in deterministic read halves before a boundary may orient a whole block.
+std::optional<bool> local_run_boundary_flip(
+        const PhasingChunk& chunk, size_t source_i, size_t target_i,
+        int min_mapq, double max_p) {
+    std::array<std::pair<int, int>, 2> halves{};
+    std::array<int, 2> source_alleles{};
+    const CandidateVariant& source = chunk.candidates[source_i];
+    const CandidateVariant& target = chunk.candidates[target_i];
+    const bool bam_pair = source.bam_injected && target.bam_injected;
+    for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
+        if (ri >= chunk.reads.size() || chunk.reads[ri].is_skipped) continue;
+        const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+        // An independently mapped BAM pair is not gated by its GAF mapping.
+        // Use that channel's calls too, so the MAPQ certifies the observations
+        // being counted rather than a different alignment of the same read.
+        const int mapq = bam_pair ? profile.bam_mapq : chunk.reads[ri].mapq;
+        if (mapq < min_mapq || (min_mapq > 0 && mapq == 255)) continue;
+        const auto& alleles = bam_pair ? profile.bam_alleles : profile.alleles;
+        if (profile.start_var_idx < 0 ||
+            source_i < static_cast<size_t>(profile.start_var_idx) ||
+            target_i < static_cast<size_t>(profile.start_var_idx) ||
+            source_i > static_cast<size_t>(profile.end_var_idx) ||
+            target_i > static_cast<size_t>(profile.end_var_idx))
+            continue;
+        const size_t source_offset =
+            source_i - static_cast<size_t>(profile.start_var_idx);
+        const size_t target_offset =
+            target_i - static_cast<size_t>(profile.start_var_idx);
+        if (source_offset >= alleles.size() ||
+            target_offset >= alleles.size())
+            continue;
+        const int source_allele = alleles[source_offset];
+        const int target_allele = alleles[target_offset];
+        if ((source_allele != 0 && source_allele != 1) ||
+            (target_allele != 0 && target_allele != 1))
+            continue;
+        ++source_alleles[static_cast<size_t>(source_allele)];
+        uint64_t hash = 14695981039346656037ULL;
+        for (const unsigned char byte : chunk.reads[ri].qname) {
+            hash ^= byte;
+            hash *= 1099511628211ULL;
+        }
+        auto& votes = halves[static_cast<size_t>(hash & 1ULL)];
+        if ((source_allele == source.hap_to_cons_alle[1]) ==
+            (target_allele == target.hap_to_cons_alle[1]))
+            ++votes.first;
+        else
+            ++votes.second;
+    }
+    if (source_alleles[0] == 0 || source_alleles[1] == 0) return std::nullopt;
+    const int same = halves[0].first + halves[1].first;
+    const int cross = halves[0].second + halves[1].second;
+    const int winner = std::max(same, cross);
+    const int total = same + cross;
+    if (winner == 0 || same == cross ||
+        halves[0].first == halves[0].second ||
+        halves[1].first == halves[1].second)
+        return std::nullopt;
+    const bool flip = cross > same;
+    for (const auto& half : halves)
+        if ((half.second > half.first) != flip) return std::nullopt;
+    double term = std::exp(
+        std::lgamma(static_cast<double>(total + 1)) -
+        std::lgamma(static_cast<double>(winner + 1)) -
+        std::lgamma(static_cast<double>(total - winner + 1)) -
+        static_cast<double>(total) * std::log(2.0));
+    double tail = term;
+    for (int k = winner; k < total; ++k) {
+        term *= static_cast<double>(total - k) /
+                static_cast<double>(k + 1);
+        tail += term;
+    }
+    return tail <= max_p ? std::optional<bool>(flip) : std::nullopt;
+}
+
+std::optional<hts_pos_t> bam_prefix_before_deletion_pair(
+        const GraphChunkBuildResult& gc, size_t first_i, size_t second_i,
+        hts_pos_t graph_end) {
+    constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMinAlleleClassSupport = 2;
+    constexpr double kMaxWrongParity = 0.001;
+    const PhasingChunk& chunk = gc.chunk;
+    if (first_i >= chunk.candidates.size() || second_i >= chunk.candidates.size() ||
+        first_i == second_i) return std::nullopt;
+    const CandidateVariant& a = chunk.candidates[first_i];
+    const CandidateVariant& b = chunk.candidates[second_i];
+    if (!a.bam_injected || !b.bam_injected || !a.msa_verified || !b.msa_verified ||
+        !a.alignment_verified || !b.alignment_verified ||
+        !is_phase_set_anchor(a) || !is_phase_set_anchor(b) ||
+        a.key.type != VariantType::Deletion || b.key.type != VariantType::Deletion ||
+        a.key.pos != b.key.pos || a.key.ref_len == b.key.ref_len ||
+        a.phase_set != b.phase_set || a.hap_to_cons_alle[1] == b.hap_to_cons_alle[1])
+        return std::nullopt;
+    const hts_pos_t pair_pos = a.key.sort_pos();
+    std::vector<const RecoverySourceSite*> origin(chunk.candidates.size(), nullptr);
+    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+        if (site.candidate_index >= origin.size()) continue;
+        if (origin[site.candidate_index] != nullptr) return std::nullopt;
+        origin[site.candidate_index] = &site;
+    }
+    if (origin[first_i] == nullptr || origin[second_i] == nullptr)
+        return std::nullopt;
+    const hts_pos_t source_ps = origin[first_i]->phase_set;
+    const auto orientation = [&](size_t ci) {
+        const RecoverySourceSite* site = origin[ci];
+        const CandidateVariant& row = chunk.candidates[ci];
+        if (site == nullptr || !site->can_adopt || site->phase_set != source_ps ||
+            row.hap_to_cons_alle[1] < 0 || row.hap_to_cons_alle[1] > 1 ||
+            row.hap_to_cons_alle[2] != 1 - row.hap_to_cons_alle[1] ||
+            site->hap1_allele < 0 || site->hap1_allele > 1 ||
+            site->hap2_allele != 1 - site->hap1_allele) return -1;
+        return static_cast<int>(row.hap_to_cons_alle[1] != site->hap1_allele);
+    };
+    const int gauge = orientation(first_i);
+    if (source_ps <= 0 || gauge < 0 || orientation(second_i) != gauge)
+        return std::nullopt;
+    std::optional<size_t> snp_i;
+    hts_pos_t snp_pos = graph_end;
+    hts_pos_t run_beg = pair_pos;
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        const CandidateVariant& row = chunk.candidates[ci];
+        const hts_pos_t pos = row.key.sort_pos();
+        if (row.phase_set != a.phase_set || !is_phase_set_anchor(row) ||
+            pos <= graph_end || pos > pair_pos) continue;
+        if (pos == pair_pos) {
+            if (ci != first_i && ci != second_i) return std::nullopt;
+            continue;
+        }
+        // Source membership, not a numeric PS inherited from attachment,
+        // certifies each site of the transferred prefix.
+        if (!row.bam_injected || orientation(ci) != gauge) return std::nullopt;
+        run_beg = std::min(run_beg, pos);
+        if (row.counts.category == VariantCategory::CleanHetSnp &&
+            row.key.type == VariantType::Snp && row.key.ref_len == 1 &&
+            row.key.alt.size() == 1 && pos > snp_pos) {
+            snp_i = ci;
+            snp_pos = pos;
+        }
+    }
+    if (!snp_i || run_beg <= graph_end || run_beg >= pair_pos)
+        return std::nullopt;
+    const auto cuts = gc.recovery_source_weak_cuts.find(source_ps);
+    if (cuts == gc.recovery_source_weak_cuts.end()) return std::nullopt;
+    const auto crosses = [run_beg, pair_pos](const auto& positions) {
+        return std::any_of(positions.begin(), positions.end(),
+                          [run_beg, pair_pos](hts_pos_t pos) {
+                              return run_beg <= pos && pos < pair_pos;
+                          });
+    };
+    const auto quality = gc.recovery_source_quality_cuts.find(source_ps);
+    if (crosses(cuts->second) ||
+        (quality != gc.recovery_source_quality_cuts.end() && crosses(quality->second)))
+        return std::nullopt;
+    std::array<int, 2> support{};
+    std::unordered_set<std::string> counted;
+    for (size_t ri = 0; ri < chunk.read_var_profile.size() && ri < chunk.reads.size(); ++ri) {
+        const ReadVariantProfile& profile = chunk.read_var_profile[ri];
+        const ReadRecord& read = chunk.reads[ri];
+        if (read.is_skipped || profile.bam_mapq < kMinMapq ||
+            profile.bam_mapq == kUnknownMapq || profile.start_var_idx < 0 ||
+            counted.count(read.qname) != 0) continue;
+        const auto call = [&](size_t ci) {
+            if (ci < static_cast<size_t>(profile.start_var_idx)) return -1;
+            const size_t offset = ci - static_cast<size_t>(profile.start_var_idx);
+            return offset < profile.bam_alleles.size() ?
+                static_cast<int>(profile.bam_alleles[offset]) : -1;
+        };
+        const int snp_call = call(*snp_i);
+        const int a_call = call(first_i);
+        const int b_call = call(second_i);
+        // Double-REF and double-ALT do not identify a deletion length class.
+        if ((snp_call != 0 && snp_call != 1) ||
+            !((a_call == 1 && b_call == 0) || (a_call == 0 && b_call == 1))) continue;
+        counted.insert(read.qname);
+        const CandidateVariant& deletion = a_call == 1 ? a : b;
+        if ((snp_call == chunk.candidates[*snp_i].hap_to_cons_alle[1]) !=
+            (deletion.hap_to_cons_alle[1] == 1)) return std::nullopt;
+        ++support[static_cast<size_t>(snp_call)];
+    }
+    if (support[0] < kMinAlleleClassSupport || support[1] < kMinAlleleClassSupport ||
+        std::ldexp(1.0, -(support[0] + support[1])) > kMaxWrongParity)
+        return std::nullopt;
+    return run_beg;
+}
+
+// A source path certifies its retained component, even after attachment
+// changes its PS. An independent physical bridge may admit exact shared
+// catalog rows; every anchor still needs the same original source gauge.
 bool bam_source_run_supported(const GraphChunkBuildResult& gc,
-                                     hts_pos_t phase_set) {
+                              hts_pos_t phase_set,
+                              bool include_shared_graph) {
     const PhasingChunk& chunk = gc.chunk;
     std::vector<const RecoverySourceSite*> source_by_candidate(
         chunk.candidates.size(), nullptr);
@@ -2247,8 +3049,8 @@ bool bam_source_run_supported(const GraphChunkBuildResult& gc,
             chunk.candidates[site.candidate_index].phase_set != phase_set)
             continue;
         const CandidateVariant& candidate = chunk.candidates[site.candidate_index];
-        if (candidate.hap_to_cons_alle[1] >= 0 &&
-            candidate.hap_to_cons_alle[1] == candidate.hap_to_cons_alle[2])
+        if (!is_phase_set_anchor(candidate) && candidate.hap_to_cons_alle[1] >= 0 &&
+            candidate.hap_to_cons_alle[2] >= 0)
             continue;
         const RecoverySourceSite*& slot =
             source_by_candidate[site.candidate_index];
@@ -2265,11 +3067,12 @@ bool bam_source_run_supported(const GraphChunkBuildResult& gc,
         if (candidate.phase_set != phase_set) continue;
         // BAM homozygotes retain a source PS but provide no orientation.
         // Excluding them also keeps the cut interval at the actual anchors.
-        if (candidate.hap_to_cons_alle[1] >= 0 &&
-            candidate.hap_to_cons_alle[1] == candidate.hap_to_cons_alle[2])
+        if (!is_phase_set_anchor(candidate) && candidate.hap_to_cons_alle[1] >= 0 &&
+            candidate.hap_to_cons_alle[2] >= 0)
             continue;
         const RecoverySourceSite* found = source_by_candidate[ci];
-        if (!candidate.bam_injected || found == nullptr) return false;
+        if ((!candidate.bam_injected && !include_shared_graph) ||
+            found == nullptr) return false;
         const RecoverySourceSite& site = *found;
         if (!site.can_adopt || site.phase_set <= 0 ||
             candidate.hap_to_cons_alle[1] < 0 ||
@@ -2297,10 +3100,16 @@ bool bam_source_run_supported(const GraphChunkBuildResult& gc,
     if (source_ps <= 0 || first >= last) return false;
     const auto cuts = gc.recovery_source_weak_cuts.find(source_ps);
     if (cuts == gc.recovery_source_weak_cuts.end()) return false;
-    return std::none_of(cuts->second.begin(), cuts->second.end(),
-                        [first, last](hts_pos_t cut) {
-                            return first <= cut && cut < last;
-                        });
+    const auto crosses = [first, last](const auto& positions) {
+        return std::any_of(positions.begin(), positions.end(),
+                           [first, last](hts_pos_t cut) {
+                               return first <= cut && cut < last;
+                           });
+    };
+    const auto quality = gc.recovery_source_quality_cuts.find(source_ps);
+    return !crosses(cuts->second) &&
+        (quality == gc.recovery_source_quality_cuts.end() ||
+         !crosses(quality->second));
 }
 
 } // namespace pgphase_collect

@@ -1,0 +1,29 @@
+[
+  {
+    "path": "test_data/tmp_gap_next33/regression-before/msa_insertion_parental_orientation_24m/w24121713-24131707/phased.bam",
+    "phased": 60,
+    "correct": 60,
+    "discordant": 0,
+    "blocks": 3,
+    "dominant_correct": 29,
+    "overlap_reads": 115
+  },
+  {
+    "path": "test_data/tmp_gap_next33/run-length-focused-tests/msa_insertion_parental_orientation_24m/w24121713-24131707/phased.bam",
+    "phased": 89,
+    "correct": 89,
+    "discordant": 0,
+    "blocks": 3,
+    "dominant_correct": 49,
+    "overlap_reads": 115
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "phased": 93,
+    "correct": 93,
+    "discordant": 0,
+    "blocks": 1,
+    "dominant_correct": 93,
+    "overlap_reads": 115
+  }
+]

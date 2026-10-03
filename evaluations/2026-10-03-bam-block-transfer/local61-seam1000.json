@@ -1,0 +1,11 @@
+[
+  {
+    "path": "test_data/tmp_gap_next38/seam1000/phased.bam",
+    "phased": 55,
+    "correct": 41,
+    "discordant": 14,
+    "blocks": 1,
+    "dominant_correct": 41,
+    "overlap_reads": 96
+  }
+]

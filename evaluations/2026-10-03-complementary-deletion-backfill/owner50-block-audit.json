@@ -1,0 +1,555 @@
+{
+  "lost_phased_snps": [
+    [
+      50719983,
+      "A",
+      "T"
+    ]
+  ],
+  "old_snp_blocks_with_mixed_gauge": {
+    "50562066": [
+      {
+        "new_ps": "50127297",
+        "flipped": false,
+        "snps": 522
+      },
+      {
+        "new_ps": "50127297",
+        "flipped": true,
+        "snps": 1
+      }
+    ]
+  },
+  "new_blocks_containing_multiple_old_vcf_blocks": {
+    "50127297": {
+      "50491033": {
+        "flipped": true,
+        "variants": 561,
+        "extent": [
+          50127297,
+          50548245
+        ]
+      },
+      "50562066": {
+        "flipped": true,
+        "variants": 1,
+        "extent": [
+          50562066,
+          50997040
+        ]
+      }
+    }
+  },
+  "panel_spanned_before": 0,
+  "panel_spanned_after": 1,
+  "changed_panel_spans": [
+    {
+      "left": 50548245,
+      "right": 50562066,
+      "before": false,
+      "after": true
+    }
+  ],
+  "open_panel_windows": [
+    {
+      "left": 3852321,
+      "right": 3890461,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 4766928,
+      "right": 4792960,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 5309406,
+      "right": 5345085,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 22980600,
+      "right": 23008891,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 26029591,
+      "right": 26088679,
+      "competitor": "none_spanning"
+    },
+    {
+      "left": 60033052,
+      "right": 60058235,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 6578161,
+      "right": 6582248,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 6513891,
+      "right": 6516221,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 21179807,
+      "right": 21183846,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 11255370,
+      "right": 11262360,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 21514518,
+      "right": 21518393,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 12269536,
+      "right": 12277077,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 15095642,
+      "right": 15101261,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 48225787,
+      "right": 48229445,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 56150368,
+      "right": 56156525,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 1086625,
+      "right": 1110921,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 3573979,
+      "right": 3596663,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 20875468,
+      "right": 20895876,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21435750,
+      "right": 21456826,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21736539,
+      "right": 21757517,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 24357615,
+      "right": 24379633,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 24581764,
+      "right": 24601281,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 41900800,
+      "right": 41919471,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 47636774,
+      "right": 47659910,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 48022132,
+      "right": 48043584,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 48929511,
+      "right": 48950388,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 56064697,
+      "right": 56083708,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 56323427,
+      "right": 56343002,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 61664136,
+      "right": 61690751,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 63945865,
+      "right": 63968892,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 32431751,
+      "right": 32432269,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 38331110,
+      "right": 38333011,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 39147805,
+      "right": 39149079,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 514902,
+      "right": 528827,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 1508171,
+      "right": 1523721,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 3529324,
+      "right": 3542977,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 7047080,
+      "right": 7064047,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 8638940,
+      "right": 8662670,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 13830800,
+      "right": 13844727,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 15056025,
+      "right": 15071132,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 17865146,
+      "right": 17883198,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 18983414,
+      "right": 18999993,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21377985,
+      "right": 21395286,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 23421003,
+      "right": 23445252,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 32215055,
+      "right": 32233534,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 32234664,
+      "right": 32246127,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 46727050,
+      "right": 46748667,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 47003897,
+      "right": 47713869,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 48971192,
+      "right": 48982663,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 54483506,
+      "right": 54490229,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 54547514,
+      "right": 54569072,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 54894127,
+      "right": 54912022,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 56662188,
+      "right": 56679959,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 59825454,
+      "right": 59842960,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 60033052,
+      "right": 60048237,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 60453499,
+      "right": 60467115,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 61747506,
+      "right": 61757551,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 61757551,
+      "right": 61773799,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 64144256,
+      "right": 64144722,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 13784702,
+      "right": 13800824,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 64140314,
+      "right": 64144256,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 5256785,
+      "right": 5263741,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 12256072,
+      "right": 12269535,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21823066,
+      "right": 21844359,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 35498368,
+      "right": 35516845,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19395544,
+      "right": 19403172,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19403172,
+      "right": 19414720,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 36611593,
+      "right": 36620864,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 37458817,
+      "right": 37461999,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 64138752,
+      "right": 64140314,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 3963987,
+      "right": 3981464,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 15351845,
+      "right": 15367755,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21130205,
+      "right": 21148338,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21159070,
+      "right": 21172487,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 23792418,
+      "right": 23806565,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 35328965,
+      "right": 35347817,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 57854341,
+      "right": 57866713,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 58366458,
+      "right": 58385702,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 1180618,
+      "right": 1194189,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 10727690,
+      "right": 10746628,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19373922,
+      "right": 19395544,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21594343,
+      "right": 21612458,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 36332599,
+      "right": 36354890,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 30673476,
+      "right": 30673709,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 8166027,
+      "right": 8172072,
+      "competitor": "none_spanning"
+    },
+    {
+      "left": 14446295,
+      "right": 14458292,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 53945086,
+      "right": 53947946,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 53947946,
+      "right": 53962801,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 528850,
+      "right": 542052,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 39848887,
+      "right": 39856144,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 54684758,
+      "right": 54702072,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 11573074,
+      "right": 11586531,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 1194233,
+      "right": 1196894,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 1196894,
+      "right": 1196967,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 64128828,
+      "right": 64134226,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 34046350,
+      "right": 34055920,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 47751480,
+      "right": 47762233,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 20506159,
+      "right": 20517197,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 17502614,
+      "right": 17521341,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 5511231,
+      "right": 5531924,
+      "competitor": "hiphase"
+    }
+  ]
+}

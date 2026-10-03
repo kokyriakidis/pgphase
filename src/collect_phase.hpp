@@ -19,6 +19,11 @@ namespace pgphase_collect {
 /// Exact upper binomial tail P(X >= first), for 0 <= first <= n and 0 < p < 1.
 double binomial_upper_tail(int n, int first, double p);
 
+/// An oriented heterozygote with a positive PS can anchor recovery. Match the
+/// selected graph row's emitted biallelic genotype; unknown and homozygous
+/// candidates cannot define a boundary or an observation-path cut.
+bool is_phase_set_anchor(const CandidateVariant& candidate);
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // Candidate-category bitmask flags
@@ -134,6 +139,14 @@ bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
                                        const Options& opts,
                                        bool allow_complementary = false);
 
+/// Admit a focused MSA retry for a weak internal source edge. Significant
+/// conflicting molecule pairs on an MSA indel can leave a nominal source PS
+/// disconnected. This requests new observations, never certifies a stitch.
+/// Boundary indices must be valid and ordered by physical anchor position.
+bool msa_source_conflict_is_supported(const PhasingChunk& chunk,
+                                      const std::array<size_t, 2>& boundaries,
+                                      const Options& opts);
+
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,
@@ -154,6 +167,25 @@ std::optional<bool> corroborated_bam_block_flip(
     const PhasingChunk& chunk, const std::vector<int>& first,
     const std::vector<int>& second);
 
+/// Snapshot every phased heterozygote and callable observation in the BAM
+/// solve, including flank-only blocks. Selected blocks use remapped labels;
+/// context-only blocks retain their source identity without a live PS label.
+/// Does not modify either chunk.
+void retain_recovery_bam_evidence(
+    const PhasingChunk& source,
+    const std::vector<std::pair<hts_pos_t, hts_pos_t>>& phase_set_remap,
+    RecoveryPhaseGauge& gauge);
+
+/// Orient two complete blocks from independent spanning molecules. A source
+/// block is scored in its saved BAM gauge; other blocks use the supplied live
+/// graph candidate indices. Reads are qname ordered. Clean SNPs take priority;
+/// new joins also require physical MAPQ30/Q30 SNP support on both haplotypes.
+std::optional<bool> complete_recovery_block_flip(
+    const PhasingChunk& chunk, const RecoveryPhaseGauge& gauge,
+    hts_pos_t upstream_phase_set, hts_pos_t downstream_phase_set,
+    const std::vector<int>& upstream_candidates,
+    const std::vector<int>& downstream_candidates, int min_mapq);
+
 /// Stitch imported BAM phase sets through each explicit graph seam from left
 /// to right. Each BAM block keeps its independent gauge. Incomplete graph/BAM
 /// edges use one bounded exact MEC decision over the complete atomic blocks;
@@ -171,6 +203,14 @@ size_t stitch_recovery_phase_sets_left_to_right(
     const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts = nullptr,
     std::set<hts_pos_t>* locally_bridged_sources = nullptr,
     const std::set<hts_pos_t>* complete_graph_source_paths = nullptr);
+
+/// Stitch finalized recovery blocks using their complete BAM evidence. Run
+/// after source attachment so no subsequent import can replay an older gauge.
+size_t stitch_complete_recovery_phase_blocks(
+    PhasingChunk& chunk, const std::vector<RecoverySeam>& windows,
+    const std::vector<RecoveryPhaseGauge>& gauges, const Options& opts,
+    const std::unordered_map<hts_pos_t, bool>& source_paths,
+    const std::set<hts_pos_t>& graph_paths);
 
 /// Dump the complete post-injection, pre-solve recovery state when diagnostics
 /// are enabled. The snapshot is sufficient for a local boundary replay.

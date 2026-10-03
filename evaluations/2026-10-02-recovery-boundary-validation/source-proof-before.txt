@@ -1,0 +1,21 @@
+Filters: allele_depths_call_het*
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_phase_predicates is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+allele_depths_call_het: every exclusion in order
+  a verified BAM source row does not need a graph transfer certificate
+-------------------------------------------------------------------------------
+src/test_phase_predicates.cpp:483
+...............................................................................
+
+src/test_phase_predicates.cpp:488: FAILED:
+  CHECK( allele_depths_call_het(source, opts) )
+with expansion:
+  false
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 35 | 34 passed | 1 failed

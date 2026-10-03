@@ -1,0 +1,29 @@
+[
+  {
+    "path": "test_data/tmp_gap_next38/pad100/phased.bam",
+    "phased": 69,
+    "correct": 69,
+    "discordant": 0,
+    "blocks": 1,
+    "dominant_correct": 69,
+    "overlap_reads": 96
+  },
+  {
+    "path": "test_data/tmp_gap_next38/pad1000/phased.bam",
+    "phased": 69,
+    "correct": 69,
+    "discordant": 0,
+    "blocks": 1,
+    "dominant_correct": 69,
+    "overlap_reads": 96
+  },
+  {
+    "path": "test_data/tmp_gap_next38/pad10000/phased.bam",
+    "phased": 63,
+    "correct": 61,
+    "discordant": 2,
+    "blocks": 2,
+    "dominant_correct": 56,
+    "overlap_reads": 96
+  }
+]

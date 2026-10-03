@@ -1,0 +1,198 @@
+{
+  "lost_phased_snps": [
+    [
+      12322343,
+      "G",
+      "A"
+    ],
+    [
+      17134287,
+      "A",
+      "G"
+    ],
+    [
+      32491496,
+      "G",
+      "T"
+    ],
+    [
+      65508812,
+      "T",
+      "A"
+    ],
+    [
+      65508959,
+      "A",
+      "T"
+    ],
+    [
+      65510150,
+      "A",
+      "T"
+    ],
+    [
+      65510723,
+      "A",
+      "T"
+    ],
+    [
+      65511398,
+      "T",
+      "A"
+    ],
+    [
+      65511404,
+      "A",
+      "T"
+    ],
+    [
+      65512328,
+      "A",
+      "T"
+    ],
+    [
+      65512643,
+      "A",
+      "T"
+    ],
+    [
+      65512847,
+      "A",
+      "T"
+    ],
+    [
+      65513435,
+      "T",
+      "A"
+    ],
+    [
+      65513699,
+      "A",
+      "T"
+    ],
+    [
+      65513879,
+      "T",
+      "A"
+    ],
+    [
+      65769295,
+      "G",
+      "A"
+    ]
+  ],
+  "old_snp_blocks_with_mixed_gauge": {},
+  "new_blocks_containing_multiple_old_vcf_blocks": {
+    "30780237": {
+      "30780237": {
+        "flipped": false,
+        "variants": 294,
+        "extent": [
+          30780237,
+          30796780
+        ]
+      },
+      "30791916": {
+        "flipped": false,
+        "variants": 2,
+        "extent": [
+          30791916,
+          30791984
+        ]
+      }
+    },
+    "62637077": {
+      "62432427": {
+        "flipped": false,
+        "variants": 210,
+        "extent": [
+          62432427,
+          62623253
+        ]
+      },
+      "62637077": {
+        "flipped": false,
+        "variants": 843,
+        "extent": [
+          62642316,
+          63159367
+        ]
+      }
+    }
+  },
+  "panel_spanned_before": 87,
+  "panel_spanned_after": 87,
+  "changed_panel_spans": [],
+  "open_panel_windows": [
+    {
+      "left": 3852321,
+      "right": 3890461,
+      "competitor": "hiphase"
+    },
+    {
+      "left": 15095642,
+      "right": 15101261,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 21823066,
+      "right": 21844359,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 35498368,
+      "right": 35516845,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 50548245,
+      "right": 50562066,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 36611593,
+      "right": 36620864,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 37458817,
+      "right": 37461999,
+      "competitor": "regression_control"
+    },
+    {
+      "left": 3963987,
+      "right": 3981464,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21130205,
+      "right": 21148338,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21159070,
+      "right": 21172487,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 57854341,
+      "right": 57866713,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 58366458,
+      "right": 58385702,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 19373922,
+      "right": 19395544,
+      "competitor": "hiphase_same_sites"
+    },
+    {
+      "left": 21594343,
+      "right": 21612458,
+      "competitor": "hiphase_same_sites"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+Filters: a single seam admits focused recovery of complementary BAM rows
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+a single seam admits focused recovery of complementary BAM rows
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:4298
+...............................................................................
+
+src/test_gap_windows.cpp:4335: FAILED:
+  CHECK( call.second == ps )
+with expansion:
+  "10746473" == "10659405"
+with message:
+  10746473:CCTTT>C
+
+src/test_gap_windows.cpp:4335: FAILED:
+  CHECK( call.second == ps )
+with expansion:
+  "10746473" == "10659405"
+with message:
+  10746473:CCTTTCTTTCTTTCTTT>C
+
+src/test_gap_windows.cpp:4335: FAILED:
+  CHECK( call.second == ps )
+with expansion:
+  "10746473" == "10659405"
+with message:
+  10746628:C>CTCTT
+
+src/test_gap_windows.cpp:4335: FAILED:
+  CHECK( call.second == ps )
+with expansion:
+  "10746473" == "10659405"
+with message:
+  10760419:G>A
+
+src/test_gap_windows.cpp:4340: FAILED:
+  CHECK( calls.at("10727690:T>C").first == calls.at("10746628:C>CTCTT").first )
+with expansion:
+  "1|0" == "0|1"
+
+src/test_gap_windows.cpp:4345: FAILED:
+  CHECK( calls.at("10706319:G>T").first == calls.at("10760419:G>A").first )
+with expansion:
+  "0|1" == "1|0"
+
+src/test_gap_windows.cpp:4367: FAILED:
+  CHECK( local_reads.correct >= 136 )
+with expansion:
+  134 >= 136
+
+src/test_gap_windows.cpp:4368: FAILED:
+  CHECK( local_reads.discordant() <= 7 )
+with expansion:
+  9 <= 7
+
+src/test_gap_windows.cpp:4369: FAILED:
+  CHECK( local_reads.concordance() >= 0.95 )
+with expansion:
+  0.9370629371 >= 0.95
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 44 | 35 passed | 9 failed
