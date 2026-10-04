@@ -123,7 +123,7 @@ graph	53947946-53962801	1	1	0.99	0.60
 graph	528850-542052	1	1	0.99	0.42
 graph	39848887-39856144	1	1	0.98	1.00
 graph	54684758-54702072	1	1	0.98	0.83
-graph	TOTAL	88	1291	0.74	0.10
+graph	TOTAL	91	1292	0.74	0.10
 # 2026-10-01: graph arm closes the 11.573 Mb owning-chunk gap without
 # changing HP assignments or discordant counts; existing floors stay intact.
 graph	11573074-11586531	1	0	0.97	0.64
@@ -145,3 +145,10 @@ graph	17502614-17521341	1	0	0.99	0.85
 
 # Owning 5-6 Mb replay: preserve all reads and the opposite deletion ALTs.
 graph	5511231-5531924	1	1	0.99	0.78
+# Owning 61-62 Mb replay: repair the isolated deletion source conflict.
+graph	61738239-61747506	1	0	0.99	0.88
+# Owning 41-42 Mb: retain separate insertion rows and the downstream connection.
+graph	41879449-41880908	1	1	0.99	0.28
+
+# Owning 7-8 Mb: exact deletion sequence retains both source rows and allele gauges.
+graph	7901413-7918883	1	0	0.95	0.72

@@ -111,6 +111,14 @@ int bam_equivalent_deletion_allele(const bam1_t* read,
                                     ReferenceCache& reference, int tid,
                                     const bam_hdr_t* header, int min_baseq);
 
+/// Certify only an exact deletion ALT sequence between surviving query anchors.
+/// Shifted CIGAR deletions with compensating mismatches may match; false means
+/// unverified, never REF. No read labels, candidate rows or alignments change.
+bool bam_matches_deletion_sequence(const bam1_t* read,
+                                    const CandidateVariant& deletion,
+                                    ReferenceCache& reference, int tid,
+                                    const bam_hdr_t* header, int min_baseq);
+
 /// Recover missing ALT calls for shifted, single-base MSA insertions in targeted
 /// recovery windows, inclusive of their VCF anchors. Require MAPQ30 and Q30
 /// sequence-equivalent CIGAR evidence;
@@ -123,13 +131,16 @@ int backfill_shifted_msa_insertions(PhasingChunk& chunk, const Options& opts);
 void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi,
                                          ReadVariantProfile& profile);
 
-/// Temporarily fill jointly missing complementary MSA deletion calls for retry
-/// admission. MAPQ30/Q30 exact or equivalent ALT proves the other row's ALT
-/// absence; third alleles, compound events and existing calls are not projected.
-/// Callers must restore profiles and the read index before transferring evidence:
-/// a physical homopolymer call alone is not a validated read-rescue marker.
-int backfill_complementary_msa_deletions(PhasingChunk& chunk, const Options& opts,
-                                        hts_pos_t beg, hts_pos_t end);
+/// Temporarily fill missing MSA deletion calls for source retry admission.
+/// `include_isolated` is reserved for singleton graph flanks; the resulting
+/// retry must preserve clean-SNP gauges. Homopolymer calls require MAPQ30/Q30.
+/// Complementary co-located rows require a jointly missing pair and one verified
+/// ALT; the other row records ALT absence. Third alleles, compound events,
+/// ambiguous loci and existing observations are not projected.
+/// Callers restore profiles and the read index before validation or transfer:
+/// physical calls diagnose a missing/reversed source edge, never tag reads.
+int backfill_msa_retry_deletions(PhasingChunk& chunk, const Options& opts,
+                                 hts_pos_t beg, hts_pos_t end, bool include_isolated);
 
 /// Fill missing observations at admitted MSA sites from overlapping BAM reads.
 /// `beg` and `end` are inclusive VCF anchors; CIGAR calls retain internal keys.
@@ -147,6 +158,12 @@ int backfill_complementary_msa_deletions(PhasingChunk& chunk, const Options& opt
 /// remain the discovery genotype census, not the enlarged recovery matrix.
 int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
                               hts_pos_t beg, hts_pos_t end);
+
+/// Commit allele recalls after choosing the recovery source. Only sites
+/// missing in its original MSA projection are queued; original calls and source
+/// genotypes/phase labels remain authoritative. Supplementary CIGAR calls at
+/// those queued sites may be corrected or explicitly rejected by local evidence.
+bool apply_pending_msa_observations(PhasingChunk& chunk);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Step 4 top-level entry

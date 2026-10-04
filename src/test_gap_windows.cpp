@@ -661,9 +661,10 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
         << " -r 'CHM13#0#chr20:"
         << ((w.gap_left == 48971192 || w.gap_left == 48929511)
                 ? 48000001 :
-            w.gap_left == 7047080 ? 7000001 :
+            (w.gap_left == 7047080 || w.gap_left == 7901413) ? 7000001 :
             w.gap_left == 5511231 ? 5000001 :
             w.gap_left == 24121713 ? 24000001 :
+            w.gap_left == 41879449 ? 41000001 :
             w.gap_left == 17502614 ? 16000001 :
             w.gap_left == 8166027 ? 8000001 :
             (w.gap_left == 514902 || w.gap_left == 528850) ? 1 :
@@ -701,7 +702,7 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
             (w.gap_left == 56662188 || w.gap_left == 56064697)
                 ? 56000001 :
             w.gap_left == 47003897 ? 47000001 :
-            w.gap_left == 61757551 ? 61000001 :
+            (w.gap_left == 61757551 || w.gap_left == 61738239) ? 61000001 :
             w.gap_left == 37458817 ? 37000001 :
             w.gap_left == 46727050 ? 46000001 :
             (w.gap_left == 54000001 || w.gap_left == 54483506 ||
@@ -714,9 +715,10 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
                 ? 21000001 : w.gap_left - 50000)
         << "-" << ((w.gap_left == 48971192 || w.gap_left == 48929511)
                 ? 49000000 :
-            w.gap_left == 7047080 ? 8000000 :
+            (w.gap_left == 7047080 || w.gap_left == 7901413) ? 8000000 :
             w.gap_left == 5511231 ? 6000000 :
             w.gap_left == 24121713 ? 25000000 :
+            w.gap_left == 41879449 ? 42000000 :
             w.gap_left == 17502614 ? 18000000 :
             w.gap_left == 8166027 ? 9000000 :
             (w.gap_left == 514902 || w.gap_left == 528850) ? 1000000 :
@@ -754,7 +756,7 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
             (w.gap_left == 56662188 || w.gap_left == 56064697)
                 ? 57000000 :
             w.gap_left == 47003897 ? 48000000 :
-            w.gap_left == 61757551 ? 62000000 :
+            (w.gap_left == 61757551 || w.gap_left == 61738239) ? 62000000 :
             w.gap_left == 37458817 ? 38000000 :
             w.gap_left == 46727050 ? 47000000 :
             (w.gap_left == 54000001 || w.gap_left == 54483506 ||
@@ -1447,6 +1449,68 @@ TEST_CASE("complete recovery MSA blocks retain the complex left flank",
     CHECK(local_reads.correct >= 123);
     CHECK(local_reads.concordance() >= 1.0);
     CHECK(local_reads.discordant() == 0);
+}
+
+TEST_CASE("isolated shared BAM genotype survives graph repeat demotion",
+          "[gap][representation]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    // Discovery needs the complete owning chunk, including both source gauges.
+    Window owner;
+    owner.gap_left = 21050001;
+    owner.gap_right = 21950000;
+    std::string dir;
+    REQUIRE(run_arm(p, owner, "isolated_shared_msa_21m", "", dir));
+
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::map<std::string, std::map<std::string, std::string>> rows;
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10) continue;
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "21823066:GT>G" && key != "21831480:CT>C" &&
+            key != "21844359:T>TTATATATA") continue;
+        std::vector<std::string> names, values;
+        std::string value;
+        std::istringstream format(fields[8]), sample(fields[9]);
+        while (std::getline(format, value, ':')) names.push_back(value);
+        while (std::getline(sample, value, ':')) values.push_back(value);
+        REQUIRE(names.size() == values.size());
+        REQUIRE(rows.count(key) == 0);
+        auto& row = rows[key];
+        for (size_t i = 0; i < names.size(); ++i) row[names[i]] = values[i];
+    }
+    REQUIRE(rows.size() == 3);
+    const auto& left = rows.at("21823066:GT>G");
+    const auto& middle = rows.at("21831480:CT>C");
+    const auto& right = rows.at("21844359:T>TTATATATA");
+    CHECK(is_phased_het(middle.at("GT")));
+    CHECK(middle.at("AD") == "11,4");
+    CHECK(middle.at("DP") == "15");
+    CHECK(std::stoll(middle.at("PS")) > 0);
+    // A shared source label does not certify the zero-pair left edge.
+    CHECK(middle.at("PS") != left.at("PS"));
+    CHECK(middle.at("PS") != right.at("PS"));
+    CHECK(left.at("PS") != right.at("PS"));
+
+    Window gap;
+    gap.gap_left = 21823066;
+    gap.gap_right = 21844359;
+    Outcome reads;
+    parse_vcf(dir + "/native.vcf", gap, reads);
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), reads);
+    CHECK_FALSE(reads.spans);
+    CHECK(reads.scored >= 3321);
+    CHECK(reads.correct >= 3110);
+    CHECK(reads.discordant() <= 211);
 }
 
 TEST_CASE("chr20 gap windows", "[gap][windows]") {
@@ -3342,7 +3406,7 @@ TEST_CASE("complementary BAM boundary rows close the 41.900 Mb seam",
         return;
     }
     // The preceding seam shares a BAM solve region with this deletion pair.
-    // Its block must stay independent while the focused MSA closes this one.
+    // Its outer graph blocks must stay independent while the focused MSA closes this one.
     Window full_chunk;
     full_chunk.gap_left = 41050001;
     full_chunk.gap_right = 41950000;
@@ -3352,16 +3416,22 @@ TEST_CASE("complementary BAM boundary rows close the 41.900 Mb seam",
     std::ifstream in(dir + "/native.vcf");
     REQUIRE(in.good());
     std::map<std::string, std::string> phase_sets;
+    std::map<std::string, std::pair<std::string, std::string>> repeat_sites;
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty() || line[0] == '#') continue;
         const auto fields = split_tabs(line);
         if (fields.size() < 10 ||
             (fields[1] != "41866917" && fields[1] != "41898323" &&
-             fields[1] != "41900800" && fields[1] != "41919471"))
-            continue;
+             fields[1] != "41900800" && fields[1] != "41919471" &&
+             fields[1] != "41879449" && fields[1] != "41880908")) continue;
         const size_t separator = fields[9].rfind(':');
         REQUIRE(separator != std::string::npos);
+        if (fields[1] == "41879449" || fields[1] == "41880908")
+            repeat_sites.emplace(fields[1] + ":" + fields[3] + ">" + fields[4],
+                std::make_pair(fields[9].substr(0, 3), fields[9].substr(separator + 1)));
+        if (fields[1] != "41866917" && fields[1] != "41898323" &&
+            fields[1] != "41900800" && fields[1] != "41919471") continue;
         phase_sets[fields[1]] = fields[9].substr(separator + 1);
     }
     REQUIRE(phase_sets.size() == 4);
@@ -3376,6 +3446,33 @@ TEST_CASE("complementary BAM boundary rows close the 41.900 Mb seam",
               input_read_spans(p, gap), reads);
     CHECK_FALSE(reads.switched);
     CHECK(reads.concordance() >= 0.98);
+
+    // Local tandem-repeat calls must close the preceding private-site gap
+    // without displacing the independently certified downstream source solve.
+    REQUIRE(repeat_sites.size() == 3);
+    const auto& left = repeat_sites.at("41879449:A>AGA");
+    const auto& short_repeat = repeat_sites.at("41880908:T>TCACACACACACACA");
+    const auto& long_repeat = repeat_sites.at("41880908:T>TCACACACACACACACACA");
+    CHECK(is_phased_het(left.first));
+    CHECK(left.second != ".");
+    CHECK(left.second == short_repeat.second);
+    CHECK(left.second == long_repeat.second);
+    CHECK(left.first != short_repeat.first);
+    CHECK(left.first == long_repeat.first);
+    Window recovered;
+    recovered.gap_left = 41879449;
+    recovered.gap_right = 41880908;
+    Outcome connectivity;
+    parse_vcf(dir + "/native.vcf", recovered, connectivity);
+    CHECK(connectivity.spans);
+    Outcome whole_chunk;
+    score_bam(dir + "/phased.bam", full_chunk, load_truth(p.truth_map),
+              input_read_spans(p, full_chunk), whole_chunk);
+    CHECK(whole_chunk.scored >= 4154);
+    CHECK(whole_chunk.correct >= 4126);
+    CHECK(whole_chunk.discordant() <= 28);
+    CHECK_FALSE(whole_chunk.switched);
+    CHECK(whole_chunk.concordance() >= 0.993);
 }
 
 TEST_CASE("certified deletion bridge preserves the 11.599 Mb source alleles",
@@ -3639,9 +3736,10 @@ TEST_CASE("repeat-deletion recovery preserves the 61.738 Mb flank gauges",
     parse_vcf(dir + "/native.vcf", gap, reads);
     score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
               input_read_spans(p, gap), reads);
-    CHECK(reads.scored >= 3452);
-    CHECK(reads.correct >= 3423);
-    CHECK(reads.discordant() <= 29);
+    CHECK(reads.spans);
+    CHECK(reads.scored >= 3468);
+    CHECK(reads.correct >= 3447);
+    CHECK(reads.discordant() <= 21);
     CHECK_FALSE(reads.switched);
 
     std::ifstream vcf(dir + "/native.vcf");
@@ -3667,14 +3765,12 @@ TEST_CASE("repeat-deletion recovery preserves the 61.738 Mb flank gauges",
         REQUIRE(call.second.second != ".");
         CHECK(std::stoll(call.second.second) > 0);
     }
-    // A future closure is allowed, but these clean ALT alleles must retain
-    // their parental relation when they acquire a common phase set.
-    if (calls.at("61732321").second == calls.at("61757551").second)
-        CHECK(calls.at("61732321").first == calls.at("61757551").first);
+    CHECK(calls.at("61732321").second == calls.at("61757551").second);
+    CHECK(calls.at("61732321").first == calls.at("61757551").first);
     // The source matrix has two ALT/ALT pairs here despite assigning opposite
     // haplotypes. A nominal BAM PS must not import that internal reversal.
-    if (calls.at("61738239").second == calls.at("61747506").second)
-        CHECK(calls.at("61738239").first == calls.at("61747506").first);
+    CHECK(calls.at("61738239").second == calls.at("61747506").second);
+    CHECK(calls.at("61738239").first == calls.at("61747506").first);
 }
 
 TEST_CASE("BAM-left MEC cannot reverse the 34.1 Mb graph block",
@@ -5411,4 +5507,74 @@ TEST_CASE("complementary deletion recovery closes the owning 50 Mb gap",
     // right SNP ALT must land on the same parent, independently of HP labels.
     CHECK(shorter.first != longer.first);
     CHECK(longer.first == snp.first);
+}
+
+TEST_CASE("shifted compound CIGAR deletions close the owning 7.9 Mb gap",
+          "[gap][msa][representation][deletion-pair]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    Window gap;
+    gap.gap_left = 7901413;
+    gap.gap_right = 7918883;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "compound_deletion_parental_orientation_7m", "", dir));
+    // Read the exact separate deletion rows without constructing a merged
+    // allele. The graph SNP gauges provide the parental-orientation check.
+    std::map<int64_t, std::vector<std::pair<std::string, std::string>>> rows;
+    std::set<std::string> deletion_keys;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const auto pos = std::stoll(fields[1]);
+        if (pos != 7901325 && pos != 7901413 && pos != 7918883 &&
+            pos != 7924485) continue;
+        if (pos == 7918883) deletion_keys.insert(fields[3] + ">" + fields[4]);
+        const size_t separator = fields[9].rfind(':');
+        REQUIRE(separator != std::string::npos);
+        rows[pos].emplace_back(fields[9].substr(0, 3),
+                              fields[9].substr(separator + 1));
+    }
+    REQUIRE(rows[7901325].size() == 1);
+    REQUIRE(rows[7901413].size() == 1);
+    REQUIRE(rows[7918883].size() == 2);
+    CHECK(deletion_keys == std::set<std::string>{
+        "ATATTTTTTTTTTT>A", "ATATTTTTTTTTTTTT>A"});
+    REQUIRE(rows[7924485].size() == 1);
+    const auto& left = rows[7901325].front();
+    const auto& right = rows[7924485].front();
+    CHECK(is_phased_het(left.first));
+    CHECK(left.second == right.second);
+    CHECK(left.first == right.first);
+    CHECK(rows[7901413].front() == left);
+    CHECK(rows[7918883][0].second == left.second);
+    CHECK(rows[7918883][1].second == left.second);
+    CHECK(rows[7918883][0].first == left.first);
+    CHECK(rows[7918883][0].first != rows[7918883][1].first);
+    const auto truth = load_truth(p.truth_map);
+    const auto& spans = input_read_spans(p, gap);
+    Outcome owning;
+    score_bam(dir + "/phased.bam", gap, truth, spans, owning);
+    CHECK(owning.scored >= 4091);
+    CHECK(owning.correct >= 3926);
+    CHECK(owning.discordant() <= 165);
+    std::unordered_map<std::string, char> local_truth;
+    for (const auto& [name, span] : spans) {
+        if (span.second < gap.gap_left || span.first > gap.gap_right) continue;
+        const auto found = truth.find(name);
+        if (found != truth.end()) local_truth.emplace(*found);
+    }
+    Outcome local;
+    score_bam(dir + "/phased.bam", gap, local_truth, spans, local);
+    CHECK(local.scored >= 116);
+    CHECK(local.correct >= 114);
+    CHECK(local.discordant() <= 2);
+    CHECK(local.dominant_correct >= 104);
 }

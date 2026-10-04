@@ -844,6 +844,9 @@ struct CandidateVariant {
     // Focused diploid or compound-flank MSA retained this genotype for linking.
     // One-locus read rescue still needs independent primary-site confidence.
     bool read_rescue_requires_validation = false;
+    // Retained shared BAM genotype without an inherited source connection.
+    // Graph rescue uses its graph channel and independent block associations.
+    bool bam_independent_genotype = false;
     // Recomputed from clean-site evidence for MSA indel bridges in recovery gaps.
     bool gap_link_supported = false;
     // Set only by select_gap_link_sites, only for an MSA-verified homopolymer
@@ -1011,6 +1014,14 @@ struct ReadVariantProfile {
 // Chunk data
 // ════════════════════════════════════════════════════════════════════════════
 
+/// An allele recall retained by exact key across candidate reordering.
+struct DeferredMsaObservation {
+    VariantKey key;
+    int read_id;
+    int allele;
+    bool update_counts = true;  // Supplementary CIGAR calls retain the discovery census.
+};
+
 /**
  * @brief Working state for one region chunk: reads, reference slice, noisy intervals, candidates.
  */
@@ -1029,6 +1040,12 @@ struct PhasingChunk {
     std::vector<int> n_down_ovlp_skip_reads;
     std::vector<int> haps;
     std::vector<hts_pos_t> phase_sets;
+    // Local consensus calls and physical corrections are admitted only after
+    // recovery chooses its source solve; they cannot alter retries.
+    std::vector<DeferredMsaObservation> pending_msa_observations;
+    // Explicit abstentions must clear older CIGAR calls during transfer;
+    // an ordinary missing slot merely supplies no new observation.
+    std::vector<DeferredMsaObservation> rejected_msa_observations;
     // only for reads the clean core left unphased (haps[i]==0) and recovered by
     // the scratch-buffer noisy k-means; empty otherwise. Kept separate from
     // `haps` so they never influence cross-chunk stitching (which inspects

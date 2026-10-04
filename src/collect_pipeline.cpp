@@ -2535,6 +2535,63 @@ static std::optional<ValidatedPhysicalBridge> validated_physical_bridge(
 }
 
 
+static void apply_graph_anchored_msa_observations(
+        PhasingChunk& source, const GraphChunkBuildResult& graph_chunk) {
+    if (source.pending_msa_observations.empty()) return;
+    CandidateIndex source_index;
+    for (size_t ci = 0; ci < source.candidates.size(); ++ci)
+        source_index.emplace(cand_key_of(source.candidates[ci]), ci);
+    using Gauge = std::pair<hts_pos_t, bool>;
+    std::map<hts_pos_t, std::optional<Gauge>> gauges;
+    for (size_t gi = 0; gi < graph_chunk.chunk.candidates.size(); ++gi) {
+        const auto& graph = graph_chunk.chunk.candidates[gi];
+        if (!graph.graph_site || !is_phase_set_anchor(graph) ||
+            graph.counts.category != VariantCategory::CleanHetSnp) continue;
+        const std::string* alt = selected_graph_candidate_alt(graph_chunk, gi);
+        if (alt == nullptr) continue;
+        const auto& meta = graph_chunk.site_meta[gi];
+        const VariantKey key = vcf_to_variant_key(source.region.tid, meta.pos, meta.ref, *alt);
+        const auto found = source_index.find(CandKey{
+            key.sort_pos(), static_cast<int>(key.type), key.ref_len, key.alt});
+        if (found == source_index.end()) continue;
+        const auto& bam = source.candidates[found->second];
+        if (!is_phase_set_anchor(bam) ||
+            bam.counts.category != VariantCategory::CleanHetSnp) continue;
+        const Gauge gauge{graph.phase_set,
+            (graph.hap_to_cons_alle[1] == 1) != (bam.hap_to_cons_alle[1] == 1)};
+        const auto [it, inserted] = gauges.try_emplace(bam.phase_set, gauge);
+        if (!inserted && it->second != gauge) it->second.reset();
+    }
+    // A local diploid recall may extend one established graph gauge. A BAM
+    // block touching different graph phase sets needs independent stitching
+    // evidence; its inherited PS cannot certify their relative orientation.
+    auto& pending = source.pending_msa_observations;
+    std::set<hts_pos_t> recalled_phase_sets;
+    for (const auto& observation : pending) {
+        if (!observation.update_counts) continue;
+        const auto found = source_index.find(CandKey{
+            observation.key.sort_pos(), static_cast<int>(observation.key.type),
+            observation.key.ref_len, observation.key.alt});
+        if (found != source_index.end())
+            recalled_phase_sets.insert(source.candidates[found->second].phase_set);
+    }
+    pending.erase(std::remove_if(pending.begin(), pending.end(),
+        [&](const DeferredMsaObservation& observation) {
+            const auto found = source_index.find(CandKey{
+                observation.key.sort_pos(), static_cast<int>(observation.key.type),
+                observation.key.ref_len, observation.key.alt});
+            if (found == source_index.end()) return true;
+            // Physical corrections support the newly recalled local diploid
+            // contrast. Without that fixed-consensus context, keep the source's
+            // existing insertion projection and read-rescue behavior.
+            if (!observation.update_counts && recalled_phase_sets.count(
+                    source.candidates[found->second].phase_set) == 0) return true;
+            const auto gauge = gauges.find(source.candidates[found->second].phase_set);
+            return gauge == gauges.end() || !gauge->second;
+        }), pending.end());
+    apply_pending_msa_observations(source);
+}
+
 bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                                       const Options& opts,
                                       WorkerContext& context,
@@ -2780,13 +2837,23 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         // MSA retry, then restore the source projection before any transfer.
         auto source_profiles = source.read_var_profile;
         auto source_index = std::move(source.read_var_cr);
-        int pair_calls = 0;
+        // A singleton graph flank cannot supply independent orientation context.
+        // Diagnose its isolated MSA deletion dropout before requesting the
+        // padded retry; ordinary block boundaries retain the paired-row rule.
+        const auto has_singleton_flank = [&](size_t wi) {
+            const RecoverySeam& seam = windows[wi];
+            const auto left = phase_set_extents.find(seam.left_phase_set);
+            const auto right = phase_set_extents.find(seam.right_phase_set);
+            return (left != phase_set_extents.end() &&
+                    left->second.first == left->second.second) ||
+                   (right != phase_set_extents.end() &&
+                    right->second.first == right->second.second);
+        };
         for (size_t wi = group.first_window; wi < group.past_last_window; ++wi) {
             if (group_owns_window(group, wi))
-                pair_calls += backfill_complementary_msa_deletions(
-                    source, source_opts, windows[wi].beg, windows[wi].end);
+                backfill_msa_retry_deletions(
+                    source, source_opts, windows[wi].beg, windows[wi].end, false);
         }
-        if (pair_calls == 0) source.read_var_cr = std::move(source_index);
         // Backfill can reveal an internal conflict in a nominally connected
         // source PS. Keep every focused request, including later group seams.
         for (size_t wi = group.first_window; wi < group.past_last_window; ++wi) {
@@ -2804,12 +2871,33 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         std::optional<size_t> sparse_window;
         bool conflicting_majority = false;
         bool filled_internal_retry = false;
-        const bool filled_needs_retry = source_seam_needs_unplaced_msa(
+        bool filled_needs_retry = source_seam_needs_unplaced_msa(
             source, group, windows, opts, preserve_source_rows,
             ordinary_retry, sparse_window, false, std::nullopt, false,
             &conflicting_majority, true, &filled_internal_retry);
+        // Isolated homopolymer calls may corroborate an internal conflict,
+        // but must not change the ordinary retry/dropout decision above.
+        // Existing pair conflicts retain their established selection/context.
+        std::vector<size_t> isolated_conflict_windows;
+        for (size_t wi = group.first_window; wi < group.past_last_window; ++wi) {
+            if (!group_owns_window(group, wi) || !has_singleton_flank(wi)) continue;
+            if (source_seam_has_msa_conflict(source, windows[wi], opts)) continue;
+            if (backfill_msa_retry_deletions(
+                    source, source_opts, windows[wi].beg, windows[wi].end, true) == 0 ||
+                !source_seam_has_msa_conflict(source, windows[wi], opts)) continue;
+            isolated_conflict_windows.push_back(wi);
+            const auto found = std::lower_bound(focused_repair_windows.begin(),
+                                                focused_repair_windows.end(), wi);
+            if (found == focused_repair_windows.end() || *found != wi)
+                focused_repair_windows.insert(found, wi);
+        }
+        if (!isolated_conflict_windows.empty()) {
+            sparse_window = isolated_conflict_windows.front();
+            filled_needs_retry = filled_internal_retry = true;
+            ordinary_retry = false;
+        }
         source.read_var_profile = std::move(source_profiles);
-        if (pair_calls > 0) source.read_var_cr = std::move(source_index);
+        source.read_var_cr = std::move(source_index);
         if (!filled_needs_retry && raw_needs_retry) {
             preserve_source_rows = true;
             ordinary_retry = raw_ordinary;
@@ -2830,10 +2918,15 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 focused_windows.push_back(wi);
         for (const size_t wi : focused_windows) {
             const bool fallback = !sparse_window || ordinary_retry || wi != *sparse_window;
+            // Newly exposed internal conflicts need the same solve padding as
+            // raw MSA dropout. A singleton flank otherwise ends at the seam,
+            // making the strict containment check silently skip its retry.
             const bool focused_repair = fallback
                 ? std::binary_search(focused_repair_windows.begin(),
                                      focused_repair_windows.end(), wi)
-                : raw_needs_retry && !raw_ordinary;
+                : (raw_needs_retry && !raw_ordinary) ||
+                    std::binary_search(isolated_conflict_windows.begin(),
+                                       isolated_conflict_windows.end(), wi);
             const std::string focused_prefix = dump_prefix.empty() ? std::string() :
                 dump_prefix + ".focused.seam" + std::to_string(wi);
             const RecoverySeam& seam = windows[wi];
@@ -2873,21 +2966,22 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     backfill(local, isolated, isolated_opts);
                     auto local_profiles = local.read_var_profile;
                     auto local_index = std::move(local.read_var_cr);
-                    const int local_pair_calls = backfill_complementary_msa_deletions(
-                        local, isolated_opts, seam.beg, seam.end);
-                    if (local_pair_calls == 0)
-                        local.read_var_cr = std::move(local_index);
+                    backfill_msa_retry_deletions(
+                        local, isolated_opts, seam.beg, seam.end, false);
                     bool local_preserve = false;
                     bool local_ordinary = false;
                     std::optional<size_t> local_sparse;
-                    const bool internal_conflict =
-                        source_seam_has_msa_conflict(local, seam, opts);
                     const bool local_filled_retry = source_seam_needs_unplaced_msa(
                         local, isolated, windows, opts, local_preserve,
                         local_ordinary, local_sparse);
+                    if (std::binary_search(isolated_conflict_windows.begin(),
+                                           isolated_conflict_windows.end(), wi))
+                        backfill_msa_retry_deletions(
+                            local, isolated_opts, seam.beg, seam.end, true);
+                    const bool internal_conflict =
+                        source_seam_has_msa_conflict(local, seam, opts);
                     local.read_var_profile = std::move(local_profiles);
-                    if (local_pair_calls > 0)
-                        local.read_var_cr = std::move(local_index);
+                    local.read_var_cr = std::move(local_index);
                     if (local_filled_retry ||
                         (local_raw_retry && !local_raw_ordinary) || internal_conflict) {
                         isolated_opts.add_unplaced_msa_observations = true;
@@ -2986,8 +3080,15 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                             internal_conflict &&
                             preserves_hets(local, local_retry, true) &&
                             improves_source_paths(local, local_retry, seam);
+                        // A newly exposed conflict beside a singleton cannot
+                        // authorize rearranging an established clean-SNP gauge
+                        // elsewhere in the solve. Key retention alone misses
+                        // an internal reversal or a split of that old block.
+                        const bool preserve_clean_gauge =
+                            std::binary_search(isolated_conflict_windows.begin(),
+                                               isolated_conflict_windows.end(), wi);
                         if ((complete_source_span || partial_source_improvement) &&
-                            preserves_hets(local, local_retry)) {
+                            preserves_hets(local, local_retry, preserve_clean_gauge)) {
                             local = std::move(local_retry);
                             // The focused source owns this seam's observations
                             // and gauge. The original solve keeps its other
@@ -3039,6 +3140,11 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             }
         }
         if (remainder.first_window == remainder.past_last_window) continue;
+        // Keep new fixed-consensus evidence out of retry admission. A repaired
+        // earlier seam must not displace the established solve for a later one.
+        // The selected source's original missing calls were queued before any
+        // CIGAR backfill, so their verified MSA alleles now take precedence.
+        apply_graph_anchored_msa_observations(source, graph_chunk);
         groups.push_back(std::move(remainder));
         discovered.push_back(std::move(source));
         if (!dump_prefix.empty()) {
@@ -3395,8 +3501,11 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     (groups[gi].focused_retry || groups[gi].preserve_source_flanks) &&
                     is_phase_set_anchor(cand) && path != source_paths[gi].end() &&
                     path->second.site_count >= 2 && path->second.weak_cuts.empty();
+                const bool isolated_source_site = member != nullptr &&
+                    path != source_paths[gi].end() &&
+                    bam_site_has_only_weak_links(src.candidates, ci, path->second.weak_cuts);
                 if ((member != nullptr || complete_source_anchor) &&
-                    suffix_padded_parents[parent.index] != 0 &&
+                    (suffix_padded_parents[parent.index] != 0 || isolated_source_site) &&
                     graph_cand.graph_site && !graph_cand.bam_injected &&
                     graph_cand.phase_set <= 0 &&
                     graph_cand.counts.category == VariantCategory::RepeatHetIndel &&
@@ -3491,6 +3600,13 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 }
             }
         }
+        for (const auto& rejection : src.rejected_msa_observations) {
+            const CandKey key{rejection.key.sort_pos(), static_cast<int>(rejection.key.type),
+                              rejection.key.ref_len, rejection.key.alt};
+            if (!group_omits_position(windows, groups[gi], key.pos))
+                observed[src.reads[rejection.read_id].qname].insert_or_assign(
+                    key, std::make_pair(-1, -1));
+        }
     }
     // A seam whose two sides are already called has nothing NEW between them --
     // and bailing here threw away the alignment's read evidence for the sites
@@ -3576,14 +3692,31 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     // source-scoped and deferred until the unused PS labels exist. Multiple
     // independent claims stay unphased rather than picking a gauge by order.
     std::set<size_t> adopted_msa_indices;
+    std::set<hts_pos_t> independent_msa_phase_sets;
     for (const auto& entry : shared_msa_genotypes) {
         if (ambiguous_shared_msa_genotypes.count(entry.first) != 0) continue;
         const TransferredCandidate& transferred = entry.second;
         const auto mapped = phase_set_remap.find(
             SourcePhaseSet{transferred.source_id, transferred.source_phase_set});
-        if (mapped != phase_set_remap.end() && adopt_unphased_graph_allele_from_bam(
-                chunk.candidates[entry.first], transferred.candidate, mapped->second)) {
-            imported_phase_sets.insert(mapped->second);
+        if (mapped == phase_set_remap.end()) continue;
+        hts_pos_t target_phase_set = mapped->second;
+        if (suffix_padded_parents[entry.first] == 0) {
+            // A verified allele is not proof of its source block's orientation.
+            // Newly retained shared rows start independently; paired reads must
+            // establish their connection before any source gauge is inherited.
+            target_phase_set = transferred.candidate.key.sort_pos();
+            while (target_phase_set <= 0 || used_phase_sets.count(target_phase_set) != 0)
+                ++target_phase_set;
+            used_phase_sets.insert(target_phase_set);
+        }
+        if (adopt_unphased_graph_allele_from_bam(
+                chunk.candidates[entry.first], transferred.candidate, target_phase_set)) {
+            if (suffix_padded_parents[entry.first] == 0) {
+                chunk.candidates[entry.first].read_rescue_requires_validation = true;
+                chunk.candidates[entry.first].bam_independent_genotype = true;
+                independent_msa_phase_sets.insert(target_phase_set);
+            }
+            imported_phase_sets.insert(target_phase_set);
             adopted_msa_indices.insert(entry.first);
         }
     }
@@ -3993,12 +4126,14 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             for (size_t k = 0; k < old_prof.alleles.size(); ++k) {
                 const size_t ci = static_cast<size_t>(old_prof.start_var_idx) + k;
                 if (ci >= old_to_new.size() || old_to_new[ci] < 0) continue;
-                // A demoted repeat now carries an MSA consensus. Its original
-                // graph calls did not establish that genotype; keep the BAM
-                // source observations together with the adopted consensus.
-                if (adopted_msa_indices.count(ci) != 0) continue;
+                // BAM calls establish the adopted genotype. Newly retained
+                // rows also keep independent graph calls for read rescue;
+                // those calls must never become source MSA observations.
+                if (adopted_msa_indices.count(ci) != 0 &&
+                    suffix_padded_parents[ci] != 0) continue;
                 const size_t final_i = static_cast<size_t>(old_to_new[ci]);
-                if (old_prof.alleles[k] >= 0)
+                const bool bam_owned = adopted_msa_indices.count(ci) != 0;
+                if (!bam_owned && old_prof.alleles[k] >= 0)
                     alleles.emplace(final_i,
                                     std::make_pair(old_prof.alleles[k],
                                         k < old_prof.alt_qi.size() ? old_prof.alt_qi[k] : 0));
@@ -4006,8 +4141,15 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     ? old_prof.alleles[k]
                     : (k < old_prof.graph_alleles.size()
                         ? old_prof.graph_alleles[k] : -1);
-                if (graph_allele >= 0)
+                if (graph_allele >= 0) {
                     graph_observations.emplace(final_i, graph_allele);
+                    // Retain the independent graph channel without declaring
+                    // it a BAM/MSA call. Include its unknown primary slot in
+                    // the profile extent, even on graph-only reads.
+                    if (bam_owned)
+                        alleles.emplace(final_i, std::make_pair(-1, 0));
+                }
+                if (bam_owned) continue;
                 if (k < old_prof.bam_alleles.size() &&
                     old_prof.bam_alleles[k] >= 0)
                     bam_observations.emplace(final_i,
@@ -4037,6 +4179,14 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                         bam_snp_qualities.insert_or_assign(idx->second, quality->second);
                 }
             }
+        // Channel calls can outlive a missing primary allele. Their complete
+        // union defines the common extent; unknown primary slots stay unknown.
+        for (const auto& entry : graph_observations)
+            alleles.try_emplace(entry.first, std::make_pair(-1, 0));
+        for (const auto& entry : bam_observations)
+            alleles.try_emplace(entry.first, std::make_pair(-1, 0));
+        for (const auto& entry : bam_snp_qualities)
+            alleles.try_emplace(entry.first, std::make_pair(-1, 0));
         ReadVariantProfile prof;
         prof.read_id = static_cast<int>(ri);
         const auto source_mapq = observed_mapq.find(chunk.reads[ri].qname);
@@ -4121,7 +4271,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             final_index->second, mapped->second,
             site.hap1_allele, site.hap2_allele,
             site.graph_phase_set, site.graph_hap1_allele,
-            site.graph_clean_snp, site.can_adopt});
+            site.graph_clean_snp, site.can_adopt &&
+                independent_msa_phase_sets.count(
+                    chunk.candidates[final_index->second].phase_set) == 0});
     }
 
     // Padded BAM solves have independent HP gauges. A clean SNP represented

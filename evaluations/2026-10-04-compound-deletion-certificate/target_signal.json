@@ -1,0 +1,38 @@
+[
+  {
+    "qname": "m84031_231217_034919_s2/70451711/ccs",
+    "truth_evaluation_only": "MATERNAL",
+    "mapq": 60,
+    "15D_expected": "ATAT",
+    "query": "ATATATTT",
+    "minimum_quality": 10,
+    "exact_sequence": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/160563280/ccs",
+    "truth_evaluation_only": "PATERNAL",
+    "mapq": 60,
+    "15D_expected": "ATAT",
+    "query": "ATAT",
+    "minimum_quality": 40,
+    "exact_sequence": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/47191743/ccs",
+    "truth_evaluation_only": "PATERNAL",
+    "mapq": 60,
+    "15D_expected": "ATAT",
+    "query": null,
+    "minimum_quality": null,
+    "exact_sequence": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/66195717/ccs",
+    "truth_evaluation_only": "PATERNAL",
+    "mapq": 60,
+    "15D_expected": "ATAT",
+    "query": "ATAT",
+    "minimum_quality": 27,
+    "exact_sequence": true
+  }
+]

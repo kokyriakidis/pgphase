@@ -112,9 +112,16 @@ struct GraphChunkBuildResult {
     std::vector<FilteredGraphSite> filtered_sites;
 };
 
-/// Retain a verified binary BAM genotype on an unphased padded catalog repeat.
-/// The caller must establish exact allele identity, suffix padding and an unused
-/// source phase-set label; parallel graph metadata continues to describe it.
+/// True only when every neighboring source anchor is separated by a weak cut.
+/// Co-located rows retain their source contrast; a source singleton has no
+/// internal edge to classify. `weak_cuts` must be coordinate ordered.
+bool bam_site_has_only_weak_links(const std::vector<CandidateVariant>& candidates,
+                                  size_t site_index,
+                                  const std::vector<hts_pos_t>& weak_cuts);
+
+/// Retain a verified binary BAM genotype on an unphased catalog repeat.
+/// The caller establishes exact allele identity and a safe independent PS label;
+/// parallel graph metadata continues to describe the selected catalog allele.
 bool adopt_unphased_graph_allele_from_bam(CandidateVariant& graph,
                                          const CandidateVariant& source,
                                          hts_pos_t phase_set);

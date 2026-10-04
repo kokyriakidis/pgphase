@@ -1704,8 +1704,8 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
 // WFA2 alignment of noisy-region reads with per-haplotype separation.
 // ════════════════════════════════════════════════════════════════════════════
 
-// Only two lengths of the same inserted homopolymer establish the contrast
-// used by local recovery. Check their common reference coordinate
+// Two different insertion lengths with a common sequence prefix establish
+// a possible local contrast, including tandem repeats. Check their common coordinate
 // before spending WFA work on reads that cannot contribute such observations.
 static bool has_shared_msa_insertion_contrast(const AlnStr& first, const AlnStr& second) {
     constexpr uint8_t kMsaGap = 5;
@@ -1736,9 +1736,11 @@ static bool has_shared_msa_insertion_contrast(const AlnStr& first, const AlnStr&
         else {
             const auto& a = left[li].second;
             const auto& b = right[ri].second;
-            if (a.size() != b.size() && a.front() < 4 && a.front() == b.front() &&
-                std::all_of(a.begin(), a.end(), [&a](uint8_t base) { return base == a.front(); }) &&
-                std::all_of(b.begin(), b.end(), [&b](uint8_t base) { return base == b.front(); }))
+            const auto& shorter = a.size() < b.size() ? a : b;
+            const auto& longer = a.size() < b.size() ? b : a;
+            if (shorter.size() < longer.size() &&
+                std::equal(shorter.begin(), shorter.end(), longer.begin()) &&
+                std::all_of(longer.begin(), longer.end(), [](uint8_t base) { return base < 4; }))
                 return true;
             ++li;
             ++ri;

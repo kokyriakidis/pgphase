@@ -237,7 +237,7 @@ TEST_CASE("local MSA recall preserves fixed consensus membership",
     SECTION("insertions at different anchors do not establish the contrast") {
         different_locus = true;
     }
-    SECTION("tandem-repeat insertions do not establish a homopolymer contrast") {
+    SECTION("two tandem-repeat insertion lengths retain the same fixed consensuses") {
         tandem_insertion = true;
     }
     NoisyReadInfo info;
@@ -270,13 +270,14 @@ TEST_CASE("local MSA recall preserves fixed consensus membership",
         true, counts, ids, alignments, &recalled) == 2);
     CHECK(counts[0] == 3);
     CHECK(counts[1] == 3);
-    if (literal_ref || different_locus || tandem_insertion) {
+    if (literal_ref || different_locus) {
         CHECK(recalled.empty());
         return;
     }
     REQUIRE(recalled.size() == 1);
     CHECK(recalled[0].read_id == 106);
     const std::array<AlnStr, 2> consensuses{alignments[0][0], alignments[1][0]};
+    if (tandem_insertion) return;
     VariantKey key;
     key.pos = 103;
     key.type = VariantType::Insertion;
@@ -1423,6 +1424,44 @@ TEST_CASE("equivalent deletion calls preserve separate allele rows",
         deletion.key.ref_len = 2;
         CHECK(call(deletion) == 1);
     }
+    SECTION("a shifted deletion and compensating mismatches preserve the exact allele") {
+        // Deleting AG at 105 gives CAAAAC. The CIGAR instead deletes AA at
+        // 104 and calls the surviving G as A: the final haplotype is identical.
+        chunk = shifted_insertion_chunk("4M2D2M", "CAAAAC");
+        deletion.key.pos = 105;
+        deletion.key.ref_len = 2;
+        CHECK(call(deletion) == -1);
+        CHECK(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 30));
+        CHECK(deletion.key.pos == 105);
+        CHECK(deletion.key.ref_len == 2);
+        deletion.key.ref_len = 1;
+        CHECK(call(deletion) == -1);
+        CHECK_FALSE(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 20));
+        deletion.key.ref_len = 2;
+        bam_get_qual(chunk.reads[0].alignment.get())[4] = 29;
+        CHECK(call(deletion) == -1);
+        CHECK_FALSE(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 30));
+        CHECK(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 20));
+        bam_get_qual(chunk.reads[0].alignment.get())[4] = 19;
+        CHECK_FALSE(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 20));
+        bam_get_qual(chunk.reads[0].alignment.get())[4] = 255;
+        CHECK(call(deletion) == -1);
+        CHECK_FALSE(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 20));
+    }
+    SECTION("equal deletion lengths with a different final sequence remain unknown") {
+        chunk = shifted_insertion_chunk("4M2D2M", "CAAAGC");
+        deletion.key.pos = 105;
+        deletion.key.ref_len = 2;
+        CHECK(call(deletion) == -1);
+        CHECK_FALSE(bam_matches_deletion_sequence(chunk.reads[0].alignment.get(),
+            deletion, reference, 0, header.get(), 20));
+    }
     SECTION("a left-shifted equivalent ALT is callable") {
         chunk = shifted_insertion_chunk("2M1D5M", "CAAAAGC");
         CHECK(call(deletion) == 1);
@@ -1483,7 +1522,7 @@ TEST_CASE("recovery jointly calls complementary MSA deletions",
     Options opts;
     opts.min_bq = 30;
     PhasingChunk chunk = make_chunk("4M2D2M", "CAAAGC");
-    const auto fill = [&]() { return backfill_complementary_msa_deletions(chunk, opts, 102, 102); };
+    const auto fill = [&]() { return backfill_msa_retry_deletions(chunk, opts, 102, 102, false); };
     SECTION("ordinary backfill does not promote physical pair calls to rescue evidence") {
         CHECK(backfill_msa_observations(chunk, opts, 102, 102) == 0);
         CHECK(chunk.read_var_profile[0].start_var_idx == -1);
@@ -1533,7 +1572,7 @@ TEST_CASE("recovery jointly calls complementary MSA deletions",
         CHECK(fill() == 0);
     }
     SECTION("both rows must lie in the targeted seam") {
-        CHECK(backfill_complementary_msa_deletions(chunk, opts, 103, 106) == 0);
+        CHECK(backfill_msa_retry_deletions(chunk, opts, 103, 106, false) == 0);
     }
     SECTION("compound edits and low or missing qualities remain unknown") {
         chunk = make_chunk("3M1I1M2D2M", "CAATAGC");
@@ -1554,6 +1593,123 @@ TEST_CASE("recovery jointly calls complementary MSA deletions",
         other.key.ref_len = 3;
         chunk.candidates.push_back(other);
         CHECK(fill() == 0);
+    }
+}
+
+TEST_CASE("isolated MSA deletion calls diagnose a reversed source edge",
+          "[msa][recovery][representation][isolated-deletion-retry]") {
+    const auto make_chunk = [](const std::string& cigar, const std::string& sequence) {
+        PhasingChunk chunk = shifted_insertion_chunk(cigar, sequence);
+        chunk.ref_seq = "CAAAAAGC";
+        CandidateVariant& deletion = chunk.candidates.front();
+        deletion.key = del_key(103, 2);
+        deletion.is_homopolymer_indel = true;
+        deletion.phase_set = 100;
+        deletion.hap_to_cons_alle = {-1, 0, 1};
+        deletion.counts.category = VariantCategory::NoisyCandHet;
+        deletion.counts.n_uniq_alles = 2;
+        deletion.counts.alle_covs = {20, 20};
+        deletion.counts.total_cov = 40;
+        return chunk;
+    };
+    Options opts;
+    PhasingChunk chunk = make_chunk("4M2D2M", "CAAAGC");
+    const auto fill = [&]() { return backfill_msa_retry_deletions(chunk, opts, 102, 102, true); };
+    SECTION("exact and shifted physical calls preserve the frozen source genotype") {
+        CHECK(backfill_msa_observations(chunk, opts, 102, 102) == 0);
+        for (const auto& cigar : {"3M2D3M", "4M2D2M"}) {
+            chunk = make_chunk(cigar, "CAAAGC");
+            CHECK(fill() == 1);
+            CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1});
+            CHECK(fill() == 0);
+            CHECK(chunk.candidates[0].key.pos == 103);
+            CHECK(chunk.candidates[0].key.ref_len == 2);
+            CHECK(chunk.candidates[0].key.alt.empty());
+            CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+            CHECK(chunk.candidates[0].phase_set == 100);
+            CHECK(chunk.candidates[0].counts.alle_covs == std::vector<int>{20, 20});
+            CHECK(chunk.candidates[0].counts.total_cov == 40);
+        }
+    }
+    SECTION("ordinary flanks retain the complementary-row admission rule") {
+        CHECK(backfill_msa_retry_deletions(chunk, opts, 102, 102, false) == 0);
+        CHECK(chunk.read_var_profile[0].start_var_idx == -1);
+    }
+    SECTION("verified literal reference can expose the opposite source conflict") {
+        chunk = make_chunk("8M", "CAAAAAGC");
+        CHECK(fill() == 1);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+    }
+    SECTION("third lengths and compound events do not identify this binary allele") {
+        chunk = make_chunk("3M3D2M", "CAAGC");
+        CHECK(fill() == 0);
+        chunk = make_chunk("3M1I1M2D2M", "CAATAGC");
+        CHECK(fill() == 0);
+        chunk = make_chunk("4M2D2M", "CAAAGC");
+        chunk.candidates[0].key.alt = "A";
+        CHECK(fill() == 0);
+    }
+    SECTION("an additional MSA indel makes an isolated contrast ambiguous") {
+        CandidateVariant alternative = chunk.candidates[0];
+        alternative.key = ins_key(103, "A");
+        chunk.candidates.push_back(alternative);
+        CHECK(fill() == 0);
+    }
+    SECTION("existing calls and ineligible source rows remain untouched") {
+        update_read_var_profile_with_allele(0, 0, -1, chunk.read_var_profile[0]);
+        CHECK(fill() == 0);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
+        for (const hts_pos_t ps : {hts_pos_t{0}, hts_pos_t{-1}}) {
+            chunk = make_chunk("4M2D2M", "CAAAGC");
+            chunk.candidates[0].phase_set = ps;
+            CHECK(fill() == 0);
+        }
+        chunk = make_chunk("4M2D2M", "CAAAGC");
+        chunk.candidates[0].is_homopolymer_indel = false;
+        CHECK(fill() == 0);
+    }
+    SECTION("qualities, mapping confidence and seam membership remain required") {
+        for (const int quality : {29, 255}) {
+            bam_get_qual(chunk.reads[0].alignment.get())[3] = quality;
+            CHECK(fill() == 0);
+        }
+        bam_get_qual(chunk.reads[0].alignment.get())[3] = 40;
+        for (const int mapq : {29, 255}) {
+            chunk.reads[0].mapq = mapq;
+            CHECK(fill() == 0);
+        }
+        chunk.reads[0].mapq = 60;
+        CHECK(backfill_msa_retry_deletions(chunk, opts, 103, 107, true) == 0);
+    }
+    SECTION("restored pairs request a retry without changing source orientations") {
+        CandidateVariant deletion = chunk.candidates.front();
+        CandidateVariant snp = het_candidate(100);
+        snp.key.alt = "T";
+        snp.hap_to_cons_alle = {-1, 0, 1};
+        snp.phase_set = 100;
+        chunk.candidates = {snp, deletion};
+        for (int ri = 1; ri < 6; ++ri) {
+            ReadRecord read;
+            read.qname = "spanner" + std::to_string(ri);
+            read.beg = 100;
+            read.end = 107;
+            read.mapq = 60;
+            read.alignment.reset(bam_dup1(chunk.reads.front().alignment.get()));
+            chunk.reads.push_back(std::move(read));
+            chunk.read_var_profile.push_back(ReadVariantProfile{});
+        }
+        for (auto& profile : chunk.read_var_profile) {
+            profile.start_var_idx = profile.end_var_idx = 0;
+            profile.alleles = {0};
+        }
+        chunk.phase_sets.assign(6, 100);
+        chunk.haps.assign(6, 1);
+        CHECK_FALSE(msa_source_conflict_is_supported(chunk, {0, 1}, opts));
+        CHECK(fill() == 6);
+        CHECK(msa_source_conflict_is_supported(chunk, {0, 1}, opts));
+        CHECK(chunk.candidates[0].hap_to_cons_alle == chunk.candidates[1].hap_to_cons_alle);
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>(6, 100));
+        CHECK(chunk.haps == std::vector<int>(6, 1));
     }
 }
 
@@ -2118,6 +2274,29 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
         CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0});
         CHECK(chunk.haps == std::vector<int>{2});
         CHECK(chunk.phase_sets == std::vector<hts_pos_t>{101});
+        REQUIRE(chunk.pending_msa_observations.size() == 1);
+        CHECK(chunk.pending_msa_observations[0].allele == 1);
+        CHECK_FALSE(chunk.pending_msa_observations[0].update_counts);
+    }
+    SECTION("a certified third repeat length retracts both supplementary REF calls") {
+        chunk = make_chunk(45, "ATCTATCT");
+        chunk.haps = {0};
+        chunk.phase_sets = {kUnphasedReadPhaseSet};
+        chunk.candidates[0].counts.alle_covs = {3, 2};
+        chunk.candidates[0].counts.total_cov = 5;
+        CandidateVariant other = chunk.candidates[0];
+        other.key.alt = "ATCTATCTATCT";
+        other.hap_to_cons_alle = {-1, 0, 1};
+        chunk.candidates.push_back(other);
+        Options opts;
+        REQUIRE(backfill_msa_observations(chunk, opts, 100, 100) == 2);
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0, 0});
+        REQUIRE(chunk.pending_msa_observations.size() == 2);
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{-1, -1});
+        CHECK(chunk.rejected_msa_observations.size() == 2);
+        CHECK(chunk.candidates[0].counts.total_cov == 5);
+        CHECK(chunk.candidates[1].counts.total_cov == 5);
     }
     SECTION("a contradictory independent SNP cannot certify the insertion source gauge") {
         Options opts;
@@ -2126,6 +2305,7 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
         CHECK(backfill_msa_observations(chunk, opts, 100, 100) == 0);
         CHECK(chunk.read_var_profile[0].start_var_idx == -1);
         CHECK(chunk.haps == std::vector<int>{2});
+        CHECK(chunk.pending_msa_observations.empty());
     }
     SECTION("motif rotations and shifts in either direction preserve the edit") {
         chunk = make_chunk(44, "TATC");
@@ -2224,6 +2404,107 @@ TEST_CASE("repeat insertion calls retain equivalent ALT beyond the old search bo
     SECTION("exact placements retain their existing caller") {
         chunk = make_chunk(1);
         CHECK(call(chunk) == -1);
+    }
+}
+
+TEST_CASE("pending fixed-consensus calls survive supplementary CIGAR projection",
+          "[msa][recovery][observations]") {
+    PhasingChunk chunk;
+    for (const auto& alt : {std::string("TATA"), std::string("TATATATA")}) {
+        CandidateVariant site = het_candidate(1500);
+        site.key = ins_key(1500, alt);
+        site.msa_verified = true;
+        site.counts.category = VariantCategory::NoisyCandHet;
+        site.lcd_var_i_to_cate = kCandNoisyCandHet;
+        site.phase_set = 1000;
+        site.hap_to_cons_alle = {-1, 1, 0};
+        site.counts.alle_covs = {3, 3};
+        site.counts.ref_cov = site.counts.alt_cov = 3;
+        site.counts.total_cov = 6;
+        chunk.candidates.push_back(site);
+    }
+    chunk.candidates[1].hap_to_cons_alle = {-1, 0, 1};
+    chunk.reads.emplace_back();
+    chunk.haps = {1};
+    chunk.phase_sets = {1000};
+    ReadVariantProfile profile;
+    profile.read_id = 0;
+    profile.start_var_idx = 0;
+    profile.end_var_idx = 1;
+    // The original MSA calls were missing when queued. Later CIGAR backfill
+    // reports absence at both ALT anchors, losing the diploid contrast.
+    profile.alleles = {0, 0};
+    profile.alt_qi = {-1, -1};
+    chunk.read_var_profile.push_back(profile);
+    chunk.pending_msa_observations = {
+        {chunk.candidates[0].key, 0, 1}, {chunk.candidates[1].key, 0, 0}};
+    SECTION("verified complementary observations replace only the queued calls") {
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates[0].counts.alle_covs == std::vector<int>{3, 4});
+        CHECK(chunk.candidates[1].counts.alle_covs == std::vector<int>{4, 3});
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.candidates[1].counts.total_cov == 7);
+        CHECK(chunk.read_var_cr != nullptr);
+        CHECK(chunk.pending_msa_observations.empty());
+        CHECK_FALSE(apply_pending_msa_observations(chunk));
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.haps == std::vector<int>{1});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
+        CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        CHECK(chunk.candidates[1].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+        CHECK(chunk.candidates[0].phase_set == 1000);
+        CHECK(chunk.candidates[1].phase_set == 1000);
+    }
+    SECTION("duplicate calls are counted once and conflicting calls abstain") {
+        chunk.pending_msa_observations.push_back(chunk.pending_msa_observations.front());
+        chunk.pending_msa_observations.push_back({chunk.candidates[1].key, 0, 1});
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.candidates[1].counts.total_cov == 6);
+    }
+    SECTION("supplementary physical calls preserve the discovery census") {
+        for (auto& observation : chunk.pending_msa_observations)
+            observation.update_counts = false;
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates[0].counts.alle_covs == std::vector<int>{3, 3});
+        CHECK(chunk.candidates[1].counts.alle_covs == std::vector<int>{3, 3});
+        CHECK(chunk.candidates[0].counts.total_cov == 6);
+        CHECK(chunk.candidates[1].counts.total_cov == 6);
+        CHECK(chunk.haps == std::vector<int>{1});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
+        CHECK_FALSE(apply_pending_msa_observations(chunk));
+    }
+    SECTION("a third allele abstains from both complementary votes") {
+        chunk.pending_msa_observations = {
+            {chunk.candidates[0].key, 0, -1, false},
+            {chunk.candidates[1].key, 0, -1, false}};
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{-1, -1});
+        CHECK(chunk.candidates[0].counts.total_cov == 6);
+        CHECK(chunk.candidates[1].counts.total_cov == 6);
+        CHECK(chunk.haps == std::vector<int>{1});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
+    }
+    SECTION("a source read cannot move to a different block or allele gauge") {
+        for (const bool different_phase_set : {false, true}) {
+            chunk.haps[0] = different_phase_set ? 1 : 2;
+            chunk.phase_sets[0] = different_phase_set ? 2000 : 1000;
+            const auto pending = chunk.pending_msa_observations;
+            CHECK_FALSE(apply_pending_msa_observations(chunk));
+            CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0, 0});
+            CHECK(chunk.candidates[0].counts.total_cov == 6);
+            chunk.pending_msa_observations = pending;
+        }
+    }
+    SECTION("lost or demoted source candidates cannot gain an observation") {
+        chunk.candidates[0].phase_set = 0;
+        chunk.candidates[1].msa_verified = false;
+        CHECK_FALSE(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0, 0});
+        CHECK(chunk.candidates[0].counts.total_cov == 6);
+        CHECK(chunk.candidates[1].counts.total_cov == 6);
     }
 }
 

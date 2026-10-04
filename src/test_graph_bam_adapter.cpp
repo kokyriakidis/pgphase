@@ -178,6 +178,30 @@ int main() {
         source.msa_verified = true;
         source.phase_set = 95;
         source.hap_to_cons_alle = {-1, 1, 0};
+        CandidateVariant left = source;
+        left.key.pos = 91;
+        CandidateVariant right = source;
+        right.key.pos = 111;
+        std::vector<CandidateVariant> sites{right, source, left};
+        ok &= check(bam_site_has_only_weak_links(sites, 1, {90, 100}),
+                    "isolated BAM allele: both weak edges permit independent ownership");
+        ok &= check(!bam_site_has_only_weak_links(sites, 1, {90}) &&
+                    !bam_site_has_only_weak_links(sites, 1, {100}),
+                    "isolated BAM allele: either supported edge retains source component");
+        sites[0].phase_set = 200;
+        ok &= check(bam_site_has_only_weak_links(sites, 1, {90}),
+                    "isolated BAM allele: another PS does not define a source edge");
+        sites[0] = source;
+        sites[0].key.ref_len = 2;
+        ok &= check(!bam_site_has_only_weak_links(sites, 1, {90, 100}),
+                    "isolated BAM allele: co-located contrasts remain independent rows");
+        ok &= check(!bam_site_has_only_weak_links({source}, 0, {90}),
+                    "isolated BAM allele: a singleton source has no internal weak edge");
+        sites[0] = right;
+        sites[1].phase_set = kUnsetCandidatePhaseSet;
+        ok &= check(!bam_site_has_only_weak_links(sites, 1, {90, 100}),
+                    "isolated BAM allele: an unphased row supplies no local genotype");
+
         const CandidateVariant original_graph = graph;
         ok &= check(adopt_unphased_graph_allele_from_bam(graph, source, 96),
                     "shared MSA: unphased catalog allele retains verified BAM genotype");
@@ -3110,6 +3134,42 @@ int main() {
         ok &= check(rescue_unphased_graph_reads(clean) == 1 &&
                     clean.gap_haps.back() == 1,
                     "MSA singleton: clean diploid primary support permits rescue");
+
+        // The BAM genotype owns an independent block. Graph observations can
+        // still rescue a read into an established block, in that block's gauge.
+        const auto independent_msa = [&] {
+            PhasingChunk independent = msa_singleton(64, 0);
+            independent.candidates[0].graph_site = true;
+            independent.candidates[0].bam_independent_genotype = true;
+            independent.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+            for (size_t ri = 0; ri < independent.reads.size(); ++ri) {
+                if (ri + 1 < independent.reads.size()) independent.phase_sets[ri] = 700;
+                auto& profile = independent.read_var_profile[ri];
+                profile.graph_alleles = profile.alleles;
+                profile.alleles = {0};
+                profile.bam_alleles = {0};
+            }
+            return independent;
+        };
+        PhasingChunk independent = independent_msa();
+        PhasingChunk ambiguous = independent_msa();
+        for (size_t ri = 32; ri + 1 < ambiguous.reads.size(); ++ri)
+            ambiguous.phase_sets[ri] = 800;
+        ok &= check(rescue_unphased_graph_reads(ambiguous) == 0 &&
+                    ambiguous.gap_haps.back() == 0,
+                    "independent MSA: two supported graph gauges cannot be pooled");
+        PhasingChunk missing_graph = independent_msa();
+        for (auto& profile : missing_graph.read_var_profile) profile.graph_alleles = {-1};
+        ok &= check(rescue_unphased_graph_reads(missing_graph) == 0,
+                    "independent MSA: graph rescue cannot borrow absent graph calls");
+        ok &= check(rescue_unphased_graph_reads(independent) == 1 &&
+                    independent.gap_haps.back() == 1 &&
+                    independent.gap_phase_sets.back() == 700 + kGapFillPsOffset,
+                    "independent MSA: graph association preserves established read gauge");
+        ok &= check(independent.candidates[0].phase_set == 900 &&
+                    independent.candidates[0].hap_to_cons_alle ==
+                        std::array<int, 3>{-1, 1, 0},
+                    "independent MSA: read rescue neither reorients nor stitches source row");
     }
 
     // Reads with only excluded-site observations are invisible to the clean
@@ -3163,6 +3223,106 @@ int main() {
                     rescue.gap_phase_sets[7] ==
                         kPhaseSet + kGapFillPsOffset,
                     "graph read rescue: fixed point preserves one PS offset");
+    }
+
+    // Equal support in independent blocks prefers SNPs over indels, while
+    // equal support from the same evidence tier remains ambiguous.
+    {
+        const auto tied_blocks = [](bool second_snp, bool certify = true) {
+            PhasingChunk chunk;
+            for (int i = 0; i < 2; ++i) {
+                CandidateVariant site;
+                const bool is_snp = i == 0 || second_snp;
+                site.key.pos = 1000 + 100 * i;
+                site.key.type = is_snp ? VariantType::Snp : VariantType::Insertion;
+                site.key.ref_len = is_snp ? 1 : 0;
+                site.key.alt = "A";
+                site.counts.n_uniq_alles = 2;
+                site.counts.category = is_snp ? VariantCategory::CleanHetSnp
+                                              : VariantCategory::CleanHetIndel;
+                site.lcd_var_i_to_cate = is_snp ? kCandCleanHetSnp : kCandCleanHetIndel;
+                site.phase_set = 900 + 100 * i;
+                site.hap_to_cons_alle = {-1, 0, 1};
+                chunk.candidates.push_back(site);
+            }
+            chunk.reads.emplace_back();
+            ReadVariantProfile profile;
+            profile.read_id = 0;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = 1;
+            profile.alleles = {0, 1};
+            profile.alt_qi = {-1, -1};
+            chunk.read_var_profile.push_back(profile);
+            chunk.haps = {0};
+            chunk.phase_sets = {kUnphasedReadPhaseSet};
+            if (certify) {
+                for (int site_i = 0; site_i < 2; ++site_i) {
+                    constexpr int kPrimarySupport = 32;
+                    for (int i = 0; i < kPrimarySupport; ++i) {
+                        const int allele = i % 2;
+                        chunk.reads.emplace_back();
+                        ReadVariantProfile primary;
+                        primary.read_id = static_cast<int>(chunk.reads.size()) - 1;
+                        primary.start_var_idx = primary.end_var_idx = site_i;
+                        primary.alleles = {allele};
+                        primary.alt_qi = {-1};
+                        chunk.read_var_profile.push_back(primary);
+                        chunk.haps.push_back(allele + 1);
+                        chunk.phase_sets.push_back(chunk.candidates[site_i].phase_set);
+                    }
+                }
+            }
+            return chunk;
+        };
+        auto mixed = tied_blocks(false);
+        ok &= check(rescue_unphased_graph_reads(mixed) == 1 &&
+                    mixed.gap_haps[0] == 1 &&
+                    mixed.gap_phase_sets[0] == 900 + kGapFillPsOffset,
+                    "read rescue: equal SNP and indel support prefers the SNP block");
+        ok &= check(mixed.candidates[0].phase_set == 900 &&
+                    mixed.candidates[1].phase_set == 1000,
+                    "read rescue: evidence tier preference never joins blocks");
+        auto snps = tied_blocks(true);
+        ok &= check(rescue_unphased_graph_reads(snps) == 0,
+                    "read rescue: equal SNP blocks remain ambiguous");
+        auto weak = tied_blocks(false, false);
+        ok &= check(rescue_unphased_graph_reads(weak) == 0,
+                    "read rescue: an uncertified SNP cannot break a block tie");
+        auto inferred = tied_blocks(false);
+        inferred.candidates[0].phase_set = kUnsetCandidatePhaseSet;
+        inferred.candidates[0].hap_to_cons_alle = {-1, -1, -1};
+        ok &= check(rescue_unphased_graph_reads(inferred) == 0,
+                    "read rescue: an inferred SNP association cannot break a block tie");
+        auto coincident = tied_blocks(false);
+        CandidateVariant inferred_snp = coincident.candidates[0];
+        inferred_snp.phase_set = kUnsetCandidatePhaseSet;
+        inferred_snp.hap_to_cons_alle = {-1, -1, -1};
+        coincident.candidates.push_back(inferred_snp);
+        auto& direct_indel = coincident.candidates[0];
+        direct_indel.key.type = VariantType::Insertion;
+        direct_indel.key.ref_len = 0;
+        direct_indel.counts.category = VariantCategory::CleanHetIndel;
+        direct_indel.lcd_var_i_to_cate = kCandCleanHetIndel;
+        auto& target = coincident.read_var_profile[0];
+        target.end_var_idx = 2;
+        target.alleles.push_back(0);
+        target.alt_qi.push_back(-1);
+        for (size_t ri = 1; ri < coincident.read_var_profile.size(); ++ri) {
+            auto& primary = coincident.read_var_profile[ri];
+            if (primary.start_var_idx != 0) continue;
+            const int allele = primary.alleles[0];
+            primary.end_var_idx = 2;
+            primary.alleles = {allele, -1, allele};
+            primary.alt_qi = {-1, -1, -1};
+        }
+        ok &= check(rescue_unphased_graph_reads(coincident) == 0,
+                    "read rescue: co-located indel and inferred SNP cannot combine certificates");
+        auto indels = tied_blocks(false);
+        indels.candidates[0] = indels.candidates[1];
+        indels.candidates[0].key.pos = 1000;
+        indels.candidates[0].phase_set = 900;
+        ok &= check(rescue_unphased_graph_reads(indels) == 0,
+                    "read rescue: equal indel blocks remain ambiguous");
     }
 
     // One inferred site may tag a read only when primary graph assignments

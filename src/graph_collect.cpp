@@ -1843,9 +1843,13 @@ static bool stitch_graph_snp_to_complementary_deletions(
         const RecoverySeam& seam, hts_pos_t left_ps, hts_pos_t right_ps,
         hts_pos_t left_pos, size_t left_i,
         const std::map<std::string, hts_pos_t>* original_graph_phase_sets,
-        const std::map<std::string, hts_pos_t>* stitched_graph_phase_sets) {
+        const std::map<std::string, hts_pos_t>* stitched_graph_phase_sets,
+        std::optional<bool> required_flip = std::nullopt) {
     constexpr int kMinMapq = 30;
-    constexpr int kMinBaseq = 30;
+    // Exact allele sequences can retain moderate-quality repeat bases. The
+    // parity likelihood below charges every molecule the conservative Q20
+    // error bound and still requires two independent unanimous witnesses.
+    constexpr int kMinDeletionBaseq = 20;
     constexpr int kUnknownQuality = 255;
     constexpr int kMinPairedReads = 2;
     constexpr double kMaxWrongParity = 0.001;
@@ -1854,9 +1858,11 @@ static bool stitch_graph_snp_to_complementary_deletions(
         !graph_snp_path_supported(gc, left_ps, nullptr,
                                   original_graph_phase_sets,
                                   stitched_graph_phase_sets) ||
+        // A conditional snarl SNP may lack one allele's observations. Only
+        // a decisive direct edge between both flanking SNPs can bypass it.
         !graph_snp_path_supported(gc, right_ps, nullptr,
                                   original_graph_phase_sets,
-                                  stitched_graph_phase_sets))
+                                  stitched_graph_phase_sets, true))
         return false;
     std::optional<std::pair<size_t, size_t>> pair;
     hts_pos_t nearest = std::numeric_limits<hts_pos_t>::max();
@@ -1952,17 +1958,18 @@ static bool stitch_graph_snp_to_complementary_deletions(
             continue;
         const auto graph = graph_haps.find(bam_get_qname(read));
         if (graph == graph_haps.end() || graph->second.first == 0) continue;
-        const int a_call = physical_equivalent_deletion_call(
-            read, a, context, tid, kMinBaseq);
-        const int b_call = physical_equivalent_deletion_call(
-            read, b, context, tid, kMinBaseq);
-        if ((a_call == 1) == (b_call == 1)) continue;
-        const CandidateVariant& deletion = a_call == 1 ? a : b;
+        const bool a_matches = bam_matches_deletion_sequence(
+            read, a, context.ref, tid, context.primary_header(), kMinDeletionBaseq);
+        const bool b_matches = bam_matches_deletion_sequence(
+            read, b, context.ref, tid, context.primary_header(), kMinDeletionBaseq);
+        // Failure to certify one ALT is not a REF observation of that row.
+        if (a_matches == b_matches) continue;
+        const CandidateVariant& deletion = a_matches ? a : b;
         const int right_hap = deletion.hap_to_cons_alle[1] == 1 ? 1 : 2;
         const bool flip = graph->second.first != right_hap;
         seen.insert(bam_get_qname(read));
         ++relation_support[flip ? 1 : 0];
-        const double p = std::pow(10.0, -kMinBaseq / 10.0) +
+        const double p = std::pow(10.0, -kMinDeletionBaseq / 10.0) +
             std::pow(10.0, -read->core.qual / 10.0) +
             std::pow(10.0, -graph->second.second / 10.0);
         if (p > 0.0 && p < 0.5)
@@ -1973,7 +1980,8 @@ static bool stitch_graph_snp_to_complementary_deletions(
                                       kMaxWrongParity);
     if (relation_support[0] + relation_support[1] < kMinPairedReads ||
         (relation_support[0] > 0 && relation_support[1] > 0) ||
-        std::abs(log_odds) < threshold)
+        std::abs(log_odds) < threshold ||
+        (required_flip && *required_flip != (log_odds > 0.0)))
         return false;
     return merge_phase_sets_in_place(chunk, left_ps, right_ps,
                                      log_odds > 0.0);
@@ -4646,18 +4654,23 @@ static void stitch_physical_allele_seams(
         }
         const double threshold = std::log((1.0 - kMaxWrongParity) /
                                            kMaxWrongParity);
-        if (deletion_snp_retry &&
-            (paired == 0 || left_alleles[0] == 0 || left_alleles[1] == 0 ||
-             (supporting != 0 && opposing != 0)))
-            continue;
-        // The left graph read's established haplotype can still orient a
-        // complementary right deletion when its BAM SNP base is low quality.
-        if (!noisy_bridge && paired == 0 && left_i && left_site &&
+        // An exposed deletion seam may have only one callable clean-SNP
+        // allele. Try the exact complementary ALT bridge before rejecting
+        // that retry; any available SNP votes remain an orientation veto.
+        if (!noisy_bridge &&
+            (paired == 0 || (deletion_snp_retry &&
+                (left_alleles[0] == 0 || left_alleles[1] == 0))) &&
+            (supporting == 0 || opposing == 0) && left_i && left_site &&
             left_site->ref.size() == 1 &&
             stitch_graph_snp_to_complementary_deletions(
                 gc, context, tid, seam, left_ps, right_ps,
                 left_site->pos, *left_i, original_graph_phase_sets,
-                stitched_graph_phase_sets))
+                stitched_graph_phase_sets, paired == 0 ? std::nullopt :
+                    std::optional<bool>(supporting != 0)))
+            continue;
+        if (deletion_snp_retry &&
+            (paired == 0 || left_alleles[0] == 0 || left_alleles[1] == 0 ||
+             (supporting != 0 && opposing != 0)))
             continue;
         // A nearer right deletion may be callable when the clean SNP pair
         // is not. Its original-source path and current gauge are checked by

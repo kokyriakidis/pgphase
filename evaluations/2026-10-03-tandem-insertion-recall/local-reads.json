@@ -1,0 +1,32 @@
+[
+  {
+    "path": "test_data/tmp_gap_fix46/owner41/phased.bam",
+    "physical_overlaps": 81,
+    "truth_overlaps": 81,
+    "phased": 81,
+    "correct": 62,
+    "discordant": 19,
+    "dominant_correct": 19,
+    "blocks": 4
+  },
+  {
+    "path": "test_data/tmp_gap_fix46/final-owner-report/phased.bam",
+    "physical_overlaps": 81,
+    "truth_overlaps": 81,
+    "phased": 81,
+    "correct": 79,
+    "discordant": 2,
+    "dominant_correct": 31,
+    "blocks": 4
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.bam",
+    "physical_overlaps": 81,
+    "truth_overlaps": 81,
+    "phased": 80,
+    "correct": 80,
+    "discordant": 0,
+    "dominant_correct": 80,
+    "blocks": 1
+  }
+]

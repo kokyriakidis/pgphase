@@ -1,0 +1,42 @@
+[
+  {
+    "path": "test_data/tmp_gap_fix43/baseline/61/phased.bam",
+    "physical_overlaps": 96,
+    "truth_overlaps": 96,
+    "phased": 83,
+    "correct": 79,
+    "discordant": 4,
+    "dominant_correct": 39,
+    "blocks": 4
+  },
+  {
+    "path": "test_data/tmp_gap_fix43/owning-narrow/repeat_deletion_61m/w61050001-61950000/phased.bam",
+    "physical_overlaps": 96,
+    "truth_overlaps": 96,
+    "phased": 94,
+    "correct": 94,
+    "discordant": 0,
+    "dominant_correct": 85,
+    "blocks": 2
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_dv/phased.bam",
+    "physical_overlaps": 96,
+    "truth_overlaps": 96,
+    "phased": 92,
+    "correct": 91,
+    "discordant": 1,
+    "dominant_correct": 91,
+    "blocks": 1
+  },
+  {
+    "path": "/tmp/pgphase-hiphase-comparison-2026-10-01/hiphase_pg_calls/phased.bam",
+    "physical_overlaps": 96,
+    "truth_overlaps": 96,
+    "phased": 92,
+    "correct": 91,
+    "discordant": 1,
+    "dominant_correct": 91,
+    "blocks": 1
+  }
+]

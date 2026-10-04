@@ -352,6 +352,30 @@ void rebuild_read_var_cr(PhasingChunk& chunk) {
     chunk.read_var_cr.reset(cr);
 }
 
+bool bam_site_has_only_weak_links(const std::vector<CandidateVariant>& candidates,
+                                  size_t site_index,
+                                  const std::vector<hts_pos_t>& weak_cuts) {
+    const CandidateVariant& site = candidates[site_index];
+    if (!is_phase_set_anchor(site) || weak_cuts.empty()) return false;
+    const hts_pos_t pos = site.key.sort_pos();
+    hts_pos_t left = 0;
+    hts_pos_t right = std::numeric_limits<hts_pos_t>::max();
+    for (size_t ci = 0; ci < candidates.size(); ++ci) {
+        if (ci == site_index) continue;
+        const CandidateVariant& other = candidates[ci];
+        if (other.phase_set != site.phase_set || !is_phase_set_anchor(other)) continue;
+        const hts_pos_t other_pos = other.key.sort_pos();
+        if (other_pos == pos) return false;
+        if (other_pos < pos) left = std::max(left, other_pos);
+        else right = std::min(right, other_pos);
+    }
+    const bool has_left = left > 0;
+    const bool has_right = right != std::numeric_limits<hts_pos_t>::max();
+    return (has_left || has_right) &&
+        (!has_left || std::binary_search(weak_cuts.begin(), weak_cuts.end(), left)) &&
+        (!has_right || std::binary_search(weak_cuts.begin(), weak_cuts.end(), pos));
+}
+
 bool adopt_unphased_graph_allele_from_bam(CandidateVariant& graph,
                                          const CandidateVariant& source,
                                          hts_pos_t phase_set) {
@@ -1746,7 +1770,13 @@ size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {
 
 static int rescue_observed_allele(const ReadVariantProfile& profile,
                                   size_t offset,
-                                  bool use_bam_observations) {
+                                  bool use_bam_observations,
+                                  bool use_graph_observations = false) {
+    if (!use_bam_observations && use_graph_observations) {
+        return offset < profile.graph_alleles.size() &&
+            (profile.graph_alleles[offset] == 0 || profile.graph_alleles[offset] == 1)
+                ? profile.graph_alleles[offset] : -1;
+    }
     if (offset < profile.alleles.size() &&
         (profile.alleles[offset] == 0 || profile.alleles[offset] == 1)) {
         return profile.alleles[offset];
@@ -1946,7 +1976,8 @@ static size_t rescue_unphased_graph_read_layer(
             const size_t offset = static_cast<size_t>(
                 site_i - profile.start_var_idx);
             const int allele = rescue_observed_allele(
-                profile, offset, use_bam_observations);
+                profile, offset, use_bam_observations,
+                chunk.candidates[static_cast<size_t>(site_i)].bam_independent_genotype);
             if (allele < 0) continue;
             RescueSiteVote& vote =
                 site_votes[static_cast<size_t>(site_i)][phase_set];
@@ -1979,13 +2010,20 @@ static size_t rescue_unphased_graph_read_layer(
                 candidate.hap_to_cons_alle[2])] = 2;
             // A retained noisy MSA genotype can provide block connectivity
             // without making its allele a reliable singleton read call.
-            if (candidate.read_rescue_requires_validation) {
-                marker.is_direct = false;
+            if (candidate.read_rescue_requires_validation || marker.is_snp) {
+                if (candidate.read_rescue_requires_validation) marker.is_direct = false;
                 const auto found = site_votes[site_i].find(marker.phase_set);
                 marker.singleton_safe = found != site_votes[site_i].end() &&
                     rescue_singleton_has_primary_support(found->second, marker);
             }
-            continue;
+            if (marker.is_direct || marker.singleton_safe ||
+                !candidate.bam_independent_genotype) continue;
+            // A verified local genotype can remain independent of the reads'
+            // established blocks. If its own PS has no primary support, infer
+            // a rescue marker from independent block associations below; this
+            // neither changes the genotype nor joins those phase sets.
+            marker = RescueMarker{};
+            marker.is_snp = candidate.key.type == VariantType::Snp;
         }
 
         // An excluded site is usable only when exactly one established phase
@@ -2043,6 +2081,7 @@ static size_t rescue_unphased_graph_read_layer(
         std::array<int, 2> direct_indel{};
         std::array<int, 2> singleton_safe_snp{};
         std::array<int, 2> singleton_safe_indel{};
+        std::array<int, 2> certified_snp{};
     };
 
     struct LocusVote {
@@ -2050,6 +2089,7 @@ static size_t rescue_unphased_graph_read_layer(
         bool is_snp = false;
         bool is_direct = false;
         bool singleton_safe = false;
+        bool certified_snp = false;
     };
 
     size_t rescued = 0;
@@ -2089,7 +2129,8 @@ static size_t rescue_unphased_graph_read_layer(
             const size_t offset = static_cast<size_t>(
                 site_i - profile.start_var_idx);
             const int allele = rescue_observed_allele(
-                profile, offset, use_bam_observations);
+                profile, offset, use_bam_observations,
+                chunk.candidates[static_cast<size_t>(site_i)].bam_independent_genotype);
             if (allele < 0) continue;
 
             const RescueMarker& marker = markers[static_cast<size_t>(site_i)];
@@ -2103,7 +2144,8 @@ static size_t rescue_unphased_graph_read_layer(
             const LocusKey key{marker.phase_set, pos};
             auto [it, inserted] = locus_votes.emplace(
                 key, LocusVote{proposed_hap, marker.is_snp,
-                               marker.is_direct, marker.singleton_safe});
+                               marker.is_direct, marker.singleton_safe,
+                               marker.is_snp && marker.is_direct && marker.singleton_safe});
             if (!inserted && it->second.hap != proposed_hap) {
                 it->second.hap = 0;
             } else if (!inserted) {
@@ -2113,6 +2155,8 @@ static size_t rescue_unphased_graph_read_layer(
                     it->second.is_direct || marker.is_direct;
                 it->second.singleton_safe =
                     it->second.singleton_safe || marker.singleton_safe;
+                it->second.certified_snp = it->second.certified_snp ||
+                    (marker.is_snp && marker.is_direct && marker.singleton_safe);
             }
         }
 
@@ -2131,6 +2175,8 @@ static size_t rescue_unphased_graph_read_layer(
             ++tier[hap_i];
             if (vote.is_direct) ++direct[hap_i];
             if (vote.singleton_safe) ++singleton_safe[hap_i];
+            if (vote.certified_snp)
+                ++score.certified_snp[hap_i];
         }
 
         hts_pos_t best_phase_set = kUnphasedReadPhaseSet;
@@ -2139,6 +2185,7 @@ static size_t rescue_unphased_graph_read_layer(
         int best_total = 0;
         int best_direct = 0;
         int best_singleton_safe = 0;
+        bool best_has_certified_snp = false;
         bool tied = false;
         for (const auto& entry : scores) {
             const PhaseSetReadScore& score = entry.second;
@@ -2154,8 +2201,15 @@ static size_t rescue_unphased_graph_read_layer(
             const int margin = std::abs(tier[0] - tier[1]);
             const int total = tier[0] + tier[1];
             const int hap = tier[0] > tier[1] ? 1 : 2;
+            const bool has_certified_snp = use_snps &&
+                score.certified_snp[static_cast<size_t>(hap - 1)] > 0;
+            // A directly phased SNP can break equal block support only when
+            // primary reads independently certify its allele gauge. An inferred
+            // excluded-site marker cannot turn its own association into this
+            // certificate. Equal certified scores still abstain; no blocks join.
             if (margin > best_margin ||
-                (margin == best_margin && total > best_total)) {
+                (margin == best_margin && (total > best_total ||
+                 (total == best_total && has_certified_snp && !best_has_certified_snp)))) {
                 best_phase_set = entry.first;
                 best_hap = hap;
                 best_margin = margin;
@@ -2163,8 +2217,10 @@ static size_t rescue_unphased_graph_read_layer(
                 best_direct = direct[0] + direct[1];
                 best_singleton_safe =
                     singleton_safe[static_cast<size_t>(hap - 1)];
+                best_has_certified_snp = has_certified_snp;
                 tied = false;
-            } else if (margin == best_margin && total == best_total) {
+            } else if (margin == best_margin && total == best_total &&
+                       has_certified_snp == best_has_certified_snp) {
                 tied = true;
             }
         }

@@ -1,0 +1,40 @@
+{
+  "binary_sha256": "336996e6338b3abc4a55b662231e71e86d378f4222615c4e39aa6cc94a645ce4",
+  "main_build": {
+    "command": "make -j$(nproc)",
+    "passed": true,
+    "new_warnings": 0
+  },
+  "unit_tests": {
+    "command": "make -j4 unit-tests predicate-tests",
+    "passed": true,
+    "predicate_assertions": 1404,
+    "predicate_cases": 46
+  },
+  "window_tests": {
+    "command": "make window-tests",
+    "passed": true,
+    "assertions": 7176,
+    "cases": 72,
+    "panel_intervals": 102
+  },
+  "owning_chunk_regression": {
+    "before_failed_assertions": 6,
+    "after_passed_assertions": 34
+  },
+  "original_isolated_deletion_unit_control": {
+    "failed_assertions": 8,
+    "assertions": 75
+  },
+  "native_requests": 106,
+  "native_precompute_seconds": 403.6896827069868,
+  "full_chr20_seconds": 300.26339333399665,
+  "runtime_note": "Concurrent validation; not a competitor benchmark",
+  "expectation_changes": {
+    "added_interval": "61738239-61747506",
+    "spans": 1,
+    "total_spans_before": 88,
+    "total_spans_after": 89,
+    "existing_requirements_weakened": false
+  }
+}

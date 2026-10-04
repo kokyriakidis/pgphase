@@ -1,0 +1,8 @@
+{
+  "reference_length_bp": 66210255,
+  "before_ng50": 684798,
+  "after_ng50": 684798,
+  "before_vcf_sha256": "772b7d79a77fccfe19993c2c8c634aa7752b1779fb8494f42076892a966a9035",
+  "after_vcf_sha256": "507869528f99437127e8400c3b19b8604fcc5cbfdeac576371bbf527c44c7de7",
+  "binary_sha256": "772e57fe587c75f7acdfb1b312cf791573194e31ab1a1732bc667a0ea10655a0"
+}

@@ -16,6 +16,7 @@
 # regression. Either way the gap has lost the evidence that closes it,
 # which a spans check alone can still pass by finding another way across.
 arm	window	pos	ref	alt	category_when_recorded
+graph	41879449-41880908	41879450	A	AGA	NOISY_CAND_HET
 graph	10727690-10746628	10746473	CCTTT	C	NOISY_CAND_HET
 graph	10727690-10746628	10746473	CCTTTCTTTCTTTCTTT	C	NOISY_CAND_HET
 graph	4766928-4792960	4766929	T	TA	CLEAN_HET_INDEL
@@ -1304,3 +1305,8 @@ graph	5511231-5531924	5511232	CAAT	C	CLEAN_HET_INDEL
 # Complementary deletion rows retained separately by the focused source retry.
 graph	50548245-50562066	50548246	CA	C	NOISY_CAND_HET
 graph	50548245-50562066	50548246	CAA	C	NOISY_CAND_HET
+
+# Boundary witnesses for the compound CIGAR deletion bridge, retained separately.
+graph	7901413-7918883	7901325	G	C	CLEAN_HET_SNP
+graph	7901413-7918883	7918884	ATATTTTTTTTTTT	A	NOISY_CAND_HET
+graph	7901413-7918883	7918884	ATATTTTTTTTTTTTT	A	NOISY_CAND_HET

@@ -1,0 +1,13 @@
+{
+  "chromosome_length": 66210255,
+  "ng50_bp": 684798,
+  "target_block_extent": [
+    7859472,
+    8081718
+  ],
+  "target_block_span_bp": 222247,
+  "native_full_seconds": 370.9177619109978,
+  "threads": 8,
+  "controlled_runtime_comparison": false,
+  "binary_sha256": "00f8c411a595359473ac2be0cce0f9639a0810be9373310b37f024a6da2e017d"
+}

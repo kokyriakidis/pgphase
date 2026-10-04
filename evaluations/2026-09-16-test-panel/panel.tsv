@@ -168,3 +168,13 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 # 2026-10-02: NG50-priority gap; full validation retains the partial-read deletion calls.
 # Native DV HiPhase: 136/136 correct local reads; projected chr20 NG50 gain 10,622 bp.
 5511231	5531924	20693	166	hiphase	0.8193	139
+
+# Isolated MSA deletion conflict repaired in the complete owning 61 Mb chunk.
+61738239	61747506	9267	96	hiphase_same_sites	0.9479	96
+
+# Fixed-consensus tandem-repeat calls close the private-site gap in owning 41 Mb.
+# Saved same-BAM HiPhase with pgphase calls places 80/81 local overlaps correctly.
+41879449	41880908	1459	81	hiphase_same_sites	0.9876	80
+
+# Exact query sequence certifies compound CIGAR deletion placements in owning 7 Mb.
+7901413	7918883	17470	143	hiphase_dv	0.7202	103
