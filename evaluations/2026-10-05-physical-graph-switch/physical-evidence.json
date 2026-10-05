@@ -1,0 +1,41 @@
+[
+  {
+    "left": 62716326,
+    "right": 62718395,
+    "votes": {
+      "same": 49
+    },
+    "represented_haps": {
+      "hap1": 27,
+      "hap2": 22
+    },
+    "log_odds_for_reversal": -410.86932580591736,
+    "two_sided_unanimous_count_p": 3.552713678800501e-15
+  },
+  {
+    "left": 62718395,
+    "right": 62722021,
+    "votes": {
+      "cross": 38
+    },
+    "represented_haps": {
+      "hap2": 16,
+      "hap1": 22
+    },
+    "log_odds_for_reversal": 318.81432541521224,
+    "two_sided_unanimous_count_p": 7.275957614183426e-12
+  },
+  {
+    "left": 62722021,
+    "right": 62722416,
+    "votes": {
+      "same": 56
+    },
+    "represented_haps": {
+      "hap1": 26,
+      "hap2": 30
+    },
+    "log_odds_for_reversal": -473.2721156660015,
+    "two_sided_unanimous_count_p": 2.7755575615628914e-17
+  }
+]

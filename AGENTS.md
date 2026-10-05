@@ -204,6 +204,17 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 - Every newly closed gap must be added to the committed window panel with a
   measured `spans=1` expectation and parental-orientation check. Keep any
   owning-chunk regression when a short replay lacks the needed phase-set context.
+- A new gap closure is acceptable when at least 80% of truth-scorable reads
+  overlapping the gap are correctly phased. Count unphased reads in the
+  denominator and report correct, discordant and unphased counts. Perfect
+  accuracy or zero newly discordant reads is not required; measure and report
+  changes outside the gap and preserve unrelated regression checks. Keep
+  stronger measured floors for already accepted gaps.
+- Compare HiPhase on the same overlapping reads and input alignments. When
+  HiPhase phases reads better, investigate the differing variant calls,
+  observations, filtering and phasing decisions, and record the cause rather
+  than assuming pgphase lacks the required information. Parental truth is
+  evaluation evidence only and must not enter production phasing decisions.
 - When adding a new `.o` dependency, update both the main `pgphase` target and any test targets that link the dependent object.
 
 ---

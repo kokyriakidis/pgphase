@@ -1,0 +1,9 @@
+{
+  "read_truth_transitions": {
+    "(True, True)": 230232,
+    "(False, False)": 7095,
+    "(None, True)": 2,
+    "(False, True)": 1
+  },
+  "new_gap_spans": true
+}

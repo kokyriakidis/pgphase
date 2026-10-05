@@ -1,0 +1,11 @@
+{
+  "source": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+  "contig_renaming": "CHM13#0#chr20 to chr20",
+  "truth_scorable": 223,
+  "identical_input_alignments": 223,
+  "phased": 180,
+  "correct": 179,
+  "dominant_correct": 179,
+  "phase_groups": 1,
+  "separated": 0.8026905829596412
+}

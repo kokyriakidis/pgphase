@@ -1,0 +1,38 @@
+[
+  {
+    "directory": "test_data/tmp_gap_fix49/window-final2",
+    "counts": {
+      "independent_calls": 66029,
+      "checked_source_calls": 66029,
+      "working_retained": 53094,
+      "owner_resolved_disagreement": 63,
+      "source_disagreements": 64,
+      "working_abstentions": 1,
+      "overlay_calls": 71612,
+      "overlay_conflicts": 1
+    },
+    "census": {
+      "mapped": 60240,
+      "candidate_not_transferred": 18548,
+      "other_seam_owner": 665,
+      "physical:no_fixed_consensus_context": 28
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/window-final2/retry_scheduling_57m/w57050001-57950000",
+    "counts": {
+      "independent_calls": 24696,
+      "checked_source_calls": 24696,
+      "working_retained": 20928,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 43498
+    },
+    "census": {
+      "candidate_not_transferred": 9162,
+      "mapped": 20928
+    },
+    "errors": []
+  }
+]

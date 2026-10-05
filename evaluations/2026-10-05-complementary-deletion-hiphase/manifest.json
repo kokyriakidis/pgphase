@@ -1,0 +1,67 @@
+[
+  {
+    "path": "test_data/tmp_gap_fix50/deletion-hiphase/50/phased.vcf",
+    "sha256": "633ab51f66ce06388513fda8805b1ac06c7d99a255de8397af1252612cca0231",
+    "size": 297419
+  },
+  {
+    "path": "test_data/tmp_gap_fix50/deletion-hiphase/50/matrix.recovery.chunk0.window2.initial.chunk-1.flags5004.tsv",
+    "sha256": "19cc8365c9318fb34f371eff48e2f6df2d81d550a55c70423dd2cb2848f0f5eb",
+    "size": 838629
+  },
+  {
+    "path": "test_data/tmp_gap_fix50/deletion-hiphase/50/matrix.recovery.chunk0.window2.focused.seam2.chunk-1.recovery-source.tsv",
+    "sha256": "fb6571c06f1738d91a7f4120f8010ef96bffb2823b88263b8c35b99d33b8c85a",
+    "size": 8133735
+  },
+  {
+    "path": "test_data/tmp_gap_fix50/deletion-hiphase/50/matrix.chunk0.recovery-input.tsv",
+    "sha256": "72a04b9c2a34f4207b112fd1f4319a7775c2f8ae0f0428947f117e21172ffd18",
+    "size": 14216795
+  },
+  {
+    "path": "test_data/tmp_gap_fix50/deletion-hiphase/50/matrix.chunk0.recovery-final.tsv",
+    "sha256": "2dcef6a42350de87682c78d5a7ff9a505d93fa834d0f241b48bccad1385b5a53",
+    "size": 14216795
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/short/input.bam",
+    "sha256": "70507f3ef91e9ccb172c9d66a4cdccbda95ad2ce914797df2769779580e4029c",
+    "size": 3101656
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/short/input.vcf.gz",
+    "sha256": "f3fc4bd9c45d8cb86d11611d4000b2943648935f9cdaf09553f443ba58f5ec3a",
+    "size": 3066
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/short/trace.log",
+    "sha256": "583e82af8d6b8f81dd3518fb29fb02be997cbeed2e5cbf30a1a41ee7d4db426d",
+    "size": 5484231
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/short/local-only.trace.log",
+    "sha256": "00a1d7b0c9f40cecb3e3060c0fe2e3d4af544fceb66e13674ce182d9dbeb9745",
+    "size": 32857036
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/short/phased.vcf.gz",
+    "sha256": "22c35a33990e52ffc3d720e28cf1e6fdb26d3d86a7b21850f5165eb38ae440ff",
+    "size": 3300
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/owner/input.bam",
+    "sha256": "ff1d1c59f2bbe35dd88068f300b689dba1510bafa8eaf4914be5429ad6f02561",
+    "size": 24519693
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/owner/input.vcf.gz",
+    "sha256": "d324bbc05de0d6dc47b7552642164e6ecc079525076afe80cd8d3f83ba8c6dac",
+    "size": 33761
+  },
+  {
+    "path": "test_data/tmp_deletion_hiphase_audit/owner/phased.vcf.gz",
+    "sha256": "ea6dc4f70d49fb3fbc0f477cfd3a044075324c2ca6f2e5e3fdfd9e22c2798be0",
+    "size": 34629
+  }
+]

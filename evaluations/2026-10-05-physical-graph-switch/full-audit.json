@@ -1,0 +1,89 @@
+{
+  "truth_transitions": {
+    "(True, True)": 230234,
+    "(False, False)": 6766,
+    "(False, True)": 329,
+    "(True, False)": 1
+  },
+  "changed_output_only_tags": [
+    "m84031_231217_034919_s2/129566798/ccs",
+    "m84031_231217_034919_s2/144442018/ccs",
+    "m84031_231217_034919_s2/197853211/ccs",
+    "m84031_231217_034919_s2/208407990/ccs",
+    "m84031_231217_034919_s2/218107622/ccs",
+    "m84031_231217_034919_s2/49416142/ccs",
+    "m84031_231217_034919_s2/56431722/ccs",
+    "m84031_231217_034919_s2/82117799/ccs",
+    "m84031_231217_034919_s2/82837810/ccs",
+    "m84031_231217_062403_s3/100994611/ccs",
+    "m84031_231217_062403_s3/116393555/ccs",
+    "m84031_231217_062403_s3/138154806/ccs",
+    "m84031_231217_062403_s3/150210347/ccs",
+    "m84031_231217_062403_s3/181931229/ccs",
+    "m84031_231217_062403_s3/22547395/ccs",
+    "m84031_231217_062403_s3/231934305/ccs",
+    "m84031_231217_062403_s3/23201954/ccs",
+    "m84031_231217_062403_s3/45880672/ccs",
+    "m84031_231217_062403_s3/54528516/ccs",
+    "m84031_231217_062403_s3/61736056/ccs"
+  ],
+  "output_only_membership_and_hp_preserved": true,
+  "newly_discordant_reads": [
+    "m84031_231217_062403_s3/248908890/ccs"
+  ],
+  "lost_keys": 0,
+  "gained_keys": 0,
+  "changed_genotype_alleles": [],
+  "changed_nonphase_fields": [],
+  "old_phased_keys_lost": [],
+  "old_blocks_split_or_mixed_gauge": {
+    "62637077": [
+      [
+        62432427,
+        false
+      ],
+      [
+        62432427,
+        true
+      ]
+    ]
+  },
+  "newly_connected_old_gaps": [
+    [
+      62623253,
+      62642316
+    ]
+  ],
+  "reopened_tracked_gaps": [],
+  "connected_tracked": [
+    95,
+    108
+  ],
+  "target_before_spans": false,
+  "target_after_spans": true,
+  "target_truth_scorable_reads": 119,
+  "target_scores": [
+    {
+      "phased": 116,
+      "correct": 113,
+      "read_phase_sets": 3,
+      "dominant_correct": 53,
+      "separated": 0.44537815126050423
+    },
+    {
+      "phased": 116,
+      "correct": 113,
+      "read_phase_sets": 2,
+      "dominant_correct": 95,
+      "separated": 0.7983193277310925
+    }
+  ],
+  "disjoint_flank_parent_votes": [
+    {
+      "false": 31
+    },
+    {
+      "false": 36
+    }
+  ]
+}

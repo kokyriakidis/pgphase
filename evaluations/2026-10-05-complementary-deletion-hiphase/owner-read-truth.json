@@ -1,0 +1,16 @@
+{
+  "pgphase": {
+    "scored": 3887,
+    "correct": 3876,
+    "discordant": 11,
+    "accuracy": 0.9971700540262414,
+    "read_phase_sets": 3
+  },
+  "hiphase": {
+    "scored": 3898,
+    "correct": 3438,
+    "discordant": 460,
+    "accuracy": 0.8819907644946127,
+    "read_phase_sets": 1
+  }
+}

@@ -1,0 +1,19 @@
+[
+  {
+    "directory": "test_data/tmp_gap_fix54/deferred-gated/23",
+    "counts": {
+      "independent_calls": 23912,
+      "checked_source_calls": 23912,
+      "working_retained": 23222,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 40669
+    },
+    "census": {
+      "candidate_not_transferred": 3685,
+      "mapped": 23222,
+      "physical:no_fixed_consensus_context": 1
+    },
+    "errors": []
+  }
+]

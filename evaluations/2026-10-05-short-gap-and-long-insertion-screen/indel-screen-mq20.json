@@ -1,0 +1,3894 @@
+[
+  {
+    "left": [
+      2316265,
+      "A",
+      "AT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      2332869,
+      "T",
+      "TA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 1684336,
+    "right_ps": 2175436,
+    "counts": [
+      0,
+      0,
+      2,
+      3
+    ]
+  },
+  {
+    "left": [
+      2332869,
+      "T",
+      "TA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      2342133,
+      "G",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 2175436,
+    "right_ps": 2475250,
+    "counts": [
+      4,
+      3,
+      1,
+      3
+    ]
+  },
+  {
+    "left": [
+      3963987,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      3981464,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 3947822,
+    "right_ps": 3981464,
+    "counts": [
+      1,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      6148782,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      6164984,
+      "C",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 5531924,
+    "right_ps": 6418241,
+    "counts": [
+      2,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      6545826,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      6578160,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 6513891,
+    "right_ps": 6582249,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      6969155,
+      "GT",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      6992739,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 6965188,
+    "right_ps": 6992739,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      7073919,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      7097354,
+      "C",
+      "CTT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 6992739,
+    "right_ps": 7097354,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      7097354,
+      "C",
+      "CTT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      7118617,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 7097354,
+    "right_ps": 7118616,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      7186612,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      7206650,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 7118616,
+    "right_ps": 7236076,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      7829794,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      7859472,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 7808916,
+    "right_ps": 7887137,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      11127753,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      11157014,
+      "T",
+      "TA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 10343596,
+    "right_ps": 11157014,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      11456273,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      11477908,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 11447790,
+    "right_ps": 11477908,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      11720636,
+      "TTTC",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      11726333,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 11477908,
+    "right_ps": 11701272,
+    "counts": [
+      0,
+      0,
+      4,
+      0
+    ]
+  },
+  {
+    "left": [
+      11726333,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      11743914,
+      "C",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 11701272,
+    "right_ps": 11743915,
+    "counts": [
+      1,
+      3,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      11743914,
+      "C",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      11792550,
+      "G",
+      "GA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 11743915,
+    "right_ps": 11792550,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      11796979,
+      "GTGTA",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      11813446,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 11792550,
+    "right_ps": 11813446,
+    "counts": [
+      0,
+      0,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      12717796,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      12740002,
+      "C",
+      "CTT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 11813446,
+    "right_ps": 12740002,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      13180644,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      13206717,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 13136022,
+    "right_ps": 13200254,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      13480679,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      13510610,
+      "T",
+      "TAC",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 13465685,
+    "right_ps": 13510610,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      13730669,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      13741274,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 13718646,
+    "right_ps": 13751618,
+    "counts": [
+      6,
+      2,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      14239930,
+      "A",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      14264547,
+      "TATACACAC",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 14235593,
+    "right_ps": 14528929,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      14660627,
+      "GT",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      14679237,
+      "CTATT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 14612633,
+    "right_ps": 14679237,
+    "counts": [
+      0,
+      2,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      15023123,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      15039543,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 14719378,
+    "right_ps": 15039543,
+    "counts": [
+      1,
+      3,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      15569349,
+      "T",
+      "TTTCC",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      15606145,
+      "AAG",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 15518376,
+    "right_ps": 15606145,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      16692617,
+      "C",
+      "CTAGATAGA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      16715241,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 15606145,
+    "right_ps": 16715242,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      20576505,
+      "T",
+      "TA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      20593835,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 19502530,
+    "right_ps": 20593835,
+    "counts": [
+      2,
+      4,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      20711883,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      20731688,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 20617180,
+    "right_ps": 20688011,
+    "counts": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  {
+    "left": [
+      20737368,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      20782613,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 20688011,
+    "right_ps": 20782736,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      20797115,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      20801419,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 20782736,
+    "right_ps": 20813641,
+    "counts": [
+      13,
+      7,
+      0,
+      1
+    ]
+  },
+  {
+    "left": [
+      21130205,
+      "C",
+      "CT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21148338,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 20813641,
+    "right_ps": 21148338,
+    "counts": [
+      1,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21159070,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21172487,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21148338,
+    "right_ps": 21172501,
+    "counts": [
+      3,
+      0,
+      2,
+      0
+    ]
+  },
+  {
+    "left": [
+      21202606,
+      "ACACACT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21208762,
+      "T",
+      "TTG",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21172501,
+    "right_ps": 21208762,
+    "counts": [
+      2,
+      8,
+      14,
+      0
+    ]
+  },
+  {
+    "left": [
+      21208762,
+      "T",
+      "TTG",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21249192,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21208762,
+    "right_ps": 21249192,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21294113,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21321674,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 21294113,
+    "right_ps": 21311107,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21321674,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21334973,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21311107,
+    "right_ps": 21334973,
+    "counts": [
+      9,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21395286,
+      "A",
+      "AT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21421449,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 21334973,
+    "right_ps": 21456826,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21628047,
+      "AACAC",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21655433,
+      "C",
+      "CTCTTTCTT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21612458,
+    "right_ps": 21655433,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21697140,
+      "TG",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21723327,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21688374,
+    "right_ps": 21757517,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21778623,
+      "C",
+      "CATATATGTATTACATATATGTATTACATATATAACATATATGTATTACATATATGTATTACATATATAACATATATGTATTACATATATGTATTACATATATAACATATATGTATTACATATATGTAATACATATATAACATATATGTATTACATATATGTAATACATATATAACATATATGTAATACATATATAACATAT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21817199,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21757517,
+    "right_ps": 21817199,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21823066,
+      "GT",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21831480,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21817199,
+    "right_ps": 21831480,
+    "counts": [
+      7,
+      8,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21831480,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      21844359,
+      "T",
+      "TTATATATA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21831480,
+    "right_ps": 21844359,
+    "counts": [
+      1,
+      1,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      21909426,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21934884,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 21844359,
+    "right_ps": 21934884,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      21934884,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      21961092,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 21934884,
+    "right_ps": 21961092,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      22530318,
+      "TACACACCACCACACACATACGC",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      22565006,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 22520628,
+    "right_ps": 22520629,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      22598262,
+      "C",
+      "CTTCTTCTTCTTCTTCTTCTTCT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      22625517,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 22565036,
+    "right_ps": 22621301,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      22647804,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      22654515,
+      "G",
+      "GT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 22621301,
+    "right_ps": 22654515,
+    "counts": [
+      0,
+      1,
+      3,
+      1
+    ]
+  },
+  {
+    "left": [
+      23689247,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      23709049,
+      "A",
+      "AT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 22654515,
+    "right_ps": 23709049,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      23925408,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      23942879,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 23907996,
+    "right_ps": 23942880,
+    "counts": [
+      0,
+      2,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      23976798,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      24012605,
+      "A",
+      "AACC",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 23976798,
+    "right_ps": 24012604,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      25964482,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      25971072,
+      "T",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 25805896,
+    "right_ps": 25971072,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      29305992,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      29312666,
+      "G",
+      "GACTAGGGTGAAAAAGGAAATATCCTCACCTGAAAACCAGACAGAAGCATTCTCAGAAACTTCTTTGTGATGTGGGTAGTCAACTCACAGAGTTGAACCTTTCTTTTGATACAGCAGTTTTGAAGCACTCTTTTTGTAGAATCTGCAAGTGGTTATTTTGATAACTTTGAGGCTTTGATTGGAAACGGGAATATCTTCACATAAAAACTAGACAGAAGCATTCTCAGAAACATCTTTATGAAGTTTGCATTCAACTCACAGAGTTGAACATTCCGTTCCATACAGCAGTTTTGAAACTCTCTTTTTCTAGAATCTGTAAGTGGAAACTTGGAGCGCTTCGAGGCCTATGGTGAAAAATGGAATATCTTCCCATAAAAAGTAGACAGAAGAATTCTCAGTAACTACTTTGTGATGTGTGTACTCAACTCACAGAGTTGAACTTTTCTTTTGAAAGGGAAGTTTTGAAACACTCTTTTTGTAGAATCTGCAAATGGGTATTTAGCCTGCTTTGAGGCCTTCATTGGAAACGGGAATATCTTCACATAAAACTAGACAGAAGCATTCTCAGAAACTTCGTTGTGATGTGTGCATTCAACTCCCAGAGTTGAAGCTCTCTTTTGATAGAGCAGTTCTGAAACAATCTTTTTGTGGTAACTGGAAGTGGACGTTTGGAGCGATTCGAGGCCTATGGTGAAAAAGGCAATATCTTCACCTAAAAACTAGACAGAAGCATTCTCAGAAACTGCTTTGTGATATGTGTAGTCAACTCACGCAGTTGAAACTCGGTTTTGATGCAGCAGTTTTGAAACACTCTTTTTGTTAGAATCTTCAAGTGGATATTTGGATAGCTTTGAGGCTTTCATTGGAAACGGGAATATCTACCCATAAGAACTAGACAGAAGCATTCTCAGAAAGTTCTTTATGAAGTTCGCATTCAACTCACAGAGTTGTACCTTCCTTTTCACACAGCAGTTTTGAGACATTCTTTTTGTAGAATCTGCAAGTGGACACTTGGAGTGATTTGACACCTAGGGTGAAAAAGGAATGTCTTCACATAAAAAGTAGACAGAAGAATTCTCAGAAACGACTTTCTGATTTGTGTACTCAACTCACAGAGTTAAACCTTTCCTTTGATACAGCAGTTCGGAAACACTCTTCTTGTAGACTTTACAAGCGGATATAAGGACAGCAGTGAGGATTTCATCGGAAACGGAATATCTTCACATAAAAGCAGACAGAAGCATTCTCAGAAAGTTCTTTGTAATGTGTGCATTCAACTCACAGAGTTGAAACTTTCTTTTGATACAGCAGATTGGAAGCCCTCTTTTTGTAGAATTCGCAGGTGGATATATGGACAGCTTTGAGGCCTTCCCTGGAAACGAGTGTATCTTCACATAAACACTAGACAGAAGCATCCTCAGAAACTTGTTGGTGATGCTTGCATTCAACTCACAGAATTGAACGTTTCTTTTCCTAGAGCAGTTTTGAAACACTCTTTTTGTAGTATCTGGAAGTGGACATTTGGAGCACTTTGAGGCCTAGGGTGAAAAAGGAAATATCTTCACATAAAAATTAGACAGAAGCATTCTCTGAAACTTCTTTGTGATGTGTGTACTCAACTCACAGAGTTGAACTTTTCTTCTCATAGATCAGATTTGAAACACTCTTTTTGTAGAGCCTGCAAGTGCATATTTGGATAGCTTTGAGGATTTCATTGGAAACGGGAATATCTTCCCATAAAAACTAGAAAGAAGCATTCTCAGAAACTTCTTTGTGATGCTTGCATTCAACTCACAGAGTTGAACATTGCCTTTCATACAGCAGTTTTGAAACACTCTTTTTGTAGTATCTGGAAGTGGACCTTTGGCGCGCTTTGAGGCCTAGGGTGAAAAAGGAAATATCCTCACCTAAAAACTAGACAGAAGCATTCTCAGAAACTTCTTTGTGATGTGTGTAGTCAACTCACAGAGTTGAACCTTTCTTTTGATACAGCAGTTTTGAAACACTCTTTTTGTAGAATCTGCAAGTGGTTATTTTGATAGCTTTGAGGCTTTCATTGGAAACGGAAATATCTTCACATAAAAACTAGACAGAAGCATTCTCAGAAACTTCTTTATGAAGTTTGCATTCAACACACAGAGTTGAACATTCCGTTCCATACAGCAGTTTTGAAACTCTCTTTTTCTAGAATCTTTAAGTGGAAACTTGGAGCGCTTCTTGGCCTATGGTGAAAAAGGGAATATCTTCCCATAAAAAGTAGACAGAAGAATTTTCAGTAAATACTTTGTGATTTGGGTACTCAACTCACAGAGTTGAACTTTTCTATTGAAAGAGAAGTTTTGAAACACTCTTTTTGTAGAATCTGCAAATGGGTGTTTAGCCTGCTTTGAGGCCTTCATTGGAACGGGAATATCTTCACATAAAACCATACAGAAGCATTCTCAGAAACTTCGTTGTGATGTGTGCATTCAACTCCCAGAGTTGAACCTCTCTTTTGATAGAGCAGTTCTGAAACAATCTTTTTGTGGTATCTGGAAGTGGACGTTTGGAGCGATTCGAGGCCTATGGTGAAAAAGGCAATATCTTCACCTAAAAACTAGACAGAAGCATTCTCAGAAACTGCTTTGTGATATTTGTAGTCAACTCACGGAGTTGAAACTTGGTTTTGATGCAGCAGTTTTGAAACACTCTTTTTGACAGAATCTTCATGTGGATATTTGTATAGCTTTGAGGCTTTCATTGGAAACGGGAATATCTACACATAAGAACTAGACAGAAGCATTCTCAGAAAGTTCTTTATGAAGTTCGCATTCAATTCACAGAGTTGTACCTTCCTTTTCACACAGCAGTTTTGAGACATTCTTTTTGTGGAATCTGCAAGTGGACACTTGGAGTGATTTGACACCTAGGGTGAGAAAGGAATGTCTTCCCATAAAAAGTAGACAGAAGCATTCTCAGAAACGACTTTCTGATTTGTGTACTCAACTCACAGAGTTAAACCTTTCCTTTGATACAGCAGTTCGGAAACACTCTTCTTGTAGAGTTTACAAGCGGATATAAGGACAGCAGTGAGGATTTCATCGGAAACGGAATATCTTCACATAAAAGCAGACAGAAGCATTCTCAGAAAGTTCTTTGTAATGTGTGCATTCAACTGACAGTGTTGAAACTTTCTTTTGATAGAGCAGATTGGAAGCCCTCTTTTTGTAGAATTTGCAAGTGGATATCTGGACAGCTTTGAGGCCTTCCCTGGAAAGGAATGTATCTTCACATAAACACCAGACAGAAGCATCCTCAGAAACTTGTTGGTGATGCTTGCATTCAACTCACAGAATTGAATGTTTCTTTTCCTAGAGCAGTTTTGAAACACTCTTTTTGTAGTATCAGGAAGTGGACATTTGGAGCACTTTGAGG",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 29300122,
+    "right_ps": 29312665,
+    "counts": [
+      0,
+      0,
+      18,
+      0
+    ]
+  },
+  {
+    "left": [
+      30796780,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      30809474,
+      "GA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 30780237,
+    "right_ps": 30809474,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      31744065,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      31765624,
+      "C",
+      "CTTCCTTCTCCACCATAGGCCTCAAAAGGCTCCAAATATCCACTTGCAGATTCTAAAAAAAGAGTGTTTCAAAACTGCTCAATCCAAAGAAAGGTTCTACTCTGTGAGATGAATGCACACATCACAAAGTAGTTTCTCAGAATGCTTCTGCATAGTTTTTATGTGAAGATATTTCCTTCTCCACTATAGGCCTCAAAAGGCTCCAAATATCCACTTGCAGATTCTGAAAAAAGAGTGTTTCAAAACTGCTGTGTCAAAAGAAAGATTCAACTCTGTTAGATGAATGCACAGATCACAAAGAAGTTTCTCAGGATGCTTCTGTGTAGTTTTTATGTGAAGATATTTGTTTTTCCACAGTAGGCCCCAATGAGCTACAAATATCCACTCGCAGATTCCGTAAAAAGAGAGATTCAAAACTGCTGAATCAAAAGATAGGTTCAACACTGTGACTTCAGTGCACACCTCACAAAGAAGTTTCTCAGAATGCTTCTTTGTAGTTTTGATATGAAGATATCTCCTTCTCCAAAATAGATCTCAAAGCCCTCCAAATATTCACTTCCAGATTCTATGGAAAGAGTCTCAAAACTGCTCAGTCAAAATAAAGGTAGAACTCTGTGAGAAGAATGCACACATCACAAAGAAGTTTCTCAGAATATATTTGTGTAGTTTTTATTTGAGGATAGTTCCTTTTCTACCATAGGCTGCAAAGGGCTCCAAATATCCACTTGCAGATGGTACAAAGAGAGAGATTCTAAACTGCTCAATCAAAAGGTAGTTTCAACCCTGTGATATGAATGCACACATCCCAGAGAAGTTTCTCAAAATGCTTCTGTTTAGTTTTTATTTGAAGATATTTCCTTTTCCACCATACGCCTCAAAGGTCTCCAAATATCCACATGCTGCTTCTACAAAAAGAGAGATTAAAAAATGTTCTATCAAAATATAGGTTCAACTCTGTGAGTTGAATGCGCACATCACAAAAAGTTTCTCAGAATGCTTCTGTGTAGTTTTTACGTGAAGATATCTCCTTTTCCACAATAGGCCTCAAAGCTCTCCAAATATCCGCAAGCAGAGTCTACAAAAAGAGAGATTCAAAACTGCTCAATGAAAAGATAGGTTCAACTCTGTGAGATGAGTGCACATCTCACAAAGAAGTTCCTCAGAATGCTTCTGTGTAGTTTTTATGTGAAGATATTTCCTTTTCCAAAATAGACCTCAAAGTCCTCCAAATATCCACTTCCAGACTCTATAAAAAGGTGTTTCAAAACTACTCAATCAAAAGAAAGGTTCAACTATATGAGATAAATGCACACATCACAAAATGGTTTCTCAGAATGCTTCCGTGTAGTTTTTATTTGAAGATATTTTCTTTTCCACCATGGGCCACAAAGGGCTACTAAAACCCACTTGCAGATTCTACAAAAAGAGAGATTCAAAACGGCTCAATCAAAAGATAGGCTCTCCCCTGTGAATTGAATGCACACATCACAAAGAAGTTTCTCAGAATGTTTCTGTGTAGTTTTTTTTTGAAGATATTTCCTTTTCCACAATAGGCCTCAAAGCTCTCCAAACATCCATTGCTAATTCTTCAAAAAGATCGCTTCAACACTGCTCTATAAAAAGGAAGTTTCAACTCCATTAGATGACTGCACACATCACAAAGAAGTTTCTCAGAATGCCTCTGTGTAGTTTGTATGTGAAGATATTTCCTTTTCCACAGTAGGCCACAAAGGGCTCCAAATATCTACTTGCAGAATCTTCAAAAAGAGTGTTTCAAAAGTTCTCAATCAAAAGAAAAGTTAAACTCCATGAGATGAATGCATACATCACAAAGAAAGTTCTGAGAATGCTTCTGTCTTGTTTTTATGTGAAGATATTTGATTCTCTCCTGTAGGCAACAAGGCGCTCCAAATATCCACTTTCAGATACTACAAAAAGAGTGTTTTGAAACTGCTCAATCATATGAGAGGTTCAACCTTGTGAGATGAATGCCCACATCACAAAGTAGCTTCTCAGAATGTTTTTGTGTAGTTTTTATTTGAAGATATTTCCTTTTCCACCATAGGCCACAAAGGGCTCCAAACTTCCACTTGCAGATTCTACAAAAAGAGAGATTCAAAGCTGTTCAATCAAAAGATAGTTTCAACTCTGCGTGTTGAATGCACAAATCACAAAGTAGTTTCTCTGAATGCTTCTGTGTTGTGTTTGTTTATGTGAAGATATTTGCTTTTCCACTATAGGGCAAAATAGGGCTCCAAATATCCACTTGCAGATTCTGCAAAAAGGGAGATTCAAAACTGTACAATCAAAAGATAAGTTCAAATATGTGAGTTGAATGCACACAAAACAAAGAAGTTTCTCAGAATACCTCTGTGTAGTTTTTAGGTGAATATATTTGATTTTCCACAGTAGGCCTCAAAGGGCTCCAAATATCCACTTTCAGATTCTGAAATAAGAGAGATTCAAAACTGCTCAATCAAACGATAGGTTCCAATCTGTGAGTTGAATGCACACCTCACAAAGAAGTTTCTCATAAAGTTTCTGTGTAGTTTTTATGTGAAGATATCTCCTTCTCCAAAATAGGCCTCAATGACCTCCAAATATGCACTTCCAGATTCCATGACAATAGTGCTTCAAAACTGCTCAATCCAAAGAAATGTTCAACACTGTGTGATGAATGCACTCATCACAAAGAAGTTTCTCTGAATGCTTCTGTGTATTTTGTATTTGAAGATATTTCCTCTTCCACCATAGGGCTCATAGGGCTCCAAATATCCACTTGCAGATTCTACAAAAAGAGTATTCCAAAACTGCTCAATCAAAAGAAACGTCTAAAACTGTGAGATGAATGCACACATCACAAAGTAGTTTCTCAGAATGCTTCAGTGTAGTTTTTATGTGAAGACATTAGCTTGTCCACGGAAGGTCTCAAAGCGCTCCAAATATCCACTTGCAGATTCTACAAAATGAGTGTTTCAAAACTGCTCAATCATTAGATAGGTTCAACCCTGTGAGTTGAATACACACATAACAAAGAAGTTTTTCAGAATGCTTCTATGTAGTTTTTATTTGAAGGTATTTCCTTTACCACCATAGGTTGCAAGGGGCTCCAAATATCCACTTGCAGATTCTACAAAAAGAGAGATTCTAAACTGCTCAATCAACAGATACCTTCAACAATGTGAGATGAATGCACACATCACAAATAAGTTTCACAGAATGCTTCTGGGTAGTTTTTATGTGAAGAAATTTCCCTTTCCACAATAGGCCTCAAAACGCTCTAAATATCCACTTGCAGATTCTAAAAAAAGAGTGTTTCAAAACTGCTCAATCCAAAGAAAGGTTCTACTGTATGAGATGAATGCACACATCACAAAGTACTTTCTCAGAATGCTTCTGCATAGTTTTTATGTGAAGATATTTCCTTCTCCACTATAGGCCTCAAAAGGCTCCAAATATCCACTTGCGGATTCTAAAAAAAGAGTGTTTCAAAACTGCTGTATCAAAACAAAGATTCAACTCTGTGAGATGAATGCACAGATCGCAAAGAAGTTTCTCAGAATGCTTCTGTGTAGTTTTTATGTGAAGATATTTGTTTTTCCACAGTAGGCCCCAATGAGCTCCAAATATCCACTTGCAGATTCCACAAAAAGAGTGTTTCAAAACTGCTCAATCAACAGAGACATTCAACTCTGTGAGATGAATGCACCCATCACAAAGAAGTTTCTCAGAATGCTTCTGTGTAGTTTTTGTGTGAAGATATTTCATTTTCCACAGTACGCCTCAAAGCGCTCCAAATATCCACTCGCAGGTTCTGTAAAAAGAGAGATTCAAAACTGCTGAATCAAAAGATAGGTTCAACACTGTGACTTCAGTGCACAACTCACAAAGGTGTTTCTCAGAAATCTTCTGTGTAGTTTTTATATGAAGATATCTCCTTCTCCAAAACAGAACTCAAAGCCCTCCAAATATTCACTTCCAGACTGTACGGAAAGATTGTGTCAAAACTGCTAAATCAAAACAAAGGTTCAACTCTGTGATGAATGCACTCATCAGAAAGAAGGTTCTCTGAATGCTTCTGTGTGGTTTCTATTTGAAGATATTTCCTTTTCCACTCTAGGGCGAAATAGGGCTCCAAATATTCACTTGCAGATTCTACGAAAAGAGAGATTCTAAACTGCTCAATCAACAGATACGTTCAACAACTTGAGTTGAATGCACACATCACAAATAAGTTTCACAGAATGCTTCTGGGTAGTTTTTATTTGAAGAAATTTCCCTTTCCACAATAGGCCTCAAATCGCTCTAAATATCCATTTGCAGATTCTACAAAAAGAGTGTTTCAAAACTGCTCAATCAAAAGAAAGGTTCTACTCTGTGAGGTGAATGCACGCATCACAAAGTGGTTTCTCAGAATGCTTCTGCATAGTTTTTATGTGAAGATAT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 30809474,
+    "right_ps": 31766466,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      32253750,
+      "GTGGAA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      32278256,
+      "C",
+      "CAATGG",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 32204477,
+    "right_ps": 32278256,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      32315215,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      32326302,
+      "CATGGAATGGA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 32312702,
+    "right_ps": 32326302,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      32580064,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      32597133,
+      "G",
+      "GTGGAA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 32580064,
+    "right_ps": 32597133,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      32597135,
+      "G",
+      "GAA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      32602250,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 32597133,
+    "right_ps": 32605552,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      32765849,
+      "TGGAATGGAAG",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      32797965,
+      "AGGAAT",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 32759261,
+    "right_ps": 32797965,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      33211072,
+      "T",
+      "TA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      33227050,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 32874376,
+    "right_ps": 33229076,
+    "counts": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      33313805,
+      "G",
+      "GT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      33314735,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 33229076,
+    "right_ps": 33256748,
+    "counts": [
+      15,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      33342066,
+      "C",
+      "CT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      33348864,
+      "GCA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 33256748,
+    "right_ps": 33320808,
+    "counts": [
+      21,
+      1,
+      3,
+      0
+    ]
+  },
+  {
+    "left": [
+      33747591,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      33749688,
+      "C",
+      "CTTCT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 33320808,
+    "right_ps": 33697766,
+    "counts": [
+      9,
+      11,
+      22,
+      0
+    ]
+  },
+  {
+    "left": [
+      33771786,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      33778263,
+      "C",
+      "CAA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 33771786,
+    "right_ps": 33778263,
+    "counts": [
+      1,
+      6,
+      0,
+      5
+    ]
+  },
+  {
+    "left": [
+      33840457,
+      "GT",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      33843244,
+      "G",
+      "GTATT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 33819342,
+    "right_ps": 33843244,
+    "counts": [
+      24,
+      0,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      33865870,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      33889001,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 33843244,
+    "right_ps": 33889001,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      33909864,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      33954611,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 33889001,
+    "right_ps": 33954611,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      33985339,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      34018169,
+      "G",
+      "GC",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 33954611,
+    "right_ps": 34018168,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      34135913,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      34151397,
+      "CTTT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 34134418,
+    "right_ps": 34811748,
+    "counts": [
+      2,
+      0,
+      2,
+      0
+    ]
+  },
+  {
+    "left": [
+      35095661,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35113999,
+      "T",
+      "TA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 34811748,
+    "right_ps": 35113999,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      35118475,
+      "TAA",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35134302,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 35113999,
+    "right_ps": 35134302,
+    "counts": [
+      0,
+      1,
+      2,
+      0
+    ]
+  },
+  {
+    "left": [
+      35134302,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      35149175,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 35134302,
+    "right_ps": 35149175,
+    "counts": [
+      1,
+      0,
+      2,
+      0
+    ]
+  },
+  {
+    "left": [
+      35191495,
+      "GAGGAAGGA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35211758,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 35149175,
+    "right_ps": 35211758,
+    "counts": [
+      1,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      35281130,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35305645,
+      "G",
+      "GT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 35274215,
+    "right_ps": 35305645,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      35431960,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35444866,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 35405794,
+    "right_ps": 35454560,
+    "counts": [
+      7,
+      4,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      35455917,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      35472284,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 35454560,
+    "right_ps": 35479836,
+    "counts": [
+      3,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      35498368,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      35516845,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 35479836,
+    "right_ps": 35516845,
+    "counts": [
+      0,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      36040406,
+      "ATTAT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      36056316,
+      "A",
+      "AA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 36016137,
+    "right_ps": 36056316,
+    "counts": [
+      5,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      36133558,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      36140083,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 36069696,
+    "right_ps": 36156319,
+    "counts": [
+      14,
+      0,
+      5,
+      0
+    ]
+  },
+  {
+    "left": [
+      36268558,
+      "A",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      36286778,
+      "T",
+      "TG",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 36156319,
+    "right_ps": 36317512,
+    "counts": [
+      0,
+      0,
+      1,
+      2
+    ]
+  },
+  {
+    "left": [
+      36614185,
+      "A",
+      "AT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      36620864,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 36317512,
+    "right_ps": 36620864,
+    "counts": [
+      0,
+      5,
+      0,
+      12
+    ]
+  },
+  {
+    "left": [
+      36620864,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      36623545,
+      "A",
+      "AT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 36620864,
+    "right_ps": 36623545,
+    "counts": [
+      0,
+      0,
+      25,
+      0
+    ]
+  },
+  {
+    "left": [
+      37397733,
+      "GA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      37413502,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 36623545,
+    "right_ps": 37425328,
+    "counts": [
+      2,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "left": [
+      37598255,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      37606443,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 37556826,
+    "right_ps": 37606443,
+    "counts": [
+      12,
+      0,
+      4,
+      1
+    ]
+  },
+  {
+    "left": [
+      37658460,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      37667751,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 37606443,
+    "right_ps": 37667751,
+    "counts": [
+      9,
+      7,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      38106278,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      38132901,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 38094781,
+    "right_ps": 38132901,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      38218840,
+      "G",
+      "GT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      38236063,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 38151373,
+    "right_ps": 38294482,
+    "counts": [
+      0,
+      2,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      39191558,
+      "TA",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      39204674,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 38294482,
+    "right_ps": 39212666,
+    "counts": [
+      1,
+      0,
+      4,
+      3
+    ]
+  },
+  {
+    "left": [
+      40636354,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      40647345,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 40636353,
+    "right_ps": 40642556,
+    "counts": [
+      0,
+      0,
+      0,
+      5
+    ]
+  },
+  {
+    "left": [
+      40676251,
+      "C",
+      "CAAA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      40692867,
+      "CG",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 40642556,
+    "right_ps": 40692867,
+    "counts": [
+      1,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      40692867,
+      "CG",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      40719136,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 40692867,
+    "right_ps": 40719131,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      41366447,
+      "T",
+      "TTCTTTC",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      41395719,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 40711983,
+    "right_ps": 41395719,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      42018065,
+      "C",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      42042660,
+      "T",
+      "TTATATATA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 41816999,
+    "right_ps": 42042660,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      42449539,
+      "A",
+      "ATGTGTG",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      42496677,
+      "TTTTTG",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 42442492,
+    "right_ps": 42496677,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44077550,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44083059,
+      "C",
+      "CT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44077549,
+    "right_ps": 44083060,
+    "counts": [
+      2,
+      1,
+      4,
+      13
+    ]
+  },
+  {
+    "left": [
+      44083059,
+      "C",
+      "CT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      44095040,
+      "G",
+      "GA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44083060,
+    "right_ps": 44083059,
+    "counts": [
+      0,
+      0,
+      5,
+      0
+    ]
+  },
+  {
+    "left": [
+      44095221,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44121781,
+      "AAAAG",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 44083059,
+    "right_ps": 44121781,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44418300,
+      "CTTTTTTTTTTTTTTTTT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44428299,
+      "T",
+      "TTTTA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44365624,
+    "right_ps": 44428299,
+    "counts": [
+      0,
+      0,
+      1,
+      3
+    ]
+  },
+  {
+    "left": [
+      44499777,
+      "TACACAC",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      44549165,
+      "G",
+      "GT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44488868,
+    "right_ps": 44549165,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44779027,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44784210,
+      "TAAAAA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44779026,
+    "right_ps": 44736744,
+    "counts": [
+      0,
+      0,
+      23,
+      1
+    ]
+  },
+  {
+    "left": [
+      44784210,
+      "TAAAAA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      44809704,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44736744,
+    "right_ps": 44820071,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44820072,
+      "TG",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44827664,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44820071,
+    "right_ps": 44809704,
+    "counts": [
+      13,
+      3,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44830969,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44863655,
+      "C",
+      "CTTT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 44809704,
+    "right_ps": 44863655,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44863655,
+      "C",
+      "CTTT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      44906892,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 44863655,
+    "right_ps": 44906892,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      44906892,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      44950835,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 44906892,
+    "right_ps": 44950835,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45168077,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45170666,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 45168077,
+    "right_ps": 45160962,
+    "counts": [
+      28,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45190130,
+      "CTTT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45194606,
+      "G",
+      "GT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45160962,
+    "right_ps": 45194606,
+    "counts": [
+      0,
+      0,
+      1,
+      6
+    ]
+  },
+  {
+    "left": [
+      45342977,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      45347747,
+      "TG",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45306691,
+    "right_ps": 45347747,
+    "counts": [
+      0,
+      0,
+      0,
+      4
+    ]
+  },
+  {
+    "left": [
+      45593559,
+      "C",
+      "CT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      45633554,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45574484,
+    "right_ps": 45633554,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45689725,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45711954,
+      "T",
+      "TGT",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45684873,
+    "right_ps": 45711954,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45711954,
+      "T",
+      "TGT",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      45756578,
+      "G",
+      "GA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 45711954,
+    "right_ps": 45756578,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45756578,
+      "G",
+      "GA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45759506,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 45756578,
+    "right_ps": 45759506,
+    "counts": [
+      23,
+      0,
+      1,
+      0
+    ]
+  },
+  {
+    "left": [
+      45759506,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45779383,
+      "T",
+      "TA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45759506,
+    "right_ps": 45779383,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      45876157,
+      "G",
+      "GT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      45896820,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 45854428,
+    "right_ps": 45883706,
+    "counts": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  {
+    "left": [
+      46844468,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      46875643,
+      "G",
+      "GTCTA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 46663811,
+    "right_ps": 46875643,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      48120827,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      48147227,
+      "GGTGTGTGTGTGTGTGTGTGTGTGT",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 48120826,
+    "right_ps": 48147227,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      49008985,
+      "GA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      49031440,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 49008323,
+    "right_ps": 49031428,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      49691563,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      49700407,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 49661903,
+    "right_ps": 49700407,
+    "counts": [
+      0,
+      0,
+      3,
+      7
+    ]
+  },
+  {
+    "left": [
+      49750123,
+      "G",
+      "GA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      49764957,
+      "CT",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 49742973,
+    "right_ps": 49768952,
+    "counts": [
+      8,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      49950726,
+      "T",
+      "TA",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      49964968,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 49845377,
+    "right_ps": 49964968,
+    "counts": [
+      5,
+      6,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      50099530,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      50115566,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 49964968,
+    "right_ps": 50115566,
+    "counts": [
+      3,
+      0,
+      3,
+      0
+    ]
+  },
+  {
+    "left": [
+      50115566,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      50127297,
+      "C",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 50115566,
+    "right_ps": 50127297,
+    "counts": [
+      8,
+      5,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      52278906,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      52290003,
+      "CAA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 51262082,
+    "right_ps": 52217752,
+    "counts": [
+      1,
+      1,
+      0,
+      1
+    ]
+  },
+  {
+    "left": [
+      52332764,
+      "C",
+      "CA",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      52356806,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 52303114,
+    "right_ps": 52356806,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      52683845,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      52696410,
+      "GGA",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 52422209,
+    "right_ps": 52696410,
+    "counts": [
+      3,
+      2,
+      3,
+      1
+    ]
+  },
+  {
+    "left": [
+      52696940,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      52711825,
+      "G",
+      "GA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 52696410,
+    "right_ps": 52711825,
+    "counts": [
+      1,
+      0,
+      4,
+      0
+    ]
+  },
+  {
+    "left": [
+      56312186,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      56313636,
+      "C",
+      "CAAAAAAA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 56192736,
+    "right_ps": 56447411,
+    "counts": [
+      5,
+      0,
+      13,
+      0
+    ]
+  },
+  {
+    "left": [
+      57481589,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      57492578,
+      "C",
+      "CA",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 57104654,
+    "right_ps": 57492578,
+    "counts": [
+      7,
+      4,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      57496270,
+      "TA",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      57514245,
+      "TACAC",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 57492578,
+    "right_ps": 57514245,
+    "counts": [
+      6,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      58247272,
+      "ATCT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      58269573,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 57866714,
+    "right_ps": 58269573,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      58366458,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      58385702,
+      "CA",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 58305921,
+    "right_ps": 58391092,
+    "counts": [
+      0,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      58437157,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      58444151,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 58391092,
+    "right_ps": 58421174,
+    "counts": [
+      8,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      58444151,
+      "AT",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      58446801,
+      "C",
+      "CTT",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 58421174,
+    "right_ps": 58654026,
+    "counts": [
+      2,
+      3,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      60098495,
+      "C",
+      "CT",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      60114911,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 59046422,
+    "right_ps": 60194115,
+    "counts": [
+      3,
+      1,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      60581662,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      60613654,
+      "T",
+      "TCAC",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 60552044,
+    "right_ps": 60613654,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      60706792,
+      "CA",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      60711400,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 60674447,
+    "right_ps": 60832115,
+    "counts": [
+      16,
+      3,
+      4,
+      0
+    ]
+  },
+  {
+    "left": [
+      61298365,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      61325992,
+      "T",
+      "TCTTTC",
+      [
+        1,
+        0
+      ]
+    ],
+    "left_ps": 61144542,
+    "right_ps": 61325992,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": [
+      61454850,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      61467749,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 61405579,
+    "right_ps": 61405580,
+    "counts": [
+      0,
+      1,
+      2,
+      2
+    ]
+  },
+  {
+    "left": [
+      61467749,
+      "CT",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "right": [
+      61487311,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 61405580,
+    "right_ps": 61770861,
+    "counts": [
+      0,
+      0,
+      1,
+      1
+    ]
+  },
+  {
+    "left": [
+      62351287,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "right": [
+      62385514,
+      "GCCCCGCCTCCCACATTGGGGATCACATTTCAACATGAGATGTGGAGGGGACCATGATCCAAACACCTCCCATCAGGCCCCGCCTCCCACATTGGGGATCACATTTCAACGTGAGATGTGGAGGGGACCATGATCCAAACACCTCCCACCAGA",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "left_ps": 61770861,
+    "right_ps": 62385514,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+]

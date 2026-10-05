@@ -1,0 +1,131 @@
+[
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/11",
+    "counts": {
+      "independent_calls": 33359,
+      "checked_source_calls": 33359,
+      "working_retained": 32904,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 58748
+    },
+    "census": {
+      "mapped": 32904,
+      "candidate_not_transferred": 10209,
+      "msa:eligible": 74,
+      "physical:no_fixed_consensus_context": 1,
+      "physical:inconsistent_graph_gauge": 4
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/19",
+    "counts": {
+      "independent_calls": 12978,
+      "checked_source_calls": 12978,
+      "working_retained": 11804,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 12261
+    },
+    "census": {
+      "mapped": 11804,
+      "candidate_not_transferred": 1694,
+      "msa:eligible": 84,
+      "physical:inconsistent_graph_gauge": 6
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/21",
+    "counts": {
+      "independent_calls": 18174,
+      "checked_source_calls": 18174,
+      "working_retained": 19330,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 36640
+    },
+    "census": {
+      "mapped": 19330,
+      "candidate_not_transferred": 2841,
+      "msa:eligible": 102,
+      "physical:no_fixed_consensus_context": 13,
+      "physical:no_shared_clean_snp": 9
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/3",
+    "counts": {
+      "independent_calls": 29574,
+      "checked_source_calls": 29574,
+      "working_retained": 22931,
+      "owner_resolved_disagreement": 21,
+      "source_disagreements": 22,
+      "working_abstentions": 1,
+      "overlay_calls": 31224,
+      "overlay_conflicts": 1
+    },
+    "census": {
+      "mapped": 28621,
+      "candidate_not_transferred": 8537,
+      "physical:no_fixed_consensus_context": 25
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/34",
+    "counts": {
+      "independent_calls": 11130,
+      "checked_source_calls": 11130,
+      "working_retained": 11771,
+      "owner_resolved_disagreement": 0,
+      "source_disagreements": 0,
+      "overlay_calls": 21663
+    },
+    "census": {
+      "candidate_not_transferred": 3276,
+      "mapped": 11771,
+      "msa:eligible": 10
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/41",
+    "counts": {
+      "independent_calls": 27385,
+      "checked_source_calls": 27385,
+      "working_retained": 22733,
+      "owner_resolved_disagreement": 1,
+      "source_disagreements": 1,
+      "overlay_calls": 37791,
+      "overlay_conflicts": 16
+    },
+    "census": {
+      "candidate_not_transferred": 4853,
+      "mapped": 28502,
+      "msa:eligible": 84,
+      "physical:eligible": 28
+    },
+    "errors": []
+  },
+  {
+    "directory": "test_data/tmp_gap_fix49/owner/61",
+    "counts": {
+      "independent_calls": 36455,
+      "checked_source_calls": 36455,
+      "working_retained": 30163,
+      "owner_resolved_disagreement": 42,
+      "source_disagreements": 42,
+      "overlay_calls": 40388
+    },
+    "census": {
+      "mapped": 31619,
+      "candidate_not_transferred": 10011,
+      "other_seam_owner": 665,
+      "physical:no_fixed_consensus_context": 3
+    },
+    "errors": []
+  }
+]

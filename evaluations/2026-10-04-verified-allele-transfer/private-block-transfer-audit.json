@@ -1,0 +1,182 @@
+[
+  {
+    "window": "11",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 32898,
+        "candidate_not_transferred": 10209
+      },
+      "counts": {
+        "retained": 32898
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 62,
+      "physical:no_fixed_consensus_context": 1,
+      "fixed_msa:inconsistent_graph_gauge": 12,
+      "physical:inconsistent_graph_gauge": 4
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 31903
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "15",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 33864,
+        "candidate_not_transferred": 7150,
+        "other_seam_owner": 605
+      },
+      "counts": {
+        "retained": 28261
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 68,
+      "physical:eligible": 20,
+      "physical:no_fixed_consensus_context": 24
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 26098
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "19",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 11803,
+        "candidate_not_transferred": 1694
+      },
+      "counts": {
+        "retained": 11803
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:inconsistent_graph_gauge": 44,
+      "physical:inconsistent_graph_gauge": 6
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 11217
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "21",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 19330,
+        "candidate_not_transferred": 2841
+      },
+      "counts": {
+        "retained": 19330
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 102,
+      "physical:no_fixed_consensus_context": 13,
+      "physical:no_shared_clean_snp": 9
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 18374
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "3",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 28621,
+        "candidate_not_transferred": 8537
+      },
+      "counts": {
+        "retained": 22910,
+        "overlapping_source_conflict": 22
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "physical:no_fixed_consensus_context": 25
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 21879
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "34",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "candidate_not_transferred": 3276,
+        "mapped": 11766
+      },
+      "counts": {
+        "retained": 11766
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:inconsistent_graph_gauge": 10
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 11172
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "61",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 31619,
+        "candidate_not_transferred": 10011,
+        "other_seam_owner": 665
+      },
+      "counts": {
+        "retained": 30121,
+        "overlapping_source_conflict": 42
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "physical:no_fixed_consensus_context": 3
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 28673
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  }
+]

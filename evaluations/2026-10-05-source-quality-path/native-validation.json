@@ -1,0 +1,43 @@
+{
+  "unique_cases_validated": 83,
+  "assertions_with_updated_expectations": 10115,
+  "window_panel_rows": 109,
+  "initial_shards": [
+    {
+      "shard": 0,
+      "cases": 2,
+      "returncode": 0,
+      "seconds": 882.367744623989
+    },
+    {
+      "shard": 1,
+      "cases": 27,
+      "returncode": 1,
+      "seconds": 909.713831164001
+    },
+    {
+      "shard": 2,
+      "cases": 27,
+      "returncode": 1,
+      "seconds": 604.1361459730106
+    },
+    {
+      "shard": 3,
+      "cases": 27,
+      "returncode": 0,
+      "seconds": 300.99035111900594
+    }
+  ],
+  "initial_unchanged_cases_passed": 81,
+  "updated_owning_cases": [
+    "physical bridges survive their owning graph chunks",
+    "shifted BAM deletion joins a certified graph suffix"
+  ],
+  "updated_owning_cases_passed": 2,
+  "updated_owning_assertions": 282,
+  "final_result": "pass",
+  "scope": "The only initial failures were the two old split assertions for the newly closed edge. The updated tests pass; all other 81 cases and the full panel pass unchanged.",
+  "restored_original_required_sites": 1282,
+  "restored_required_panel_cases_passed": 2,
+  "restored_required_panel_assertions": 2469
+}

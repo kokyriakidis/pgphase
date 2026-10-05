@@ -1,0 +1,54 @@
+[
+  {
+    "chunk": 35,
+    "stage": "pgphase",
+    "gap": [
+      35498368,
+      35516845
+    ],
+    "scored": 83,
+    "correct": 80,
+    "discordant": 3,
+    "phase_sets": 3,
+    "accuracy": 0.963855421686747
+  },
+  {
+    "chunk": 35,
+    "stage": "hiphase",
+    "gap": [
+      35498368,
+      35516845
+    ],
+    "scored": 100,
+    "correct": 93,
+    "discordant": 7,
+    "phase_sets": 1,
+    "accuracy": 0.93
+  },
+  {
+    "chunk": 57,
+    "stage": "pgphase",
+    "gap": [
+      57854341,
+      57866713
+    ],
+    "scored": 81,
+    "correct": 81,
+    "discordant": 0,
+    "phase_sets": 2,
+    "accuracy": 1.0
+  },
+  {
+    "chunk": 57,
+    "stage": "hiphase",
+    "gap": [
+      57854341,
+      57866713
+    ],
+    "scored": 104,
+    "correct": 94,
+    "discordant": 10,
+    "phase_sets": 1,
+    "accuracy": 0.9038461538461539
+  }
+]

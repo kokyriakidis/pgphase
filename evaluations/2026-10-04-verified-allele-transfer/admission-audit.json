@@ -1,0 +1,106 @@
+[
+  {
+    "window": "11",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 32898,
+        "candidate_not_transferred": 10209
+      },
+      "counts": {
+        "retained": 32898
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 62,
+      "physical:no_fixed_consensus_context": 1,
+      "fixed_msa:inconsistent_graph_gauge": 12,
+      "physical:inconsistent_graph_gauge": 4
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 31903
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "15",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 33864,
+        "candidate_not_transferred": 7150,
+        "other_seam_owner": 605
+      },
+      "counts": {
+        "retained": 28261
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 68,
+      "physical:eligible": 20,
+      "physical:no_fixed_consensus_context": 24
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 26098
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "21",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "mapped": 19279,
+        "candidate_not_transferred": 2841
+      },
+      "counts": {
+        "retained": 19279
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:no_shared_clean_snp": 102,
+      "physical:no_fixed_consensus_context": 13,
+      "physical:no_shared_clean_snp": 9
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 18323
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  },
+  {
+    "window": "34",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "candidate_not_transferred": 3276,
+        "mapped": 11766
+      },
+      "counts": {
+        "retained": 11766
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:inconsistent_graph_gauge": 10
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 11172
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  }
+]

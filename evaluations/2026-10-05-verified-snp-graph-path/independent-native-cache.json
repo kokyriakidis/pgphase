@@ -1,0 +1,3990 @@
+{
+  "binary": "test_data/tmp_gap_fix52/pgphase-current",
+  "binary_sha256": "69d998cab0b2319f6875e3514a7be4eaa1dc9b514419831614aeb012a13c4386",
+  "old_test_source_sha256": "f566a6228877e1004f76ddf212a815d7f0dc33d60a26f87d3239e4d2e736a41d",
+  "new_test_source_sha256": "e252cf08e1c3eb34a2f2cdc87df9533d5b8a3190835e90b6cb9dde9677e93a5d",
+  "test_change": "One CHECK comparison and its comment; no CLI construction, case ordering or data checks change.",
+  "input_stat": {
+    "test_data/chm13v2.0.chr20.renamed.fa": [
+      67037899,
+      1777580431186148146
+    ],
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": [
+      1628148107,
+      1777684529398316204
+    ],
+    "test_data/chr20.sites.striped.vcf.gz": [
+      656334074,
+      1779089336279080637
+    ],
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": [
+      840749997,
+      1778217680609834235
+    ],
+    "test_data/derived/chr20_truth_hap.tsv": [
+      12679829,
+      1789660880088322588
+    ],
+    "evaluations/2026-09-16-test-panel/panel.tsv": [
+      10963,
+      1791188771151451289
+    ],
+    "src/test_gap_windows_expect.tsv": [
+      7270,
+      1791188771151594079
+    ],
+    "src/test_gap_windows_required.tsv": [
+      69418,
+      1791187544439857525
+    ]
+  },
+  "runs": [
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run0",
+      "hashes": {
+        "native.vcf": "675b12a128b3d854982b4ce7e52549465a8a4f4dc02ab0bf4af4d742108d0003",
+        "phased.bam": "ff8a886c5355187c419ef328bfd76c27d8834c4ba5443f4bb0c930a50e358fac",
+        "stderr.log": "f4f1e4de9c7ff6d030b0f984569c00f982dd0d1ffb81c5ed725efab5cefb7863",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4876be59528ecd37c31050665cb363730c157d242052e64b02e4f4df25b671da"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:39000001-40000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/msa_snp_dropout_39m/w39050001-39950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/msa_snp_dropout_39m/w39050001-39950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/msa_snp_dropout_39m/w39050001-39950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run1",
+      "hashes": {
+        "native.vcf": "d70d49153b41948305d440d873f31ccd8b1bbada8b09fb6ea9de0f2ec4ad298d",
+        "phased.bam": "7942fe829e32f7505e1bf1d051d868dc8a58296b49232a231e0b162c2eb996af",
+        "stderr.log": "621b44d2c0e412ef930468024b0ca8bfeb5a865304bbaf0917abdc5437427ba2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4216707497da1d467ba680d28f38561eb13ab2bdfed4a3ecf61a0735dd5802eb"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:54000001-55000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/sparse_pair_54m/w54684758-54702072/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/sparse_pair_54m/w54684758-54702072/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/sparse_pair_54m/w54684758-54702072/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run2",
+      "hashes": {
+        "native.vcf": "3b368550ab49d650d4762a7af4f1efaedf64a7183b8202553fb5a80615c9f976",
+        "phased.bam": "b7296e16a0dafb73b794ea90f5ccbb032e3739c10b817cc93d7a72bf8db5b00e",
+        "stderr.log": "46856c2d00ebe75c09b7d59175123f6d097e7fd0c3cca4cba53058a3aecec50b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "76d85d0f1a4df5aaead9b608a2eeda9c972e39ce0fadbe2f64ab2bb1b3c14cfc"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:58000001-59000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/moved_deletion_58m/w58050001-58950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/moved_deletion_58m/w58050001-58950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/moved_deletion_58m/w58050001-58950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run3",
+      "hashes": {
+        "native.vcf": "fc784a89ca3f3a47692b13a4b3c66a85f27c6b0018d9f42a19469ae1ec293a38",
+        "phased.bam": "5b6a90ab8a650af5720bc157fbd6344d644fdfb150f72a40c8010c4f0be8c726",
+        "stderr.log": "9b9b60a798fb7dcb493f67a480109b536fd9f23cc62bfeccde2661cf75be5085",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0848761a3e44cb795ac464e313cb8b8ea34b853c5a366af482df3551a6d33c9d"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:4000001-5000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/backfill_certificate_4m/w4050001-4950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/backfill_certificate_4m/w4050001-4950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/backfill_certificate_4m/w4050001-4950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run4",
+      "hashes": {
+        "native.vcf": "0bb5e39014d2ca08bbdb9576fe3ab2f383a9b3b769e6b9bcae64c42085036f00",
+        "phased.bam": "fd50f018ec05cf3e90722b68fae556102202c1cd6b6a4008bebaeccef4a287d3",
+        "stderr.log": "0d5dffea8e1ca06a133b178a23bc06eed22b41616ad21cb519f242ef1dadb52b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "71b064d703d3d75519297084c179657e076b0b36938dc30673608c44258bfc19"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:57000001-58000000",
+        "-t",
+        "4",
+        "--phase-matrix-dump",
+        "<workdir>/retry_scheduling_57m/w57050001-57950000/matrix",
+        "-o",
+        "<workdir>/retry_scheduling_57m/w57050001-57950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/retry_scheduling_57m/w57050001-57950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/retry_scheduling_57m/w57050001-57950000/phased.bam"
+      ],
+      "auxiliary": [
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.transfer.tsv",
+          "suffix": ".chunk0.transfer.tsv",
+          "sha256": "01c4ce13e2a6e3f53e755da29458cea44860526548c1c9b8ce48ba252c18dee8"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.bam-overlay-output.tsv",
+          "suffix": ".chunk0.bam-overlay-output.tsv",
+          "sha256": "2942ada0b5da8b564ba8ebfd0d931680337823bd7165059bc41af25207e26307"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "sha256": "40b7ce9690fc374d03edbed360f709cb7931a61060bdd04672898db841f74729"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.bam-source-evidence.tsv",
+          "suffix": ".chunk0.bam-source-evidence.tsv",
+          "sha256": "cdd09cc40c3f970e759c0831c8fb7923f989163aabea6bde7dd2f06e8876b26c"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.whole-bam.chunk0.flags5004.tsv",
+          "suffix": ".whole-bam.chunk0.flags5004.tsv",
+          "sha256": "08573a36915323e324b314dbc65d48a9d8538b0e9e64cfcf4fa0d67ebf827b9c"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "sha256": "1f8538691290808738cf097ec1a5b56c62d9a20aa92186d2640f4f5399e33ee2"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.flags4236.tsv",
+          "suffix": ".chunk0.flags4236.tsv",
+          "sha256": "97ab61b3420f2d30300fad3b9354a1b15603bfbee02a81b610bbab0c8feeeba5"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam6.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam6.chunk-1.flags5004.tsv",
+          "sha256": "38710b6a7e47857b48963898fa568ba12ed752d00a033472b4bd3c2ecefa3a64"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window1.chunk-1.recovery-source.tsv",
+          "sha256": "4cb43087d8e1adc6d854dfa266a021a9e05cdcee50ceb2d0d479a828accb6cc2"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.whole-bam.chunk0.flags4236.tsv",
+          "suffix": ".whole-bam.chunk0.flags4236.tsv",
+          "sha256": "2281b7d1ebd5f6e129171c8feb4c36e5535a6526d5a655f1b2ece0ab98476015"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam1.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam1.chunk-1.flags5004.tsv",
+          "sha256": "b7448c0c411ce1a01c1a608c62c8342c1984acb23a60c077598462a84339557a"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.validation.chunk0.window4.chunk-1.flags4236.tsv",
+          "suffix": ".validation.chunk0.window4.chunk-1.flags4236.tsv",
+          "sha256": "1c9ab4f0a92a134e86c1387a7475b2f49a6d01ef046a0071e4d6ddc0700cb692"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window1.initial.chunk-1.flags5004.tsv",
+          "sha256": "ecae30b33ff5231519ff4afb41398bcf917228e717e9c86a38f5714b094bc5d4"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.validation.chunk0.window7.chunk-1.flags4236.tsv",
+          "suffix": ".validation.chunk0.window7.chunk-1.flags4236.tsv",
+          "sha256": "ce5fe78615783065104a3a2ac52b7ba95bdbf857248231d6fa6df261bc53fd32"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam6.msa.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam6.msa.chunk-1.flags5004.tsv",
+          "sha256": "65a518dcc5a02589b4cd8c416a1d09ba71f4c2b4bf054ff730c4da94b2ab3784"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam1.msa.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam1.msa.chunk-1.flags4236.tsv",
+          "sha256": "28f7cf1d311ed44f734e88be7b91337c303fb06e2ece29a21ab20f6135734238"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.recovery-input.tsv",
+          "suffix": ".chunk0.recovery-input.tsv",
+          "sha256": "40c5eff5fd1c134b267da76c5e5caa7eaff1616885a28cb89a030034894224d6"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window1.initial.chunk-1.flags4236.tsv",
+          "sha256": "2ee120c44b174d64c1ad8142818bf42a4c9b56a30e6e6851a76dae3d2f6c122b"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam6.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam6.chunk-1.flags4236.tsv",
+          "sha256": "b56b671d4d1226acf27bba21a3733985b8889376e3dfb67bfc507dbf5f0daebf"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam1.msa.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam1.msa.chunk-1.flags5004.tsv",
+          "sha256": "c4a716f9c7c49315508ca299e3ace9eef435f7df72018f30b0364bada4969d55"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.recovery-final.tsv",
+          "suffix": ".chunk0.recovery-final.tsv",
+          "sha256": "cbb18e2c46ab5910a4b4735638fa7eb99182d173ec3e47be900c0a90e34f1a6f"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam1.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam1.chunk-1.flags4236.tsv",
+          "sha256": "28f7cf1d311ed44f734e88be7b91337c303fb06e2ece29a21ab20f6135734238"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.chunk0.bam-overlay-input.tsv",
+          "suffix": ".chunk0.bam-overlay-input.tsv",
+          "sha256": "cbb18e2c46ab5910a4b4735638fa7eb99182d173ec3e47be900c0a90e34f1a6f"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.validation.chunk0.window4.chunk-1.flags5004.tsv",
+          "suffix": ".validation.chunk0.window4.chunk-1.flags5004.tsv",
+          "sha256": "af1afbd377b38242e3814bf290d61bb9c51bf37668a6df2a2552c619c1684752"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "sha256": "e641e5aaf66192e9cc3285c327caf251acaf78bbd6fdcf8877ed4e0d5d52d057"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam6.msa.chunk-1.trial-source.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam6.msa.chunk-1.trial-source.tsv",
+          "sha256": "c78e761d3363c026d6d57201de4d95fbd87e9fd1004de27df431763bf19801fe"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.validation.chunk0.window7.chunk-1.flags5004.tsv",
+          "suffix": ".validation.chunk0.window7.chunk-1.flags5004.tsv",
+          "sha256": "552004174e3806e33c4740d29b542808097570dcff4cc7f0555ce023451a3b87"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam1.msa.chunk-1.trial-source.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam1.msa.chunk-1.trial-source.tsv",
+          "sha256": "3354aebcc2b034a5810ca93c41535170eb2519efb6e61cfe573d9f96f5ab8fb8"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retry_scheduling_57m/w57050001-57950000/matrix.recovery.chunk0.window1.focused.seam6.msa.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window1.focused.seam6.msa.chunk-1.flags4236.tsv",
+          "sha256": "b56b671d4d1226acf27bba21a3733985b8889376e3dfb67bfc507dbf5f0daebf"
+        }
+      ]
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run5",
+      "hashes": {
+        "native.vcf": "44f8633f319508cf2656fd5db047dc9c4b33493c01c2ff99ca42ca4218c1de36",
+        "phased.bam": "31c54afd5a35f63e85bf6899495e5df2daf1ac720790120b60afce6370904e51",
+        "stderr.log": "db81c64022e6a50dcc0b1a8a5e32f3cbc276c341d8cb02be3c4921a72b388257",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "893105794d31b3150984c32f910b28b47765b8a59003cde36daf89e4d24945f6"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:1-1000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/msa_complete_transfer/w528850-542052/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/msa_complete_transfer/w528850-542052/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/msa_complete_transfer/w528850-542052/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run6",
+      "hashes": {
+        "native.vcf": "39544856afac5f1a3ff6b368656dfa324cb1c7e621e535f9785ee1dee65e7e10",
+        "phased.bam": "e6afb86f60c8903a1ebeff55a3b3d2ecaa9bda41edbe2ba68ba854931e6272db",
+        "stderr.log": "eab4b6b3a4d54b812158fb3e4d1588a9e048437eb3edfd135b4732ac4797603a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c0d46bf0fad2fa39a480b379f95dd6ff2cff78f9341ed5593d08842634db469d"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:21000001-22000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/isolated_shared_msa_21m/w21050001-21950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/isolated_shared_msa_21m/w21050001-21950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/isolated_shared_msa_21m/w21050001-21950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run7",
+      "hashes": {
+        "native.vcf": "02a55595f0997c8fc7e804226b843215e33164813d72a901d58b35b5f10c15cc",
+        "phased.bam": "31549a8d514ec36eee5c129c8c656b331339cd6bc66345f48e79ae7589ee92c9",
+        "stderr.log": "a9b507ff14fbe099ee19350668177dbac81ef117585c477eccecebaa47d721b0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "44ac4d1e08b13e0e08a8d26972f0599b52df86c57de71a1a58c9f88426419f13"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3802321-3940461",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w3852321-3890461/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w3852321-3890461/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w3852321-3890461/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run8",
+      "hashes": {
+        "native.vcf": "529d3a3d082e6f2fcb08bdc8b6f62ae0f7dc1fd9536708ddaee8790ade668b64",
+        "phased.bam": "db71f13f084168a59cd44136b589d38dc9717c6a26a4e5676406c0db191a5ca6",
+        "stderr.log": "29c5e9f13d32105161b92a982f6046a2a4d6b0c96132b3482b6d1b9ccbf4f8ad",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "212ca207ceb6365219d178af3b449ce572b3e88a1e280bc0d998f2a92950eb26"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:4716928-4842960",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w4766928-4792960/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w4766928-4792960/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w4766928-4792960/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run9",
+      "hashes": {
+        "native.vcf": "420af3b1f4442f66df54fbf494565e6f9a9c0a6f6fcfa4405983e0ad73ad65d4",
+        "phased.bam": "58c885c6c22de295c77c6eb25ff31a8d2950dbbff7d53ea4634bcb50ef1f951b",
+        "stderr.log": "b4ac0755fc27f32cf6540bd1455ad0dea0b028f539bd0f0cc5b58657a61b81e4",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "41f9017405de42ba0c8ec672da399ed24a6d8d1510aa7cb63b08617fa0a3a0c2"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:5259406-5395085",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w5309406-5345085/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w5309406-5345085/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w5309406-5345085/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run10",
+      "hashes": {
+        "native.vcf": "2f8d8246dba7f868d24b9aaf70afabc56caee94ca41c43364d84f7e87ddb3a81",
+        "phased.bam": "86aa11147364ecbb3e50de046954db1f4fd8819d787fee1234a7f429d3566f35",
+        "stderr.log": "98aefa901df6e54f903adb5948bb633fe753f0f955c4aee7f56b94411b52dfe2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d8c06cf38cb1d7aeecb0ea97288a9bc04322cbf910a1a4900834f87150551117"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:22930600-23058891",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w22980600-23008891/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w22980600-23008891/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w22980600-23008891/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run11",
+      "hashes": {
+        "native.vcf": "c4a62079ba18a327d778db86d6c7c1f2cb1e3e3d0b5c3070d282aee6f49db1cb",
+        "phased.bam": "0177f35888711972c4ba0d09853556de7ad76a89e36ec71ee84c93989310cf40",
+        "stderr.log": "e5b4245f4e4273f556a674ccedbb475e13a10ff7948fc08f5addafb3d2ee6d5c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "2a34c0a7d805391f8b7c58ace88d26fb2477c24776e50016e735714e876fcfc6"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:25979591-26138679",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w26029591-26088679/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w26029591-26088679/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w26029591-26088679/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run12",
+      "hashes": {
+        "native.vcf": "34dce74cbaa028fb5c68ced994b2ecd56fe5dd2cd2c2ce2fc7a35199cd3a7f21",
+        "phased.bam": "84c61d180f49a98715a24463eb7b33b90b155a021932c2f166db5b611969b809",
+        "stderr.log": "0c3f7d3d4967df3b440232e55ac8d216b787b7fcdb5f85a81f94321b08ec4bd6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0e7e744a418ef1fd0b33cb8ebac10238baf26c3073bc0fe3d948b585c6170520"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:59983052-60108235",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w60033052-60058235/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w60033052-60058235/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w60033052-60058235/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run13",
+      "hashes": {
+        "native.vcf": "a47400f07af7cec806b1ebf8718720d4d51ab9650ce03742d871c41245a5b7bc",
+        "phased.bam": "3a3279116aa07ddcfb61bdfc0d5c3d8286ec9fbf006bd3028ed379f8faa1a2ed",
+        "stderr.log": "fd4deee29d0f942cf5365802af78da8d502fd9fd57fd88b217717e52346be5d9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5622e62770dfa9cefc0b8bf5ce1f872b9832c0a7fd8a0fc2297627822b117786"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:6528161-6632248",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w6578161-6582248/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w6578161-6582248/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w6578161-6582248/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run14",
+      "hashes": {
+        "native.vcf": "a891a26ff0611bcae415e9d95f9817e4f3755b9503e34bc7dbfdd497fde85fc4",
+        "phased.bam": "4556d3e73e9bcc1b6c00b81e2756df03f49ca9b1a7d2c42070b5dd17d3e4ba29",
+        "stderr.log": "aae3d8c05f9437425e307ac7cbf2eb4c5edbbfe1170f264be9d3d12351203eb4",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ab079adaa5832f6972fd9a0d6ca9eb9c89fe534eb24cadb1f0dfd0ad0b3cd1af"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:6000001-7000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w6513891-6516221/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w6513891-6516221/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w6513891-6516221/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run15",
+      "hashes": {
+        "native.vcf": "c1fcd9ef284d8966b078169efa6e275d2b9fd2779102d8c41459ffe1aebb84df",
+        "phased.bam": "2d66afe21b354981245d672a484c5808ec23b63aad2ab1af6fe2cd96b73833d3",
+        "stderr.log": "0114f465d3912749619f6ec2bcaf14451b1148683cb74bbfd63449343c7684b6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "838608f05c51473f4eddef21dec10b1d685987f941815d86b065b6ca5d59b5a8"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:11205370-11312360",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w11255370-11262360/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w11255370-11262360/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w11255370-11262360/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run16",
+      "hashes": {
+        "native.vcf": "b72f204104a3eaa224fec4a0ec012efc838e5115c3a89c02d6efd54ac1d33a85",
+        "phased.bam": "662f5b5ff19fb8433a70d75e7c39810af531488fc5ded06f4d5d75036adbd7da",
+        "stderr.log": "4be99bee6aedd1b3a30258c1c2ab93cc239fcd3a0fdfad644d42f4989a4bda14",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ae918fdf2f33dccdb1430d4d649b7b1567698f496eea53256459c21f90581dc1"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:12219536-12327077",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w12269536-12277077/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w12269536-12277077/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w12269536-12277077/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run17",
+      "hashes": {
+        "native.vcf": "5dfa17127391eec45418f739826dede14262e3f7b08232559b80a9b0e856bb7a",
+        "phased.bam": "0d7b0984e794139be32af964f783b1acc80bc5d2ef213ecf4fb1759bcbe3f6e8",
+        "stderr.log": "31e75a0adb5f0d2a1f977fbfce2f01cd680ea405f745940076a5199caae4afe7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d7e2e75cbcf2ac1a0e8d181a3921dd4948163845329c428d2f5e0a0132087673"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:15045642-15151261",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w15095642-15101261/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w15095642-15101261/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w15095642-15101261/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run18",
+      "hashes": {
+        "native.vcf": "4f1f8a27ada25a1dd7d9fe0758804121bcb445f5610d2b75c7957e3b371a10d8",
+        "phased.bam": "922428ef3d031fd9650c7eaa6a894db7f93b911c2b1a6feb168222f64ebd4cfb",
+        "stderr.log": "6931ac367bc7192ff43fe246c333c98285decdcf4114849547d0acd39a4cdcca",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9c3783e625bab5b9edb2e3822c063206c81f1b90662414228266b84c43d5a06f"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:48175787-48279445",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w48225787-48229445/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w48225787-48229445/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w48225787-48229445/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run19",
+      "hashes": {
+        "native.vcf": "629c3ec09913a4e06dd7cbc46d9ad6853ace5047e5473b4a2093aa1a0711102c",
+        "phased.bam": "91d42e30c179701cf3b1ae0afb7632015437adcf37cd6d9234d928727a704ad0",
+        "stderr.log": "079be944d58864eddd13a12c0034c259663c8875c8cef34a681b44bc2e6c8d7e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "77d5c91d0351ced65b668eadb427c09029a2d9d3c4003f94ed90f4cf5562809e"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:56100368-56206525",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w56150368-56156525/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w56150368-56156525/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w56150368-56156525/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run20",
+      "hashes": {
+        "native.vcf": "5eb95fb9dec4c5e2c852b1060e51556d3115c04b098f2c4531885ce7d8df1054",
+        "phased.bam": "d65289c3ce24cf5466a127c74bf1971323d7479072c40d062afdb39c096bf7a1",
+        "stderr.log": "f7652b6d8f3a614e88e02480014ae8549b8f93b825983427bfded53acb13f51c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "52d09ed3fb2397f6f31a3ee3182849177d28e5b5172327d506d089d9226613bf"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:1036625-1160921",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w1086625-1110921/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w1086625-1110921/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w1086625-1110921/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run21",
+      "hashes": {
+        "native.vcf": "ea147738aa3d7ad797afbcc913e209c48ed7b0ff70d76e87c3e3ffef75c58188",
+        "phased.bam": "185738a2d5b2ed9b40abe5d21710812e0a1d1671f6784cebf7431cdd09368e68",
+        "stderr.log": "48eda56aa39e68b262dc7e0cf186e8fbce52d8bbbaad53d0db42c8e217865d8b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "7f7f90526d66a491b9af8ca81a95394b45fbf9d7cfb79be61a346a6c643008a5"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3523979-3646663",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w3573979-3596663/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w3573979-3596663/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w3573979-3596663/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run22",
+      "hashes": {
+        "native.vcf": "fb2839a2298095738eb02d39a6652a2b5bbefc14175a9adf90484e7f070ba403",
+        "phased.bam": "d700e27f57bf6bf55109955d4243878881a9cd3acdcab6b0f538ee7fc750b086",
+        "stderr.log": "9e37602b48d7a73021ed5f35fae421dcd0fdba3227651b6ea2679542287f77a0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "de6aafb2e6094f828caeafcc4a1861562ba193ac39b167b31d0d426e331f2a7b"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:20825468-20945876",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w20875468-20895876/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w20875468-20895876/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w20875468-20895876/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run23",
+      "hashes": {
+        "native.vcf": "65a68e6a2f23a5b1a53ce8c3344ff1ed885d61a45a56b4cfe220e5b402ad41a8",
+        "phased.bam": "c01ca04e0aaad25633b86872e20440e71824cd11e51b4798977e5a3256ce71dc",
+        "stderr.log": "5aaaece949941a33f049276e22f9dae5f8c63dc08ff8eb7ca11648c392ce6812",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "da51dff009a1688a8108d8a79f87cbe4ac8d444725e02cc3665fc282dbd0a0c4"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:21686539-21807517",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w21736539-21757517/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w21736539-21757517/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w21736539-21757517/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run24",
+      "hashes": {
+        "native.vcf": "7b1fb69173f90c91fce3343cc39a68e3e78e42391cafa2c1a441ef775331192c",
+        "phased.bam": "15427509bc8b2768fc0193562410a6f059cc90334817ae58df7625858a4f28b9",
+        "stderr.log": "4de84c228dfcd067df1b60c82e588cbd0e7d67b7f09042b905f2ad834ff85a54",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0976021d81b5432cd91cbf4c39395a41dc99ba5fd7419ba1a2137ee1526e2fc0"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:24307615-24429633",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w24357615-24379633/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w24357615-24379633/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w24357615-24379633/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run25",
+      "hashes": {
+        "native.vcf": "cf46c956e633f8a2945919d84ab5f629f34fa400dae4244e18f91be0c82171bc",
+        "phased.bam": "0991b3ceec0208807f6a17913895540cba90fdcfe20c51d3bd8d276071475cc4",
+        "stderr.log": "60db9521f4057aa33bc4c76bb5e4db7fc9da997e75424de59e2d7fe8e024175e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "fc87030ed8ebeb3e220af1af3443bf30f9195b21c5ab8298ba66f73d2b94f574"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:24531764-24651281",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w24581764-24601281/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w24581764-24601281/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w24581764-24601281/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run26",
+      "hashes": {
+        "native.vcf": "d29b5483fcc7eff546550ae2f2b116e26bad3c895ceb294ee5887667a87fe5dd",
+        "phased.bam": "f76c09655e2c1c2a3a71d4d05a2b7079fa736e88b3088d27bf3ace34b05db99e",
+        "stderr.log": "fdbc1ab1283e5c6d072864285f3601e6b274a885b381c4defe31d3ae12dfa19a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "a0bb99b8d017507291e50016e83bc4fd9a3aaa38485625a356ce746a4f6460ea"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:41850800-41969471",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w41900800-41919471/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w41900800-41919471/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w41900800-41919471/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run27",
+      "hashes": {
+        "native.vcf": "481dbb01430b94cc9ab82f2b9611c15c6e0d3801dcf9b7e06cab5fa125a024eb",
+        "phased.bam": "217c3f8f11232ae50302bed9da33851976d3373e69812b263c14d0ec3e0e0f16",
+        "stderr.log": "2209dae0e3a35b9165489d4dab63a14041199d55e94a16063608acdd3825d769",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e0f6756dc928d65bf96e960dfcaca63da139cc6e77c1a4da992fa639759cadfd"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:47586774-47709910",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w47636774-47659910/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w47636774-47659910/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w47636774-47659910/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run28",
+      "hashes": {
+        "native.vcf": "e8120f0eb35081c8c798cba28cfe88965cc9c7eb13930b920f4f6771f05b1fa4",
+        "phased.bam": "ef9856fe55dded7381a4d8cd4404a4af208d80d2582ef8a67292ba1c81186dc8",
+        "stderr.log": "884e64341b7390ba93d15ef95389ae901d78f9ad50d70ee53c6166a67956eec1",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e204a1220c530ba1a295d756709d59e2f781d612f4a0a46bdc70fd0ae3da4571"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:47972132-48093584",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w48022132-48043584/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w48022132-48043584/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w48022132-48043584/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run29",
+      "hashes": {
+        "native.vcf": "f4ef44f4d7c89dbd10f623a73d7bdfcd99c2fde631a0c0f04871b1cdde099f54",
+        "phased.bam": "1cd3162c17f231bd34e383b588859564ebaac920710b7a3f9dd145d3a4edd3e4",
+        "stderr.log": "2cf07f18bc1bd2eb8b26bb368d25f7f1975ac96267b720f124fdd0d4cb1fd85d",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ca15d498d04be81ca850d1ef0a015ffec4c480285b74dfde6cf5d0ad1bf7a0b5"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:48000001-49000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w48929511-48950388/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w48929511-48950388/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w48929511-48950388/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run30",
+      "hashes": {
+        "native.vcf": "a76490768f4e8ded3dc1b3158dead2debdbca764e0a34ac47a6af85dd401140b",
+        "phased.bam": "1000fb2593a7a5e0801c64086e05c99f14acf435e098c15e9f3eab274ea9b6fc",
+        "stderr.log": "f3fd867728ce7f12c00c3f9e3e3fadcec678fc8272a4bf4742c2822071c6b87a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ad72ddf3be81c42741e78b5e25d730ff1a16a28a44a3b3ad1b6bb201cc1d89ff"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:56000001-57000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w56064697-56083708/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w56064697-56083708/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w56064697-56083708/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run31",
+      "hashes": {
+        "native.vcf": "f980cf83106689e97a8356c966983af0b8cfce62fb24dc7aed868f3e24c4339f",
+        "phased.bam": "a44437903049c169c72600ccb11c16f73d58e8052f99500da6b43167253eaff4",
+        "stderr.log": "56379df94d034c67f8f413dc0f7ab42d0cfcc405c835562564ba0873b899c15f",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "09f48470c810c997e06de16612a3a3855cc62563650cfda5f4b16d091d395f80"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:56273427-56393002",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w56323427-56343002/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w56323427-56343002/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w56323427-56343002/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run32",
+      "hashes": {
+        "native.vcf": "303da84c7e08b30b359f576f154739ebaf13a247d66007beeb256925de987951",
+        "phased.bam": "fa07928353cc5c645d83184a82a90c0f653a7edb3f2176c84eb95d976b865195",
+        "stderr.log": "00fb10f8de03d8d21afe2b5001a389ce328f8dc545958f1c8c966e3ebaac9cad",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "038bac03b78ae366e78238b359ef263da8d393e76e85a68f59928b2e2426b739"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:61614136-61740751",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w61664136-61690751/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w61664136-61690751/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w61664136-61690751/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run33",
+      "hashes": {
+        "native.vcf": "8f958a6548a4a8329c37b495a77f041df69a28580b37d9dbe4fad1497bc31235",
+        "phased.bam": "2c24cd73a4b066794299770f77c9fcb65b747a19ac9590c4bde68a44ca80f253",
+        "stderr.log": "87cbd07ef4483f8524c7caec717fc1e01e7aac134efab490082d75bc5d7372d9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b3fa4d698b0fc587b8757ad76231df8732db0ab9e08ce1fc1f00f9de97758c76"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:63895865-64018892",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w63945865-63968892/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w63945865-63968892/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w63945865-63968892/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run34",
+      "hashes": {
+        "native.vcf": "4162c46edc9a2e1638f4f8aa1a64e43f1f1603acb3fd820559f0a287448179e4",
+        "phased.bam": "1cadf227b6874ec8ef5a31361246ecc605a9eda969727c0b0a4e6a152aaea932",
+        "stderr.log": "e562de50ae7596282cf08a24ffa32937ad19f6291cea533ab2ace9ce04647fb0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "27f4a7231e990a82abe714333d7f92804d2e4ed885fb10edb5d9f1fff6cac085"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:32300001-32500000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w32431751-32432269/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w32431751-32432269/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w32431751-32432269/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run35",
+      "hashes": {
+        "native.vcf": "40a50cf7ca812d04660b1da45eeae9532c636877bd0739b15987c2dbe477c847",
+        "phased.bam": "c218255011e8979a23045264ea43d111667dbaabe653f9caf5af53d166be3f62",
+        "stderr.log": "538a70233a3c361023512a4be8f83bbcf3332a41aea94042974ec8bf5fc9db5d",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c743d921962c646026adc5ec946f9767361f919b5f2397a4cf7c059e72d2ed5a"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:38000001-39000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w38331110-38333011/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w38331110-38333011/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w38331110-38333011/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run36",
+      "hashes": {
+        "native.vcf": "29578364a7b9d9524a88d83832601bbb6093df1b2eee030027acb1e91f5212a0",
+        "phased.bam": "c0e2972c7709aecc2980a2cd84526ef5a90dfdd76c7e02d708cc6d3ccd79edf4",
+        "stderr.log": "c91beb1feef7d856fd84864ed876c7540f4076d8ca1f234ef983af7cd52be9da",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "f289789937d0fa6e39b4195abf967f7e6d20124fccb79142bdd4beb173f7cbe5"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:1458171-1573721",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w1508171-1523721/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w1508171-1523721/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w1508171-1523721/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run37",
+      "hashes": {
+        "native.vcf": "3a56547a68161817e8f1123af393423fe16e7cfc22c52cd1f591699e6e5d8a54",
+        "phased.bam": "233570421ff3c28ec321cdf9b756b7c8a10e49d122cef44b8f2e5ab3eaa73194",
+        "stderr.log": "a5d28906a3182a74fc03b75a4acb7bc2490ff16b619d0830eb4bd7e5ee65d570",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "4d7f6e3ff9b048ad64297d122106427f11d7d05995e41e70ffc22a56a8ab4be0"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3479324-3592977",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w3529324-3542977/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w3529324-3542977/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w3529324-3542977/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run38",
+      "hashes": {
+        "native.vcf": "25cc6aa50e78ecc6d775bfb3e4fbbc607d2d120f70f0ee710eb9d56fa7b1c571",
+        "phased.bam": "d87ac30a23cc07b9de0efd65d13769a8fd3d9df1962a67b574e3aad9af0cc497",
+        "stderr.log": "6abfa33e72a66f1f78e2824803af1b7b4e4d5f76c38ca38f17f51364a1966c75",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "92e628ad1c549733f526040b235a06bfbb401bb96f8d1d056cbc78b8022eade2"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:7000001-8000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w7047080-7064047/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w7047080-7064047/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w7047080-7064047/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run39",
+      "hashes": {
+        "native.vcf": "d53fa0d34c59d04eedd70abf2384bd5406aaca40e25c32815084c6d4a7f3e475",
+        "phased.bam": "d7a2bb06c51ff83d02aed8bf1974293b24b076cd1fb08d56abad32ef3f179328",
+        "stderr.log": "33a5bc8aeeb3467dbb8de4b230e0c5b5dc63f968e00b4fe703fd3c5fbc5f770b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "eab5495d770214d68132b679bd6f0e18cf83cab370d5d9cf8ce97e6c7d3749de"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:8588940-8712670",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w8638940-8662670/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w8638940-8662670/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w8638940-8662670/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run40",
+      "hashes": {
+        "native.vcf": "ef61abeaa0c38c8c6dc80f26f2aa9f66b07d76a50514234920717d6fbce538aa",
+        "phased.bam": "171808fbf43847cad61da02cf0beb328d50f2d4318b59e2b5d1b615b058dc498",
+        "stderr.log": "7e841a3d67fa51d9036e7d50ed153da8a54c0f801f91123437476b58dbcdf7eb",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "44be5f1d1c249847535edcde903c1d474add65937efecaf188fa299a5144aeb4"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:13780800-13894727",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w13830800-13844727/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w13830800-13844727/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w13830800-13844727/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run41",
+      "hashes": {
+        "native.vcf": "94b51a042aa5e67880fe03316dad3a011d3de0fcd82b5cde8e78b65038d37ddc",
+        "phased.bam": "24b6bb6f9d18c7c30973e4c2a926fb5a05a5804b701532ce10cf858ecbb4b43c",
+        "stderr.log": "1f179fca3dbc087a155dd80aed9cc643003fc3141297485021e7361f7d627fb1",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1c05e8f2e2fea874eec3fb1b4c5461cbdc98800546280631f15a14f8cd2c2835"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:15006025-15121132",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w15056025-15071132/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w15056025-15071132/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w15056025-15071132/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run42",
+      "hashes": {
+        "native.vcf": "763632672a0121ba3ed48bec45076c1c5f1e7f74295f2dcf9f89d370f5113e2a",
+        "phased.bam": "5e5be49edfd33521334976081ded925e66c0baa982d99533d6bfce978f99dd7f",
+        "stderr.log": "1853e5ed033a5e988ed8c1248a98440519d5ca2c801d646d908f7e81bae41c42",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3770ca8e10ca2359b3817254298820d0b9e9f312e8879c061e5bc4ca8b2cfb42"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:17815146-17933198",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w17865146-17883198/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w17865146-17883198/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w17865146-17883198/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run43",
+      "hashes": {
+        "native.vcf": "94e5598e22853cf99cdfacef3e34629ee89db9015e795e2b2922df6f2fed2ded",
+        "phased.bam": "764f888fdf13556bc2ae825e0bb3d077e119232caeb6d50de2377c1d01099a30",
+        "stderr.log": "db5119faa4452bd55dbb1e5188a861b3f2b0832379a44867ec895c77629c9178",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d3cbbbbf6352192863baa415b0349a31685f409fd7655953be80983ec3c84008"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:18933414-19049993",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w18983414-18999993/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w18983414-18999993/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w18983414-18999993/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run44",
+      "hashes": {
+        "native.vcf": "ebe54af5c1d77404405864ef400846492d46424068e21b7344e334e2d3ec2c5b",
+        "phased.bam": "80d90131cb7401f99694b5f209e20b05ce481c75069484c9d47c9d39887f31d2",
+        "stderr.log": "8832b19610062b5265722675eae6abe8f0efdec5e4c772abf8cfa1e9173206f8",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d2a43371a2f73e5bd2dbf10c8e2405dcfbc99c93b53abd762280ca6c5776d528"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:23000001-24000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w23421003-23445252/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w23421003-23445252/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w23421003-23445252/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run45",
+      "hashes": {
+        "native.vcf": "57d50f1f8ac2c8b61745ef451eda7259e228c23314e833e21cf55c37fe0c43b0",
+        "phased.bam": "325dccdc520b2f7b0b01d0ec5877cf680d8ecea8367d6fc5ae1f19cdd524d466",
+        "stderr.log": "d5189fc5eed1a521e25bcaf289ca9357fbcec87f004616a1f5fcf1f8526444e4",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b20d7f5f0710a0b2a5b3dd067b73cb4a42fd4330ddde74cecfbbe463a8f7863c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:32165055-32283534",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w32215055-32233534/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w32215055-32233534/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w32215055-32233534/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run46",
+      "hashes": {
+        "native.vcf": "244092b9bbc5c2748a3bba579c3ba7d47ca0329c376268f01431dd7068a274cc",
+        "phased.bam": "37d7864280f4eda62db4836b69ea975faacd5f4795b6f1ab91ca4b5704149e9e",
+        "stderr.log": "3b8c7c577f8e912493b7d28b6c4902650dab02b89b482b19517b81e1ef8a60cd",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "33c3690cfe739406672b0add3be0e79f4cb80738d0f3acbc4d894f6d4fbb0fb6"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:32000001-33000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w32234664-32246127/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w32234664-32246127/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w32234664-32246127/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run47",
+      "hashes": {
+        "native.vcf": "2e6cc7862835b922348f27fa0c28bcd8507eeb119226372eead0678e12ca6c9e",
+        "phased.bam": "0615d7ed53b787ce790c12e21334ff86ab89a1d2770b50535966fb7ba6e1de78",
+        "stderr.log": "f3023f5080352466ef71de0da6d24d219e943b387fd6fdd0236bc0e7c4523195",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d66dc3e8d6b54442d1ca60d1ceeea71148a91a2c680ea32868dce00c2006b58e"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:46000001-47000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w46727050-46748667/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w46727050-46748667/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w46727050-46748667/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run48",
+      "hashes": {
+        "native.vcf": "239c0f04be369b5e43d1b016eed64b4bb84feb43e1542922e2fb613fac17edce",
+        "phased.bam": "2c45c752373da8a2a954e66b7d9fc8ed6514d86648924aa1920ae4c6eb5dcd4d",
+        "stderr.log": "e5dfe8df52bcf0f4283272d59b11eb37eacd278e93a0b25687b11a58a0797141",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5a321ff1e5d01a2e8d08821ff7f37fcabe91493dd9d62728a439536278f0704a"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:47000001-48000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w47003897-47713869/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w47003897-47713869/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w47003897-47713869/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run49",
+      "hashes": {
+        "native.vcf": "dc556447d2f0b12b7b2490bab9c171ffc120bc4bf0d482bf57ac7d47b5cb8ad9",
+        "phased.bam": "9a65940f072cd4ec926d4e93795d14f9e47640b2479b4506758fc85c31e03d46",
+        "stderr.log": "2a7cf0315fef51bd0c31f761b5393860d281644d895659e1ee77ee34a09cb029",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9d0b3ddcab357cb53153bb5c2cdf42815711ae95f12caa2ef54f44e71c8eb313"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:54497514-54619072",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w54547514-54569072/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w54547514-54569072/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w54547514-54569072/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run50",
+      "hashes": {
+        "native.vcf": "22bb9e6e8a73739d45384771ba8b58c0180d339f8bc6bf3a5189314b31e8dbb7",
+        "phased.bam": "d882bb66d34094e0e450b7f6c8626425f26bb16fa1b21f407bac7c05b6a63f1c",
+        "stderr.log": "5c11aa3ee21ef5f960dbf90099a53dc4f5a814c9cc944f9e4e5f37afdbf80ee0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9032daf471719f0fef5090e0932551fe7953b215c16ce0cba0f8e6f86d4631e1"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:54844127-54962022",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w54894127-54912022/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w54894127-54912022/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w54894127-54912022/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run51",
+      "hashes": {
+        "native.vcf": "385ea8cda059be61f24ab694b1f83ad24aba8f06e94e861797741fd3feafc791",
+        "phased.bam": "f6bf97e5bf2b29c66d36c969243e08f4cba5985bfc144c9f70605460b829701c",
+        "stderr.log": "0a0989eae7094b1200b495600b966c8af7bb52b9b7bf1883064f7af13e5f3246",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "106e25c058ca54f536917058da36b5992dcb1cfdc4895598aa6be3cd97c55bb8"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:59775454-59892960",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w59825454-59842960/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w59825454-59842960/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w59825454-59842960/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run52",
+      "hashes": {
+        "native.vcf": "34dce74cbaa028fb5c68ced994b2ecd56fe5dd2cd2c2ce2fc7a35199cd3a7f21",
+        "phased.bam": "36b7af9afdef125fcea7781bdb41e1ad59010cbac23aabb74ed59c287fea9181",
+        "stderr.log": "4f2c6d22daa69fa1c0a15c5f722677ac8fb39e986b8420c1613d07b77acf784c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3e032af1c1defc908187c0588130a9dc4f5a4854563778732923cbb22a1ca03b"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:59983052-60098237",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w60033052-60048237/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w60033052-60048237/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w60033052-60048237/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run53",
+      "hashes": {
+        "native.vcf": "3c8a5470d62c39697691c65c3c69e557aa3b857d7a432eae1142623f4e862c36",
+        "phased.bam": "5228fa251918a86f51e7531a1b50e8cc60cbec68ebf548d08b30e7f3a1060623",
+        "stderr.log": "2841b8173d8ff561cb6285b076182af46e572a38769c919763f5df6bec5b3c8f",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8059bc84d25ba608f354fa1105bc7cb24a666de174007bc32fb76af34a528787"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:60403499-60517115",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w60453499-60467115/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w60453499-60467115/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w60453499-60467115/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run54",
+      "hashes": {
+        "native.vcf": "19737c9cc6171ac2a19da8cb20a8d0f6d317ddcfc2fed3b2103b295e46aef626",
+        "phased.bam": "123426edfcd14cfa1742e99846f980ffdf4cc8db584e33e8a88912295779a90d",
+        "stderr.log": "4a496a4853a74dc444a6ab4f5c76a05fbb54304fec776329825629500cebea56",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "947aecfa88d339b007eb59ec6b087ae937080c937f9dd94d6a0f518fd08db99c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:61697506-61807551",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w61747506-61757551/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w61747506-61757551/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w61747506-61757551/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run55",
+      "hashes": {
+        "native.vcf": "6a070ddaa7d3a510e5285ac99d7d5cae29567fbb6b83e7056d68b316670ed562",
+        "phased.bam": "c2971d3d55b949e924d6b8c711a0af92827a34f5ed864d8beab124420e958fab",
+        "stderr.log": "764478785c2fb777a454640a2d9c24486312636d8268b9ca79b77423be008704",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "09a40ef778cef1bdebeebceb9c8c55a243b9b11c45520af673b918f047d3eb59"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:61000001-62000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w61757551-61773799/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w61757551-61773799/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w61757551-61773799/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run56",
+      "hashes": {
+        "native.vcf": "159a3e9b86214ca7120eac79ded6a9b0caae748029886cc58b8e452b9bf56af5",
+        "phased.bam": "9ba9df2c1049d43f5c83b0137f7e50e9ee1f917eb2b27be1daa03e7059048683",
+        "stderr.log": "03a31c5fef93813fc37e32d229c13867cd7d899377c892b541e45e6ce4217f85",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "beb885d6783b8eb5170b01b3933f0a781d1030e844977324de5cd7702255554c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:64000001-65000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w64144256-64144722/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w64144256-64144722/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w64144256-64144722/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run57",
+      "hashes": {
+        "native.vcf": "4aaf3ee5bd6b01c73f3defa4c29b8eb144f37451f3dfe4ca8f849b885841ca86",
+        "phased.bam": "642f762cff489a58ec74f4cce1f53c6d4d1fca17332544f7153d5c8d236671c7",
+        "stderr.log": "ded8d3044aafb46f8f531a3470e8783b24c7460776c4b1b3d17bec2199b23aee",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8eaefd6b9e3e6844a72720ce7cea7e74e24b3081980946cf891e43b41a6b015b"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:13000001-14000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w13784702-13800824/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w13784702-13800824/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w13784702-13800824/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run58",
+      "hashes": {
+        "native.vcf": "91c9132c554d4a2713b7b98cef9c67129a0775a48b4b22c38442b56a4c9ccd4d",
+        "phased.bam": "04f84196fefcf44601faa6d9b9b9378a51e32b9f48e1f9e3979e854093484387",
+        "stderr.log": "727ed76c292379dd61ee6ce95dbad7de351eb2cdd263334d4d45c23c40f84499",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "652975b131c7a00d0e39a43f25edcfbfc183a57d009cbda00127bb6df44eff29"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:5206785-5313741",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w5256785-5263741/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w5256785-5263741/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w5256785-5263741/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run59",
+      "hashes": {
+        "native.vcf": "ed3929c1a736856ab520f7e29620cbc06be6c7f0b1ea637c831394b127e6793d",
+        "phased.bam": "2383bea79d63091b6e7f57288531bd71d0ec1f6ccb8dbb8f1f0ec03f08f5b933",
+        "stderr.log": "df5b5e787a5acebacb4673003c63108fa7dd42a94c6946e3968c96b1cdc94769",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "02b14ee1149c5c75b58e0543355a8d29c38e8075a50197d3684d51ac4bc54c6d"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:12000001-13000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w12256072-12269535/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w12256072-12269535/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w12256072-12269535/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run60",
+      "hashes": {
+        "native.vcf": "5c636bb5ee98c9a495da168549b125043ea8b28c8b9e2b073e5954769f734d8a",
+        "phased.bam": "e6538712a57f7ab1e8db9f72cdca193bc04a9d9316fc202c530f22b1f54a3df1",
+        "stderr.log": "e9b70404eaf1e45b28aa820cb6a9356f0084c753e6e107638516b29e6873276e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "70e405bc28c530023932f9c8407bc6f266bae610ca681c6fd498e17884c7ae1a"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:21773066-21894359",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w21823066-21844359/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w21823066-21844359/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w21823066-21844359/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run61",
+      "hashes": {
+        "native.vcf": "6f1358b4946df016e714488f98d4ff0661d2f9db3bbd36c5b1d682cc3f23ad3c",
+        "phased.bam": "a0c87bad832e76540d61fd18f29cfc35594c76bb27a706bdcb9c552865ad6841",
+        "stderr.log": "3479d161683c0c58e8af3bf10dfb779b8c349274df5d0c6372aa6ec1240f8fe5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c309dc4647ab85192cfb46be08ae82c958c218f567cb1801adc0f5293ff45098"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:35448368-35566845",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w35498368-35516845/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w35498368-35516845/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w35498368-35516845/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run62",
+      "hashes": {
+        "native.vcf": "dc4fb479bef742b79abf2d0419e8dd70765f429963afe135dacfd00fd78693a5",
+        "phased.bam": "c9b0abc48d832d3a17481b9c5346cb4994770c95797050be0d976d8ef486e61c",
+        "stderr.log": "0e61720632f3de55a8065c2aa8fbd9c916c272971f4e1e70e3c92cf7a82c7d1b",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "afdae69e5335c8ae500165bc1ef81be36397650db1ab519524ae88b2d9593dbf"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:50000001-51000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w50548245-50562066/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w50548245-50562066/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w50548245-50562066/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run63",
+      "hashes": {
+        "native.vcf": "9d3a4804173c95524431e17ab6ccb81c2e985c48f91fd2efc99ce7a0104af085",
+        "phased.bam": "448c755e95b70ea317788d1b6f9b77038f0975786c996cbc85280027c6c10875",
+        "stderr.log": "897893395dfa292ea2795cbdc68a8647aff64946e8dd71190fe84577919f1106",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0bdc31cc92e05494054df4e495809c0391929e3b76a68631659016276b88322b"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:19000001-20000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w19395544-19403172/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w19395544-19403172/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w19395544-19403172/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run64",
+      "hashes": {
+        "native.vcf": "3f221e6b8ad8d36cdc00677cfc8e273552376a9b8fd0ee0630e4aee77a0add80",
+        "phased.bam": "c31354677fc9b96edfa70cdc5a87d6bd082a7a96410d27cfd2ef73eef44f1819",
+        "stderr.log": "6d1c7b169baa5d122293a7ea192aab32ed4426f30d228d07e22b4d787471b234",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "880905556aad6f81b10312290be8c2fdfb3668589e177c5413bc48814e0576be"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:36000001-37000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w36611593-36620864/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w36611593-36620864/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w36611593-36620864/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run65",
+      "hashes": {
+        "native.vcf": "1e99bbe6ab6e765c95095e153082846d1e9dc073c248922fbd206466b78564bc",
+        "phased.bam": "b4b69c69d4b77098f39d2819c804e01c760302bf511e3e4b277c88b7423dd4e5",
+        "stderr.log": "b58bec0f779c34f88b03fff0adc68d14a632f79e3983a2ff1ebfad9e26aa1463",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "04a80383ed3e08fb60a690a02aee760053196e34427af4a2d3bd29682ff48a63"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:37000001-38000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w37458817-37461999/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w37458817-37461999/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w37458817-37461999/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run66",
+      "hashes": {
+        "native.vcf": "b5263d5f42703d00e25976df1cfb121cb21ddd88b2411525d42420a69b95a7a9",
+        "phased.bam": "3b0a9fea6d3fb70abc4ac35a487adfaf43ae73ddbb8b4de453da2d680d57ca14",
+        "stderr.log": "9731f76b88ae91ba747f645685ab956270aebfe3d378519ca4b2cdb4e88154b6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9ead0e1deb82b944d2f285df0f989530fd4f8f49e81d0aa25149eed4263471b3"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3913987-4031464",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w3963987-3981464/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w3963987-3981464/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w3963987-3981464/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run67",
+      "hashes": {
+        "native.vcf": "2a81db6aba5af0d404e6f1f57e307a91daa25872a83f5c44b770b1f4d7b7c1ac",
+        "phased.bam": "88eaa0c894726d28569eeb6e3a50a1d5a8da90971739f4308223a5a34ad646c1",
+        "stderr.log": "0bc283dbbb5fdcb44195dce501396238cb8809041d56e10da76fa98cb4b1537f",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5833c633b1549e05c2df5b192f135c32012c0a43652ae34027423a5cc630fd72"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:15000001-16000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w15351845-15367755/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w15351845-15367755/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w15351845-15367755/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run68",
+      "hashes": {
+        "native.vcf": "c6c9b2c72a2e8d656d270febe6aaa5d7b8bc2908e7e18adcc193cdc153dcb485",
+        "phased.bam": "845b079a22974ef88c5cffbb91b6ee8c86740f195f147fc9d31cc82830741f02",
+        "stderr.log": "60abf0e79a8eaead3fed08ee4b39e6835f1a5c4c5891b69e96096b57c96819c7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ae63c243a78e1268ea87b16ba0413ea955cd181b6ee41ff2f9b5b2603f1359f8"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:21080205-21198338",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w21130205-21148338/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w21130205-21148338/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w21130205-21148338/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run69",
+      "hashes": {
+        "native.vcf": "7cb28cf4a39f03ab5c000293c318895c111e8235904681e88fd57f143ede7190",
+        "phased.bam": "dc92b226d87a9a814665ff6a5c3c3dfdcd90d13183a8ade62d52b3ef1a73e32b",
+        "stderr.log": "31625c474569f0a4f3b081283b9f5a3739b6552e4a197ce5cdc444e0145db059",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "990ca0e9555c226feefa042b603c576a57b01359025792f6288aeb06ca36759f"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:23742418-23856565",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w23792418-23806565/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w23792418-23806565/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w23792418-23806565/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run70",
+      "hashes": {
+        "native.vcf": "41925f39727a4751be984d54a3105fbba10360526eaf92d186b40e7dacb4e854",
+        "phased.bam": "3bdf404325b1fe4a629a345a4c39ba67d8a668195d02c84dbb7b9807a93b2625",
+        "stderr.log": "c8123e22d6ad2967f9dc42f3ce7b3d1bc63e0510a3ed7b13971d12bbfa1bca96",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "693f2e83b7bc597c60459c1ec99247f5a11377d29b855cdea7a06dc892a97e54"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:35000001-36000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w35328965-35347817/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w35328965-35347817/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w35328965-35347817/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run71",
+      "hashes": {
+        "native.vcf": "71fa71862359d0113d29310d20f2f018761cff7cf5c4ebb909c5ac652fe2e372",
+        "phased.bam": "ca35175efd8ab823985bd39f42396f9de2c9aa04332c26adc1f3aaeabe13cb97",
+        "stderr.log": "7537ded250d03f5b54fdf0718bc27ce8bfc2b6d17b85670a7ffdf888f0f692ea",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "92d651a17fd5fef041e8b5c121259b53150b2f0320f76a4c660e9a81964722e2"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:57804341-57916713",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w57854341-57866713/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w57854341-57866713/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w57854341-57866713/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run72",
+      "hashes": {
+        "native.vcf": "f9d72e6e476c9cd954f8d06036e544a7e729a1fc1bc410a31795b72a10662834",
+        "phased.bam": "3af7eae79e85d456a698b6a9b090c0ef797ac3d903348fdea03155bef9acecf8",
+        "stderr.log": "094c11fbe591b0db0462b7d695311651f6701ae4fc526de783e089b0a72916a3",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b9966060e0d08eee24a6207badb46de4de0f6dc2efbb43c689f28c6ab1445310"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:58316458-58435702",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w58366458-58385702/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w58366458-58385702/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w58366458-58385702/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run73",
+      "hashes": {
+        "native.vcf": "58e57ccabf30c74a8ea3f16cff6da5f6c5a7e47e31cead9dc4d2697ecdded38e",
+        "phased.bam": "48da20038d589b23b5115f4ffc7c220d01596382c4a8280015c95d1539bebc16",
+        "stderr.log": "83047b950b78013463de35e28bd252cc80393302d40fc7bef95d9ff2249771c5",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "bccf66ff94109ecd4d237ecaf25a5206fc6aaf7b1f9c759139613f98fd6b6b5f"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:1000001-2000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w1180618-1194189/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w1180618-1194189/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w1180618-1194189/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run74",
+      "hashes": {
+        "native.vcf": "65414f2ac9e20212034523f46fd00358bdf2bc0d45b91ba6c77b1f4d9b33b92b",
+        "phased.bam": "e78219423fe8fca28af6c7c1a5a2167ccd1e75f63b290941903e992db0724fab",
+        "stderr.log": "47bf5861ddf2c7c83c8c60434716033a820c40968d229f6f346fbedceec6e94a",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "b922a873a142aa58d8194f6213ef0e0e05b7e8db51ab9809ed09399c0876fc81"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:10000001-11000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w10727690-10746628/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w10727690-10746628/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w10727690-10746628/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run75",
+      "hashes": {
+        "native.vcf": "113eaeac94a108753eb0be0d3bdc94d81db4b522b3d0f5fd12bb8c18d47e95cc",
+        "phased.bam": "6a3e92c52170af7c52455cb91ca57fcd8d5b21bc1d311fb5916b83f9bb2fc94e",
+        "stderr.log": "8bd6ba3b0765a2a596594654b0b89457772efa0b787ba527e91042bc11221543",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1e90d2dfd65127e9b601c3e150fbebdf47969cb42dc8a4c3ff46926708aac5fc"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:30000001-31000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w30673476-30673709/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w30673476-30673709/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w30673476-30673709/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run76",
+      "hashes": {
+        "native.vcf": "bb04eac8925769294c6b08bedd778254f60d6896d85f90976a4c657eacd3c395",
+        "phased.bam": "a8c072f3f1ad21cadfb24b6ded3a2283192bf0099385c38fd7fad48c7bee15bf",
+        "stderr.log": "73397b9285d8453bb33c044fd6becd0f9d3c05eaad492cc9c5cb7fb942a0edd9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "945ca1656f58b2d9ca46d0549b83ecb13a250d20aec9d600ac5731e1138f9f4d"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:8000001-9000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w8166027-8172072/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w8166027-8172072/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w8166027-8172072/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run77",
+      "hashes": {
+        "native.vcf": "186628a5987e004b6380ef6b46626fe45dd9958d8077ed7832b3a6f5177fc9ec",
+        "phased.bam": "30e24bdae3994c412f089da4026c4981c88f77d990ff9119ac3b114a3f16e90c",
+        "stderr.log": "805f79b86c4ff8ad2366a5c9860f33dbd4c722f702af155ab97d718912069cd8",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3aeab9c230a433a8307ab0cf7abf806e740d7e7d96e1d4ae0c89556b0ec27fe1"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:14000001-15000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w14446295-14458292/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w14446295-14458292/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w14446295-14458292/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run78",
+      "hashes": {
+        "native.vcf": "3091d2e1d6ba3c126ab8186f54c5174fa690b9e809eb16e42d689a64c5ab14df",
+        "phased.bam": "964b44f606c543f2fb26966d4800c91af6f08c2a19e5273f790d8e2c7c444c6d",
+        "stderr.log": "e71d4a117128f5513d1a517effb757c83d59c957aeb9136aa8bb0060972bcecc",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "cd10cad03d0c35de2de3e08f329116106be60559fa6527216a8aa80298fd4674"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:53000001-54000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w53945086-53947946/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w53945086-53947946/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w53945086-53947946/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run79",
+      "hashes": {
+        "native.vcf": "4489860f577e8e30048bd34dd50edaec7d8af01ae7f204949f937cadae7d756f",
+        "phased.bam": "d0820017c0af3b43c044fb4704806a0cf6efa61d3ccf94a918c9d72c9fedec6c",
+        "stderr.log": "2bf5fa04d90514a36685d9fcd37fbe71ca2aef3829cb88a0e6ade111edcdf7b9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "5699e8f36e6be9ce19751d3f7a3cda4c0e1be419a23dba3a0b9cb205a45f2d86"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:11000001-12000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w11573074-11586531/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w11573074-11586531/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w11573074-11586531/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run80",
+      "hashes": {
+        "native.vcf": "a1994690e52c1174487bfb104280d9d0258b9198342f85a929fab2e128e4bd54",
+        "phased.bam": "5dafad312eeb1da87aead3cde6362f99990c64387dd12cc8791dc44ff3dfd774",
+        "stderr.log": "d0aa1e97cb9cc6cc2e0db5954123125f2921906825066a74e5d7aaa439fa5f46",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "69abe3220c1c0e38ec75b7c48373aa42ed111798d440fb1b84d3f062395f1999"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:34000001-35000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w34046350-34055920/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w34046350-34055920/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w34046350-34055920/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run81",
+      "hashes": {
+        "native.vcf": "39783c9e75bf30b998e2d8354fa82e69cb8136a1e21841ab9bb90ce89c3de219",
+        "phased.bam": "955cdae09f1ace703b5cf17328700073a801f99f69eab9e9a9a9580fb92de39f",
+        "stderr.log": "9800277df8770519fbeec8a5a0f8b382467d5e550ad2df241888d3399fbe6ab7",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "f99b55d6568612df389832ee23943cdba0125773519a2dacb25adf4344d01719"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:20000001-21000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w20506159-20517197/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w20506159-20517197/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w20506159-20517197/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run82",
+      "hashes": {
+        "native.vcf": "003eb464ed02745ea61f5d4137aef30f0b47234b04cbb7c1a6770a507b977a6e",
+        "phased.bam": "34ff475497e2ef534366eb7c35d11f4e5ab2eb1f8093e66482f79a49f2a7eb0c",
+        "stderr.log": "1cf5abea2cdc13af2dc4411cfbd078357980ebc7e0d5f6e4d907828e7085f617",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d4eecc71f3e9489ca849dd94a163c6d6915a3cba7c70216f18d8e1e1ec3376e6"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:16000001-18000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w17502614-17521341/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w17502614-17521341/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w17502614-17521341/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run83",
+      "hashes": {
+        "native.vcf": "fa7dfd30a9c4f34279e4248b5c8a65ebd4242104c218021e1f0ec4e01ebaac41",
+        "phased.bam": "6d0bf7853313eb38bf1a2c4fdb06b690551dc1ca024b26e5a18a75251bc8f239",
+        "stderr.log": "b7bb293f68a2fc5d6ac1b44f4c4af94bd08ac8166bbcae9118ee0de37b6138b0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6ed938f8f962c9f66d3cd4b9791a2604eda33832ba2bade15ff374ee1bc37628"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:5000001-6000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w5511231-5531924/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w5511231-5531924/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w5511231-5531924/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run84",
+      "hashes": {
+        "native.vcf": "a45851f9fba03963a34c2d5700dc9b87f9ef01301ab7e565c4b30c62be41f4ee",
+        "phased.bam": "023d1a87dc52396550a956c1752c6196024e6b331123e31adadc2b0ac08d5bd7",
+        "stderr.log": "ab9acf7469ebea635b43f3b4089b76dde9ca7634839011b4bde35a7e83bc7511",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9e4cd52aa4e42f2f0b047a76cb7f1fdfaf1b91e09d06911026ec0d6f09a1e448"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:41000001-42000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w41879449-41880908/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w41879449-41880908/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w41879449-41880908/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run85",
+      "hashes": {
+        "native.vcf": "926b30df48e58656495c9da36e427ab644f4672f5ba77edec117f80228742a85",
+        "phased.bam": "12b00b1f6c9b309247f8fc75d8916466fe9481d772c3537054707d2414e072fe",
+        "stderr.log": "52f4a1ea2c20fdbb30828195187f797828d5139eda249ade2ab9fb45332af164",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "515d0a5eeef7c6e314e2a83ebf7fe65d0441d3823304e292f0204c97e0fa459f"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:11185279-11312361",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph/w11235279-11262361/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph/w11235279-11262361/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph/w11235279-11262361/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run86",
+      "hashes": {
+        "native.vcf": "cf0cf97daf16a8ee2067a2be4d463787b89b3a2d3ac649f69521fac58da848d8",
+        "phased.bam": "d349ed507f7d0f06ab3a6bfda1ce2f489690988bc0954153f4379d758b2d6e2c",
+        "stderr.log": "4dd53c09b4f401d80962a35f6084db3f0e70f1bad0069dec09b9138d59450276",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "c5cf8e127f4bba2e266757dbfb94f6e87df3a585a1364e12646b88f3ef7693b9"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:33000001-34000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/weak_source_cut/w33211072-33227050/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/weak_source_cut/w33211072-33227050/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/weak_source_cut/w33211072-33227050/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run87",
+      "hashes": {
+        "native.vcf": "bc59860e0e6dc00e745ddf102200dfcaac71b97c50453f63cdd23d429c083190",
+        "phased.bam": "00337a0706a8c70f4a0b0027d0023ac5c3f5c90ddf7b38ed1dccc9e881d6c9d9",
+        "stderr.log": "da2d7ae42e2f8a0e30e2fb8d451109376a2048c4e1114d7380b100b0865fb5d6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6518b2ebf4efbe641da8a63af978a65949b66cb1eb3de8d6577ace275689057f"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:38233000-38343000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/graph_bridge/w38283000-38293000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/graph_bridge/w38283000-38293000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/graph_bridge/w38283000-38293000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run88",
+      "hashes": {
+        "native.vcf": "3bd8c75ab59f358231e188ff7fe18b6e76d2340f34cff74095f752f552f352a5",
+        "phased.bam": "fb431f9530bb88c2e431c182354f0e447406043ee2af13d188454b4c28c62435",
+        "stderr.log": "dce95e1f646232b9ecd2a65044c2faccc767784128bd66feb9d09f1d430992fa",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "7629840e6db12da2facaa44511a60c1bda8371fbc4a5aa8ca990ca378a1ec008"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:51185063-51312081",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_connectivity/w51235063-51262081/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_connectivity/w51235063-51262081/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_connectivity/w51235063-51262081/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run89",
+      "hashes": {
+        "native.vcf": "ea5bd87be7c00f6b8c809826c02b2601d70c107f06f9f3b41c589a7f7e17a8f2",
+        "phased.bam": "6ce8055e9a21230af92165450d1d950250ddb2ed717f25aed3a27ade4fecb175",
+        "stderr.log": "e232f6efc55911620543ed07aa34f2297bdf2997113caceabe7a578076d1c9b3",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "eebfafd45bd5d1f9e0ea38839bc667940d59d6f3de87f8e1843c953dc6973aec"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:51000001-52000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_connectivity_full/w51050001-51950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_connectivity_full/w51050001-51950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_connectivity_full/w51050001-51950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run90",
+      "hashes": {
+        "native.vcf": "9d3a4804173c95524431e17ab6ccb81c2e985c48f91fd2efc99ce7a0104af085",
+        "phased.bam": "448c755e95b70ea317788d1b6f9b77038f0975786c996cbc85280027c6c10875",
+        "stderr.log": "795e219c5630fbf295ae7f97c95588cf87cbb5d0441f54bac777c2ca6c2e6525",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "0bdc31cc92e05494054df4e495809c0391929e3b76a68631659016276b88322b"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:19000000-20000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_weak_source/w19050000-19950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_weak_source/w19050000-19950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_weak_source/w19050000-19950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run91",
+      "hashes": {
+        "native.vcf": "2fc46c8bacf87c8256e5f509edd19b9ee25df4748992c85fea1f3dded563511f",
+        "phased.bam": "d0488eb0cdf52e6227d56febdeed53f35a501740ba5755dac0aaa66a3e49a96c",
+        "stderr.log": "603cf2f2438eda7c249fb89eafb0e23a5f7570191e30d09ee5d9de08fb36b4a8",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "56e9a51ab699a7faee64acae062cf38323fe6821455ed86020909f7418444942"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:62000001-63000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_lone_snp_pair/w62050001-62950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_lone_snp_pair/w62050001-62950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_lone_snp_pair/w62050001-62950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run92",
+      "hashes": {
+        "native.vcf": "c241e290f4d54a05fe5edf224e87ae5905aac5adfd8cc8c0c0d46e0ee7703804",
+        "phased.bam": "bd0bb8ae567241adfbbeb14c9dc87fcb4ba30fa75ca1f11f43448165b1fefd7c",
+        "stderr.log": "803b54293169adf579d352754ca0a022365522f9f17c4f45bd215968aba3afa6",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6f679b9773b9a59d29a8f86817bec056ebbf44fd7931cf110e25c141b8c55e6c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3000001-4000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_single_molecule_3573979/w3050001-3950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_single_molecule_3573979/w3050001-3950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_single_molecule_3573979/w3050001-3950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run93",
+      "hashes": {
+        "native.vcf": "341675ae988520179ac4b8e79aa444c239bffaa7970dc2d542371e431e00965b",
+        "phased.bam": "846f486b023e6ea5b02d2959b75837a530ea07ee63e5a4c4793c85c3383c2a6f",
+        "stderr.log": "da0782a11e00a5b64cdbe504e3e7ba58164a512961b6a6991cd714874fb96b73",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "aff6f760a48131c0d1e7878896ef9a31713aa743e2b53b53ccd9f43f077656f7"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:31950001-33050000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_single_molecule_32215055/w32000001-33000000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_single_molecule_32215055/w32000001-33000000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_single_molecule_32215055/w32000001-33000000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run94",
+      "hashes": {
+        "native.vcf": "bedf80eab241178e98449f1ffd81df5b31c3709f16d90815921713d8cde7a32d",
+        "phased.bam": "bedbca989c8c079bf958d41487e2905da882b5e282729b9a332b0371152dd2c4",
+        "stderr.log": "82c8fec5bebbcd095786cd8e4e64675c506330d2bfbdacb16be13727d6ae6565",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d638240bc619cea4ebf92130a3ee65874c05420efb3c9c53ab716649b321fded"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:60000001-61000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_single_molecule_60033052/w60050001-60950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_single_molecule_60033052/w60050001-60950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_single_molecule_60033052/w60050001-60950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run95",
+      "hashes": {
+        "native.vcf": "8c2289d489a82714d8f57270c6d4c566a2e944cb8bc45e88e9452baed6975a43",
+        "phased.bam": "5c4673719b3c610b3249a806c5f593b703ce244b17d2591406084edfb5a4f25b",
+        "stderr.log": "7a985773b8b9acc58c05e8bb2e38f646d34509ee65486bfd059d3a760fd89d0e",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "85761906aa7a4610ddf6597f2edc94377a5fd40edcba9e88115ff4eb79f59b85"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:18000001-19000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_single_molecule_18983414/w18050001-18950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_single_molecule_18983414/w18050001-18950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_single_molecule_18983414/w18050001-18950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run96",
+      "hashes": {
+        "native.vcf": "ad9e7404fb61925f75c03e57897d6aaed26a46efd988ca946119571bbd3ca76a",
+        "phased.bam": "5ff6def714f05860213eab273046f1f25a517daab2e9496ef0b5805b6b0d464f",
+        "stderr.log": "af2fed9d74fb92e3f9629630a3c9e03822fc7786ff76e47f5c7bee25b7eff144",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "3d68a15facd5d937c2093c8ecc500bb248684e78b50dd6bc5ceb10d46cc30d1a"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:59000001-60000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_graph_snp_deletions/w59050001-59950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_graph_snp_deletions/w59050001-59950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_graph_snp_deletions/w59050001-59950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run97",
+      "hashes": {
+        "native.vcf": "8c4d716292e599cc4f0d0b0e4737f84aae864e80e4d2c39c73a904f3d1deab97",
+        "phased.bam": "d3494122f13013811016db7d6243b8d806c172d81f3b82caee4aef5d055319d0",
+        "stderr.log": "006fe2b271a9aff892fa6ace5753fa45e20f031885d25f6b0a11e00f6c4639cd",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "8f2beb1e84e777a294cc071cc6e43914b9b2547b11b9cf23b2f544f8dbb60306"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:22900001-23100000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_validation_ps_remap/w22950001-23050000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_validation_ps_remap/w22950001-23050000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_validation_ps_remap/w22950001-23050000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run98",
+      "hashes": {
+        "native.vcf": "bd9d4c6bc14b03e8c84dd2dd0bb40ee56d3699351633dbb60af11d20fb017a37",
+        "phased.bam": "4d0fd77236189f544741e8be09d9941d73d9ba3953ac6804c6e04c57e02a3f1c",
+        "stderr.log": "97232ec1a3c6e1fcf6e5e133fe88140fde049cdab53b7861d78edb90610a1b09",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "e2825717b981efe411396f9c8b810bc70037589192acf9797813fe44d3bb0527"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:22000001-24000000",
+        "-t",
+        "4",
+        "--chunk-size",
+        "1000000",
+        "-o",
+        "<workdir>/stitch_cross_chunk_23m/w22050001-23950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_cross_chunk_23m/w22050001-23950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_cross_chunk_23m/w22050001-23950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run99",
+      "hashes": {
+        "native.vcf": "93188d8e3b590facedecb7c9325d7dd2aa1d6b263849b900a7525356ff45003e",
+        "phased.bam": "81ea088d4549e1ba9c4f168603d390c7a82e9ed6ac0d2ac584899f0dd59eea4e",
+        "stderr.log": "7e19a0578c550172d878b89000c98e5e7c62819526fc9c5415f565c69bcffdde",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "ca78ae324c143b86d89bb533f61fb5ad026ec9f4bb223b8ef41e695e6566d3e3"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:22500001-23500000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_multiple_source_labels_23m/w22550001-23450000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_multiple_source_labels_23m/w22550001-23450000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_multiple_source_labels_23m/w22550001-23450000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run100",
+      "hashes": {
+        "native.vcf": "8526b9ab39580b2948e219a3c0abf54d3a392782031e9df7f26822c7c74c0565",
+        "phased.bam": "21f146161bb990435be9d1ea17524f255dd545c495baa42afd8636956c23476c",
+        "stderr.log": "228829a2ab3f91bcde9f82b7bf9ee64deece5d30235cfa5683c5ad12a3e4f500",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1c68f39c8883eea845b4db9fe0ffbd5c60f50dc6e996850e568651ca5c0b9096"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:17566778-17675527",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_msa_pair/w17616778-17625527/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_msa_pair/w17616778-17625527/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_msa_pair/w17616778-17625527/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run101",
+      "hashes": {
+        "native.vcf": "2d02e773ca22218bf0cf5a7bd23ee71787c32078bf39b227825b327a8953f7e8",
+        "phased.bam": "c795e5c1d61f0d64cf6ee83d5998593b3c6f28661ad864d321e8b2d3805af435",
+        "stderr.log": "f1aa8549535f8fae217a455843f465fb507b6cb6e706111d6dfc6b92ba7387e9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "f5a833d5ebf76325ed91eee7f231fbec65439ec40e6da41307f8960b249cca09"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:55250000-55550000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_bam_inner/w55300000-55500000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_bam_inner/w55300000-55500000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_bam_inner/w55300000-55500000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run102",
+      "hashes": {
+        "native.vcf": "579f1bb31ef1bb866c58f11286b9704f3cad52aa125cd9202bbf86322abe57e2",
+        "phased.bam": "a84b6a553528dd3feb344bb50119601437427a4f99d59aea6feac23c4ea8682c",
+        "stderr.log": "c5fc0097f0ad4e5c75f082a78427a0230b55cc12dd7c4195433472c4cd8f7db2",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "9a6c11de72108931d4b6d07df0a966ae26f0a848b4cf29d6c9a07fac6355b0fb"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:30700000-30860000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/anchor_quality/w30750000-30810000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/anchor_quality/w30750000-30810000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/anchor_quality/w30750000-30810000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run103",
+      "hashes": {
+        "native.vcf": "5ed4dd1ce5acd5fb51dc274b214f69d4d8802f0bd58f8fa9ef1a6d69bd0fdc99",
+        "phased.bam": "f963069c874d6d57ff489632025a9932dd64ed40c23721521bbd5c352bb05bfd",
+        "stderr.log": "d58cd7ae9470b4ec2d667ff2c70447241dd25537a3ba1b74db0039738f8116a8",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "38bb7640452e63b13d0e6d9c3b908a780f554ba0b2414a33b2a205453438dd7d"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:17000001-18000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_bam_suffix_17m/w17050001-17950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_bam_suffix_17m/w17050001-17950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_bam_suffix_17m/w17050001-17950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run104",
+      "hashes": {
+        "native.vcf": "cae9e857d446243f00a47776a26e18a7677de549771018a1c646492da353d8f9",
+        "phased.bam": "87817b4a44f5b5ff39691214729a614383d02542e85a00c9e64547a47066e92a",
+        "stderr.log": "88900bae13cffd5775baa836ea5cb5d1b209656e259a9be269bb44946f89765c",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "2babefd634c57366cc2ec51f0240b170a652bcbbf3965d26e0a2a73859581aec"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:14950001-16000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_new_bam_seam_15m/w15000001-15950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_new_bam_seam_15m/w15000001-15950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_new_bam_seam_15m/w15000001-15950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run105",
+      "hashes": {
+        "native.vcf": "2ae72bda600968f1f42ead6fd2812f9c143f14fd751bb256daae6c7214c8e6e1",
+        "phased.bam": "5e9178af9b395a2c95e453d74ef754ca8febe55b065f4dfdb730c5483d7c184d",
+        "stderr.log": "1a3cadeb4d1590674989280023d8a0318289f569a424c23bd71793f50473b562",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "1dcb7221e4dd81a5b015b7979e1bc4e02659b9202bc1a2ea6825725413d02760"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:16950001-18000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/stitch_no_adjacent_retry_17m/w17000001-17950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/stitch_no_adjacent_retry_17m/w17000001-17950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/stitch_no_adjacent_retry_17m/w17000001-17950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run106",
+      "hashes": {
+        "native.vcf": "deebc369468418145dc207fcb569d33d8c8e1f7a34033b9a02a6d0e39878b004",
+        "phased.bam": "84451b0035a50aa6fe8bf38d29d33aa11be9a6518d871288f4b4aa63d4464be8",
+        "stderr.log": "5e69bd97a2edf03e753f4b1e2f7d42692fb0696c6350e2b51ef44a286791fc57",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "d863abb1201390025c543f8a909047b6346ee1823e9a4f281a4220f4159dd11c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:2000001-3000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/padded_repeat_transfer/w2050001-2950000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/padded_repeat_transfer/w2050001-2950000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/padded_repeat_transfer/w2050001-2950000/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run107",
+      "hashes": {
+        "native.vcf": "d5c2a9e26b410c98c80a461d46baf4384c3124edb525fcc694701d901504f1be",
+        "phased.bam": "650e8ff3de85b8500e4bf7926edac87f444b18292c02e68ab9537f99c38117f0",
+        "stderr.log": "7781c9026b59e27920685513dc0597eb7618425d7d475e2231feabff5cc920ed",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "13fcea4f72c7f7f0a5c00bfad9eefec6049582ead90d5d6884f80d610cdd047e"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:24000001-25000000",
+        "-t",
+        "4",
+        "-o",
+        "<workdir>/msa_insertion_parental_orientation_24m/w24121713-24131707/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/msa_insertion_parental_orientation_24m/w24121713-24131707/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/msa_insertion_parental_orientation_24m/w24121713-24131707/phased.bam"
+      ],
+      "auxiliary": []
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run108",
+      "hashes": {
+        "native.vcf": "c241e290f4d54a05fe5edf224e87ae5905aac5adfd8cc8c0c0d46e0ee7703804",
+        "phased.bam": "bd0bb8ae567241adfbbeb14c9dc87fcb4ba30fa75ca1f11f43448165b1fefd7c",
+        "stderr.log": "77187f8a4a120251b6973894daf3a9c243738cb5a0977f281fb0caf899ae15a9",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "6f679b9773b9a59d29a8f86817bec056ebbf44fd7931cf110e25c141b8c55e6c"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:3000001-4000000",
+        "-t",
+        "4",
+        "--phase-matrix-dump",
+        "<workdir>/retained_snp_quality",
+        "-o",
+        "<workdir>/retained_snp_quality/w3000001-4000000/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/retained_snp_quality/w3000001-4000000/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/retained_snp_quality/w3000001-4000000/phased.bam"
+      ],
+      "auxiliary": [
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.bam-overlay-input.tsv",
+          "suffix": ".chunk0.bam-overlay-input.tsv",
+          "sha256": "769c61317916015c1c514b806439467ce8da3005b6c70837110b976345eee923"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.flags5004.tsv",
+          "sha256": "b7e8b26da750b57b0bc8aa33cc64b951cd2409d677efb4a2be84157684acced3"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.flags4236.tsv",
+          "suffix": ".chunk0.flags4236.tsv",
+          "sha256": "4cb80fb54062dec3476154dcf4b4d2ee02935166cf86391baaf2932ca0fa4589"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.validation.chunk0.window1.chunk-1.flags5004.tsv",
+          "suffix": ".validation.chunk0.window1.chunk-1.flags5004.tsv",
+          "sha256": "860fc2f72b7673f0a5eaa20a34e3d09d3bdeb46a849321c1958e7e5cff853701"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.whole-bam.chunk0.flags4236.tsv",
+          "suffix": ".whole-bam.chunk0.flags4236.tsv",
+          "sha256": "8eab60d4d91a4ed86c39e597af611cb9c12922580cbc8ebaa02abe3883e59b65"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.chunk-1.flags5004.tsv",
+          "sha256": "4e204019255de29356e49158bbcd00ae4ff7de03d5f3535e725e251422f47e09"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.validation.chunk0.window1.chunk-1.flags4236.tsv",
+          "suffix": ".validation.chunk0.window1.chunk-1.flags4236.tsv",
+          "sha256": "1941d2617e724c9ac125f0679a0490e02e8081d6f23f218ec2d4fc1d4e646dfb"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.flags4236.tsv",
+          "sha256": "dd07aee7812c611395a23e4b4f3e502c0227fcdc8a91590b1a4e88c925c8ffe9"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.initial.msa-admission.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.msa-admission.tsv",
+          "sha256": "4742f9533898b030c2686c9c01fc59d6735caae93e0ca93defa859ccc32050e7"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.recovery-input.tsv",
+          "suffix": ".chunk0.recovery-input.tsv",
+          "sha256": "f730623edcbf1b669c7572556d2f25fe017c34ae69fd275a7dfe3a2c495f64aa"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.bam-overlay-output.tsv",
+          "suffix": ".chunk0.bam-overlay-output.tsv",
+          "sha256": "7805a783ce3fe78fc65ee3af34592480770df3163d95cdda8c077290cfcfb292"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.validation.chunk0.window2.chunk-1.flags4236.tsv",
+          "suffix": ".validation.chunk0.window2.chunk-1.flags4236.tsv",
+          "sha256": "eefba5b9b137055c8e9420c4984d880192a4b552b4a35a687b2e34246ff9c6c0"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.msa.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.msa.chunk-1.flags5004.tsv",
+          "sha256": "011df7e1ee9c3910f3102639f3a44092e020ffbe1bf2d091b664316a08a69011"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.recovery-final.tsv",
+          "suffix": ".chunk0.recovery-final.tsv",
+          "sha256": "769c61317916015c1c514b806439467ce8da3005b6c70837110b976345eee923"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.msa.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.msa.chunk-1.flags4236.tsv",
+          "sha256": "368703a21cefaff3f1f4e94151fcfdfe271ed92a6e60d083a53dae777b51eb51"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.chunk-1.flags4236.tsv",
+          "sha256": "368703a21cefaff3f1f4e94151fcfdfe271ed92a6e60d083a53dae777b51eb51"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.msa.chunk-1.trial-source.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.msa.chunk-1.trial-source.tsv",
+          "sha256": "2fb6e0fda1923c5538b2ced835bb89358a167ac38b81b151cdbdc78b7831ea84"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window2.chunk-1.recovery-source.tsv",
+          "sha256": "e47233e5472e47fedbc29f74639c2d268d79bbf382927d5df8304ec9d2d022fe"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "sha256": "8fba916695dae93a7da960fd23447586f5e92be910aeef08dd73e91523c168cb"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.bam-source-evidence.tsv",
+          "suffix": ".chunk0.bam-source-evidence.tsv",
+          "sha256": "b46a34d8e61aeb9b10252f982e0fc1c5c93166a4c9d1d7c249aafb1ab0afc0c4"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.initial.chunk-1.msa-transfer-pending.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.msa-transfer-pending.tsv",
+          "sha256": "4841df50c3ccd0546c64469f6073b41441780bdecc81aaf2654f4a93b1ecadb0"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "sha256": "19779c1c964a89cfaf5ace3573e365657e5b93a6676fd956edd1278fc9777205"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.whole-bam.chunk0.flags5004.tsv",
+          "suffix": ".whole-bam.chunk0.flags5004.tsv",
+          "sha256": "f09e683caa05762e3ac281bf63a8b9c013ddfec0ba0f37e98d0fbf4903c1a8dd"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.chunk0.transfer.tsv",
+          "suffix": ".chunk0.transfer.tsv",
+          "sha256": "5a5cb420697a31a34b4185456b3f59704b8aefa69ab6ded0ecddcba200bbfeb9"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.initial.chunk-1.msa-transfer-selected.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.msa-transfer-selected.tsv",
+          "sha256": "e47233e5472e47fedbc29f74639c2d268d79bbf382927d5df8304ec9d2d022fe"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.validation.chunk0.window2.chunk-1.flags5004.tsv",
+          "suffix": ".validation.chunk0.window2.chunk-1.flags5004.tsv",
+          "sha256": "ccaa3c3ae3bb3faef6c95a83e1911c51c76541ddb6e753c3024091950cf8e6fa"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window2.focused.seam2.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam2.chunk-1.recovery-source.tsv",
+          "sha256": "2fb6e0fda1923c5538b2ced835bb89358a167ac38b81b151cdbdc78b7831ea84"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/retained_snp_quality.recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "sha256": "ad7195112e72729a538dd0b7fdde9d90ead4b45b287f051249c6250b1c3743ba"
+        }
+      ]
+    },
+    {
+      "source": "test_data/tmp_gap_fix52/current-panel/.replay-cache/run109",
+      "hashes": {
+        "native.vcf": "6a070ddaa7d3a510e5285ac99d7d5cae29567fbb6b83e7056d68b316670ed562",
+        "phased.bam": "c2971d3d55b949e924d6b8c711a0af92827a34f5ed864d8beab124420e958fab",
+        "stderr.log": "8bac7e3cb8adea6f4294c39604ee4f6f27cca3c7a6cd4572b9b7d6baa13452c0",
+        "stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "candidates.tsv": "09a40ef778cef1bdebeebceb9c8c55a243b9b11c45520af673b918f047d3eb59"
+      },
+      "args": [
+        "collect-graph-variation",
+        "--ref",
+        "test_data/chm13v2.0.chr20.renamed.fa",
+        "--bam",
+        "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        "--sites",
+        "test_data/chr20.sites.striped.vcf.gz",
+        "--gaf",
+        "test_data/HG002.chr20.annotated.coord.gaf.gz",
+        "-r",
+        "CHM13#0#chr20:61000001-62000000",
+        "-t",
+        "4",
+        "--phase-matrix-dump",
+        "<workdir>/verified_recovery_transfer",
+        "-o",
+        "<workdir>/verified_recovery_transfer_61m/w61738239-61757551/candidates.tsv",
+        "--phased-vcf-out",
+        "<workdir>/verified_recovery_transfer_61m/w61738239-61757551/native.vcf",
+        "--phased-bam-out",
+        "<workdir>/verified_recovery_transfer_61m/w61738239-61757551/phased.bam"
+      ],
+      "auxiliary": [
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.whole-bam.chunk0.flags5004.tsv",
+          "suffix": ".whole-bam.chunk0.flags5004.tsv",
+          "sha256": "6f9254fca47ba60fd9069d91668cbf2dd4071ed267f26ad71fbf438873a17da3"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.msa.chunk-1.trial-source.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.msa.chunk-1.trial-source.tsv",
+          "sha256": "fbcfe66708a7425e35cf9b28a485be0e91dba0208e247b712634fe8fc3f6187b"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.initial.chunk-1.msa-transfer-pending.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.msa-transfer-pending.tsv",
+          "sha256": "0dc90e9a53028195f3f85a7f78c0926ae71f38e2502678a6aa7f7ca8e715f083"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.bam-overlay-output.tsv",
+          "suffix": ".chunk0.bam-overlay-output.tsv",
+          "sha256": "edc50c7237ea62cc4abd63b1bda414e637517bd823fbb22f0c46f0a7f2dc5cbb"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.validation.chunk0.window8.chunk-1.flags4236.tsv",
+          "suffix": ".validation.chunk0.window8.chunk-1.flags4236.tsv",
+          "sha256": "e760d824d9fa4375548b31fd11dfbd191f0ca52541375de62004d80cb6cbebc7"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.initial.chunk-1.msa-transfer-selected.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.msa-transfer-selected.tsv",
+          "sha256": "54941d37cf1a239a7b90b3625666c2cf2e72ad739d05b7ef0758687405566e87"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.initial.msa-admission.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.msa-admission.tsv",
+          "sha256": "bb09d6af7d11a837d3edbc5cb1c7bd919f144bdc418d3e1e02a7d957a868e197"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags5004.tsv",
+          "sha256": "0d0c050aea2274b9702de9e72d0f33b3ab076eecde34f496e0dff0fb02ac5e61"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.bam-overlay-input.tsv",
+          "suffix": ".chunk0.bam-overlay-input.tsv",
+          "sha256": "68d21a171d674e53490330fddd4cd966a351237a05162532b4d1bb5da7b686d0"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.transfer.tsv",
+          "suffix": ".chunk0.transfer.tsv",
+          "sha256": "e403ffe89b9dd9b57681efadce5a8a86bd916aa36968cb296d6f06698ce1a25d"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window0.chunk-1.recovery-source.tsv",
+          "sha256": "9859cd380221719888769452c0a22d7db7071ed6b97cc65e55aa1fdb4e1fc8d4"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.flags4236.tsv",
+          "suffix": ".chunk0.flags4236.tsv",
+          "sha256": "77134b78cdee17a98b312a968e0b6d4bfd1089ef18ae2c599ed3a442cf534d30"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.whole-bam.chunk0.flags4236.tsv",
+          "suffix": ".whole-bam.chunk0.flags4236.tsv",
+          "sha256": "146e82d916ddd46ebc7a85eab7a2d7aa72e4030c29d9fbf5112587fea36edd72"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.bam-source-evidence.tsv",
+          "suffix": ".chunk0.bam-source-evidence.tsv",
+          "sha256": "7d90af1b4dcb141ab5a2648420dbd6286624ee2dbc5640b3559db7cd83c68468"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.chunk-1.flags5004.tsv",
+          "sha256": "aeaeddd185cb183d37f190b17de40d8dad1e8312dd4ac84d6b6e4e23fc523fe9"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.msa.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.msa.chunk-1.flags4236.tsv",
+          "sha256": "b8b9b0933160a723aaf9c0529e6309a3f3b7439ccb50e09acad6dde6a8b151c1"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.msa.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.msa.chunk-1.flags5004.tsv",
+          "sha256": "e86a127b145758408a8b78e37cbc7b4363555fd4d0423354786da9a16a1ec361"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window2.chunk-1.recovery-source.tsv",
+          "sha256": "54941d37cf1a239a7b90b3625666c2cf2e72ad739d05b7ef0758687405566e87"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.recovery-final.tsv",
+          "suffix": ".chunk0.recovery-final.tsv",
+          "sha256": "68d21a171d674e53490330fddd4cd966a351237a05162532b4d1bb5da7b686d0"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.chunk0.recovery-input.tsv",
+          "suffix": ".chunk0.recovery-input.tsv",
+          "sha256": "08eee15b69184b2d3c6fd716377c628664e04243499922b0631bf170e44a1921"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.chunk-1.flags4236.tsv",
+          "sha256": "b8b9b0933160a723aaf9c0529e6309a3f3b7439ccb50e09acad6dde6a8b151c1"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.flags4236.tsv",
+          "sha256": "fada63219f61134fdd12544400a572303a4af6cef211840f2817b080caf88412"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.initial.chunk-1.flags5004.tsv",
+          "suffix": ".recovery.chunk0.window2.initial.chunk-1.flags5004.tsv",
+          "sha256": "1fff69cc444853cd14e5906495fa09372c2aec51e67705590eaf442b0890fb80"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window2.focused.seam9.chunk-1.recovery-source.tsv",
+          "suffix": ".recovery.chunk0.window2.focused.seam9.chunk-1.recovery-source.tsv",
+          "sha256": "fbcfe66708a7425e35cf9b28a485be0e91dba0208e247b712634fe8fc3f6187b"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "suffix": ".recovery.chunk0.window0.initial.chunk-1.flags4236.tsv",
+          "sha256": "fb066c39645db4dedfa7af6a1647aea59e9f3cd9240dd8cbd4b22f77a6deeccd"
+        },
+        {
+          "source": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/current-panel/verified_recovery_transfer.validation.chunk0.window8.chunk-1.flags5004.tsv",
+          "suffix": ".validation.chunk0.window8.chunk-1.flags5004.tsv",
+          "sha256": "81f8d6df0869b2efed2d5318126b2a5805102f974ac44758da5d38f50637869f"
+        }
+      ]
+    }
+  ],
+  "replay_workdir": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix52/rescored-panel"
+}

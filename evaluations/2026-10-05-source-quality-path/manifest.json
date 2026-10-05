@@ -1,0 +1,38 @@
+{
+  "baseline_binary_sha256": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+  "final_binary_sha256": "3c2cb7ef7a5070416ff98a04e2c7bf9ef6b9c5501a66d9814bcd75cd8a091924",
+  "baseline_outputs": "test_data/tmp_gap_fix58/full-projected-final",
+  "trial_outputs": "test_data/tmp_gap_fix60/full-source-chain",
+  "final_outputs": "test_data/tmp_gap_fix60/full-final",
+  "owner_region": "CHM13#0#chr20:13000001-14000000",
+  "owner_baseline": "test_data/tmp_gap_fix60/baseline/13",
+  "owner_trial": "test_data/tmp_gap_fix60/source-chain/13",
+  "new_gap": [
+    13752640,
+    13773452
+  ],
+  "native_shards": "test_data/tmp_gap_fix60/native-final-shards",
+  "full_command": [
+    "test_data/tmp_gap_fix60/pgphase-final",
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-t",
+    "8",
+    "-o",
+    "test_data/tmp_gap_fix60/full-final/candidates.tsv",
+    "--phased-vcf-out",
+    "test_data/tmp_gap_fix60/full-final/phased.vcf",
+    "--phased-bam-out",
+    "test_data/tmp_gap_fix60/full-final/phased.bam"
+  ],
+  "native_updated_context": "test_data/tmp_gap_fix60/native-updated-context.log",
+  "native_validation": "evaluations/2026-10-05-source-quality-path/native-validation.json",
+  "final_test_binary": "test_data/tmp_gap_fix60/test_gap_windows-context"
+}

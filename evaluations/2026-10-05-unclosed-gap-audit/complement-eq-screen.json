@@ -1,0 +1,506 @@
+[
+  {
+    "left": 865572,
+    "right": 882277,
+    "left_ps": 487305,
+    "right_ps": 882277,
+    "pair": [
+      [
+        882277,
+        "A",
+        "ATC",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        882277,
+        "A",
+        "ATCTC",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      865572,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 7808915,
+    "right": 7829788,
+    "left_ps": 7739429,
+    "right_ps": 7808916,
+    "pair": [
+      [
+        7829788,
+        "C",
+        "CA",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        7829788,
+        "C",
+        "CAAA",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      7808915,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 13844727,
+    "right": 13871677,
+    "left_ps": 13844727,
+    "right_ps": 13871677,
+    "pair": [
+      [
+        13871677,
+        "C",
+        "CTGTG",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        13871677,
+        "C",
+        "CTGTGTGTG",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      13844727,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 19377345,
+    "right": 19395544,
+    "left_ps": 17883198,
+    "right_ps": 19395544,
+    "pair": [
+      [
+        19377345,
+        "T",
+        "TATATATAGAG",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        19377345,
+        "T",
+        "TATATATATAGAGAG",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      19395544,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 0,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 32608374,
+    "right": 32628529,
+    "left_ps": 32605552,
+    "right_ps": 32628529,
+    "pair": [
+      [
+        32628529,
+        "C",
+        "CGAATG",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        32628529,
+        "C",
+        "CGAATGGAATGGAATG",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      32608374,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 33812283,
+    "right": 33819342,
+    "left_ps": 33778263,
+    "right_ps": 33819342,
+    "pair": [
+      [
+        33819342,
+        "A",
+        "AAAAGAAAG",
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        33819342,
+        "A",
+        "AAAAGAAAGAAAGAAAGAAAG",
+        [
+          0,
+          1
+        ]
+      ]
+    ],
+    "snp": [
+      33812283,
+      "T",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      2,
+      0,
+      3,
+      0
+    ]
+  },
+  {
+    "left": 44647188,
+    "right": 44678365,
+    "left_ps": 44647188,
+    "right_ps": 44678365,
+    "pair": [
+      [
+        44647188,
+        "T",
+        "TATAATTAAGCGGCACTATTCACAATAGCAAAGACTTGGAACCAACCCAAATGTCCAACAATGATAGACTGGATTAAGAAAATGTGGCACATATACACCATGGAATACTATGCAGCCATAAAAAATGATGAGTTCATATCCTTTGTAGGGACATGGATGAAATTGGAAACCATCATTCTCAGTAAACTATCGCAAGAACAAAAAACCAAACACCGCATATTCTCACTCATAGGTGGGAATTGAACAATGAGATCACATGGACACAGGAAGGGGAATATCACACTCTGGGGACTGTGGTGGGGTCGGGGGAGGGGGGAGGGATAGCATTGGGAGATATACCTAATGCTAGATGACACATTAGTGGGTGCAGCGCACCAGCATGGCACATGTATACATATGTAACTAACCTGCACAATGTGCACATGTACCCTAAAACTTAGAGTATAATAAAAAAAAAAAAAAAAAAAATAACAATAAAATGAGATAAAATCTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATTGTAACAGAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        44647188,
+        "T",
+        "TATAATTAAGCGGCACTATTCACAATAGCAAAGACTTGGAACCAACCCAAATGTCCAACAATGATAGACTGGATTAAGAAAATGTGGCACATATACACCATGGAATACTATGCAGCCATAAAAAATGATGAGTTCATATCCTTTGTAGGGACATGGATGAAATTGGAAACCATCATTCTCAGTAAACTATCGCAAGAACAAAAAACCAAACACCGCATATTCTCACTCATAGGTGGGAATTGAACAATGAGATCACATGGACACAGGAAGGGGAATATCACACTCTGGGGACTGTGGTGGGGTCGGGGGAGGGGGGAGGGATAGCATTGGGAGATATACCTAATGCTAGATGACACATTAGTGGGTGCAGCGCACCAGCATGGCACATGTATACATATGTAACTAACCTGCACAATGTGCACATGTACCCTAAAACTTAGAGTATAATAAAAAAAAAAAAAAAAAAAAATAACAATAAAATGAGATAAAATCTAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATTGTAACAGAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        [
+          0,
+          1
+        ]
+      ]
+    ],
+    "snp": [
+      44678365,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 0,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 45359225,
+    "right": 45391776,
+    "left_ps": 45347747,
+    "right_ps": 45372437,
+    "pair": [
+      [
+        45359225,
+        "G",
+        "GA",
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        45359225,
+        "G",
+        "GAA",
+        [
+          0,
+          1
+        ]
+      ]
+    ],
+    "snp": [
+      45391776,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ]
+    ],
+    "pair_side": 0,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 52394827,
+    "right": 52414285,
+    "left_ps": 52356806,
+    "right_ps": 52414285,
+    "pair": [
+      [
+        52414285,
+        "C",
+        "CTTTT",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        52414285,
+        "C",
+        "CTTTTT",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      52394827,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "left": 52414285,
+    "right": 52422209,
+    "left_ps": 52414285,
+    "right_ps": 52422209,
+    "pair": [
+      [
+        52414285,
+        "C",
+        "CTTTT",
+        [
+          0,
+          1
+        ]
+      ],
+      [
+        52414285,
+        "C",
+        "CTTTTT",
+        [
+          1,
+          0
+        ]
+      ]
+    ],
+    "snp": [
+      52422209,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ]
+    ],
+    "pair_side": 0,
+    "counts": [
+      4,
+      0,
+      7,
+      0
+    ]
+  },
+  {
+    "left": 56175630,
+    "right": 56192736,
+    "left_ps": 56175630,
+    "right_ps": 56192736,
+    "pair": [
+      [
+        56175630,
+        "A",
+        "ATCTT",
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        56175630,
+        "A",
+        "ATCTTTCTT",
+        [
+          0,
+          1
+        ]
+      ]
+    ],
+    "snp": [
+      56192736,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 0,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "left": 62623253,
+    "right": 62642316,
+    "left_ps": 62432427,
+    "right_ps": 62637077,
+    "pair": [
+      [
+        62642316,
+        "T",
+        "TACAC",
+        [
+          1,
+          0
+        ]
+      ],
+      [
+        62642316,
+        "T",
+        "TACACAC",
+        [
+          0,
+          1
+        ]
+      ]
+    ],
+    "snp": [
+      62623253,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ]
+    ],
+    "pair_side": 1,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ]
+  }
+]

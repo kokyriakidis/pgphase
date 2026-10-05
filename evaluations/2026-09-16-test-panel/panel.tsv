@@ -178,3 +178,19 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 
 # Exact query sequence certifies compound CIGAR deletion placements in owning 7 Mb.
 7901413	7918883	17470	143	hiphase_dv	0.7202	103
+
+# Verified noisy BAM SNP and a symmetric graph path bridge in owning 41 Mb.
+# Same-BAM native DV HiPhase: 87/91 correctly phased local reads.
+41880908	41885033	4125	91	hiphase_dv	0.9560	87
+
+# Owning 23 Mb: compose the physical SNP bridge with the preceding deletion bridge.
+23460963	23480815	19852	125	hiphase_dv	1.0000	125
+
+# Complementary insertion ALT-only certificate in the bounded 9 Mb replay.
+# Same-BAM native DV HiPhase: 179/180 correct out of 223 truth-scorable overlaps.
+8977829	9014032	36203	223	hiphase_dv	0.8027	180
+
+# Owning 62 Mb: physical switch repair, 113/116 phased gap overlaps correct.
+# Comparator unmeasured; 119 primary overlaps have independent parental truth.
+62623253	62642316	19063	119	not_measured	0.0000	0
+13752640	13773452	20812	175	hiphase_dv	0.8629	151

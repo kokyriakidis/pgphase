@@ -1,0 +1,4 @@
+Filters: *whole-chunk BAM fallback*
+===============================================================================
+All tests passed (10 assertions in 1 test case)
+

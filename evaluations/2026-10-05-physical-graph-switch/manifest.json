@@ -1,0 +1,38 @@
+{
+  "before": "test_data/tmp_gap_fix55/full-final",
+  "after": "test_data/tmp_gap_fix58/full-projected-final",
+  "owning_region": "CHM13#0#chr20:62000001-63000000",
+  "target_gap": [
+    62623253,
+    62642316
+  ],
+  "command": [
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-t",
+    "8"
+  ],
+  "sha256": {
+    "pgphase": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+    "test_data/tmp_gap_fix58/pgphase-before": "bdce74cda1d0ec407fe7a0cfaf9e30d2c77a60b605d6f193ee92e2cb16503933",
+    "test_data/tmp_gap_fix58/pgphase-projected-final": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+    "test_data/tmp_gap_fix58/test_gap_windows-final": "113443121fbbd0c22c85c75d88257e87d9e9f3a0133eb9eaab016f797934d627",
+    "test_data/tmp_gap_fix58/full-projected-final/phased.vcf": "129db1c140366747f8a5e60dfb243ab218f2727b0ee74a32eafacf33ac6aff48",
+    "test_data/tmp_gap_fix55/full-final/phased.vcf": "88608608e958d9f52a5405a316a4e13c164a88bda76761c2b0e3d8171a96e0d7",
+    "src/graph_collect.cpp": "68f2dd0cbbc39be8bec41eb83c8bcfd1551c3c728251bf5e90c14e5ac4b94b71",
+    "src/graph_bam_adapter.hpp": "713575f38970370f7496cc41209f812cb784a6f612500806bd5112d1f69cf6d6",
+    "src/test_gap_windows.cpp": "18dff72d97d533a9a3e16f611d7e7a751288e151a4712e0f4eb9f1349a753ace",
+    "src/test_gap_windows_expect.tsv": "186fcbb0ca0397e7533ebeff31562222793708c007117dc7162f642cefbda935",
+    "src/test_gap_windows_required.tsv": "e355e3ca0ff92542b27490bb5f0018540387e5a7df8dce296fecf9233166acc6",
+    "evaluations/2026-09-16-test-panel/panel.tsv": "9825d5375398d5820504c1b053833ef36cd49ee8987a71c980678bf34f246178"
+  },
+  "frozen_binary": "test_data/tmp_gap_fix58/pgphase-projected-final",
+  "native_workdir": "test_data/tmp_gap_fix58/native-projected-final-shards"
+}

@@ -1,0 +1,21 @@
+Filters: whole-chunk BAM fallback preserves verified recovery observations
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+whole-chunk BAM fallback preserves verified recovery observations
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5582
+...............................................................................
+
+src/test_gap_windows.cpp:5636: FAILED:
+  CHECK( changed_calls == 0 )
+with expansion:
+  13 == 0
+
+===============================================================================
+test cases: 1 | 1 failed
+assertions: 7 | 6 passed | 1 failed
+

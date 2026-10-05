@@ -2,6 +2,12 @@
 
 Target: chr20:50,548,245–50,562,066 (13,821 bp), outside the centromere.
 
+**Current status (2026-10-05): already connected.** A fresh owning-chunk run
+and the latest full-chr20 output preserve all three boundary rows in one PS.
+The [HiPhase read-level recheck](../2026-10-05-complementary-deletion-hiphase/README.md)
+confirms the initial loss precedes transfer and compares both tools
+after the accepted retry. This report describes the earlier defect and fix.
+
 ## Bug
 
 Both complementary BAM/MSA deletion rows at the left boundary are homopolymer

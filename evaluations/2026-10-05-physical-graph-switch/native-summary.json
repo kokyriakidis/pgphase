@@ -1,0 +1,39 @@
+{
+  "binary_sha256": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+  "test_cases": 82,
+  "assertions": 9757,
+  "shards": [
+    {
+      "shard": 0,
+      "cases": 2,
+      "returncode": 0,
+      "seconds": 882.0253921210096,
+      "assertions": 2449,
+      "cached_replays": 84
+    },
+    {
+      "shard": 1,
+      "cases": 27,
+      "returncode": 0,
+      "seconds": 918.2391848510015,
+      "assertions": 3468,
+      "cached_replays": 37
+    },
+    {
+      "shard": 2,
+      "cases": 27,
+      "returncode": 0,
+      "seconds": 621.0449377399927,
+      "assertions": 1865,
+      "cached_replays": 23
+    },
+    {
+      "shard": 3,
+      "cases": 26,
+      "returncode": 0,
+      "seconds": 303.29535453999415,
+      "assertions": 1975,
+      "cached_replays": 24
+    }
+  ]
+}

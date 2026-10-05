@@ -1,0 +1,153 @@
+{
+  "3/matrix.chunk0.transfer.tsv": [
+    {
+      "variant": [
+        "3597791",
+        "8",
+        "1",
+        "G",
+        "0",
+        "4"
+      ],
+      "conflicting_reads": 1
+    },
+    {
+      "variant": [
+        "3790913",
+        "1",
+        "0",
+        "CA",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 16
+    },
+    {
+      "variant": [
+        "3804997",
+        "1",
+        "0",
+        "AAAAA",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 2
+    },
+    {
+      "variant": [
+        "3804997",
+        "1",
+        "0",
+        "AAAAAA",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 3
+    }
+  ],
+  "41/matrix.chunk0.transfer.tsv": [
+    {
+      "variant": [
+        "41919471",
+        "2",
+        "4",
+        "",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 1
+    }
+  ],
+  "61/matrix.chunk0.transfer.tsv": [
+    {
+      "variant": [
+        "61770861",
+        "2",
+        "6",
+        "",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 14
+    },
+    {
+      "variant": [
+        "61763857",
+        "1",
+        "0",
+        "TTTTTTTTTT",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 12
+    },
+    {
+      "variant": [
+        "61773783",
+        "1",
+        "0",
+        "A",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 1
+    },
+    {
+      "variant": [
+        "61773799",
+        "8",
+        "1",
+        "G",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 2
+    },
+    {
+      "variant": [
+        "61806160",
+        "1",
+        "0",
+        "ACACACACACATATATATATATATATATATATAT",
+        "1",
+        "512"
+      ],
+      "conflicting_reads": 1
+    },
+    {
+      "variant": [
+        "61802959",
+        "1",
+        "0",
+        "TTTTTTTTTTTTTTTTTTT",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 6
+    },
+    {
+      "variant": [
+        "61802959",
+        "1",
+        "0",
+        "TTTTTTTTTTTTTTTTTTTT",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 6
+    }
+  ],
+  "7/matrix.chunk0.transfer.tsv": [
+    {
+      "variant": [
+        "7047080",
+        "1",
+        "0",
+        "A",
+        "1",
+        "256"
+      ],
+      "conflicting_reads": 11
+    }
+  ]
+}

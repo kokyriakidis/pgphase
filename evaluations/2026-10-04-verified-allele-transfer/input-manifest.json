@@ -1,0 +1,34 @@
+{
+  "pgphase": {
+    "bytes": 14331376,
+    "sha256": "b4614c555ca06d411e68fc5f6f4e79bb9df8507c755d2172ff13557b6665fb47"
+  },
+  "test_data/chm13v2.0.chr20.renamed.fa": {
+    "bytes": 67037899,
+    "sha256": "d720113e666126ebb7a91b29e2c10ae143bf88c22d297affaf11902064a4aed2"
+  },
+  "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": {
+    "bytes": 1628148107,
+    "sha256": "cf0d6cd916750cc81e8b4e0515f8a924d1a44598da1d1514823105d39438dbd0"
+  },
+  "test_data/chr20.sites.striped.vcf.gz": {
+    "bytes": 656334074,
+    "sha256": "f8f9d6049fa9e6e2de7847302afdb13b63ae0a5be8ca5b28a0016672be8e261c"
+  },
+  "test_data/HG002.chr20.annotated.coord.gaf.gz": {
+    "bytes": 840749997,
+    "sha256": "0bf8bba8898237673f067ddd0a5e72928f9f6155ea9e023312d9f4805660ab0f"
+  },
+  "test_data/derived/chr20_truth_hap.tsv": {
+    "bytes": 12679829,
+    "sha256": "20c57a0a0bb4f8f183c162aba19422156b8f6b7f74972cbd4eaea94167de8c61"
+  },
+  "evaluations/2026-09-16-test-panel/panel.tsv": {
+    "bytes": 10773,
+    "sha256": "00d2bedb78c285e73593324983327c5dceca41e1cefd1526ddd0590a097f53ac"
+  },
+  "src/test_gap_windows_expect.tsv": {
+    "bytes": 7155,
+    "sha256": "2f39f3c77700d64af3379f8240c9edda809d429b64f7f9ccae773761986fe82c"
+  }
+}

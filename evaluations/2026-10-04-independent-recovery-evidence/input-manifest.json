@@ -1,0 +1,74 @@
+{
+  "pgphase": {
+    "bytes": 14347200,
+    "sha256": "54e67e0911beb6402e2558b44ac5dbf31d04da8da8f26b93a66e9acd8a91348f"
+  },
+  "test_data/chm13v2.0.chr20.renamed.fa": {
+    "bytes": 67037899,
+    "sha256": "d720113e666126ebb7a91b29e2c10ae143bf88c22d297affaf11902064a4aed2"
+  },
+  "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": {
+    "bytes": 1628148107,
+    "sha256": "cf0d6cd916750cc81e8b4e0515f8a924d1a44598da1d1514823105d39438dbd0"
+  },
+  "test_data/chr20.sites.striped.vcf.gz": {
+    "bytes": 656334074,
+    "sha256": "f8f9d6049fa9e6e2de7847302afdb13b63ae0a5be8ca5b28a0016672be8e261c"
+  },
+  "test_data/HG002.chr20.annotated.coord.gaf.gz": {
+    "bytes": 840749997,
+    "sha256": "0bf8bba8898237673f067ddd0a5e72928f9f6155ea9e023312d9f4805660ab0f"
+  },
+  "test_data/derived/chr20_truth_hap.tsv": {
+    "bytes": 12679829,
+    "sha256": "20c57a0a0bb4f8f183c162aba19422156b8f6b7f74972cbd4eaea94167de8c61"
+  },
+  "evaluations/2026-09-16-test-panel/panel.tsv": {
+    "bytes": 10773,
+    "sha256": "00d2bedb78c285e73593324983327c5dceca41e1cefd1526ddd0590a097f53ac"
+  },
+  "src/test_gap_windows_expect.tsv": {
+    "bytes": 7155,
+    "sha256": "2f39f3c77700d64af3379f8240c9edda809d429b64f7f9ccae773761986fe82c"
+  },
+  "test_data/tmp_gap_fix49/pgphase-before": {
+    "bytes": 14331376,
+    "sha256": "b4614c555ca06d411e68fc5f6f4e79bb9df8507c755d2172ff13557b6665fb47"
+  },
+  "src/collect_pipeline.cpp": {
+    "bytes": 291788,
+    "sha256": "47710ce4d0fd2364ddc9c15875d67f6ebcc2e935309b6d99aac9edd9f9186574"
+  },
+  "src/collect_phase.cpp": {
+    "bytes": 287092,
+    "sha256": "56bbd0ded90fbcc07ae9c12bbd85d22303da0125409d6b9057e69906ff469741"
+  },
+  "src/collect_phase_noisy.cpp": {
+    "bytes": 158294,
+    "sha256": "b40b8c0f4852bcd5beba1582fdbf1c71adad7c63ee7566cb3075960d1c712fea"
+  },
+  "src/phasing_types.hpp": {
+    "bytes": 58257,
+    "sha256": "b6181939cabee50f7bf811b44d860a0d61525976c5846542692512869e21d9af"
+  },
+  "src/test_gap_windows.cpp": {
+    "bytes": 260741,
+    "sha256": "e7eba1b5b5ba29f143d071f4646492c6cdc6d83a5c9dc12665419571d576b972"
+  },
+  "src/test_phase_predicates.cpp": {
+    "bytes": 152194,
+    "sha256": "b17714d17e9507f12798169e143eefedad36236c4a27977711e1d32418aab44e"
+  },
+  "test_gap_windows": {
+    "bytes": 2100888,
+    "sha256": "aa7cd2031ece52681e857d55f3b78fd4e2aa10c94fa92c6e9ee9fa0b466540b1"
+  },
+  "docs/IMPLEMENTATION.md": {
+    "bytes": 282009,
+    "sha256": "798e97c405fcd608ff31debcc2ec5afa8183eae9c7c8b59e47e289eef462e721"
+  },
+  "CHECKPOINT.md": {
+    "bytes": 856683,
+    "sha256": "396866126809f7c7c3c4f9ad3a4ff219406eee947f221d01c7b49c4b850f6acc"
+  }
+}

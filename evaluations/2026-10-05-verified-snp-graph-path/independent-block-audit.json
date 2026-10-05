@@ -1,0 +1,20 @@
+{
+  "new_gaps": [
+    [
+      41880908,
+      41885033
+    ]
+  ],
+  "changed_genotypes": 0,
+  "tracked_coordinates": 105,
+  "before_spans": 91,
+  "after_spans": 92,
+  "changed_tracked_coordinates": [
+    [
+      41880908,
+      41885033,
+      false,
+      true
+    ]
+  ]
+}

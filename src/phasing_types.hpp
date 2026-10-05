@@ -31,6 +31,9 @@ namespace pgphase_collect {
 // A real phase-set anchor is therefore always tested with `phase_set > 0`.
 constexpr hts_pos_t kUnsetCandidatePhaseSet = 0;
 constexpr hts_pos_t kUnphasedReadPhaseSet = -1;
+// Independent BAM solves disagree on this working slot. Unlike an ordinary
+// missing call (-1), a later fallback must not silently choose an allele.
+constexpr int kConflictingBamAllele = -2;
 
 // Default thresholds and window sizes for variant calling and phasing.
 constexpr int kDefaultMinMapq = 30;
@@ -976,6 +979,14 @@ struct RecoveryBamRead {
     std::vector<uint8_t> base_qualities;
 };
 
+/// Alternative recall retained for provenance, not another molecule vote.
+struct RecoveryBamRecall {
+    VariantKey key;
+    std::string qname;
+    int allele = -1;
+    bool fixed_consensus = false;
+};
+
 /// Phase gauge supplied by one targeted BAM solve. Imported phase sets already
 /// use this gauge; graph phase sets acquire it through shared-read votes.
 struct RecoveryPhaseGauge {
@@ -990,6 +1001,7 @@ struct RecoveryPhaseGauge {
     std::vector<RecoveryBamSite> bam_sites;
     // Sorted by qname; repeated molecules are excluded by the snapshot builder.
     std::vector<RecoveryBamRead> bam_reads;
+    std::vector<RecoveryBamRecall> conflicting_recalls;
 };
 
 struct ReadVariantProfile {
@@ -1046,6 +1058,9 @@ struct PhasingChunk {
     // Explicit abstentions must clear older CIGAR calls during transfer;
     // an ordinary missing slot merely supplies no new observation.
     std::vector<DeferredMsaObservation> rejected_msa_observations;
+    // Contradictory proposals remain available in the source snapshot. The
+    // working call abstains instead of choosing one by arrival order.
+    std::vector<DeferredMsaObservation> conflicting_msa_observations;
     // only for reads the clean core left unphased (haps[i]==0) and recovered by
     // the scratch-buffer noisy k-means; empty otherwise. Kept separate from
     // `haps` so they never influence cross-chunk stitching (which inspects

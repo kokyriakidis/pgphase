@@ -1,0 +1,202 @@
+[
+  {
+    "pos": 13751618,
+    "alleles": [
+      "A",
+      "C"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13751618,
+      "X",
+      1,
+      "C"
+    ],
+    "source_category_bitmask": 4,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13752640,
+    "alleles": [
+      "C",
+      "T"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13752640,
+      "X",
+      1,
+      "T"
+    ],
+    "source_category_bitmask": 4,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13773452,
+    "alleles": [
+      "G",
+      "C"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13773452,
+      "X",
+      1,
+      "C"
+    ],
+    "source_category_bitmask": 4,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13784702,
+    "alleles": [
+      "AT",
+      "A"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13784703,
+      "D",
+      1,
+      ""
+    ],
+    "source_category_bitmask": 8,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13787628,
+    "alleles": [
+      "A",
+      "T"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13787628,
+      "X",
+      1,
+      "T"
+    ],
+    "source_category_bitmask": 256,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13792302,
+    "alleles": [
+      "T",
+      "A"
+    ],
+    "gt": [
+      1,
+      0
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13792302,
+      "X",
+      1,
+      "A"
+    ],
+    "source_category_bitmask": 256,
+    "source_ps": 13751618,
+    "source_gt": [
+      1,
+      0
+    ]
+  },
+  {
+    "pos": 13800824,
+    "alleles": [
+      "GATA",
+      "G"
+    ],
+    "gt": [
+      0,
+      1
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13800825,
+      "D",
+      3,
+      ""
+    ],
+    "source_category_bitmask": 8,
+    "source_ps": 13751618,
+    "source_gt": [
+      0,
+      1
+    ]
+  },
+  {
+    "pos": 13804846,
+    "alleles": [
+      "C",
+      "A"
+    ],
+    "gt": [
+      1,
+      0
+    ],
+    "phased": true,
+    "ps": 13751618,
+    "normalized_source_key": [
+      13804846,
+      "X",
+      1,
+      "A"
+    ],
+    "source_category_bitmask": 4,
+    "source_ps": 13751618,
+    "source_gt": [
+      1,
+      0
+    ]
+  }
+]

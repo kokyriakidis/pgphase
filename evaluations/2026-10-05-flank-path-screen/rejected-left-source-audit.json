@@ -1,0 +1,21 @@
+{
+  "tracked_spans": 0,
+  "reopened": [],
+  "nonuniform_old_blocks": {},
+  "new_connections": [
+    [
+      32330932,
+      32333068
+    ]
+  ],
+  "lost_phased_keys": [],
+  "genotype_changes": [],
+  "read_transitions": {
+    "(True, True)": 43,
+    "(False, False)": 16,
+    "(True, False)": 9
+  },
+  "changed_read_tags": 28,
+  "before_blocks": 3,
+  "after_blocks": 2
+}

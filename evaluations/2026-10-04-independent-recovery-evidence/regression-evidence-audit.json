@@ -1,0 +1,22 @@
+[
+  {
+    "directory": "test_data/tmp_gap_fix49/regression-after",
+    "counts": {
+      "independent_calls": 66029,
+      "checked_source_calls": 66029,
+      "working_retained": 53094,
+      "owner_resolved_disagreement": 63,
+      "source_disagreements": 64,
+      "working_abstentions": 1,
+      "overlay_calls": 71612,
+      "overlay_conflicts": 1
+    },
+    "census": {
+      "mapped": 60240,
+      "candidate_not_transferred": 18548,
+      "other_seam_owner": 665,
+      "physical:no_fixed_consensus_context": 28
+    },
+    "errors": []
+  }
+]

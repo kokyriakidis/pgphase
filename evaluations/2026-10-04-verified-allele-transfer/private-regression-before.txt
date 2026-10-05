@@ -1,0 +1,36 @@
+Filters: *BAM-private blocks*
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+BAM-private blocks retain verified MSA calls without graph anchors
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5662
+...............................................................................
+
+src/test_gap_windows.cpp:5697: FAILED:
+  CHECK( std::stoll(row.at("DP")) >= 62 )
+with expansion:
+  11 >= 62
+
+src/test_gap_windows.cpp:5697: FAILED:
+  CHECK( std::stoll(row.at("DP")) >= 62 )
+with expansion:
+  11 >= 62
+
+src/test_gap_windows.cpp:5709: FAILED:
+  CHECK( reads.correct >= 3111 )
+with expansion:
+  3110 (0xc26) >= 3111 (0xc27)
+
+src/test_gap_windows.cpp:5710: FAILED:
+  CHECK( reads.discordant() <= 210 )
+with expansion:
+  211 <= 210
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 23 | 19 passed | 4 failed
+

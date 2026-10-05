@@ -1,0 +1,30 @@
+[
+  {
+    "read": "m84031_231217_062403_s3/125176998/ccs",
+    "mapq": 60,
+    "events": [
+      {
+        "type": "D",
+        "pos0": 50548247,
+        "length": 3,
+        "sequence": null,
+        "left_quality": 40,
+        "right_quality": 40
+      }
+    ]
+  },
+  {
+    "read": "m84031_231217_034919_s2/98238767/ccs",
+    "mapq": 60,
+    "events": [
+      {
+        "type": "D",
+        "pos0": 50548245,
+        "length": 3,
+        "sequence": null,
+        "left_quality": 40,
+        "right_quality": 17
+      }
+    ]
+  }
+]

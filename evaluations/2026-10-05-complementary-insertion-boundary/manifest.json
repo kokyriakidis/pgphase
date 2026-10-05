@@ -1,0 +1,77 @@
+{
+  "sha256": {
+    "test_data/tmp_gap_fix55/pgphase-before": "3a227a265b28ca21b15e4e59e272f0dc2cc06e7feb2046d50108365e481152c5",
+    "test_data/tmp_gap_fix55/pgphase-final": "bdce74cda1d0ec407fe7a0cfaf9e30d2c77a60b605d6f193ee92e2cb16503933",
+    "test_data/tmp_gap_fix55/graph_collect-before.cpp": "b0a09a8d73b611a9e0908b8e582271203a697ea3a2243811f39fe20501c3fe63",
+    "test_data/tmp_gap_fix55/graph_bam_adapter-before.hpp": "8ec2606d1ad41efaff02119df87d4d8f0555cb94b482aab9ed2a588595c46cf8",
+    "src/graph_collect.cpp": "5aea378c97fc6f05f8c5434ef17b98e146d06aea69c1e6ff6d2ca59a3d1d7baa",
+    "src/graph_bam_adapter.hpp": "dfa2e74710dc8dc946371fc71e60e7ab165af8d310fd042ba162f6a8732c24df",
+    "src/collect_pipeline.cpp": "bc9d722d025d6da14faafbdc247a2572b6af519e8c62d1a7256569cc191ff2f5",
+    "src/test_gap_windows.cpp": "7c2e259b4038278408d3fc8e78c6f67f5fe538d74f27ba9d206d92aea47f6217",
+    "src/test_gap_windows_expect.tsv": "5fa42b0466bdb99af62ad206e1f1320a9791d7d2943bb44f5925ad85ad6dc5b3",
+    "src/test_gap_windows_required.tsv": "e59ed4e172b2331d29af1c8bd73a9948b2adf004c285306d36b8732b3ac0b7e3",
+    "evaluations/2026-09-16-test-panel/panel.tsv": "088d4ab6d0ff77f184044a3cce83405b3530925bab42f9cad156805f85ce3915",
+    "docs/IMPLEMENTATION.md": "7fa27b247336799e6dc9c9e0553ddcc2fc7055f2cff0b84261ea2f906da59265",
+    "CHECKPOINT.md": "af8bc283ed44c62573c389308d0e047a764f81ba57353545f381a0a8f2be7b81",
+    "test_gap_windows": "41115523313a847d7c53ebbfb2614ac60683d884b27fd905fcfb362543ab932f",
+    "test_data/tmp_gap_fix54/full-gated/phased.vcf": "b2263185e8d2da573c7e2fc91cf8ea862b978b196ac394eb89dab9fb37193813",
+    "test_data/tmp_gap_fix54/full-gated/phased.bam": "d0dad1724f7df3e8698210d71cd793bffa42a0824d3d7f9cb0ccf5777a18985d",
+    "test_data/tmp_gap_fix55/full-final/phased.vcf": "88608608e958d9f52a5405a316a4e13c164a88bda76761c2b0e3d8171a96e0d7",
+    "test_data/tmp_gap_fix55/full-final/phased.bam": "e3266d07f16a16710b9a53651fd07f5f68b975a095affb8d06fe7706a42ca541",
+    "test_data/tmp_gap_fix55/baseline-pair9/9/phased.vcf": "20a37591155d65f891b443e812d7211db782bf6d4b2b7da9f3ebd228961bdb40",
+    "test_data/tmp_gap_fix55/baseline-pair9/9/phased.bam": "02612c82ba983d139a839216bafa6d83bd1efa1e73768bee0bb450e28d94f361",
+    "test_data/tmp_gap_fix55/regression-counts-final/complementary_insertion_boundary/w8977829-9014032/native.vcf": "176d4054de580455ad8ca2580741262785c71a9fcce8e1f084b33e22e9d01404",
+    "test_data/tmp_gap_fix55/regression-counts-final/complementary_insertion_boundary/w8977829-9014032/phased.bam": "ecfcffa33287249a9daf5b297cdca7fbbb41e4861e6beafe61fb315881a27bf7",
+    "test_data/tmp_gap_fix55/boundary9/9/phased.vcf": "b1f5cdcdb291f4e855f8e5e32c9f0a031adb1c5e112df559e3a04ee598e35755",
+    "test_data/tmp_gap_fix55/boundary9/9/phased.bam": "66f9b66a00c142dc2e8ff2cd1b4eaabb8124bfc226654babaa1428967c720af5",
+    "test_data/tmp_gap_fix55/bounded-final/9/phased.vcf": "8a6379e0ac1979bda1eb7516b41faba65371374f75f31d4cc6ad47cbff1f7aa5",
+    "test_data/tmp_gap_fix55/bounded-final/9/phased.bam": "12b6a45de25f96658627064ed15d7ad484aa09bf6fb0e09038c99ef3528aa9ff",
+    "test_data/tmp_gap_fix55/bounded-final/9/matrix.chunk0.recovery-final.tsv": "1b3aac1e5d90df8e821707e496a1dfb9af73b63b45d5f556b17aed6b4eebc8c1",
+    "evaluations/2026-10-05-complementary-insertion-boundary/README.md": "6e091e7fe9faf368bd0f1832beb8aa96ab21da87c4cdb89d32dc20215a9245e2",
+    "evaluations/2026-10-05-complementary-insertion-boundary/bounded-audit.json": "e65f2b5a2a8e39014a8bfc0e3a4afd90b467c41f5b1906892d3e8ec813bdbc8a",
+    "evaluations/2026-10-05-complementary-insertion-boundary/bounded-parity.json": "4925e2feb4ce336fb00fff312e4d1adfd6034b5352b653396884e75c9862ae57",
+    "evaluations/2026-10-05-complementary-insertion-boundary/build.log": "d546eba64ca890479a43451a559293cf16062549c96788f5ac3a66f238f7bfa1",
+    "evaluations/2026-10-05-complementary-insertion-boundary/competitor.json": "7f9339b8f8fc6674b9a0a35f68f21ae2cb0df927d4c82121b5c7e857456f1d33",
+    "evaluations/2026-10-05-complementary-insertion-boundary/evaluate.py": "ef418f6e9ff61c86ac12406b0100605e70d46a70b07a15e56f4f05afbee5ac5f",
+    "evaluations/2026-10-05-complementary-insertion-boundary/evidence.py": "8b7079e4d6795c67f4dfdc8e2785e0d37e03e35f3d5240ecbd0751a3802fb3e4",
+    "evaluations/2026-10-05-complementary-insertion-boundary/full-audit.json": "7bb478e7cee617b04cde6cfda7003bff8473913f0aded8e29c9ef9236485f8ae",
+    "evaluations/2026-10-05-complementary-insertion-boundary/full-parity.json": "1c4c34145c9ffa7663f8cb3dbd220ac3b695f19ae235f8b6776a45478744f41b",
+    "evaluations/2026-10-05-complementary-insertion-boundary/golden-tests.log": "b1de5c881771e38bf3f2e10fc5cdabde7297f239e32f67a41a2f16c2fc8fde0a",
+    "evaluations/2026-10-05-complementary-insertion-boundary/native-tests.log": "84d03b5f62f92b865bab7928583a233dbdb0b80b0819dddb04a96a8fd0f72522",
+    "evaluations/2026-10-05-complementary-insertion-boundary/paired-audit.json": "fd28cd1b05ed4241e51eb77a933ed49c60109e2913c5a60cb3f5109ce45a5de1",
+    "evaluations/2026-10-05-complementary-insertion-boundary/paired-parity.json": "aa4f07a7f1566f68865a31b4679a562f76815b97fca0114a306b528994bbc46b",
+    "evaluations/2026-10-05-complementary-insertion-boundary/physical-evidence.json": "0406d5bcb11bae8d7e752609aca7137b8c2b7cc49aa065fa9804bada25f8e60f",
+    "evaluations/2026-10-05-complementary-insertion-boundary/regression-before.log": "67a8171db9a7d21e9a4a4f33c1c9fc7472e342353253dc78d2786afd0df0ee26",
+    "evaluations/2026-10-05-complementary-insertion-boundary/regression-final.log": "08c1eba5f29df822efc7e5ac2e8d7650ecd80c87d95978a5b73f4f3b68e877c2",
+    "evaluations/2026-10-05-complementary-insertion-boundary/reproduce.sh": "f0759fe8adf9d3cca3e76c17b57ad5c48527afb9f4bb55f95fec08c22009e1b7",
+    "evaluations/2026-10-05-complementary-insertion-boundary/unit-and-predicate-tests.log": "748d15fc412a3d0282666eeb39a6e772fedd13140f770d3ed3bc90bca94fd9dc"
+  },
+  "inputs": {
+    "test_data/chm13v2.0.chr20.renamed.fa": {
+      "size": 67037899,
+      "mtime_ns": 1777580431186148146
+    },
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": {
+      "size": 1628148107,
+      "mtime_ns": 1777684529398316204
+    },
+    "test_data/chr20.sites.striped.vcf.gz": {
+      "size": 656334074,
+      "mtime_ns": 1779089336279080637
+    },
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": {
+      "size": 840749997,
+      "mtime_ns": 1778217680609834235
+    },
+    "test_data/derived/chr20_truth_hap.tsv": {
+      "size": 12679829,
+      "mtime_ns": 1789660880088322588
+    }
+  },
+  "native_workdir": "test_data/tmp_gap_fix55/native-counts-final",
+  "native_pipeline_requests": 112,
+  "native_test_cases": 81,
+  "native_assertions": 8234,
+  "focused_test_cases": 1,
+  "focused_assertions": 24
+}

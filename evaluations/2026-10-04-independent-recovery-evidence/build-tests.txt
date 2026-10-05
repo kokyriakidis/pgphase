@@ -1,0 +1,1 @@
+g++ -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o test_gap_windows src/test_gap_windows.cpp -lhts -lm -lz -lpthread

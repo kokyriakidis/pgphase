@@ -1,0 +1,44 @@
+Filters: [source-admission]
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+selected BAM blocks retain verified MSA calls across graph gauge disagreement
+  verified source at 11862429
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5743
+...............................................................................
+
+src/test_gap_windows.cpp:5770: FAILED:
+  CHECK( std::stoi(row.at("DP")) >= replay.depth )
+with expansion:
+  62 >= 68
+
+src/test_gap_windows.cpp:5770: FAILED:
+  CHECK( std::stoi(row.at("DP")) >= replay.depth )
+with expansion:
+  62 >= 68
+
+-------------------------------------------------------------------------------
+selected BAM blocks retain verified MSA calls across graph gauge disagreement
+  verified source at 34835166
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:5743
+...............................................................................
+
+src/test_gap_windows.cpp:5770: FAILED:
+  CHECK( std::stoi(row.at("DP")) >= replay.depth )
+with expansion:
+  51 >= 56
+
+src/test_gap_windows.cpp:5770: FAILED:
+  CHECK( std::stoi(row.at("DP")) >= replay.depth )
+with expansion:
+  51 >= 56
+
+===============================================================================
+test cases:  1 |  0 passed | 1 failed
+assertions: 42 | 38 passed | 4 failed
+

@@ -1,0 +1,25 @@
+{
+  "restored_binary_sha256": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+  "binaries": {
+    "pgphase-before": "e635c76de38cc00ab0554529a278ca297b321a3a728634a40bc7652fb8b78c71",
+    "pgphase-both-flanks": "24a04ca490f4f38f33401c515efae25ba1c126c005d58c5733e812e45e410331",
+    "pgphase-edge-trial": "0631fe7c2cea5b3de6ac4c4acb6b4daf9fb80c9e034dee02251ae4332c18ae8a",
+    "pgphase-left-source-trial": "237608e132f0784b8d438340f4d34c5d77d559f80bb1250b3c2df7bfe9e7fafb",
+    "pgphase-right-source-trial": "a744435dba2ab1ff13bb4024f538c6e555518ce6ba92f6eb751497b64f44b684"
+  },
+  "baseline_outputs": "test_data/tmp_gap_fix58/full-projected-final",
+  "full_trials": [
+    "test_data/tmp_gap_fix59/full-both-flanks",
+    "test_data/tmp_gap_fix59/full-edge-trial",
+    "test_data/tmp_gap_fix59/full-right-source"
+  ],
+  "rejected_short_replay": [
+    "test_data/tmp_gap_fix59/baseline-short/32",
+    "test_data/tmp_gap_fix59/left-source-short/32"
+  ],
+  "region": "CHM13#0#chr20:32300001-32400000",
+  "production_source_restored": true,
+  "new_gap_closed": false,
+  "restored_build_passed": true,
+  "restored_unit_tests_passed": true
+}

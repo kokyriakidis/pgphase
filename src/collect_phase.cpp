@@ -430,6 +430,25 @@ static void dump_phase_matrix(const PhasingChunk& chunk,
                              static_cast<unsigned>(prof.bam_base_qualities[offset]));
         }
     }
+    // Deferred calls are verified evidence awaiting source selection, not
+    // missing observations. Preserve their provenance in diagnostic replays.
+    const auto dump_deferred = [&](const char* label,
+                                  const std::vector<DeferredMsaObservation>& observations) {
+        for (const auto& observation : observations) {
+            if (observation.read_id < 0 ||
+                static_cast<size_t>(observation.read_id) >= chunk.reads.size()) continue;
+            const VariantKey& key = observation.key;
+            const char type = key.type == VariantType::Snp ? 'X' :
+                              key.type == VariantType::Insertion ? 'I' : 'D';
+            std::fprintf(fp, "%s\t%s\t%" PRId64 "\t%c\t%d\t%s\t%d\t%d\n",
+                label, chunk.reads[static_cast<size_t>(observation.read_id)].qname.c_str(),
+                static_cast<int64_t>(key.pos), type, key.ref_len, key.alt.c_str(),
+                observation.allele, observation.update_counts);
+        }
+    };
+    dump_deferred("PENDING", chunk.pending_msa_observations);
+    dump_deferred("REJECTED", chunk.rejected_msa_observations);
+    dump_deferred("CONFLICT", chunk.conflicting_msa_observations);
     std::fclose(fp);
 }
 
@@ -780,6 +799,12 @@ void retain_recovery_bam_evidence(
         RecoveryPhaseGauge& gauge) {
     gauge.bam_sites.clear();
     gauge.bam_reads.clear();
+    gauge.conflicting_recalls.clear();
+    for (const auto& observation : source.conflicting_msa_observations) {
+        const ReadRecord& read = source.reads[observation.read_id];
+        gauge.conflicting_recalls.push_back(RecoveryBamRecall{
+            observation.key, read.qname, observation.allele, observation.update_counts});
+    }
     const std::map<hts_pos_t, hts_pos_t> labels(
         phase_set_remap.begin(), phase_set_remap.end());
     std::vector<int> site_index(source.candidates.size(), -1);
@@ -927,11 +952,16 @@ std::optional<bool> complete_recovery_block_flip(
                 const size_t offset = static_cast<size_t>(ci - profile.start_var_idx);
                 if (offset >= profile.alleles.size()) continue;
                 const CandidateVariant& site = chunk.candidates[static_cast<size_t>(ci)];
+                // Quality certifies the BAM channel's exact allele. A retained
+                // graph call must not borrow it when the channels disagree.
+                const uint8_t quality = offset < profile.bam_alleles.size() &&
+                    profile.bam_alleles[offset] == profile.alleles[offset] &&
+                    offset < profile.bam_base_qualities.size()
+                        ? profile.bam_base_qualities[offset] : 0;
                 add(side, profile.alleles[offset], site.hap_to_cons_alle[1],
                     site.hap_to_cons_alle[2], site.key.type == VariantType::Snp &&
                         site.counts.category == VariantCategory::CleanHetSnp,
-                        offset < profile.bam_base_qualities.size()
-                            ? profile.bam_base_qualities[offset] : 0);
+                        quality);
             }
         }
         if (physical[0][0] != physical[0][1] && physical[1][0] != physical[1][1])
@@ -1307,6 +1337,8 @@ std::optional<bool> corroborated_bam_block_flip(
         const PhasingChunk& chunk, const std::vector<int>& first,
         const std::vector<int>& second) {
     constexpr int kMinMapq = 30;
+    constexpr int kUnknownMapq = 255;
+    constexpr int kMissingBaseQuality = 255;
     constexpr int kMinSnpBaseQuality = 30;
     constexpr hts_pos_t kDistinctSiteDistance = 100;
     int same = 0;
@@ -1315,7 +1347,8 @@ std::optional<bool> corroborated_bam_block_flip(
         if (ri >= chunk.read_var_profile.size() || chunk.reads[ri].is_skipped)
             continue;
         const ReadVariantProfile& profile = chunk.read_var_profile[ri];
-        if (profile.bam_mapq < kMinMapq || profile.start_var_idx < 0 ||
+        if (profile.bam_mapq < kMinMapq || profile.bam_mapq == kUnknownMapq ||
+            profile.start_var_idx < 0 ||
             profile.bam_alleles.empty())
             continue;
         std::array<int, 2> snp_hap{};
@@ -1339,7 +1372,8 @@ std::optional<bool> corroborated_bam_block_flip(
                 if (cand.key.type == VariantType::Snp &&
                     cand.counts.category == VariantCategory::CleanHetSnp &&
                     offset < profile.bam_base_qualities.size() &&
-                    profile.bam_base_qualities[offset] >= kMinSnpBaseQuality) {
+                    profile.bam_base_qualities[offset] >= kMinSnpBaseQuality &&
+                    profile.bam_base_qualities[offset] != kMissingBaseQuality) {
                     target = &snp_hap[side];
                     positions = &snp_pos[side];
                 } else if (cand.key.type != VariantType::Snp &&

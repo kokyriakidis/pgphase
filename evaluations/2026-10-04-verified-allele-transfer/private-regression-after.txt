@@ -1,0 +1,4 @@
+Filters: *BAM-private blocks*
+===============================================================================
+All tests passed (23 assertions in 1 test case)
+

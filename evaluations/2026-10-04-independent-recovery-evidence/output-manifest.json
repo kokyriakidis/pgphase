@@ -1,0 +1,46 @@
+{
+  "test_data/tmp_transfer_audit/full-private-admission/phased.bam": {
+    "bytes": 1973172,
+    "sha256": "c6843db86fb00e0da19661695c9b174bcd3ed08eb7a24b6906783c3f3429bfa6"
+  },
+  "test_data/tmp_transfer_audit/full-private-admission/phased.vcf": {
+    "bytes": 10806855,
+    "sha256": "ad1b200470a9be86037537afd11f4dcbc20d481ac3f5eb0054bdb672c698a17f"
+  },
+  "test_data/tmp_gap_fix49/full-final/phased.bam": {
+    "bytes": 1973655,
+    "sha256": "acc644945593b3ba2b31df05869397e20d5596794f7704bbca810f0e0f0509cd"
+  },
+  "test_data/tmp_gap_fix49/full-final/phased.vcf": {
+    "bytes": 10806863,
+    "sha256": "680f0ffa2baa297532c92eb2254a5e0bbc3dd974ac721bc4c467dbc973c1f40d"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/unit-tests.txt": {
+    "bytes": 2043,
+    "sha256": "b8e6d013fed75c111b5b2ad694918178f802febb4c55710386993409cbffae54"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/golden-tests.txt": {
+    "bytes": 493,
+    "sha256": "f73c5917a38ef44348e959043c3985b71ae81511989b342f10faef5b0732d8da"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/window-tests.txt": {
+    "bytes": 133,
+    "sha256": "9cb14eef28c13956f01c69d48fd3a0fcdb226eddd180a230d394227c9cd779d8"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/regression-before.txt": {
+    "bytes": 1576,
+    "sha256": "c945de9ca4c4e8ffd282476f302514d16c4360ebc012883f0c847c88d207f8e9"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/regression-after.txt": {
+    "bytes": 218,
+    "sha256": "641748e0adc3d4a1aa92eab96f76aa02fc6f499849582a6198cce48a23861c45"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/final-evidence-audit.json": {
+    "bytes": 550,
+    "sha256": "ea531aba66b68b158f9fc34717ef435b278c53a9a2ca7c9701a748c1165325a3"
+  },
+  "evaluations/2026-10-04-independent-recovery-evidence/panel-evidence-audit.json": {
+    "bytes": 986,
+    "sha256": "6fb405648c13a68c7a9b5d71212dbd90413a748ea02090aaf9fa385b0c351e60"
+  }
+}

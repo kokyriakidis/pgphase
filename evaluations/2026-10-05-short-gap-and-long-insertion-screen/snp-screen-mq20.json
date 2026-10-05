@@ -1,0 +1,1872 @@
+[
+  {
+    "left": 93144,
+    "right": 130540,
+    "left_row": [
+      93144,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      130540,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 37902,
+    "right_ps": 487305,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 13,
+    "right_sites": 1018
+  },
+  {
+    "left": 1117887,
+    "right": 1142089,
+    "left_row": [
+      1117887,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "right_row": [
+      1142089,
+      "C",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 882277,
+    "right_ps": 1142089,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 282,
+    "right_sites": 726
+  },
+  {
+    "left": 4473275,
+    "right": 4501106,
+    "left_row": [
+      4473275,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      4501106,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 3981464,
+    "right_ps": 4501106,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 602,
+    "right_sites": 27
+  },
+  {
+    "left": 4525585,
+    "right": 4570122,
+    "left_row": [
+      4525585,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      4570122,
+      "C",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 4501106,
+    "right_ps": 4878943,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 27,
+    "right_sites": 642
+  },
+  {
+    "left": 6485289,
+    "right": 6513891,
+    "left_row": [
+      6485289,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      6513891,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 6418241,
+    "right_ps": 6513891,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 271,
+    "right_sites": 5
+  },
+  {
+    "left": 6927750,
+    "right": 6965188,
+    "left_row": [
+      6927750,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      6965188,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 6647270,
+    "right_ps": 6965188,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 287,
+    "right_sites": 2
+  },
+  {
+    "left": 7264321,
+    "right": 7280346,
+    "left_row": [
+      7264321,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      7280346,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 7236076,
+    "right_ps": 7280339,
+    "counts": [
+      2,
+      0,
+      9,
+      0
+    ],
+    "left_sites": 5,
+    "right_sites": 9
+  },
+  {
+    "left": 7313515,
+    "right": 7343405,
+    "left_row": [
+      7313515,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      7343405,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 7280339,
+    "right_ps": 7739429,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 9,
+    "right_sites": 548
+  },
+  {
+    "left": 8081718,
+    "right": 8106314,
+    "left_row": [
+      8081718,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      8106314,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 7887137,
+    "right_ps": 8106315,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 158,
+    "right_sites": 659
+  },
+  {
+    "left": 13429829,
+    "right": 13465685,
+    "left_row": [
+      13429829,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      13465685,
+      "T",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 13200254,
+    "right_ps": 13465685,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 160,
+    "right_sites": 2
+  },
+  {
+    "left": 13543678,
+    "right": 13567196,
+    "left_row": [
+      13543678,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      13567196,
+      "A",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 13510610,
+    "right_ps": 13567197,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 6,
+    "right_sites": 2
+  },
+  {
+    "left": 13752640,
+    "right": 13773452,
+    "left_row": [
+      13752640,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      13773452,
+      "G",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 13751618,
+    "right_ps": 13844727,
+    "counts": [
+      2,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 3,
+    "right_sites": 9
+  },
+  {
+    "left": 14584522,
+    "right": 14612632,
+    "left_row": [
+      14584522,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      14612632,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 14528929,
+    "right_ps": 14612633,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 224,
+    "right_sites": 4
+  },
+  {
+    "left": 14679247,
+    "right": 14719378,
+    "left_row": [
+      14679247,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      14719378,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 14679237,
+    "right_ps": 14719378,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 3,
+    "right_sites": 238
+  },
+  {
+    "left": 17839398,
+    "right": 17839399,
+    "left_row": [
+      17839398,
+      "T",
+      "G",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "right_row": [
+      17839399,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 17774311,
+    "right_ps": 17839398,
+    "counts": [
+      3,
+      1,
+      17,
+      0
+    ],
+    "left_sites": 123,
+    "right_sites": 1
+  },
+  {
+    "left": 17839399,
+    "right": 17852024,
+    "left_row": [
+      17839399,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "right_row": [
+      17852024,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 17839398,
+    "right_ps": 17883198,
+    "counts": [
+      4,
+      2,
+      2,
+      4
+    ],
+    "left_sites": 1,
+    "right_sites": 1734
+  },
+  {
+    "left": 19464219,
+    "right": 19502530,
+    "left_row": [
+      19464219,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      19502530,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 19395544,
+    "right_ps": 19502530,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 33,
+    "right_sites": 1055
+  },
+  {
+    "left": 20593835,
+    "right": 20617179,
+    "left_row": [
+      20593835,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      20617179,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 20593835,
+    "right_ps": 20617180,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 1,
+    "right_sites": 13
+  },
+  {
+    "left": 22497901,
+    "right": 22520628,
+    "left_row": [
+      22497901,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      22520628,
+      "A",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 22481532,
+    "right_ps": 22520628,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 3,
+    "right_sites": 3
+  },
+  {
+    "left": 24081165,
+    "right": 24103779,
+    "left_row": [
+      24081165,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      24103779,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 24012604,
+    "right_ps": 24103779,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 10,
+    "right_sites": 4
+  },
+  {
+    "left": 25855631,
+    "right": 25855633,
+    "left_row": [
+      25855631,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      25855633,
+      "T",
+      "G",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 24517362,
+    "right_ps": 25805896,
+    "counts": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 2102,
+    "right_sites": 229
+  },
+  {
+    "left": 26915257,
+    "right": 26916293,
+    "left_row": [
+      26915257,
+      "A",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      26916293,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 25971072,
+    "right_ps": 26916293,
+    "counts": [
+      0,
+      1,
+      0,
+      1
+    ],
+    "left_sites": 1917,
+    "right_sites": 8
+  },
+  {
+    "left": 26916815,
+    "right": 26917653,
+    "left_row": [
+      26916815,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      26917653,
+      "T",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 26916293,
+    "right_ps": 26917048,
+    "counts": [
+      1,
+      3,
+      0,
+      0
+    ],
+    "left_sites": 8,
+    "right_sites": 537
+  },
+  {
+    "left": 29161512,
+    "right": 29164041,
+    "left_row": [
+      29161512,
+      "G",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      29164041,
+      "A",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 29001805,
+    "right_ps": 29164041,
+    "counts": [
+      0,
+      0,
+      2,
+      0
+    ],
+    "left_sites": 297,
+    "right_sites": 97
+  },
+  {
+    "left": 29170269,
+    "right": 29170275,
+    "left_row": [
+      29170269,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "right_row": [
+      29170275,
+      "T",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 29164041,
+    "right_ps": 29170275,
+    "counts": [
+      0,
+      2,
+      1,
+      0
+    ],
+    "left_sites": 97,
+    "right_sites": 501
+  },
+  {
+    "left": 29303608,
+    "right": 29303677,
+    "left_row": [
+      29303608,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      29303677,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 29170275,
+    "right_ps": 29300122,
+    "counts": [
+      0,
+      16,
+      3,
+      0
+    ],
+    "left_sites": 501,
+    "right_sites": 67
+  },
+  {
+    "left": 29370661,
+    "right": 29409009,
+    "left_row": [
+      29370661,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      29409009,
+      "C",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 29312665,
+    "right_ps": 29409009,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 121,
+    "right_sites": 75
+  },
+  {
+    "left": 29416346,
+    "right": 29417393,
+    "left_row": [
+      29416346,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      29417393,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 29409009,
+    "right_ps": 29417393,
+    "counts": [
+      1,
+      4,
+      3,
+      0
+    ],
+    "left_sites": 75,
+    "right_sites": 156
+  },
+  {
+    "left": 29438553,
+    "right": 29440378,
+    "left_row": [
+      29438553,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      29440378,
+      "C",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 29417393,
+    "right_ps": 29440378,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 156,
+    "right_sites": 2146
+  },
+  {
+    "left": 31853166,
+    "right": 31866648,
+    "left_row": [
+      31853166,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      31866648,
+      "A",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 31831078,
+    "right_ps": 31866648,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 86,
+    "right_sites": 574
+  },
+  {
+    "left": 32181324,
+    "right": 32204477,
+    "left_row": [
+      32181324,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      32204477,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 32168699,
+    "right_ps": 32204477,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 74,
+    "right_sites": 270
+  },
+  {
+    "left": 32334744,
+    "right": 32361820,
+    "left_row": [
+      32334744,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      32361820,
+      "T",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 32333068,
+    "right_ps": 32361820,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 116,
+    "right_sites": 8
+  },
+  {
+    "left": 32449782,
+    "right": 32467816,
+    "left_row": [
+      32449782,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      32467816,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 32449112,
+    "right_ps": 32484791,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 50,
+    "right_sites": 153
+  },
+  {
+    "left": 32740500,
+    "right": 32759261,
+    "left_row": [
+      32740500,
+      "T",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      32759261,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 32707226,
+    "right_ps": 32759261,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 99,
+    "right_sites": 62
+  },
+  {
+    "left": 35370461,
+    "right": 35405794,
+    "left_row": [
+      35370461,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      35405794,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 35305645,
+    "right_ps": 35405794,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 10,
+    "right_sites": 4
+  },
+  {
+    "left": 37982955,
+    "right": 38008026,
+    "left_row": [
+      37982955,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      38008026,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 37667751,
+    "right_ps": 38005400,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 140,
+    "right_sites": 27
+  },
+  {
+    "left": 38053801,
+    "right": 38094781,
+    "left_row": [
+      38053801,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      38094781,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 38005400,
+    "right_ps": 38094781,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 27,
+    "right_sites": 2
+  },
+  {
+    "left": 40719136,
+    "right": 40722749,
+    "left_row": [
+      40719136,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      40722749,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 40719131,
+    "right_ps": 40711983,
+    "counts": [
+      0,
+      0,
+      2,
+      3
+    ],
+    "left_sites": 1,
+    "right_sites": 695
+  },
+  {
+    "left": 42414096,
+    "right": 42442492,
+    "left_row": [
+      42414096,
+      "G",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      42442492,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 42128668,
+    "right_ps": 42442492,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 318,
+    "right_sites": 2
+  },
+  {
+    "left": 46636707,
+    "right": 46663811,
+    "left_row": [
+      46636707,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      46663811,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 45883706,
+    "right_ps": 46663811,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 570,
+    "right_sites": 48
+  },
+  {
+    "left": 48982663,
+    "right": 49008322,
+    "left_row": [
+      48982663,
+      "T",
+      "C",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      49008322,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 48950389,
+    "right_ps": 49008323,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 1103,
+    "right_sites": 2
+  },
+  {
+    "left": 49720311,
+    "right": 49742973,
+    "left_row": [
+      49720311,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      49742973,
+      "C",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 49700407,
+    "right_ps": 49742973,
+    "counts": [
+      0,
+      0,
+      0,
+      1
+    ],
+    "left_sites": 4,
+    "right_sites": 6
+  },
+  {
+    "left": 51235063,
+    "right": 51262081,
+    "left_row": [
+      51235063,
+      "G",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      51262081,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 50127297,
+    "right_ps": 51262082,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 1779,
+    "right_sites": 1213
+  },
+  {
+    "left": 54419033,
+    "right": 54453020,
+    "left_row": [
+      54419033,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      54453020,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 52711825,
+    "right_ps": 54569072,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 2125,
+    "right_sites": 745
+  },
+  {
+    "left": 55999194,
+    "right": 56040612,
+    "left_row": [
+      55999194,
+      "G",
+      "A",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      56040612,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 55883019,
+    "right_ps": 56040613,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 199,
+    "right_sites": 57
+  },
+  {
+    "left": 58808403,
+    "right": 58834235,
+    "left_row": [
+      58808403,
+      "A",
+      "G",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      58834235,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ],
+      "NOISY_CAND_HET"
+    ],
+    "left_ps": 58654026,
+    "right_ps": 58834235,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 463,
+    "right_sites": 161
+  },
+  {
+    "left": 60257960,
+    "right": 60286266,
+    "left_row": [
+      60257960,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      60286266,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 60194115,
+    "right_ps": 60286266,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 62,
+    "right_sites": 311
+  },
+  {
+    "left": 60528530,
+    "right": 60552043,
+    "left_row": [
+      60528530,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      60552043,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 60286266,
+    "right_ps": 60552044,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 311,
+    "right_sites": 9
+  },
+  {
+    "left": 60991759,
+    "right": 61037147,
+    "left_row": [
+      60991759,
+      "C",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      61037147,
+      "C",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 60946298,
+    "right_ps": 61043614,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 6,
+    "right_sites": 22
+  },
+  {
+    "left": 61115794,
+    "right": 61144543,
+    "left_row": [
+      61115794,
+      "T",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      61144543,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 61043614,
+    "right_ps": 61144542,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 22,
+    "right_sites": 137
+  },
+  {
+    "left": 61357112,
+    "right": 61373859,
+    "left_row": [
+      61357112,
+      "A",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      61373859,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 61325992,
+    "right_ps": 61373859,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 5,
+    "right_sites": 2
+  },
+  {
+    "left": 61375344,
+    "right": 61405579,
+    "left_row": [
+      61375344,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      61405579,
+      "G",
+      "A",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 61373859,
+    "right_ps": 61405579,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 2,
+    "right_sites": 54
+  },
+  {
+    "left": 62408056,
+    "right": 62432427,
+    "left_row": [
+      62408056,
+      "A",
+      "G",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      62432427,
+      "A",
+      "C",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 62385514,
+    "right_ps": 62432427,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 31,
+    "right_sites": 210
+  },
+  {
+    "left": 63159367,
+    "right": 63182011,
+    "left_row": [
+      63159367,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      63182011,
+      "C",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 62637077,
+    "right_ps": 63896021,
+    "counts": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 843,
+    "right_sites": 3915
+  },
+  {
+    "left": 65509355,
+    "right": 65509406,
+    "left_row": [
+      65509355,
+      "A",
+      "T",
+      [
+        0,
+        1
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "right_row": [
+      65509406,
+      "A",
+      "T",
+      [
+        1,
+        0
+      ],
+      "CLEAN_HET_SNP"
+    ],
+    "left_ps": 63896021,
+    "right_ps": 65509406,
+    "counts": [
+      2,
+      0,
+      0,
+      0
+    ],
+    "left_sites": 3915,
+    "right_sites": 1024
+  }
+]

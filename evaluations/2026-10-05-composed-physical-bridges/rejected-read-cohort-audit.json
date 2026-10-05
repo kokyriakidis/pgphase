@@ -1,0 +1,50 @@
+{
+  "truth_transitions": {
+    "(True, True)": 230227,
+    "(False, False)": 7093,
+    "(False, True)": 2,
+    "(True, None)": 5,
+    "(True, False)": 3
+  },
+  "lost_keys": 0,
+  "gained_keys": 0,
+  "changed_genotype_alleles": [],
+  "changed_nonphase_fields": [],
+  "old_phased_keys_lost": [],
+  "old_blocks_split_or_mixed_gauge": {},
+  "newly_connected_old_gaps": [
+    [
+      23460963,
+      23480815
+    ]
+  ],
+  "reopened_tracked_gaps": [],
+  "connected_tracked": [
+    93,
+    106
+  ],
+  "target_before_spans": false,
+  "target_after_spans": true,
+  "target_truth_scorable_reads": 144,
+  "target_scores": [
+    {
+      "phased": 125,
+      "correct": 125,
+      "read_phase_sets": 2
+    },
+    {
+      "phased": 125,
+      "correct": 125,
+      "read_phase_sets": 1
+    }
+  ],
+  "disjoint_flank_parent_votes": [
+    {
+      "false": 29
+    },
+    {
+      "false": 31,
+      "true": 1
+    }
+  ]
+}

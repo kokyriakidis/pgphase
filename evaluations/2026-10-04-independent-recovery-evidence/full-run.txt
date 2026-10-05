@@ -1,0 +1,28 @@
+Alignment recovery enabled from test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam
+Processed 67 region chunks with 8 worker thread(s)
+Collected 81988 candidate variant sites (911829 filtered) into test_data/tmp_gap_fix49/full-final/candidates.tsv
+Wrote phased candidate VCF to test_data/tmp_gap_fix49/full-final/phased.vcf
+Wrote phased BAM to test_data/tmp_gap_fix49/full-final/phased.bam
+	Command being timed: "./pgphase collect-graph-variation --ref test_data/chm13v2.0.chr20.renamed.fa --bam test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam --sites test_data/chr20.sites.striped.vcf.gz --gaf test_data/HG002.chr20.annotated.coord.gaf.gz -t 8 -r CHM13#0#chr20 -o test_data/tmp_gap_fix49/full-final/candidates.tsv --phased-vcf-out test_data/tmp_gap_fix49/full-final/phased.vcf --phased-bam-out test_data/tmp_gap_fix49/full-final/phased.bam"
+	User time (seconds): 1479.61
+	System time (seconds): 173.62
+	Percent of CPU this job got: 439%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 6:16.23
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 20632440
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 88408613
+	Voluntary context switches: 19128
+	Involuntary context switches: 9780
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 42552
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

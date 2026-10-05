@@ -2854,54 +2854,88 @@ static bool apply_deferred_msa_observations(PhasingChunk& chunk,
     std::sort(observations.begin(), observations.end(),
         [](const DeferredMsaObservation& a, const DeferredMsaObservation& b) {
             const int cmp = exact_comp_var_site(&a.key, &b.key);
-            return cmp != 0 ? cmp < 0 : a.read_id < b.read_id;
+            if (cmp != 0) return cmp < 0;
+            if (a.read_id != b.read_id) return a.read_id < b.read_id;
+            if (a.allele != b.allele) return a.allele < b.allele;
+            return a.update_counts < b.update_counts;
         });
     bool changed = false;
     size_t ci = 0;
     for (size_t oi = 0; oi < observations.size();) {
         const DeferredMsaObservation& observation = observations[oi];
         size_t end = oi + 1;
-        int allele = observation.allele;
         bool update_counts = observation.update_counts;
-        bool conflicting = false;
         while (end < observations.size() &&
                exact_comp_var_site(&observation.key, &observations[end].key) == 0 &&
                observation.read_id == observations[end].read_id) {
-            if (observations[end].allele != allele) conflicting = true;
             update_counts = update_counts || observations[end].update_counts;
             ++end;
         }
+        // A verified consensus takes precedence over supplementary physical
+        // projection. Only contradictions within the same evidence tier make
+        // the call ambiguous; keep every distinct alternative in the snapshot.
+        int allele = -1;
+        bool selected = false, conflicting = false;
+        for (size_t i = oi; i < end; ++i) {
+            if (observations[i].update_counts != update_counts) continue;
+            if (!selected) { allele = observations[i].allele; selected = true; }
+            else conflicting |= observations[i].allele != allele;
+        }
+        const bool has_alternative = std::any_of(observations.begin() + oi,
+            observations.begin() + end, [allele](const DeferredMsaObservation& proposal) {
+                return proposal.allele != allele;
+            });
+        if (has_alternative) {
+            for (size_t i = oi; i < end; ++i) {
+                if (i > oi && observations[i].allele == observations[i - 1].allele &&
+                    observations[i].update_counts == observations[i - 1].update_counts) continue;
+                chunk.conflicting_msa_observations.push_back(observations[i]);
+            }
+        }
         while (ci < chunk.candidates.size() &&
                exact_comp_var_site(&chunk.candidates[ci].key, &observation.key) < 0) ++ci;
+        if (conflicting && commit_pending && ci < chunk.candidates.size() &&
+            exact_comp_var_site(&chunk.candidates[ci].key, &observation.key) == 0 &&
+            chunk.candidates[ci].msa_verified && is_phase_set_anchor(chunk.candidates[ci])) {
+            // These proposals were queued at a missing original MSA call.
+            // Clear only its later backfill; ambiguity cannot choose a REF.
+            update_read_var_profile_with_allele(static_cast<int>(ci), -1, -1,
+                chunk.read_var_profile[observation.read_id]);
+            chunk.rejected_msa_observations.push_back({observation.key,
+                observation.read_id, -1, false});
+            changed = true;
+        }
         if (!conflicting && allele >= -1 && ci < chunk.candidates.size() &&
             exact_comp_var_site(&chunk.candidates[ci].key, &observation.key) == 0) {
             CandidateVariant& site = chunk.candidates[ci];
             if (site.msa_verified && is_phase_set_anchor(site) &&
                 (allele < 0 || static_cast<size_t>(allele) < site.counts.alle_covs.size())) {
-                const int hap = chunk.haps[observation.read_id];
-                // A fixed source label belongs to its own block gauge. Local
-                // recall may extend that membership, not silently move the
-                // read to another independently oriented source block.
-                if (allele >= 0 && (hap == 1 || hap == 2) && chunk.phase_sets[observation.read_id] > 0 &&
-                    (chunk.phase_sets[observation.read_id] != site.phase_set ||
-                     site.hap_to_cons_alle[hap] != allele)) {
+                ReadVariantProfile& profile = chunk.read_var_profile[observation.read_id];
+                const int offset = static_cast<int>(ci) - profile.start_var_idx;
+                const bool missing = profile.start_var_idx < 0 || offset < 0 ||
+                    static_cast<size_t>(offset) >= profile.alleles.size() ||
+                    profile.alleles[static_cast<size_t>(offset)] < 0;
+                if (!commit_pending && missing && !site.key.alt.empty() &&
+                    site.key.alt.find_first_not_of(site.key.alt.front()) != std::string::npos) {
+                    // Select the source before adding verified evidence. Prior
+                    // HP labels cannot erase an independently recalled allele.
+                    chunk.pending_msa_observations.push_back({observation.key,
+                        observation.read_id, allele, update_counts});
                     oi = end;
                     continue;
                 }
-                ReadVariantProfile& profile = chunk.read_var_profile[observation.read_id];
-                const int offset = static_cast<int>(ci) - profile.start_var_idx;
-                if (commit_pending || profile.start_var_idx < 0 || offset < 0 ||
-                    static_cast<size_t>(offset) >= profile.alleles.size() ||
-                    profile.alleles[static_cast<size_t>(offset)] < 0) {
-                    if (!commit_pending && site.key.alt.find_first_not_of(
-                            site.key.alt.front()) != std::string::npos) {
-                        // Retry selection must see the original discovery
-                        // matrix. Remember that this MSA call was missing now;
-                        // later CIGAR REF backfill cannot erase that provenance.
-                        chunk.pending_msa_observations.push_back(observation);
-                        oi = end;
-                        continue;
-                    }
+                const int hap = chunk.haps[observation.read_id];
+                // Discovery and supplementary projection must respect a prior
+                // label in the same PS. Selected fixed-consensus recalls retain
+                // their independently verified allele without relabeling the
+                // read; stitching validates the block relationship separately.
+                if ((!commit_pending || !update_counts) && allele >= 0 && (hap == 1 || hap == 2) &&
+                    chunk.phase_sets[observation.read_id] == site.phase_set &&
+                    site.hap_to_cons_alle[hap] != allele) {
+                    oi = end;
+                    continue;
+                }
+                if (commit_pending || missing) {
                     update_read_var_profile_with_allele(static_cast<int>(ci), allele, -1, profile);
                     if (commit_pending && allele < 0)
                         chunk.rejected_msa_observations.push_back(observation);

@@ -1,0 +1,55 @@
+{
+  "sha256": {
+    "test_data/tmp_gap_fix54/pgphase-before": "69d998cab0b2319f6875e3514a7be4eaa1dc9b514419831614aeb012a13c4386",
+    "test_data/tmp_gap_fix54/pgphase-deferred-final": "3a227a265b28ca21b15e4e59e272f0dc2cc06e7feb2046d50108365e481152c5",
+    "src/collect_pipeline.cpp": "bc9d722d025d6da14faafbdc247a2572b6af519e8c62d1a7256569cc191ff2f5",
+    "src/graph_collect.cpp": "b0a09a8d73b611a9e0908b8e582271203a697ea3a2243811f39fe20501c3fe63",
+    "src/graph_bam_adapter.hpp": "8ec2606d1ad41efaff02119df87d4d8f0555cb94b482aab9ed2a588595c46cf8",
+    "src/test_gap_windows.cpp": "ccd33907ce3bbff21b098405d06603171155799b8692f2e5ae64ffd046b4be17",
+    "src/test_gap_windows_expect.tsv": "2fd510a56037f83c2473114fc4acbfdd4b08684f43140532dfcac0e202cdaed1",
+    "evaluations/2026-09-16-test-panel/panel.tsv": "3b3e82db2fd77258989680684afb387f2e52293da13b5ccee4430a8482a6db17",
+    "test_data/tmp_gap_fix52/full-current/phased.vcf": "f0a966dd7588e57a2167228d6f0003bf270574362e82fae2ea860a0c483c8fcc",
+    "test_data/tmp_gap_fix52/full-current/phased.bam": "194e8397222d3eca05f9486cb43c304b3fcfd728edffe36f5ef18d583741ebe9",
+    "test_data/tmp_gap_fix54/full-gated/phased.vcf": "b2263185e8d2da573c7e2fc91cf8ea862b978b196ac394eb89dab9fb37193813",
+    "test_data/tmp_gap_fix54/full-gated/phased.bam": "d0dad1724f7df3e8698210d71cd793bffa42a0824d3d7f9cb0ccf5777a18985d",
+    "docs/IMPLEMENTATION.md": "e8c39a8346a48fad0043dbc1a466d44ed1a9fe30577acc7867405d5db0a80846",
+    "test_gap_windows": "57ae5f900d347e1933d72bb327353368fd5a1f4dbf7227f33f6590b0cca55409",
+    "evaluations/2026-10-05-composed-physical-bridges/evaluate.py": "ea3f775ac3db2bf345ac49d5f0bb3108479c6a8986dfb2cee77edac1c4c12f96",
+    "evaluations/2026-10-05-composed-physical-bridges/reproduce.sh": "48e0603fadb8f3e2610bd2112e9ef0336b8c8664946eb3ab936d0e72b4a9d722",
+    "evaluations/2026-10-05-composed-physical-bridges/native-tests.log": "e15aef0acfe4e14701a18c44459adcc626377889f07d84316ae441d7378e981d",
+    "evaluations/2026-10-05-composed-physical-bridges/regression-final.log": "3aaf1e823a033618aa35e8b62e8098cfca8c0217f68f76c14684b1e59d1f819c",
+    "evaluations/2026-10-05-composed-physical-bridges/regression-before.log": "39b7a9051119af7ed69d945b03dc555e086019252cb2ce0f54a18c4067a8b768",
+    "evaluations/2026-10-05-composed-physical-bridges/full-audit.json": "e6db799d9962ee56c00dde91011a2a300ae7ad7b5097d604d52c831c419b1b2f",
+    "evaluations/2026-10-05-composed-physical-bridges/full-parity.json": "c7af4d0b38bb0d8685dd9070e32c6c9604fc3e28f253d9ee5768534ebce2524d",
+    "evaluations/2026-10-05-composed-physical-bridges/README.md": "7605801dae1444080d0415ae340ac804e7dbecd4be2e47276ffc868513e100e5",
+    "CHECKPOINT.md": "b60ff42abc831f10be11c07cca192f2e4960fc58c18c4d20a352e2b3a17083af"
+  },
+  "inputs": {
+    "test_data/chm13v2.0.chr20.renamed.fa": {
+      "size": 67037899,
+      "mtime_ns": 1777580431186148146
+    },
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": {
+      "size": 1628148107,
+      "mtime_ns": 1777684529398316204
+    },
+    "test_data/chr20.sites.striped.vcf.gz": {
+      "size": 656334074,
+      "mtime_ns": 1779089336279080637
+    },
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": {
+      "size": 840749997,
+      "mtime_ns": 1778217680609834235
+    },
+    "test_data/derived/chr20_truth_hap.tsv": {
+      "size": 12679829,
+      "mtime_ns": 1789660880088322588
+    }
+  },
+  "native_pipeline_requests": 110,
+  "native_test_cases": 79,
+  "native_assertions": 8168,
+  "focused_test_cases": 2,
+  "focused_assertions": 72,
+  "distinct_final_test_cases": 80
+}

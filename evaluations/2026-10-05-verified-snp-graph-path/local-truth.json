@@ -1,0 +1,29 @@
+[
+  {
+    "path": "test_data/tmp_gap_fix51/baseline/41/phased.bam",
+    "phased": 89,
+    "correct": 87,
+    "discordant": 2,
+    "blocks": 4,
+    "dominant_correct": 30,
+    "overlap_reads": 91
+  },
+  {
+    "path": "test_data/tmp_gap_fix51/clean/41/phased.bam",
+    "phased": 91,
+    "correct": 90,
+    "discordant": 1,
+    "blocks": 2,
+    "dominant_correct": 59,
+    "overlap_reads": 91
+  },
+  {
+    "path": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+    "phased": 91,
+    "correct": 87,
+    "discordant": 4,
+    "blocks": 1,
+    "dominant_correct": 87,
+    "overlap_reads": 91
+  }
+]

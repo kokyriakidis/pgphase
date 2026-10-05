@@ -1,0 +1,247 @@
+[
+  {
+    "stage": "pgphase_owner",
+    "scored": 112,
+    "correct": 105,
+    "discordant": 7,
+    "accuracy": 0.9375,
+    "phase_sets": 2,
+    "boundary_rows": [
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CA",
+          "C"
+        ],
+        "gt": [
+          1,
+          0
+        ],
+        "phased": true,
+        "ps": 50127297
+      },
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CAA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50127297
+      },
+      {
+        "pos": 50562066,
+        "alleles": [
+          "A",
+          "G"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50127297
+      }
+    ]
+  },
+  {
+    "stage": "pgphase_chr20",
+    "scored": 112,
+    "correct": 105,
+    "discordant": 7,
+    "accuracy": 0.9375,
+    "phase_sets": 2,
+    "boundary_rows": [
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CA",
+          "C"
+        ],
+        "gt": [
+          1,
+          0
+        ],
+        "phased": true,
+        "ps": 50127297
+      },
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CAA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50127297
+      },
+      {
+        "pos": 50562066,
+        "alleles": [
+          "A",
+          "G"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50127297
+      }
+    ]
+  },
+  {
+    "stage": "hiphase_owner",
+    "scored": 109,
+    "correct": 103,
+    "discordant": 6,
+    "accuracy": 0.944954128440367,
+    "phase_sets": 1,
+    "boundary_rows": [
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CA",
+          "C"
+        ],
+        "gt": [
+          1,
+          0
+        ],
+        "phased": true,
+        "ps": 50002195
+      },
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CAA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": false,
+        "ps": null
+      },
+      {
+        "pos": 50562066,
+        "alleles": [
+          "A",
+          "G"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50002195
+      }
+    ]
+  },
+  {
+    "stage": "hiphase_short",
+    "scored": 109,
+    "correct": 103,
+    "discordant": 6,
+    "accuracy": 0.944954128440367,
+    "phase_sets": 1,
+    "boundary_rows": [
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": true,
+        "ps": 50500273
+      },
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CAA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": false,
+        "ps": null
+      },
+      {
+        "pos": 50562066,
+        "alleles": [
+          "A",
+          "G"
+        ],
+        "gt": [
+          1,
+          0
+        ],
+        "phased": true,
+        "ps": 50500273
+      }
+    ]
+  },
+  {
+    "stage": "hiphase_local",
+    "scored": 107,
+    "correct": 100,
+    "discordant": 7,
+    "accuracy": 0.9345794392523364,
+    "phase_sets": 1,
+    "boundary_rows": [
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": false,
+        "ps": null
+      },
+      {
+        "pos": 50548245,
+        "alleles": [
+          "CAA",
+          "C"
+        ],
+        "gt": [
+          0,
+          1
+        ],
+        "phased": false,
+        "ps": null
+      },
+      {
+        "pos": 50562066,
+        "alleles": [
+          "A",
+          "G"
+        ],
+        "gt": [
+          1,
+          0
+        ],
+        "phased": true,
+        "ps": 50500273
+      }
+    ]
+  }
+]

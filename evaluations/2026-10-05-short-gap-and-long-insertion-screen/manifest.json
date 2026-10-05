@@ -1,0 +1,8 @@
+{
+  "test_data/tmp_gap_fix57/pgphase-before": "bdce74cda1d0ec407fe7a0cfaf9e30d2c77a60b605d6f193ee92e2cb16503933",
+  "test_data/tmp_gap_fix57/pgphase-length-trial": "426d4877d66d7f71c29f31b84c85e6b4a9700200a64c8acecb92e50b777ac9a2",
+  "test_data/tmp_gap_fix57/pgphase-short-gap-trial": "6253aaa1342229cae49dcb464754c27c2e76fa12a85b30dee165dbaa55fdb811",
+  "test_data/tmp_gap_fix55/full-final/phased.vcf": "88608608e958d9f52a5405a316a4e13c164a88bda76761c2b0e3d8171a96e0d7",
+  "test_data/tmp_gap_fix57/full-length-trial/phased.vcf": "88608608e958d9f52a5405a316a4e13c164a88bda76761c2b0e3d8171a96e0d7",
+  "test_data/tmp_gap_fix57/full-short-gap-trial/phased.vcf": "88608608e958d9f52a5405a316a4e13c164a88bda76761c2b0e3d8171a96e0d7"
+}

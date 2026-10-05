@@ -106,6 +106,46 @@ genotype counts, candidate categories, phase-set labels or read HP gauges.
 Recovery and stitching consume the additional graph calls through their
 existing evidence checks; graph-only runs retain the original full-walk solve.
 
+After source attachment and before physical seam stitching, a right graph
+flank with a failed internal SNP edge can repair one phase switch from primary
+BAM bases. Both normalized SNPs must have unique graph rows. MAPQ and both
+base qualities must be at least 30; unknown qualities and nonprimary,
+duplicate or QC-failed alignments are excluded. Every callable pair must
+contradict the current edge. Both haplotypes need at least two independent
+molecules, the two-sided unanimous-count probability must be at most 0.01,
+and quality-weighted reversal log odds must meet the 0.001 wrong-parity bound.
+The repair flips the phased candidate suffix and records the exact graph-site
+pair with its corrected relative REF/ALT gauge, comparing selected ALT
+presence rather than raw allele IDs. That certificate supplies only
+this edge: the complete remaining graph SNP path must pass its usual checks,
+or the candidate flips and certificate are discarded. Reads assigned to the
+block flip HP when their phased heterozygous observations predominantly
+cover the corrected suffix; homozygous observations do not vote, and prefix
+read gauges stay fixed. Genotype alleles, counts and categories are preserved.
+A later block flip preserves the edge's relative gauge; a conflicting
+reassignment cannot reuse its certificate. Graph-only and standalone BAM
+commands do not perform this repair.
+
+The same pre-stitch path check can certify an agreeing internal clean-SNP
+edge against its independent BAM source. Both unique graph rows must be exact,
+adoptable shared SNPs in one original source phase set and have the same
+source-to-graph orientation. The source must already record that cut's quality
+support. Primary MAPQ-30 calls at base quality >=20 must unanimously agree
+with the current edge; at least two distinct source-assigned molecules must
+also agree with their original source HP, and the product of their mapping
+and base-error bounds must be <=0.001. Callable contradictions veto the edge,
+even from reads without a source assignment. These certificates do not flip
+candidates or read HP. A subsequent edge with no callable high-MAPQ GAF pair
+can use the intervening original BAM source variant chain only when its exact shared
+endpoints have the same source orientation and every original weak source
+cut has independent quality support. An agreeing, one-haplotype or reversing
+GAF pair cannot use this missing-edge exception. Certificates are accumulated
+by exact graph-site pair and retained only if the complete remaining graph
+path passes; otherwise all new certificates for that block are discarded.
+Original source weak cuts remain recorded, so these local graph-edge checks
+do not authorize unrestricted whole-source transfer.
+
+
 The recovery sub-solve uses the BAM pipeline on a small padded region around
 one or more touching seams. At a new MSA candidate with two alternate alleles,
 recovery runs the same region with the standalone longcallD BAM options and
@@ -262,7 +302,10 @@ BAM output merge. Both assignment paths use the disjoint
 `PS + kBamFallbackPsOffset` namespace and do not contribute candidates,
 primary graph observations, phase-set joins, or stitching votes. The same
 whole-chunk solve separately supplies the exact BAM observation channel used
-by post-stitch read rescue. `graph_chunks_to_candidate_table` therefore turns
+by post-stitch read rescue. It fills missing BAM calls only: an observation
+already selected by targeted recovery retains its allele, query position and
+quality certificate even if the whole-chunk MSA calls a different allele.
+`graph_chunks_to_candidate_table` therefore turns
 the unchanged candidate chunks into the output table. A graph substitution can
 replace several bases while retaining internal type `Snp`; the VCF writer uses
 its full `ref_len` as REF so its emitted allele describes the same sequence as
@@ -301,8 +344,10 @@ and agreement between the BAM and primary allele channels. Stored physical
 quality is zero unless that original base calls the same REF/ALT as the source
 observation. MSA can move an observation to another reference position; its
 allele remains in the phasing matrix but cannot borrow an unrelated BAM base's
-quality. When overlapping solves disagree, quality certifies the retained
-allele. Replacing a BAM observation also replaces its previous quality,
+quality. Each independent recovery matrix computes its own certificate from
+its source alignment and allele, including flank and context-only sites.
+It never borrows a certificate from the merged working matrix. Replacing a
+working BAM observation also replaces its previous quality,
 including with zero when the new call has no physical certificate.
 Third bases, deleted/uncovered coordinates and absent quality supply
 no physical certificate. Physical singleton bridges apply the same check.
@@ -468,25 +513,35 @@ The existing allele-fraction gate also applies.
 
 These observations are deferred until ordinary BAM discovery and phasing
 finish, so they cannot change later consensuses or erase another candidate.
-An ordered exact-key/read-ID pass coalesces duplicates, rejects contradictory
-recalls, and fills only unknown observations at existing MSA-verified phased
-heterozygotes. A previously phased source read retains its own block membership
-and must agree with that block's allele orientation. Counts and the read index
+An ordered exact-key/read-ID pass coalesces duplicates at existing MSA-verified
+phased heterozygotes. Fixed-consensus calls take precedence over supplementary
+physical projections. Conflicting proposals within the selected evidence tier
+abstain; all distinct alternatives remain in the independent source snapshot
+as provenance and cannot vote as additional molecules. A previously phased
+source read retains its own block membership. Selected verified calls are
+preserved even when they disagree with its prior HP or the graph gauge.
+Such calls remain available as evidence without moving the read. Counts and the read index
 are updated; candidate rows, genotypes and source phase gauges remain fixed.
 Homopolymer calls retain their existing timing. Calls at other insertion
 contrasts are queued only when absent from the completed source MSA matrix,
 then committed after recovery selects the original or retried source for
-each seam. Every exact shared clean SNP in that BAM source phase set must
-match one graph phase set with a constant allele orientation, and at least
-one such shared SNP must exist. A source block with multiple graph owners,
-a conflicting allele gauge, or no clean shared anchor keeps its original
-projection; local recall cannot certify those block connections.
+each seam. Verified observation admission requires no graph ownership or
+shared clean SNP. Graph ownership here means an exact source heterozygote
+matching the selected graph allele representation. If those anchors lack a
+coherent shared clean-SNP gauge, retain the block's original path certificate
+before adding calls. Added observations cannot erase an original weak cut or
+certify a whole-block connection across unresolved graph gauges. All blocks
+still pass the normal stitch checks. Supplementary physical corrections
+require newly recalled fixed-consensus context and a coherent shared clean-SNP
+gauge; these projections do not have the verified MSA admission guarantee.
 Retry admission and source replacement therefore see the original
 discovery evidence. A queued consensus call can replace supplementary CIGAR
 backfill at that site, which may report REF at a differently placed repeat
 insertion; an original MSA call is never queued or overwritten. Exact keys
-survive candidate reordering, duplicate calls count once, conflicting recalls
-abstain, and a previously phased read must still agree with its source block.
+survive candidate reordering, duplicate calls count once, and conflicting
+verified recalls abstain without discarding their alternative evidence.
+Observation admission preserves both blocks' HP/PS labels until the normal
+stitch checks establish their relative orientation.
 The pending queue is consumed once and the read index and MSA depth census
 are updated without rephasing. Supplementary physical calls leave the original
 discovery depth census unchanged. An exact Q30 shifted insertion without a
@@ -501,8 +556,8 @@ neither allele. Queue an explicit abstention for each originally missing call;
 commit under the same source-block guard, then transfer the abstention so an
 older literal-coordinate CIGAR call cannot reappear in either the primary or
 BAM observation channel. Original MSA calls remain authoritative.
-The normal graph transfer and stitch checks
-evaluate the resulting matrix; the added calls never authorize a retry or join.
+The normal graph transfer and stitch checks evaluate the resulting matrix;
+adding calls neither selects a retry nor bypasses connection validation.
 
 After the source solve, CIGAR backfill fills sparse allele observations
 at verified non-homopolymer MSA sites inside the seams. Window membership
@@ -762,6 +817,19 @@ rather than counted as independent votes. Candidate ownership, existing graph
 assignments, and the emitted site representation do not change when this
 matrix is built.
 
+The live working table has only one BAM allele slot per read/site. A newly
+injected BAM row uses the calls from the selected source that owns its genotype
+and phase gauge. Other source interpretations remain in their independent
+matrices. For shared or unowned rows, disagreeing calls produce an explicit
+conflict (`-2`), rather than selecting the first available call. The independent
+graph call survives in the working primary channel. A conflicting BAM slot
+has no physical quality certificate and survives candidate reordering,
+recovery retries and the late whole-chunk fallback. Ordinary missing calls
+(`-1`) may still be filled by fallback. No conflict marker is a phased allele
+or an extra read vote. This BAM channel imports callable source alleles only;
+the original caller's low-quality ALT observations (`-2` in its primary
+profile) are excluded before transfer.
+
 Before testing a stitch, complete source blocks are scored on all their saved
 sites, and a graph flank is scored on all its original candidate membership.
 Sorted molecule names join the two observation channels. Each eligible molecule
@@ -772,7 +840,9 @@ Every new edge additionally requires clean SNP calls confirmed by the original
 BAM bases at known MAPQ30 and base quality30. Both parental haplotypes must
 occur in this physical cohort, whose same/cross vote must pass the existing
 one-sided exact binomial test at `p <= 0.01`. Decisive full-matrix or clean-SNP
-votes cannot disagree. An MSA allele cannot borrow the quality of a different
+votes cannot disagree. A graph allele requires a matching known BAM-channel
+allele before its physical quality can certify a stitch. Missing or contradictory BAM calls
+supply no certificate. An MSA allele cannot borrow the quality of a different
 aligned base or a conflicting observation from another overlapping solve.
 The saved source allele basis must map consistently to its live rows. Each
 block must independently agree with its current HP assignments under the same
@@ -1043,6 +1113,43 @@ to the stitcher's outer-allele and gauge conflict
 checks. It joins each original graph block's uniform live phase-set label,
 which can differ from its detector label after an earlier seam merge.
 
+If the original certificate and deletion backfill fail, a verified noisy
+insertion in the targeted right source can request an independent validation
+solve with unplaced MSA observations and insertion recall enabled. The solve
+uses the same complete graph-flank extents and bounded seam. Its result must
+pass the unchanged exact shared-site gauges, source-cut checks and physical
+boundary certificate. This validation solve supplies only a phase relation;
+its candidate rows, genotypes and read labels are not transferred to output. The
+additional relation must also pass the ordinary stitcher’s outer-allele and
+gauge conflict checks on a disposable state. Its union is deferred until
+output-only read rescue has finished.
+Every original anchor on either flank must retain a uniform live phase set
+and allele orientation before applying the certified relation in the current
+gauge. Core read labels follow the union; independently rescued read groups
+retain their own HP/PS labels.
+
+A clean graph SNP can also certify a targeted seam to two complementary,
+MSA- and alignment-verified BAM insertion rows in one cut-free source run.
+The rows must have distinct insertion sequences and opposite haplotype
+assignments. Each insertion needs its own exact or sequence-equivalent ALT
+observation on a distinct primary, nonduplicate physical molecule spanning
+the SNP. REF calls of one insertion never stand for the other insertion ALT.
+All supporting molecules must agree in parity, with MAPQ and allele base
+qualities at least 30 and combined wrong-parity probability at most 0.001.
+Both graph SNP paths and the BAM source path must retain their ordinary
+support checks. The certificate retains the original anchors and is applied
+only after output-only read rescue; private replay sites and counts stay in
+the replay.
+
+For an adjacent-chunk replay certified this way, each owning graph block
+must have at least two exact shared clean SNPs with uniform replay orientation.
+Both boundary anchors must lie in the same replay phase set. The original
+owning blocks retain their anchors until rescue finishes, then a deferred
+union resolves each flank in its owning chunk and requires a uniform live
+phase set and allele gauge. Anchor lookup ignores unphased rows that share a
+raw graph key with a phased multiallelic row. Core labels follow the union,
+while independent rescued HP/PS labels remain intact.
+
 An imported seam is one atomic graph-to-graph transaction. Before mutation the
 stitcher snapshots candidate orientations, read HP/PS labels, phase-set aliases,
 and recovery state. The complete chain must preserve a supported relation between the original
@@ -1066,8 +1173,9 @@ molecule with MAPQ >= 30 must observe clean or MSA-verified heterozygous SNPs
 on the first imported block and right graph block with the same orientation.
 Every such direct SNP molecule must agree; a conflicting observation abstains.
 When the pair-specific vote is inconclusive, two complete BAM source paths can
-also join if the same MAPQ >= 30 molecule calls a clean SNP in each block with
-base quality >= 30 and agrees with an MSA-verified indel at least 100 bp from
+also join if the same known MAPQ >= 30 molecule calls a clean SNP in each
+block with known base quality >= 30 (the missing-quality sentinel 255 abstains)
+and agrees with an MSA-verified indel at least 100 bp from
 one of those SNPs. Corroboration considers every agreeing SNP and indel on
 each side: the minimum and maximum observed positions identify whether any
 pair has the required spacing, in one pass with constant additional storage.
@@ -1124,11 +1232,12 @@ span it on both haplotypes and outnumber conflicts. A conflict-free bridge on
 only one haplotype also passes if its exact one-sided binomial probability
 under random polarity is at most 0.05. A failing cut between two clean
 SNPs is also tested against the original BAM alignment. At least two distinct
-source-assigned molecules must call both bases at base quality >=30 and MAPQ
+source-assigned molecules must call both bases at base quality >=20 and MAPQ
 >=30, agree with their source haplotypes, and have a combined wrong-parity
 bound <=0.01. Missing qualities abstain and conflicting high-quality calls
 veto the exception. The cut remains weak for whole-source transfer; this
-independent evidence can validate only its containing graph seam. A repeat deletion that is MSA-verified can lack reference-haplotype calls
+independent evidence can validate its containing graph seam or nominate an
+exact shared graph edge for the stricter <=0.001 pre-stitch path check. A repeat deletion that is MSA-verified can lack reference-haplotype calls
 in the sparse BAM profile. For a clean SNP followed by such a deletion, the
 source path can instead validate the missing cut from the original alignment.
 Qualifying MAPQ >=30 molecules must call the SNP at base quality >=10 and the
@@ -1508,8 +1617,8 @@ all adjacent phased graph rows have a consistent direct read link. For the
 right block, an absent first GAF SNP edge can be supplied by two exact clean
 SNPs shared with the same complete, uncut BAM source and agreeing in source
 orientation; later graph edges still follow the usual path check. Existing
-clean-SNP evidence takes priority, and the indel-only fallbacks never use a
-noise-demoted SNP before these checks.
+clean-SNP evidence takes priority, and the indel-only fallbacks require the independent gauge check below
+before using a verified noise-demoted SNP.
 
 A readless graph block can attach to a neighboring read-bearing block
 inside a targeted recovery window using primary BAM SNP calls. The right
@@ -1535,6 +1644,25 @@ must physically call both SNPs, agree with its existing orientation, and
 meet the same wrong-parity bound; the remaining suffix SNP path must be
 supported. A source block that still owns read tags is not moved by this
 candidate-only attachment.
+
+The physical stitch also revisits a seam exposed by a recovered left
+insertion opposite a verified noisy BAM SNP. If no clean SNP lies within
+that seam, the alignment- and MSA-verified, phased BAM SNP at its right
+endpoint can supply the boundary.
+Before use, paired imported observations must confirm its orientation against
+the nearest subsequent clean SNP in the same block: both allele classes,
+matching majorities in both deterministic read halves, and a binomial tail
+at most 0.001 are required. These observations retain their verified calls;
+this gauge check does not recall or overwrite alleles.
+
+The right graph SNP path for an MSA indel bridge can bypass one weak SNP on
+either side of a failed edge. The direct edge between that SNP's neighbors
+must have at least two agreeing reads on each haplotype and a binomial tail
+at most 0.01. A dominant reversal cannot be bypassed. For this verified noisy-SNP boundary, previously certified joins between
+distinct original graph blocks can be reused unless GAF has statistically
+supported reversal evidence (binomial tail at most 0.01). Other bridges still
+require zero reversal votes to reuse a certificate. Internal edges in each
+original block still require their own checks.
 
 For an MSA insertion on the left of a clean right substitution, the final
 stitch can include a shifted inserted base down to Q10 while its aligned
@@ -1628,9 +1756,7 @@ are ambiguous. Primary MAPQ-30 reads must call the left SNP at Q10 or better
 and the deletion across Q30 flanks. Each read contributes its actual SNP
 quality, conservative Q30 deletion quality, and MAPQ to the parity log odds.
 The join needs at least one distinct callable molecule and a posterior
-wrong-parity probability no greater than 0.05. Requiring the right graph path
-also prevents an early deletion join from absorbing a block whose later,
-independently certified graph seam would then fail validation.
+wrong-parity probability no greater than 0.05.
 
 When both recovery boundaries are MSA-verified BAM insertions in short
 tandem repeats, the final stitch also examines adjacent phase-set seams
@@ -1780,6 +1906,23 @@ separate graph and BAM alleles. A missing observation channel is reported as
 when inspecting which channel supplied a recovery bridge.
 `BAMQ` records expose the physical quality attached to each covered BAM
 observation; zero means that no matching original-CIGAR certificate is present.
+`PENDING`, `REJECTED` and `CONFLICT` records preserve deferred-call provenance. The source's
+`msa-transfer-pending` and `msa-transfer-selected` matrices, together with its
+`msa-admission.tsv`, distinguish observation transfer from graph-gauge admission.
+The admission trace distinguishes accepted fixed-consensus calls from
+supplementary physical projections rejected for missing consensus context or
+an unresolved graph gauge.
+Each graph chunk also writes `transfer.tsv` (and `transfer-retry.tsv` on a
+second pass), mapping verified source calls through canonical sequence aliases
+to destination candidate indices and both working/BAM alleles. Calls owned by
+another seam and candidates outside the retained table are reported separately.
+Source PS and phased-anchor fields identify which calls belong to the immutable
+source matrix. `bam-source-evidence.tsv` (and its retry counterpart) exposes
+each independent source allele and its own physical quality; alternative MSA
+and physical recalls are labeled separately and do not contribute extra votes.
+The `bam-overlay-input` and `bam-overlay-output` matrices bracket the later
+whole-chunk fallback, allowing an independent per-read conservation check.
+These traces are produced only when a matrix dump prefix is requested.
 
 #### What the merge must preserve
 

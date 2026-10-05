@@ -1,0 +1,21 @@
+[
+  {
+    "directory": "test_data/tmp_gap_fix51/scoped41/41",
+    "counts": {
+      "independent_calls": 27385,
+      "checked_source_calls": 27385,
+      "working_retained": 22733,
+      "owner_resolved_disagreement": 1,
+      "source_disagreements": 1,
+      "overlay_calls": 37791,
+      "overlay_conflicts": 16
+    },
+    "census": {
+      "candidate_not_transferred": 4853,
+      "mapped": 28502,
+      "msa:eligible": 84,
+      "physical:eligible": 28
+    },
+    "errors": []
+  }
+]

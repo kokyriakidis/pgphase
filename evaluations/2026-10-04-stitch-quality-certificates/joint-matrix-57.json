@@ -1,0 +1,540 @@
+[
+  {
+    "mode": "centered",
+    "left_ps": 57823769,
+    "right_ps": 57866714,
+    "variable_scope": [
+      57854341,
+      57866713
+    ],
+    "extra_candidates": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25,
+        "calls": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621,
+        "calls": {
+          "1": 23,
+          "0": 6
+        }
+      }
+    ],
+    "selected_extra": 0,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "uniform",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.007663,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.00261,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002779,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 122,
+        "false": 17
+      },
+      {
+        "true": 589,
+        "false": 7
+      }
+    ],
+    "expected_flip": 0
+  },
+  {
+    "mode": "centered",
+    "left_ps": 57823769,
+    "right_ps": 57866714,
+    "variable_scope": [
+      57854341,
+      57866713
+    ],
+    "extra_candidates": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25,
+        "calls": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621,
+        "calls": {
+          "1": 23,
+          "0": 6
+        }
+      }
+    ],
+    "selected_extra": 0,
+    "connected": false,
+    "variables": 0,
+    "retained_fixed_sites": 0,
+    "variable_sites": [],
+    "weights": "snp_priority",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.006423,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.004176,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 0,
+        "same": {
+          "score": 0,
+          "bits": []
+        },
+        "flip": {
+          "score": 0,
+          "bits": []
+        },
+        "elapsed_seconds": 0.002445,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 122,
+        "false": 17
+      },
+      {
+        "true": 589,
+        "false": 7
+      }
+    ],
+    "expected_flip": 0
+  },
+  {
+    "mode": "all",
+    "left_ps": 57823769,
+    "right_ps": 57866714,
+    "variable_scope": [
+      57854341,
+      57866713
+    ],
+    "extra_candidates": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25,
+        "calls": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621,
+        "calls": {
+          "1": 23,
+          "0": 6
+        }
+      }
+    ],
+    "selected_extra": 2,
+    "connected": true,
+    "variables": 2,
+    "retained_fixed_sites": 113,
+    "variable_sites": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621
+      }
+    ],
+    "weights": "uniform",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 537,
+        "same": {
+          "score": 42,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "flip": {
+          "score": 42,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "elapsed_seconds": 0.01101,
+        "winner": null
+      },
+      {
+        "fold": 0,
+        "rows": 264,
+        "same": {
+          "score": 21,
+          "bits": [
+            1,
+            0
+          ]
+        },
+        "flip": {
+          "score": 21,
+          "bits": [
+            1,
+            0
+          ]
+        },
+        "elapsed_seconds": 0.006998,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 273,
+        "same": {
+          "score": 20,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "flip": {
+          "score": 20,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "elapsed_seconds": 0.006612,
+        "winner": null
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 122,
+        "false": 17
+      },
+      {
+        "true": 589,
+        "false": 7
+      }
+    ],
+    "expected_flip": 0
+  },
+  {
+    "mode": "all",
+    "left_ps": 57823769,
+    "right_ps": 57866714,
+    "variable_scope": [
+      57854341,
+      57866713
+    ],
+    "extra_candidates": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25,
+        "calls": {
+          "0": 6,
+          "1": 2
+        }
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621,
+        "calls": {
+          "1": 23,
+          "0": 6
+        }
+      }
+    ],
+    "selected_extra": 2,
+    "connected": true,
+    "variables": 2,
+    "retained_fixed_sites": 113,
+    "variable_sites": [
+      {
+        "index": 1220,
+        "pos": 57854341,
+        "type": "I",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 1,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.25
+      },
+      {
+        "index": 1221,
+        "pos": 57854341,
+        "type": "D",
+        "flags": 16,
+        "weight": 1,
+        "ref_len": 18,
+        "alt": ">120373494>120373517",
+        "ps": 0,
+        "h1": -1,
+        "h2": -1,
+        "bam": 0,
+        "verified": 0,
+        "af": 0.7931034482758621
+      }
+    ],
+    "weights": "snp_priority",
+    "folds": [
+      {
+        "fold": -1,
+        "rows": 537,
+        "same": {
+          "score": 4773,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "flip": {
+          "score": 4772,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "elapsed_seconds": 0.012569,
+        "winner": 1
+      },
+      {
+        "fold": 0,
+        "rows": 264,
+        "same": {
+          "score": 2601,
+          "bits": [
+            1,
+            0
+          ]
+        },
+        "flip": {
+          "score": 2601,
+          "bits": [
+            1,
+            0
+          ]
+        },
+        "elapsed_seconds": 0.007871,
+        "winner": null
+      },
+      {
+        "fold": 1,
+        "rows": 273,
+        "same": {
+          "score": 2171,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "flip": {
+          "score": 2170,
+          "bits": [
+            1,
+            1
+          ]
+        },
+        "elapsed_seconds": 0.007617,
+        "winner": 1
+      }
+    ],
+    "flank_truth_votes": [
+      {
+        "true": 122,
+        "false": 17
+      },
+      {
+        "true": 594,
+        "false": 11
+      }
+    ],
+    "expected_flip": 0
+  }
+]

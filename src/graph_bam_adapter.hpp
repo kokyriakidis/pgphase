@@ -77,6 +77,14 @@ struct RecoverySourceRead {
     int hap = 0;
 };
 
+struct DeferredPhysicalBridge {
+    std::vector<std::pair<VariantKey, int>> left_anchors;
+    std::vector<std::pair<VariantKey, int>> right_anchors;
+    bool flip = false;
+    // Boundary certificates retain the downstream owning chunk until rescue ends.
+    std::optional<size_t> right_chunk_index;
+};
+
 struct GraphChunkBuildResult {
     /// Complete selected BAM phase-set membership, including shared graph rows.
     std::vector<RecoverySourceSite> recovery_source_sites;
@@ -89,6 +97,9 @@ struct GraphChunkBuildResult {
     /// Only the seam containing such a cut may use it to validate a BAM bridge.
     std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>
         recovery_source_quality_cuts;
+    /// Independently certified graph edges after physical switch repair.
+    /// The boolean records the relative allele gauge, invariant under block flips.
+    std::map<std::pair<std::string, std::string>, bool> recovery_physical_graph_edges;
     /// Bounded graph seams solved by BAM recovery. Each entry retains the
     /// canonical boundaries and exact adjacent graph PS identities for the
     /// final left-to-right stitch.
@@ -100,6 +111,8 @@ struct GraphChunkBuildResult {
     /// indices stay stable through chunk stitching; apply after read rescue so
     /// output-only groups retain their independently assigned HP/PS gauges.
     std::vector<std::pair<size_t, size_t>> equivalent_insertion_joins;
+    /// Whole-block physical certificates applied after output-only read rescue.
+    std::vector<DeferredPhysicalBridge> deferred_physical_bridges;
     PhasingChunk chunk;
     // Snarl site ID per candidate (parallel to chunk.candidates).
     std::vector<std::string> site_ids;

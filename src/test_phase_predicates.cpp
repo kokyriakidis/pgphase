@@ -2462,6 +2462,14 @@ TEST_CASE("pending fixed-consensus calls survive supplementary CIGAR projection"
         CHECK(apply_pending_msa_observations(chunk));
         CHECK(chunk.candidates[0].counts.total_cov == 7);
         CHECK(chunk.candidates[1].counts.total_cov == 6);
+        REQUIRE(chunk.conflicting_msa_observations.size() == 2);
+        CHECK(chunk.conflicting_msa_observations[0].allele == 0);
+        CHECK(chunk.conflicting_msa_observations[1].allele == 1);
+        RecoveryPhaseGauge gauge;
+        retain_recovery_bam_evidence(chunk, {{1000, 1000}}, gauge);
+        REQUIRE(gauge.conflicting_recalls.size() == 2);
+        CHECK(gauge.conflicting_recalls[0].allele == 0);
+        CHECK(gauge.conflicting_recalls[1].allele == 1);
     }
     SECTION("supplementary physical calls preserve the discovery census") {
         for (auto& observation : chunk.pending_msa_observations)
@@ -2487,16 +2495,41 @@ TEST_CASE("pending fixed-consensus calls survive supplementary CIGAR projection"
         CHECK(chunk.haps == std::vector<int>{1});
         CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
     }
-    SECTION("a source read cannot move to a different block or allele gauge") {
-        for (const bool different_phase_set : {false, true}) {
-            chunk.haps[0] = different_phase_set ? 1 : 2;
-            chunk.phase_sets[0] = different_phase_set ? 2000 : 1000;
-            const auto pending = chunk.pending_msa_observations;
-            CHECK_FALSE(apply_pending_msa_observations(chunk));
-            CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{0, 0});
-            CHECK(chunk.candidates[0].counts.total_cov == 6);
-            chunk.pending_msa_observations = pending;
-        }
+    SECTION("calls in another block preserve the independently oriented read label") {
+        const int hap = GENERATE(1, 2);
+        chunk.haps[0] = hap;
+        chunk.phase_sets[0] = 2000;
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.candidates[1].counts.total_cov == 7);
+        CHECK(chunk.haps == std::vector<int>{hap});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{2000});
+        CHECK(chunk.candidates[0].phase_set == 1000);
+        CHECK(chunk.candidates[1].phase_set == 1000);
+        CHECK(chunk.candidates[0].hap_to_cons_alle == std::array<int, 3>{-1, 1, 0});
+        CHECK(chunk.candidates[1].hap_to_cons_alle == std::array<int, 3>{-1, 0, 1});
+    }
+    SECTION("verified calls preserve evidence independently of the prior read label") {
+        chunk.haps[0] = 2;
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.candidates[1].counts.total_cov == 7);
+        CHECK(chunk.haps == std::vector<int>{2});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
+    }
+    SECTION("a verified MSA call takes precedence over supplementary projection") {
+        chunk.pending_msa_observations.push_back({chunk.candidates[0].key, 0, 0, false});
+        CHECK(apply_pending_msa_observations(chunk));
+        CHECK(chunk.read_var_profile[0].alleles == std::vector<int>{1, 0});
+        CHECK(chunk.candidates[0].counts.total_cov == 7);
+        CHECK(chunk.candidates[1].counts.total_cov == 7);
+        REQUIRE(chunk.conflicting_msa_observations.size() == 2);
+        CHECK_FALSE(chunk.conflicting_msa_observations[0].update_counts);
+        CHECK(chunk.conflicting_msa_observations[1].update_counts);
+        CHECK(chunk.haps == std::vector<int>{1});
+        CHECK(chunk.phase_sets == std::vector<hts_pos_t>{1000});
     }
     SECTION("lost or demoted source candidates cannot gain an observation") {
         chunk.candidates[0].phase_set = 0;
@@ -2653,6 +2686,14 @@ TEST_CASE("BAM block corroboration uses any independent agreeing SNP",
     }
     SECTION("a low-quality distant SNP does not provide corroboration") {
         chunk.read_var_profile[0].bam_base_qualities[0] = 5;
+        CHECK_FALSE(corroborated_bam_block_flip(chunk, {0, 1, 2}, {3}));
+    }
+    SECTION("missing SNP quality cannot provide corroboration") {
+        chunk.read_var_profile[0].bam_base_qualities[0] = 255;
+        CHECK_FALSE(corroborated_bam_block_flip(chunk, {0, 1, 2}, {3}));
+    }
+    SECTION("unknown BAM mapping quality cannot provide corroboration") {
+        chunk.read_var_profile[0].bam_mapq = 255;
         CHECK_FALSE(corroborated_bam_block_flip(chunk, {0, 1, 2}, {3}));
     }
     SECTION("an opposing SNP remains a veto even beside an agreeing pair") {
@@ -2974,6 +3015,7 @@ TEST_CASE("complete BAM evidence retains context independently of graph ownershi
             profile.start_var_idx = 0;
             profile.end_var_idx = 1;
             profile.alleles = {hap, -1};
+            profile.bam_alleles = {hap, -1};
             profile.bam_base_qualities = {40, 0};
             graph.read_var_profile.push_back(std::move(profile));
         }
@@ -2987,6 +3029,14 @@ TEST_CASE("complete BAM evidence retains context independently of graph ownershi
             graph, gauge, 900, 301, {0}, {1}, 5);
         REQUIRE(reversed.has_value());
         CHECK(*reversed);
+        for (auto& profile : graph.read_var_profile)
+            profile.bam_alleles[0] = 1 - profile.alleles[0];
+        CHECK_FALSE(complete_recovery_block_flip(
+            graph, gauge, 900, 301, {0}, {1}, 5));
+        for (auto& profile : graph.read_var_profile)
+            profile.bam_alleles.clear();
+        CHECK_FALSE(complete_recovery_block_flip(
+            graph, gauge, 900, 301, {0}, {1}, 5));
     }
 }
 
@@ -3046,6 +3096,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
         profile.start_var_idx = 0;
         profile.end_var_idx = 3;
         profile.alleles = {allele, -1, -1, allele};
+        profile.bam_alleles = profile.alleles;
         profile.bam_base_qualities = {40, 0, 0, 40};
         chunk.read_var_profile.push_back(std::move(profile));
         const int original_i = std::stoi(read.qname.substr(7));
@@ -3092,6 +3143,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
         for (auto& profile : chunk.read_var_profile) {
             profile.end_var_idx = 4;
             profile.alleles.insert(profile.alleles.begin(), -1);
+            profile.bam_alleles.insert(profile.bam_alleles.begin(), -1);
             profile.bam_base_qualities.insert(profile.bam_base_qualities.begin(), 0);
         }
         stitch_complete_recovery_phase_blocks(chunk, {seam}, {gauge}, opts, complete, {});
@@ -3106,6 +3158,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
         for (auto& profile : chunk.read_var_profile) {
             profile.end_var_idx += 2;
             profile.alleles.insert(profile.alleles.begin(), 2, -1);
+            profile.bam_alleles.insert(profile.bam_alleles.begin(), 2, -1);
             profile.bam_base_qualities.insert(profile.bam_base_qualities.begin(), 2, 0);
         }
         // A--B and B--C are supported by different molecules on both
@@ -3122,6 +3175,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
             const int first = ri < 8 ? 0 : 1;
             profile.alleles[first] = ri % 2;
             profile.alleles[first + 1] = ri % 2;
+            profile.bam_alleles = profile.alleles;
             chunk.read_var_profile.insert(chunk.read_var_profile.begin(), profile);
             chunk.phase_sets.insert(chunk.phase_sets.begin(), 100);
             chunk.haps.insert(chunk.haps.begin(), 1 + ri % 2);
@@ -3140,6 +3194,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
             for (auto& profile : chunk.read_var_profile) {
                 profile.end_var_idx += 1;
                 profile.alleles.insert(profile.alleles.begin() + 3, -1);
+                profile.bam_alleles.insert(profile.bam_alleles.begin() + 3, -1);
                 if (!profile.bam_base_qualities.empty())
                     profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 3, 0);
             }
@@ -3180,6 +3235,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
         for (auto& profile : chunk.read_var_profile) {
             profile.end_var_idx += 1;
             profile.alleles.insert(profile.alleles.begin() + 2, -1);
+            profile.bam_alleles.insert(profile.bam_alleles.begin() + 2, -1);
             profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 2, 0);
         }
         CHECK(stitch_complete_recovery_phase_blocks(
@@ -3195,6 +3251,7 @@ TEST_CASE("complete BAM blocks stitch atomically without injecting flank rows",
         for (auto& profile : chunk.read_var_profile) {
             profile.end_var_idx = 4;
             profile.alleles.insert(profile.alleles.begin() + 2, -1);
+            profile.bam_alleles.insert(profile.bam_alleles.begin() + 2, -1);
             profile.bam_base_qualities.insert(profile.bam_base_qualities.begin() + 2, 0);
         }
         gauge.imported_phase_sets.push_back(500);

@@ -1,0 +1,26 @@
+[
+  {
+    "window": "32",
+    "source_to_input": {
+      "available": true,
+      "source_census": {
+        "candidate_not_transferred": 7201,
+        "mapped": 55703
+      },
+      "counts": {
+        "retained": 55703
+      },
+      "examples": []
+    },
+    "msa_admission": {
+      "fixed_msa:eligible": 20
+    },
+    "late_whole_bam_overlay": {
+      "counts": {
+        "retained": 55071
+      },
+      "examples": [],
+      "changed_read_gauges": 0
+    }
+  }
+]

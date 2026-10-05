@@ -1,0 +1,4 @@
+Filters: [source-admission],[quality-provenance],[observations],*internal MSA conflict*
+===============================================================================
+All tests passed (90 assertions in 4 test cases)
+

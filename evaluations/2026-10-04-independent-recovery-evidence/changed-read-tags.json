@@ -1,0 +1,322 @@
+[
+  {
+    "qname": "m84031_231217_034919_s2/134485244/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/187632052/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/202768923/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/21762783/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/223283860/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1019272142,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/249300787/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/35916587/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/45416738/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/53872586/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/55314010/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_034919_s2/69340994/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/104792947/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/171511257/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1019272142,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/17957378/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/182782452/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/193596899/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/41882160/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      2,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "MATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/50137879/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/82841653/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  },
+  {
+    "qname": "m84031_231217_062403_s3/85000420/ccs",
+    "before": [
+      0,
+      0,
+      -1,
+      null
+    ],
+    "after": [
+      1,
+      1059046422,
+      -1,
+      null
+    ],
+    "parent": "PATERNAL"
+  }
+]

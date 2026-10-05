@@ -1,0 +1,18 @@
+{
+  "baseline": {
+    "left_counts": [
+      "9",
+      "5"
+    ],
+    "paired": {}
+  },
+  "single-deletion-complete": {
+    "left_counts": [
+      "32",
+      "13"
+    ],
+    "paired": {
+      "0,1": 3
+    }
+  }
+}
