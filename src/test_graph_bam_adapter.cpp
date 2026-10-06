@@ -4278,6 +4278,66 @@ int main() {
                     "repeat SNP bridge: joint error above twenty percent abstains");
     }
 
+    {
+        ok &= check(complementary_insertion_length_class(7, 4, 8) == 1,
+                    "repeat insertion: seven bases select the eight-base class");
+        ok &= check(complementary_insertion_length_class(1, 4, 8) == 0,
+                    "repeat insertion: slippage remains a non-reference short class");
+        ok &= check(complementary_insertion_length_class(6, 4, 8) == -1 &&
+                    complementary_insertion_length_class(0, 4, 8) == -1,
+                    "repeat insertion: ties and reference observations abstain");
+        IndependentBamBlockLink gauge;
+        gauge.counts = {{{4, 0}, {0, 5}}};
+        const std::array<std::array<int, 2>, 2> reverse{{{0, 1}, {0, 1}}};
+        const std::array<double, 2> errors{0.0031, 0.1004};
+        ok &= check(calibrated_repeat_insertion_bridge_flip(gauge, reverse, errors) == true,
+                    "repeat insertion: diploid physical witnesses calibrate a reverse union");
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, {{{0, 1}, {0, 0}}}, errors),
+                    "repeat insertion: one class cannot replace the exact-ALT certificate");
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, {{{0, 1}, {1, 0}}}, errors),
+                    "repeat insertion: opposing class gauges veto the union");
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, {{{1, 1}, {0, 1}}}, errors),
+                    "repeat insertion: any contrary independent molecule vetoes the union");
+        gauge.counts[1][1] = 3;
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, reverse, errors),
+                    "repeat insertion: insufficient calibration abstains");
+        gauge.counts = {{{4, 0}, {0, 5}}};
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, reverse, {0.2, 0.2}),
+                    "repeat insertion: joint error above twenty percent abstains");
+        gauge.counts = {{{0, 4}, {5, 0}}};
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, reverse, errors),
+                    "repeat insertion: a reversed upstream gauge remains a veto");
+    }
+
+    {
+        const GraphSnpReferenceEvidence terminal{1, 0, 4, 1.0};
+        GraphSnpReferenceEvidence partner{1, 4, 0, 0.000032};
+        ok &= check(graph_snp_cohort_is_physically_contradicted(terminal, partner),
+                    "graph SNP cohort: deletion and reference-only evidence excludes false anchors");
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(std::nullopt, partner) &&
+                    !graph_snp_cohort_is_physically_contradicted(terminal, std::nullopt),
+                    "graph SNP cohort: credible physical ALT or missing evidence vetoes exclusion");
+        auto weak = terminal;
+        weak.alternate_class_deletions = 1;
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(weak, partner),
+                    "graph SNP cohort: a single deleted molecule cannot exclude anchors");
+        weak = terminal;
+        weak.reference_class_reads = 0;
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(weak, partner),
+                    "graph SNP cohort: an unverified reference class cannot exclude anchors");
+        partner.alternate_class_reference_reads = 1;
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(terminal, partner),
+                    "graph SNP cohort: both sites need independent contrary molecules");
+        partner.alternate_class_reference_reads = 4;
+        partner.wrong_alternate_bound = 0.0011;
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(terminal, partner),
+                    "graph SNP cohort: weak mapping or base evidence cannot exclude anchors");
+        partner.wrong_alternate_bound = 0.000032;
+        partner.reference_class_reads = 0;
+        ok &= check(!graph_snp_cohort_is_physically_contradicted(terminal, partner),
+                    "graph SNP cohort: partner reference class also needs a physical witness");
+    }
+
     std::ostringstream sites;
     write_graph_phase_sites_tsv(sites, chunks);
     ok &= check(sites.str().find("HAP1_ALLELE") != std::string::npos,

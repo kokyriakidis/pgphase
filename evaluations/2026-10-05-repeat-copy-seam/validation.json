@@ -1,0 +1,86 @@
+{
+  "production_sha256": "7e50015b328beeed83607d502a1e6d6a928d2fea8dbbfb77328c3e5610e76be7",
+  "baseline_sha256": "81ad9a79ed25b71494b8e7cf4288ff31f56c98f133bd908af4c5cf924ef1775a",
+  "build_passed": true,
+  "new_build_warnings": false,
+  "unit_tests_passed": true,
+  "phase_predicates": {
+    "assertions": 1551,
+    "cases": 47,
+    "passed": true
+  },
+  "hifi_tsv_and_vcf_goldens_passed": true,
+  "ont_tsv_and_vcf_goldens_passed": true,
+  "hifi_one_and_four_threads_deterministic": true,
+  "native_owner_one_and_four_threads_deterministic": true,
+  "window_tests": {
+    "assertions": 15161,
+    "cases": 4,
+    "passed": true
+  },
+  "cache_helper_tests": {
+    "cases": 4,
+    "passed": true
+  },
+  "focused_owner": {
+    "assertions": 2013,
+    "passed": true,
+    "baseline_failed_assertions": 12,
+    "cached_check_seconds": 0.96
+  },
+  "native_outputs_compared": 220,
+  "independent_replay_requests": 115,
+  "unmatched_native_outputs": [],
+  "native_correct_assignments_preserved": true,
+  "native_phased_assignments_preserved": true,
+  "native_retained_variant_evidence_preserved": true,
+  "full_chromosome_preservation": {
+    "old_primary_output_reads": 256610,
+    "new_primary_output_reads": 256610,
+    "old_counts": {
+      "correct": 230576,
+      "unphased": 19266,
+      "discordant": 6768
+    },
+    "new_counts": {
+      "correct": 230612,
+      "unphased": 19266,
+      "discordant": 6732
+    },
+    "lost_correct_assignments": 0,
+    "lost_phased_assignments": 0,
+    "old_variant_records": 64188,
+    "new_variant_records": 64484,
+    "removed_physically_contradicted_snp": [
+      [
+        "CHM13#0#chr20",
+        "25855631",
+        ".",
+        "T",
+        "C"
+      ]
+    ],
+    "added_recovery_variants": 297,
+    "added_variant_extent": [
+      25844279,
+      25855615
+    ],
+    "retained_variant_alleles_counts_and_filters_preserved": true,
+    "changed_variant_gauges": 229,
+    "changed_read_tags": 613
+  },
+  "hiphase_original_alignments_verified": 7591,
+  "gap_scorable_original_primary_reads": 91,
+  "gap_correct_original_primary_reads": 88,
+  "gap_discordant_original_primary_reads": 3,
+  "gap_correct_connected_core": 88,
+  "hiphase_correct_gap_total_and_core": 20,
+  "target_pgphase_correct_connected_core": 7380,
+  "target_hiphase_correct_connected_core": 7150,
+  "whole_hiphase_target_spanned": true,
+  "previous_insertion_gap_correct_and_core_preserved": 93,
+  "physical_certificate_uses_truth": false,
+  "existing_expectations_weakened": false,
+  "n50_bp": 904351,
+  "target_pgphase_block_bp": 1860704
+}

@@ -214,3 +214,9 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 
 # Complementary insertion bridge inside the second-largest HiPhase block.
 10325039	10337661	12622	127	hiphase_dv	0.7638	97
+
+# Diploid homopolymer insertion classes inside the third-largest HiPhase block.
+24121713	24131707	9994	115	hiphase_dv	0.8087	93
+
+# Original primary alignments contradict copy-specific graph SNPs at a two-base seam.
+25855631	25855633	2	91	hiphase_dv	0.2198	20

@@ -4874,14 +4874,23 @@ static void gap_complementary_insertion_recall_cannot_invert_its_snp_flanks(cons
     const auto& right = rows.at("24142287:A>G");
     CHECK(is_phased_het(left.first));
     CHECK(is_phased_het(right.first));
-    if (left.second == right.second) CHECK(left.first != right.first);
+    CHECK(left.second == right.second);
+    CHECK(left.first != right.first);
     const auto& four = rows.at("24121713:C>CTTTT");
     const auto& eight = rows.at("24121713:C>CTTTTTTTT");
     if (four.second == eight.second) CHECK(four.first != eight.first);
     const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
+    parse_vcf(dir + "/native.vcf", gap, owning);
     score_bam(dir + "/phased.bam", gap, truth, spans, owning);
+
+    CHECK(owning.spans);
+    CHECK_FALSE(owning.switched);
+    CHECK(owning.primary_scorable == 115);
+    CHECK(owning.primary_correct >= 93);
+    CHECK(owning.core_correct >= 93);
+    check_gap_contract(p, gap, owning);
 
 
     check_read_floors("gap_complementary_insertion_recall_cannot_invert_its_snp_flanks", owning);
@@ -4894,8 +4903,39 @@ static void gap_complementary_insertion_recall_cannot_invert_its_snp_flanks(cons
     Outcome local;
     score_bam(dir + "/phased.bam", gap, local_truth, spans, local);
     CHECK(local.scored >= 89);
-    CHECK(local.correct >= 89);
+    CHECK(local.correct >= 93);
     CHECK(local.discordant() == 0);
+
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    REQUIRE(header != nullptr);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != std::stoll(left.second) || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left && span->second.second > gap.gap_left - 50000)
+            ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right && span->second.first < gap.gap_right + 50000)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
 }
 
 static void gap_overlapping_recovery_solves_cannot_exchange_snp_quality_certificates(const Paths& p) {
@@ -6073,6 +6113,84 @@ static void gap_calibrated_repeat_snps_join_the_largest_hiphase_block(const Path
     }
 }
 
+static void gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam(const Paths& p) {
+    // Copy-specific graph SNPs on the same molecules are contradicted by the
+    // original CIGAR and sequence. Keep the native owner: a short replay loses
+    // the left phase set and cannot reproduce the false terminal anchor.
+    Window gap;
+    gap.gap_left = 25855631;
+    gap.gap_right = 25855633;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 91);
+    CHECK(got.primary_correct >= 88);
+    CHECK(got.core_correct >= 88);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const std::set<std::string> keys{"25842903:G>C", "25856023:T>G",
+        "25859488:T>C", "25891621:G>A"};
+    std::map<std::string, std::pair<std::string, std::string>> rows;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key == "25853217:G>A" || key == "25855631:T>C")
+            CHECK_FALSE(is_phased_het(fields[9].substr(0, 3)));
+        if (keys.count(key) == 0) continue;
+        CHECK(rows.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(fields[9].rfind(':') + 1))).second);
+    }
+    REQUIRE(rows.size() == keys.size());
+    const auto& left = rows.at("25842903:G>C");
+    REQUIRE(is_phased_het(left.first));
+    const long long core = std::stoll(left.second);
+    for (const auto& [key, row] : rows) {
+        INFO(key);
+        CHECK(is_phased_het(row.first));
+        CHECK(row.second == left.second);
+        CHECK(row.first == left.first);
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    REQUIRE(header != nullptr);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left && span->second.second > gap.gap_left - 50000)
+            ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right && span->second.first < gap.gap_right + 50000)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
 static void gap_complementary_insertions_join_the_second_largest_hiphase_block(const Paths& p) {
     Window gap;
     gap.gap_left = 10325039;
@@ -6162,6 +6280,7 @@ TEST_CASE("all gaps", "[gap][windows][integration]") {
         void (*run)(const Paths&);
     };
     static const GapCheck checks[] = {
+        {"physically contradicted graph SNPs close the 25.855 Mb seam", "[gap][graph-snp-contradiction][orientation]", gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam},
         {"complementary insertions join the second largest HiPhase block", "[gap][second-largest-block][orientation]", gap_complementary_insertions_join_the_second_largest_hiphase_block},
         {"calibrated repeat SNPs join the largest HiPhase block", "[gap][repeat][largest-block][orientation]", gap_calibrated_repeat_snps_join_the_largest_hiphase_block},
         {"cut-free source paths close the 17.634 Mb gap", "[gap][shared-deletion][source-path][orientation]", gap_cut_free_source_paths_close_the_17_634_mb_gap},

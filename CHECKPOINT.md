@@ -15449,3 +15449,192 @@ A saved focused owner replay recheck takes about 0.6 seconds.
 All 338 archived native replays are matched by the final suite and preserve
 every prior correct/phased assignment and every variant allele/count/filter;
 none are unmatched. See the new evaluation panel-audit.json.
+
+## 2026-10-05: Next remaining internal split is HiPhase rank three
+
+After the second-largest block fix, reranking the frozen final chr20 output
+(263 pgphase blocks against 191 HiPhase blocks) selects HiPhase's third-largest
+block, 24,103,779–25,944,471, PS24103779, 1,840,693 bp. Pgphase retains three
+blocks: 24,103,779–24,121,713; 24,131,707–25,855,631; and
+25,855,633–25,964,482. Both internal seams are open. The largest block's
+already reviewed terminal difference is separate from this ranking.
+
+The first seam, 24,121,713–24,131,707, is the next gap HiPhase closes with
+>=80% original-read correctness: HiPhase93 correct / 0 discordant / 22 unphased
+among115 original truth-scorable primary overlaps, all93 in one core. Pgphase
+has89/0/26, 77.39%, with only29 correct reads in its largest core. Existing
+cores contain40 correct reads combined and rescue labels contain49 others;
+a valid fix needs93 correct total/core, including at least four new correct
+assignments. Preserve the existing complementary insertion/flank regression.
+Its historical89-read minimum must not replace the measured115 denominator.
+
+The second seam, 25,855,631–25,855,633, is an accuracy investigation: pgphase
+53 correct / 38 discordant / 0 unphased among91 original overlaps, versus
+HiPhase20/0/71. HiPhase spans it in the VCF but its local read score is21.98%,
+so that fact alone cannot certify a closure. Whole-block pgphase correctness
+is7365/7591 (97.02%, core6705), HiPhase7150/7591 (94.19%, core7150).
+All7591 competitor alignments match original start/end, CIGAR and sequence.
+Disjoint flank cohorts establish opposite pgphase gauges at both seams.
+
+Evidence and reproduction: evaluations/2026-10-05-third-largest-block-target/.
+Production SHA256 remains15534777ecd8382e370ade340e6e8998a3fc1b1ab4ab390281b3ff4a22bbedb4;
+no production code or test expectation changed and no native replay was needed.
+
+## 2026-10-05: Certify the 24.121 Mb complementary repeat insertion gap
+
+Close chr20:24,121,713–24,131,707, the first internal seam in HiPhase's
+third-largest block. The left original graph SNP is a singleton, with a
+physically anchored recovered SNP; treating that as a missing internal graph
+edge rejected the otherwise supported insertion bridge. The exact-ALT bridge
+also has no callable molecule: the two original right-SNP bridge reads have
+7T and1T insertions, versus the retained8T/4T genotypes. HiPhase can use these
+non-reference repeat classes; missing exact matches are not REF evidence.
+
+The fallback is confined to complementary verified homopolymer insertion
+rows and positive original-primary repeat lengths. It aligns CIGAR-bounded
+query sequence against both retained allele strings with edlib over16 bp
+flanks, requiring a unique nearer sequence and a consistent unambiguous
+length class. At most one shared sequence edit beyond length slippage is
+allowed. Zero length and sequence ties abstain; a length tie is usable only
+when unequal sequence distances resolve it. Neither variant genotypes nor
+allele representations change. The existing exact-ALT bridge keeps its rules.
+
+Calibration uses disjoint upstream SNP-bearing reads (MAPQ30, SNP Q20,
+<=1% summed physical call error), and a recovered SNP separately needs two
+unanimous Q30 original physical pairs to its graph anchor. At this site50
+such pairs agree. The insertion calibration is[[4,0],[0,5]], association
+p0.00390625. Independent bridge molecules in both classes require the same
+reversal. Their measured call errors are0.00289726 and0.100302; the product
+of augmented class-specific one-sided95% Wilson bounds is0.19212354 <=0.20.
+A coherent wrong parity needs independent class errors; any contrary bridge,
+missing class, weak calibration or excessive joint bound rejects the join.
+Both graph paths retain their separate checks. The right weak edge
+24,402,574–24,422,148 is physically verified and its suffix must still pass.
+Parental truth is never used by production or by the physical certificate.
+
+Final-union read validation must use complete phased allele-key identity,
+as deferred bridge application already does. Nucleotide ordering equality
+can collapse graph-walk descriptions and select an excluded row, incorrectly
+hiding a valid union from the promoter. The check is now strict. Repeat-class
+materialization checks both primary and separate gap-haplotype storage.
+New assignments need Q10 inserted bases, Q20 window endpoints, MAPQ30,
+<=20% summed physical call error and no contrary phased profile locus.
+Existing MSA rescues enter only their own original core while retaining HP;
+physical sequence must corroborate that inherited class. Low-quality accepted
+rescue bases are retained; unknown qualities and sequence ties still abstain.
+
+Native24–25 Mb: all4061 output reads and1234 variants retained. Correct3922
+becomes3926; discordant2 is unchanged. All old correct/phased assignments and
+variant alleles/counts/filters are preserved. At the gap, pgphase89/0/26
+(correct/discordant/unphased) becomes93/0/22 among115 original overlaps;
+correct core29 becomes93. This matches HiPhase93/0/22 and core93, with80.87%
+all-read correctness. All49 correct rescue reads enter the core, and four
+previously unassigned reads become correct; these are precisely HiPhase's
+additional correct assignments. Disjoint original-read parental flanks agree.
+
+The gap is in the committed panel, strict certification and HiPhase manifests,
+required marker list and stronger owning read floors. Preserve and extend
+its existing complementary insertion/orientation regression: the old binary
+fails12 assertions and the final focused run passes1794. A cold native owner
+replay takes9.8 seconds; a cached assertion rerun takes0.38 seconds.
+In-memory tests cover both length classes, ties/REF, contradictory witnesses,
+insufficient calibration, reversed gauges and the20% joint bound.
+
+Final binary SHA256:
+81ad9a79ed25b71494b8e7cf4288ff31f56c98f133bd908af4c5cf924ef1775a.
+Evidence and reproduction: evaluations/2026-10-05-complementary-repeat-insertion/.
+The full third-largest HiPhase block still needs its separate2 bp seam;
+this local closure does not claim that whole-block span is complete.
+
+The frozen67-chunk chr20 replay confirms93/115 correct with core93 and no
+discordant seam reads. Joined block24,103,779–25,855,631 is1,751,853 bp with
+2106 phased heterozygous records. Block count263 becomes262; N50904,351 bp
+is unchanged. All256610 reads and64188 variant records remain. Correct
+230572 becomes230576; discordant6768 is unchanged. No old correct or phased
+assignment is lost; allele sequences/counts/filters are preserved. All7591
+competitor alignments match original geometry, CIGAR and sequence.
+Whole target correctness7365 becomes7369, discordant48 remains, unphased178
+becomes174; largest connected correct core6705 becomes6821, still below
+HiPhase7150 because the second seam remains open. That seam's53 correct /
+38 discordant among91 original overlaps is unchanged.
+
+Final build, unit tests,1551 predicate assertions, HiFi/ONT TSV/VCF goldens
+and HiFi one/four-thread determinism pass without new warnings. Full window
+suite passes13630 assertions in4 cases; cache helper4 tests pass. All219
+saved native outputs (115 independent replay requests) match final outputs,
+preserving all old correct reads and variant alleles/counts/filters, with no
+increase in discordant reads. Three output labels change: the24 Mb owner
+gains4 correct reads; two overlapping10 Mb windows withdraw the same formerly
+discordant read,m84031_231217_034919_s2/112199276/ccs, retaining4364 correct
+while discordant46 becomes45. The read remains present and unphased; this
+is explicitly reported rather than claimed as phased-tag preservation.
+No existing regression floor or ceiling is weakened.
+The expensive31.95–33.05 Mb native replay took315.2 seconds on baseline and
+303.6 seconds on the fixed binary. Four concurrent cache warmers completed
+remaining independent requests under the existing locks; every suite
+assertion still ran. Repeated owning checks remain0.38 seconds.
+
+
+## 2026-10-05: physically contradicted graph SNPs at the 25.855 Mb seam
+
+The remaining 25,855,631–25,855,633 boundary is a false graph-anchor seam in a
+collapsed repeat. The terminal T>C graph ALT is physically deleted on four
+independent MAPQ30/Q30-flank molecules. Demoting it alone exposes a false
+25,853,217 G>A anchor on the same 20 graph molecules, with a different allele
+partition. Four Q30 physical G observations contradict its graph ALT; their
+mapping-plus-base error product is 0.000031971816. Both graph REF classes have
+independent physical REF witnesses. The cohort is entirely maternal in the
+held-out diagnostic; production never reads parental truth.
+
+Before seam recovery, exclude both candidates from anchoring using the existing
+nonanchor bitmask and repeat the graph solve. Their counts, categories and
+profiles are preserved. Require a left-terminal homopolymer SNP, at least two
+MAPQ30 deleted ALT molecules with Q30 matching flanks, a REF-class witness,
+and a reference-only partner on the identical graph molecule set. The partner
+requires at least two Q30 contrary molecules, MAPQ30 REF-class evidence and
+mapping-plus-base error product <= 0.001 (individual error < 0.5). Credible physical
+ALT vetoes; nonprimary, duplicate, QC-failed and unknown qualities abstain.
+The existing BAM recovery then spans valid shared haplotype SNPs across the
+repeat copies. No global AF or read-quality admission threshold changes.
+
+Native 25–26 Mb correct 3979→4015, discordant 74→38, unphased 43 unchanged.
+All 4096 output reads retained; no old correct or phased tag lost. At the seam,
+53 correct /38 discordant becomes 88 /3 among 91 original overlaps, all 88 in
+one connected core (96.70%). HiPhase 20 /0 /71 with core 20. All 1154 retained
+variant rows preserve allele/count/filter/genotype evidence; the physically
+contradicted terminal T>C is removed and 297 local recovery calls are added.
+Disjoint original-read parental flanks agree. One/four-thread native outputs
+are identical. The new owning regression passes 2013 assertions, fails 12 on
+the baseline and reruns from cache in 0.96 seconds. Add the gap to the panel,
+strict certification, HiPhase, native replay, required marker and read-floor
+manifests. Existing expectations are not weakened; TOTAL 103→104 reflects
+this added measured span. Unit tests exercise contradiction-evidence vetoes
+and minimum molecule/quality requirements.
+
+Evidence and reproduction: evaluations/2026-10-05-repeat-copy-seam/.
+Final binary SHA256:
+7e50015b328beeed83607d502a1e6d6a928d2fea8dbbfb77328c3e5610e76be7.
+
+The frozen 67-chunk, four-thread chr20 replay closes the entire third-largest
+HiPhase block in PS24103779: 24,103,779–25,964,482 (1,860,704 bp; 2631 phased
+het records), extending 20,011 bp beyond HiPhase. Block count 262→261;
+N50 904,351 bp unchanged. Among 7591 original target overlaps, correct 7369→7405,
+discordant 48→12, unphased 174 unchanged; connected correct core 6821→7380
+exceeds HiPhase 7150. All 7591 competitor alignments match original geometry,
+CIGAR and sequence. Correctness 97.55% versus HiPhase 94.19% includes every
+original overlap and abstention; HiPhase still has fewer errors (one versus 12).
+Disjoint parental flanks agree. The earlier insertion gap retains 93/0/22 and
+core 93 among 115 overlaps. All 256610 chromosome output reads remain;
+correct 230576→230612, discordant 6768→6732, unphased 19266 unchanged. No old
+correct or phased assignment is lost. Retained variant allele/count/filter
+and genotype evidence is unchanged; 64188→64484 records reflects 297 additional
+recovery calls and removal of the contradicted terminal graph SNP.
+
+Final build and unit tests pass without new warnings; 1551 phasing assertions
+in 47 cases, HiFi/ONT TSV/VCF goldens and HiFi one/four-thread determinism pass.
+Full window suite passes 15161 assertions in 4 cases; four cache-helper tests
+pass. All 220 saved task-start native outputs (115 independent replay requests)
+preserve correct and phased assignments, with no increase in discordant reads
+and retained variant allele/count/filter evidence unchanged. Four concurrent
+cache warmers use the existing locks and fingerprint rules; all assertions
+still execute. Validation is recorded in the evaluation directory.

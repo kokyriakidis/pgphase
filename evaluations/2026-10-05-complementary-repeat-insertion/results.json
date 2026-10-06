@@ -1,0 +1,524 @@
+{
+  "target": {
+    "left": 24103779,
+    "right": 25944471,
+    "length": 1840693,
+    "hiphase_rank": 3
+  },
+  "gap": [
+    24121713,
+    24131707
+  ],
+  "gap_boundary_distance_bp": 9994,
+  "unscorable_original_reads": {},
+  "tools": {
+    "before": {
+      "regions": {
+        "block": {
+          "scorable": 7591,
+          "counts": {
+            "correct": 7365,
+            "unphased": 178,
+            "discordant": 48
+          },
+          "correct_all_reads": 0.9702279014622579,
+          "dominant_connected_correct_core": 6705,
+          "correct_cores": {
+            "24517362": 6705,
+            "25805896": 506,
+            "24103779": 65
+          },
+          "parental_orientation_votes": {
+            "24517362": {
+              "false": 6705,
+              "true": 5
+            },
+            "1024103779": {
+              "true": 49
+            },
+            "25805896": {
+              "true": 506,
+              "false": 43
+            },
+            "24103779": {
+              "true": 65
+            },
+            "1524379633": {
+              "true": 10
+            },
+            "1525301139": {
+              "true": 18
+            },
+            "1525001393": {
+              "true": 6
+            },
+            "1025805896": {
+              "true": 1
+            },
+            "1024517362": {
+              "false": 5
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 70,
+          "counts": {
+            "unphased": 16,
+            "correct": 54
+          },
+          "correct_all_reads": 0.7714285714285715,
+          "dominant_connected_correct_core": 54,
+          "correct_cores": {
+            "24103779": 54
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 54
+            }
+          }
+        },
+        "gap": {
+          "scorable": 115,
+          "counts": {
+            "correct": 89,
+            "unphased": 26
+          },
+          "correct_all_reads": 0.7739130434782608,
+          "dominant_connected_correct_core": 29,
+          "correct_cores": {
+            "24517362": 29,
+            "24103779": 11
+          },
+          "parental_orientation_votes": {
+            "1024103779": {
+              "true": 49
+            },
+            "24517362": {
+              "false": 29
+            },
+            "24103779": {
+              "true": 11
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 211,
+          "counts": {
+            "correct": 210,
+            "unphased": 1
+          },
+          "correct_all_reads": 0.995260663507109,
+          "dominant_connected_correct_core": 210,
+          "correct_cores": {
+            "24517362": 210
+          },
+          "parental_orientation_votes": {
+            "24517362": {
+              "false": 210
+            }
+          }
+        },
+        "other_gap": {
+          "scorable": 91,
+          "counts": {
+            "discordant": 38,
+            "correct": 53
+          },
+          "correct_all_reads": 0.5824175824175825,
+          "dominant_connected_correct_core": 37,
+          "correct_cores": {
+            "24517362": 16,
+            "25805896": 37
+          },
+          "parental_orientation_votes": {
+            "25805896": {
+              "false": 34,
+              "true": 37
+            },
+            "24517362": {
+              "false": 16,
+              "true": 4
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "24103779": {
+          "true": 65
+        },
+        "1024103779": {
+          "true": 49
+        },
+        "25805896": {
+          "true": 520,
+          "false": 70
+        },
+        "1025805896": {
+          "true": 2
+        },
+        "1525001393": {
+          "true": 6
+        },
+        "24517362": {
+          "false": 6705,
+          "true": 5
+        },
+        "1524379633": {
+          "true": 10
+        },
+        "1525301139": {
+          "true": 18
+        },
+        "1024517362": {
+          "false": 5
+        }
+      }
+    },
+    "pgphase": {
+      "regions": {
+        "block": {
+          "scorable": 7591,
+          "counts": {
+            "correct": 7369,
+            "unphased": 174,
+            "discordant": 48
+          },
+          "correct_all_reads": 0.9707548412593862,
+          "dominant_connected_correct_core": 6821,
+          "correct_cores": {
+            "24103779": 6821,
+            "25805896": 506
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 6821,
+              "false": 5
+            },
+            "25805896": {
+              "true": 506,
+              "false": 43
+            },
+            "1524379633": {
+              "true": 10
+            },
+            "1525301139": {
+              "true": 18
+            },
+            "1024517362": {
+              "false": 7
+            },
+            "1525001393": {
+              "true": 6
+            },
+            "1025805896": {
+              "true": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 70,
+          "counts": {
+            "unphased": 16,
+            "correct": 54
+          },
+          "correct_all_reads": 0.7714285714285715,
+          "dominant_connected_correct_core": 54,
+          "correct_cores": {
+            "24103779": 54
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 54
+            }
+          }
+        },
+        "gap": {
+          "scorable": 115,
+          "counts": {
+            "correct": 93,
+            "unphased": 22
+          },
+          "correct_all_reads": 0.808695652173913,
+          "dominant_connected_correct_core": 93,
+          "correct_cores": {
+            "24103779": 93
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 93
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 211,
+          "counts": {
+            "correct": 210,
+            "unphased": 1
+          },
+          "correct_all_reads": 0.995260663507109,
+          "dominant_connected_correct_core": 210,
+          "correct_cores": {
+            "24103779": 210
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 210
+            }
+          }
+        },
+        "other_gap": {
+          "scorable": 91,
+          "counts": {
+            "discordant": 38,
+            "correct": 53
+          },
+          "correct_all_reads": 0.5824175824175825,
+          "dominant_connected_correct_core": 37,
+          "correct_cores": {
+            "24103779": 16,
+            "25805896": 37
+          },
+          "parental_orientation_votes": {
+            "25805896": {
+              "false": 34,
+              "true": 37
+            },
+            "24103779": {
+              "true": 16,
+              "false": 4
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "24103779": {
+          "true": 6821,
+          "false": 5
+        },
+        "25805896": {
+          "true": 520,
+          "false": 70
+        },
+        "1025805896": {
+          "true": 2
+        },
+        "1525001393": {
+          "true": 6
+        },
+        "1024517362": {
+          "false": 7
+        },
+        "1524379633": {
+          "true": 10
+        },
+        "1525301139": {
+          "true": 18
+        }
+      }
+    },
+    "hiphase": {
+      "regions": {
+        "block": {
+          "scorable": 7591,
+          "counts": {
+            "correct": 7150,
+            "unphased": 440,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.9419048873666184,
+          "dominant_connected_correct_core": 7150,
+          "correct_cores": {
+            "24103779": 7150
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 7150,
+              "false": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 70,
+          "counts": {
+            "unphased": 16,
+            "correct": 54
+          },
+          "correct_all_reads": 0.7714285714285715,
+          "dominant_connected_correct_core": 54,
+          "correct_cores": {
+            "24103779": 54
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 54
+            }
+          }
+        },
+        "gap": {
+          "scorable": 115,
+          "counts": {
+            "correct": 93,
+            "unphased": 22
+          },
+          "correct_all_reads": 0.808695652173913,
+          "dominant_connected_correct_core": 93,
+          "correct_cores": {
+            "24103779": 93
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 93
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 211,
+          "counts": {
+            "correct": 210,
+            "unphased": 1
+          },
+          "correct_all_reads": 0.995260663507109,
+          "dominant_connected_correct_core": 210,
+          "correct_cores": {
+            "24103779": 210
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 210
+            }
+          }
+        },
+        "other_gap": {
+          "scorable": 91,
+          "counts": {
+            "unphased": 71,
+            "correct": 20
+          },
+          "correct_all_reads": 0.21978021978021978,
+          "dominant_connected_correct_core": 20,
+          "correct_cores": {
+            "24103779": 20
+          },
+          "parental_orientation_votes": {
+            "24103779": {
+              "true": 20
+            }
+          }
+        }
+      },
+      "identical_original_alignments": 7591,
+      "phase_set_orientation": {
+        "24103779": {
+          "true": 7150,
+          "false": 1
+        }
+      }
+    }
+  },
+  "preservation": {
+    "old_primary_output_reads": 256610,
+    "new_primary_output_reads": 256610,
+    "old_correct": 230572,
+    "new_correct": 230576,
+    "old_discordant": 6768,
+    "new_discordant": 6768,
+    "old_variant_records": 64188,
+    "new_variant_records": 64188,
+    "changed_variant_gauges": 2102,
+    "changed_read_tags": 6763,
+    "lost_correct_assignments": 0,
+    "lost_phased_assignments": 0,
+    "variant_alleles_counts_and_filters_preserved": true,
+    "new_assignments": [
+      "m84031_231217_034919_s2/194380491/ccs",
+      "m84031_231217_034919_s2/34999647/ccs",
+      "m84031_231217_062403_s3/153423719/ccs",
+      "m84031_231217_062403_s3/203757340/ccs"
+    ]
+  },
+  "metrics": {
+    "before": {
+      "block_count": 263,
+      "n50_bp": 904351,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4939
+      },
+      "target_blocks": [
+        {
+          "ps": 24517362,
+          "left": 24131707,
+          "right": 25855631,
+          "length": 1723925,
+          "rows": 2102
+        },
+        {
+          "ps": 25805896,
+          "left": 25855633,
+          "right": 25964482,
+          "length": 108850,
+          "rows": 229
+        },
+        {
+          "ps": 24103779,
+          "left": 24103779,
+          "right": 24121713,
+          "length": 17935,
+          "rows": 4
+        }
+      ]
+    },
+    "pgphase": {
+      "block_count": 262,
+      "n50_bp": 904351,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4939
+      },
+      "target_blocks": [
+        {
+          "ps": 24103779,
+          "left": 24103779,
+          "right": 25855631,
+          "length": 1751853,
+          "rows": 2106
+        },
+        {
+          "ps": 25805896,
+          "left": 25855633,
+          "right": 25964482,
+          "length": 108850,
+          "rows": 229
+        }
+      ]
+    },
+    "hiphase": {
+      "block_count": 191,
+      "n50_bp": 1005183,
+      "largest_block": {
+        "ps": 63182011,
+        "left": 63182011,
+        "right": 66206480,
+        "length": 3024470,
+        "rows": 5820
+      },
+      "target_blocks": [
+        {
+          "ps": 24103779,
+          "left": 24103779,
+          "right": 25944471,
+          "length": 1840693,
+          "rows": 2648
+        }
+      ]
+    }
+  }
+}

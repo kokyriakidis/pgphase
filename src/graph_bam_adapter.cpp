@@ -1978,6 +1978,45 @@ std::optional<bool> calibrated_indel_bridge_flip(
     return flip;
 }
 
+int complementary_insertion_length_class(int observed, int first, int second) {
+    if (observed <= 0 || first <= 0 || second <= 0 || first == second) return -1;
+    const int first_distance = std::abs(observed - first);
+    const int second_distance = std::abs(observed - second);
+    return first_distance == second_distance ? -1 :
+        first_distance < second_distance ? 0 : 1;
+}
+
+std::optional<bool> calibrated_repeat_insertion_bridge_flip(
+        const IndependentBamBlockLink& gauge,
+        const std::array<std::array<int, 2>, 2>& parity,
+        const std::array<double, 2>& call_errors) {
+    constexpr double kMaxJointError = 0.20;
+    constexpr double kMaxGaugeCallError = 0.01;
+    const auto& counts = gauge.counts;
+    const int same = counts[0][0] + counts[1][1];
+    const int cross = counts[0][1] + counts[1][0];
+    if (same <= cross || counts[0][0] == 0 || counts[1][1] == 0 ||
+        2.0 * rescue_binomial_tail(same, same + cross) > kIndependentBlockAssociationPValue)
+        return std::nullopt;
+    std::optional<bool> flip;
+    double joint_error = 1.0;
+    for (size_t hap = 0; hap < parity.size(); ++hap) {
+        if ((parity[hap][0] != 0 && parity[hap][1] != 0) ||
+            parity[hap][0] + parity[hap][1] == 0 ||
+            !std::isfinite(call_errors[hap]) || call_errors[hap] < 0.0 ||
+            call_errors[hap] >= 0.5) return std::nullopt;
+        const bool current = parity[hap][1] != 0;
+        if (flip && *flip != current) return std::nullopt;
+        flip = current;
+        // One incorrect class would give contrary parity and veto the join.
+        // A coherent wrong parity needs independent errors in both classes.
+        joint_error *= std::min(1.0,
+            one_sided_wilson_upper_bound(counts[hap][1 - hap],
+                counts[hap][0] + counts[hap][1]) + kMaxGaugeCallError + call_errors[hap]);
+    }
+    return joint_error <= kMaxJointError ? flip : std::nullopt;
+}
+
 std::optional<bool> calibrated_repeat_snp_bridge_flip(
         const std::array<IndependentBamBlockLink, 2>& gauges,
         const std::array<int, 2>& parity, double wrong_parity_bound) {
@@ -3434,6 +3473,18 @@ bool bam_source_run_supported(const GraphChunkBuildResult& gc,
     return !crosses(cuts->second) &&
         (quality == gc.recovery_source_quality_cuts.end() ||
          !crosses(quality->second));
+}
+
+bool graph_snp_cohort_is_physically_contradicted(
+        const std::optional<GraphSnpReferenceEvidence>& terminal,
+        const std::optional<GraphSnpReferenceEvidence>& partner) {
+    constexpr int kMinContradictedAltReads = 2;
+    constexpr double kMaxWrongAlternate = 0.001;
+    return terminal && partner && terminal->reference_class_reads > 0 &&
+        terminal->alternate_class_deletions >= kMinContradictedAltReads &&
+        partner->reference_class_reads > 0 &&
+        partner->alternate_class_reference_reads >= kMinContradictedAltReads &&
+        partner->wrong_alternate_bound <= kMaxWrongAlternate;
 }
 
 } // namespace pgphase_collect

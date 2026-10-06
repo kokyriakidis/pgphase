@@ -123,7 +123,7 @@ graph	53947946-53962801	1	1	0.99	0.60
 graph	528850-542052	1	1	0.99	0.42
 graph	39848887-39856144	1	1	0.98	1.00
 graph	54684758-54702072	1	1	0.98	0.83
-graph	TOTAL	102	1292	0.74	0.10
+graph	TOTAL	104	1292	0.74	0.10
 # 2026-10-01: graph arm closes the 11.573 Mb owning-chunk gap without
 # changing HP assignments or discordant counts; existing floors stay intact.
 graph	11573074-11586531	1	0	0.97	0.64
@@ -180,3 +180,9 @@ graph	65509355-65509406	1	0	0.97	1.0
 
 # Native 10 Mb owner: exact complementary insertion alleles and a calibrated bridge.
 graph	10325039-10337661	1	0	0.98	0.77
+
+# Native 24 Mb owner: complementary repeat classes preserve the SNP flanks.
+graph	24121713-24131707	1	0	0.99	0.80
+
+# Native 25 Mb owner: remove physically contradicted copy-specific graph anchors.
+graph	25855631-25855633	1	0	0.99	0.967032967032967

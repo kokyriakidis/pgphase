@@ -1,0 +1,163 @@
+{
+  "gauge": [
+    [
+      4,
+      0
+    ],
+    [
+      0,
+      5
+    ]
+  ],
+  "parity_by_class": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ]
+  ],
+  "class_max_call_errors": [
+    0.0028972623149688785,
+    0.100302
+  ],
+  "class_augmented_wilson_bounds": [
+    0.4163758875176736,
+    0.4614185007651012
+  ],
+  "joint_wrong_parity_bound": 0.1921235377731434,
+  "diploid_association_p": 0.00390625,
+  "recovered_snp_physical_edge": {
+    "agree": 50
+  },
+  "calibration_reads": [
+    {
+      "qname": "m84031_231217_034919_s2/220729634/ccs",
+      "length": 4,
+      "class_hap_index": 1,
+      "scores": [
+        0,
+        4
+      ],
+      "snp_hap_index": 1,
+      "error": 0.0008020000000000001
+    },
+    {
+      "qname": "m84031_231217_034919_s2/184026905/ccs",
+      "length": 4,
+      "class_hap_index": 1,
+      "scores": [
+        0,
+        4
+      ],
+      "snp_hap_index": 1,
+      "error": 0.007011573444801931
+    },
+    {
+      "qname": "m84031_231217_062403_s3/262606868/ccs",
+      "length": 8,
+      "class_hap_index": 0,
+      "scores": [
+        4,
+        0
+      ],
+      "snp_hap_index": 0,
+      "error": 0.0012020000000000002
+    },
+    {
+      "qname": "m84031_231217_062403_s3/204018358/ccs",
+      "length": 4,
+      "class_hap_index": 1,
+      "scores": [
+        0,
+        4
+      ],
+      "snp_hap_index": 1,
+      "error": 0.0008020000000000001
+    },
+    {
+      "qname": "m84031_231217_062403_s3/186126178/ccs",
+      "length": 9,
+      "class_hap_index": 0,
+      "scores": [
+        5,
+        1
+      ],
+      "snp_hap_index": 0,
+      "error": 0.007511573444801931
+    },
+    {
+      "qname": "m84031_231217_034919_s2/14617323/ccs",
+      "length": 8,
+      "class_hap_index": 0,
+      "scores": [
+        4,
+        0
+      ],
+      "snp_hap_index": 0,
+      "error": 0.001418227766016838
+    },
+    {
+      "qname": "m84031_231217_034919_s2/93524222/ccs",
+      "length": 4,
+      "class_hap_index": 1,
+      "scores": [
+        0,
+        4
+      ],
+      "snp_hap_index": 1,
+      "error": 0.009023063525787647
+    },
+    {
+      "qname": "m84031_231217_062403_s3/99158180/ccs",
+      "length": 4,
+      "class_hap_index": 1,
+      "scores": [
+        0,
+        4
+      ],
+      "snp_hap_index": 1,
+      "error": 0.000702
+    },
+    {
+      "qname": "m84031_231217_034919_s2/51974733/ccs",
+      "length": 7,
+      "class_hap_index": 0,
+      "scores": [
+        3,
+        1
+      ],
+      "snp_hap_index": 0,
+      "error": 0.001002
+    }
+  ],
+  "bridge_reads": [
+    {
+      "qname": "m84031_231217_062403_s3/7996640/ccs",
+      "length": 7,
+      "class_hap_index": 0,
+      "scores": [
+        3,
+        1
+      ],
+      "right_allele": 1,
+      "flip": true,
+      "error": 0.0028972623149688785
+    },
+    {
+      "qname": "m84031_231217_062403_s3/132189840/ccs",
+      "length": 1,
+      "class_hap_index": 1,
+      "scores": [
+        3,
+        7
+      ],
+      "right_allele": 0,
+      "flip": true,
+      "error": 0.100302
+    }
+  ],
+  "parental_truth_used": false
+}

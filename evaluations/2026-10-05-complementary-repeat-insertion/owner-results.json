@@ -1,0 +1,71 @@
+{
+  "old_primary_output_reads": 4061,
+  "new_primary_output_reads": 4061,
+  "old_correct": 3922,
+  "new_correct": 3926,
+  "old_discordant": 2,
+  "new_discordant": 2,
+  "old_variant_records": 1234,
+  "new_variant_records": 1234,
+  "changed_variant_gauges": 1220,
+  "changed_read_tags": 3515,
+  "lost_correct_assignments": 0,
+  "lost_phased_assignments": 0,
+  "variant_alleles_counts_and_filters_preserved": true,
+  "new_assignments": [
+    "m84031_231217_034919_s2/194380491/ccs",
+    "m84031_231217_034919_s2/34999647/ccs",
+    "m84031_231217_062403_s3/153423719/ccs",
+    "m84031_231217_062403_s3/203757340/ccs"
+  ],
+  "before": {
+    "scorable": 115,
+    "counts": {
+      "unphased": 26,
+      "correct": 89
+    },
+    "core": [
+      [
+        24517362,
+        29
+      ],
+      [
+        24103779,
+        11
+      ]
+    ],
+    "correct_all": 0.7739130434782608
+  },
+  "after": {
+    "scorable": 115,
+    "counts": {
+      "unphased": 22,
+      "correct": 93
+    },
+    "core": [
+      [
+        24103779,
+        93
+      ]
+    ],
+    "correct_all": 0.808695652173913
+  },
+  "hiphase": {
+    "scorable": 115,
+    "counts": {
+      "correct": 93,
+      "unphased": 22
+    },
+    "correct_all_reads": 0.808695652173913,
+    "dominant_connected_correct_core": 93,
+    "correct_cores": {
+      "24103779": 93
+    },
+    "parental_orientation_votes": {
+      "24103779": {
+        "true": 93
+      }
+    }
+  },
+  "benchmark_source": "evaluations/2026-10-05-third-largest-block-target/next-block.json (identical original alignments verified)"
+}

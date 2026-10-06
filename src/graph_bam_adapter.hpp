@@ -97,6 +97,7 @@ struct DeferredPhysicalBridge {
     // A calibrated shared deletion also certifies its retained rescue marker.
     std::optional<VariantKey> shared_deletion;
     std::optional<VariantKey> calibrated_insertion;
+    bool calibrated_insertion_repeat = false;
     // Boundary certificates retain the downstream owning chunk until rescue ends.
     std::optional<size_t> right_chunk_index;
 };
@@ -337,11 +338,37 @@ std::optional<bool> calibrated_indel_bridge_flip(
     const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
     double log_odds);
 
+/// Separate non-reference repeat lengths; zero length and equidistant calls abstain.
+int complementary_insertion_length_class(int observed, int first, int second);
+
+/// Require independently calibrated length classes and unanimous physical
+/// bridges from both classes. Bound a coherent wrong union using both disjoint
+/// class calibrations and their measured molecule errors.
+std::optional<bool> calibrated_repeat_insertion_bridge_flip(
+    const IndependentBamBlockLink& gauge,
+    const std::array<std::array<int, 2>, 2>& parity,
+    const std::array<double, 2>& call_errors);
+
 /// Orient a physical repeat bridge after independent read gauges calibrate
 /// both flanks. The joint calibration and molecule error must stay below 20%.
 std::optional<bool> calibrated_repeat_snp_bridge_flip(
     const std::array<IndependentBamBlockLink, 2>& gauges,
     const std::array<int, 2>& parity, double wrong_parity_bound);
+
+/// Original primary-read evidence contradicting a binary graph SNP.
+struct GraphSnpReferenceEvidence {
+    int reference_class_reads = 0;
+    int alternate_class_reference_reads = 0;
+    int alternate_class_deletions = 0;
+    double wrong_alternate_bound = 1.0;
+};
+
+/// Exclude two SNPs observed on the same graph molecules from anchoring when
+/// one is physically deleted and the other is reference-only. Missing evidence
+/// (including any credible physical ALT) and weak contradiction abstain.
+bool graph_snp_cohort_is_physically_contradicted(
+    const std::optional<GraphSnpReferenceEvidence>& terminal,
+    const std::optional<GraphSnpReferenceEvidence>& partner);
 
 /// Apply statistically validated BAM assignments only to reads that remain
 /// unassigned after graph stitching and excluded-site rescue.

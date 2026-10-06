@@ -1,0 +1,35 @@
+{
+  "old_primary_output_reads": 4096,
+  "new_primary_output_reads": 4096,
+  "old_counts": {
+    "correct": 3979,
+    "discordant": 74,
+    "unphased": 43
+  },
+  "new_counts": {
+    "correct": 4015,
+    "discordant": 38,
+    "unphased": 43
+  },
+  "lost_correct_assignments": 0,
+  "lost_phased_assignments": 0,
+  "old_variant_records": 1155,
+  "new_variant_records": 1451,
+  "removed_physically_contradicted_snp": [
+    [
+      "CHM13#0#chr20",
+      "25855631",
+      ".",
+      "T",
+      "C"
+    ]
+  ],
+  "added_recovery_variants": 297,
+  "added_variant_extent": [
+    25844279,
+    25855615
+  ],
+  "retained_variant_alleles_counts_and_filters_preserved": true,
+  "changed_variant_gauges": 229,
+  "changed_read_tags": 613
+}

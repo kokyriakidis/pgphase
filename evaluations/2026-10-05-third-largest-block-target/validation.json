@@ -1,0 +1,10 @@
+{
+  "production_sha256": "15534777ecd8382e370ade340e6e8998a3fc1b1ab4ab390281b3ff4a22bbedb4",
+  "hiphase_blocks_ranked": 191,
+  "pgphase_blocks": 263,
+  "hiphase_target_original_alignments_verified": 7591,
+  "counts_and_core_bounds_verified": true,
+  "disjoint_flank_cohorts_verified_by_audit": true,
+  "script_compiles": true,
+  "production_and_expectations_unchanged": true
+}

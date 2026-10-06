@@ -80,7 +80,7 @@ holding its own FAI handle:
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 | 9 | `apply_equivalent_insertion_joins` | applies repeat-placement insertion connections certified on the final recovery matrix; updates core candidate/read gauges across the batch while preserving every output-only rescue and BAM fallback block |
 | 10 | `apply_deferred_physical_bridges` | applies the staged physical connections after rescue cohorts have been recorded |
-| 11 | `promote_calibrated_insertion_reads` | verifies the completed complementary-insertion bridge union and physically confirms exact insertion alleles before connecting unassigned or rescue reads to its core |
+| 11 | `promote_calibrated_insertion_reads` | verifies the completed complementary-insertion bridge union and physically confirms exact alleles or calibrated complementary repeat classes before connecting unassigned or rescue reads to its core |
 | 12 | `promote_verified_source_indel_rescues` | independently verifies already tagged rescues against a retained MSA source edit and moves qualifying reads into their existing connected core |
 | 13 | `connect_masked_bam_fallback_reads` | connects already tagged BAM fallback reads whose false graph REF call is physically deleted, through an independently calibrated Q30 graph/BAM SNP in a certified shared-deletion union |
 | 14 | `fill_masked_snp_deletion_reads` | fills unassigned deletion-ALT reads whose verified opposite-haplotype SNPs are physically masked, using the allele gauge of already phased core reads |
@@ -110,6 +110,23 @@ profiles and rebuilds their interval index once, without changing the original
 genotype counts, candidate categories, phase-set labels or read HP gauges.
 Recovery and stitching consume the additional graph calls through their
 existing evidence checks; graph-only runs retain the original full-walk solve.
+
+With BAM evidence, a left-terminal clean graph SNP inside a homopolymer
+catalog REF can be excluded from anchoring before recovery. Its graph REF
+class needs a physical REF witness; at least two independent graph ALT
+molecules must delete the normalized SNP in their original CIGAR, with
+REF-matching Q30 bases immediately on both sides and MAPQ30. The same graph
+molecules must cover another binary clean SNP whose graph ALT calls are
+physically REF. That partner needs a MAPQ30 REF-class witness and at least
+two Q30 ALT-class REF calls with known positive MAPQ. Each mapping-plus-base
+error must be below 0.5; their product must be at most 0.001. A Q30 physical
+ALT anywhere at MAPQ30, or at any known positive MAPQ within the graph cohort,
+vetoes exclusion. Secondary, supplementary, duplicate, QC-failed and unknown
+quality evidence abstains. Both graph candidates retain their observations,
+counts and categories but receive the existing nonanchor bitmask, and the
+initial graph solve reruns before discovering recovery windows. The existing
+BAM recovery then uses sequence-backed haplotype markers across the copies;
+no global allele-frequency threshold or read-quality admission floor changes.
 
 After source attachment and before physical seam stitching, a right graph
 flank with a failed internal SNP edge can repair one phase switch from primary
@@ -440,13 +457,15 @@ in the same consistently oriented block on its respective side.
 
 A complementary BAM insertion locus can bridge to a clean right SNP when
 both exact insertion ALTs are MSA- and alignment-verified, occupy the same
-coordinate, and represent opposite haplotypes. Other insertion lengths are
-uncallable rather than REF votes. Clean SNPs before the insertion calibrate
+coordinate, and represent opposite haplotypes. In the exact-ALT certificate,
+other insertion lengths are uncallable rather than REF votes. Clean SNPs before the insertion calibrate
 both ALT classes on primary reads that end before the right bridge SNP.
 A recovered calibration SNP additionally needs two independent MAPQ30
 primary alignments calling it and the nearest preceding graph SNP at Q30,
 with unanimous orientation and wrong-parity likelihood at most 0.001.
-Both graph cores must have supported SNP paths; a single weak internal edge
+Both graph cores must have supported SNP paths. A left block with exactly one
+graph candidate has no internal graph edge; any recovered calibration SNP
+still requires its independent physical link to that graph anchor. A single weak internal edge
 may be independently certified from primary BAM SNP calls while its suffix
 retains the full path check. The bridge sums inserted-base, placement-footprint,
 SNP-base and twice mapping-error probabilities, with minimum Q10 and at most
@@ -463,6 +482,42 @@ agreeing working and BAM observations and no contrary phased profile locus.
 Already assigned core reads keep their haplotypes. Imported physical SNP
 references come from the worker FASTA cache because graph chunks do not
 populate the BAM pipeline's reference sequence string.
+
+Complementary homopolymer insertion ALTs have a separate length-slippage
+certificate when exact ALT molecules are unavailable. Both retained ALTs must
+be verified, have the same base and coordinate, and occupy opposite haplotypes;
+the reference must contain at least two copies of that base. Original primary
+MAPQ30 alignments supply a positive net insertion in a 16 bp flank window.
+The CIGAR-bounded query sequence is globally aligned to both retained edited
+reference strings with edlib. Its unique nearer allele must agree with the
+nearest length class when that class is unambiguous. A length tie can be
+resolved only by unequal sequence distances. Zero-length observations and
+sequence ties abstain. At most one shared sequence edit beyond the observed
+length slippage is allowed; candidate alleles and genotypes are unchanged.
+
+Disjoint upstream SNP-bearing reads calibrate both length classes using the
+same physical SNP gauges and <=1% call-error check. The diploid calibration
+must reject random association at p<=0.01. Unlike the sparse exact-ALT bridge,
+this certificate requires distinct physical bridge molecules in **both**
+classes and unanimous cross-block parity, with no contrary molecule. A
+coherent wrong parity would require errors in both classes. The product of
+their class-specific one-sided 95% Wilson discordance bounds, each augmented
+by the conservative 1% gauge-call bound and that class's worst measured
+bridge-call error, must stay <=20%. This uses independent class calibrations
+and bridge molecules; it does not treat slippage as a REF observation or
+replace either block's internal path check.
+
+After the complete anchor union is verified, the same sequence class can
+connect unassigned reads with inserted bases >=Q10, window endpoints >=Q20,
+and summed base/mapping call error <=20%. Contrary phased profile loci veto
+the assignment. Existing MSA rescues can enter only their own original
+`core PS + gap-fill offset` core, preserving their inherited HP, when physical
+sequence evidence agrees. Their already accepted allele observations can
+retain low base qualities, but unknown endpoint/insert qualities and sequence
+ties still abstain. The promoter checks both ordinary rescue-tag storage and
+the separate gap-haplotype storage; established core assignments are retained.
+Final-union validation matches complete allele keys and phased anchors, using
+the same key identity as deferred bridge application.
 
 After deferred physical bridges, already tagged rescue reads can enter their
 existing connected core through an independently MSA-verified insertion or

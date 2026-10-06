@@ -1,0 +1,85 @@
+{
+  "native_replays_compared": 219,
+  "unmatched_prior_replays": [],
+  "variant_alleles_counts_and_filters_preserved": true,
+  "correct_assignments_preserved": true,
+  "phased_assignments_preserved": false,
+  "discordant_tags_now_abstaining": [
+    {
+      "output": "graph/w10325039-10337661/phased.bam",
+      "qname": "m84031_231217_034919_s2/112199276/ccs"
+    },
+    {
+      "output": "graph/w10727690-10746628/phased.bam",
+      "qname": "m84031_231217_034919_s2/112199276/ccs"
+    }
+  ],
+  "changed_outputs": [
+    {
+      "baseline": "/tmp/pgphase71-final/graph/w10325039-10337661/phased.bam",
+      "output": "graph/w10325039-10337661/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4364,
+      "new_correct": 4364,
+      "old_discordant": 46,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 0,
+      "changed_read_tags": 1,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 1,
+      "discordant_tags_now_abstaining": [
+        "m84031_231217_034919_s2/112199276/ccs"
+      ],
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": []
+    },
+    {
+      "baseline": "/tmp/pgphase71-final/graph/w10727690-10746628/phased.bam",
+      "output": "graph/w10727690-10746628/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4364,
+      "new_correct": 4364,
+      "old_discordant": 46,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 0,
+      "changed_read_tags": 1,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 1,
+      "discordant_tags_now_abstaining": [
+        "m84031_231217_034919_s2/112199276/ccs"
+      ],
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": []
+    },
+    {
+      "baseline": "/tmp/pgphase71-final/msa_insertion_parental_orientation_24m/w24121713-24131707/phased.bam",
+      "output": "msa_insertion_parental_orientation_24m/w24121713-24131707/phased.bam",
+      "old_primary_output_reads": 4061,
+      "new_primary_output_reads": 4061,
+      "old_correct": 3922,
+      "new_correct": 3926,
+      "old_discordant": 2,
+      "new_discordant": 2,
+      "old_variant_records": 1234,
+      "new_variant_records": 1234,
+      "changed_variant_gauges": 1220,
+      "changed_read_tags": 3515,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 0,
+      "discordant_tags_now_abstaining": [],
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": [
+        "m84031_231217_034919_s2/194380491/ccs",
+        "m84031_231217_034919_s2/34999647/ccs",
+        "m84031_231217_062403_s3/153423719/ccs",
+        "m84031_231217_062403_s3/203757340/ccs"
+      ]
+    }
+  ]
+}

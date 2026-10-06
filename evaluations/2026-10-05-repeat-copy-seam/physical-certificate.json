@@ -1,0 +1,754 @@
+{
+  "25853217": {
+    "graph_molecules": 20,
+    "graph_allele_counts": {
+      "0": 15,
+      "1": 5
+    },
+    "reference_class_verified": 5,
+    "alternate_class_deleted": 0,
+    "alternate_class_physical_ref": 4,
+    "wrong_alternate_bound": 3.1971816004266994e-05,
+    "diagnostic_parent_counts": {
+      "MATERNAL": 20
+    },
+    "reads": [
+      {
+        "qname": "m84031_231217_034919_s2/129959549/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 18,
+        "adjacent_calls": [
+          [
+            "C",
+            35
+          ],
+          [
+            "C",
+            35
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/88213032/ccs",
+        "graph_allele": 1,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            35
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/105517418/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "C",
+            35
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/256576195/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 9,
+        "adjacent_calls": [
+          [
+            "C",
+            27
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/28903645/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/14750683/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 10,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/228788610/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 42,
+        "adjacent_calls": [
+          [
+            "C",
+            10
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/261555284/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 40,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/50005768/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 11,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/177539482/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 31,
+        "adjacent_calls": [
+          [
+            "C",
+            10
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/18027096/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 30,
+        "adjacent_calls": [
+          [
+            "C",
+            35
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/147002468/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 30,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/212208349/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 19,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/119409390/ccs",
+        "graph_allele": 1,
+        "physical_base": "G",
+        "base_quality": 17,
+        "mapq": 17,
+        "adjacent_calls": [
+          [
+            "C",
+            22
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/212665620/ccs",
+        "graph_allele": 1,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 18,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/233835758/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 17,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/126685664/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 16,
+        "adjacent_calls": [
+          [
+            "C",
+            35
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/224463376/ccs",
+        "graph_allele": 1,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 16,
+        "adjacent_calls": [
+          [
+            "C",
+            40
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/224986137/ccs",
+        "graph_allele": 0,
+        "physical_base": "G",
+        "base_quality": 35,
+        "mapq": 15,
+        "adjacent_calls": [
+          [
+            "C",
+            10
+          ],
+          [
+            "C",
+            3
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/74911002/ccs",
+        "graph_allele": 1,
+        "physical_base": "G",
+        "base_quality": 40,
+        "mapq": 6,
+        "adjacent_calls": [
+          [
+            "C",
+            17
+          ],
+          [
+            "C",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      }
+    ]
+  },
+  "25855631": {
+    "graph_molecules": 20,
+    "graph_allele_counts": {
+      "0": 15,
+      "1": 5
+    },
+    "reference_class_verified": 1,
+    "alternate_class_deleted": 4,
+    "alternate_class_physical_ref": 0,
+    "wrong_alternate_bound": 1.0,
+    "diagnostic_parent_counts": {
+      "MATERNAL": 20
+    },
+    "reads": [
+      {
+        "qname": "m84031_231217_034919_s2/129959549/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 18,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/88213032/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/105517418/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/256576195/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 9,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/28903645/ccs",
+        "graph_allele": 1,
+        "physical_base": "DEL",
+        "base_quality": 0,
+        "mapq": 5,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/14750683/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 10,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/228788610/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 42,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/261555284/ccs",
+        "graph_allele": 1,
+        "physical_base": "DEL",
+        "base_quality": 0,
+        "mapq": 40,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/50005768/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 11,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/177539482/ccs",
+        "graph_allele": 1,
+        "physical_base": "DEL",
+        "base_quality": 0,
+        "mapq": 31,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/18027096/ccs",
+        "graph_allele": 1,
+        "physical_base": "DEL",
+        "base_quality": 0,
+        "mapq": 30,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/147002468/ccs",
+        "graph_allele": 1,
+        "physical_base": "DEL",
+        "base_quality": 0,
+        "mapq": 30,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/212208349/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 19,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/119409390/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 17,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/212665620/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 18,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/233835758/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 17,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/126685664/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 16,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/224463376/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 16,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_062403_s3/224986137/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 15,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      },
+      {
+        "qname": "m84031_231217_034919_s2/74911002/ccs",
+        "graph_allele": 0,
+        "physical_base": "T",
+        "base_quality": 40,
+        "mapq": 6,
+        "adjacent_calls": [
+          [
+            "T",
+            40
+          ],
+          [
+            "T",
+            40
+          ]
+        ],
+        "diagnostic_parent": "MATERNAL"
+      }
+    ]
+  }
+}

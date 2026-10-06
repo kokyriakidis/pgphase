@@ -147,6 +147,9 @@ release-strict: pgphase
 src/align.o: src/align.cpp
 	$(CXX) $(CXXFLAGS) $(ALIGN_CPPFLAGS) -c $< -o $@
 
+src/graph_collect.o: src/graph_collect.cpp
+	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
+
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
