@@ -48,6 +48,9 @@ struct GraphSite {
     hts_pos_t ref_end = 0;      // linearized ref interval end
     std::vector<int> conditional_parent_alleles;  // PA field: parent alleles that gate this child
     bool has_spanning_deletion = false;  // true if any ALT is '*'
+    bool bam_alt_deletion_no_ref = false;
+    bool bam_low_fraction_snp = false;
+    bool bam_homozygous_alt = false;  // physical BAM evidence contradicts graph heterozygosity
     bool eligible = true;        // false if validation failed
     std::string skip_reason;     // why the site was marked ineligible
 

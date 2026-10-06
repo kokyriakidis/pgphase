@@ -1,0 +1,814 @@
+{
+  "inputs": {
+    "before": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix75/retired_final/0",
+    "after": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix76/final/0",
+    "hiphase": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix48/competitor/hiphase_dv",
+    "production_sha256": "91bb9699e31b9d682347a7b4b6cfbf6b8be3577968a13c9e75db40384fbb12ed"
+  },
+  "target": {
+    "left": 36137653,
+    "right": 37393302,
+    "length": 1255650,
+    "hiphase_rank": 8
+  },
+  "gap": [
+    36268558,
+    36286778
+  ],
+  "gap_boundary_distance_bp": 18220,
+  "unscorable_original_reads": {},
+  "tools": {
+    "before": {
+      "regions": {
+        "block": {
+          "scorable": 5118,
+          "counts": {
+            "correct": 4833,
+            "unphased": 202,
+            "discordant": 83
+          },
+          "correct_all_reads": 0.9443141852286049,
+          "dominant_connected_correct_core": 4252,
+          "correct_cores": {
+            "36317512": 4252,
+            "36156319": 465,
+            "36069696": 31,
+            "36261163": 1
+          },
+          "parental_orientation_votes": {
+            "36317512": {
+              "true": 4252,
+              "false": 19
+            },
+            "36156319": {
+              "true": 465,
+              "false": 18
+            },
+            "1036317512": {
+              "true": 45,
+              "false": 7
+            },
+            "36069696": {
+              "false": 37,
+              "true": 31
+            },
+            "1036156319": {
+              "true": 18,
+              "false": 2
+            },
+            "1536895001": {
+              "false": 19
+            },
+            "1036261163": {
+              "true": 2
+            },
+            "36261163": {
+              "true": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 203,
+          "counts": {
+            "correct": 165,
+            "discordant": 15,
+            "unphased": 23
+          },
+          "correct_all_reads": 0.812807881773399,
+          "dominant_connected_correct_core": 149,
+          "correct_cores": {
+            "36156319": 149,
+            "36261163": 1
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 149,
+              "false": 13
+            },
+            "1036156319": {
+              "true": 13,
+              "false": 2
+            },
+            "1036261163": {
+              "true": 2
+            },
+            "36261163": {
+              "true": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 92,
+            "unphased": 16,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8440366972477065,
+          "dominant_connected_correct_core": 68,
+          "correct_cores": {
+            "36156319": 68,
+            "36317512": 5
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 68
+            },
+            "1036317512": {
+              "true": 19
+            },
+            "36317512": {
+              "true": 5,
+              "false": 1
+            }
+          }
+        },
+        "repaired_gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 92,
+            "unphased": 16,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8440366972477065,
+          "dominant_connected_correct_core": 68,
+          "correct_cores": {
+            "36156319": 68,
+            "36317512": 5
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 68
+            },
+            "1036317512": {
+              "true": 19
+            },
+            "36317512": {
+              "true": 5,
+              "false": 1
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 63,
+          "counts": {
+            "correct": 63
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 63,
+          "correct_cores": {
+            "36156319": 63
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 63
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 5,
+          "counts": {
+            "correct": 5
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 5,
+          "correct_cores": {
+            "36156319": 5
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 5
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 198,
+          "counts": {
+            "correct": 173,
+            "unphased": 20,
+            "discordant": 5
+          },
+          "correct_all_reads": 0.8737373737373737,
+          "dominant_connected_correct_core": 173,
+          "correct_cores": {
+            "36317512": 173
+          },
+          "parental_orientation_votes": {
+            "36317512": {
+              "true": 173,
+              "false": 5
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 4398,
+          "counts": {
+            "correct": 4246,
+            "unphased": 128,
+            "discordant": 24
+          },
+          "correct_all_reads": 0.9654388358344702,
+          "dominant_connected_correct_core": 4201,
+          "correct_cores": {
+            "36317512": 4201
+          },
+          "parental_orientation_votes": {
+            "36317512": {
+              "true": 4201,
+              "false": 17
+            },
+            "1036317512": {
+              "true": 26,
+              "false": 7
+            },
+            "1536895001": {
+              "false": 19
+            }
+          }
+        },
+        "control_gap": {
+          "scorable": 91,
+          "counts": {
+            "correct": 84,
+            "discordant": 5,
+            "unphased": 2
+          },
+          "correct_all_reads": 0.9230769230769231,
+          "dominant_connected_correct_core": 83,
+          "correct_cores": {
+            "36317512": 83
+          },
+          "parental_orientation_votes": {
+            "36317512": {
+              "true": 83,
+              "false": 2
+            },
+            "1036317512": {
+              "false": 3,
+              "true": 1
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "36069696": {
+          "true": 196,
+          "false": 61
+        },
+        "36317512": {
+          "true": 4252,
+          "false": 19
+        },
+        "1036317512": {
+          "true": 45,
+          "false": 7
+        },
+        "1036156319": {
+          "true": 18,
+          "false": 2
+        },
+        "1036261163": {
+          "true": 2
+        },
+        "36261163": {
+          "true": 1
+        },
+        "1536895001": {
+          "false": 19
+        },
+        "36156319": {
+          "true": 465,
+          "false": 18
+        }
+      }
+    },
+    "pgphase": {
+      "regions": {
+        "block": {
+          "scorable": 5118,
+          "counts": {
+            "correct": 4841,
+            "unphased": 194,
+            "discordant": 83
+          },
+          "correct_all_reads": 0.9458772958186792,
+          "dominant_connected_correct_core": 4744,
+          "correct_cores": {
+            "36156319": 4744,
+            "36069696": 31,
+            "36261163": 1
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 4744,
+              "false": 37
+            },
+            "1036156319": {
+              "true": 44,
+              "false": 9
+            },
+            "36069696": {
+              "false": 37,
+              "true": 31
+            },
+            "1536895001": {
+              "false": 19
+            },
+            "1036261163": {
+              "true": 2
+            },
+            "36261163": {
+              "true": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 203,
+          "counts": {
+            "correct": 165,
+            "discordant": 15,
+            "unphased": 23
+          },
+          "correct_all_reads": 0.812807881773399,
+          "dominant_connected_correct_core": 149,
+          "correct_cores": {
+            "36156319": 149,
+            "36261163": 1
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 149,
+              "false": 13
+            },
+            "1036156319": {
+              "true": 13,
+              "false": 2
+            },
+            "1036261163": {
+              "true": 2
+            },
+            "36261163": {
+              "true": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 100,
+            "unphased": 8,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.9174311926605505,
+          "dominant_connected_correct_core": 100,
+          "correct_cores": {
+            "36156319": 100
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 100,
+              "false": 1
+            }
+          }
+        },
+        "repaired_gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 100,
+            "unphased": 8,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.9174311926605505,
+          "dominant_connected_correct_core": 100,
+          "correct_cores": {
+            "36156319": 100
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 100,
+              "false": 1
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 63,
+          "counts": {
+            "correct": 63
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 63,
+          "correct_cores": {
+            "36156319": 63
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 63
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 5,
+          "counts": {
+            "correct": 5
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 5,
+          "correct_cores": {
+            "36156319": 5
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 5
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 198,
+          "counts": {
+            "correct": 173,
+            "unphased": 20,
+            "discordant": 5
+          },
+          "correct_all_reads": 0.8737373737373737,
+          "dominant_connected_correct_core": 173,
+          "correct_cores": {
+            "36156319": 173
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 173,
+              "false": 5
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 4398,
+          "counts": {
+            "correct": 4246,
+            "unphased": 128,
+            "discordant": 24
+          },
+          "correct_all_reads": 0.9654388358344702,
+          "dominant_connected_correct_core": 4201,
+          "correct_cores": {
+            "36156319": 4201
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 4201,
+              "false": 17
+            },
+            "1036156319": {
+              "true": 26,
+              "false": 7
+            },
+            "1536895001": {
+              "false": 19
+            }
+          }
+        },
+        "control_gap": {
+          "scorable": 91,
+          "counts": {
+            "correct": 84,
+            "discordant": 5,
+            "unphased": 2
+          },
+          "correct_all_reads": 0.9230769230769231,
+          "dominant_connected_correct_core": 83,
+          "correct_cores": {
+            "36156319": 83
+          },
+          "parental_orientation_votes": {
+            "36156319": {
+              "true": 83,
+              "false": 2
+            },
+            "1036156319": {
+              "false": 3,
+              "true": 1
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "36069696": {
+          "true": 196,
+          "false": 61
+        },
+        "1036156319": {
+          "true": 44,
+          "false": 9
+        },
+        "1036261163": {
+          "true": 2
+        },
+        "36261163": {
+          "true": 1
+        },
+        "1536895001": {
+          "false": 19
+        },
+        "36156319": {
+          "true": 4744,
+          "false": 37
+        }
+      }
+    },
+    "hiphase": {
+      "regions": {
+        "block": {
+          "scorable": 5118,
+          "counts": {
+            "correct": 4906,
+            "unphased": 145,
+            "discordant": 67
+          },
+          "correct_all_reads": 0.9585775693630324,
+          "dominant_connected_correct_core": 4906,
+          "correct_cores": {
+            "36137653": 4906
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 4906,
+              "true": 67
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 203,
+          "counts": {
+            "correct": 177,
+            "discordant": 15,
+            "unphased": 11
+          },
+          "correct_all_reads": 0.8719211822660099,
+          "dominant_connected_correct_core": 177,
+          "correct_cores": {
+            "36137653": 177
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 177,
+              "true": 15
+            }
+          }
+        },
+        "gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 100,
+            "unphased": 8,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.9174311926605505,
+          "dominant_connected_correct_core": 100,
+          "correct_cores": {
+            "36137653": 100
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 100,
+              "true": 1
+            }
+          }
+        },
+        "repaired_gap": {
+          "scorable": 109,
+          "counts": {
+            "correct": 100,
+            "unphased": 8,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.9174311926605505,
+          "dominant_connected_correct_core": 100,
+          "correct_cores": {
+            "36137653": 100
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 100,
+              "true": 1
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 63,
+          "counts": {
+            "correct": 63
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 63,
+          "correct_cores": {
+            "36137653": 63
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 63
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 5,
+          "counts": {
+            "correct": 5
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 5,
+          "correct_cores": {
+            "36137653": 5
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 5
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 198,
+          "counts": {
+            "correct": 180,
+            "unphased": 14,
+            "discordant": 4
+          },
+          "correct_all_reads": 0.9090909090909091,
+          "dominant_connected_correct_core": 180,
+          "correct_cores": {
+            "36137653": 180
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 180,
+              "true": 4
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 4398,
+          "counts": {
+            "correct": 4286,
+            "unphased": 88,
+            "discordant": 24
+          },
+          "correct_all_reads": 0.9745338790359254,
+          "dominant_connected_correct_core": 4286,
+          "correct_cores": {
+            "36137653": 4286
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 4286,
+              "true": 24
+            }
+          }
+        },
+        "control_gap": {
+          "scorable": 91,
+          "counts": {
+            "correct": 82,
+            "unphased": 5,
+            "discordant": 4
+          },
+          "correct_all_reads": 0.9010989010989011,
+          "dominant_connected_correct_core": 82,
+          "correct_cores": {
+            "36137653": 82
+          },
+          "parental_orientation_votes": {
+            "36137653": {
+              "false": 82,
+              "true": 4
+            }
+          }
+        }
+      },
+      "identical_original_alignments": 5118,
+      "phase_set_orientation": {
+        "36137653": {
+          "true": 67,
+          "false": 4906
+        }
+      }
+    }
+  },
+  "preservation": {
+    "primary_reads": 256610,
+    "before_counts": {
+      "correct": 230643,
+      "unphased": 19262,
+      "discordant": 6705
+    },
+    "after_counts": {
+      "correct": 230651,
+      "unphased": 19254,
+      "discordant": 6705
+    },
+    "transitions": {
+      "correct->correct": 230643,
+      "unphased->unphased": 19254,
+      "discordant->discordant": 6705,
+      "unphased->correct": 8
+    },
+    "lost_correct_assignments": [],
+    "missing_variant_keys": [],
+    "added_variant_keys": [],
+    "before_variant_count": 64483,
+    "after_variant_count": 64483
+  },
+  "metrics": {
+    "before": {
+      "block_count": 259,
+      "n50_bp": 934592,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4937
+      },
+      "target_blocks": [
+        {
+          "ps": 36317512,
+          "left": 36286778,
+          "right": 37397733,
+          "length": 1110956,
+          "rows": 870
+        },
+        {
+          "ps": 36156319,
+          "left": 36140083,
+          "right": 36268558,
+          "length": 128476,
+          "rows": 30
+        },
+        {
+          "ps": 36261163,
+          "left": 36259922,
+          "right": 36261301,
+          "length": 1380,
+          "rows": 4
+        }
+      ]
+    },
+    "pgphase": {
+      "block_count": 258,
+      "n50_bp": 944186,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4937
+      },
+      "target_blocks": [
+        {
+          "ps": 36156319,
+          "left": 36140083,
+          "right": 37397733,
+          "length": 1257651,
+          "rows": 900
+        },
+        {
+          "ps": 36261163,
+          "left": 36259922,
+          "right": 36261301,
+          "length": 1380,
+          "rows": 4
+        }
+      ]
+    },
+    "hiphase": {
+      "block_count": 191,
+      "n50_bp": 1005183,
+      "largest_block": {
+        "ps": 63182011,
+        "left": 63182011,
+        "right": 66206480,
+        "length": 3024470,
+        "rows": 5820
+      },
+      "target_blocks": [
+        {
+          "ps": 36137653,
+          "left": 36137653,
+          "right": 37393302,
+          "length": 1255650,
+          "rows": 1093
+        }
+      ]
+    }
+  },
+  "whole_block_read_deficit": {
+    "correct": 65,
+    "core_correct": 162
+  },
+  "previous_block_extent_changes": [],
+  "remaining_leading_gap": [
+    36137653,
+    36140083
+  ],
+  "whole_hiphase_block_closed": false
+}

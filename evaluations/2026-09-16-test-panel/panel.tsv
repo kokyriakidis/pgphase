@@ -25,7 +25,7 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 11255370	11262360	6990	47	hiphase	1.0000	47
 21514518	21518393	3875	90	hiphase	0.9753	162
 12269536	12277077	7541	53	hiphase	1.0000	53
-15095642	15101261	5619	101	regression_control	0.0000	0
+15095642	15101261	5619	101	hiphase_dv	0.9405940594059406	95
 48225787	48229445	3658	51	hiphase	1.0000	51
 56150368	56156525	6157	104	hiphase_same_sites	1.0000	104
 
@@ -220,3 +220,25 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 
 # Original primary alignments contradict copy-specific graph SNPs at a two-base seam.
 25855631	25855633	2	91	hiphase_dv	0.2198	20
+
+# Complete BAM left path and independently calibrated mixed-source deletion.
+52696940	52711825	14885	136	hiphase_dv	0.8603	117
+
+# Homozygous ALT graph SNP cannot split a supported repeat-indel path.
+36614185	36623545	9360	102	hiphase_dv	0.892157	91
+
+# Cut-free BAM prefix connects a short insertion to its exact shared graph SNP.
+36268558	36286778	18220	109	hiphase_dv	0.917431	100
+# REF-absent padded SNP hides a source-calibrated terminal deletion.
+40633644	40636353	2709	45	hiphase_dv	0.888889	40
+# Physical repeat SNP validation restores the BAM insertion/SNP contrast.
+11796979	11813446	16467	136	hiphase_dv	0.926471	126
+12717796	12740002	22206	178	hiphase_dv	0.921348	164
+12954878	12955838	960	84	hiphase_dv	1.000000	84
+865572	882277	16705	71	hiphase_dv	0.8169014084507042	58
+57085410	57104654	19244	155	hiphase_dv	0.8967741935483871	139
+55309789	55309794	5	67	hiphase_dv	0.9850746268656716	66
+45876157	45896820	20663	141	hiphase_dv	0.9078014184397163	128
+15023123	15039543	16420	126	hiphase_dv	0.8015873015873016	101
+15100456	15101262	806	73	hiphase_dv	0.9315068493150684	68
+55999194	56040612	41418	246	hiphase_dv	0.8658536585365854	213

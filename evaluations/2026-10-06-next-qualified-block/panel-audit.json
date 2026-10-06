@@ -1,0 +1,75 @@
+{
+  "native_output_labels": 232,
+  "independent_requests": 121,
+  "comparison_pairs": 121,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "b1d8221cffe4f389a1659b759228653bbb7d627211fa4a305f42f4fcab9c54d6",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "clean_snp_source_retry_57m/w57764235-57785224/phased.bam",
+      "before_counts": {
+        "correct": 3860,
+        "unphased": 354,
+        "discordant": 194
+      },
+      "after_counts": {
+        "correct": 3876,
+        "unphased": 354,
+        "discordant": 178
+      },
+      "changed_read_tags": 1695,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 429,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w57764235-57785224/phased.bam",
+      "before_counts": {
+        "correct": 3860,
+        "unphased": 354,
+        "discordant": 194
+      },
+      "after_counts": {
+        "correct": 3876,
+        "unphased": 354,
+        "discordant": 178
+      },
+      "changed_read_tags": 1695,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 429,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "retry_scheduling_57m/w57050001-57950000/phased.bam",
+      "before_counts": {
+        "correct": 3860,
+        "unphased": 354,
+        "discordant": 194
+      },
+      "after_counts": {
+        "correct": 3876,
+        "unphased": 354,
+        "discordant": 178
+      },
+      "changed_read_tags": 1695,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 429,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

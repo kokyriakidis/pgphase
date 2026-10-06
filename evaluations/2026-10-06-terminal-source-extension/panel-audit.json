@@ -1,0 +1,65 @@
+{
+  "native_output_labels": 224,
+  "independent_requests": 129,
+  "comparison_pairs": 129,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu",
+    ":/usr/local/lib"
+  ],
+  "binary_sha256": "bf4ab0d3c70cb98483199663c2308bedbf35223d43fa3cfb3adf4ba4286a4a35",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "stitch_single_molecule_60033052/w60050001-60950000/phased.bam",
+      "before_counts": {
+        "correct": 3317,
+        "unphased": 558,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 3317,
+        "unphased": 558,
+        "discordant": 27
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 1,
+      "missing_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "60171648",
+          ".",
+          "T",
+          "C"
+        ]
+      ],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_single_molecule_60453499/w60050001-60950000/phased.bam",
+      "before_counts": {
+        "correct": 3317,
+        "unphased": 558,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 3317,
+        "unphased": 558,
+        "discordant": 27
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 1,
+      "missing_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "60171648",
+          ".",
+          "T",
+          "C"
+        ]
+      ],
+      "added_variant_keys": []
+    }
+  ]
+}

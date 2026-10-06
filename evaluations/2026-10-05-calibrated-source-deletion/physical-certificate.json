@@ -1,0 +1,106 @@
+{
+  "bridge_pairs": [
+    {
+      "qname": "m84031_231217_062403_s3/163778931/ccs",
+      "left": [
+        "A",
+        27
+      ],
+      "allele": 1,
+      "anchors": [
+        [
+          "T",
+          10
+        ],
+        [
+          "T",
+          17
+        ]
+      ],
+      "error": 0.12194988546465768,
+      "flip": false
+    }
+  ],
+  "calibration": [
+    {
+      "qname": "m84031_231217_034919_s2/112659509/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.0024134900809857163
+    },
+    {
+      "qname": "m84031_231217_062403_s3/70714316/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.000302
+    },
+    {
+      "qname": "m84031_231217_062403_s3/70320356/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.006511573444801931
+    },
+    {
+      "qname": "m84031_231217_062403_s3/120588425/ccs",
+      "deletion_hap": 2,
+      "snp_hap": 2,
+      "error": 0.0007020000000000001
+    },
+    {
+      "qname": "m84031_231217_034919_s2/20907468/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.000302
+    },
+    {
+      "qname": "m84031_231217_034919_s2/161743975/ccs",
+      "deletion_hap": 2,
+      "snp_hap": 2,
+      "error": 0.0007020000000000001
+    },
+    {
+      "qname": "m84031_231217_062403_s3/139398626/ccs",
+      "deletion_hap": 2,
+      "snp_hap": 2,
+      "error": 0.0007020000000000001
+    },
+    {
+      "qname": "m84031_231217_034919_s2/11211229/ccs",
+      "deletion_hap": 2,
+      "snp_hap": 2,
+      "error": 0.0007020000000000001
+    },
+    {
+      "qname": "m84031_231217_034919_s2/114102124/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.000302
+    },
+    {
+      "qname": "m84031_231217_062403_s3/262538373/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.000302
+    },
+    {
+      "qname": "m84031_231217_034919_s2/225054649/ccs",
+      "deletion_hap": 1,
+      "snp_hap": 1,
+      "error": 0.000302
+    }
+  ],
+  "gauge": [
+    [
+      7,
+      0
+    ],
+    [
+      0,
+      4
+    ]
+  ],
+  "association_p": 0.0009765625,
+  "joint_base_mapping_error_bound": 0.13519294899044532,
+  "disjoint_original_molecules": true,
+  "parental_truth_loaded": false
+}

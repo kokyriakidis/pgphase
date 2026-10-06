@@ -1,0 +1,28 @@
+{
+  "primary_owner_reads": 8033,
+  "before_counts": {
+    "correct": 5405,
+    "unphased": 1814,
+    "discordant": 814
+  },
+  "after_counts": {
+    "correct": 5423,
+    "unphased": 1808,
+    "discordant": 802
+  },
+  "transitions": {
+    "correct->correct": 5405,
+    "unphased->unphased": 1808,
+    "discordant->discordant": 802,
+    "unphased->correct": 6,
+    "discordant->correct": 12
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_evidence": [],
+  "added_variant_keys": [],
+  "removed_variant_keys": [],
+  "changed_read_tags": 2949,
+  "owning_continuation": "marker phase sets and all prior variant evidence retained"
+}

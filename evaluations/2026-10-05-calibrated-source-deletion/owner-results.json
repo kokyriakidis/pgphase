@@ -1,0 +1,46 @@
+{
+  "preservation": {
+    "old_primary_output_reads": 4002,
+    "new_primary_output_reads": 4002,
+    "old_correct": 3652,
+    "new_correct": 3652,
+    "old_discordant": 89,
+    "new_discordant": 89,
+    "old_variant_records": 719,
+    "new_variant_records": 719,
+    "changed_variant_gauges": 265,
+    "changed_read_tags": 1278,
+    "lost_correct_assignments": 0,
+    "lost_phased_assignments": 0,
+    "variant_alleles_counts_and_filters_preserved": true,
+    "new_assignments": []
+  },
+  "binary_sha256": "9c55c8ac6b67240284980560f308b104fee1dc776b10fd0b89988a10aef251c9",
+  "one_four_thread_identity": true,
+  "seam": {
+    "before": {
+      "scorable": 136,
+      "counts": {
+        "correct": 119,
+        "unphased": 9,
+        "discordant": 8
+      },
+      "core_correct": 47
+    },
+    "pgphase": {
+      "scorable": 136,
+      "counts": {
+        "correct": 119,
+        "unphased": 9,
+        "discordant": 8
+      },
+      "core_correct": 119
+    }
+  },
+  "hiphase_seam": {
+    "scorable": 136,
+    "correct": 117,
+    "core_correct": 117,
+    "geometry_verified_source": "evaluations/2026-10-05-fourth-largest-block-target/next-block.json"
+  }
+}

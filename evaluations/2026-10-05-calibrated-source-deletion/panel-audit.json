@@ -1,0 +1,9 @@
+{
+  "native_replays_compared": 221,
+  "unmatched_prior_replays": [],
+  "variant_alleles_counts_and_filters_preserved": true,
+  "correct_assignments_preserved": true,
+  "phased_assignments_preserved": true,
+  "discordant_tags_now_abstaining": [],
+  "changed_outputs": []
+}

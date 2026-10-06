@@ -1,0 +1,114 @@
+{
+  "native_output_labels": 228,
+  "independent_requests": 119,
+  "comparison_pairs": 119,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "436110ade458cf5a49831b94eedaad8c94fa165f2b395051219031b98ef7d4f1",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w11050001-12950000/phased.bam",
+      "before_counts": {
+        "correct": 8159,
+        "discordant": 95,
+        "unphased": 547
+      },
+      "after_counts": {
+        "correct": 8159,
+        "discordant": 95,
+        "unphased": 547
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "12955838",
+          ".",
+          "T",
+          "TC"
+        ]
+      ]
+    },
+    {
+      "output": "graph/w12256072-12269535/phased.bam",
+      "before_counts": {
+        "correct": 4199,
+        "unphased": 62,
+        "discordant": 15
+      },
+      "after_counts": {
+        "correct": 4199,
+        "unphased": 62,
+        "discordant": 15
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "12955838",
+          ".",
+          "T",
+          "TC"
+        ]
+      ]
+    },
+    {
+      "output": "graph/w12717796-12740002/phased.bam",
+      "before_counts": {
+        "correct": 4199,
+        "unphased": 62,
+        "discordant": 15
+      },
+      "after_counts": {
+        "correct": 4199,
+        "unphased": 62,
+        "discordant": 15
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "12955838",
+          ".",
+          "T",
+          "TC"
+        ]
+      ]
+    },
+    {
+      "output": "graph/w1508171-1523721/phased.bam",
+      "before_counts": {
+        "correct": 590,
+        "unphased": 18
+      },
+      "after_counts": {
+        "correct": 590,
+        "unphased": 18
+      },
+      "changed_read_tags": 0,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "1573397",
+          ".",
+          "A",
+          "AT"
+        ]
+      ]
+    }
+  ]
+}

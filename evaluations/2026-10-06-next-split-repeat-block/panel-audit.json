@@ -1,0 +1,11 @@
+{
+  "native_output_labels": 241,
+  "independent_requests": 127,
+  "comparison_pairs": 127,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "d9d05f6ea9d5735abc2457f995e5404341003fa0ff621c47df206ff9e3c2b45e",
+  "verified_current_binary_states": true,
+  "changed_outputs": []
+}

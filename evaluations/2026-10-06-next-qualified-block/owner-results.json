@@ -1,0 +1,27 @@
+{
+  "primary_owner_reads": 4408,
+  "before_counts": {
+    "correct": 3860,
+    "unphased": 354,
+    "discordant": 194
+  },
+  "after_counts": {
+    "correct": 3876,
+    "unphased": 354,
+    "discordant": 178
+  },
+  "transitions": {
+    "correct->correct": 3860,
+    "unphased->unphased": 354,
+    "discordant->correct": 16,
+    "discordant->discordant": 178
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_evidence": [],
+  "added_variant_keys": [],
+  "removed_variant_keys": [],
+  "changed_read_tags": 1695,
+  "single_vs_four_threads": "identical candidates, VCF records and BAM assignments"
+}

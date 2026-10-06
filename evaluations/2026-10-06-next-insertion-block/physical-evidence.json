@@ -1,0 +1,629 @@
+{
+  "source_physical_position": 55309790,
+  "graph_physical_insertion_position": 55309798,
+  "graph_physical_deletion_position": 55309796,
+  "source_alleles": [
+    "INS_T",
+    "DEL_TT"
+  ],
+  "same_complete_edited_sequences": true,
+  "cohorts": [
+    [
+      [
+        7,
+        0
+      ],
+      [
+        0,
+        10
+      ]
+    ],
+    [
+      [
+        9,
+        0
+      ],
+      [
+        0,
+        8
+      ]
+    ]
+  ],
+  "cohort_error_bounds": [
+    0.1472985962248668,
+    0.1472985962248668
+  ],
+  "combined_error_bound": 0.08370939644250226,
+  "rows": [
+    {
+      "read": "m84031_231217_034919_s2/125765340/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -3,
+        "distances": [
+          4,
+          1
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/62198969/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.00041622776601683793
+      },
+      "error": 0.000834455532033676,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/247072968/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/125241923/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.0008344555320336759,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/261031634/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.0005162277660168379
+      },
+      "error": 0.0011506832980505137,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/155325163/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/246022723/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/141954933/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -3,
+        "distances": [
+          4,
+          1
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000618227766016838,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/255725732/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -3,
+        "distances": [
+          4,
+          1
+        ],
+        "events": [],
+        "call_error": 0.0023114900809857166
+      },
+      "error": 0.002513490080985716,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/99947103/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0007182277660168381,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/155910266/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/190514283/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/129171599/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/122557336/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -3,
+        "distances": [
+          4,
+          1
+        ],
+        "events": [],
+        "call_error": 0.0064095734448019305
+      },
+      "error": 0.006611573444801931,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/126685600/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/151521519/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/185076478/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/229835114/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/595251/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/55707271/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/204081390/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/3213791/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/12320985/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/86838600/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/40633837/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/94897998/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/66520891/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/198510971/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/208342520/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -3,
+        "distances": [
+          4,
+          1
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/180884950/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.00041622776601683793
+      },
+      "error": 0.000618227766016838,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/194055382/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.006625801210818768
+      },
+      "error": 0.007044028976835607,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/242680044/ccs",
+      "physical": {
+        "class": 1,
+        "net_length": -2,
+        "distances": [
+          3,
+          0
+        ],
+        "events": [],
+        "call_error": 0.0002
+      },
+      "error": 0.000402,
+      "cohort": 1
+    },
+    {
+      "read": "m84031_231217_034919_s2/227478858/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 1,
+        "distances": [
+          0,
+          3
+        ],
+        "events": [
+          [
+            55309795,
+            "T"
+          ]
+        ],
+        "call_error": 0.00030000000000000003
+      },
+      "error": 0.0005020000000000001,
+      "cohort": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/73531603/ccs",
+      "physical": {
+        "class": 0,
+        "net_length": 2,
+        "distances": [
+          1,
+          4
+        ],
+        "events": [
+          [
+            55309790,
+            "TT"
+          ]
+        ],
+        "call_error": 0.000616227766016838
+      },
+      "error": 0.0008182277660168381,
+      "cohort": 1
+    }
+  ]
+}

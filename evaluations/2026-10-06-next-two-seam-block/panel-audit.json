@@ -1,0 +1,96 @@
+{
+  "native_output_labels": 238,
+  "independent_requests": 126,
+  "comparison_pairs": 126,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "45ebce98d40c25d7a760907409adbae5862c8aacf2e2b3539ed7abbb099af056",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w15056025-15071132/phased.bam",
+      "before_counts": {
+        "correct": 412,
+        "unphased": 82,
+        "discordant": 9
+      },
+      "after_counts": {
+        "correct": 436,
+        "unphased": 61,
+        "discordant": 6
+      },
+      "changed_read_tags": 371,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 23,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w15095642-15101261/phased.bam",
+      "before_counts": {
+        "correct": 434,
+        "unphased": 65,
+        "discordant": 12
+      },
+      "after_counts": {
+        "correct": 460,
+        "unphased": 43,
+        "discordant": 8
+      },
+      "changed_read_tags": 236,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 20,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w15351845-15367755/phased.bam",
+      "before_counts": {
+        "correct": 4272,
+        "unphased": 256,
+        "discordant": 16
+      },
+      "after_counts": {
+        "correct": 4300,
+        "unphased": 230,
+        "discordant": 14
+      },
+      "changed_read_tags": 2341,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 471,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_new_bam_seam_15m/w15000001-15950000/phased.bam",
+      "before_counts": {
+        "correct": 4449,
+        "unphased": 275,
+        "discordant": 19
+      },
+      "after_counts": {
+        "correct": 4477,
+        "unphased": 249,
+        "discordant": 17
+      },
+      "changed_read_tags": 2341,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 471,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

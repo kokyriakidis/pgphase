@@ -1,0 +1,98 @@
+{
+  "native_output_labels": 223,
+  "independent_requests": 117,
+  "binary_sha256": "91bb9699e31b9d682347a7b4b6cfbf6b8be3577968a13c9e75db40384fbb12ed",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w36332599-36354890/phased.bam",
+      "before_counts": {
+        "correct": 3660,
+        "discordant": 134,
+        "unphased": 219
+      },
+      "after_counts": {
+        "correct": 3668,
+        "discordant": 134,
+        "unphased": 211
+      },
+      "changed_read_tags": 2776,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 544,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w36611593-36620864/phased.bam",
+      "before_counts": {
+        "correct": 3660,
+        "discordant": 134,
+        "unphased": 219
+      },
+      "after_counts": {
+        "correct": 3668,
+        "discordant": 134,
+        "unphased": 211
+      },
+      "changed_read_tags": 2776,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 544,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w36614185-36623545/phased.bam",
+      "before_counts": {
+        "correct": 3660,
+        "discordant": 134,
+        "unphased": 219
+      },
+      "after_counts": {
+        "correct": 3668,
+        "discordant": 134,
+        "unphased": 211
+      },
+      "changed_read_tags": 2776,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 544,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_clean_indel/w36050001-36950000/phased.bam",
+      "before_counts": {
+        "correct": 3660,
+        "discordant": 134,
+        "unphased": 219
+      },
+      "after_counts": {
+        "correct": 3668,
+        "discordant": 134,
+        "unphased": 211
+      },
+      "changed_read_tags": 2776,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 544,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_partial_source_36m/w36332599-36354890/phased.bam",
+      "before_counts": {
+        "correct": 3660,
+        "discordant": 134,
+        "unphased": 219
+      },
+      "after_counts": {
+        "correct": 3668,
+        "discordant": 134,
+        "unphased": 211
+      },
+      "changed_read_tags": 2776,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 544,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

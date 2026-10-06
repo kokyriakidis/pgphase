@@ -1,0 +1,64 @@
+{
+  "region": [
+    11000001,
+    13000000
+  ],
+  "incorrect_stale_repeat_seam": [
+    12721112,
+    12740002
+  ],
+  "left_calibration": [
+    [
+      27,
+      5
+    ],
+    [
+      1,
+      23
+    ]
+  ],
+  "bridge": [
+    [
+      5,
+      0
+    ],
+    [
+      0,
+      2
+    ]
+  ],
+  "right_parity": [
+    1,
+    5
+  ],
+  "accepted": false,
+  "gap_before": {
+    "scorable": 178,
+    "correct": 112,
+    "discordant": 6,
+    "unphased": 60,
+    "core_correct": 74
+  },
+  "final_clean_anchor_seam": [
+    12717796,
+    12740002
+  ],
+  "final_calibration": [
+    [
+      26,
+      3
+    ],
+    [
+      0,
+      14
+    ]
+  ],
+  "final_accepted": true,
+  "final_gap": {
+    "scorable": 178,
+    "correct": 164,
+    "discordant": 0,
+    "unphased": 14,
+    "core_correct": 164
+  }
+}

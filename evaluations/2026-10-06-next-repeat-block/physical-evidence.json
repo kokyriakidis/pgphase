@@ -1,0 +1,819 @@
+{
+  "left_joint_error_bound": 0.16881641504729966,
+  "right_diploid_joint_error_bound": 0.14252268479283697,
+  "gauges": [
+    [
+      [
+        27,
+        0
+      ],
+      [
+        3,
+        14
+      ]
+    ],
+    [
+      [
+        15,
+        1
+      ],
+      [
+        1,
+        4
+      ]
+    ]
+  ],
+  "class_parity": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      3
+    ]
+  ],
+  "class_error_products": [
+    0.0005020000000000001,
+    7.312653753149576e-10
+  ],
+  "log_odds": 28.629897008133593,
+  "molecules": [
+    {
+      "qname": "m84031_231217_034919_s2/26478763/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/98829549/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/72092106/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/170920348/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/190644327/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.00850483575977081,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/206833321/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/185139423/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/114690136/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/77731380/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.006625801210818768,
+        17
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/55383137/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.00041622776601683793,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/89196776/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/107544842/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0010486832980505139,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/13043057/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/244713983/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/177735874/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/188355540/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/188879189/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        17
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/28377484/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/142348574/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/216796397/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/188812647/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/143787504/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.006625801210818768,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/146936074/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/161615351/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0023114900809857166,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/176493359/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/66520560/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/161026863/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 59
+    },
+    {
+      "qname": "m84031_231217_062403_s3/76744462/ccs",
+      "cohort": "bridge",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/76091181/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/115218063/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/5379739/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/8391286/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/121244870/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/72552008/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/196741265/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/46270440/ccs",
+      "cohort": "bridge",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/148902349/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        19
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/66260232/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/208803722/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/37946771/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.002495262314968879,
+        22
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/105054336/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/11993643/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/199231637/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.000832455532033676,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/170266021/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0025114900809857163,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/12322030/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/227541379/ccs",
+      "cohort": "left_calibration",
+      "left": [
+        1,
+        0.0002,
+        18
+      ],
+      "right": null,
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/103353150/ccs",
+      "cohort": "bridge",
+      "left": [
+        0,
+        0.0004,
+        20
+      ],
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/116918881/ccs",
+      "cohort": "bridge",
+      "left": [
+        0,
+        0.000616227766016838,
+        20
+      ],
+      "right": [
+        1,
+        0.0002,
+        35
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/216338548/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/22546757/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/231933509/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/175177866/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/31266011/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/221643612/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/135598635/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/156570080/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/60492691/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/15012936/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/60163568/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/47649103/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/152702550/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/72810745/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/231806706/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/34278211/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/155976721/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/232656562/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        35
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_062403_s3/68093911/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/170524986/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        1,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    },
+    {
+      "qname": "m84031_231217_034919_s2/234160423/ccs",
+      "cohort": "right_calibration",
+      "left": null,
+      "right": [
+        0,
+        0.0002,
+        40
+      ],
+      "mapq": 60
+    }
+  ],
+  "zero_length_compound_calibrators": []
+}

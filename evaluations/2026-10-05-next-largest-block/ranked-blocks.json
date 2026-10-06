@@ -24,21 +24,14 @@
     "length": 2181583,
     "rows": 2510,
     "hiphase_rank": 2,
-    "exact_span_covered": false,
+    "exact_span_covered": true,
     "pgphase_blocks": [
       {
         "ps": 8946171,
         "left": 8946171,
-        "right": 10325039,
-        "length": 1378869,
-        "rows": 1320
-      },
-      {
-        "ps": 10343596,
-        "left": 10337661,
         "right": 11127753,
-        "length": 790093,
-        "rows": 900
+        "length": 2181583,
+        "rows": 2220
       }
     ]
   },
@@ -49,28 +42,14 @@
     "length": 1840693,
     "rows": 2648,
     "hiphase_rank": 3,
-    "exact_span_covered": false,
+    "exact_span_covered": true,
     "pgphase_blocks": [
       {
         "ps": 24103779,
         "left": 24103779,
-        "right": 24121713,
-        "length": 17935,
-        "rows": 4
-      },
-      {
-        "ps": 24517362,
-        "left": 24131707,
-        "right": 25855631,
-        "length": 1723925,
-        "rows": 2102
-      },
-      {
-        "ps": 25805896,
-        "left": 25855633,
         "right": 25964482,
-        "length": 108850,
-        "rows": 229
+        "length": 1860704,
+        "rows": 2631
       }
     ]
   },
@@ -81,21 +60,14 @@
     "length": 1722624,
     "rows": 2854,
     "hiphase_rank": 4,
-    "exact_span_covered": false,
+    "exact_span_covered": true,
     "pgphase_blocks": [
       {
         "ps": 52696410,
         "left": 52696410,
-        "right": 52696940,
-        "length": 531,
-        "rows": 2
-      },
-      {
-        "ps": 52711825,
-        "left": 52711825,
         "right": 54419033,
-        "length": 1707209,
-        "rows": 2125
+        "length": 1722624,
+        "rows": 2127
       }
     ]
   },

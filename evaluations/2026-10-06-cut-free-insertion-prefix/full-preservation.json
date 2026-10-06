@@ -1,0 +1,25 @@
+{
+  "old_primary_output_reads": 256610,
+  "new_primary_output_reads": 256610,
+  "old_correct": 230643,
+  "new_correct": 230651,
+  "old_discordant": 6705,
+  "new_discordant": 6705,
+  "old_variant_records": 64483,
+  "new_variant_records": 64483,
+  "changed_variant_gauges": 870,
+  "changed_read_tags": 4331,
+  "lost_correct_assignments": 0,
+  "lost_phased_assignments": 0,
+  "variant_alleles_counts_and_filters_preserved": true,
+  "new_assignments": [
+    "m84031_231217_034919_s2/166003078/ccs",
+    "m84031_231217_034919_s2/1967423/ccs",
+    "m84031_231217_034919_s2/73793665/ccs",
+    "m84031_231217_034919_s2/95485977/ccs",
+    "m84031_231217_062403_s3/181800514/ccs",
+    "m84031_231217_062403_s3/210174690/ccs",
+    "m84031_231217_062403_s3/54463853/ccs",
+    "m84031_231217_062403_s3/60625106/ccs"
+  ]
+}

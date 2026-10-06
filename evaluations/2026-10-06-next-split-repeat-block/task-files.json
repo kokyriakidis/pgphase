@@ -1,0 +1,72 @@
+[
+  {
+    "path": "src/graph_collect.cpp",
+    "added": 238,
+    "removed": 10
+  },
+  {
+    "path": "src/graph_bam_adapter.cpp",
+    "added": 31,
+    "removed": 0
+  },
+  {
+    "path": "src/graph_bam_adapter.hpp",
+    "added": 7,
+    "removed": 0
+  },
+  {
+    "path": "src/test_graph_bam_adapter.cpp",
+    "added": 25,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_windows.cpp",
+    "added": 47,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_certified.tsv",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_hiphase.tsv",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_replays.tsv",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_windows_expect.tsv",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_windows_required.tsv",
+    "added": 2,
+    "removed": 0
+  },
+  {
+    "path": "src/test_gap_read_floors.tsv",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "path": "docs/IMPLEMENTATION.md",
+    "added": 35,
+    "removed": 2
+  },
+  {
+    "path": "CHECKPOINT.md",
+    "added": 55,
+    "removed": 0
+  },
+  {
+    "path": "evaluations/2026-09-16-test-panel/panel.tsv",
+    "added": 1,
+    "removed": 0
+  }
+]

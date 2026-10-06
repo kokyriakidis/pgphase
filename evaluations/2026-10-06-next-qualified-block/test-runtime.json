@@ -1,0 +1,19 @@
+{
+  "focused": {
+    "wall_seconds": 0.5932944609958213,
+    "exit_code": 0,
+    "command": [
+      "make",
+      "gap-owner-check",
+      "GAP=57.085"
+    ]
+  },
+  "all_gaps": {
+    "wall_seconds": 38.71135965597932,
+    "exit_code": 0,
+    "command": [
+      "make",
+      "window-tests"
+    ]
+  }
+}

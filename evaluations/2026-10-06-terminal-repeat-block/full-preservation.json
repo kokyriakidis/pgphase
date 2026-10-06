@@ -1,0 +1,34 @@
+{
+  "primary_reads": 256610,
+  "before_counts": {
+    "correct": 230738,
+    "unphased": 19196,
+    "discordant": 6676
+  },
+  "after_counts": {
+    "correct": 230738,
+    "unphased": 19196,
+    "discordant": 6676
+  },
+  "lost_correct_assignments": [],
+  "lost_phased_assignments": 0,
+  "changed_read_tags": 0,
+  "changed_evidence": [],
+  "read_status_changes_confined_to_gap": true,
+  "removed_variant_keys": [],
+  "added_variant_keys": [
+    [
+      "CHM13#0#chr20",
+      "12955838",
+      ".",
+      "T",
+      "TC"
+    ]
+  ],
+  "transitions": {
+    "correct->correct": 230738,
+    "unphased->unphased": 19196,
+    "discordant->discordant": 6676
+  },
+  "newly_correct": []
+}

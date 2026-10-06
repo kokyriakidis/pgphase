@@ -1,0 +1,12 @@
+{
+  "cached_owner_seconds": 0.6100575139862485,
+  "exit_code": 0,
+  "owner_and_cross_chunk_assertions": 613,
+  "full_gap_assertions": 16878,
+  "full_gap_cases": 4,
+  "cache_helper_cases": 4,
+  "predicate_assertions": 1551,
+  "full_gap_exit_code": 0,
+  "previous_native_output_labels": 227,
+  "previous_independent_requests": 119
+}

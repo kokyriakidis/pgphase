@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rank HiPhase VCF spans and score the next internal pgphase split."""
+"""Rank current HiPhase spans and audit the next seam in the next split block."""
 from collections import Counter, defaultdict
 import hashlib
 import json
@@ -8,7 +8,7 @@ import pysam
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = Path(__file__).resolve().parent
-PG = ROOT/'test_data/tmp_gap_fix69/frozen_final/0'
+PG = ROOT/'test_data/tmp_gap_fix74/frozen_final/0'
 HI = ROOT/'test_data/tmp_gap_fix48/competitor/hiphase_dv'
 truth = {f[0]: f[1] == 'PATERNAL'
          for line in (ROOT/'test_data/derived/chr20_truth_hap.tsv').open()
@@ -38,11 +38,12 @@ for rank, block in enumerate(hi_blocks, 1):
                     'exact_span_covered': any(b['left'] <= block['left'] and b['right'] >= block['right'] for b in overlap),
                     'pgphase_blocks': overlap})
 (OUT/'ranked-blocks.json').write_text(json.dumps(ranking, indent=2)+'\n')
-# The largest block's reviewed terminal difference is a separate investigation.
-target = next(b for b in ranking[1:] if not b['exact_span_covered'] and len(b['pgphase_blocks']) > 1)
-assert target['hiphase_rank'] == 2 and len(target['pgphase_blocks']) == 2
-left, right = target['pgphase_blocks'][0]['right'], target['pgphase_blocks'][1]['left']
-assert (left, right) == (10325039, 10337661)
+# Report terminal differences in the ranking; select the largest remaining
+# internal split as the next connection target.
+target = next(b for b in ranking if not b['exact_span_covered'] and len(b['pgphase_blocks']) > 1)
+print('SELECTED',target,flush=True)
+gaps = [(a['right'], b['left']) for a, b in zip(target['pgphase_blocks'], target['pgphase_blocks'][1:])]
+print('GAPS',gaps,flush=True)
 
 
 def geometry(read):
@@ -55,23 +56,30 @@ with pysam.AlignmentFile(str(ROOT/'test_data/HG002_chr20_hifi_mapped_to_CHM13_ch
     for read in bam.fetch('CHM13#0#chr20', target['left']-1, target['right']):
         if read.is_secondary or read.is_supplementary:
             continue
-        in_gap = read.reference_start < right and read.reference_end >= left
         if read.query_name not in truth:
             unscorable['block'] += 1
-            unscorable['gap'] += in_gap
+            for i, (left, right) in enumerate(gaps, 1):
+                unscorable[f'gap_{i}'] += read.reference_start < right and read.reference_end >= left
             continue
         original[read.query_name] = geometry(read)
         groups['block'].add(read.query_name)
-        if in_gap:
-            groups['gap'].add(read.query_name)
-        if left-50000 < read.reference_end < left:
-            groups['left_flank'].add(read.query_name)
-        if right <= read.reference_start < right+50000:
-            groups['right_flank'].add(read.query_name)
-assert not (groups['left_flank'] & groups['right_flank'])
-assert not (groups['gap'] & (groups['left_flank'] | groups['right_flank']))
+        for i, (left, right) in enumerate(gaps, 1):
+            if read.reference_start < right and read.reference_end >= left:
+                groups[f'gap_{i}'].add(read.query_name)
+            if read.reference_start < left and read.reference_end >= right:
+                groups[f'gap_{i}_physical_bridges'].add(read.query_name)
+            if left-50000 < read.reference_end < left:
+                groups[f'gap_{i}_left_flank'].add(read.query_name)
+            if right <= read.reference_start < right+50000:
+                groups[f'gap_{i}_right_flank'].add(read.query_name)
+for i in range(1, len(gaps)+1):
+    assert not (groups[f'gap_{i}_left_flank'] & groups[f'gap_{i}_right_flank'])
+    assert not (groups[f'gap_{i}'] & (groups[f'gap_{i}_left_flank'] | groups[f'gap_{i}_right_flank']))
 
-report = {'target': target, 'gap': [left, right], 'gap_boundary_distance_bp': right-left,
+report = {'target': target, 'gaps': [{'left': left, 'right': right, 'boundary_distance_bp': right-left} for left, right in gaps],
+          'inputs': {'pgphase': str(PG), 'hiphase': str(HI),
+                     'production_sha256': hashlib.sha256((ROOT/'pgphase').read_bytes()).hexdigest(),
+                     'pgphase_vcf_sha256': hashlib.sha256((PG/'phased.vcf').read_bytes()).hexdigest()},
           'unscorable_original_reads': dict(unscorable), 'tools': {}}
 for tool, path in [('pgphase', PG/'phased.bam'), ('hiphase', HI/'phased.bam')]:
     votes, tags, matched = defaultdict(Counter), {}, set()
@@ -112,4 +120,5 @@ for tool, path in [('pgphase', PG/'phased.bam'), ('hiphase', HI/'phased.bam')]:
     report['tools'][tool] = {'regions': regions, 'identical_original_alignments': len(matched) if tool == 'hiphase' else None,
                              'phase_set_orientation': {ps: dict(votes[ps]) for ps in {ps for hp, ps in tags.values()} if ps > 0}}
 (OUT/'next-block.json').write_text(json.dumps(report, indent=2)+'\n')
-print(json.dumps(report, indent=2), flush=True)
+print(json.dumps({'target': target, 'gaps': report['gaps'],
+                  'regions': {tool: data['regions'] for tool, data in report['tools'].items()}}, indent=2), flush=True)

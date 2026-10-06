@@ -784,7 +784,7 @@ static std::vector<hts_pos_t> parent_phased_positions(
 /// Terminal and wholly unanchored regions are intentionally absent because
 /// outside-in recovery needs established phase boundaries on both sides.
 std::vector<RecoverySeam> collect_phase_set_seams(
-        const GraphChunkBuildResult& graph_chunk) {
+        const GraphChunkBuildResult& graph_chunk, bool exclude_repeat_indels) {
     struct Anchor {
         hts_pos_t pos;
         hts_pos_t phase_set;
@@ -795,7 +795,8 @@ std::vector<RecoverySeam> collect_phase_set_seams(
     anchors.reserve(chunk.candidates.size());
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
         const CandidateVariant& cand = chunk.candidates[ci];
-        if (is_phase_set_anchor(cand))
+        if (is_phase_set_anchor(cand) &&
+            !(exclude_repeat_indels && cand.counts.category == VariantCategory::RepeatHetIndel))
             anchors.push_back(Anchor{recovery_position(graph_chunk, ci),
                                      cand.phase_set});
     }

@@ -77,7 +77,7 @@ void run_collect_bam_variation(const Options& opts);
 
 /// Collect current adjacent oriented phase-set anchors in coordinate order.
 std::vector<RecoverySeam> collect_phase_set_seams(
-    const GraphChunkBuildResult& graph_chunk);
+    const GraphChunkBuildResult& graph_chunk, bool exclude_repeat_indels = false);
 
 /// Recover bounded seams between neighboring phase sets inside a graph chunk.
 ///

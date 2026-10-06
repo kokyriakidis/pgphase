@@ -1291,6 +1291,56 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
     return out;
 }
 
+void reclassify_physically_validated_graph_snps(
+        const GraphSiteCatalogView& catalog, GraphChunkBuildResult& out) {
+    // Keep the initial solve's gauge on surviving anchors. Only a phase set
+    // supported solely by an invalid SNP loses its read labels.
+    std::unordered_set<std::string> homozygous_alt_sites;
+    for (size_t i = 0; i < catalog.size(); ++i)
+        if (catalog[i].bam_homozygous_alt)
+            homozygous_alt_sites.insert(graph_site_key_str(catalog[i]));
+    std::unordered_set<std::string> ref_absent_sites;
+    for (size_t i = 0; i < catalog.size(); ++i)
+        if (catalog[i].bam_alt_deletion_no_ref)
+            ref_absent_sites.insert(graph_site_key_str(catalog[i]));
+    std::unordered_set<std::string> low_fraction_sites;
+    for (size_t i = 0; i < catalog.size(); ++i)
+        if (catalog[i].bam_low_fraction_snp)
+            low_fraction_sites.insert(graph_site_key_str(catalog[i]));
+    std::unordered_set<hts_pos_t> retired_phase_sets;
+    for (size_t i = 0; i < out.chunk.candidates.size(); ++i) {
+        const bool ref_absent = ref_absent_sites.count(out.site_ids[i]) != 0;
+        const bool low_fraction = low_fraction_sites.count(out.chunk.candidates[i].key.alt) != 0 &&
+            out.chunk.candidates[i].counts.category == VariantCategory::CleanHetSnp;
+        if (!ref_absent && !low_fraction && homozygous_alt_sites.count(out.site_ids[i]) == 0) continue;
+        CandidateVariant& candidate = out.chunk.candidates[i];
+        if (candidate.phase_set > 0) retired_phase_sets.insert(candidate.phase_set);
+        if (low_fraction) {
+            out.site_meta[i].bam_low_fraction_snp = true;
+            candidate.counts.category = VariantCategory::LowAlleleFraction;
+            candidate.lcd_var_i_to_cate = kCandNonAnchorHet;
+            candidate.hap_to_cons_alle[1] = candidate.hap_to_cons_alle[2] = -1;
+        } else if (ref_absent) {
+            candidate.lcd_var_i_to_cate = kCandNonAnchorHet;
+            candidate.hap_to_cons_alle[1] = candidate.hap_to_cons_alle[2] = -1;
+            out.site_meta[i].bam_alt_deletion_no_ref = true;
+        } else {
+            candidate.counts.category = VariantCategory::CleanHom;
+            candidate.counts.candvarcate_initial = VariantCategory::CleanHom;
+            candidate.lcd_var_i_to_cate = kCandCleanHom;
+            candidate.hap_to_cons_alle[1] = candidate.hap_to_cons_alle[2] = 1;
+        }
+        candidate.phase_set = kUnsetCandidatePhaseSet;
+    }
+    for (const CandidateVariant& candidate : out.chunk.candidates)
+        if (is_phase_set_anchor(candidate)) retired_phase_sets.erase(candidate.phase_set);
+    for (size_t ri = 0; ri < out.chunk.reads.size(); ++ri) {
+        if (retired_phase_sets.count(out.chunk.phase_sets[ri]) == 0) continue;
+        out.chunk.haps[ri] = 0;
+        out.chunk.phase_sets[ri] = kUnphasedReadPhaseSet;
+    }
+}
+
 size_t supplement_phased_snp_branches(const GraphSiteCatalogView& catalog,
         const std::vector<GraphReadAllele>& rows, GraphChunkBuildResult& graph_chunk,
         const Options& opts) {
@@ -1978,6 +2028,22 @@ std::optional<bool> calibrated_indel_bridge_flip(
     return flip;
 }
 
+std::optional<bool> calibrated_source_deletion_bridge_flip(
+        const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
+        double quality_error_bound) {
+    constexpr int kMinAlleleClassSupport = 2;
+    constexpr double kMaxJointError = 0.20;
+    const auto& counts = gauge.counts;
+    const int same = counts[0][0] + counts[1][1];
+    if (counts[0][0] < kMinAlleleClassSupport || counts[1][1] < kMinAlleleClassSupport ||
+        counts[0][1] != 0 || counts[1][0] != 0 ||
+        2.0 * rescue_binomial_tail(same, same) > kIndependentBlockAssociationPValue ||
+        (parity[0] != 0 && parity[1] != 0) || parity[0] + parity[1] == 0 ||
+        !std::isfinite(quality_error_bound) || quality_error_bound < 0.0 ||
+        quality_error_bound > kMaxJointError) return std::nullopt;
+    return parity[1] != 0;
+}
+
 int complementary_insertion_length_class(int observed, int first, int second) {
     if (observed <= 0 || first <= 0 || second <= 0 || first == second) return -1;
     const int first_distance = std::abs(observed - first);
@@ -2041,6 +2107,119 @@ std::optional<bool> calibrated_repeat_snp_bridge_flip(
     }
     return joint_error <= kMaxJointError ?
         std::optional<bool>(parity[1] != 0) : std::nullopt;
+}
+
+std::optional<bool> calibrated_deletion_chain_flip(
+        const std::array<IndependentBamBlockLink, 2>& gauges,
+        const std::array<int, 2>& parity) {
+    constexpr double kMinAgreement = 0.80;
+    constexpr double kMaxWrongParity = 0.20;
+    constexpr int kMinIndependentBridgeMolecules = 3;
+    double error = 0.0;
+    for (const IndependentBamBlockLink& gauge : gauges) {
+        const auto& counts = gauge.counts;
+        const int same = counts[0][0] + counts[1][1];
+        const int cross = counts[0][1] + counts[1][0];
+        const int total = same + cross;
+        if (counts[0][0] == 0 || counts[1][1] == 0 || total == 0 ||
+            static_cast<double>(same) / total < kMinAgreement ||
+            2.0 * rescue_binomial_tail(same, total) > kIndependentBlockAssociationPValue)
+            return std::nullopt;
+        // Repeat-length error is measured on separate molecules; base quality
+        // alone cannot account for an erroneous but well-aligned repeat length.
+        error += static_cast<double>(cross + 1) / (total + 2);
+    }
+    const int total = parity[0] + parity[1];
+    const int winner = std::max(parity[0], parity[1]);
+    if (total < kMinIndependentBridgeMolecules ||
+        static_cast<double>(winner) / total < kMinAgreement || error >= 0.5)
+        return std::nullopt;
+    const double log_odds = (2 * winner - total) * std::log((1.0 - error) / error);
+    if (log_odds < std::log((1.0 - kMaxWrongParity) / kMaxWrongParity))
+        return std::nullopt;
+    return parity[1] > parity[0];
+}
+
+std::optional<bool> calibrated_repeat_chain_flip(
+        const IndependentBamBlockLink& gauge,
+        const std::array<std::array<int, 2>, 2>& bridge,
+        const std::array<int, 2>& right_parity, double right_log_odds) {
+    constexpr int kMinClassSupport = 2;
+    constexpr int kMinRightMolecules = 6;
+    constexpr double kMinAgreement = 0.80;
+    constexpr double kMaxWrongParity = 0.001;
+    constexpr double kMaxCalibrationError = 0.20;
+    constexpr double kMaxCallError = 0.01;
+    const auto& counts = gauge.counts;
+    if (counts[0][0] == 0 || counts[1][1] == 0 ||
+        counts[0][0] + counts[1][1] <= counts[0][1] + counts[1][0] ||
+        2.0 * rescue_binomial_tail(counts[0][0] + counts[1][1],
+            counts[0][0] + counts[0][1] + counts[1][0] + counts[1][1]) > kIndependentBlockAssociationPValue ||
+        one_sided_wilson_upper_bound(counts[0][1] + counts[1][0],
+            counts[0][0] + counts[0][1] + counts[1][0] + counts[1][1]) + kMaxCallError > kMaxCalibrationError ||
+        bridge[0][0] < kMinClassSupport || bridge[1][1] < kMinClassSupport ||
+        bridge[0][1] != 0 || bridge[1][0] != 0) return std::nullopt;
+    const int total = right_parity[0] + right_parity[1];
+    const int winner = std::max(right_parity[0], right_parity[1]);
+    const bool flip = right_parity[1] > right_parity[0];
+    if (total < kMinRightMolecules || static_cast<double>(winner) / total < kMinAgreement ||
+        !std::isfinite(right_log_odds) || (flip ? right_log_odds : -right_log_odds) <
+            std::log((1.0 - kMaxWrongParity) / kMaxWrongParity)) return std::nullopt;
+    return flip;
+}
+
+std::optional<int> calibrated_verified_insertion_hap1(
+        const std::array<IndependentBamBlockLink, 2>& cohorts) {
+    constexpr double kMaxJointError = 0.20;
+    constexpr double kMaxCallError = 0.01;
+    std::optional<int> hap1;
+    int total = 0, discordant = 0;
+    for (const IndependentBamBlockLink& cohort : cohorts) {
+        const auto& counts = cohort.counts;
+        const int same = counts[0][0] + counts[1][1];
+        const int cross = counts[0][1] + counts[1][0];
+        if (same == cross || counts[0][0] + counts[0][1] == 0 ||
+            counts[1][0] + counts[1][1] == 0 ||
+            counts[0][0] + counts[1][0] == 0 || counts[0][1] + counts[1][1] == 0 ||
+            2.0 * rescue_binomial_tail(std::max(same, cross), same + cross) >
+                kIndependentBlockAssociationPValue) return std::nullopt;
+        const int allele = same > cross ? 0 : 1;
+        if (hap1 && *hap1 != allele) return std::nullopt;
+        hap1 = allele;
+        total += same + cross;
+        discordant += std::min(same, cross);
+    }
+    return one_sided_wilson_upper_bound(discordant, total) + kMaxCallError <= kMaxJointError ? hap1 : std::nullopt;
+}
+
+std::optional<int> calibrated_terminal_insertion_hap1(
+        const std::array<IndependentBamBlockLink, 2>& cohorts) {
+    constexpr double kMaxCohortError = 0.20;
+    constexpr double kMaxCombinedError = 0.10;
+    constexpr double kMaxCallError = 0.01;
+    std::optional<int> hap1;
+    int total = 0;
+    int discordant = 0;
+    for (const IndependentBamBlockLink& cohort : cohorts) {
+        const auto& counts = cohort.counts;
+        const int same = counts[0][0] + counts[1][1];
+        const int cross = counts[0][1] + counts[1][0];
+        if (same == cross || counts[0][0] + counts[0][1] == 0 ||
+            counts[1][0] + counts[1][1] == 0 ||
+            counts[0][0] + counts[1][0] == 0 || counts[0][1] + counts[1][1] == 0 ||
+            2.0 * rescue_binomial_tail(std::max(same, cross), same + cross) >
+                kIndependentBlockAssociationPValue ||
+            one_sided_wilson_upper_bound(std::min(same, cross), same + cross) +
+                kMaxCallError > kMaxCohortError) return std::nullopt;
+        const int allele = same > cross ? 0 : 1;
+        if (hap1 && *hap1 != allele) return std::nullopt;
+        hap1 = allele;
+        total += same + cross;
+        discordant += std::min(same, cross);
+    }
+    if (one_sided_wilson_upper_bound(discordant, total) + kMaxCallError >
+        kMaxCombinedError) return std::nullopt;
+    return hap1;
 }
 
 size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {
@@ -3211,6 +3390,69 @@ bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
     return anchored;
 }
 
+bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& gc,
+                                          size_t candidate_index) {
+    const PhasingChunk& chunk = gc.chunk;
+    if (candidate_index >= chunk.candidates.size()) return false;
+    const CandidateVariant& marker = chunk.candidates[candidate_index];
+    if (!marker.bam_injected || !is_phase_set_anchor(marker)) return false;
+    const RecoverySourceSite* origin = nullptr;
+    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+        if (site.candidate_index != candidate_index) continue;
+        if (origin != nullptr) return false;
+        origin = &site;
+    }
+    if (origin == nullptr || origin->phase_set <= 0 || !origin->can_adopt)
+        return false;
+    const auto orientation = [](const CandidateVariant& row,
+                                 const RecoverySourceSite& site) {
+        if (!site.can_adopt || row.hap_to_cons_alle[1] < 0 ||
+            row.hap_to_cons_alle[1] > 1 ||
+            row.hap_to_cons_alle[2] != 1 - row.hap_to_cons_alle[1] ||
+            site.hap1_allele < 0 || site.hap1_allele > 1 ||
+            site.hap2_allele != 1 - site.hap1_allele) return -1;
+        return static_cast<int>(row.hap_to_cons_alle[1] != site.hap1_allele);
+    };
+    const int gauge = orientation(marker, *origin);
+    if (gauge < 0) return false;
+    const hts_pos_t first = marker.key.sort_pos();
+    hts_pos_t last = std::numeric_limits<hts_pos_t>::max();
+    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+        if (site.phase_set != origin->phase_set || !site.clean_shared_snp ||
+            site.candidate_index >= chunk.candidates.size()) continue;
+        const CandidateVariant& row = chunk.candidates[site.candidate_index];
+        if (!row.bam_injected && row.phase_set == marker.phase_set &&
+            row.counts.category == VariantCategory::CleanHetSnp &&
+            is_phase_set_anchor(row) && row.key.sort_pos() > first)
+            last = std::min(last, row.key.sort_pos());
+    }
+    if (last == std::numeric_limits<hts_pos_t>::max()) return false;
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        const CandidateVariant& row = chunk.candidates[ci];
+        if (row.phase_set != marker.phase_set || !is_phase_set_anchor(row) ||
+            row.key.sort_pos() < first || row.key.sort_pos() > last) continue;
+        size_t claims = 0;
+        for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+            if (site.candidate_index != ci || site.phase_set != origin->phase_set)
+                continue;
+            if ((!row.bam_injected && !site.clean_shared_snp) ||
+                orientation(row, site) != gauge) return false;
+            ++claims;
+        }
+        if (claims != 1) return false;
+    }
+    const auto weak = gc.recovery_source_weak_cuts.find(origin->phase_set);
+    if (weak == gc.recovery_source_weak_cuts.end()) return false;
+    const auto crosses = [first, last](const auto& cuts) {
+        return std::any_of(cuts.begin(), cuts.end(), [first, last](hts_pos_t cut) {
+            return first <= cut && cut < last;
+        });
+    };
+    const auto quality = gc.recovery_source_quality_cuts.find(origin->phase_set);
+    return !crosses(weak->second) &&
+        (quality == gc.recovery_source_quality_cuts.end() || !crosses(quality->second));
+}
+
 // Require both observed allele classes and the same significant orientation
 // in deterministic read halves before a boundary may orient a whole block.
 std::optional<bool> local_run_boundary_flip(
@@ -3473,6 +3715,53 @@ bool bam_source_run_supported(const GraphChunkBuildResult& gc,
     return !crosses(cuts->second) &&
         (quality == gc.recovery_source_quality_cuts.end() ||
          !crosses(quality->second));
+}
+
+bool graph_snp_ref_absence_supported(int ref_count, int alt_count,
+        int deletion_count, int other_count, size_t tested_sites) {
+    constexpr int kMinDeletionObservations = 10;
+    constexpr double kMinDeletionFraction = 0.2;
+    constexpr double kFamilywiseError = 0.01;
+    const int callable = ref_count + alt_count;
+    const int total = callable + deletion_count;
+    return ref_count == 0 && other_count == 0 && total > 0 && tested_sites > 0 &&
+        (deletion_count == 0 || (deletion_count >= kMinDeletionObservations &&
+         static_cast<double>(deletion_count) / total >= kMinDeletionFraction)) &&
+        std::ldexp(1.0, -callable) * tested_sites <= kFamilywiseError;
+}
+
+bool graph_snp_padded_deletion_supported(int ref_count, int alt_count,
+        int deletion_count, int other_count, size_t tested_sites) {
+    constexpr int kMinDeletionObservations = 2;
+    constexpr double kMinDeletionFraction = 0.2;
+    constexpr double kFamilywiseError = 0.01;
+    const int total = alt_count + deletion_count;
+    return ref_count == 0 && other_count == 0 && tested_sites > 0 &&
+        deletion_count >= kMinDeletionObservations && total > 0 &&
+        static_cast<double>(deletion_count) / total >= kMinDeletionFraction &&
+        std::ldexp(1.0, -alt_count) * tested_sites <= kFamilywiseError;
+}
+
+bool graph_snp_low_alt_fraction_supported(int ref_count, int alt_count,
+        int deletion_count, int other_count, double min_af, size_t tested_sites) {
+    constexpr double kFamilywiseError = 0.01;
+    const int total = ref_count + alt_count;
+    return ref_count > 0 && alt_count >= 0 && deletion_count == 0 &&
+        other_count == 0 && tested_sites > 0 && min_af > 0.0 && min_af < 0.5 &&
+        static_cast<double>(alt_count) / total < min_af &&
+        rescue_binomial_tail(ref_count, total) * tested_sites <= kFamilywiseError;
+}
+
+std::optional<int> physical_deletion_gauge_haplotype(
+        const std::array<int, 2>& hap_counts, double wrong_gauge_bound) {
+    constexpr int kMinPairs = 2;
+    constexpr double kMaxWrongGauge = 0.001;
+    if (!std::isfinite(wrong_gauge_bound) || wrong_gauge_bound < 0.0 ||
+        wrong_gauge_bound > kMaxWrongGauge || hap_counts[0] < 0 || hap_counts[1] < 0 ||
+        (hap_counts[0] > 0 && hap_counts[1] > 0)) return std::nullopt;
+    if (hap_counts[0] >= kMinPairs) return 1;
+    if (hap_counts[1] >= kMinPairs) return 2;
+    return std::nullopt;
 }
 
 bool graph_snp_cohort_is_physically_contradicted(

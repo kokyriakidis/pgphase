@@ -1,0 +1,60 @@
+{
+  "primary_reads": 256610,
+  "before_counts": {
+    "correct": 230783,
+    "unphased": 19181,
+    "discordant": 6646
+  },
+  "after_counts": {
+    "correct": 230811,
+    "unphased": 19155,
+    "discordant": 6644
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_read_tags": 2341,
+  "changed_evidence": [],
+  "changed_tags_with_status_change_outside_gap": [],
+  "unchanged_rescue_reclassification_outside_gap": [],
+  "removed_variant_keys": [],
+  "added_variant_keys": [],
+  "transitions": {
+    "correct->correct": 230783,
+    "unphased->unphased": 19155,
+    "discordant->discordant": 6643,
+    "unphased->correct": 25,
+    "discordant->correct": 3,
+    "unphased->discordant": 1
+  },
+  "newly_correct": [
+    "m84031_231217_034919_s2/108137712/ccs",
+    "m84031_231217_034919_s2/10881618/ccs",
+    "m84031_231217_034919_s2/10948586/ccs",
+    "m84031_231217_034919_s2/118426936/ccs",
+    "m84031_231217_034919_s2/139465827/ccs",
+    "m84031_231217_034919_s2/152441585/ccs",
+    "m84031_231217_034919_s2/218240503/ccs",
+    "m84031_231217_034919_s2/22874220/ccs",
+    "m84031_231217_034919_s2/231346224/ccs",
+    "m84031_231217_034919_s2/233377905/ccs",
+    "m84031_231217_034919_s2/237175194/ccs",
+    "m84031_231217_034919_s2/27590690/ccs",
+    "m84031_231217_034919_s2/40963854/ccs",
+    "m84031_231217_034919_s2/81073144/ccs",
+    "m84031_231217_034919_s2/82248351/ccs",
+    "m84031_231217_062403_s3/149555503/ccs",
+    "m84031_231217_062403_s3/154015664/ccs",
+    "m84031_231217_062403_s3/185336179/ccs",
+    "m84031_231217_062403_s3/206834768/ccs",
+    "m84031_231217_062403_s3/21038745/ccs",
+    "m84031_231217_062403_s3/220927686/ccs",
+    "m84031_231217_062403_s3/240651862/ccs",
+    "m84031_231217_062403_s3/42534330/ccs",
+    "m84031_231217_062403_s3/69342999/ccs",
+    "m84031_231217_062403_s3/81004560/ccs",
+    "m84031_231217_062403_s3/81137058/ccs",
+    "m84031_231217_062403_s3/8197365/ccs",
+    "m84031_231217_062403_s3/93456286/ccs"
+  ]
+}

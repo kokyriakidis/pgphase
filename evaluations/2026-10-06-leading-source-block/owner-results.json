@@ -1,0 +1,54 @@
+{
+  "primary_owner_reads": 4589,
+  "before_counts": {
+    "correct": 4004,
+    "discordant": 90,
+    "unphased": 495
+  },
+  "after_counts": {
+    "correct": 4024,
+    "discordant": 80,
+    "unphased": 485
+  },
+  "transitions": {
+    "correct->correct": 4003,
+    "discordant->discordant": 78,
+    "unphased->unphased": 485,
+    "discordant->correct": 12,
+    "unphased->correct": 9,
+    "unphased->discordant": 1,
+    "correct->discordant": 1
+  },
+  "lost_correct_assignments": [
+    "m84031_231217_062403_s3/74975318/ccs"
+  ],
+  "lost_phased_assignments": 0,
+  "changed_evidence": [],
+  "added_variant_keys": [
+    [
+      "CHM13#0#chr20",
+      "11813622",
+      ".",
+      "T",
+      "TAC"
+    ],
+    [
+      "CHM13#0#chr20",
+      "11813668",
+      ".",
+      "T",
+      "C"
+    ]
+  ],
+  "removed_variant_keys": [
+    [
+      "CHM13#0#chr20",
+      "11813622",
+      ".",
+      "T",
+      "C"
+    ]
+  ],
+  "changed_read_tags": 862,
+  "single_vs_four_threads": "identical candidates, VCF records and BAM assignments"
+}

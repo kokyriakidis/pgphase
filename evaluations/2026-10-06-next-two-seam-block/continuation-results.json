@@ -1,0 +1,29 @@
+{
+  "primary_owner_reads": 8803,
+  "before_counts": {
+    "correct": 7401,
+    "unphased": 1368,
+    "discordant": 34
+  },
+  "after_counts": {
+    "correct": 7429,
+    "unphased": 1342,
+    "discordant": 32
+  },
+  "transitions": {
+    "correct->correct": 7401,
+    "unphased->unphased": 1342,
+    "unphased->correct": 25,
+    "discordant->discordant": 31,
+    "discordant->correct": 3,
+    "unphased->discordant": 1
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_evidence": [],
+  "added_variant_keys": [],
+  "removed_variant_keys": [],
+  "changed_read_tags": 2341,
+  "owning_context": "14\u201316 Mb continuation, with both target endpoints retained"
+}

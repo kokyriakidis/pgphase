@@ -1,0 +1,32 @@
+{
+  "src/test_gap_hiphase.tsv": {
+    "previous_rows": 127,
+    "added_rows": 1,
+    "preserved": true
+  },
+  "src/test_gap_windows_required.tsv": {
+    "previous_rows": 1336,
+    "added_rows": 5,
+    "preserved": true
+  },
+  "src/test_gap_read_floors.tsv": {
+    "previous_rows": 21,
+    "added_rows": 1,
+    "preserved": true
+  },
+  "src/test_gap_certified.tsv": {
+    "previous_rows": 23,
+    "added_rows": 1,
+    "preserved": true
+  },
+  "src/test_gap_replays.tsv": {
+    "previous_rows": 86,
+    "added_rows": 1,
+    "preserved": true
+  },
+  "evaluations/2026-09-16-test-panel/panel.tsv": {
+    "previous_rows": 127,
+    "added_rows": 1,
+    "preserved": true
+  }
+}

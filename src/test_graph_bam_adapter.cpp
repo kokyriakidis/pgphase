@@ -1051,6 +1051,62 @@ int main() {
         source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
         ok &= check(!bam_source_site_path_supported(source, 0),
                     "BAM site path: long insertion must share its source anchor gauge");
+
+        const auto make_prefix = [&make_source, kOriginalPhaseSet] {
+            auto result = make_source();
+            result.chunk.candidates[0].key.type = VariantType::Insertion;
+            result.chunk.candidates[0].key.alt = "G";
+            result.chunk.candidates[1].counts.category = VariantCategory::CleanHetSnp;
+            result.recovery_source_sites[1].clean_shared_snp = true;
+            result.recovery_source_path_supported[kOriginalPhaseSet] = false;
+            result.recovery_source_weak_cuts[kOriginalPhaseSet] = {250};
+            return result;
+        };
+        source = make_prefix();
+        ok &= check(bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: a later source cut does not break the shared-SNP prefix");
+        source.recovery_source_weak_cuts[kOriginalPhaseSet] = {150};
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: an internal weak cut vetoes attachment");
+        source = make_prefix();
+        source.recovery_source_quality_cuts[kOriginalPhaseSet] = {150};
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: an internal quality cut vetoes attachment");
+        source = make_prefix();
+        source.recovery_source_sites[1].clean_shared_snp = false;
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: a nonshared graph row cannot anchor the source");
+        source = make_prefix();
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: the shared SNP cannot reverse independently");
+        source.chunk.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: consistent source reversal preserves attachment");
+        source = make_prefix();
+        source.recovery_source_sites.push_back(source.recovery_source_sites[1]);
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: duplicate claims from the same source are ambiguous");
+        source = make_prefix();
+        auto foreign = source.recovery_source_sites[1];
+        foreign.phase_set = kCurrentPhaseSet;
+        foreign.hap1_allele = 1;
+        foreign.hap2_allele = 0;
+        source.recovery_source_sites.push_back(foreign);
+        ok &= check(bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: a second solve does not invalidate the exact original gauge");
+        source = make_prefix();
+        auto foreign_row = source.chunk.candidates[1];
+        foreign_row.key.pos = 150;
+        source.chunk.candidates.push_back(foreign_row);
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: every intervening anchor needs original provenance");
+        source = make_prefix();
+        source.recovery_source_weak_cuts.erase(kOriginalPhaseSet);
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 0),
+                    "BAM prefix: missing path evidence is not a cut-free certificate");
+        ok &= check(!bam_source_prefix_to_graph_supported(source, 9),
+                    "BAM prefix: missing marker is rejected");
     }
 
     GraphSiteCatalog catalog;
@@ -1088,6 +1144,84 @@ int main() {
                 "graph candidate uses longcallD unset phase-set sentinel");
     ok &= check(chunks[0].chunk.phase_sets[0] == kUnphasedReadPhaseSet,
                 "graph read uses longcallD unphased phase-set sentinel");
+
+    {
+        GraphSiteCatalog physical_catalog = catalog;
+        physical_catalog.sites[0].bam_homozygous_alt = true;
+        auto physical = build_graph_chunk(physical_catalog.view_all(), rows,
+            "chr1", 0, 300, 0, build_opts);
+        const auto original_categories = physical.chunk.candidates;
+        assign_hap_based_on_germline_het_vars_kmeans(physical.chunk, build_opts, kCandGermlineClean);
+        const auto original_haps = physical.chunk.haps;
+        const auto original_phase_sets = physical.chunk.phase_sets;
+        const auto original_neighbor = physical.chunk.candidates[1];
+        reclassify_physically_validated_graph_snps(physical_catalog.view_all(), physical);
+        ok &= check(physical.chunk.candidates.size() == 2 &&
+                    physical.chunk.candidates[0].counts.ref_cov == 2 &&
+                    physical.chunk.candidates[0].counts.alt_cov == 2,
+                    "physical homozygote: catalog counts and neighbor survive rebuilding");
+        ok &= check(physical.chunk.candidates[0].counts.category == VariantCategory::CleanHom &&
+                    physical.chunk.candidates[0].lcd_var_i_to_cate == kCandCleanHom &&
+                    !is_phase_set_anchor(physical.chunk.candidates[0]) &&
+                    physical.chunk.candidates[0].hap_to_cons_alle[1] == 1 &&
+                    physical.chunk.candidates[0].hap_to_cons_alle[2] == 1 &&
+                    physical.chunk.candidates[1].counts.category == VariantCategory::CleanHetSnp,
+                    "physical homozygote: graph walk segregation cannot recreate heterozygosity");
+        ok &= check(physical.chunk.haps == original_haps &&
+                    physical.chunk.phase_sets == original_phase_sets &&
+                    physical.chunk.candidates[1].hap_to_cons_alle == original_neighbor.hap_to_cons_alle,
+                    "physical homozygote: surviving anchors and reads retain their initial gauge");
+        GraphSiteCatalog deletion_catalog = catalog;
+        deletion_catalog.sites[0].bam_alt_deletion_no_ref = true;
+        auto deletion = build_graph_chunk(deletion_catalog.view_all(), rows,
+            "chr1", 0, 300, 0, build_opts);
+        assign_hap_based_on_germline_het_vars_kmeans(deletion.chunk, build_opts, kCandGermlineClean);
+        const auto deletion_neighbor = deletion.chunk.candidates[1];
+        const auto deletion_haps = deletion.chunk.haps;
+        reclassify_physically_validated_graph_snps(deletion_catalog.view_all(), deletion);
+        ok &= check(deletion.site_meta[0].bam_alt_deletion_no_ref &&
+                    !is_phase_set_anchor(deletion.chunk.candidates[0]) &&
+                    deletion.chunk.candidates[0].counts.ref_cov == 2 &&
+                    deletion.chunk.candidates[1].hap_to_cons_alle == deletion_neighbor.hap_to_cons_alle &&
+                    deletion.chunk.haps == deletion_haps,
+                    "REF-absent deletion: demote after solving without changing surviving gauges or evidence");
+        GraphSiteCatalog minor_catalog = catalog;
+        minor_catalog.sites[0].bam_low_fraction_snp = true;
+        auto minor = build_graph_chunk(minor_catalog.view_all(), rows,
+            "chr1", 0, 300, 0, build_opts);
+        assign_hap_based_on_germline_het_vars_kmeans(minor.chunk, build_opts, kCandGermlineClean);
+        const auto minor_haps = minor.chunk.haps;
+        const auto minor_neighbor = minor.chunk.candidates[1];
+        minor.site_ids[0] += ":4";
+        CandidateVariant retained_deletion = minor.chunk.candidates[0];
+        retained_deletion.key.type = VariantType::Deletion;
+        retained_deletion.counts.category = VariantCategory::CleanHetIndel;
+        minor.chunk.candidates.push_back(retained_deletion);
+        minor.site_ids.push_back(graph_site_key_str(minor_catalog.sites[0]) + ":3");
+        minor.site_meta.push_back(minor.site_meta[0]);
+        reclassify_physically_validated_graph_snps(minor_catalog.view_all(), minor);
+        ok &= check(minor.site_meta[0].bam_low_fraction_snp &&
+                    minor.chunk.candidates[0].counts.category == VariantCategory::LowAlleleFraction &&
+                    !is_phase_set_anchor(minor.chunk.candidates[0]),
+                    "physical minor SNP: decomposed ID retains catalog provenance");
+        ok &= check(minor.chunk.candidates[2].phase_set == retained_deletion.phase_set &&
+                    minor.chunk.candidates[2].hap_to_cons_alle == retained_deletion.hap_to_cons_alle &&
+                    !minor.site_meta[2].bam_low_fraction_snp &&
+                    minor.chunk.candidates[1].hap_to_cons_alle == minor_neighbor.hap_to_cons_alle &&
+                    minor.chunk.haps == minor_haps,
+                    "physical minor SNP: other ALT rows and surviving read gauges stay intact");
+        GraphChunkBuildResult singleton;
+        singleton.site_ids.push_back(graph_site_key_str(physical_catalog.sites[0]));
+        singleton.chunk.candidates.push_back(original_categories[0]);
+        singleton.chunk.candidates[0].phase_set = 100;
+        singleton.chunk.reads.resize(1);
+        singleton.chunk.haps = {1};
+        singleton.chunk.phase_sets = {100};
+        reclassify_physically_validated_graph_snps(physical_catalog.view_all(), singleton);
+        ok &= check(singleton.chunk.haps[0] == 0 &&
+                    singleton.chunk.phase_sets[0] == kUnphasedReadPhaseSet,
+                    "physical homozygote: singleton read labels require reassignment");
+    }
 
     Options opts;
     opts.read_technology = ReadTechnology::Hifi;
@@ -4151,6 +4285,24 @@ int main() {
                     "insertion parity: diploid calibration tolerates one discordant donor within the 80% bound");
         ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 1}, -5.9507),
                     "insertion parity: a contrary bridge cannot be hidden by calibration depth");
+        gauge.counts = {{{10, 0}, {1, 12}}};
+        const auto tandem = calibrated_indel_bridge_flip(gauge, {0, 1}, 7.23801);
+        ok &= check(tandem && *tandem,
+                    "tandem insertion: separate diploid calibration and a precise bridge meet the joint bound");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 1}, 7.23801),
+                    "tandem insertion: a contrary physical bridge vetoes the join");
+        gauge.counts = {{{10, 0}, {5, 12}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, 7.23801),
+                    "tandem insertion: precise parity cannot replace adequate allele calibration");
+        gauge.counts = {{{10, 0}, {0, 2}}};
+        const auto mixed = calibrated_indel_bridge_flip(gauge, {1, 0}, -7.564577);
+        ok &= check(mixed && !*mixed,
+                    "mixed repeat: complementary insertion/deletion calibration meets the joint 80% bound");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 1}, -7.564577),
+                    "mixed repeat: a contrary physical bridge vetoes the join");
+        gauge.counts = {{{10, 0}, {0, 1}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 0}, -7.564577),
+                    "mixed repeat: nearest-SNP-only calibration exceeds the joint error budget");
         gauge.counts = {{{2, 0}, {0, 8}}};
         ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds),
                     "shared deletion parity: insufficient calibration fails the joint error bound");
@@ -4163,6 +4315,32 @@ int main() {
         gauge.counts = {{{0, 30}, {30, 0}}};
         ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds),
                     "shared deletion parity: a reversed marker gauge cannot supply the bridge");
+    }
+
+    {
+        IndependentBamBlockLink gauge;
+        gauge.counts = {{{7, 0}, {0, 4}}};
+        const auto same = calibrated_source_deletion_bridge_flip(gauge, {1, 0}, 0.135193);
+        ok &= check(same && !*same, "source deletion: diploid calibration permits a precise sparse bridge");
+        const auto reverse = calibrated_source_deletion_bridge_flip(gauge, {0, 1}, 0.135193);
+        ok &= check(reverse && *reverse, "source deletion: reverse orientation is preserved");
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 1}, 0.01),
+                    "source deletion: any contrary bridge vetoes the union");
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {0, 0}, 0.01),
+                    "source deletion: calibration alone cannot join blocks");
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 0}, 0.200001),
+                    "source deletion: the actual joint quality bound cannot exceed 20%");
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 0}, -0.1),
+                    "source deletion: an invalid quality bound abstains");
+        gauge.counts[0][1] = 1;
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 0}, 0.01),
+                    "source deletion: contrary calibration cannot be outvoted");
+        gauge.counts = {{{7, 0}, {0, 1}}};
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 0}, 0.01),
+                    "source deletion: both allele classes need independent calibration");
+        gauge.counts = {{{2, 0}, {0, 2}}};
+        ok &= check(!calibrated_source_deletion_bridge_flip(gauge, {1, 0}, 0.01),
+                    "source deletion: weak association cannot certify the gauge");
     }
 
     {
@@ -4251,6 +4429,112 @@ int main() {
     }
 
     {
+        std::array<IndependentBamBlockLink, 2> cohorts;
+        for (auto& cohort : cohorts) cohort.counts = {{{20, 0}, {0, 20}}};
+        ok &= check(calibrated_terminal_insertion_hap1(cohorts) == 0,
+                    "terminal insertion: both independent cohorts orient REF on hap1");
+        cohorts[0].counts = {{{14, 0}, {0, 7}}};
+        cohorts[1].counts = {{{10, 0}, {0, 7}}};
+        ok &= check(calibrated_terminal_insertion_hap1(cohorts) == 0,
+                    "terminal insertion: independent physical calls certify the endpoint");
+        cohorts[0].counts = {{{7, 0}, {0, 10}}};
+        cohorts[1].counts = {{{9, 0}, {0, 8}}};
+        ok &= check(calibrated_terminal_insertion_hap1(cohorts) == 0,
+                    "terminal mixed repeat: separate joint ALT classes certify the source gauge");
+        cohorts[1].counts = {{{0, 9}, {8, 0}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal mixed repeat: graph/source gauge disagreement vetoes the endpoint");
+        for (auto& cohort : cohorts) cohort.counts = {{{7, 0}, {0, 6}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal insertion: adequate separate cohorts still need the combined bound");
+        for (auto& cohort : cohorts) cohort.counts = {{{0, 20}, {20, 0}}};
+        ok &= check(calibrated_terminal_insertion_hap1(cohorts) == 1,
+                    "terminal insertion: both independent cohorts orient ALT on hap1");
+        cohorts[1].counts = {{{20, 0}, {0, 20}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal insertion: opposite cohort gauges cannot phase the endpoint");
+        cohorts[1].counts = {{{0, 40}, {0, 0}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal insertion: one observed allele cannot establish a heterozygote");
+        cohorts[1].counts = {{{0, 4}, {4, 0}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal insertion: sparse evidence cannot certify an endpoint");
+        cohorts[1].counts = {{{10, 30}, {30, 10}}};
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "terminal insertion: discordance above the calibrated bound abstains");
+    }
+
+    {
+        std::array<IndependentBamBlockLink, 2> cohorts;
+        cohorts[0].counts = {{{1, 8}, {8, 0}}};
+        cohorts[1].counts = {{{0, 8}, {8, 0}}};
+        ok &= check(calibrated_verified_insertion_hap1(cohorts) == 1,
+                    "verified insertion: independent shifted calls retain the source gauge");
+        ok &= check(!calibrated_terminal_insertion_hap1(cohorts),
+                    "verified insertion: retaining a source does not weaken the terminal gate");
+        cohorts[1].counts = {{{8, 0}, {0, 8}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "verified insertion: opposite independent gauges abstain");
+        cohorts[1].counts = {{{0, 16}, {0, 0}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "verified insertion: each cohort must contain both alleles");
+        for (auto& cohort : cohorts) cohort.counts = {{{10, 30}, {30, 10}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "verified insertion: confidence bound must retain eighty percent");
+        for (auto& cohort : cohorts) cohort.counts = {{{0, 3}, {3, 0}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "verified insertion: sparse associations cannot certify a gauge");
+    }
+
+    {
+        std::array<IndependentBamBlockLink, 2> gauges;
+        gauges[0].counts = {{{12, 3}, {0, 8}}};
+        gauges[1].counts = {{{9, 2}, {1, 9}}};
+        ok &= check(calibrated_deletion_chain_flip(gauges, {4, 1}) == false,
+                    "deletion chain: calibrated length errors permit an 80 percent bridge");
+        ok &= check(calibrated_deletion_chain_flip(gauges, {1, 4}) == true,
+                    "deletion chain: opposite parity preserves the calibrated gauge");
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {3, 2}),
+                    "deletion chain: a bridge below 80 percent remains open");
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {2, 0}),
+                    "deletion chain: two molecules cannot establish the connection");
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {0, 0}),
+                    "deletion chain: calibration alone cannot join noncrossing components");
+        gauges[1].counts = {{{9, 4}, {2, 9}}};
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {4, 1}),
+                    "deletion chain: a poorly calibrated repeat remains excluded");
+        gauges[1].counts = {{{20, 0}, {0, 0}}};
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {4, 1}),
+                    "deletion chain: both diploid classes need independent calibration");
+        gauges[1].counts = {{{2, 0}, {0, 2}}};
+        ok &= check(!calibrated_deletion_chain_flip(gauges, {4, 1}),
+                    "deletion chain: sparse calibration cannot certify the gauge");
+    }
+
+    {
+        IndependentBamBlockLink gauge;
+        gauge.counts = {{{28, 1}, {5, 28}}};
+        const std::array<std::array<int, 2>, 2> bridge{{{5, 0}, {0, 2}}};
+        ok &= check(calibrated_repeat_chain_flip(gauge, bridge, {5, 1}, -30.0) == false,
+                    "repeat chain: eighty-percent SNP agreement tolerates one noisy length");
+        ok &= check(calibrated_repeat_chain_flip(gauge, bridge, {1, 5}, 30.0) == true,
+                    "repeat chain: independent SNPs can reverse the downstream gauge");
+        ok &= check(!calibrated_repeat_chain_flip(gauge, bridge, {4, 2}, -30.0),
+                    "repeat chain: below eighty-percent agreement cannot join");
+        ok &= check(!calibrated_repeat_chain_flip(gauge, bridge, {2, 0}, -30.0),
+                    "repeat chain: two right molecules cannot replace calibration");
+        ok &= check(!calibrated_repeat_chain_flip(gauge, bridge, {5, 1}, -2.0),
+                    "repeat chain: weak physical quality cannot certify orientation");
+        ok &= check(!calibrated_repeat_chain_flip(gauge, {{{5, 1}, {0, 2}}}, {5, 1}, -30.0),
+                    "repeat chain: a contrary molecule across the interior vetoes joining");
+        ok &= check(!calibrated_repeat_chain_flip(gauge, {{{5, 0}, {0, 0}}}, {5, 1}, -30.0),
+                    "repeat chain: both physical repeat classes must cross");
+        gauge.counts = {{{28, 20}, {20, 28}}};
+        ok &= check(!calibrated_repeat_chain_flip(gauge, bridge, {5, 1}, -30.0),
+                    "repeat chain: an unsupported left gauge cannot seed recovery");
+    }
+
+    {
         std::array<IndependentBamBlockLink, 2> gauges;
         for (auto& gauge : gauges) gauge.counts = {{{50, 0}, {0, 50}}};
         ok &= check(calibrated_repeat_snp_bridge_flip(gauges, {1, 0}, 0.0004) == false,
@@ -4307,6 +4591,66 @@ int main() {
         gauge.counts = {{{0, 4}, {5, 0}}};
         ok &= check(!calibrated_repeat_insertion_bridge_flip(gauge, reverse, errors),
                     "repeat insertion: a reversed upstream gauge remains a veto");
+    }
+
+    {
+        IndependentBamBlockLink left, right;
+        left.counts = {{{27, 0}, {3, 14}}};
+        right.counts = {{{15, 1}, {1, 4}}};
+        const std::array<int, 2> parity{0, 4};
+        const std::array<std::array<int, 2>, 2> classes{{{0, 1}, {0, 3}}};
+        const std::array<double, 2> errors{0.000502, 1e-9};
+        ok &= check(calibrated_indel_bridge_flip(left, parity, 28.6298970081) == true &&
+                    calibrated_repeat_insertion_bridge_flip(right, classes, errors) == true,
+                    "compound prefix: separate diploid gauges certify the physical bridge");
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(right, {{{0, 0}, {0, 3}}}, errors),
+                    "compound prefix: shared-prefix quality cannot replace a missing allele class");
+        ok &= check(!calibrated_repeat_insertion_bridge_flip(right, {{{0, 1}, {1, 3}}}, errors),
+                    "compound prefix: contrary physical molecules veto the union");
+    }
+
+    {
+        ok &= check(graph_snp_low_alt_fraction_supported(59, 8, 0, 0, 0.2, 1000),
+                    "physical minor repeat SNP fails the diploid balance test");
+        ok &= check(!graph_snp_low_alt_fraction_supported(59, 20, 0, 0, 0.2, 1000) &&
+                    !graph_snp_low_alt_fraction_supported(6, 1, 0, 0, 0.2, 1000),
+                    "valid ALT fraction and weak evidence preserve graph SNPs");
+        ok &= check(!graph_snp_low_alt_fraction_supported(59, 8, 1, 0, 0.2, 1000) &&
+                    !graph_snp_low_alt_fraction_supported(59, 8, 0, 1, 0.2, 1000) &&
+                    !graph_snp_low_alt_fraction_supported(59, 8, 0, 0, 0.2, 0),
+                    "uncallable alternate alleles and missing family size veto rejection");
+        ok &= check(graph_snp_padded_deletion_supported(0, 28, 9, 0, 1000),
+                    "padded SNP: significant physical ALT/deletion contrast survives normalization");
+        ok &= check(!graph_snp_padded_deletion_supported(1, 28, 9, 0, 1000) &&
+                    !graph_snp_padded_deletion_supported(0, 28, 9, 1, 1000) &&
+                    !graph_snp_padded_deletion_supported(0, 28, 9, 0, 0),
+                    "padded SNP: REF, third base or absent family vetoes contradiction");
+        ok &= check(!graph_snp_padded_deletion_supported(0, 28, 1, 0, 1000) &&
+                    !graph_snp_padded_deletion_supported(0, 40, 9, 0, 1000) &&
+                    !graph_snp_padded_deletion_supported(0, 10, 9, 0, 1000),
+                    "padded SNP: singleton, incidental deletion and weak significance abstain");
+        ok &= check(physical_deletion_gauge_haplotype({2, 0}, 0.0001) == 1 &&
+                    physical_deletion_gauge_haplotype({0, 3}, 0.001) == 2,
+                    "deletion gauge: independent pairs orient either haplotype");
+        ok &= check(!physical_deletion_gauge_haplotype({2, 1}, 0.0001) &&
+                    !physical_deletion_gauge_haplotype({1, 0}, 0.0001) &&
+                    !physical_deletion_gauge_haplotype({0, 0}, 0.0) &&
+                    !physical_deletion_gauge_haplotype({2, 0}, 0.0011) &&
+                    !physical_deletion_gauge_haplotype({2, 0}, -1.0),
+                    "deletion gauge: contrary, weak, missing and invalid evidence abstains");
+        ok &= check(graph_snp_ref_absence_supported(0, 54, 0, 0, 1000),
+                    "REF absence: homozygous ALT does not require a deletion");
+        ok &= check(!graph_snp_ref_absence_supported(1, 54, 0, 0, 1000) &&
+                    !graph_snp_ref_absence_supported(0, 54, 0, 1, 1000),
+                    "REF absence: any REF or third base vetoes exclusion");
+        ok &= check(!graph_snp_ref_absence_supported(0, 10, 0, 0, 1000) &&
+                    !graph_snp_ref_absence_supported(0, 0, 0, 0, 1000) &&
+                    !graph_snp_ref_absence_supported(0, 54, 0, 0, 0),
+                    "REF absence: weak, missing and untested evidence abstains");
+        ok &= check(graph_snp_ref_absence_supported(0, 40, 10, 0, 1000) &&
+                    !graph_snp_ref_absence_supported(0, 40, 9, 0, 1000) &&
+                    !graph_snp_ref_absence_supported(0, 41, 10, 0, 1000),
+                    "REF absence: ALT/deletion keeps its count and fraction gates");
     }
 
     {

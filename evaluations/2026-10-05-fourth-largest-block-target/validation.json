@@ -1,0 +1,26 @@
+{
+  "production_sha256": "7e50015b328beeed83607d502a1e6d6a928d2fea8dbbfb77328c3e5610e76be7",
+  "commit": "fb064fe080f7c1d4fc2d0246973f1c18140f511d",
+  "hiphase_blocks_ranked": 191,
+  "pgphase_blocks_ranked": 261,
+  "selected_hiphase_rank": 4,
+  "selected_span_bp": 1722624,
+  "gap": [
+    52696940,
+    52711825
+  ],
+  "gap_boundary_distance_bp": 14885,
+  "hiphase_original_alignments_verified": 7030,
+  "gap_original_primary_scorable": 136,
+  "gap_hiphase_correct_total_and_core": 117,
+  "gap_pgphase_correct_total": 119,
+  "gap_pgphase_correct_core": 47,
+  "gap_minimum_correct_and_core_to_match_hiphase": 117,
+  "original_spanning_primary_reads": 9,
+  "whole_target_correct_read_deficit": 28,
+  "whole_target_correct_core_deficit": 164,
+  "production_changed": false,
+  "expectations_changed": false,
+  "pipeline_replayed": false,
+  "largest_known_terminal_difference_bp": 12277
+}

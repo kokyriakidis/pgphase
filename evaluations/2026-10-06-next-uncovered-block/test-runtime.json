@@ -1,0 +1,32 @@
+[
+  {
+    "check": "owner",
+    "command": [
+      "make",
+      "gap-owner-check",
+      "GAP=tandem-insertion"
+    ],
+    "seconds": 0.5769919510057662,
+    "exit_code": 0
+  },
+  {
+    "check": "windows",
+    "command": [
+      "make",
+      "window-tests"
+    ],
+    "seconds": 38.352765949995955,
+    "exit_code": 0
+  },
+  {
+    "check": "units_and_gates",
+    "command": [
+      "make",
+      "unit-tests",
+      "gap-dev-check",
+      "check"
+    ],
+    "seconds": 4.544533039996168,
+    "exit_code": 0
+  }
+]

@@ -55,6 +55,9 @@ struct GraphSiteMeta {
     hts_pos_t pos = 0;
     std::string ref;
     std::vector<std::string> alts;
+    bool bam_alt_deletion_no_ref = false;
+    bool bam_low_fraction_snp = false;
+    std::vector<std::array<int, 2>> physical_allele_strands = {};
 };
 
 // Output of build_graph_chunk: a PhasingChunk ready for k-means phasing,
@@ -98,8 +101,13 @@ struct DeferredPhysicalBridge {
     std::optional<VariantKey> shared_deletion;
     std::optional<VariantKey> calibrated_insertion;
     bool calibrated_insertion_repeat = false;
+    bool calibrated_insertion_source_prefix = false;
+    // Complete uncut sources with disjoint physical deletion calibration.
+    std::optional<VariantKey> calibrated_source_deletion;
     // Boundary certificates retain the downstream owning chunk until rescue ends.
     std::optional<size_t> right_chunk_index;
+    // Independently called molecules, in the certificate's left-anchor gauge.
+    std::unordered_map<std::string, int> calibrated_read_haps;
 };
 
 struct GraphChunkBuildResult {
@@ -259,6 +267,11 @@ void detach_bam_sites_across_weak_cuts(GraphChunkBuildResult& graph_chunk);
 bool bam_source_site_path_supported(const GraphChunkBuildResult& graph_chunk,
                                     size_t candidate_index);
 
+/// Certify a source run from a BAM marker to its first exact shared graph SNP.
+/// A complete graph path must separately certify the rest of the live block.
+bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& graph_chunk,
+                                          size_t candidate_index);
+
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                                const std::vector<GraphReadAllele>& rows,
                                                const std::string& contig,
@@ -338,6 +351,12 @@ std::optional<bool> calibrated_indel_bridge_flip(
     const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
     double log_odds);
 
+/// Require unanimous, diploid physical calibration and unanimous bridge calls.
+/// The union bound across the actual calibration and bridge bases must be <=20%.
+std::optional<bool> calibrated_source_deletion_bridge_flip(
+    const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
+    double quality_error_bound);
+
 /// Separate non-reference repeat lengths; zero length and equidistant calls abstain.
 int complementary_insertion_length_class(int observed, int first, int second);
 
@@ -355,7 +374,57 @@ std::optional<bool> calibrated_repeat_snp_bridge_flip(
     const std::array<IndependentBamBlockLink, 2>& gauges,
     const std::array<int, 2>& parity, double wrong_parity_bound);
 
-/// Original primary-read evidence contradicting a binary graph SNP.
+/// Join a physically validated repeat chain. The established left gauge must
+/// pass its existing calibration; both allele classes must cross the interior
+/// edge, and independent right SNP molecules must agree at least 80%.
+std::optional<bool> calibrated_repeat_chain_flip(
+    const IndependentBamBlockLink& gauge,
+    const std::array<std::array<int, 2>, 2>& bridge,
+    const std::array<int, 2>& right_parity, double right_log_odds);
+
+/// Join two repeat contrasts calibrated on disjoint clean-SNP molecules.
+std::optional<bool> calibrated_deletion_chain_flip(
+        const std::array<IndependentBamBlockLink, 2>& gauges,
+        const std::array<int, 2>& parity);
+
+/// Orient a terminal insertion from two disjoint primary-molecule cohorts.
+/// Both cohorts must independently support the same diploid SNP gauge.
+/// Discordance plus call error is capped at 20% per cohort and 10% combined.
+/// Confirm an already verified source insertion in independent diploid cohorts.
+/// Both cohorts reject random association and agree on orientation; the pooled
+/// Wilson discordance bound plus 1% physical call error cannot exceed 20%.
+std::optional<int> calibrated_verified_insertion_hap1(
+    const std::array<IndependentBamBlockLink, 2>& cohorts);
+
+std::optional<int> calibrated_terminal_insertion_hap1(
+    const std::array<IndependentBamBlockLink, 2>& cohorts);
+
+/// Retire validated HOM ALT and REF-absent substitution/deletion anchors after the
+/// initial solve, retaining the
+/// gauge and read assignments of phase sets with surviving heterozygotes.
+void reclassify_physically_validated_graph_snps(
+    const GraphSiteCatalogView& catalog, GraphChunkBuildResult& graph_chunk);
+
+/// Reject a graph heterozygote with significant absence of physical REF.
+/// Homozygous ALT needs no deletion; mixed ALT/deletion retains the substantial
+/// deletion requirement. Any REF or third base vetoes exclusion.
+bool graph_snp_ref_absence_supported(int ref_count, int alt_count,
+    int deletion_count, int other_count, size_t tested_sites);
+
+/// A padded SNP may retain a significant substitution/deletion contrast with
+/// two deletions. Its phase gauge must be calibrated separately before use.
+bool graph_snp_padded_deletion_supported(int ref_count, int alt_count,
+    int deletion_count, int other_count, size_t tested_sites);
+
+/// Reject a repeat substitution whose physical ALT fraction fails the caller
+/// floor and a familywise diploid balance test.
+bool graph_snp_low_alt_fraction_supported(int ref_count, int alt_count,
+    int deletion_count, int other_count, double min_af, size_t tested_sites);
+
+/// Orient a deletion from unanimous independent, quality-weighted witnesses.
+std::optional<int> physical_deletion_gauge_haplotype(
+    const std::array<int, 2>& hap_counts, double wrong_gauge_bound);
+
 struct GraphSnpReferenceEvidence {
     int reference_class_reads = 0;
     int alternate_class_reference_reads = 0;

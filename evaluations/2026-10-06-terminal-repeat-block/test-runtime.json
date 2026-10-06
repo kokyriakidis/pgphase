@@ -1,0 +1,20 @@
+{
+  "cached_owner_seconds": 0.6031052390171681,
+  "exit_code": 0,
+  "owner_and_cross_chunk_assertions": 621,
+  "predicate_assertions": 1551,
+  "previous_native_output_labels": 228,
+  "previous_independent_requests": 119,
+  "full_gap_assertions": 16962,
+  "full_gap_cases": 4,
+  "full_gap_exit_code": 0,
+  "cache_helper_cases": 4,
+  "unit_tests": "all pass",
+  "standard_validation_gates": "HiFi and ONT goldens and thread determinism pass",
+  "old_binary_owner_test": {
+    "exit_code": 2,
+    "assertions": 596,
+    "failed": 2
+  },
+  "benchmark_windows": 125
+}

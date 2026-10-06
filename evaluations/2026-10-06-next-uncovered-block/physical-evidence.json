@@ -1,0 +1,493 @@
+{
+  "physical_insertion_coordinate": 882278,
+  "vcf_coordinate": 882277,
+  "alleles": [
+    "TC",
+    "TCTC"
+  ],
+  "calibration": [
+    [
+      10,
+      0
+    ],
+    [
+      1,
+      12
+    ]
+  ],
+  "bridge_parity_counts": [
+    0,
+    1
+  ],
+  "bridge_log_odds": 7.238005330540763,
+  "parity_error": 0.0007182277660168378,
+  "joint_error_bound": 0.18401362743882074,
+  "calibration_molecules": 23,
+  "accepted": [
+    {
+      "read": "m84031_231217_034919_s2/62000721/ccs",
+      "kind": "bridge",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0007182277660168381,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.000616227766016838
+    },
+    {
+      "read": "m84031_231217_034919_s2/189399766/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000602,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_034919_s2/9831309/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.001234455532033676,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0010324555320336758
+    },
+    {
+      "read": "m84031_231217_062403_s3/244847630/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/110170986/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000818227766016838,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.000616227766016838
+    },
+    {
+      "read": "m84031_231217_062403_s3/135398227/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000602,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_034919_s2/163056688/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.00890683575977081,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.00870483575977081
+    },
+    {
+      "read": "m84031_231217_034919_s2/179178347/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.0029297178470025546,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.002295262314968879
+    },
+    {
+      "read": "m84031_231217_062403_s3/225318437/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/25560907/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/165807230/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000402,
+      "class": 0,
+      "net_length": 0,
+      "distances": [
+        2,
+        4
+      ],
+      "events": [],
+      "call_error": 0.0002
+    },
+    {
+      "read": "m84031_231217_062403_s3/166003834/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.004608752395954596,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.000616227766016838
+    },
+    {
+      "read": "m84031_231217_062403_s3/222959229/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.001234455532033676,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0010324555320336758
+    },
+    {
+      "read": "m84031_231217_034919_s2/153291070/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000602,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_062403_s3/219812455/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.0008344555320336759,
+      "class": 0,
+      "net_length": 0,
+      "distances": [
+        2,
+        4
+      ],
+      "events": [],
+      "call_error": 0.0002
+    },
+    {
+      "read": "m84031_231217_034919_s2/133895194/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000602,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_034919_s2/67376428/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.000602,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_062403_s3/145491537/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/195630956/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.006704014710923474,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.002711490080985717
+    },
+    {
+      "read": "m84031_231217_062403_s3/208011551/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.009139291291804486,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.00850483575977081
+    },
+    {
+      "read": "m84031_231217_034919_s2/114296164/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.000402,
+      "class": 0,
+      "net_length": 0,
+      "distances": [
+        2,
+        4
+      ],
+      "events": [],
+      "call_error": 0.0002
+    },
+    {
+      "read": "m84031_231217_034919_s2/128847974/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/234229692/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 1,
+      "snp_haplotype_index": 1,
+      "error_bound": 0.004392524629937758,
+      "class": 0,
+      "net_length": 2,
+      "distances": [
+        0,
+        2
+      ],
+      "events": [
+        [
+          882283,
+          "CT"
+        ]
+      ],
+      "call_error": 0.0004
+    },
+    {
+      "read": "m84031_231217_062403_s3/72485444/ccs",
+      "kind": "calibration",
+      "repeat_haplotype_index": 0,
+      "snp_haplotype_index": 0,
+      "error_bound": 0.0008020000000000001,
+      "class": 1,
+      "net_length": 4,
+      "distances": [
+        2,
+        0
+      ],
+      "events": [
+        [
+          882283,
+          "CTCT"
+        ]
+      ],
+      "call_error": 0.0006000000000000001
+    }
+  ]
+}

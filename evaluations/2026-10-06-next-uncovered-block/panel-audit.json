@@ -1,0 +1,104 @@
+{
+  "native_output_labels": 230,
+  "independent_requests": 120,
+  "comparison_pairs": 120,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "1e90a15a652524a16a723d7c850cedb47b7bc89aa40452ed2b770a1bf6d61aeb",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w514902-528827/phased.bam",
+      "before_counts": {
+        "correct": 3698,
+        "unphased": 214,
+        "discordant": 13
+      },
+      "after_counts": {
+        "correct": 3708,
+        "unphased": 205,
+        "discordant": 12
+      },
+      "changed_read_tags": 510,
+      "lost_correct_assignments": [
+        "m84031_231217_034919_s2/177276325/ccs"
+      ],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 166,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w528850-542052/phased.bam",
+      "before_counts": {
+        "correct": 3698,
+        "unphased": 214,
+        "discordant": 13
+      },
+      "after_counts": {
+        "correct": 3708,
+        "unphased": 205,
+        "discordant": 12
+      },
+      "changed_read_tags": 510,
+      "lost_correct_assignments": [
+        "m84031_231217_034919_s2/177276325/ccs"
+      ],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 166,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "msa_complete_transfer/w528850-542052/phased.bam",
+      "before_counts": {
+        "correct": 3698,
+        "unphased": 214,
+        "discordant": 13
+      },
+      "after_counts": {
+        "correct": 3708,
+        "unphased": 205,
+        "discordant": 12
+      },
+      "changed_read_tags": 510,
+      "lost_correct_assignments": [
+        "m84031_231217_034919_s2/177276325/ccs"
+      ],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 166,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_weak_run/w50001-950000/phased.bam",
+      "before_counts": {
+        "correct": 3698,
+        "unphased": 214,
+        "discordant": 13
+      },
+      "after_counts": {
+        "correct": 3708,
+        "unphased": 205,
+        "discordant": 12
+      },
+      "changed_read_tags": 510,
+      "lost_correct_assignments": [
+        "m84031_231217_034919_s2/177276325/ccs"
+      ],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 166,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

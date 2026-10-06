@@ -1,0 +1,143 @@
+{
+  "original_repeat_calls": [
+    {
+      "PATERNAL:0": 37,
+      "MATERNAL:1": 30,
+      "MATERNAL:0": 5,
+      "PATERNAL:1": 1
+    },
+    {
+      "MATERNAL:1": 46,
+      "PATERNAL:0": 26,
+      "PATERNAL:1": 3
+    }
+  ],
+  "interior_pairs": {
+    "1:1": 2,
+    "0:0": 5
+  },
+  "hiphase_calls": [
+    {
+      "pos": 12721112,
+      "ref": "A",
+      "alt": [
+        "AT"
+      ],
+      "sample": {
+        "GT": [
+          0,
+          1
+        ],
+        "GQ": 35,
+        "DP": 71,
+        "AD": [
+          37,
+          26
+        ],
+        "VAF": [
+          0.36619699001312256
+        ],
+        "MID": "small_model",
+        "PL": [
+          37,
+          0,
+          37
+        ],
+        "PS": 11796969
+      }
+    },
+    {
+      "pos": 12735894,
+      "ref": "TA",
+      "alt": [
+        "T"
+      ],
+      "sample": {
+        "GT": [
+          0,
+          1
+        ],
+        "GQ": 4,
+        "DP": 75,
+        "AD": [
+          22,
+          39
+        ],
+        "VAF": [
+          0.5199999809265137
+        ],
+        "MID": "small_model",
+        "PL": [
+          22,
+          0,
+          1
+        ],
+        "PS": 11796969
+      }
+    },
+    {
+      "pos": 12740002,
+      "ref": "C",
+      "alt": [
+        "CTTT"
+      ],
+      "sample": {
+        "GT": [
+          1,
+          1
+        ],
+        "GQ": 6,
+        "DP": 72,
+        "AD": [
+          0,
+          27
+        ],
+        "VAF": [
+          0.375
+        ],
+        "MID": "deepvariant",
+        "PL": [
+          19,
+          5,
+          0
+        ]
+      }
+    },
+    {
+      "pos": 12752291,
+      "ref": "C",
+      "alt": [
+        "T"
+      ],
+      "sample": {
+        "GT": [
+          1,
+          0
+        ],
+        "GQ": 26,
+        "DP": 53,
+        "AD": [
+          35,
+          18
+        ],
+        "VAF": [
+          0.33962300419807434
+        ],
+        "PS": 11796969,
+        "MID": "small_model",
+        "PL": [
+          26,
+          0,
+          43
+        ]
+      }
+    }
+  ],
+  "truth_used_by_production": false,
+  "native_trace": [
+    "[repeat-indel-chain] 12717796-12740002 gauge=19,0,3,31 bridge=5,0,0,2 right=5,1 accepted=1"
+  ],
+  "two_chunk_trace": [
+    "[repeat-indel-chain] 12717796-12740002 gauge=26,3,0,14 bridge=5,0,0,2 right=1,5 accepted=1"
+  ]
+}

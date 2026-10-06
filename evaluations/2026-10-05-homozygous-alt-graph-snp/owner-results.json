@@ -1,0 +1,72 @@
+{
+  "binary_sha256": "a81c2c28df9da273bb5fca1de3ee6b715a96d84489019d2971061b57e1635b41",
+  "one_four_thread_identity": true,
+  "primary_reads": 4013,
+  "before_counts": {
+    "correct": 3637,
+    "discordant": 153,
+    "unphased": 223
+  },
+  "after_counts": {
+    "correct": 3660,
+    "discordant": 134,
+    "unphased": 219
+  },
+  "transitions": {
+    "correct->correct": 3634,
+    "discordant->discordant": 131,
+    "unphased->unphased": 217,
+    "discordant->correct": 20,
+    "unphased->correct": 6,
+    "correct->discordant": 3,
+    "discordant->unphased": 2
+  },
+  "lost_correct_assignments": [
+    "m84031_231217_034919_s2/44765230/ccs",
+    "m84031_231217_062403_s3/216404665/ccs",
+    "m84031_231217_062403_s3/43976085/ccs"
+  ],
+  "gap": {
+    "before": {
+      "scorable": 102,
+      "counts": {
+        "correct": 75,
+        "discordant": 26,
+        "unphased": 1
+      },
+      "core_correct": 31
+    },
+    "pgphase": {
+      "scorable": 102,
+      "counts": {
+        "correct": 93,
+        "unphased": 2,
+        "discordant": 7
+      },
+      "core_correct": 92
+    }
+  },
+  "variants": {
+    "before": 614,
+    "after": 613,
+    "missing_keys": [
+      [
+        "CHM13#0#chr20",
+        "36608713",
+        ".",
+        "C",
+        "CAA"
+      ]
+    ],
+    "added_keys": []
+  },
+  "control_gap": {
+    "scorable": 91,
+    "counts": {
+      "correct": 84,
+      "unphased": 2,
+      "discordant": 5
+    },
+    "core_correct": 83
+  }
+}

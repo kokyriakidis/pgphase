@@ -33,7 +33,7 @@ graph	32431751-32432269	1	1	0.74	0.60
 graph	11255370-11262360	1	0	0.99	0.64
 graph	21514518-21518393	1	0	0.93	0.84
 graph	12269536-12277077	1	0	0.99	0.68
-graph	15095642-15101261	0	2	0.94	0.37
+graph	15095642-15101261	1	2	0.94	0.37
 graph	48225787-48229445	1	0	1.00	0.71
 graph	56150368-56156525	1	0	0.88	0.74
 graph	1086625-1110921	1	0	0.99	0.80
@@ -103,8 +103,8 @@ graph	58366458-58385702	0	0	0.98	0.39
 # Two adjacent clean-SNP joins in the owning 19–20 Mb chunk.
 graph	19395544-19403172	1	2	0.98	0.83
 graph	19403172-19414720	1	0	0.98	0.86
-# The adjacent 36.62 Mb singleton has mixed truth and remains independent.
-graph	36611593-36620864	0	1	0.95	0.34
+# Physical homozygous ALT replaces the false 36.62 Mb singleton anchor.
+graph	36611593-36620864	1	1	0.95	0.9120879120879121
 # Newly tracked same-callset HiPhase joins, measured in owning chunks.
 graph	1180618-1194189	1	0	0.99	0.56
 # 2026-10-01: single-seam focused retry retains both complementary deletion
@@ -123,7 +123,7 @@ graph	53947946-53962801	1	1	0.99	0.60
 graph	528850-542052	1	1	0.99	0.42
 graph	39848887-39856144	1	1	0.98	1.00
 graph	54684758-54702072	1	1	0.98	0.83
-graph	TOTAL	104	1292	0.74	0.10
+graph	TOTAL	113	1295	0.74	0.10
 # 2026-10-01: graph arm closes the 11.573 Mb owning-chunk gap without
 # changing HP assignments or discordant counts; existing floors stay intact.
 graph	11573074-11586531	1	0	0.97	0.64
@@ -186,3 +186,33 @@ graph	24121713-24131707	1	0	0.99	0.80
 
 # Native 25 Mb owner: remove physically contradicted copy-specific graph anchors.
 graph	25855631-25855633	1	0	0.99	0.967032967032967
+
+# Native 52 Mb owner: calibrated deletion joins complete source cohorts.
+graph	52696940-52711825	1	0	0.97	0.875
+
+# Native 36 Mb owner: physical homozygous ALT corrects a false graph anchor.
+graph	36614185-36623545	1	0	0.95	0.9019607843137255
+
+# Native 36 Mb owner: independently anchored BAM prefix and physical repeat calls.
+graph	36268558-36286778	1	0	0.96	0.9174311926605505
+
+# Native 40 Mb owner: physical substitution/deletion contrast.
+graph	40633644-40636353	1	0	0.98	0.9111111111111111
+
+# Native 11 Mb owner: physically calibrated complementary deletion/SNP bridge.
+graph	11796979-11813446	1	0	0.98	0.9264705882352942
+graph	12717796-12740002	1	1	0.99	0.92
+
+# Original Q30 terminal insertion agrees with two independent SNP witnesses.
+graph	12954878-12955838	1	0	0.99	1.00
+graph	865572-882277	1	0	0.99	0.81
+
+# Native 57 Mb owner: calibrated complementary homopolymer insertion/deletion.
+graph	57085410-57104654	1	0	0.95	0.90
+
+# Jointly calibrated, equivalent terminal insertion/deletion in the 55 Mb owner.
+graph	55309789-55309794	1	2	0.99	0.98
+graph	45876157-45896820	1	1	0.66	0.91
+graph	15023123-15039543	1	0	0.99	0.80
+graph	15100456-15101262	1	0	0.99	0.93
+graph	55999194-56040612	1	0	0.98	0.86

@@ -4331,8 +4331,9 @@ static void gap_focused_recovery_retains_a_supported_partial_path_inside_a_graph
         if (fields.size() < 10) continue;
         const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
         if (keys.count(key) == 0) continue;
-        REQUIRE(fields[8].find("PS") != std::string::npos);
+        if (key != "36620864:G>A") REQUIRE(fields[8].find("PS") != std::string::npos);
         calls[key] = {fields[9].substr(0, 3),
+                      fields[8].find("PS") == std::string::npos ? "." :
                       fields[9].substr(fields[9].rfind(':') + 1)};
     }
     REQUIRE(calls.size() == keys.size());
@@ -4342,13 +4343,15 @@ static void gap_focused_recovery_retains_a_supported_partial_path_inside_a_graph
     CHECK(left.second != ".");
     for (const auto& [key, call] : calls) {
         INFO(key);
-        CHECK(is_phased_het(call.first));
+        if (key != "36620864:G>A") CHECK(is_phased_het(call.first));
         if (key.compare(0, 3, "363") == 0)
             CHECK(call.second == left.second);
     }
-    // A BAM path through imported sites cannot certify a mixed graph block.
-    CHECK(calls.at("36620864:G>A").second !=
-          calls.at("36623545:A>AT").second);
+    // All original BAM bases are ALT; the catalog call survives as a
+    // homozygote and cannot split the independently supported indel path.
+    CHECK(calls.at("36620864:G>A").first == "1/1");
+    CHECK(calls.at("36620864:G>A").second == ".");
+    CHECK(calls.at("36623545:A>AT").second == left.second);
 
     // Pin the chain's relative allele orientation, not arbitrary HP labels.
     CHECK(left.first == deletion.first);
@@ -6113,6 +6116,89 @@ static void gap_calibrated_repeat_snps_join_the_largest_hiphase_block(const Path
     }
 }
 
+static void gap_calibrated_source_deletion_joins_the_fourth_largest_hiphase_block(const Paths& p) {
+    Window gap;
+    gap.gap_left = 52696940;
+    gap.gap_right = 52711825;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 136);
+    CHECK(got.primary_correct >= 119);
+    CHECK(got.core_correct >= 119);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_calibrated_source_deletion_joins_the_fourth_largest_hiphase_block", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const std::set<std::string> keys{"52696410:GGA>G", "52696940:G>A",
+        "52711825:G>GA", "52715881:TTGTG>T", "52727684:A>C"};
+    std::map<std::string, std::pair<std::string, std::string>> rows;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (!keys.count(key)) continue;
+        REQUIRE(rows.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(fields[9].rfind(':') + 1))).second);
+    }
+    REQUIRE(rows.size() == keys.size());
+    const auto& left = rows.at("52696940:G>A");
+    const long long core = std::stoll(left.second);
+    for (const auto& [key, row] : rows) {
+        INFO(key);
+        CHECK(is_phased_het(row.first));
+        CHECK(row.second == left.second);
+        CHECK(row.first == (key == "52711825:G>GA" ?
+            std::string(1, left.first[2]) + "|" + left.first[0] : left.first));
+    }
+    // Only two reads end in the disjoint left flank. Instead use disjoint
+    // marker-bearing cohorts: left-SNP reads ending before the deletion and
+    // downstream SNP reads starting beyond the left SNP. The bridge molecule
+    // belongs to neither cohort, so a pooled majority cannot hide inversion.
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    bool bridge_seen = false;
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || !hp || !ps ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first < 52696940 && span->second.second >= 52696940 &&
+            span->second.second < 52715882) ++parents[0][mat_on_hap1];
+        if (span->second.first >= 52696940 && span->second.second >= 52727684)
+            ++parents[1][mat_on_hap1];
+        if (name == "m84031_231217_062403_s3/163778931/ccs") {
+            bridge_seen = true;
+            CHECK(bam_aux2i(hp) == (left.first[0] == '1' ? 1 : 2));
+            CHECK(parent->second == 'P');
+        }
+    }
+    REQUIRE(bridge_seen);
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& cohort : parents) {
+        const int total = cohort[0] + cohort[1];
+        REQUIRE(total >= 20);
+        CHECK(static_cast<double>(cohort[orientation]) / total >= 0.90);
+    }
+}
+
 static void gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam(const Paths& p) {
     // Copy-specific graph SNPs on the same molecules are contradicted by the
     // original CIGAR and sequence. Keep the native owner: a short replay loses
@@ -6266,7 +6352,960 @@ static void gap_complementary_insertions_join_the_second_largest_hiphase_block(c
     }
 }
 
+static void gap_homozygous_graph_snp_does_not_split_a_supported_block(const Paths& p) {
+    Window gap;
+    gap.gap_left = 36614185;
+    gap.gap_right = 36623545;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 102);
+    CHECK(got.primary_correct >= 93);
+    CHECK(got.core_correct >= 92);
+    check_gap_contract(p, gap, got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const std::set<std::string> keys{"36597548:A>G", "36614185:A>AT",
+        "36620864:G>A", "36623545:A>AT", "36629321:C>T"};
+    std::map<std::string, std::pair<std::string, std::string>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (!keys.count(key)) continue;
+        calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[8].find("PS") == std::string::npos ? "." :
+            fields[9].substr(fields[9].rfind(':') + 1)));
+        if (key == "36620864:G>A") {
+            CHECK(fields[9].find(":55:11,44:") != std::string::npos);
+            CHECK(fields[7].find("CAT=CLEAN_HOM") != std::string::npos);
+        }
+    }
+    REQUIRE(calls.size() == keys.size());
+    const auto& left = calls.at("36597548:A>G");
+    CHECK(left.second != ".");
+    CHECK(calls.at("36620864:G>A").first == "1/1");
+    CHECK(calls.at("36620864:G>A").second == ".");
+    for (const std::string key : {"36614185:A>AT", "36623545:A>AT", "36629321:C>T"}) {
+        const auto& call = calls.at(key);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (key == "36629321:C>T" ? left.first :
+            std::string(1, left.first[2]) + "|" + left.first[0]));
+    }
+}
+
+static void gap_cut_free_insertion_prefix_closes_the_36_268_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 36268558;
+    gap.gap_right = 36286778;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 109);
+    CHECK(got.primary_correct >= 100);
+    CHECK(got.core_correct >= 100);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_cut_free_insertion_prefix_closes_the_36_268_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const std::set<long long> positions{36268558, 36286778, 36299817, 36317511};
+    std::map<long long, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const long long pos = std::stoll(fields[1]);
+        if (!positions.count(pos)) continue;
+        REQUIRE(fields[8].find("PS") != std::string::npos);
+        REQUIRE(calls.emplace(pos, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == positions.size());
+    const auto& left = calls.at(gap.gap_left);
+    for (const auto& [pos, call] : calls) {
+        INFO(pos);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (pos == 36317511 ?
+            std::string(1, left.first[2]) + "|" + left.first[0] : left.first));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
+static void gap_ref_absent_graph_snp_recovers_the_40_633_mb_terminal_deletion(const Paths& p) {
+    Window gap;
+    gap.gap_left = 40633644;
+    gap.gap_right = 40636353;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 45);
+    CHECK(got.primary_correct >= 45);
+    CHECK(got.core_correct >= 41);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_ref_absent_graph_snp_recovers_the_40_633_mb_terminal_deletion", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "40633644:G>A" && key != "40636353:TG>T") continue;
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 2);
+    const auto& left = calls.at("40633644:G>A");
+    const auto& deletion = calls.at("40636353:TG>T");
+    CHECK(is_phased_het(left.first));
+    CHECK(is_phased_het(deletion.first));
+    CHECK(deletion.second == left.second);
+    CHECK(deletion.first == std::string(1, left.first[2]) + "|" + left.first[0]);
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        // These reads start beyond the upstream marker and observe only the
+        // terminal allele; they are disjoint from the upstream cohort.
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
+static void gap_physically_validated_repeat_snp_closes_the_11_796_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 11796979;
+    gap.gap_right = 11813446;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 136);
+    CHECK(got.primary_correct >= 126);
+    CHECK(got.core_correct >= 126);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_physically_validated_repeat_snp_closes_the_11_796_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        CHECK(key != "11813622:T>C");
+        if (key != "11796969:GTGTGTGTGTGTGTA>G" && key != "11796979:GTGTA>G" &&
+            key != "11813446:AT>A" && key != "11813622:T>TAC" && key != "11813668:T>C") continue;
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 5);
+    const auto& left = calls.at("11796979:GTGTA>G");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (key == "11796979:GTGTA>G" || key == "11813668:T>C" ? left.first :
+            std::string(1, left.first[2]) + "|" + left.first[0]));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= gap.gap_left && span->second.second >= gap.gap_left &&
+            span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // A late local union must also retain the already stitched continuation
+    // in the next owning chunk.
+    Window continuation;
+    continuation.gap_left = 11050001;
+    continuation.gap_right = 12950000;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "11796979:GTGTA>G" && key != "11813446:AT>A" && key != "12717796:C>T") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_ps.at("11796979:GTGTA>G") == continuation_ps.at("11813446:AT>A"));
+    CHECK(continuation_ps.at("11796979:GTGTA>G") == continuation_ps.at("12717796:C>T"));
+}
+
+static void gap_graph_repeat_indel_chain_closes_the_12_717_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 12717796;
+    gap.gap_right = 12740002;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 178);
+    CHECK(got.primary_correct >= 164);
+    CHECK(got.core_correct >= 164);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_graph_repeat_indel_chain_closes_the_12_717_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "12717796:C>T" && key != "12735894:TA>T" && key != "12752291:C>T") continue;
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 3);
+    const auto& left = calls.at("12717796:C>T");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (key == "12752291:C>T" ?
+            std::string(1, left.first[2]) + "|" + left.first[0] : left.first));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= gap.gap_left && span->second.second >= gap.gap_left &&
+            span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // A late local union must also retain the already stitched continuation
+    // in the next owning chunk.
+    Window continuation;
+    continuation.gap_left = 11050001;
+    continuation.gap_right = 12950000;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "11796979:GTGTA>G" && key != "12717796:C>T" && key != "12752291:C>T") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_ps.at("11796979:GTGTA>G") == continuation_ps.at("12717796:C>T"));
+    CHECK(continuation_ps.at("12717796:C>T") == continuation_ps.at("12752291:C>T"));
+}
+
+static void gap_physical_terminal_insertion_closes_the_12_954_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 12954878;
+    gap.gap_right = 12955838;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 84);
+    CHECK(got.primary_correct >= 84);
+    CHECK(got.core_correct >= 84);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_physical_terminal_insertion_closes_the_12_954_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "12954878:A>G" && key != "12955838:T>TC" && key != "12954322:G>A") continue;
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 3);
+    const auto& left = calls.at("12954878:A>G");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == left.first);
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= gap.gap_left && span->second.second >= gap.gap_left &&
+            span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // The terminal insertion must retain the final stitched SNP gauge
+    // across the preceding owning chunk.
+    Window continuation;
+    continuation.gap_left = 11050001;
+    continuation.gap_right = 12955838;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "11796979:GTGTA>G" && key != "12735894:TA>T" && key != "12955838:T>TC") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_ps.at("11796979:GTGTA>G") == continuation_ps.at("12735894:TA>T"));
+    CHECK(continuation_ps.at("12735894:TA>T") == continuation_ps.at("12955838:T>TC"));
+}
+
+static void gap_calibrated_tandem_insertions_close_the_0_865_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 865572;
+    gap.gap_right = 882277;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 71);
+    CHECK(got.primary_correct >= 59);
+    CHECK(got.core_correct >= 58);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_calibrated_tandem_insertions_close_the_0_865_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "863406:C>A" && key != "882277:A>ATC" && key != "882277:A>ATCTC" && key != "890261:TT>AC") continue;
+        if (key == "882277:A>ATC" || key == "882277:A>ATCTC") {
+            CHECK(fields[9].find(key == "882277:A>ATC" ? ":28:17,11:" : ":28:13,15:") != std::string::npos);
+        }
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 4);
+    const auto& left = calls.at("863406:C>A");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (key == "882277:A>ATC" ? (left.first == "0|1" ? "1|0" : "0|1") : left.first));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= gap.gap_left && span->second.second >= gap.gap_left &&
+            span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // A serial union must retain the stitched continuation into the next chunk.
+    Window continuation;
+    continuation.gap_left = 100001;
+    continuation.gap_right = 1117887;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    std::map<std::string, std::string> continuation_gt;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "130540:T>C" && key != "882277:A>ATC" && key != "1117887:T>A") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_gt.emplace(key, fields[9].substr(0, 3));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_gt.at("130540:T>C") == continuation_gt.at("882277:A>ATC"));
+    CHECK(continuation_gt.at("882277:A>ATC") == continuation_gt.at("1117887:T>A"));
+    CHECK(continuation_ps.at("130540:T>C") == continuation_ps.at("882277:A>ATC"));
+    CHECK(continuation_ps.at("882277:A>ATC") == continuation_ps.at("1117887:T>A"));
+}
+
+static void gap_calibrated_mixed_repeat_closes_the_57_085_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 57085410;
+    gap.gap_right = 57104654;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 155);
+    CHECK(got.primary_correct >= 143);
+    CHECK(got.core_correct >= 140);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_calibrated_mixed_repeat_closes_the_57_085_mb_gap", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "57085410:A>C" && key != "57104654:T>TAAA" && key != "57104654:TAA>T" && key != "57123860:A>C") continue;
+        if (key == "57104654:T>TAAA" || key == "57104654:TAA>T") {
+            CHECK(fields[9].find(key == "57104654:T>TAAA" ? ":67:44,23:" : ":67:45,22:") != std::string::npos);
+        }
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 4);
+    const auto& left = calls.at("57085410:A>C");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == (key == "57104654:TAA>T" ? (left.first == "0|1" ? "1|0" : "0|1") : left.first));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= gap.gap_left && span->second.second >= gap.gap_left &&
+            span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // A serial union must retain the stitched continuation into the next chunk.
+    Window continuation;
+    continuation.gap_left = 56542357;
+    continuation.gap_right = 57465653;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    std::map<std::string, std::string> continuation_gt;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "56542357:C>T" && key != "57104654:T>TAAA" && key != "57465653:C>A") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_gt.emplace(key, fields[9].substr(0, 3));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_gt.at("56542357:C>T") != continuation_gt.at("57104654:T>TAAA"));
+    CHECK(continuation_gt.at("57104654:T>TAAA") == continuation_gt.at("57465653:C>A"));
+    CHECK(continuation_ps.at("56542357:C>T") == continuation_ps.at("57104654:T>TAAA"));
+    CHECK(continuation_ps.at("57104654:T>TAAA") == continuation_ps.at("57465653:C>A"));
+}
+
+static void gap_equivalent_mixed_repeat_closes_the_55_309_mb_endpoint(const Paths& p) {
+    Window gap;
+    gap.gap_left = 55309789;
+    gap.gap_right = 55309794;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 67);
+    CHECK(got.primary_correct >= 66);
+    CHECK(got.core_correct >= 66);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_equivalent_mixed_repeat_closes_the_55_309_mb_endpoint", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "55309475:G>A" && key != "55309789:C>CT" && key != "55309789:CTT>C" && key != "55309794:T>TT" && key != "55309794:TTT>T") continue;
+        if (key == "55309794:T>TT" || key == "55309794:TTT>T") {
+            CHECK(fields[9].find(key == "55309794:T>TT" ? ":41:16,25:" : ":42:16,26:") != std::string::npos);
+        }
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == 5);
+    const auto& left = calls.at("55309475:G>A");
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left.second);
+        CHECK(call.first == ((key == "55309794:T>TT" || key == "55309789:C>CT") ? (left.first == "0|1" ? "1|0" : "0|1") : left.first));
+    }
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != left.second || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.first <= 55300140 && span->second.second >= 55300140 &&
+            span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first > 55309475 && span->second.second >= gap.gap_right)
+            ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        // Two held-out reads start beyond the last SNP and carry only the endpoint.
+        REQUIRE(total >= 2);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    // A serial union must retain the stitched continuation into the next chunk.
+    Window continuation;
+    continuation.gap_left = 54453020;
+    continuation.gap_right = 55309794;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    std::ifstream continuation_vcf(continuation_dir + "/native.vcf");
+    REQUIRE(continuation_vcf.good());
+    std::map<std::string, long long> continuation_ps;
+    std::map<std::string, std::string> continuation_gt;
+    while (std::getline(continuation_vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (key != "54453020:G>A" && key != "55309794:T>TT" && key != "55309789:C>CT") continue;
+        CHECK(is_phased_het(fields[9].substr(0, 3)));
+        continuation_gt.emplace(key, fields[9].substr(0, 3));
+        continuation_ps.emplace(key, std::stoll(fields[9].substr(fields[9].rfind(':') + 1)));
+    }
+    REQUIRE(continuation_ps.size() == 3);
+    CHECK(continuation_ps.at("54453020:G>A") == continuation_ps.at("55309794:T>TT"));
+    CHECK(continuation_ps.at("55309794:T>TT") == continuation_ps.at("55309789:C>CT"));
+}
+
 /// One fixture and selector for every panel window and mechanism regression.
+static void gap_compound_insertion_prefix_closes_the_45_876_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 45876157;
+    gap.gap_right = 45896820;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 141);
+    CHECK(got.primary_correct >= 129);
+    CHECK(got.core_correct >= 129);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_compound_insertion_prefix_closes_the_45_876_mb_gap", got);
+    const auto check_markers = [](const std::string& dir, bool require_end) {
+        std::map<std::string, std::pair<std::string, long long>> calls;
+        std::ifstream vcf(dir + "/native.vcf");
+        REQUIRE(vcf.good());
+        std::string line;
+        while (std::getline(vcf, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            const auto fields = split_tabs(line);
+            const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+            if (key != "45866904:G>GACAGACAGACACACACAC" && key != "45866904:G>GACAGACAGACACACACACAC" &&
+                key != "45876157:G>GT" && key != "45896820:A>G" && key != "46636707:C>T") continue;
+            REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+                std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+        }
+        REQUIRE(calls.count("45866904:G>GACAGACAGACACACACAC") == 1);
+        REQUIRE(calls.count("45866904:G>GACAGACAGACACACACACAC") == 1);
+        REQUIRE(calls.count("45876157:G>GT") == 1);
+        REQUIRE(calls.count("45896820:A>G") == 1);
+        if (require_end) REQUIRE(calls.count("46636707:C>T") == 1);
+        const auto& left = calls.at("45866904:G>GACAGACAGACACACACACAC");
+        for (const auto& [key, call] : calls) {
+            CHECK(is_phased_het(call.first));
+            CHECK(call.second == left.second);
+        }
+        CHECK(calls.at("45896820:A>G").first == left.first);
+        CHECK(calls.at("45866904:G>GACAGACAGACACACACAC").first != left.first);
+        return left.second;
+    };
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const long long core = check_markers(dir, false);
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        // The compound-only cohort has noisy repeat lengths. The original
+        // bridge molecules and an independent SNP cohort verify the gauge.
+        if (span->second.first <= 45866905 && span->second.second >= 45883707) ++parents[0][mat_on_hap1];
+        if (span->second.first > 45866905 && span->second.second >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 3);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+    Window continuation;
+    continuation.gap_left = 45866904;
+    continuation.gap_right = 46636707;
+    std::string continuation_dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", continuation_dir));
+    check_markers(continuation_dir, true);
+}
+
+
+static void gap_long_repeat_anchors_close_the_15_mb_block(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{15023123, 15039543, 126, 101, 101},
+                              std::array<long long, 5>{15100456, 15101262, 73, 70, 70},
+                              std::array<long long, 5>{15095642, 15101261, 101, 95, 95}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        const bool owning_chunk = gap.gap_left != 15095642;
+        if (owning_chunk) check_read_floors("gap_long_repeat_anchors_close_the_15_mb_block", got);
+        const long long joined_ps = owning_chunk ? 15003748 : 15071132;
+        std::string dir;
+        REQUIRE(run_arm(p, gap, "graph", "", dir));
+        const auto& spans = input_read_spans(p, gap);
+        std::array<std::array<int, 2>, 2> parents{};
+        std::map<std::string, bool> affected_parents;
+        const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+        REQUIRE(bam != nullptr);
+        const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+        const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+        REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+        while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+            if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+            const std::string name = bam_get_qname(record.get());
+            const auto parent = truth.find(name);
+            const auto span = spans.find(name);
+            const uint8_t* hp = bam_aux_get(record.get(), "HP");
+            const uint8_t* ps = bam_aux_get(record.get(), "PS");
+            if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+                bam_aux2i(ps) != joined_ps || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+            const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+            if (name == "m84031_231217_034919_s2/237175194/ccs" ||
+                name == "m84031_231217_034919_s2/82248351/ccs" ||
+                name == "m84031_231217_062403_s3/235673333/ccs")
+                affected_parents.emplace(name, mat_on_hap1);
+            // Independent cohorts on either side of each physical repeat
+            // check that the joined core retains one parental orientation.
+            const long long marker = gap.gap_left == 15023123 ? 15019256 : 15101263;
+            if (span->second.first <= marker && span->second.second < gap.gap_right) ++parents[0][mat_on_hap1];
+            if (span->second.first > marker && span->second.second >= gap.gap_right) ++parents[1][mat_on_hap1];
+        }
+        const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+        if (gap.gap_left != 15023123) {
+            REQUIRE(affected_parents.size() == 3);
+            for (const auto& [name, mat_on_hap1] : affected_parents) {
+                INFO("retained source insertion and tandem veto: " << name);
+                CHECK(mat_on_hap1 == static_cast<bool>(orientation));
+            }
+        }
+        for (const auto& cohort : parents) {
+            const int total = cohort[0] + cohort[1];
+            REQUIRE(total >= 3);
+            CHECK(static_cast<double>(cohort[orientation]) / total >= 0.90);
+        }
+    }
+    Window continuation;
+    continuation.gap_left = 14719378; continuation.gap_right = 15335938;
+    std::string dir;
+    REQUIRE(run_arm(p, continuation, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, long long>> calls;
+    const std::set<std::string> required{
+        "14719378:C>T", "15019255:TACACAC>T", "15023123:CT>C", "15039543:A>G",
+        "15100456:CT>C", "15100456:CTT>C", "15101262:A>ATG", "15101262:A>ATGTGTGTG", "15109300:C>CA", "15335938:G>A"};
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        if (required.count(key)) REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            std::stoll(fields[9].substr(fields[9].rfind(':') + 1)))).second);
+    }
+    REQUIRE(calls.size() == required.size());
+    for (const auto& [key, call] : calls) {
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == 14719378);
+    }
+    CHECK(calls.at("15019255:TACACAC>T").first == calls.at("15039543:A>G").first);
+    CHECK(calls.at("15100456:CT>C").first != calls.at("15100456:CTT>C").first);
+    CHECK(calls.at("15101262:A>ATG").first != calls.at("15101262:A>ATGTGTGTG").first);
+    CHECK(calls.at("15101262:A>ATGTGTGTG").first != calls.at("15039543:A>G").first);
+    CHECK(calls.at("15109300:C>CA").first == calls.at("15101262:A>ATGTGTGTG").first);
+}
+
+
+static void gap_calibrated_deletion_chain_closes_the_56_mb_boundary(const Paths& p) {
+    Window gap;
+    gap.gap_left = 55999194; gap.gap_right = 56040612;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 246);
+    CHECK(got.primary_correct >= 214);
+    CHECK(got.core_correct >= 214);
+    check_gap_contract(p, gap, got);
+    check_read_floors("gap_calibrated_deletion_chain_closes_the_56_mb_boundary", got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/208800100/ccs", "m84031_231217_062403_s3/152046853/ccs",
+        "m84031_231217_062403_s3/254677189/ccs", "m84031_231217_034919_s2/80151528/ccs"};
+    std::set<std::string> checked;
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        const std::string name = bam_get_qname(record.get());
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (name == "m84031_231217_062403_s3/151328165/ccs") CHECK((hp == nullptr || bam_aux2i(hp) == 0));
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 55883019 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap1); checked.insert(name); }
+        if (span->second.first <= gap.gap_left && span->second.second < 56007501) ++parents[0][mat_on_hap1];
+        if (span->second.first > 56027379 && span->second.second >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    CHECK(checked == restored);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.90);
+    }
+}
+
 TEST_CASE("all gaps", "[gap][windows][integration]") {
     const Paths p = paths();
     if (!p.complete()) {
@@ -6280,6 +7319,19 @@ TEST_CASE("all gaps", "[gap][windows][integration]") {
         void (*run)(const Paths&);
     };
     static const GapCheck checks[] = {
+        {"calibrated deletion chain closes the 56 Mb boundary", "[gap][deletion-chain][orientation]", gap_calibrated_deletion_chain_closes_the_56_mb_boundary},
+        {"Calibrated tandem insertions close the 0.865 Mb gap", "[gap][tandem-insertion][orientation]", gap_calibrated_tandem_insertions_close_the_0_865_mb_gap},
+        {"calibrated mixed repeat closes the 57.085 Mb gap", "[gap][stitch-connectivity][msa][orientation]", gap_calibrated_mixed_repeat_closes_the_57_085_mb_gap},
+        {"equivalent mixed repeat closes the 55.309 Mb endpoint", "[gap][terminal-repeat][orientation]", gap_equivalent_mixed_repeat_closes_the_55_309_mb_endpoint},
+        {"long repeat anchors close the 15.023 and 15.100 Mb gaps", "[gap][long-repeat][orientation]", gap_long_repeat_anchors_close_the_15_mb_block},
+        {"compound insertion prefix closes the 45.876 Mb gap", "[gap][compound-prefix][orientation]", gap_compound_insertion_prefix_closes_the_45_876_mb_gap},
+        {"Physical terminal insertion completes the 12.954 Mb block", "[gap][terminal-insertion][orientation]", gap_physical_terminal_insertion_closes_the_12_954_mb_gap},
+        {"Physical graph repeat chain closes the 12.717 Mb gap", "[gap][repeat-indel-chain][orientation]", gap_graph_repeat_indel_chain_closes_the_12_717_mb_gap},
+        {"Physical repeat SNP validation closes the 11.796 Mb gap", "[gap][repeat-snp-validation][orientation]", gap_physically_validated_repeat_snp_closes_the_11_796_mb_gap},
+        {"REF-absent graph SNP recovers the 40.633 Mb terminal deletion", "[gap][terminal-deletion][orientation]", gap_ref_absent_graph_snp_recovers_the_40_633_mb_terminal_deletion},
+        {"cut-free insertion prefix closes the 36.268 Mb gap", "[gap][insertion-prefix][orientation]", gap_cut_free_insertion_prefix_closes_the_36_268_mb_gap},
+        {"homozygous graph SNP does not split a supported block", "[gap][homozygous-graph-snp][orientation]", gap_homozygous_graph_snp_does_not_split_a_supported_block},
+        {"calibrated source deletion joins the fourth largest HiPhase block", "[gap][fourth-largest-block][source-deletion][orientation]", gap_calibrated_source_deletion_joins_the_fourth_largest_hiphase_block},
         {"physically contradicted graph SNPs close the 25.855 Mb seam", "[gap][graph-snp-contradiction][orientation]", gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam},
         {"complementary insertions join the second largest HiPhase block", "[gap][second-largest-block][orientation]", gap_complementary_insertions_join_the_second_largest_hiphase_block},
         {"calibrated repeat SNPs join the largest HiPhase block", "[gap][repeat][largest-block][orientation]", gap_calibrated_repeat_snps_join_the_largest_hiphase_block},

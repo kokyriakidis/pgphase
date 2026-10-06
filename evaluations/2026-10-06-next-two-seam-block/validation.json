@@ -1,0 +1,50 @@
+{
+  "production_sha256": "45ebce98d40c25d7a760907409adbae5862c8aacf2e2b3539ed7abbb099af056",
+  "build": "make -j10; zero errors or warnings",
+  "unit_tests": "passed",
+  "predicate_tests": {
+    "assertions": 1551,
+    "cases": 47,
+    "status": "passed"
+  },
+  "bam_gates": "HiFi/ONT TSV and phased VCF golden matches; HiFi one/four-thread deterministic",
+  "new_native_fixture": {
+    "assertions": 751,
+    "status": "passed"
+  },
+  "existing_0_865_mb_fixture": {
+    "assertions": 682,
+    "status": "passed"
+  },
+  "before_binary_new_fixture": {
+    "assertions": 649,
+    "failed": 9,
+    "status": "reproduced"
+  },
+  "owner_threads": "one/four-thread candidates, VCF records and BAM assignments identical",
+  "gap_suite": {
+    "assertions": 17534,
+    "cases": 4,
+    "status": "passed"
+  },
+  "replay_cache_self_tests": "passed",
+  "hi_comparator_self_tests": "passed; 131 identical-alignment windows measured",
+  "cached_runtime": {
+    "focused": {
+      "seconds": 1.1164589149993844,
+      "exit_code": 0
+    },
+    "suite": {
+      "seconds": 40.33483376199729,
+      "exit_code": 0
+    }
+  },
+  "previous_native_replays": {
+    "labels": 238,
+    "requests": 126,
+    "changed_labels": 4,
+    "status": "passed",
+    "binary_states": "all current",
+    "lost_correct_labels": 0
+  }
+}

@@ -1,0 +1,364 @@
+{
+  "physical_insertion_coordinate": 12955839,
+  "vcf_coordinate": 12955838,
+  "catalog_alleles": [
+    "T",
+    "TC"
+  ],
+  "catalog_counts": [
+    44,
+    29
+  ],
+  "cohorts": [
+    [
+      [
+        14,
+        0
+      ],
+      [
+        0,
+        7
+      ]
+    ],
+    [
+      [
+        10,
+        0
+      ],
+      [
+        0,
+        7
+      ]
+    ]
+  ],
+  "accepted_molecules": [
+    {
+      "read": "m84031_231217_062403_s3/186585698/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/178391251/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000618227766016838
+    },
+    {
+      "read": "m84031_231217_062403_s3/133958064/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/260507838/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000618227766016838
+    },
+    {
+      "read": "m84031_231217_062403_s3/104666375/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/5180352/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/31722446/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0009344555320336761
+    },
+    {
+      "read": "m84031_231217_062403_s3/142415223/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/256442763/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/177345963/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/117577433/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000618227766016838
+    },
+    {
+      "read": "m84031_231217_034919_s2/11343066/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/40375818/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/151391908/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/86970668/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/185860579/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/261624405/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/197728000/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/176493326/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/49153847/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/4131394/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/25559658/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/147787420/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/77927603/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.0007990524629937758
+    },
+    {
+      "read": "m84031_231217_062403_s3/94962346/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.00040251785082358836
+    },
+    {
+      "read": "m84031_231217_062403_s3/238878846/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/71897612/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/237570071/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000618227766016838
+    },
+    {
+      "read": "m84031_231217_062403_s3/31393160/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/149228995/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/114955924/ccs",
+      "cohort": 1,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0009344555320336761
+    },
+    {
+      "read": "m84031_231217_062403_s3/255656736/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/129698044/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_062403_s3/133305816/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/224658367/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_062403_s3/185406420/ccs",
+      "cohort": 1,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    },
+    {
+      "read": "m84031_231217_034919_s2/165287510/ccs",
+      "cohort": 0,
+      "allele": 1,
+      "snp_haplotype_index": 1,
+      "call_error_bound": 0.0005020000000000001
+    },
+    {
+      "read": "m84031_231217_034919_s2/181470703/ccs",
+      "cohort": 0,
+      "allele": 0,
+      "snp_haplotype_index": 0,
+      "call_error_bound": 0.000402
+    }
+  ],
+  "molecule_count": 38,
+  "discordant_molecules": 0,
+  "one_sided_95_wilson_upper_plus_call_error": {
+    "each_cohort": [
+      0.12413125623272721,
+      0.1472985962248668
+    ],
+    "combined": 0.07646621625741262
+  },
+  "hiphase_calls": {
+    "12954322": {
+      "ref": "G",
+      "alt": [
+        "A"
+      ],
+      "GT": [
+        1,
+        0
+      ],
+      "PS": 11796969,
+      "DP": 80,
+      "GQ": 22,
+      "AD": [
+        47,
+        33
+      ]
+    },
+    "12954878": {
+      "ref": "A",
+      "alt": [
+        "G"
+      ],
+      "GT": [
+        1,
+        0
+      ],
+      "PS": 11796969,
+      "DP": 78,
+      "GQ": 21,
+      "AD": [
+        47,
+        31
+      ]
+    },
+    "12955838": {
+      "ref": "T",
+      "alt": [
+        "TC"
+      ],
+      "GT": [
+        1,
+        0
+      ],
+      "PS": 11796969,
+      "DP": 71,
+      "GQ": 6,
+      "AD": [
+        42,
+        28
+      ]
+    }
+  }
+}

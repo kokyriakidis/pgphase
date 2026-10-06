@@ -1,0 +1,603 @@
+{
+  "inputs": {
+    "before": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix82/final/0",
+    "after": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix83/final/0",
+    "hiphase": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix48/competitor/hiphase_dv",
+    "production_sha256": "ccd9f822ba30b7202a1cc140eb1dd80d333afd85b253e092c224c8b29b3ecd70"
+  },
+  "target": {
+    "left": 54453020,
+    "right": 55309794,
+    "length": 856775,
+    "hiphase_rank": 26
+  },
+  "gap": [
+    55309789,
+    55309794
+  ],
+  "gap_boundary_distance_bp": 5,
+  "unscorable_original_reads": {},
+  "tools": {
+    "before": {
+      "regions": {
+        "block": {
+          "scorable": 3997,
+          "counts": {
+            "correct": 3875,
+            "discordant": 11,
+            "unphased": 111
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/129697952/ccs",
+            "m84031_231217_034919_s2/154338378/ccs",
+            "m84031_231217_034919_s2/247597692/ccs",
+            "m84031_231217_034919_s2/38999040/ccs",
+            "m84031_231217_034919_s2/99880143/ccs",
+            "m84031_231217_062403_s3/198118368/ccs",
+            "m84031_231217_062403_s3/207356317/ccs",
+            "m84031_231217_062403_s3/232261423/ccs",
+            "m84031_231217_062403_s3/255792204/ccs",
+            "m84031_231217_062403_s3/71701394/ccs",
+            "m84031_231217_062403_s3/83955608/ccs"
+          ],
+          "correct_all_reads": 0.9694771078308732,
+          "dominant_connected_correct_core": 3851,
+          "correct_cores": {
+            "54569072": 3851
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 3851,
+              "false": 9
+            },
+            "1054569072": {
+              "true": 23,
+              "false": 2
+            },
+            "1555000206": {
+              "true": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 231,
+          "counts": {
+            "correct": 231
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 231,
+          "correct_cores": {
+            "54569072": 231
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 231
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 38,
+          "counts": {
+            "correct": 38
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 38,
+          "correct_cores": {
+            "54569072": 38
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 38
+            }
+          }
+        },
+        "gap": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 64,
+          "correct_cores": {
+            "54569072": 64
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 64
+            },
+            "1054569072": {
+              "false": 1,
+              "true": 2
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 64,
+          "correct_cores": {
+            "54569072": 64
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 64
+            },
+            "1054569072": {
+              "false": 1,
+              "true": 2
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 3,
+          "counts": {
+            "correct": 2,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.6666666666666666,
+          "dominant_connected_correct_core": 0,
+          "correct_cores": {},
+          "parental_orientation_votes": {
+            "1054569072": {
+              "true": 2,
+              "false": 1
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 0,
+          "counts": {},
+          "discordant_reads": [],
+          "correct_all_reads": null,
+          "dominant_connected_correct_core": 0,
+          "correct_cores": {},
+          "parental_orientation_votes": {}
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "54569072": {
+          "true": 3851,
+          "false": 9
+        },
+        "1054569072": {
+          "true": 23,
+          "false": 2
+        },
+        "1555000206": {
+          "true": 1
+        }
+      }
+    },
+    "pgphase": {
+      "regions": {
+        "block": {
+          "scorable": 3997,
+          "counts": {
+            "correct": 3875,
+            "discordant": 11,
+            "unphased": 111
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/129697952/ccs",
+            "m84031_231217_034919_s2/154338378/ccs",
+            "m84031_231217_034919_s2/247597692/ccs",
+            "m84031_231217_034919_s2/38999040/ccs",
+            "m84031_231217_034919_s2/99880143/ccs",
+            "m84031_231217_062403_s3/198118368/ccs",
+            "m84031_231217_062403_s3/207356317/ccs",
+            "m84031_231217_062403_s3/232261423/ccs",
+            "m84031_231217_062403_s3/255792204/ccs",
+            "m84031_231217_062403_s3/71701394/ccs",
+            "m84031_231217_062403_s3/83955608/ccs"
+          ],
+          "correct_all_reads": 0.9694771078308732,
+          "dominant_connected_correct_core": 3853,
+          "correct_cores": {
+            "54569072": 3853
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 3853,
+              "false": 9
+            },
+            "1054569072": {
+              "true": 21,
+              "false": 2
+            },
+            "1555000206": {
+              "true": 1
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 231,
+          "counts": {
+            "correct": 231
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 231,
+          "correct_cores": {
+            "54569072": 231
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 231
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 38,
+          "counts": {
+            "correct": 38
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 38,
+          "correct_cores": {
+            "54569072": 38
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 38
+            }
+          }
+        },
+        "gap": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 66,
+          "correct_cores": {
+            "54569072": 66
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 66
+            },
+            "1054569072": {
+              "false": 1
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 66,
+          "correct_cores": {
+            "54569072": 66
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 66
+            },
+            "1054569072": {
+              "false": 1
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 3,
+          "counts": {
+            "correct": 2,
+            "discordant": 1
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/38999040/ccs"
+          ],
+          "correct_all_reads": 0.6666666666666666,
+          "dominant_connected_correct_core": 2,
+          "correct_cores": {
+            "54569072": 2
+          },
+          "parental_orientation_votes": {
+            "54569072": {
+              "true": 2
+            },
+            "1054569072": {
+              "false": 1
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 0,
+          "counts": {},
+          "discordant_reads": [],
+          "correct_all_reads": null,
+          "dominant_connected_correct_core": 0,
+          "correct_cores": {},
+          "parental_orientation_votes": {}
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "54569072": {
+          "true": 3853,
+          "false": 9
+        },
+        "1054569072": {
+          "true": 21,
+          "false": 2
+        },
+        "1555000206": {
+          "true": 1
+        }
+      }
+    },
+    "hiphase": {
+      "regions": {
+        "block": {
+          "scorable": 3997,
+          "counts": {
+            "correct": 3888,
+            "discordant": 10,
+            "unphased": 99
+          },
+          "discordant_reads": [
+            "m84031_231217_034919_s2/129697952/ccs",
+            "m84031_231217_034919_s2/154338378/ccs",
+            "m84031_231217_034919_s2/247597692/ccs",
+            "m84031_231217_034919_s2/52301439/ccs",
+            "m84031_231217_034919_s2/99880143/ccs",
+            "m84031_231217_062403_s3/198118368/ccs",
+            "m84031_231217_062403_s3/207356317/ccs",
+            "m84031_231217_062403_s3/232261423/ccs",
+            "m84031_231217_062403_s3/71701394/ccs",
+            "m84031_231217_062403_s3/83955608/ccs"
+          ],
+          "correct_all_reads": 0.9727295471603703,
+          "dominant_connected_correct_core": 3888,
+          "correct_cores": {
+            "54453020": 3888
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 3888,
+              "true": 10
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 231,
+          "counts": {
+            "correct": 231
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 231,
+          "correct_cores": {
+            "54453020": 231
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 231
+            }
+          }
+        },
+        "left_marker_cohort": {
+          "scorable": 38,
+          "counts": {
+            "correct": 38
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 38,
+          "correct_cores": {
+            "54453020": 38
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 38
+            }
+          }
+        },
+        "gap": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "unphased": 1
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 66,
+          "correct_cores": {
+            "54453020": 66
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 66
+            }
+          }
+        },
+        "physical_bridges": {
+          "scorable": 67,
+          "counts": {
+            "correct": 66,
+            "unphased": 1
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 0.9850746268656716,
+          "dominant_connected_correct_core": 66,
+          "correct_cores": {
+            "54453020": 66
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 66
+            }
+          }
+        },
+        "right_marker_cohort": {
+          "scorable": 3,
+          "counts": {
+            "correct": 2,
+            "unphased": 1
+          },
+          "discordant_reads": [],
+          "correct_all_reads": 0.6666666666666666,
+          "dominant_connected_correct_core": 2,
+          "correct_cores": {
+            "54453020": 2
+          },
+          "parental_orientation_votes": {
+            "54453020": {
+              "false": 2
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 0,
+          "counts": {},
+          "discordant_reads": [],
+          "correct_all_reads": null,
+          "dominant_connected_correct_core": 0,
+          "correct_cores": {},
+          "parental_orientation_votes": {}
+        }
+      },
+      "identical_original_alignments": 3997,
+      "phase_set_orientation": {
+        "54453020": {
+          "false": 3888,
+          "true": 10
+        }
+      }
+    }
+  },
+  "preservation": {
+    "primary_reads": 256610,
+    "before_counts": {
+      "correct": 230765,
+      "unphased": 19187,
+      "discordant": 6658
+    },
+    "after_counts": {
+      "correct": 230765,
+      "unphased": 19187,
+      "discordant": 6658
+    },
+    "transitions": {
+      "correct->correct": 230765,
+      "unphased->unphased": 19187,
+      "discordant->discordant": 6658
+    },
+    "lost_correct_assignments": [],
+    "missing_variant_keys": [],
+    "added_variant_keys": [
+      [
+        "CHM13#0#chr20",
+        "55309794",
+        ".",
+        "T",
+        "TT"
+      ],
+      [
+        "CHM13#0#chr20",
+        "55309794",
+        ".",
+        "TTT",
+        "T"
+      ]
+    ],
+    "before_variant_count": 64481,
+    "after_variant_count": 64483
+  },
+  "metrics": {
+    "before": {
+      "block_count": 254,
+      "n50_bp": 955496,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4935
+      },
+      "target_blocks": [
+        {
+          "ps": 54569072,
+          "left": 54453020,
+          "right": 55309789,
+          "length": 856770,
+          "rows": 745
+        }
+      ]
+    },
+    "pgphase": {
+      "block_count": 254,
+      "n50_bp": 955496,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4935
+      },
+      "target_blocks": [
+        {
+          "ps": 54569072,
+          "left": 54453020,
+          "right": 55309794,
+          "length": 856775,
+          "rows": 747
+        }
+      ]
+    },
+    "hiphase": {
+      "block_count": 191,
+      "n50_bp": 1005183,
+      "largest_block": {
+        "ps": 63182011,
+        "left": 63182011,
+        "right": 66206480,
+        "length": 3024470,
+        "rows": 5820
+      },
+      "target_blocks": [
+        {
+          "ps": 54453020,
+          "left": 54453020,
+          "right": 55309794,
+          "length": 856775,
+          "rows": 871
+        }
+      ]
+    }
+  },
+  "whole_block_read_deficit": {
+    "correct": 13,
+    "core_correct": 35
+  },
+  "previous_block_extent_changes": [],
+  "whole_hiphase_span_covered": true
+}

@@ -13,3 +13,15 @@ gap_cut_free_source_paths_close_the_17_634_mb_gap	4076	4047	29	0.99	0.81	202
 gap_calibrated_repeat_snps_join_the_largest_hiphase_block	2968	2962	6	0.99	1.0	6
 gap_complementary_insertions_join_the_second_largest_hiphase_block	4409	4364	45	0.98	98.0/127.0	127
 gap_physically_contradicted_graph_snps_close_the_25_855_mb_seam	4053	4015	38	-	88.0/91.0	91
+gap_calibrated_source_deletion_joins_the_fourth_largest_hiphase_block	3741	3652	89	-	119.0/136.0	136
+gap_cut_free_insertion_prefix_closes_the_36_268_mb_gap	3802	3668	134	0.96	100.0/109.0	109
+gap_ref_absent_graph_snp_recovers_the_40_633_mb_terminal_deletion	3936	3863	73	0.98	41.0/45.0	45
+gap_physically_validated_repeat_snp_closes_the_11_796_mb_gap	4104	4024	80	0.98	126.0/136.0	136
+gap_graph_repeat_indel_chain_closes_the_12_717_mb_gap	4214	4199	15	0.99	164.0/178.0	178
+gap_physical_terminal_insertion_closes_the_12_954_mb_gap	4214	4199	15	0.99	84.0/84.0	84
+gap_calibrated_tandem_insertions_close_the_0_865_mb_gap	3720	3708	12	0.99	58.0/71.0	71
+gap_calibrated_mixed_repeat_closes_the_57_085_mb_gap	4054	3876	178	0.95	140.0/155.0	155
+gap_equivalent_mixed_repeat_closes_the_55_309_mb_endpoint	4082	4045	37	0.99	66.0/67.0	67
+gap_compound_insertion_prefix_closes_the_45_876_mb_gap	2362	1577	785	0.66	129.0/141.0	141
+gap_long_repeat_anchors_close_the_15_mb_block	4314	4300	14	0.99	-	-
+gap_calibrated_deletion_chain_closes_the_56_mb_boundary	8153	8042	111	8042.0/8153.0	214.0/246.0	246

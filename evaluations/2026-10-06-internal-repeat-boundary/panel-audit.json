@@ -1,0 +1,64 @@
+{
+  "native_output_labels": 227,
+  "independent_requests": 119,
+  "comparison_pairs": 119,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "88d162f52cd2600971ddfd967ca2cb9d29b88a5609632dcca0e22413d02bc936",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w11050001-12950000/phased.bam",
+      "before_counts": {
+        "correct": 8107,
+        "discordant": 101,
+        "unphased": 593
+      },
+      "after_counts": {
+        "correct": 8159,
+        "discordant": 95,
+        "unphased": 547
+      },
+      "changed_read_tags": 1027,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 294,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "12735894",
+          ".",
+          "TA",
+          "T"
+        ]
+      ]
+    },
+    {
+      "output": "graph/w12256072-12269535/phased.bam",
+      "before_counts": {
+        "correct": 4147,
+        "unphased": 108,
+        "discordant": 21
+      },
+      "after_counts": {
+        "correct": 4199,
+        "unphased": 62,
+        "discordant": 15
+      },
+      "changed_read_tags": 1037,
+      "lost_correct_assignments": [],
+      "changed_variant_records": 294,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "12735894",
+          ".",
+          "TA",
+          "T"
+        ]
+      ]
+    }
+  ]
+}

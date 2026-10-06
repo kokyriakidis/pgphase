@@ -1,0 +1,46 @@
+{
+  "primary_reads": 256610,
+  "before_counts": {
+    "correct": 230749,
+    "unphased": 19187,
+    "discordant": 6674
+  },
+  "after_counts": {
+    "correct": 230765,
+    "unphased": 19187,
+    "discordant": 6658
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_read_tags": 1695,
+  "changed_evidence": [],
+  "changed_tags_with_status_change_outside_gap": [],
+  "unchanged_rescue_reclassification_outside_gap": [],
+  "removed_variant_keys": [],
+  "added_variant_keys": [],
+  "transitions": {
+    "correct->correct": 230749,
+    "unphased->unphased": 19187,
+    "discordant->discordant": 6658,
+    "discordant->correct": 16
+  },
+  "newly_correct": [
+    "m84031_231217_034919_s2/105058783/ccs",
+    "m84031_231217_034919_s2/142476017/ccs",
+    "m84031_231217_034919_s2/157419915/ccs",
+    "m84031_231217_034919_s2/162401881/ccs",
+    "m84031_231217_034919_s2/168693340/ccs",
+    "m84031_231217_034919_s2/22481029/ccs",
+    "m84031_231217_034919_s2/246419381/ccs",
+    "m84031_231217_034919_s2/62985645/ccs",
+    "m84031_231217_034919_s2/83170543/ccs",
+    "m84031_231217_062403_s3/11469015/ccs",
+    "m84031_231217_062403_s3/134155742/ccs",
+    "m84031_231217_062403_s3/208017152/ccs",
+    "m84031_231217_062403_s3/243273316/ccs",
+    "m84031_231217_062403_s3/60164168/ccs",
+    "m84031_231217_062403_s3/74387837/ccs",
+    "m84031_231217_062403_s3/89723043/ccs"
+  ]
+}

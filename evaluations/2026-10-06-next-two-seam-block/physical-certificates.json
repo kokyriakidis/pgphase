@@ -1,0 +1,1259 @@
+{
+  "deletion": {
+    "gauge": [
+      [
+        22,
+        0
+      ],
+      [
+        0,
+        27
+      ]
+    ],
+    "parity": [
+      2,
+      0
+    ],
+    "log_odds": -16.209562989956442,
+    "molecules": [
+      {
+        "qname": "m84031_231217_034919_s2/238944891/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          2,
+          4
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/132384283/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000518227766016838
+      },
+      {
+        "qname": "m84031_231217_034919_s2/192743431/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000518227766016838
+      },
+      {
+        "qname": "m84031_231217_034919_s2/185600554/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -1,
+        "sequence_distances": [
+          1,
+          7
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/151064370/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/136450017/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/107812615/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -2,
+        "sequence_distances": [
+          2,
+          8
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/39061700/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/86248508/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000734455532033676
+      },
+      {
+        "qname": "m84031_231217_034919_s2/186189658/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/105780182/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/184682739/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/50269648/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0021972623149688784
+      },
+      {
+        "qname": "m84031_231217_034919_s2/93192373/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/142347596/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/31134902/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -2,
+        "sequence_distances": [
+          2,
+          8
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/93458645/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/220792406/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/44763937/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          8,
+          2
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/113116771/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/125043974/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/92539863/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/130093041/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/161874625/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/223745102/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/260705614/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -1,
+        "sequence_distances": [
+          1,
+          7
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/243796660/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/208278452/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          8,
+          2
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/264505383/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/50532767/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0021972623149688784
+      },
+      {
+        "qname": "m84031_231217_062403_s3/169676428/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/222106004/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          2,
+          4
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/15011629/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          2,
+          4
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/133956309/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 4,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/92406840/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0009506832980505139
+      },
+      {
+        "qname": "m84031_231217_062403_s3/214499516/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/121965948/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/103025833/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/117247164/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/27590690/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 1,
+        "sequence_distances": [
+          1,
+          6
+        ],
+        "error": 0.000518227766016838
+      },
+      {
+        "qname": "m84031_231217_034919_s2/234359148/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/199756108/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/40373540/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          8,
+          2
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/182457659/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -2,
+        "sequence_distances": [
+          2,
+          8
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/8782072/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": -2,
+        "sequence_distances": [
+          2,
+          8
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/79302088/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          8,
+          2
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/8197365/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/24316290/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/208408261/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/58261575/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_062403_s3/88740875/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.000302
+      }
+    ]
+  },
+  "insertion": {
+    "gauge": [
+      [
+        8,
+        0
+      ],
+      [
+        0,
+        6
+      ]
+    ],
+    "parity": [
+      0,
+      12
+    ],
+    "log_odds": 85.25564629496107,
+    "molecules": [
+      {
+        "qname": "m84031_231217_062403_s3/254021462/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/18354528/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/106890668/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 6,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.0011182277660168381
+      },
+      {
+        "qname": "m84031_231217_062403_s3/90510991/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/75699947/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 6,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.0009020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/24512160/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0011020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/198707241/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.002399366596101027
+      },
+      {
+        "qname": "m84031_231217_034919_s2/43716165/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/100667163/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 6,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.0009020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/259719670/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0011020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/251986954/ccs",
+        "role": "bridge",
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0011020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/39194196/ccs",
+        "role": "bridge",
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/37360871/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/85789391/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0029972623149688788
+      },
+      {
+        "qname": "m84031_231217_034919_s2/184161301/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 10,
+        "sequence_distances": [
+          8,
+          2
+        ],
+        "error": 0.007727801210818768
+      },
+      {
+        "qname": "m84031_231217_062403_s3/22417758/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/115543853/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.0011182277660168381
+      },
+      {
+        "qname": "m84031_231217_034919_s2/32247905/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/170136664/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/144442919/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "sequence_distances": [
+          2,
+          8
+        ],
+        "error": 0.000302
+      },
+      {
+        "qname": "m84031_231217_034919_s2/151126612/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/46334534/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0011020000000000001
+      },
+      {
+        "qname": "m84031_231217_062403_s3/109512853/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 8,
+        "sequence_distances": [
+          6,
+          0
+        ],
+        "error": 0.0011020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/242943148/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 4,
+        "sequence_distances": [
+          2,
+          4
+        ],
+        "error": 0.0007020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/146346340/ccs",
+        "role": "calibration",
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 2,
+        "sequence_distances": [
+          0,
+          6
+        ],
+        "error": 0.0005020000000000001
+      },
+      {
+        "qname": "m84031_231217_034919_s2/183047494/ccs",
+        "role": "calibration",
+        "allele": 1,
+        "snp_hap": 1,
+        "net_length": 6,
+        "sequence_distances": [
+          4,
+          2
+        ],
+        "error": 0.0009020000000000001
+      }
+    ]
+  },
+  "retained_source_insertion": {
+    "position": 15109301,
+    "cohorts": [
+      [
+        [
+          1,
+          8
+        ],
+        [
+          8,
+          0
+        ]
+      ],
+      [
+        [
+          0,
+          8
+        ],
+        [
+          8,
+          0
+        ]
+      ]
+    ],
+    "hap1_allele": 1,
+    "discordant": 1,
+    "total": 33,
+    "joint_error_bound": 0.1349978167435206,
+    "molecules": [
+      {
+        "qname": "m84031_231217_034919_s2/37360871/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/184161301/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/115543853/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/32247905/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/170136664/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/144442919/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/151126612/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/12060808/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000618227766016838
+      },
+      {
+        "qname": "m84031_231217_034919_s2/242943148/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/146346340/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/183047494/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000618227766016838
+      },
+      {
+        "qname": "m84031_231217_034919_s2/223811359/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/261753507/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.0006182277660168379
+      },
+      {
+        "qname": "m84031_231217_062403_s3/176554242/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/166858901/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/39325891/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/170787068/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/58786005/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/114098874/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/202708322/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/108860159/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/176624852/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.00040399052462993776
+      },
+      {
+        "qname": "m84031_231217_034919_s2/194316261/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/247075487/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/242024877/ccs",
+        "cohort": 1,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/175048295/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/121571383/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 0,
+        "net_length": 0,
+        "error": 0.0006182277660168379
+      },
+      {
+        "qname": "m84031_231217_062403_s3/133698494/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/174850170/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/206964987/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/135861234/ccs",
+        "cohort": 0,
+        "allele": 0,
+        "snp_hap": 1,
+        "net_length": 0,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_034919_s2/127795457/ccs",
+        "cohort": 0,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      },
+      {
+        "qname": "m84031_231217_062403_s3/110756646/ccs",
+        "cohort": 1,
+        "allele": 1,
+        "snp_hap": 0,
+        "net_length": 1,
+        "error": 0.000402
+      }
+    ]
+  }
+}

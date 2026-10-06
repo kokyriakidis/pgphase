@@ -1,0 +1,48 @@
+{
+  "native_output_labels": 234,
+  "independent_requests": 122,
+  "comparison_pairs": 122,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "ccd9f822ba30b7202a1cc140eb1dd80d333afd85b253e092c224c8b29b3ecd70",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "stitch_bam_inner/w55300000-55500000/phased.bam",
+      "before_counts": {
+        "unphased": 101,
+        "correct": 1196,
+        "discordant": 27
+      },
+      "after_counts": {
+        "unphased": 101,
+        "correct": 1197,
+        "discordant": 26
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": [
+        [
+          "CHM13#0#chr20",
+          "55309794",
+          ".",
+          "T",
+          "TT"
+        ],
+        [
+          "CHM13#0#chr20",
+          "55309794",
+          ".",
+          "TTT",
+          "T"
+        ]
+      ]
+    }
+  ]
+}

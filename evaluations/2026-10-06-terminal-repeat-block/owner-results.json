@@ -1,0 +1,33 @@
+{
+  "primary_owner_reads": 4276,
+  "before_counts": {
+    "correct": 4199,
+    "unphased": 62,
+    "discordant": 15
+  },
+  "after_counts": {
+    "correct": 4199,
+    "unphased": 62,
+    "discordant": 15
+  },
+  "transitions": {
+    "correct->correct": 4199,
+    "unphased->unphased": 62,
+    "discordant->discordant": 15
+  },
+  "lost_correct_assignments": [],
+  "lost_phased_assignments": 0,
+  "changed_evidence": [],
+  "added_variant_keys": [
+    [
+      "CHM13#0#chr20",
+      "12955838",
+      ".",
+      "T",
+      "TC"
+    ]
+  ],
+  "removed_variant_keys": [],
+  "changed_read_tags": 0,
+  "single_vs_four_threads": "identical candidates, VCF records and BAM assignments"
+}
