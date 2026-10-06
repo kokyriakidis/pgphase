@@ -1,0 +1,21 @@
+{
+  "baseline": "db17374ae2f37a68e803ce397b09f90a75705b0bff23b40aea1498aeccd662a0",
+  "target": [
+    49720311,
+    49742973
+  ],
+  "artifacts": {
+    "src/graph_collect.cpp": "e069b1d55109efc475e4278fadaeb3b5ae1762411a5d8536f0d8acf47b2a5518",
+    "src/test_gap_windows.cpp": "67b79776d0ad4b9000f988cd313d759a893c42d5eaf427481c9b2e76d662868d",
+    "test_data/tmp_gap_fix63/pgphase-before": "db17374ae2f37a68e803ce397b09f90a75705b0bff23b40aea1498aeccd662a0",
+    "test_data/tmp_gap_fix63/pgphase-deferred-source-runs": "6824c6287134b7178f12e6690bcfca026b0a32850a861b36c041842e0144e29e",
+    "test_data/tmp_gap_fix63/test_gap_windows-final": "c0c46cfec06569d79c11d95fd9c52915714969cb5065c4464aaaa93089b9a898",
+    "test_data/tmp_gap_fix63/full-deferred-source-runs/phased.vcf": "069a1f9968c296fe86263a7788a2376d75020c93bb9d3508d3d87b4924d4f6d9",
+    "test_data/tmp_gap_fix63/full-deferred-source-runs/phased.bam": "0aca8febd610693aec1febd34e89a145a6aa0afdb9c5006522a32cac415760a6"
+  },
+  "hiphase_input": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+  "truth_input": "test_data/derived/chr20_truth_hap.tsv",
+  "original_input": "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+  "region": "CHM13#0#chr20:49000001-50000000",
+  "full_chunks": 67
+}

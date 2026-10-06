@@ -1,0 +1,104 @@
+{
+  "native_replays_compared": 338,
+  "unmatched_prior_replays": [],
+  "variant_alleles_counts_and_filters_preserved": true,
+  "correct_and_phased_assignments_preserved": true,
+  "changed_outputs": [
+    {
+      "baseline": "test_data/tmp_gap_fix69/certified-checks/168/stitch_single_seam_10m/w10727690-10746628/phased.bam",
+      "output": "stitch_single_seam_10m/w10727690-10746628/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4359,
+      "new_correct": 4364,
+      "old_discordant": 45,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 790,
+      "changed_read_tags": 2911,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 0,
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": [
+        "m84031_231217_034919_s2/135073838/ccs",
+        "m84031_231217_034919_s2/155257359/ccs",
+        "m84031_231217_062403_s3/122750756/ccs",
+        "m84031_231217_062403_s3/199101067/ccs",
+        "m84031_231217_062403_s3/215160506/ccs"
+      ]
+    },
+    {
+      "baseline": "test_data/tmp_gap_fix69/certified-checks/172/graph/w10727690-10746628/phased.bam",
+      "output": "graph/w10727690-10746628/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4359,
+      "new_correct": 4364,
+      "old_discordant": 45,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 790,
+      "changed_read_tags": 2911,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 0,
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": [
+        "m84031_231217_034919_s2/135073838/ccs",
+        "m84031_231217_034919_s2/155257359/ccs",
+        "m84031_231217_062403_s3/122750756/ccs",
+        "m84031_231217_062403_s3/199101067/ccs",
+        "m84031_231217_062403_s3/215160506/ccs"
+      ]
+    },
+    {
+      "baseline": "test_data/tmp_gap_fix69/certified-checks/177/padded_repeat_transfer/w10050001-10950000/phased.bam",
+      "output": "padded_repeat_transfer/w10050001-10950000/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4359,
+      "new_correct": 4364,
+      "old_discordant": 45,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 790,
+      "changed_read_tags": 2911,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 0,
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": [
+        "m84031_231217_034919_s2/135073838/ccs",
+        "m84031_231217_034919_s2/155257359/ccs",
+        "m84031_231217_062403_s3/122750756/ccs",
+        "m84031_231217_062403_s3/199101067/ccs",
+        "m84031_231217_062403_s3/215160506/ccs"
+      ]
+    },
+    {
+      "baseline": "test_data/tmp_gap_fix69/certified-checks/80/graph/w10727690-10746628/phased.bam",
+      "output": "graph/w10727690-10746628/phased.bam",
+      "old_primary_output_reads": 4519,
+      "new_primary_output_reads": 4519,
+      "old_correct": 4359,
+      "new_correct": 4364,
+      "old_discordant": 45,
+      "new_discordant": 45,
+      "old_variant_records": 1075,
+      "new_variant_records": 1075,
+      "changed_variant_gauges": 790,
+      "changed_read_tags": 2911,
+      "lost_correct_assignments": 0,
+      "lost_phased_assignments": 0,
+      "variant_alleles_counts_and_filters_preserved": true,
+      "new_assignments": [
+        "m84031_231217_034919_s2/135073838/ccs",
+        "m84031_231217_034919_s2/155257359/ccs",
+        "m84031_231217_062403_s3/122750756/ccs",
+        "m84031_231217_062403_s3/199101067/ccs",
+        "m84031_231217_062403_s3/215160506/ccs"
+      ]
+    }
+  ]
+}

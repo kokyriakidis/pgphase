@@ -1,0 +1,59 @@
+{
+  "truth_transitions": {
+    "(True, True)": 230566,
+    "(False, False)": 6768
+  },
+  "changed_output_only_tags": [],
+  "output_only_membership_and_hp_preserved": true,
+  "output_only_cohort_transfers": {},
+  "newly_discordant_reads": [],
+  "lost_keys": 0,
+  "gained_keys": 0,
+  "changed_genotype_alleles": [],
+  "changed_nonphase_fields": [],
+  "old_phased_keys_lost": [],
+  "old_blocks_split_or_mixed_gauge": {},
+  "newly_connected_old_gaps": [
+    [
+      49720311,
+      49742973
+    ]
+  ],
+  "reopened_tracked_gaps": [],
+  "before_connected_tracked": [
+    97,
+    111
+  ],
+  "connected_tracked": [
+    98,
+    111
+  ],
+  "target_before_spans": false,
+  "target_after_spans": true,
+  "target_truth_scorable_reads": 162,
+  "target_scores": [
+    {
+      "phased": 137,
+      "correct": 137,
+      "read_phase_sets": 2,
+      "dominant_correct": 74,
+      "separated": 0.4567901234567901
+    },
+    {
+      "phased": 137,
+      "correct": 137,
+      "read_phase_sets": 1,
+      "dominant_correct": 137,
+      "separated": 0.845679012345679
+    }
+  ],
+  "disjoint_flank_parent_votes": [
+    {
+      "true": 93
+    },
+    {
+      "true": 72,
+      "false": 7
+    }
+  ]
+}

@@ -74,11 +74,16 @@ holding its own FAI handle:
 | 2 | `build_graph_chunk`; with `--bam`, `exclude_ref_absent_graph_snps` | the catalog's sites become candidates and GAF rows become read profiles. Before graph phasing, high-MAPQ BAM bases validate clean biallelic SNPs: a graph SNP with no callable REF, decisive ALT support, and a substantial physical deletion allele is made ineligible and the chunk is rebuilt from the same GAF rows. Allele identity in the remaining graph sites is a **graph-walk identity**. |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)`; with `--bam`, `supplement_phased_snp_branches` | stage 1: the clean k-means over catalog sites; then restore missing calls at already phased SNPs when another catalog allele carries the identical unique oriented SNP branch |
-| 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets bounded gaps, imports independent BAM phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` joins blocks on decisive allele evidence, then source-block transfer atomically attaches supported graph flanks and can join adjacent graph blocks through one fully supported run before a weak BAM cut; a detached BAM-only run with no internal weak cut can also join a graph block through decisive physical SNP pairs; an MSA-verified BAM insertion run after a weak source cut can attach to the left block through established read HP votes while the later graph block remains independent; after a boundary deletion moves, a newly exposed deletion seam may attach the BAM suffix and its audited prefix certified by complementary deletion ALT calls |
+| 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets bounded gaps, imports independent BAM phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` joins blocks on decisive allele evidence, then source-block transfer atomically attaches supported graph flanks and can join adjacent graph blocks through one fully supported run before a weak BAM cut; a detached BAM-only run with no internal weak cut can also join a graph block through decisive physical SNP pairs; a complete left graph path or BAM run and a complete right BAM run can defer a physical clean-SNP union until output-only rescue finishes, preserving those rescue cohorts; an MSA-verified BAM insertion run after a weak source cut can attach to the left block through established read HP votes while the later graph block remains independent; after a boundary deletion moves, a newly exposed deletion seam may attach the BAM suffix and its audited prefix certified by complementary deletion ALT calls |
 | 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve, stages independent read assignments, and records BAM alleles missing from graph read profiles at exact sequence-matched biallelic candidates; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six; reads without graph profiles remain output-only |
 | 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, first completes graph-only excluded-site rescue, then uses the recorded exact BAM alleles to fill still-unphased reads; neither pass changes candidates or joins phase sets |
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 | 9 | `apply_equivalent_insertion_joins` | applies repeat-placement insertion connections certified on the final recovery matrix; updates core candidate/read gauges across the batch while preserving every output-only rescue and BAM fallback block |
+| 10 | `apply_deferred_physical_bridges` | applies the staged physical connections after rescue cohorts have been recorded |
+| 11 | `promote_calibrated_insertion_reads` | verifies the completed complementary-insertion bridge union and physically confirms exact insertion alleles before connecting unassigned or rescue reads to its core |
+| 12 | `promote_verified_source_indel_rescues` | independently verifies already tagged rescues against a retained MSA source edit and moves qualifying reads into their existing connected core |
+| 13 | `connect_masked_bam_fallback_reads` | connects already tagged BAM fallback reads whose false graph REF call is physically deleted, through an independently calibrated Q30 graph/BAM SNP in a certified shared-deletion union |
+| 14 | `fill_masked_snp_deletion_reads` | fills unassigned deletion-ALT reads whose verified opposite-haplotype SNPs are physically masked, using the allele gauge of already phased core reads |
 
 The graph command admits GAF alignments at MAPQ 5 by default. These reads
 participate in graph-site depth, clustering, block construction, and read
@@ -375,6 +380,147 @@ batching and no cross-chunk coordination -- the worker pool already provides the
 parallelism the post-hoc path had to rebuild for itself.
 
 ### Recovery, on by default when `--bam` is present
+
+A remaining seam wholly inside one SDUST interval can use SNPs outside that
+repeat to establish the two existing read gauges. On each flank, independent
+primary MAPQ30 molecules must call at least two clean, biallelic graph SNP
+loci separated by 100 bases, outside SDUST intervals and within 50 kb of the
+repeat. Q30 physical calls calibrate each flank against its established HP/PS
+assignments; inconsistent calls count against calibration. Both diploid classes
+must agree, and each two-sided association p-value must be at most 0.01.
+Calibration excludes every molecule spanning the repeat. Spanning molecules
+separately call two such SNPs on each flank, with unanimous within-flank calls
+and unanimous seam parity. Their combined base and mapping error bound must
+be at most 0.001. The sum of both one-sided 95% Wilson calibration error bounds,
+1% physical call error per flank, and the bridge error must be at most 20%.
+This certifies the established read gauges without requiring ambiguous SNP
+placements inside the repeat to form a graph path. It cannot skip a third
+phased block. The complete block union is deferred until read rescue finishes;
+candidate calls and read assignments retain their original gauges until then.
+
+Graph SNP path certification examines the right flanks of remaining seams.
+For a retained shared catalog deletion (at most 32 bases) opposite a clean
+graph SNP, it examines both flanks and permits the following source certificate.
+A complete independent BAM source with no weak or quality cuts can connect
+identical shared SNPs through intermediate source sites absent from GAF.
+Both endpoints must have one adoptable source claim and a consistent current
+source gauge. A shared recalled SNP can qualify alongside clean source SNPs
+when its retained MSA edit exactly matches the canonical catalog SNP and Q30,
+MAPQ30 physical calls confirm its relation to at least two distinct clean
+source SNP loci per molecule. Both haplotypes need at least two molecules and
+the unanimous fair-parity tail must be at most 0.001. Contrary GAF pairs veto
+this cut-free source certificate. The existing repaired-source route still
+requires an absent graph edge. In that shared-marker context, after a source prefix is certified, the existing
+unanimous Q30 physical edge proof may complete its next edge, requiring at
+least two primary molecules, wrong parity at most 0.001 and a complete suffix.
+New certificates survive only if the entire SNP path passes.
+
+A shared catalog deletion can supply a physical seam bridge while retaining
+its repeat classification. It must be alignment-verified, have exactly one
+adoptable pure MSA deletion source of the same length, and normalize to a pure
+catalog deletion of at most 32 bases. Both existing graph SNP paths must be
+complete. Distinct primary MAPQ30 BAM molecules physically call at least one
+clean graph SNP and the deletion to calibrate its gauge; all called SNPs must
+agree. Gauge base qualities must be at least 20, with the summed SNP, deletion
+footprint and twice the mapping error at most 1%. Both haplotypes and alleles
+must be represented and the two-sided association p-value must be at most 0.01.
+Primary BAM deletion/SNP pairs then supply the seam parity: base qualities must
+be at least 10, the sum of the verified deletion footprint, SNP and twice the
+mapping error must be at most 5%, and all qualifying pairs must agree.
+Their combined wrong-parity likelihood must be at most 5%, matching the
+physical SNP-to-deletion bound. The calibration's one-sided 95% Wilson
+upper discordance bound, conservative 1% physical gauge error and bridge
+wrong-parity likelihood together must be at most 20%. This admits precise
+sparse evidence without a separate fixed 10% calibration cutoff. Parental
+truth is used only in regression certification, which independently requires
+at least 80% of all original overlaps correct and HiPhase total/core parity.
+The certificate retains every anchor and its gauge. Its core union is deferred
+until rescue finishes and applies only while every retained anchor remains
+in the same consistently oriented block on its respective side.
+
+A complementary BAM insertion locus can bridge to a clean right SNP when
+both exact insertion ALTs are MSA- and alignment-verified, occupy the same
+coordinate, and represent opposite haplotypes. Other insertion lengths are
+uncallable rather than REF votes. Clean SNPs before the insertion calibrate
+both ALT classes on primary reads that end before the right bridge SNP.
+A recovered calibration SNP additionally needs two independent MAPQ30
+primary alignments calling it and the nearest preceding graph SNP at Q30,
+with unanimous orientation and wrong-parity likelihood at most 0.001.
+Both graph cores must have supported SNP paths; a single weak internal edge
+may be independently certified from primary BAM SNP calls while its suffix
+retains the full path check. The bridge sums inserted-base, placement-footprint,
+SNP-base and twice mapping-error probabilities, with minimum Q10 and at most
+5% call error. Calibration uses Q20 and at most 1% call error. The diploid
+association, one-sided Wilson discordance bound and bridge likelihood must
+together meet the same 20% joint-error limit used for calibrated deletion
+bridges. Contrary bridge molecules veto the join.
+
+The complete anchor gauges are retained and the union is deferred until
+rescue finishes. After verifying that final union, either exact insertion ALT
+can certify an unassigned or read-only rescue molecule into the core. Such a
+molecule must have a MAPQ30 primary alignment, Q20 physical allele confirmation,
+agreeing working and BAM observations and no contrary phased profile locus.
+Already assigned core reads keep their haplotypes. Imported physical SNP
+references come from the worker FASTA cache because graph chunks do not
+populate the BAM pipeline's reference sequence string.
+
+After deferred physical bridges, already tagged rescue reads can enter their
+existing connected core through an independently MSA-verified insertion or
+deletion of at most 32 bases. Recovery retains the original BAM edit even when
+a shared graph row keeps a different representation. The source path must have
+no weak or quality cuts and at least two distinct, consistently oriented clean
+SNP loci shared with the graph. The final marker must retain MSA verification
+and the exact source edit. A deletion must be a pure deletion; another verified
+MSA edit within 32 bases excludes this standalone check. At every coordinate,
+existing core read coverage must equal or exceed its rescue cohort's coverage,
+so a partial transfer cannot split a locally dominant output block.
+A primary, nonduplicate alignment with mapping quality at least 30 must
+physically confirm the same allele in both observation channels, agree with
+the existing rescue haplotype, and contradict no phased profile anchor.
+Deletion confirmation sums verified base error probabilities, adds twice the
+mapping error, and requires at most 5% total error; its minimum base quality is
+10. Insertions retain a minimum base quality of 30 and a conservative footprint
+error bound. This changes the read's phase set to its existing core without
+assigning a new haplotype or joining variant blocks.
+
+A shared deletion accepted by the physical bridge can also certify its retained
+rescue marker after that bridge's complete union is verified in the final gauge.
+Its canonical catalog edit replaces the source representation for the physical
+check. The graph observation and any retained BAM observation must agree with
+the primary alignment; a missing BAM vector is supplied by that physical check.
+The complete source, shared-SNP gauge, coverage and contrary-call guards above
+remain required. Primary mapping quality may be at least 20 for this shared
+marker, with the same measured total error bound of 5%.
+
+Within that certified union, an already tagged whole-chunk BAM fallback may
+enter the core when its false REF calls are physically deleted in its original
+primary alignment. Each ignored call must be a clean graph SNP in the same
+core, REF in both profiles, with zero BAM base quality. A separate clean graph
+SNP must have agreeing graph/BAM alleles and Q30 bases in both the profile and
+primary alignment, with MAPQ30. All remaining phased calls in either profile
+must agree with that SNP's haplotype and phase set. Distinct primary Q30 calls
+from existing core reads independently calibrate the witness SNP on both
+haplotypes using the independent BAM block bounds: association p<=0.01 and
+one-sided 95% Wilson discordance at most 10%.
+Unassigned reads, ordinary contrary REF calls and unrelated fallback blocks do
+not qualify. The read enters the existing core without changing variants or
+participating in earlier graph stitching.
+
+A separate read fill handles pure, MSA-verified BAM deletions of at most 32
+bases that mask verified SNPs belonging to the opposite haplotype. Both the
+primary and BAM profile must call deletion ALT; every informative phased call
+in either channel must agree with its haplotype and phase set. Only completely
+unassigned graph-profile reads qualify. Their original primary BAM alignment
+must have MAPQ30 and an exact CIGAR ALT with Q30 flanks and matching surviving
+sequence. Already phased reads in that same core, including staged BAM-only
+output rows, supply distinct-molecule REF/ALT votes from Q30 CIGAR calls;
+ALT donors also require matching sequence. Both haplotypes must be represented,
+the two-sided binomial association must have p <= 0.01, its orientation must
+agree with the marker, and the one-sided 95% Wilson discordance bound must be
+at most 10%. The ordinary output confidence gate still applies. Rescue phase
+sets cannot supply these votes. This local read assignment does not require
+an uncut independent source block: its gauge comes directly from existing
+core reads, and no variants or block connections change.
 
 The first graph solve defines one recovery target: every bounded gap between
 neighboring phase sets. Phase-set sentinels follow longcallD: an unassigned
@@ -1459,6 +1605,20 @@ certifying an unsupported earlier part of the BAM source. After such a join,
 the stitch revisits newly adjacent seams inside the original recovery target
 when the left boundary is a callable clean SNP.
 
+When the right clean-SNP flank has a complete independent BAM source run,
+a complete graph path or independent BAM run can certify the left flank.
+Shared graph rows can participate in the BAM run certificates. Every phased
+heterozygous anchor must have one adoptable source claim, a consistent current
+gauge, and no intervening weak or quality cut. A decisive physical SNP pair
+can then certify the core union even when the graph path is unavailable.
+The stitch records all anchors and defers that union until output-only read
+rescue finishes. Final application rechecks each block's current gauge and
+updates core phase sets while preserving the separate rescue cohorts.
+An exposed deletion retry can use one-haplotype clean-SNP pairs when its
+right flank is a complete BAM-only run. It still requires unanimous physical
+votes, the existing 0.001 wrong-parity likelihood bound and a complete left
+path; otherwise the two-haplotype retry gate remains in force.
+
 For a clean SNP-to-MSA-insertion stitch, a repeat insertion's physical length
 vote yields to a decisive nearby BAM-derived clean SNP pair. The SNP must be
 within 10 kb downstream of the insertion in the same source phase set, with
@@ -1594,6 +1754,38 @@ phase set. This keeps the phase-set gauge used for rescued reads consistent
 with the transferred sites. Equal-length graph substitutions use their first
 changed base as the recovery seam coordinate, so a right-hand MNP is included
 in the targeted bridge.
+
+Targeted recovery also revisits a boundary exposed by a short MSA-verified
+insertion when its independent original BAM source path is complete. For a
+short insertion, that path can certify the right block only when every phased
+heterozygous anchor in the block is BAM-injected and has exactly one adoptable
+claim from the same original source. The source must have no weak or quality
+cut, a distinct anchor, and consistent original-to-current allele orientation.
+Graph rows and rows from other sources still require the graph-path check;
+a source path through some imported sites does not certify a mixed block.
+Short-insertion physical calls retain MAPQ/base-quality 30, at least two
+molecules per insertion allele and the 0.001 wrong-parity bound. The left
+graph path must still pass. Long insertions retain their existing source-path
+and physical-call rules.
+
+After that short-insertion bridge successfully merges both blocks, unassigned
+reads may enter the joined core through the certified insertion marker. Each
+read needs a primary MAPQ30 alignment, a physical insertion call agreeing
+with both imported and primary profile observations, and a combined mapping
+and measured allele/base error bound of at most 0.01 (base-quality floor 20).
+REF confidence uses actual aligned anchor qualities. If a disjoint nearby
+deletion prevents the ordinary insertion call, an exact reference footprint
+through the insertion length can certify REF only when no inserted sequence
+occurs within 64 bases; every footprint base must match the reference and
+its error is included. The existing physical insertion caller is unchanged.
+
+Equivalent graph descriptions within 64 bases veto promotion if their
+observed allele conflicts, even when those descriptions have no phase label.
+Other informative loci must agree with the proposed haplotype and phase set.
+Complementary descriptions proposing opposite haplotypes at one locus
+contribute no independent vote. Existing core assignments are preserved.
+These reads receive the joined core HP/PS and one bridge observation; ordinary
+uncertified rescue retains its separate phase-set namespace.
 
 When targeted recovery places an insertion at the right edge of an original
 seam, the physical stitch first tries the insertion allele. If it cannot
@@ -1957,6 +2149,48 @@ invariants). All three must pass before a commit. The graph-adapter unit binary
 contains compact in-memory seam replays for the 14 noncentromeric short-gap
 targets, a consecutive-seam alias regression, and a selected-chain read
 assignment regression; routine unit tests do not rerun BAM/GAF regions.
+
+The `all gaps` Catch2 case runs the committed window panel and every named
+mechanism regression through a single input fixture and selector.
+`PGPHASE_GAP_FILTER` selects a regression name substring or its legacy tags;
+an unmatched selector fails. Focused gap unit cases remain independent.
+`src/test_gap_replays.tsv` declares owning replay regions by left boundary;
+unlisted windows retain the existing 50 kb padding. Read regression bounds
+shared by owning-context checks live in `src/test_gap_read_floors.tsv`.
+Representation, parental orientation, diagnostic matrix and molecule-specific
+checks remain named regression functions with their original assertions.
+Truth parsing is shared within the process and invalidates when its file
+identity, size or nanosecond modification/change times change.
+
+Every panel window is also scored over exactly its truth-scorable primary
+input overlaps, retaining unphased reads in the denominator and orienting
+reads from the whole replay block's parental votes. Correct reads in phase
+sets at or above the read-rescue offset do not count toward the dominant core.
+`src/test_gap_hiphase.tsv` records identical-alignment HiPhase measurements;
+`make gap-benchmark HIPHASE_BAM=... BENCH_PYTHON=...` prepares them with a Python
+that has pysam. The measurement state validates input, truth, panel and
+competitor file identities, helper content and output content before reuse.
+`src/test_gap_certified.tsv` declares reviewed closures: each must achieve
+at least 80% primary correctness and match or exceed HiPhase's total correct
+and dominant core correct counts. Historical gaps retain their existing
+regression floors. All windows write their contract status to
+`gap-contract.tsv` under the test work directory, so uncertified shortfalls
+remain visible. New closures must join the certification manifest.
+
+Window tests keep successful replay outputs and completion state in
+`test_data/.gap-replay-cache/` (`PGPHASE_TEST_CACHE` overrides this directory).
+The cache key includes normalized pipeline arguments, the executable's full
+SHA256, cache-helper content, input/index canonical paths and device/inode,
+size, nanosecond mtime/ctime, dynamic-library identities and relevant runtime
+environment. Output identities are checked before reuse. A per-key file lock
+allows concurrent shards to share one completed replay; failed or partial
+runs never publish completion state. Cached products are copied to each
+case's output directory, including requested phase matrices. Every test still
+parses and scores outputs against current truth and expectations and executes
+all assertions. A changed binary or input needs a fresh replay; changing
+assertions or truth does not reuse an old pass/fail verdict. A fresh empty cache
+directory forces cold verification. `make window-tests` also checks cache
+invalidation, corruption, failed runs, matrix restoration and concurrent reuse.
 
 There is no injection suite: `src/test_bam_site_injection.cpp` was deleted in
 c092785 when the tests were narrowed to the window under work. A compiled binary

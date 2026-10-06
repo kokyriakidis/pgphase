@@ -3385,6 +3385,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         bool graph_clean_snp;
         bool graph_clean_indel;
         bool can_adopt;
+        std::optional<VariantKey> msa_key;
     };
     std::vector<SourceSite> source_sites;
 
@@ -3457,7 +3458,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                         cand.hap_to_cons_alle[1], cand.hap_to_cons_alle[2],
                         comparable ? matched->phase_set : 0,
                         comparable ? matched->hap_to_cons_alle[1] : -1,
-                        graph_clean_snp, graph_clean_indel, can_adopt});
+                        graph_clean_snp, graph_clean_indel, can_adopt,
+                        cand.msa_verified
+                            ? std::optional<VariantKey>(cand.key) : std::nullopt});
             }
             if (!opts.recovery_audit_out.empty()) {
                 RecoveredCandidate rec;
@@ -4361,7 +4364,8 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             site.graph_phase_set, site.graph_hap1_allele,
             site.graph_clean_snp, site.can_adopt &&
                 independent_msa_phase_sets.count(
-                    chunk.candidates[final_index->second].phase_set) == 0});
+                    chunk.candidates[final_index->second].phase_set) == 0,
+            site.msa_key});
     }
 
     // Padded BAM solves have independent HP gauges. A clean SNP represented

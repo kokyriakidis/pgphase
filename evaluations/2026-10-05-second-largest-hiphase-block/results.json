@@ -1,0 +1,483 @@
+{
+  "target": {
+    "left": 8946171,
+    "right": 11127753,
+    "length": 2181583,
+    "hiphase_rank": 2
+  },
+  "gap": [
+    10325039,
+    10337661
+  ],
+  "gap_boundary_distance_bp": 12622,
+  "unscorable_original_reads": {},
+  "tools": {
+    "before": {
+      "regions": {
+        "block": {
+          "scorable": 9742,
+          "counts": {
+            "correct": 9424,
+            "unphased": 266,
+            "discordant": 52
+          },
+          "correct_all_reads": 0.9673578320673373,
+          "dominant_connected_correct_core": 5824,
+          "correct_cores": {
+            "8946171": 5824,
+            "10343596": 3482
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 5824,
+              "true": 5
+            },
+            "10343596": {
+              "true": 3482,
+              "false": 24
+            },
+            "1508946171": {
+              "false": 51,
+              "true": 2
+            },
+            "1510001686": {
+              "true": 3
+            },
+            "1509002216": {
+              "true": 18
+            },
+            "1010343596": {
+              "false": 14,
+              "true": 14
+            },
+            "1009014032": {
+              "false": 7,
+              "true": 30
+            },
+            "1511000733": {
+              "false": 2
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 224,
+          "counts": {
+            "correct": 193,
+            "unphased": 30,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8616071428571429,
+          "dominant_connected_correct_core": 192,
+          "correct_cores": {
+            "8946171": 192
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 192
+            },
+            "1009014032": {
+              "true": 1,
+              "false": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 127,
+          "counts": {
+            "correct": 103,
+            "unphased": 14,
+            "discordant": 10
+          },
+          "correct_all_reads": 0.8110236220472441,
+          "dominant_connected_correct_core": 45,
+          "correct_cores": {
+            "10343596": 45,
+            "8946171": 41
+          },
+          "parental_orientation_votes": {
+            "10343596": {
+              "true": 45
+            },
+            "1010343596": {
+              "true": 10,
+              "false": 3
+            },
+            "8946171": {
+              "false": 41,
+              "true": 1
+            },
+            "1009014032": {
+              "true": 7,
+              "false": 6
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 230,
+          "counts": {
+            "correct": 230
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 229,
+          "correct_cores": {
+            "10343596": 229
+          },
+          "parental_orientation_votes": {
+            "10343596": {
+              "true": 229
+            },
+            "1010343596": {
+              "true": 1
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "1509002216": {
+          "true": 18
+        },
+        "10343596": {
+          "true": 3482,
+          "false": 24
+        },
+        "1010343596": {
+          "true": 14,
+          "false": 14
+        },
+        "1508946171": {
+          "false": 51,
+          "true": 2
+        },
+        "1009014032": {
+          "true": 30,
+          "false": 7
+        },
+        "1510001686": {
+          "true": 3
+        },
+        "8946171": {
+          "false": 5824,
+          "true": 5
+        },
+        "1511000733": {
+          "false": 2
+        }
+      }
+    },
+    "pgphase": {
+      "regions": {
+        "block": {
+          "scorable": 9742,
+          "counts": {
+            "correct": 9429,
+            "unphased": 261,
+            "discordant": 52
+          },
+          "correct_all_reads": 0.9678710737014987,
+          "dominant_connected_correct_core": 9318,
+          "correct_cores": {
+            "8946171": 9318
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 9318,
+              "true": 34
+            },
+            "1508946171": {
+              "false": 51,
+              "true": 2
+            },
+            "1510001686": {
+              "true": 3
+            },
+            "1509002216": {
+              "true": 18
+            },
+            "1010343596": {
+              "false": 14,
+              "true": 14
+            },
+            "1009014032": {
+              "true": 23,
+              "false": 2
+            },
+            "1511000733": {
+              "false": 2
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 224,
+          "counts": {
+            "correct": 193,
+            "unphased": 30,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8616071428571429,
+          "dominant_connected_correct_core": 192,
+          "correct_cores": {
+            "8946171": 192
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 192
+            },
+            "1009014032": {
+              "true": 1,
+              "false": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 127,
+          "counts": {
+            "correct": 108,
+            "unphased": 9,
+            "discordant": 10
+          },
+          "correct_all_reads": 0.8503937007874016,
+          "dominant_connected_correct_core": 98,
+          "correct_cores": {
+            "8946171": 98
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 98,
+              "true": 6
+            },
+            "1010343596": {
+              "true": 10,
+              "false": 3
+            },
+            "1009014032": {
+              "false": 1
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 230,
+          "counts": {
+            "correct": 230
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 229,
+          "correct_cores": {
+            "8946171": 229
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 229
+            },
+            "1010343596": {
+              "true": 1
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "1509002216": {
+          "true": 18
+        },
+        "1010343596": {
+          "true": 14,
+          "false": 14
+        },
+        "1508946171": {
+          "false": 51,
+          "true": 2
+        },
+        "1009014032": {
+          "true": 23,
+          "false": 2
+        },
+        "1510001686": {
+          "true": 3
+        },
+        "8946171": {
+          "false": 9318,
+          "true": 34
+        },
+        "1511000733": {
+          "false": 2
+        }
+      }
+    },
+    "hiphase": {
+      "regions": {
+        "block": {
+          "scorable": 9742,
+          "counts": {
+            "correct": 9459,
+            "unphased": 260,
+            "discordant": 23
+          },
+          "correct_all_reads": 0.9709505235064668,
+          "dominant_connected_correct_core": 9459,
+          "correct_cores": {
+            "8946171": 9459
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 9459,
+              "false": 23
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 224,
+          "counts": {
+            "correct": 193,
+            "unphased": 30,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8616071428571429,
+          "dominant_connected_correct_core": 193,
+          "correct_cores": {
+            "8946171": 193
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 193,
+              "false": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 127,
+          "counts": {
+            "correct": 97,
+            "unphased": 20,
+            "discordant": 10
+          },
+          "correct_all_reads": 0.7637795275590551,
+          "dominant_connected_correct_core": 97,
+          "correct_cores": {
+            "8946171": 97
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 97,
+              "false": 10
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 230,
+          "counts": {
+            "correct": 230
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 230,
+          "correct_cores": {
+            "8946171": 230
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 230
+            }
+          }
+        }
+      },
+      "identical_original_alignments": 9742,
+      "phase_set_orientation": {
+        "8946171": {
+          "true": 9459,
+          "false": 23
+        }
+      }
+    }
+  },
+  "preservation": {
+    "old_primary_output_reads": 256610,
+    "new_primary_output_reads": 256610,
+    "old_correct": 230567,
+    "new_correct": 230572,
+    "old_discordant": 6768,
+    "new_discordant": 6768,
+    "old_variant_records": 64188,
+    "new_variant_records": 64188,
+    "changed_variant_gauges": 900,
+    "changed_read_tags": 3523,
+    "lost_correct_assignments": 0,
+    "lost_phased_assignments": 0,
+    "variant_alleles_counts_and_filters_preserved": true,
+    "new_assignments": [
+      "m84031_231217_034919_s2/135073838/ccs",
+      "m84031_231217_034919_s2/155257359/ccs",
+      "m84031_231217_062403_s3/122750756/ccs",
+      "m84031_231217_062403_s3/199101067/ccs",
+      "m84031_231217_062403_s3/215160506/ccs"
+    ]
+  },
+  "metrics": {
+    "before": {
+      "block_count": 264,
+      "n50_bp": 863977,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4939
+      },
+      "target_blocks": [
+        {
+          "ps": 8946171,
+          "left": 8946171,
+          "right": 10325039,
+          "length": 1378869,
+          "rows": 1320
+        },
+        {
+          "ps": 10343596,
+          "left": 10337661,
+          "right": 11127753,
+          "length": 790093,
+          "rows": 900
+        }
+      ]
+    },
+    "pgphase": {
+      "block_count": 263,
+      "n50_bp": 904351,
+      "largest_block": {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "length": 3012193,
+        "rows": 4939
+      },
+      "target_blocks": [
+        {
+          "ps": 8946171,
+          "left": 8946171,
+          "right": 11127753,
+          "length": 2181583,
+          "rows": 2220
+        }
+      ]
+    },
+    "hiphase": {
+      "block_count": 191,
+      "n50_bp": 1005183,
+      "largest_block": {
+        "ps": 63182011,
+        "left": 63182011,
+        "right": 66206480,
+        "length": 3024470,
+        "rows": 5820
+      },
+      "target_blocks": [
+        {
+          "ps": 8946171,
+          "left": 8946171,
+          "right": 11127753,
+          "length": 2181583,
+          "rows": 2510
+        }
+      ]
+    }
+  }
+}

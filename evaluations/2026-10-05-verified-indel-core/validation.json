@@ -1,0 +1,25 @@
+{
+  "binary_sha256": "f9efac33e864064418fe09e70c4502b4db43dae48f6825bc4e9556d699e6ed1b",
+  "mechanism_checks": 83,
+  "panel_windows": 112,
+  "combined_registered_checks": 84,
+  "selected_invocations": 195,
+  "all_passed": true,
+  "new_full_contract_windows": [
+    "1086625-1110921",
+    "61738239-61747506",
+    "59825454-59842960"
+  ],
+  "fast_check_seconds": 0.03,
+  "warm_owner_seconds": 0.31,
+  "certified_windows": [
+    "1086625-1110921",
+    "33747591-33749688",
+    "49720311-49742973",
+    "57764235-57785224",
+    "59825454-59842960",
+    "61738239-61747506"
+  ],
+  "new_certifications_checked": true,
+  "cache_helper_tests_passed": 4
+}

@@ -339,6 +339,69 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
 
 } // namespace
 
+bool core_dominates_rescue_coverage(const PhasingChunk& chunk, const hts_pos_t phase_set) {
+    std::map<hts_pos_t, int> coverage;
+    for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+        if (chunk.reads[ri].is_skipped || ri >= chunk.haps.size()) continue;
+        int delta = 0;
+        if ((chunk.haps[ri] == 1 || chunk.haps[ri] == 2) &&
+            ri < chunk.phase_sets.size() && chunk.phase_sets[ri] == phase_set)
+            delta = 1;
+        else if (chunk.haps[ri] == 0 && ri < chunk.gap_haps.size() &&
+                 (chunk.gap_haps[ri] == 1 || chunk.gap_haps[ri] == 2) &&
+                 ri < chunk.gap_phase_sets.size() &&
+                 chunk.gap_phase_sets[ri] == phase_set + kGapFillPsOffset)
+            delta = -1;
+        coverage[chunk.reads[ri].beg] += delta;
+        coverage[chunk.reads[ri].end] -= delta;
+    }
+    int depth = 0;
+    for (const auto& [pos, delta] : coverage) {
+        (void)pos;
+        depth += delta;
+        if (depth < 0) return false;
+    }
+    return true;
+}
+
+int masked_snp_deletion_haplotype(const PhasingChunk& chunk,
+                                const ReadVariantProfile& profile, size_t deletion_i) {
+    if (deletion_i >= chunk.candidates.size() || profile.start_var_idx < 0 ||
+        deletion_i < static_cast<size_t>(profile.start_var_idx)) return 0;
+    const CandidateVariant& deletion = chunk.candidates[deletion_i];
+    if (!deletion.bam_injected || !deletion.msa_verified ||
+        deletion.key.type != VariantType::Deletion || deletion.key.ref_len <= 0 ||
+        !deletion.key.alt.empty() || !is_phase_set_anchor(deletion) ||
+        deletion.hap_to_cons_alle[1] < 0 || deletion.hap_to_cons_alle[1] > 1 ||
+        deletion.hap_to_cons_alle[2] != 1 - deletion.hap_to_cons_alle[1]) return 0;
+    const size_t offset = deletion_i - profile.start_var_idx;
+    if (offset >= profile.alleles.size() || offset >= profile.bam_alleles.size() ||
+        profile.alleles[offset] != 1 || profile.bam_alleles[offset] != 1) return 0;
+    const int hap = deletion.hap_to_cons_alle[1] == 1 ? 1 : 2;
+    bool masked_snp = false;
+    for (size_t off = 0; off < profile.alleles.size(); ++off) {
+        const size_t ci = static_cast<size_t>(profile.start_var_idx) + off;
+        if (ci >= chunk.candidates.size()) break;
+        const CandidateVariant& candidate = chunk.candidates[ci];
+        if (!is_phase_set_anchor(candidate)) continue;
+        if (profile.alleles[off] >= 0 &&
+            (candidate.phase_set != deletion.phase_set ||
+             profile.alleles[off] != candidate.hap_to_cons_alle[hap])) return 0;
+        if (off < profile.bam_alleles.size() && profile.bam_alleles[off] >= 0 &&
+            (candidate.phase_set != deletion.phase_set ||
+             profile.bam_alleles[off] != candidate.hap_to_cons_alle[hap])) return 0;
+        if (candidate.msa_verified && candidate.key.type == VariantType::Snp &&
+            candidate.phase_set == deletion.phase_set &&
+            candidate.key.pos >= deletion.key.pos &&
+            candidate.key.pos < deletion.key.pos + deletion.key.ref_len &&
+            candidate.hap_to_cons_alle[hap] == 0 &&
+            candidate.hap_to_cons_alle[3 - hap] == 1 &&
+            profile.alleles[off] < 0 && off < profile.bam_alleles.size() &&
+            profile.bam_alleles[off] < 0) masked_snp = true;
+    }
+    return masked_snp ? hap : 0;
+}
+
 // Defined at namespace scope so callers that reorder candidates (the in-chunk
 // recovery merge) can rebuild the index; it was file-local until then.
 void rebuild_read_var_cr(PhasingChunk& chunk) {
@@ -1398,6 +1461,159 @@ const std::string* selected_graph_candidate_alt(
     return alt.empty() || alt == "*" ? nullptr : &alt;
 }
 
+bool retained_source_snp_path_anchor_supported(
+        const GraphChunkBuildResult& gc, size_t candidate_index) {
+    constexpr int kMinQuality = 30;
+    constexpr int kUnknownQuality = 255;
+    constexpr size_t kMinIndependentLoci = 2;
+    constexpr int kMinAlleleSupport = 2;
+    constexpr double kMaxWrongParity = 0.001;
+    if (candidate_index >= gc.chunk.candidates.size() ||
+        candidate_index >= gc.site_meta.size()) return false;
+    const CandidateVariant& candidate = gc.chunk.candidates[candidate_index];
+    if (candidate.bam_injected || !is_phase_set_anchor(candidate) ||
+        candidate.counts.category != VariantCategory::CleanHetSnp) return false;
+    const RecoverySourceSite* source = nullptr;
+    for (const RecoverySourceSite& site : gc.recovery_source_sites) {
+        if (site.candidate_index != candidate_index) continue;
+        if (source != nullptr) return false;
+        source = &site;
+    }
+    if (source == nullptr || !source->can_adopt || !source->msa_key ||
+        source->phase_set <= 0 || source->msa_key->type != VariantType::Snp ||
+        source->msa_key->ref_len != 1 || source->msa_key->alt.size() != 1 ||
+        source->hap1_allele < 0 || source->hap1_allele > 1 ||
+        source->hap2_allele != 1 - source->hap1_allele) return false;
+    const auto path = gc.recovery_source_path_supported.find(source->phase_set);
+    const auto weak = gc.recovery_source_weak_cuts.find(source->phase_set);
+    const auto quality = gc.recovery_source_quality_cuts.find(source->phase_set);
+    if (path == gc.recovery_source_path_supported.end() || !path->second ||
+        weak == gc.recovery_source_weak_cuts.end() || !weak->second.empty() ||
+        (quality != gc.recovery_source_quality_cuts.end() && !quality->second.empty()))
+        return false;
+    const std::string* alt = selected_graph_candidate_alt(gc, candidate_index);
+    if (alt == nullptr) return false;
+    const GraphSiteMeta& meta = gc.site_meta[candidate_index];
+    const VariantKey physical = vcf_to_variant_key(source->msa_key->tid, meta.pos, meta.ref, *alt);
+    if (exact_comp_var_site(&physical, &*source->msa_key) != 0) return false;
+    for (const RecoveryPhaseGauge& gauge : gc.recovery_phase_gauges) {
+        std::optional<size_t> marker;
+        for (size_t si = 0; si < gauge.bam_sites.size(); ++si) {
+            const RecoveryBamSite& saved = gauge.bam_sites[si];
+            if (saved.phase_set != source->phase_set ||
+                exact_comp_var_site(&saved.key, &physical) != 0) continue;
+            if (marker || saved.hap1_allele != source->hap1_allele ||
+                saved.hap2_allele != source->hap2_allele) return false;
+            marker = si;
+        }
+        if (!marker) continue;
+        std::array<int, 2> support{};
+        std::unordered_set<std::string> seen;
+        for (const RecoveryBamRead& read : gauge.bam_reads) {
+            if (read.mapq < kMinQuality || read.mapq == kUnknownQuality ||
+                !seen.insert(read.qname).second) continue;
+            int marker_hap = 0;
+            std::array<std::set<hts_pos_t>, 3> loci;
+            for (size_t oi = 0; oi < read.observations.size(); ++oi) {
+                const auto [si, allele] = read.observations[oi];
+                if (si >= gauge.bam_sites.size() || oi >= read.base_qualities.size() ||
+                    read.base_qualities[oi] < kMinQuality ||
+                    read.base_qualities[oi] == kUnknownQuality) continue;
+                const RecoveryBamSite& saved = gauge.bam_sites[si];
+                if (saved.phase_set != source->phase_set ||
+                    (allele != 0 && allele != 1)) continue;
+                const int hap = allele == saved.hap1_allele ? 1 :
+                    allele == saved.hap2_allele ? 2 : 0;
+                if (hap == 0) continue;
+                if (si == *marker) marker_hap = hap;
+                else if (saved.clean_snp && saved.key.type == VariantType::Snp &&
+                         saved.key.ref_len == 1 && saved.key.alt.size() == 1 &&
+                         saved.key.pos != physical.pos)
+                    loci[hap].insert(saved.key.pos);
+            }
+            if (marker_hap == 0) continue;
+            if (!loci[3 - marker_hap].empty()) return false;
+            if (loci[marker_hap].size() >= kMinIndependentLoci) ++support[marker_hap - 1];
+        }
+        if (support[0] >= kMinAlleleSupport && support[1] >= kMinAlleleSupport &&
+            std::ldexp(1.0, -(support[0] + support[1])) <= kMaxWrongParity)
+            return true;
+    }
+    return false;
+}
+
+std::optional<VariantKey> retained_shared_deletion_key(
+        const GraphChunkBuildResult& gc, size_t candidate_index) {
+    if (candidate_index >= gc.chunk.candidates.size() ||
+        candidate_index >= gc.site_meta.size()) return std::nullopt;
+    const CandidateVariant& candidate = gc.chunk.candidates[candidate_index];
+    if (candidate.bam_injected || !candidate.alignment_verified ||
+        !is_phase_set_anchor(candidate) || candidate.hap_to_cons_alle[1] > 1 ||
+        candidate.hap_to_cons_alle[2] != 1 - candidate.hap_to_cons_alle[1])
+        return std::nullopt;
+    const RecoverySourceSite* origin = nullptr;
+    for (const RecoverySourceSite& source : gc.recovery_source_sites) {
+        if (source.candidate_index != candidate_index) continue;
+        if (origin != nullptr) return std::nullopt;
+        origin = &source;
+    }
+    if (origin == nullptr || !origin->can_adopt || !origin->msa_key ||
+        origin->msa_key->type != VariantType::Deletion ||
+        !origin->msa_key->alt.empty()) return std::nullopt;
+    const std::string* alt = selected_graph_candidate_alt(gc, candidate_index);
+    if (alt == nullptr) return std::nullopt;
+    const GraphSiteMeta& meta = gc.site_meta[candidate_index];
+    const VariantKey key = vcf_to_variant_key(
+        origin->msa_key->tid, meta.pos, meta.ref, *alt);
+    if (key.type != VariantType::Deletion || !key.alt.empty() || key.ref_len <= 0 ||
+        key.ref_len != origin->msa_key->ref_len) return std::nullopt;
+    return key;
+}
+
+int masked_bam_snp_haplotype(const PhasingChunk& chunk,
+                            const ReadVariantProfile& profile, size_t witness_i,
+                            const std::vector<size_t>& physically_masked) {
+    constexpr int kMinBaseQuality = 30;
+    constexpr int kUnknownQuality = 255;
+    if (profile.start_var_idx < 0 || witness_i >= chunk.candidates.size() ||
+        witness_i < static_cast<size_t>(profile.start_var_idx)) return 0;
+    const CandidateVariant& witness = chunk.candidates[witness_i];
+    const size_t offset = witness_i - profile.start_var_idx;
+    if (!is_phase_set_anchor(witness) || witness.bam_injected ||
+        witness.counts.category != VariantCategory::CleanHetSnp ||
+        offset >= profile.alleles.size() || offset >= profile.graph_alleles.size() ||
+        offset >= profile.bam_alleles.size() || offset >= profile.bam_base_qualities.size() ||
+        profile.bam_base_qualities[offset] < kMinBaseQuality ||
+        profile.bam_base_qualities[offset] == kUnknownQuality ||
+        profile.alleles[offset] < 0 || profile.alleles[offset] > 1 ||
+        profile.graph_alleles[offset] != profile.alleles[offset] ||
+        profile.bam_alleles[offset] != profile.alleles[offset]) return 0;
+    const int hap = profile.alleles[offset] == witness.hap_to_cons_alle[1] ? 1 : 2;
+    bool masked = false;
+    for (size_t off = 0; off < profile.alleles.size(); ++off) {
+        const size_t ci = static_cast<size_t>(profile.start_var_idx) + off;
+        if (ci >= chunk.candidates.size()) break;
+        const CandidateVariant& site = chunk.candidates[ci];
+        if (!is_phase_set_anchor(site)) continue;
+        if (std::find(physically_masked.begin(), physically_masked.end(), ci) !=
+                physically_masked.end()) {
+            if (site.phase_set != witness.phase_set || site.bam_injected ||
+                site.counts.category != VariantCategory::CleanHetSnp ||
+                site.key.type != VariantType::Snp || profile.alleles[off] != 0 ||
+                off >= profile.bam_alleles.size() || profile.bam_alleles[off] != 0 ||
+                off >= profile.bam_base_qualities.size() ||
+                profile.bam_base_qualities[off] != 0) return 0;
+            masked = true;
+            continue;
+        }
+        for (const auto* channel : {&profile.alleles, &profile.bam_alleles})
+            if (off < channel->size() && (*channel)[off] >= 0 &&
+                (site.phase_set != witness.phase_set ||
+                 (*channel)[off] != site.hap_to_cons_alle[hap])) return 0;
+    }
+    return masked ? hap : 0;
+}
+
 int physical_snp_call(const bam1_t* aln, hts_pos_t pos,
                       char ref_base, char alt_base,
                       int* base_quality) {
@@ -1734,6 +1950,58 @@ bool independent_bam_block_is_supported(
     // discordance while accounting for the amount of supporting evidence.
     return one_sided_wilson_upper_bound(discordant, total) <=
            kIndependentBlockMaxDiscordance;
+}
+
+std::optional<bool> calibrated_indel_bridge_flip(
+        const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
+        double log_odds) {
+    constexpr double kMaxBridgeWrongParity = 0.05;
+    constexpr double kMaxJointError = 0.20;
+    constexpr double kMaxGaugeCallError = 0.01;
+    const auto& counts = gauge.counts;
+    const int same = counts[0][0] + counts[1][1];
+    const int cross = counts[0][1] + counts[1][0];
+    if (same <= cross || counts[0][0] + counts[0][1] == 0 ||
+        counts[1][0] + counts[1][1] == 0 ||
+        counts[0][0] + counts[1][0] == 0 || counts[0][1] + counts[1][1] == 0 ||
+        2.0 * rescue_binomial_tail(same, same + cross) > kIndependentBlockAssociationPValue ||
+        (parity[0] != 0 && parity[1] != 0) || parity[0] + parity[1] == 0)
+        return std::nullopt;
+    const bool flip = parity[1] != 0;
+    const double signed_odds = flip ? log_odds : -log_odds;
+    if (signed_odds < std::log((1.0 - kMaxBridgeWrongParity) / kMaxBridgeWrongParity))
+        return std::nullopt;
+    const double bridge_error = 1.0 / (1.0 + std::exp(signed_odds));
+    if (one_sided_wilson_upper_bound(cross, same + cross) +
+        kMaxGaugeCallError + bridge_error > kMaxJointError)
+        return std::nullopt;
+    return flip;
+}
+
+std::optional<bool> calibrated_repeat_snp_bridge_flip(
+        const std::array<IndependentBamBlockLink, 2>& gauges,
+        const std::array<int, 2>& parity, double wrong_parity_bound) {
+    constexpr double kMaxWrongParity = 0.001;
+    constexpr double kMaxJointError = 0.20;
+    constexpr double kMaxGaugeCallError = 0.01;
+    if ((parity[0] != 0 && parity[1] != 0) || parity[0] + parity[1] == 0 ||
+        !std::isfinite(wrong_parity_bound) || wrong_parity_bound < 0.0 ||
+        wrong_parity_bound > kMaxWrongParity)
+        return std::nullopt;
+    double joint_error = wrong_parity_bound;
+    for (const IndependentBamBlockLink& gauge : gauges) {
+        const auto& counts = gauge.counts;
+        const int same = counts[0][0] + counts[1][1];
+        const int cross = counts[0][1] + counts[1][0];
+        if (same <= cross || counts[0][0] == 0 || counts[1][1] == 0 ||
+            2.0 * rescue_binomial_tail(same, same + cross) >
+                kIndependentBlockAssociationPValue)
+            return std::nullopt;
+        joint_error += one_sided_wilson_upper_bound(cross, same + cross) +
+            kMaxGaugeCallError;
+    }
+    return joint_error <= kMaxJointError ?
+        std::optional<bool>(parity[1] != 0) : std::nullopt;
 }
 
 size_t apply_independent_bam_read_blocks(PhasingChunk& chunk) {

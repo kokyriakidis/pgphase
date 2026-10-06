@@ -1,0 +1,161 @@
+{
+  "baseline/66": {
+    "regions": {
+      "tail": {
+        "scorable": 54,
+        "statuses": {
+          "correct": 25,
+          "discordant": 29
+        },
+        "dominant_correct_core": 5,
+        "correct_cores": {
+          "66005524": 5
+        }
+      },
+      "terminal": {
+        "scorable": 11,
+        "statuses": {
+          "correct": 5,
+          "discordant": 6
+        },
+        "dominant_correct_core": 3,
+        "correct_cores": {
+          "66005524": 3
+        }
+      }
+    },
+    "blocks_ending_in_tail": {},
+    "preservation": {
+      "old_correct": 584,
+      "new_correct": 584,
+      "lost_old_correct": 0,
+      "lost_old_connected_correct": 0,
+      "newly_correct": 0
+    }
+  },
+  "mapq1/66": {
+    "regions": {
+      "tail": {
+        "scorable": 54,
+        "statuses": {
+          "correct": 32,
+          "discordant": 22
+        },
+        "dominant_correct_core": 32,
+        "correct_cores": {
+          "66005524": 32
+        }
+      },
+      "terminal": {
+        "scorable": 11,
+        "statuses": {
+          "correct": 9,
+          "discordant": 2
+        },
+        "dominant_correct_core": 9,
+        "correct_cores": {
+          "66005524": 9
+        }
+      }
+    },
+    "blocks_ending_in_tail": {
+      "66005524": [
+        66005524,
+        66207824,
+        494
+      ]
+    },
+    "preservation": {
+      "old_correct": 584,
+      "new_correct": 566,
+      "lost_old_correct": 74,
+      "lost_old_connected_correct": 0,
+      "newly_correct": 56
+    }
+  },
+  "permissive/66": {
+    "regions": {
+      "tail": {
+        "scorable": 54,
+        "statuses": {
+          "correct": 31,
+          "discordant": 23
+        },
+        "dominant_correct_core": 31,
+        "correct_cores": {
+          "66005524": 31
+        }
+      },
+      "terminal": {
+        "scorable": 11,
+        "statuses": {
+          "correct": 8,
+          "discordant": 3
+        },
+        "dominant_correct_core": 8,
+        "correct_cores": {
+          "66005524": 8
+        }
+      }
+    },
+    "blocks_ending_in_tail": {
+      "66005524": [
+        66005524,
+        66207887,
+        497
+      ],
+      "66207893": [
+        66207946,
+        66208094,
+        6
+      ],
+      "66208069": [
+        66208070,
+        66208070,
+        1
+      ],
+      "66208136": [
+        66208136,
+        66208215,
+        5
+      ],
+      "66208349": [
+        66208349,
+        66208349,
+        1
+      ],
+      "66208383": [
+        66208383,
+        66208383,
+        1
+      ],
+      "66208450": [
+        66208450,
+        66208514,
+        8
+      ],
+      "66208538": [
+        66208538,
+        66208664,
+        4
+      ],
+      "66208670": [
+        66208670,
+        66208670,
+        1
+      ],
+      "66208687": [
+        66208688,
+        66208694,
+        2
+      ]
+    },
+    "preservation": {
+      "old_correct": 584,
+      "new_correct": 565,
+      "lost_old_correct": 74,
+      "lost_old_connected_correct": 0,
+      "newly_correct": 55
+    }
+  }
+}

@@ -1,0 +1,30 @@
+Filters: shared graph rows retain their independent BAM run certificate
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+test_gap_windows-final is a Catch v2.13.10 host application.
+Run with -? for options
+
+-------------------------------------------------------------------------------
+shared graph rows retain their independent BAM run certificate
+-------------------------------------------------------------------------------
+src/test_gap_windows.cpp:6288
+...............................................................................
+
+src/test_gap_windows.cpp:6305: FAILED:
+  CHECK( owning.spans )
+with expansion:
+  false
+
+src/test_gap_windows.cpp:6312: FAILED:
+  CHECK( owning.separated() >= 137.0 / 162.0 )
+with expansion:
+  0.4567901235 >= 0.8456790123
+
+src/test_gap_windows.cpp:6330: FAILED:
+  CHECK( rows.at(gap.gap_left) == rows.at(gap.gap_right) )
+with expansion:
+  {?} == {?}
+
+===============================================================================
+test cases:   1 |   0 passed | 1 failed
+assertions: 698 | 695 passed | 3 failed

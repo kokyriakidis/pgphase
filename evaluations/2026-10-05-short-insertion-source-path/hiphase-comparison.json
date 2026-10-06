@@ -1,0 +1,57 @@
+{
+  "measurements": [
+    {
+      "stage": "pgphase_before",
+      "source": "test_data/tmp_gap_fix60/full-final/phased.bam",
+      "input_primary_reads": 67,
+      "truth_scorable": 67,
+      "counts": {
+        "correct": 60,
+        "discordant": 1,
+        "unphased": 6
+      },
+      "correct_all_reads": 0.8955223880597015,
+      "read_phase_sets": 2,
+      "dominant_correct": 59,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "pgphase_after",
+      "source": "test_data/tmp_gap_fix61/full-bam-only-final/0/phased.bam",
+      "input_primary_reads": 67,
+      "truth_scorable": 67,
+      "counts": {
+        "correct": 64,
+        "discordant": 1,
+        "unphased": 2
+      },
+      "correct_all_reads": 0.9552238805970149,
+      "read_phase_sets": 2,
+      "dominant_correct": 60,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "hiphase",
+      "source": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+      "input_primary_reads": 67,
+      "truth_scorable": 67,
+      "counts": {
+        "correct": 64,
+        "discordant": 2,
+        "unphased": 1
+      },
+      "correct_all_reads": 0.9552238805970149,
+      "read_phase_sets": 1,
+      "dominant_correct": 64,
+      "identical_input_alignments": 67
+    }
+  ],
+  "hiphase_correct_pgphase_not": [
+    "m84031_231217_062403_s3/173871917/ccs",
+    "m84031_231217_034919_s2/261293766/ccs"
+  ],
+  "pgphase_correct_hiphase_not": [
+    "m84031_231217_062403_s3/68946751/ccs",
+    "m84031_231217_034919_s2/73926409/ccs"
+  ]
+}

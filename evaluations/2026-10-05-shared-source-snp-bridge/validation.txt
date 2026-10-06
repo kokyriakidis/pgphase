@@ -1,0 +1,33 @@
+Build: make -j8 passed; no compiler warnings.
+Regression reproduction: preceding binary fails three assertions; final binary passes 698 assertions.
+Native suite: 85 cases / 11497 assertions, all 111 panel windows; no old floors or required-site witnesses weakened.
+
+unit-final
+./test_graph_sites
+ALL PASS
+./test_graph_bam_adapter
+ALL PASS
+./test_noise_filter
+--- test_homopolymer ---
+--- test_tandem_repeat ---
+--- test_low_complexity ---
+--- test_is_noisy_site ---
+--- test_graph_noise_filter ---
+--- test_trim_to_minimal_vcf ---
+--- test_edge_cases ---
+ALL PASS
+
+
+predicate-final
+./test_phase_predicates
+===============================================================================
+All tests passed (1536 assertions in 47 test cases)
+
+
+
+check-final
+bash scripts/validate_collect_gates.sh
+ok: HiFi TSV golden match (83542a7da30ae8fe5a51be530d971d36348aa576b6749823b50fbfaaccdce664), t1 vs t4 deterministic; sites=569
+ok: HiFi phased VCF golden match (32adfed193fd31a21dd1be61d40fbb0642d48c8a1405f05d71710b3879857692), t1 vs t4 deterministic
+ok: ONT TSV golden match (162702cffef6d0b26aff8189983092472c7d2070788818398a8a938dfbe43dc3); sites=689
+ok: ONT phased VCF golden match (29e5994c31c4ae9545fb5c933c5ed1434935caac714b51138cd1f7561d1ecc84)

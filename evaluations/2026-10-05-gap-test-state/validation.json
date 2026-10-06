@@ -1,0 +1,71 @@
+{
+  "binary_sha256": "f31a9166e0c8e871b28c3174ee95286e8bdc8cbd42c184dafc0e6eb7ce0019e6",
+  "cases": 86,
+  "assertions": 12264,
+  "cache_states": 114,
+  "states_unchanged_on_warm": true,
+  "shards": {
+    "cold": [
+      {
+        "shard": 0,
+        "cases": 2,
+        "returncode": 0,
+        "seconds": 548.206110293002
+      },
+      {
+        "shard": 1,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 512.2005864870007
+      },
+      {
+        "shard": 2,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 476.2943740180053
+      },
+      {
+        "shard": 3,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 186.52508320999914
+      }
+    ],
+    "warm": [
+      {
+        "shard": 0,
+        "cases": 2,
+        "returncode": 0,
+        "seconds": 31.93659005900554
+      },
+      {
+        "shard": 1,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 13.31332460399426
+      },
+      {
+        "shard": 2,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 8.73170775300241
+      },
+      {
+        "shard": 3,
+        "cases": 28,
+        "returncode": 0,
+        "seconds": 8.093026397997164
+      }
+    ]
+  },
+  "cold_seconds": 548.206110293002,
+  "warm_seconds": 31.93659005900554,
+  "speedup": 17.16545533759694,
+  "default_make_window_tests": {
+    "cases": 86,
+    "assertions": 11997,
+    "cache_helper_tests": 4,
+    "cache_states": 114,
+    "returncode": 0
+  }
+}

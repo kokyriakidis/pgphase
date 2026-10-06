@@ -1,0 +1,3 @@
+Filters: shared graph rows retain their independent BAM run certificate
+===============================================================================
+All tests passed (698 assertions in 1 test case)

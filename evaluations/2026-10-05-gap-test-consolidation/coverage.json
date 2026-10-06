@@ -1,0 +1,9 @@
+{
+  "original_assertion_sites": 1201,
+  "migrated_literal_bounds": 38,
+  "all_other_original_assertions_preserved": true,
+  "named_integration_checks": 84,
+  "owning_region_overrides": 72,
+  "original_region_expression_comparisons": 216,
+  "regions_identical": true
+}

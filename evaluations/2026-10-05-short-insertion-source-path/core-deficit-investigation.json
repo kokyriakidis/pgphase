@@ -1,0 +1,333 @@
+{
+  "m84031_231217_034919_s2/104792409/ccs": {
+    "output_tag": [
+      1,
+      1033320808
+    ],
+    "source": [
+      [
+        "READ",
+        "m84031_231217_034919_s2/104792409/ccs",
+        "33748040",
+        "33763827",
+        "60",
+        "0",
+        "0",
+        "33697766",
+        "0",
+        "0"
+      ]
+    ],
+    "final_read": [
+      "READ",
+      "m84031_231217_034919_s2/104792409/ccs",
+      "33749687",
+      "33753064",
+      "60",
+      "0",
+      "0",
+      "-1",
+      "0",
+      "0"
+    ],
+    "informative_observations": [
+      {
+        "position": "33749689",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "1",
+          "-1",
+          "1"
+        ]
+      }
+    ],
+    "physical_alignment": {
+      "mapq": 60,
+      "events_near_insertion": [
+        {
+          "insertion_before_1based": 33749689,
+          "inserted": "TTCT",
+          "min_insertion_and_flank_quality": 40
+        },
+        {
+          "aligned_base_1based": 33749689,
+          "base": "T",
+          "local_min_quality": 40
+        }
+      ]
+    }
+  },
+  "m84031_231217_034919_s2/199365264/ccs": {
+    "output_tag": [
+      2,
+      1033320808
+    ],
+    "source": [
+      [
+        "READ",
+        "m84031_231217_034919_s2/199365264/ccs",
+        "33749092",
+        "33765451",
+        "60",
+        "0",
+        "0",
+        "33697766",
+        "0",
+        "0"
+      ]
+    ],
+    "final_read": [
+      "READ",
+      "m84031_231217_034919_s2/199365264/ccs",
+      "33749687",
+      "33753064",
+      "60",
+      "0",
+      "0",
+      "-1",
+      "0",
+      "0"
+    ],
+    "informative_observations": [
+      {
+        "position": "33749689",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "0",
+          "1"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      }
+    ],
+    "physical_alignment": {
+      "mapq": 60,
+      "events_near_insertion": [
+        {
+          "aligned_base_1based": 33749689,
+          "base": "T",
+          "local_min_quality": 27
+        }
+      ]
+    }
+  },
+  "m84031_231217_034919_s2/58000534/ccs": {
+    "output_tag": [
+      2,
+      1033320808
+    ],
+    "source": [
+      [
+        "READ",
+        "m84031_231217_034919_s2/58000534/ccs",
+        "33748337",
+        "33765519",
+        "60",
+        "0",
+        "0",
+        "33697766",
+        "0",
+        "0"
+      ]
+    ],
+    "final_read": [
+      "READ",
+      "m84031_231217_034919_s2/58000534/ccs",
+      "33749687",
+      "33753064",
+      "60",
+      "0",
+      "0",
+      "-1",
+      "0",
+      "0"
+    ],
+    "informative_observations": [
+      {
+        "position": "33749689",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "0",
+          "1"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      }
+    ],
+    "physical_alignment": {
+      "mapq": 60,
+      "events_near_insertion": [
+        {
+          "aligned_base_1based": 33749689,
+          "base": "T",
+          "local_min_quality": 27
+        }
+      ]
+    }
+  },
+  "m84031_231217_062403_s3/205719379/ccs": {
+    "output_tag": [
+      2,
+      1033320808
+    ],
+    "source": [
+      [
+        "READ",
+        "m84031_231217_062403_s3/205719379/ccs",
+        "33749573",
+        "33766720",
+        "60",
+        "0",
+        "0",
+        "33697766",
+        "0",
+        "0"
+      ]
+    ],
+    "final_read": [
+      "READ",
+      "m84031_231217_062403_s3/205719379/ccs",
+      "33749687",
+      "33753064",
+      "60",
+      "0",
+      "0",
+      "-1",
+      "0",
+      "0"
+    ],
+    "informative_observations": [
+      {
+        "position": "33749689",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "1",
+          "0"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      },
+      {
+        "position": "33762265",
+        "type": "I",
+        "category_mask": "256",
+        "phase_set": "33320808",
+        "hap_alleles": [
+          "0",
+          "1"
+        ],
+        "alleles": [
+          "0",
+          "-1",
+          "0"
+        ]
+      }
+    ],
+    "physical_alignment": {
+      "mapq": 60,
+      "events_near_insertion": [
+        {
+          "aligned_base_1based": 33749689,
+          "base": "T",
+          "local_min_quality": 40
+        }
+      ]
+    }
+  }
+}

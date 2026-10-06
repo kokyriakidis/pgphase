@@ -1403,6 +1403,21 @@ TEST_CASE("equivalent deletion calls preserve separate allele rows",
         CHECK(deletion.key.pos == 103);
         CHECK(deletion.key.ref_len == 1);
     }
+    SECTION("reference call error measures the whole verified footprint") {
+        chunk = shifted_insertion_chunk("8M", "CAAAAAGC");
+        bam1_t* read = chunk.reads[0].alignment.get();
+        bam_get_qual(read)[3] = 17;
+        double error = 1.0;
+        CHECK(call(deletion) == -1);
+        CHECK(bam_equivalent_deletion_allele(
+            read, deletion, reference, 0, header.get(), 10, &error) == 0);
+        CHECK(error > 0.019);
+        CHECK(error < 0.05);
+        bam_get_qual(read)[3] = 10;
+        CHECK(bam_equivalent_deletion_allele(
+            read, deletion, reference, 0, header.get(), 10, &error) == 0);
+        CHECK(error > 0.05);
+    }
     SECTION("a different deletion length is unknown, not REF") {
         deletion.key.ref_len = 2;
         CHECK(call(deletion) == -1);

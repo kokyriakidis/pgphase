@@ -1,0 +1,44 @@
+[
+  {
+    "tool": "pgphase",
+    "phase_set": 17438556,
+    "boundary_genotypes": [
+      0,
+      1
+    ],
+    "disjoint_flanks": [
+      {
+        "scored": 178,
+        "correct": 175,
+        "concordance": 0.9831460674157303
+      },
+      {
+        "scored": 145,
+        "correct": 145,
+        "concordance": 1.0
+      }
+    ],
+    "hap1_parent": "MATERNAL"
+  },
+  {
+    "tool": "hiphase",
+    "phase_set": 16715241,
+    "boundary_genotypes": [
+      1,
+      0
+    ],
+    "disjoint_flanks": [
+      {
+        "scored": 180,
+        "correct": 179,
+        "concordance": 0.9944444444444445
+      },
+      {
+        "scored": 145,
+        "correct": 145,
+        "concordance": 1.0
+      }
+    ],
+    "hap1_parent": "PATERNAL"
+  }
+]

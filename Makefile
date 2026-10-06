@@ -60,7 +60,7 @@ LDFLAGS ?= -lhts -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests window-tests gap-benchmark upstream-parity-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
@@ -68,13 +68,31 @@ check: pgphase
 	bash scripts/validate_collect_gates.sh
 
 # The window tests are integration tests: they need test_data/ and the derived
-# truth map, and they run the pipeline on real windows (about 1.2 s each), so
-# they are a separate target from the hermetic unit tests.
+# truth map. Cold runs replay real windows; completed replays are shared across
+# processes and subsequent invocations while all assertions run every time.
 window-tests: test_gap_windows
+	python3 scripts/test_cache_gap_replay.py
 	./test_gap_windows
+
+# Use a Python with pysam installed and the already evaluated HiPhase BAM.
+# Measurements are cached against input, truth, panel and competitor identities.
+gap-benchmark:
+	@test -n "$(HIPHASE_BAM)" || { echo 'Set HIPHASE_BAM and optionally BENCH_PYTHON (with pysam)'; exit 1; }
+	$(if $(BENCH_PYTHON),$(BENCH_PYTHON),python3) scripts/test_prepare_gap_hiphase.py
+	$(if $(BENCH_PYTHON),$(BENCH_PYTHON),python3) scripts/prepare_gap_hiphase.py --bam test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam --hiphase "$(HIPHASE_BAM)" --truth test_data/derived/chr20_truth_hap.tsv --panel evaluations/2026-09-16-test-panel/panel.tsv
 
 predicate-tests: test_phase_predicates
 	./test_phase_predicates
+
+# In-memory fixtures are the edit loop; owning replays are an explicit check.
+.PHONY: gap-dev-check gap-owner-check
+gap-dev-check: test_phase_predicates test_graph_bam_adapter
+	./test_phase_predicates $(if $(PREDICATE),"$(PREDICATE)",)
+	./test_graph_bam_adapter
+
+gap-owner-check: pgphase test_gap_windows
+	@test -n "$(GAP)" || { echo 'Usage: make gap-owner-check GAP="61.738"'; exit 1; }
+	PGPHASE_GAP_FILTER="$(GAP)" ./test_gap_windows "all gaps"
 
 parity-tests: test_port_parity
 	./test_port_parity

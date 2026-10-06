@@ -1,0 +1,3 @@
+Filters: a clean SNP retry certifies a complete independent BAM suffix
+===============================================================================
+All tests passed (747 assertions in 1 test case)

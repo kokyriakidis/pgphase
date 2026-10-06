@@ -14708,3 +14708,744 @@ which had been truncated before the 13 Mb task, while retaining the seven
 new source/switch witnesses. The unchanged native panel checker passes all
 109 windows / 2,469 assertions with the restored manifest using hash-bound
 final-binary output replays. No old required-site check is removed.
+
+## 2026-10-05: Retry short insertions with a complete BAM-only source path
+
+The 33,747,591–33,749,688 gap exposes two incorrect restrictions: physical
+retry nomination only considered long right insertions, and short-insertion
+stitching demanded a graph path through a right block containing only recovered
+BAM sites. Allow an MSA-verified short insertion to nominate the exposed seam
+and use its complete independent original BAM source as a right-block
+certificate. Every phased heterozygous anchor in that block must be
+BAM-injected with exactly one adoptable claim from the same original source;
+the existing source-path predicate checks cut-free continuity and consistent
+original-to-current allele gauge. Mixed graph/BAM blocks still require a graph
+path. Keep the left graph path, Q30/MAPQ30 physical allele calls, two molecules
+per insertion allele, and 0.001 parity-error bound. Long-insertion rules do
+not change. No truth or gap coordinates enter production conditions.
+
+The owning 33–34 Mb replay closes exactly this 2,097-base gap, changes 11→10
+VCF blocks, and preserves all old keys/genotypes/nonphase fields and uniform
+old candidate-block gauges. Four unphased reads become correct; one previously
+correct rescued read outside the gap becomes wrong. Owner counts change
+3,651→3,655 scored, 3,520→3,523 correct, 131→132 discordant. In the gap,
+60 correct / 1 wrong / 6 unphased becomes 64 correct / 1 wrong / 2 unphased
+out of 67 truth-scorable molecules: 95.5% correct including abstentions,
+exceeding the user's 80% acceptance rule. Disjoint flank votes are 25:0 and
+20:7 in the same parental orientation, each binomial-supported at p<=0.05.
+Diagnostic physical support is 24 REF / 10 ALT molecules, weighted log odds
+-164.860097239. Append both endpoint witnesses, the measured `spans=1` panel
+row, and an owning regression without weakening old read floors.
+
+A broader certificate through only some imported sites also joined the mixed
+36,620,864–36,623,545 block, with just 52/75 correct (69.3%) and an ambiguous
+left parental flank. Reject that trial despite its improved global counts.
+Requiring the independent source to cover every right-block anchor leaves the
+entire 36–37 Mb VCF byte-identical to baseline; its existing owning regression
+now explicitly checks those endpoints remain separate. This is a structural
+continuity condition rather than a truth-derived coordinate exclusion.
+
+Matched HiPhase also scores 64/67 correct, with 2 wrong and 1 unphased versus
+our 1 wrong and 2 unphased. HiPhase places all correct reads into one core
+block; four of ours remain correctly phased in the output-only rescue cohort
+because they start after the clean SNP and have only noisy insertion markers
+and no original source HP assignment. Inspect the two reads correct only in
+HiPhase: one existing graph REF call conflicts with Q40 BAM ALT/source HP2;
+the other has graph ALT versus MSA REF at the only insertion and no qualifying
+base quality, so we abstain. Two reads correct only in pgphase have clean Q40
+SNP calls consistent with the source. This explains pgphase's confidence
+choices; HiPhase's internal cause is not proven without an internal trace.
+All 67 alignment coordinates, CIGARs and sequences match. Reproduction,
+rejected trial audits, source evidence and individual discrepancies are in
+`evaluations/2026-10-05-short-insertion-source-path/`.
+
+The frozen final full-chromosome audit passes: exactly this new gap closes,
+no old tracked gap reopens, and all 64,188 keys, genotype alleles, nonphase
+fields and uniform old candidate gauges remain. Tagged output stays 256,610;
+scored 237,330→237,334, correct 230,563→230,566, wrong 6,767→6,768. VCF
+blocks 326→325, read phase sets 647→645, span N50 unchanged at 856,770.
+Only 35 tags and three VCF rows change. All 96 old full-output panel spans
+survive; the new row gives 97/110. The newly incorrect outside-gap rescued
+read is `m84031_231217_062403_s3/113902771/ccs`. The local 64/67 acceptance
+measurement and HiPhase comparison are confirmed on the final full output.
+Build has no warnings; unit tests, phase predicates and validation gates pass.
+The updated target and mixed-block owner cases pass 652 assertions.
+Final native validation passes all 84 cases / 10,752 assertions, including
+all 110 panel rows and every existing required-site witness. The final test
+source's additional mixed-block guard passes in the separate 652-assertion
+owning rerun. No unrelated span expectation or old read floor is relaxed.
+
+## 2026-10-05: HiPhase parity is required for every gap closure
+
+The user strengthens acceptance: each gap must match or beat HiPhase on the
+same truth-scorable overlapping reads and alignments, retaining the 80% floor.
+Compare both total correct molecules and correct molecules in the dominant
+connected core phase set; output-only rescue does not substitute for core
+continuity. Diagnose and fix a HiPhase advantage before accepting the gap.
+Truth remains evaluation-only.
+
+Under this stronger rule, the current 33.75 Mb change is provisional: total
+correct ties HiPhase at 64/67, but dominant connected correct is 60 versus
+HiPhase's 64. Its four insertion-only correct rescued reads must acquire a
+supported core assignment before this closure can be considered complete.
+The existing measurements and passing regression checks remain evidence of
+the partial improvement, not proof of acceptance under the new rule.
+
+### Investigation: why the four correct insertion-only reads stay outside core
+
+Trace the four final HP assignments to `rescue_unphased_graph_read_layer`:
+it always writes `gap_haps` and `gap_phase_sets = best_phase_set +
+kGapFillPsOffset`; there is no certified-indel promotion branch. The two
+core refresh paths are SNP-only, and one also requires an existing nonzero
+HP. The original source rows have HP=0 and no heterozygous observations
+counted by that solve. All four begin after the left clean SNP.
+
+Each has exactly one effective phased heterozygous observation at 33,749,689:
+TTCT ALT for 104792409, REF for 199365264, 58000534 and 205719379. The latter
+three also call REF on both alternative AAA/AAAA descriptions at 33,762,265;
+the rows have opposite haplotype gauges, so those two descriptions propose
+opposite HPs and are collapsed to no vote at that locus. The numerous other
+SNP observations are homozygous or noninformative. Rescue can assign the
+remaining insertion marker, but cannot put the read into the core arrays.
+
+All four original primary BAM alignments have MAPQ60. Read 104792409 has
+an exact TTCT CIGAR insertion at the expected breakpoint, with inserted and
+flanking bases at Q40. The other three align through the reference allele;
+local five-base minimum qualities are Q27, Q27 and Q40 respectively. Thus
+there is independent physical evidence to evaluate for core promotion, but
+a fixed Q30 rule would exclude two reads. Do not simply strip the offset or
+promote all noisy rescues: per-read physical allele confidence, a certified
+marker gauge and contradictory/co-located allele handling still matter.
+`core-deficit-investigation.json` preserves source rows, effective marker
+calls, final HP/PS and original physical CIGAR/quality evidence. HiPhase's
+output proves it assigns these four to the core; its internal decision path
+has not been traced. The demonstrated pgphase cause is its core admission
+policy and lack of an insertion-based promotion path.
+
+## 2026-10-05: Certified insertion observations complete the 33.75 Mb core
+
+Fix the insertion-only core admission deficit after the successful physical
+short-insertion bridge. Its original complete BAM-only source certifies the
+marker gauge; new read HPs require independent primary MAPQ30 physical calls,
+measured allele/base and mapping error <=0.01 with a Q20 floor, agreement with
+imported and primary profiles, and no contrary informative locus or phase set.
+Complementary descriptions disagreeing at one coordinate contribute no vote.
+Existing core assignments, category masks and variant alleles stay intact.
+
+The ordinary insertion caller returns the configured floor for REF, so use
+actual anchor qualities in the new confidence bound. One read has a disjoint
+one-base deletion 11 bases upstream: the caller's broad indel veto abstains,
+but a fully matching reference footprint through the insertion length and
+absence of nearby inserted sequence independently establish REF. Include all
+footprint errors; leave the shared insertion caller unchanged. A contrasting
+read has physical/MSA REF but graph ALT on a repeat-shifted description 12
+bases to the right. Reject it using normalized sequence-equivalent graph edits,
+even when the graph row has no phase label. Exact-coordinate checking misses
+this conflict and introduced one wrong read in a rejected trial.
+
+The final owner changes only the four diagnosed rescue phase-set tags into
+the existing core, preserving their HPs. All VCF bytes, output molecules and
+parental correctness statuses match the provisional output; 3,655 scored /
+3,523 correct / 132 discordant are unchanged. The gap now has all 64 correct
+of 67 eligible molecules in one core block, with 1 wrong and 2 unphased.
+Matched HiPhase has the same 64 correct in one block, 2 wrong and 1 unphased.
+All 67 coordinates, CIGARs and sequences match. This meets both HiPhase
+correctness/core parity and the 80% floor. Add exact four-read core and two-read
+abstention checks; strengthen the measured separation floor to 0.95 without
+relaxing any old count or accuracy floor. Details and strict audits are in
+`evaluations/2026-10-05-certified-insertion-core/`.
+
+The final full-chromosome core audit passes: exactly four PS-only changes,
+no HP changes, no altered parental correctness status, and byte-identical
+VCF output versus the provisional binary. Preserve 256,610 output molecules,
+237,334 scored, 230,566 correct / 6,768 incorrect, 645 read phase sets,
+64,188 keys, 325 VCF blocks and span N50 856,770. The matched full-output
+HiPhase comparison confirms 64/67 correct in one block and fewer local
+incorrect reads (1 versus 2). Disjoint flank votes improve to 25:0 and 24:7
+in the same parental orientation. Relative to the original accepted output,
+exactly the 33.75 Mb gap closes and no old span reopens; the previous outside-gap
+one-read error remains measured, with no additional error from core admission.
+Final verification passes all 84 window cases / 10,779 assertions, including
+all 110 panel rows, old required-site witnesses, exact four-read core promotion
+and both conflicting-read abstentions. No read floor is weakened. Clean build,
+unit tests, 47 phase-predicate cases / 1,536 assertions and validation gates
+pass. Full core-preservation, original gap-geometry and matched HiPhase parity
+audits pass. Frozen final binary SHA256 is
+`db17374ae2f37a68e803ce397b09f90a75705b0bff23b40aea1498aeccd662a0`.
+
+
+## 2026-10-05 — shared graph/BAM source runs close 49.72 Mb
+
+The next accepted target is the genuine 22,662 bp gap
+49,720,311–49,742,973. Native HiPhase already connects both endpoint SNPs
+under PS 49716722. pgphase has the same 137 correct / zero discordant /
+25 unphased overlaps, but only 74 correct in its largest core block.
+One primary MAPQ-60 read calls both ALT bases at BQ40, yielding log odds
+−8.50704 and a 0.000202 two-base/two-mapping error bound. The existing
+physical likelihood passes; the whole-block path rule was the blocker.
+Both flanks pass the existing independent BAM-run validator when shared
+graph rows are included. It requires every phased heterozygous anchor to
+have one adoptable source claim in a single run, a consistent current gauge,
+and no intervening weak or quality cut. No confidence threshold changes.
+
+When ordinary paths fail for a clean physical SNP pair, two complete local
+BAM runs can now certify a deferred core union, including shared graph rows.
+Every anchor is recorded, and current block membership and gauge are checked
+again after rescue. The eager version was rejected because it combined
+output-only rescue cohorts and changed 21 correct / 12 discordant owning
+read classifications. The deferred version preserves every rescue tag and
+all read outcomes in both the owner and chromosome runs.
+
+After closure, all 137 correct reads are in one core block: 137/162 = 84.57%,
+matching native HiPhase on the exact same 162 names, coordinates, CIGARs and
+sequences. No new read is admitted. Disjoint flanks agree in parental
+orientation (93/0 and 72/7). Full chr20 closes exactly this one old gap:
+133 core read labels and six variant rows change PS; all 64,188 keys,
+genotype alleles, nonphase fields and old block gauges are preserved.
+237,334 scored reads remain 230,566 correct / 6,768 discordant; read phase
+sets fall 645→644 and VCF blocks 325→324. N50 remains 856,770. No tracked
+gap reopens (98/111 spanned after adding the new target).
+
+The owning 49–50 Mb regression fails on the preceding binary (three checks)
+and passes after the fix (698 assertions). The committed panel adds
+`spans=1`, a 0.84 dominant-core fraction floor, both endpoint witnesses and
+an explicit owner-context case; existing floors/witnesses are retained.
+Build, unit tests, 47 predicate cases / 1,536 assertions and validation gates
+pass. Measurements and scripts are in
+`evaluations/2026-10-05-shared-source-snp-bridge/`.
+
+Final native validation passes all 85 cases / 11,497 assertions, including
+all 111 panel windows, existing read floors, required-site witnesses,
+owner-context gap checks and mixed-source negative guards. Matched full
+HiPhase and chromosome core-preservation audits pass. Frozen final binary
+SHA256 is `6824c6287134b7178f12e6690bcfca026b0a32850a861b36c041842e0144e29e`.
+
+
+## 2026-10-05 — complete BAM suffix closes 57.76 Mb
+
+Close the genuine gap 57,764,235–57,785,224 (20,989 bp). Native HiPhase and
+pgphase have the same 128 correct / 7 incorrect / 15 unphased among 150
+truth-scorable overlapping primary alignments. pgphase's largest core
+previously held only 65 correct; the fix places all 128 in one core, matching
+HiPhase at 85.33%. All 150 HiPhase alignments match the original coordinates,
+CIGARs and sequences. Existing discordance is unchanged.
+
+The exposed boundary is a complementary MSA deletion family followed by a
+clean BAM SNP at 57,785,772. The family bridge has only one Q20 witness and
+correctly fails its likelihood gate. However, one primary MAPQ-60 read
+physically calls the clean flanking SNPs REF/ALT at BQ40/BQ40, giving
+same-gauge log odds −8.50704 and a 0.000202 error bound. The deletion retry
+required both left haplotypes before applying that stronger physical test.
+
+Permit one-haplotype clean-SNP votes on this retry only when the right flank
+is a complete independent BAM-only run. Every anchor's unique adoptable
+source claim, current gauge and intervening weak/quality cuts remain checked.
+Conflicting physical votes still reject; the existing 0.001 wrong-parity
+bound remains. A complete graph path or BAM run certifies the left flank,
+and the core union uses the existing deferred bridge after rescue. Mixed
+right source blocks retain the old retry requirement. No truth enters the
+production decision, and no new reads or genotype changes are introduced.
+
+The owner keeps all 4,054 scored outcomes (3,860 correct / 194 incorrect),
+every rescue tag and old block gauge. Disjoint flanks retain the same parental
+orientation (100/0 and 113/7). Full chr20 closes exactly this gap and reopens
+none: 129 core read PS labels and five variant PS labels change. All read
+correctness statuses, rescue tags, 64,188 keys, genotype alleles and nonphase
+fields are preserved. 237,334 scored reads remain 230,566 correct / 6,768
+incorrect; read phase sets fall 644→643 and VCF blocks 324→323. N50 remains
+856,770; 99/112 tracked windows span after adding this target.
+
+The new owning 57–58 Mb case fails three assertions on the preceding binary
+and passes all 747 after the fix. The panel adds exact `spans=1`, a 0.85 core
+fraction floor, both complementary deletion descriptions and both clean SNP
+witnesses. Existing read floors and required sites are preserved. Build,
+unit tests, 47 predicate cases / 1,536 assertions and validation gates pass.
+Results and scripts: `evaluations/2026-10-05-clean-snp-source-retry/`.
+
+Final validation passes all 86 window cases / 12,264 assertions and all 112
+panel rows, including existing absolute read/error floors, required-site
+witnesses and mixed-source negative guards. Full chromosome preservation and
+matched HiPhase parity audits pass. Frozen final production binary SHA256:
+`f31a9166e0c8e871b28c3174ee95286e8bdc8cbd42c184dafc0e6eb7ce0019e6`.
+
+## 2026-10-05: persistent gap replay test state
+
+The gap harness previously retained completed replay state only inside one test
+process and tied it to the output directory. Identical owning-chunk requests
+therefore reran across shards and subsequent invocations. Added shared persistent
+successful replay state through `scripts/cache_gap_replay.py`, with per-key locks,
+atomic completion publication, input/binary/runtime invalidation, output identity
+checks and copied output/matrix restoration. Assertions and parental scoring run
+every time; no test verdict is cached. Production behavior and expectations are
+unchanged by this test infrastructure work.
+
+All 86 native cases / 12,264 assertions passed in both four-shard runs. The first
+run took 548.21 s (two focused requests were already populated); warm took
+31.94 s, 17.2x faster, with all 114 completion states unchanged and no new
+pipeline replay. Focused gap: 15.945 s cold / 0.280 s warm, 747 assertions.
+Matrix diagnostic: 16.296 s cold / 0.189 s warm. Four helper tests and all
+C++ unit tests passed; production and harness builds succeeded without new
+warnings. A rebuilt production binary or changed input still needs a cold
+replay; this deliberately avoids carrying old evidence across behavior changes.
+
+Evidence: `evaluations/2026-10-05-gap-test-state/`.
+
+The default cache is populated with the verified state. Normal unsharded
+`make window-tests` passed 86 cases / 11,997 assertions plus four cache tests;
+its existing process-local outcome reuse produces a different assertion count
+from four independent shards. `make check` and predicate tests (47 cases /
+1,536 assertions) also passed.
+
+## 2026-10-05: consolidate all gap integration regressions
+
+All 84 integration cases now execute as named sections of one `all gaps` suite;
+focused gap unit tests remain separate. Removed repeated fixture/skip setup.
+Moved 72 owning-context overrides into `src/test_gap_replays.tsv`; compiled
+comparison preserves the old regions across 216 override/default examples.
+Moved 38 literal read bounds from nine owning checks, unchanged, into
+`src/test_gap_read_floors.tsv`. All remaining original assertion sites are
+preserved verbatim. Special molecule, allele, matrix and orientation checks
+remain named mechanism functions. Truth parsing is shared with file-identity
+invalidation. Production code and gap expectations were not changed here.
+
+HiPhase evidence now covers all 112 panel gaps, after checking identical
+primary input alignments including CIGAR and sequence. Native contract scoring
+retains unphased primary overlaps in its denominator, uses whole-block parental
+orientation and excludes rescue PS values from connected core counts. The
+three recent reviewed closures enforce >=80% and HiPhase total/core parity
+through `src/test_gap_certified.tsv`; future closures must join that manifest.
+Historical closures keep their original regression gates. The explicit audit
+finds only 30 of 99 historically closed gaps meeting the whole contract:
+69 have shortfalls (16 below 80%, 62 below HiPhase parity, with overlap).
+These are a backlog to investigate, not certified successes or waived defects.
+
+Normal `make window-tests`: 13,232 assertions, all 84 named integration checks
+and 112 windows, 32.45 s including four replay-cache tests. All 114 pipeline
+completion states stayed unchanged. Selected regression: 0.289 s. Missing
+fixtures skip explicitly; unmatched selectors fail. Two competitor-state tests
+cover reuse/invalidation and rejecting different alignments. Production build,
+unit tests, make check and predicate tests pass without new compiler warnings.
+
+Evidence: `evaluations/2026-10-05-gap-test-consolidation/`, including assertion
+migration proof, original-region comparison, benchmark provenance and the
+per-window contract/backlog report.
+
+## 2026-10-05: verified source indels restore the 61.738 Mb read core
+
+The existing spanning interval 61,738,239–61,747,506 retained 94/96 correct
+primary-overlap reads but only 85 correct in its connected core, below HiPhase's
+91/96 total and 91 core. Preserving the independent MSA edit behind a shared
+catalog representation permits physical verification of existing rescue tags
+against a complete, consistently oriented source path. Confirmed reads enter
+that same core without changing variant connections or assigning new HP tags.
+The final owning replay retains 94/96 total and reaches 91 core, matching HiPhase;
+all 96 competitor alignments were checked against the identical original input.
+
+One required REF read has a Q17 base but an approximately 2% summed footprint
+plus mapping error. A per-base Q30 rule rejected it unnecessarily. Deletion
+materialization now measures that error with a 5% ceiling and Q10 minimum;
+Q10 footprints with ~10% error and different deletion lengths remain excluded.
+Whole-block physical bridge thresholds are unchanged. Source-path cuts, two
+consistent clean SNP loci shared with the graph, both observation channels, and every informative phased
+profile anchor still gate admission. Added predicate coverage and owning-chunk
+94 total / 91 core floors, and certified the existing panel interval.
+
+The final development loop is `make gap-dev-check`: all fast predicates and
+adapter fixtures, 0.03 seconds on the current build, with no production-binary
+build or pipeline replay. `make gap-owner-check GAP=61.738` is the explicit real
+owner check, 0.31 seconds warm. The measured cold 1 Mb replay costs 9.81 seconds.
+Full suites are final validation, rather than an exploratory edit loop; changed
+production binaries invalidate their real outputs.
+Evidence: `evaluations/2026-10-05-verified-indel-core/`.
+
+Materialization additionally requires exact source/final marker agreement, final
+MSA verification, a pure deletion, and no neighboring verified consensus edit
+within 32 bases. A partial transfer requires core read coverage to dominate the
+rescue cohort at every coordinate; otherwise it can fragment a locally larger
+output block, as the 41.881 Mb negative regression showed. This rule has a fast
+in-memory regression in `test_graph_bam_adapter`, included in `gap-dev-check`.
+
+Final frozen binary SHA256:
+`f9efac33e864064418fe09e70c4502b4db43dae48f6825bc4e9556d699e6ed1b`.
+All 84 registered checks and all 112 panel windows passed, including nested
+sections (195 selected invocations), plus unit, predicate, cache-helper and
+standard gates. The full chr20 replay took 359.83 seconds; all 64,188 variant
+records and every HP tag are unchanged across the same 256,610 primary output
+molecules. It materializes 173 existing rescues, 156 correct and 17 discordant
+(90.17% correct). Aggregate truth counts remain 230,566 correct, 6,768 discordant,
+19,276 unphased; per-block rescoring has three transitions in each direction.
+The panel retains all 99 spans and improves full-contract passes from 30 to 33.
+Also certified the existing spanning 1,086,625–1,110,921 and
+59,825,454–59,842,960 windows that gained parity, and reran all three new
+certifications against their stricter assertions.
+
+## 2026-10-05: deletion-masked SNP fill reaches HiPhase read parity at 1.194 Mb
+
+The already spanning 1,194,233–1,196,894 window had 90/91 correct primary-overlap
+reads, all in one core, versus HiPhase's 91/91. The one unassigned maternal read
+carries an exact Q40 six-base CACCAC deletion at 1,194,228 with MAPQ60. It removes
+the verified opposite-haplotype SNPs at 1,194,230 and 1,194,233. Both transferred
+channels retain its deletion ALT; the missing SNP calls are physical masking.
+
+Ordinary graph rescue uses only six core graph donors and fails its 1% association
+gate even at 6/6 agreement. The physical marker has 72 callable existing core
+reads when staged BAM-only rows are included: 37 ALT/hap1 and 35 REF/hap2, no
+disagreement. A new final read fill uses these distinct original primary molecules
+with Q30 exact CIGAR calls, sequence validation for ALT, MAPQ30, both haplotypes,
+current marker orientation, two-sided association p<=0.01 and a one-sided 95%
+Wilson discordance bound <=10%. Only entirely unassigned graph-profile reads
+with a pure MSA-verified deletion <=32 bases, ALT in both channels, a masked
+verified opposite-haplotype SNP, and no contrary phased observation qualify.
+
+A complete independent source path is not necessary for this local read fill:
+the existing core supplies its allele gauge directly, and it changes no variant
+or block connection. Existing rescues and core HP/PS assignments are preserved.
+Source-path requirements for joins and prior rescue materialization are unchanged.
+Both graph worker paths run this fill after their final deferred bridges and
+rescue materialization, with worker-owned reference/BAM handles and BAM contig
+IDs resolved from site metadata.
+
+The certified owning 1–2 Mb replay reaches 91/91 correct in total and in the
+connected core, matching HiPhase on all 91 identical original primary alignments.
+Its 4,197 output reads and 1,528 variant records audit shows just one new correct
+tag; all 4,044 existing assigned tags and all 10 discordant reads are unchanged.
+Added the existing spanning window to the certification manifest and fast
+positive, flipped-gauge, missing-channel, contradictory-channel, other-block
+and unmasked-SNP fixtures. `make gap-dev-check` takes 0.03 s warm; the cached
+owning integration check takes 0.34 s.
+Evidence: `evaluations/2026-10-05-masked-snp-deletion/`.
+
+Final binary SHA256:
+`6a8057fc5d3875b7fb3a608a579efe47a2f4d1ffce99aac84bdd0dcec6321f04`.
+All 84 registered checks (83 mechanisms plus all 112 panel windows) pass in
+195 selected invocations with 82,416 assertions, together with gap units,
+predicates, unit binaries, cache-helper tests and standard validation gates.
+All 99 panel spans remain intact; full-contract passes increase from 33 to 34.
+Auditing 329 matched saved native replays preserves every variant record and
+existing read tag. Nine overlapping outputs contain the same one new correct
+maternal assignment, with no new discordant assignment. Validation reuses the
+panel and owning replay outputs; no new full-chromosome run was needed.
+
+## 2026-10-05: close the HiPhase-supported 62.408–62.432 Mb gap
+
+Closed chr20:62,408,056–62,432,427 in its owning 62,000,001–63,000,000
+chunk and in the complete chromosome replay. This is a previously open VCF
+interval, not merely a repair of read tags inside an already spanning block.
+Before: 157/177 original primary reads correct, largest connected core 80.
+After: 157/177 (88.70%) correct in one core, exactly matching HiPhase total
+and core correctness; both tools have 2 discordant and 18 unphased reads.
+All 177 competitor primary alignments match original start/end, CIGAR and
+sequence. Disjoint pgphase parental flanks score 86/86 and 190/190, with the
+same gauge as HiPhase's 86/86 and 191/191.
+
+HiPhase retains the intermediate GA>G deletion at 62,410,496 in the same phase
+set as both boundary SNPs. Our shared catalog row retains alignment verification
+and its original MSA deletion claim but keeps repeat classification and loses
+the source's MSA flag/BAM vector. Its physical deletion begins at 62,410,497.
+The old MSA-only stitch therefore cannot use it. Preserve that representation:
+recover the canonical catalog deletion only with one adoptable retained pure
+MSA claim of the same length, then calibrate it independently before bridging.
+
+The new physical bridge requires complete graph SNP paths on both sides. Q30
+primary deletion calls agree with two-or-more-locus clean graph SNP gauges on
+22 REF and 17 ALT molecules, with no contrary votes. The existing binomial
+association and one-sided 95% Wilson discordance tests pass. Two independent
+primary deletion/SNP pairs establish same-gauge log odds -8.89121, exceeding
+the 0.001 wrong-parity threshold. Each pair's measured deletion footprint,
+SNP and twice mapping error must remain <=5%; qualities below 10 abstain.
+The union is deferred until rescue is complete, retaining all anchor gauges.
+No graph-path or block-join confidence threshold is relaxed.
+
+Twelve already tagged graph-marker rescues can then enter their certified
+core through their own physical deletion alleles, an uncut source with 24
+consistent shared clean SNP loci, and the existing core coverage guard. A
+missing BAM observation vector is checked against the primary alignment while
+the graph call must still agree. Two of these primary alignments have MAPQ22
+and MAPQ26, not MAPQ60: supplementary alignments at those names have higher
+quality and must never supply the proof. The shared-marker promotion uses a
+MAPQ20 floor with the same <=5% measured combined error. Q40 deletion flanks
+keep these two primary calls below that error bound.
+
+Two whole-chunk BAM fallback reads contain false graph/BAM SNP REF at
+62,432,427 with zero BAM quality; their primary CIGAR actually deletes the
+base. Their separate SNP at 62,435,323 is Q40 and agrees in both channels.
+After the shared-deletion union, an independent physical REF/ALT core gauge
+can connect them while treating only CIGAR-deleted zero-quality REF calls as
+masked. Every other phased call must agree; unassigned reads and ordinary
+contrary calls cannot enter through this route. This completes core parity
+without changing the correct/discordant/abstention totals.
+
+Added the gap to the panel, required marker list, native replay map, strict
+>=80%/HiPhase certification and the unified owning mechanism suite. The owning
+regression passes 500 assertions and fails 10 with the task-start binary.
+Added fast provenance and masked-SNP witness fixtures; warm `make gap-dev-check`
+takes 0.04 s. Final task binary SHA256:
+`f98aead0dfc6f9e72a2e2cb99de3463234523d5be7437859cecb095a2259e6fd`.
+
+The owning audit preserves all 1,207 variant alleles/counts/filters and all
+3,722 correct assignments. The complete chromosome preserves all 64,188
+records and all prior phase-set extents; this is its only newly closed VCF
+interval. Its saved full baseline predates the immediately preceding masked-SNP
+read fix, so the one additional correct full-chromosome tag belongs to that
+previous fix. Current-task matched owning and suite audits use the actual
+task-start binary/state.
+
+Evidence: `evaluations/2026-10-05-shared-deletion-bridge/`.
+
+Final checks: all 85 registered gap checks (84 mechanisms, 113 windows),
+197 selected invocations, 84,327 assertions; build with no new warnings,
+unit/predicate/golden gates, gap unit cases and cache/benchmark helpers pass.
+The panel has 100/113 spans and 35 windows satisfying both >=80% correctness
+and HiPhase total/core parity. All 329 matching task-start native replays
+preserve variant alleles/counts/filters and every correct/phased assignment.
+The exact span floor for the new window is 1; the panel total floor rises to
+100 on this measured graph-arm improvement. No existing window floor changed.
+
+
+## 2026-10-05: Cut-free source paths close the 17.634 Mb gap
+
+The task-start binary leaves chr20:17,634,393–17,667,022 open while HiPhase
+closes it correctly. The native 17–18 Mb replay has 202 truth-scorable original
+primary overlaps: pgphase assigns 164 correctly, 1 incorrectly and abstains
+on 37, but only 110 correct reads share one core. The reviewed fix places
+all 164 correct reads in one core (81.188% of all original overlaps), matching
+HiPhase's 164 correct/core reads. HiPhase abstains on 38 and has no discordant
+overlap here. All 202 competitor start/end, CIGAR and sequences match input.
+
+HiPhase retains the intermediate deletion at 17,642,038 in the same block as
+SNPs 17,633,256 and 17,667,022. pgphase retains the corresponding verified
+shared deletion privately, but rejected the usable information at three
+stages. Path certification visited only right flanks and required a nonempty
+quality-cut list even for a fully supported source with no cuts. The source
+SNP at 17,487,837 was recalled by MSA, so its clean graph row could not serve
+as an exact shared source anchor. Finally, two Q40 primary molecules spanning
+17,723,058–17,744,061 could not compose with the source certificate before
+whole-path rollback.
+
+The fix retains recalled SNP edits and validates them against their immutable
+Q30 physical calls and at least two other clean source SNP loci per molecule,
+on both haplotypes. At a retained shared catalog deletion opposite a clean graph SNP, cut-free
+sources can supply absent/one-sided agreeing GAF edges, with any contrary graph
+pair still vetoing them. Certificates cover both flanks and compose with the
+existing Q30 physical edge/suffix proof. The marker context is essential: a
+general cut-free certificate also unlocked the distinct-deletion 37.598 Mb
+seam in the wrong gauge. It lost 156 formerly correct parental assignments in
+the full chromosome. The final rule preserves that seam and its read tags; the existing
+distinct-deletion and native 37 Mb orientation checks guard this exclusion.
+Weak/quality cuts and inconsistent source gauges remain exclusions.
+
+The shared deletion's physical coordinate is 17,642,039. Its final calibration
+has 7 REF and 16 ALT primary votes, no contrary votes, each with measured SNP,
+deleted-footprint and mapping error <=1%. The only primary boundary molecule
+is m84031_231217_062403_s3/147985967/ccs: Q40 deletion REF and Q17 right SNP
+REF, giving crossed log odds 3.87891 (about 2.0254% wrong parity). The physical
+bridge uses the existing SNP-to-deletion 5% bound; calibration Wilson error,
+conservative 1% gauge-call error and bridge error together must be <=20%.
+This replaces the independent fixed 10% calibration cutoff for this bounded
+physical bridge only. General BAM fallback and masked-SNP witness gates retain
+their 10% bounds. This conditional evidence bound does not replace the measured
+all-original-reads >=80%/HiPhase contract.
+
+Disjoint pgphase flanks score 175/178 and 145/145 in one parental orientation;
+HiPhase scores 179/180 and 145/145 with the equivalent global gauge. The
+complementary 1-base/12-base source deletions at 17,634,393 keep their alleles,
+counts and opposite haplotypes. The panel, native owner map, required rows,
+strict certification and owning mechanism regression now include the closure.
+
+Final validation: `make window-tests` passes 13,411 assertions (86 registered
+gap checks, 114 windows); all 199 selected invocations also pass. Build, unit,
+predicate and golden gates pass with no new warnings. The new owning regression
+passes 549 assertions and fails nine with the task-start binary. Warm
+`make gap-dev-check` takes 0.05 seconds; cached complete window tests take
+33.24 seconds. All 114 HiPhase benchmark rows match fresh identical-alignment
+measurements. Panel spans increase to 101/114 and full >=80%/HiPhase total/core
+contracts to 36. All 332 matching native replays preserve every old correct
+or phased assignment and variant allele/count/filter. The full chromosome
+replay (413.56 s alongside integration work) closes only the target interval,
+retains all 64,188 variants and 230,567 correct assignments, and makes no new
+read assignments. Its target core also scores 164/202, with exactly HiPhase's
+correct qnames. Evidence: evaluations/2026-10-05-cut-free-source-path/.
+
+The chr20 VCF phase-block span N50 is unchanged by this closure at 856,770 bp
+(0.857 Mb), versus HiPhase's 1,005,183 bp (1.005 Mb), using inclusive
+first-to-last phased-heterozygote spans with at least two rows per block.
+Valid positive VCF phase sets fall 322 -> 321; blocks with at least two rows
+fall 266 -> 265. These are raw VCF spans, without truth-based switch splitting.
+Measurements: evaluations/2026-10-05-cut-free-source-path/block-n50.json.
+
+
+## 2026-10-05: Connect the split inside HiPhase’s largest block
+
+HiPhase’s largest chr20 VCF block spans 63,182,011–66,206,480
+(3,024,470 bp). Pgphase split it at 65,509,355–65,509,406 inside a
+6.6 kb SDUST interval. Near-boundary graph SNP placements and CIGAR calls
+are inconsistent with the established read gauges, so accepting their
+nearest-SNP parity without calibration would be unsafe. Existing graph-path
+checks also reject an earlier one-haplotype edge. SNPs outside the repeat
+provide a direct alternative proof: two separated Q30 SNPs per flank on a
+primary MAPQ58 spanning molecule, calibrated on 144/148 disjoint established
+primary reads with both haplotypes and no contrary calls. Its quality error
+bound is 0.00040317; both one-sided 95% Wilson calibration bounds, 1% physical
+call error per flank and bridge error together give 0.05679768, below 20%.
+The bridge changes neither calls nor read assignments before the deferred
+whole-block union after rescue.
+
+The full chromosome now has one block at 63,182,011–66,194,203,
+3,012,193 bp. N50 rises from 856,770 to 863,977 bp. Across the same 9,843
+original primary truth-scorable overlaps of HiPhase’s largest interval,
+pgphase has 9,339 correct (94.8796%, including abstentions), versus HiPhase
+6,681 (67.8756%). The dominant correct core grows from 7,226 to 9,209;
+HiPhase has 6,681. HiPhase’s large PS changes parental orientation near
+65.2 Mb: locally both tools score six of six at the seam, with disjoint
+flanks 145/145 and 146/146, but whole-HiPhase-PS orientation scores these
+six discordant. Keep both measurements explicit; raw block length does
+not establish a correctly oriented chromosome segment.
+
+Whole-chromosome preservation retains 230,567 correct and 6,768 discordant
+assignments, all 256,610 primary output records and all 64,188 variant keys,
+alleles, counts and filters. Only the reviewed seam closes; all earlier
+VCF extents remain intact. The union changes 1,024 variant gauges and 2,324
+read PS labels without adding, losing or changing the correctness of a tag.
+The owning replay similarly preserves 2,962 correct assignments, six
+errors and 1,591 variants. A committed panel row, native replay mapping,
+strict >=80%/HiPhase manifest, retained markers and parental-flank owner
+regression cover this closure. The old binary fails five assertions.
+
+The 12,277 bp endpoint difference remains a callset/coverage difference:
+HiPhase’s last T>A has GQ2 and all eleven primary input alignments there
+have MAPQ3–15. This fix connects the existing blocks without inventing a
+terminal heterozygote. Evidence and reproduction helpers are in
+`evaluations/2026-10-05-largest-hiphase-block/`.
+
+Validation: the production build has zero new warnings; all unit tests,
+47 predicate cases / 1,551 assertions and HiFi/ONT TSV/VCF golden gates pass,
+including HiFi one/four-thread determinism. `make window-tests` passes 13,494
+assertions in four cases and four replay-state helper tests. All 201 selected
+checks pass across 115 panel windows and the owning/mechanism cases; 102
+panel gaps span and 37 satisfy both the >=80% and HiPhase total/core contract.
+All 335 matched native replays retain every old correct/phased assignment and
+every variant allele, count and filter. The pure development loop takes
+0.038 s; the cached new owner regression takes 0.508 s. The warm full suite
+takes 35.47 s; the one required cold full-chromosome audit took 448.40 s while
+running concurrently with the integration checks.
+
+## 2026-10-05: Investigate the largest-block terminal difference
+
+The 12,277 bp endpoint difference is not explained by low MAPQ/GQ alone.
+The exact 66,206,480 T>A is present in the catalog. The graph matcher sees
+four reference / zero alternate walks at MAPQ5, and eight / zero at MAPQ1;
+it drops the site as `ref_only`. Original BAM bases are six A / two T at Q40,
+plus three alignments with no base. All six BAM A reads take the reference graph
+walk, establishing a repeat-placement disagreement. At earlier 66,194,253,
+lowering MAPQ changes five reference / zero alternate to 28 / 20, showing
+that the graph discovery floor also removes real alternate observations.
+
+The BAM noisy window 66,206,004–66,210,255 has eleven reads but only three
+full-cover reads and no qualifying diploid phase set, so MSA skips it at
+minimum depth five. Depth three fires unphased MSA but does not emit the exact
+terminal T>A. Seam recovery needs two phased anchors and cannot nominate an
+unanchored terminal tail; whole-BAM fallback does not import all private sites.
+
+All 54 original primary truth-scorable tail overlaps are paternal. Current
+pgphase has 25 correct / 29 discordant (46.3%); HiPhase has three correct /
+six discordant / 45 unphased (5.6%) under whole-PS orientation. HiPhase's most
+favorable local flip still gives only six correct. At the final position,
+current pgphase scores 5/11, HiPhase 1/11 (best local flip 4/11). The MAPQ1
+owning graph replay extends beyond HiPhase to 66,207,824 and scores 9/11 at
+the endpoint, but only 32/54 (59.3%) across the added tail and loses 74 formerly
+correct rescue assignments. Owner correct totals fall 584 -> 566. MAPQ0 /
+depth1 / alt1 similarly scores 31/54, loses 74 and falls to 565 correct.
+These counterfactuals fail the >=80% interval and preservation requirements.
+
+The useful next investigation is terminal recovery with repeat-placement
+validation against established flanking haplotypes, rather than a blanket
+threshold change. No production behavior changed. Original alignment identity,
+parental scoring, graph observations, production matcher trace and fast owning
+counterfactuals are preserved in `evaluations/2026-10-05-terminal-endpoint/`.
+
+## 2026-10-05: Rank the next largest unconnected HiPhase block
+
+After the reviewed largest-block internal join, HiPhase's second-largest block
+is the next internal split: 8,946,171–11,127,753, PS8946171, 2,181,583 bp.
+Frozen current pgphase splits it into 8,946,171–10,325,039 (1,378,869 bp,
+PS8946171) and 10,337,661–11,127,753 (790,093 bp, PS10343596). The target
+boundary distance is 12,622 bp. Ranking all 191 HiPhase and 264 pgphase
+multi-het blocks requires no pipeline replay.
+
+On 9,742 identical original primary truth-scorable overlaps, pgphase scores
+9,424 correct / 52 discordant / 266 unphased (96.74%), core5,824; HiPhase
+9,459 / 23 / 260 (97.10%), core9,459. At the actual split, pgphase scores
+103 / 10 / 14 of127 (81.10%), versus HiPhase97 / 10 / 20 (76.38%).
+Pgphase already meets >=80% and HiPhase total correctness at the gap,
+but its main correct cores are41 and45; even a union gives86, below HiPhase97.
+At least11 more correct gap reads must join that core. The other17 already
+correct gap assignments are in rescue PS values. Whole-block parity also
+requires addressing the35-correct-read deficit, beyond a phase-label union.
+
+Disjoint flanks have unanimous main pgphase gauges, HP1-paternal192 left
+and HP1-maternal229 right; HiPhase is HP1-maternal193/194 left and230/230
+right. HiPhase's whole block passes80%, while its gap-specific all-read score
+does not; do not conflate raw VCF span with a certified gap closure. No
+production behavior or test expectations changed. Full ranking, exact
+original alignment checks and scoring are in
+`evaluations/2026-10-05-next-largest-block/`.
+
+
+## 2026-10-05: Close the second-largest HiPhase block through exact insertion ALTs
+
+Closed chr20:10,325,039–10,337,661 inside HiPhase's second-largest block.
+The physical stitch lacked a calibrated complementary-insertion-to-SNP route;
+the one-row indel route correctly rejects competing insertion alleles and the
+repeat-length route cannot certify this GGAA pair. Imported clean SNPs were
+also hidden by an empty graph `chunk.ref_seq`; physical references now use the
+worker FASTA cache.
+
+The new route keeps both exact MSA/alignment-verified ALTs, calls other lengths
+uncallable, and calibrates their opposite haplotypes on disjoint upstream-SNP
+molecules. A recovered calibration SNP needs a separate physical edge to the
+nearest graph SNP: two primary Q40 molecules certify 10,296,487–10,318,335.
+The insertion calibration is [[11,0],[1,13]], with one original molecule
+bridging the four-base insertion to SNP 10,343,595. Summed base/placement/MAPQ
+errors give log odds -5.9507 and joint Wilson/call/bridge error 0.173464,
+within the 20% bound. Both graph paths stay required; an internal weak right
+SNP edge is separately physically certified. Complete anchor gauges defer the
+union until rescue finishes, then exact physical insertion calls can connect
+unassigned/rescue reads without changing existing core reads.
+
+Both the 10 Mb native owner and the final full chromosome score 108/127
+original primary gap overlaps correct (85.04%), with connected correct core
+98. HiPhase scores 97/127 and core97 on identical original alignments. The
+baseline is 103 correct, 10 discordant, 14 abstentions, core45; the fix is
+108 correct, 10 discordant, 9 abstentions. Exact-ALT-only promotion rejects
+a REF read that belongs to neither insertion haplotype. It adds five correct
+calls without adding discordant calls, preserving every old correct/tagged
+read and every variant.
+The native regression fails the old binary (11 assertions) and passes the
+final binary (560 assertions); the new window, owning context, required
+markers, HiPhase count comparison and strict 80%/core contract are recorded
+in the test manifests without changing existing floors.
+
+Final production SHA256:
+15534777ecd8382e370ade340e6e8998a3fc1b1ab4ab390281b3ff4a22bbedb4.
+Four-thread chromosome replay: 67 chunks, 483.8 s, 64,188 variant records and
+256,610 output reads. All 230,567 previously correct reads are preserved;
+correct totals become 230,572 and discordant totals remain 6,768. The block
+spans exactly 8,946,171–11,127,753 (2,181,583 bp), matching HiPhase's endpoints.
+N50 rises from 863,977 to 904,351 bp; block count falls 264→263. The largest
+block remains 3,012,193 bp and its previously reviewed terminal difference
+remains unchanged. Whole target-block read parity is still open: 9,429 total
+correct and 9,318 correct core versus HiPhase9,459/9,459. The local gap itself
+passes the required HiPhase total/core and >=80% comparisons.
+
+Evidence and reproducible audits: evaluations/2026-10-05-second-largest-hiphase-block/.
+Implementation behavior is described in docs/IMPLEMENTATION.md.
+
+Validation: final `make -j8`, unit/predicate tests, collect gates and window
+suite pass (13,583 assertions in four cases). HiFi/ONT goldens and HiFi t1/t4
+determinism are unchanged; no new build warnings. Separate representation,
+orientation and connectivity selections pass 2,171/5,757/3,139 assertions.
+A saved focused owner replay recheck takes about 0.6 seconds.
+
+All 338 archived native replays are matched by the final suite and preserve
+every prior correct/phased assignment and every variant allele/count/filter;
+none are unmatched. See the new evaluation panel-audit.json.

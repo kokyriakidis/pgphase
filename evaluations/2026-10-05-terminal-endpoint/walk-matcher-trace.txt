@@ -1,0 +1,8 @@
+[site 66206480] read=m84031_231217_034919_s2/106632349/ccs mapq=5 L=1 R=1 Lrev=0 Rrev=0 n_alleles=2 maxwalk=3 -> allele=0 rev=0
+[site 66206480] read=m84031_231217_034919_s2/74844377/ccs mapq=5 L=0 R=0 Lrev=1 Rrev=1 n_alleles=2 maxwalk=3 -> allele=0 rev=1
+[site 66206480] read=m84031_231217_062403_s3/8847623/ccs mapq=5 L=0 R=0 Lrev=1 Rrev=1 n_alleles=2 maxwalk=3 -> allele=0 rev=1
+[site 66206480] read=m84031_231217_034919_s2/38994922/ccs mapq=4 L=1 R=1 Lrev=0 Rrev=0 n_alleles=2 maxwalk=3 -> allele=0 rev=0
+[site 66206480] read=m84031_231217_062403_s3/58393503/ccs mapq=4 L=1 R=1 Lrev=0 Rrev=0 n_alleles=2 maxwalk=3 -> allele=0 rev=0
+[site 66206480] read=m84031_231217_062403_s3/164168230/ccs mapq=4 L=1 R=1 Lrev=0 Rrev=0 n_alleles=2 maxwalk=3 -> allele=0 rev=0
+[site 66206480] read=m84031_231217_062403_s3/113509675/ccs mapq=3 L=1 R=1 Lrev=0 Rrev=0 n_alleles=2 maxwalk=3 -> allele=0 rev=0
+[site 66206480] read=m84031_231217_034919_s2/204931572/ccs mapq=10 L=0 R=0 Lrev=1 Rrev=1 n_alleles=2 maxwalk=3 -> allele=0 rev=1

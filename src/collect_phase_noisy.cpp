@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <numeric>
 
@@ -942,7 +943,8 @@ template<class ReferenceBase>
 static int equivalent_deletion_allele(
         const bam1_t* read, const CandidateVariant& deletion,
         const ReferenceBase& reference_base, int min_baseq, int* alt_qi,
-        bool verify_query_sequence = false) {
+        bool verify_query_sequence = false, double* call_error = nullptr) {
+    if (call_error != nullptr) *call_error = 1.0;
     constexpr hts_pos_t kMaxEquivalentShift = 32;
     constexpr int kUnknownQuality = 255;
     const hts_pos_t target_pos = deletion.key.pos;
@@ -1048,6 +1050,7 @@ static int equivalent_deletion_allele(
         return 1;
     }
     int last_query_index = -1;
+    double base_error = 0.0;
     for (hts_pos_t pos = check_beg - 1; pos <= check_end; ++pos) {
         if (selected && pos >= observed_pos &&
             pos < observed_pos + length)
@@ -1060,8 +1063,11 @@ static int equivalent_deletion_allele(
                 seq_nt16_table[static_cast<unsigned char>(ref)])
             return -1;
         last_query_index = query_index;
+        if (call_error != nullptr)
+            base_error += std::pow(10.0, -bam_get_qual(read)[query_index] / 10.0);
     }
     if (alt_qi != nullptr) *alt_qi = last_query_index;
+    if (call_error != nullptr) *call_error = base_error;
     return selected ? 1 : 0;
 }
 
@@ -1069,11 +1075,11 @@ static int equivalent_deletion_allele(
 int bam_equivalent_deletion_allele(
         const bam1_t* read, const CandidateVariant& deletion,
         ReferenceCache& reference, int tid, const bam_hdr_t* header,
-        int min_baseq) {
+        int min_baseq, double* call_error) {
     return equivalent_deletion_allele(read, deletion,
         [&reference, tid, header](hts_pos_t pos) {
             return reference.base(tid, pos, header);
-        }, min_baseq, nullptr);
+        }, min_baseq, nullptr, false, call_error);
 }
 
 bool bam_matches_deletion_sequence(

@@ -1,0 +1,1317 @@
+{
+  "pgphase_full_cohort_orientation": {
+    "63896021": {
+      "true": 9209,
+      "false": 347
+    },
+    "1566000423": {
+      "true": 74,
+      "false": 56
+    }
+  },
+  "hiphase_global_hp1_parent": "MATERNAL",
+  "interval": [
+    66194204,
+    66206480
+  ],
+  "summary": {
+    "tail": {
+      "scorable": 54,
+      "parental_counts": {
+        "PATERNAL": 54
+      },
+      "dominant_correct_core": {
+        "pgphase": 5,
+        "hiphase": 3
+      },
+      "pgphase": {
+        "correct": 25,
+        "discordant": 29
+      },
+      "hiphase": {
+        "discordant": 6,
+        "correct": 3,
+        "unphased": 45
+      },
+      "physical_terminal": {}
+    },
+    "terminal_site": {
+      "scorable": 11,
+      "parental_counts": {
+        "PATERNAL": 11
+      },
+      "dominant_correct_core": {
+        "pgphase": 3,
+        "hiphase": 1
+      },
+      "pgphase": {
+        "correct": 5,
+        "discordant": 6
+      },
+      "hiphase": {
+        "discordant": 4,
+        "unphased": 6,
+        "correct": 1
+      },
+      "physical_terminal": {
+        "('PATERNAL', 'A')": 6,
+        "('PATERNAL', 'T')": 2,
+        "('PATERNAL', 'no_base')": 3
+      }
+    }
+  },
+  "reads": [
+    {
+      "qname": "m84031_231217_034919_s2/175706704/ccs",
+      "truth": "PATERNAL",
+      "mapq": 8,
+      "start": 66169033,
+      "end": 66196624,
+      "bases": {
+        "66194204": [
+          "T",
+          27
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 63896021,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/82843607/ccs",
+      "truth": "PATERNAL",
+      "mapq": 6,
+      "start": 66171228,
+      "end": 66196354,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 63896021,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 2,
+        "PS": 63182011,
+        "status": "correct"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/223547541/ccs",
+      "truth": "PATERNAL",
+      "mapq": 20,
+      "start": 66173076,
+      "end": 66194218,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 63896021,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 2,
+        "PS": 63182011,
+        "status": "correct"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/42402390/ccs",
+      "truth": "PATERNAL",
+      "mapq": 15,
+      "start": 66174214,
+      "end": 66194646,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 63896021,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/175508837/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66178079,
+      "end": 66198996,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/196414321/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66178157,
+      "end": 66195123,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/144706773/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66179635,
+      "end": 66196601,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/209721009/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66179916,
+      "end": 66200816,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/66650401/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66180519,
+      "end": 66197138,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/237769678/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66180758,
+      "end": 66198178,
+      "bases": {
+        "66194204": [
+          "T",
+          35
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/86904786/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66181273,
+      "end": 66194960,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/17958294/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66181888,
+      "end": 66196501,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/253821995/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66181966,
+      "end": 66196314,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/22743195/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182266,
+      "end": 66197551,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/57672411/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182363,
+      "end": 66196563,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/14226462/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182559,
+      "end": 66196435,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/226103991/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182604,
+      "end": 66196441,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/37227712/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182607,
+      "end": 66197921,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/257230226/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66182840,
+      "end": 66195755,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/94902102/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183075,
+      "end": 66196569,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/157618950/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183089,
+      "end": 66197995,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/45158548/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183208,
+      "end": 66198146,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/166071417/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183229,
+      "end": 66195991,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/192943052/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183234,
+      "end": 66196444,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/123212105/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183683,
+      "end": 66197467,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/59967955/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66183768,
+      "end": 66198357,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/22678345/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184011,
+      "end": 66197773,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/36706078/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184095,
+      "end": 66196438,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/107612097/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184113,
+      "end": 66196575,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/97059720/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184183,
+      "end": 66197965,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/251658699/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184197,
+      "end": 66194870,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/243470106/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184598,
+      "end": 66201268,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/170658534/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184683,
+      "end": 66196600,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/263654263/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66184839,
+      "end": 66198143,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/106305027/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66186281,
+      "end": 66195182,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/106632349/ccs",
+      "truth": "PATERNAL",
+      "mapq": 5,
+      "start": 66186467,
+      "end": 66207892,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ],
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 63896021,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/74844377/ccs",
+      "truth": "PATERNAL",
+      "mapq": 5,
+      "start": 66186608,
+      "end": 66209744,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ],
+        "66206480": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 63896021,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/8847623/ccs",
+      "truth": "PATERNAL",
+      "mapq": 5,
+      "start": 66186641,
+      "end": 66207942,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ],
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 63896021,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/46400476/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66188553,
+      "end": 66200415,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/147591904/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66189261,
+      "end": 66201107,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/221512056/ccs",
+      "truth": "PATERNAL",
+      "mapq": 1,
+      "start": 66189295,
+      "end": 66195060,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/76154141/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66189762,
+      "end": 66198010,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/188221239/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66190201,
+      "end": 66204908,
+      "bases": {
+        "66194204": [
+          "T",
+          10
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/159515949/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66190586,
+      "end": 66200808,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/32443915/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66190766,
+      "end": 66200706,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/158533041/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66191458,
+      "end": 66210255,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/38994922/ccs",
+      "truth": "PATERNAL",
+      "mapq": 4,
+      "start": 66191880,
+      "end": 66207623,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ],
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/168298690/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66193643,
+      "end": 66197483,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/58393503/ccs",
+      "truth": "PATERNAL",
+      "mapq": 4,
+      "start": 66194027,
+      "end": 66207833,
+      "bases": {
+        "66194204": [
+          "T",
+          40
+        ],
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/51320216/ccs",
+      "truth": "PATERNAL",
+      "mapq": 4,
+      "start": 66194641,
+      "end": 66210255,
+      "bases": {},
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/164168230/ccs",
+      "truth": "PATERNAL",
+      "mapq": 4,
+      "start": 66194802,
+      "end": 66208001,
+      "bases": {
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/245500039/ccs",
+      "truth": "PATERNAL",
+      "mapq": 15,
+      "start": 66196334,
+      "end": 66208875,
+      "bases": {},
+      "pgphase": {
+        "HP": 2,
+        "PS": 1566000423,
+        "status": "correct"
+      },
+      "hiphase": {
+        "HP": 2,
+        "PS": 63182011,
+        "status": "correct"
+      }
+    },
+    {
+      "qname": "m84031_231217_062403_s3/113509675/ccs",
+      "truth": "PATERNAL",
+      "mapq": 3,
+      "start": 66199081,
+      "end": 66207537,
+      "bases": {
+        "66206480": [
+          "T",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 0,
+        "PS": 0,
+        "status": "unphased"
+      }
+    },
+    {
+      "qname": "m84031_231217_034919_s2/204931572/ccs",
+      "truth": "PATERNAL",
+      "mapq": 10,
+      "start": 66200632,
+      "end": 66210255,
+      "bases": {
+        "66206480": [
+          "A",
+          40
+        ]
+      },
+      "pgphase": {
+        "HP": 1,
+        "PS": 1566000423,
+        "status": "discordant"
+      },
+      "hiphase": {
+        "HP": 1,
+        "PS": 63182011,
+        "status": "discordant"
+      }
+    }
+  ]
+}

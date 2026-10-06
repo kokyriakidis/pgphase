@@ -1,0 +1,17 @@
+{
+  "region": "CHM13#0#chr20:1-66210255",
+  "variant_extent_baseline": "test_data/tmp_gap_fix68/frozen_final/0/phased.vcf",
+  "baseline_binary": "96e95ef60a81898b58989268e4eecf7f758766376cfd000121caf9d09d5f8b70",
+  "baseline_note": "The task-start production binary and preceding frozen full chromosome replay.",
+  "final_binary": "477aaecb8adadf8f6f20bc380676de81f15d51f8eacbdb787c2cf5a8bf18140e",
+  "all_previous_variant_extents_preserved": true,
+  "new_closures": [
+    {
+      "left": 65509355,
+      "right": 65509406,
+      "phase_sets": [
+        63896021
+      ]
+    }
+  ]
+}

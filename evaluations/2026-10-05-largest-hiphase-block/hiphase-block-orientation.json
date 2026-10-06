@@ -1,0 +1,30 @@
+{
+  "63000000": {
+    "hap1_paternal": 0,
+    "hap1_maternal": 1151
+  },
+  "63500000": {
+    "hap1_paternal": 3,
+    "hap1_maternal": 1716
+  },
+  "64000000": {
+    "hap1_paternal": 2,
+    "hap1_maternal": 1431
+  },
+  "64500000": {
+    "hap1_paternal": 1,
+    "hap1_maternal": 1547
+  },
+  "65000000": {
+    "hap1_paternal": 896,
+    "hap1_maternal": 495
+  },
+  "65500000": {
+    "hap1_paternal": 1523,
+    "hap1_maternal": 1
+  },
+  "66000000": {
+    "hap1_paternal": 490,
+    "hap1_maternal": 340
+  }
+}

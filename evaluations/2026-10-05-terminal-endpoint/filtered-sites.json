@@ -1,0 +1,88 @@
+{
+  "filtered": [
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66194253",
+      "SITE_ID": ">120903193>120903196",
+      "REF_COV": "5",
+      "ALT_COV": "0",
+      "TOTAL_COV": "5",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66194277",
+      "SITE_ID": ">120903196>120903199",
+      "REF_COV": "5",
+      "ALT_COV": "0",
+      "TOTAL_COV": "5",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66205641",
+      "SITE_ID": ">120905507>120905510",
+      "REF_COV": "5",
+      "ALT_COV": "0",
+      "TOTAL_COV": "5",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66206480",
+      "SITE_ID": ">120905944>120905947",
+      "REF_COV": "4",
+      "ALT_COV": "0",
+      "TOTAL_COV": "4",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    }
+  ],
+  "mapq1": [
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66205641",
+      "SITE_ID": ">120905507>120905510",
+      "REF_COV": "11",
+      "ALT_COV": "0",
+      "TOTAL_COV": "11",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66206480",
+      "SITE_ID": ">120905944>120905947",
+      "REF_COV": "8",
+      "ALT_COV": "0",
+      "TOTAL_COV": "8",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    }
+  ],
+  "permissive": [
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66205641",
+      "SITE_ID": ">120905507>120905510",
+      "REF_COV": "11",
+      "ALT_COV": "0",
+      "TOTAL_COV": "11",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    },
+    {
+      "CHROM": "CHM13#0#chr20",
+      "POS": "66206480",
+      "SITE_ID": ">120905944>120905947",
+      "REF_COV": "8",
+      "ALT_COV": "0",
+      "TOTAL_COV": "8",
+      "AF": "0.0000",
+      "REASON": "ref_only"
+    }
+  ]
+}

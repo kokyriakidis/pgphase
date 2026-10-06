@@ -1,0 +1,46 @@
+{
+  "measurements": [
+    {
+      "stage": "pgphase_before",
+      "source": "test_data/tmp_gap_fix66/baseline/1/phased.bam",
+      "input_primary_reads": 91,
+      "truth_scorable": 91,
+      "counts": {
+        "correct": 90,
+        "unphased": 1
+      },
+      "correct_all_reads": 0.989010989010989,
+      "read_phase_sets": 1,
+      "dominant_correct": 90,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "pgphase_after",
+      "source": "test_data/tmp_gap_fix66/certified/graph/w1194233-1196894/phased.bam",
+      "input_primary_reads": 91,
+      "truth_scorable": 91,
+      "counts": {
+        "correct": 91
+      },
+      "correct_all_reads": 1.0,
+      "read_phase_sets": 1,
+      "dominant_correct": 91,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "hiphase",
+      "source": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+      "input_primary_reads": 91,
+      "truth_scorable": 91,
+      "counts": {
+        "correct": 91
+      },
+      "correct_all_reads": 1.0,
+      "read_phase_sets": 1,
+      "dominant_correct": 91,
+      "identical_input_alignments": 91
+    }
+  ],
+  "hiphase_correct_pgphase_not": [],
+  "pgphase_correct_hiphase_not": []
+}

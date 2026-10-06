@@ -1,0 +1,24 @@
+{
+  "left_calibration": {
+    "same_h1": 75,
+    "same_h2": 69,
+    "contrary": 0,
+    "molecules": 144
+  },
+  "right_calibration": {
+    "same_h1": 68,
+    "same_h2": 80,
+    "contrary": 0,
+    "molecules": 148
+  },
+  "independent_bridge_molecules": 1,
+  "bridge_mapping_quality": 58,
+  "wrong_parity_bound": 0.00040316978638492223,
+  "joint_error_bound": 0.05679768307116314,
+  "max_joint_error": 0.2,
+  "repeat": [
+    65507467,
+    65514083
+  ],
+  "bridge_qname": "m84031_231217_034919_s2/211681690/ccs"
+}

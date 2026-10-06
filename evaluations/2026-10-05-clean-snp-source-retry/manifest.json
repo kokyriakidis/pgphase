@@ -1,0 +1,18 @@
+{
+  "target": [
+    57764235,
+    57785224
+  ],
+  "owner_region": "CHM13#0#chr20:57000001-58000000",
+  "before_full": "test_data/tmp_gap_fix63/full-deferred-source-runs",
+  "after_full": "test_data/tmp_gap_fix64/full-source-retry",
+  "artifacts": {
+    "src/graph_collect.cpp": "f5f70b6813678416f99a85e14d307031df1a1750961bc9bc03d9be3c7b5405ba",
+    "src/test_gap_windows.cpp": "7f92cd7f3f185d861d3380ebd2230f8909438f5ebfc608e827acaaca77d2e1ed",
+    "test_data/tmp_gap_fix64/pgphase-before": "6824c6287134b7178f12e6690bcfca026b0a32850a861b36c041842e0144e29e",
+    "test_data/tmp_gap_fix64/pgphase-source-retry": "f31a9166e0c8e871b28c3174ee95286e8bdc8cbd42c184dafc0e6eb7ce0019e6",
+    "test_data/tmp_gap_fix64/test_gap_windows-final": "337da45857b94e2d35f0c6b41f611a662f58ef6e47a2a131183965d2b40a1acc",
+    "test_data/tmp_gap_fix64/full-source-retry/phased.vcf": "1317ddba911ed9258d7b146b1f42b99508c07199eacd601b90611f1aa41a4e15",
+    "test_data/tmp_gap_fix64/full-source-retry/phased.bam": "21c35640eb603be84cf2a654231f14c173ba66e8424f682a3115811f101d25e5"
+  }
+}

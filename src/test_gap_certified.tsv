@@ -1,0 +1,14 @@
+# Reviewed closures enforcing >=80% primary correctness and HiPhase total/core parity.
+# Add every future newly closed gap here; older gaps keep their regression floors.
+window
+1086625-1110921
+1194233-1196894
+33747591-33749688
+49720311-49742973
+57764235-57785224
+59825454-59842960
+61738239-61747506
+62408056-62432427
+17634393-17667022
+65509355-65509406
+10325039-10337661

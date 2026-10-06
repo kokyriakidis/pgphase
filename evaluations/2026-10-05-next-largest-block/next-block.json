@@ -1,0 +1,272 @@
+{
+  "target": {
+    "ps": 8946171,
+    "left": 8946171,
+    "right": 11127753,
+    "length": 2181583,
+    "rows": 2510,
+    "hiphase_rank": 2,
+    "exact_span_covered": false,
+    "pgphase_blocks": [
+      {
+        "ps": 8946171,
+        "left": 8946171,
+        "right": 10325039,
+        "length": 1378869,
+        "rows": 1320
+      },
+      {
+        "ps": 10343596,
+        "left": 10337661,
+        "right": 11127753,
+        "length": 790093,
+        "rows": 900
+      }
+    ]
+  },
+  "gap": [
+    10325039,
+    10337661
+  ],
+  "gap_boundary_distance_bp": 12622,
+  "unscorable_original_reads": {},
+  "tools": {
+    "pgphase": {
+      "regions": {
+        "block": {
+          "scorable": 9742,
+          "counts": {
+            "correct": 9424,
+            "discordant": 52,
+            "unphased": 266
+          },
+          "correct_all_reads": 0.9673578320673373,
+          "dominant_connected_correct_core": 5824,
+          "correct_cores": {
+            "8946171": 5824,
+            "10343596": 3482
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 5824,
+              "true": 5
+            },
+            "10343596": {
+              "true": 3482,
+              "false": 24
+            },
+            "1508946171": {
+              "false": 51,
+              "true": 2
+            },
+            "1509002216": {
+              "true": 18
+            },
+            "1009014032": {
+              "true": 30,
+              "false": 7
+            },
+            "1010343596": {
+              "false": 14,
+              "true": 14
+            },
+            "1510001686": {
+              "true": 3
+            },
+            "1511000733": {
+              "false": 2
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 224,
+          "counts": {
+            "correct": 193,
+            "unphased": 30,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8616071428571429,
+          "dominant_connected_correct_core": 192,
+          "correct_cores": {
+            "8946171": 192
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "false": 192
+            },
+            "1009014032": {
+              "false": 1,
+              "true": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 127,
+          "counts": {
+            "correct": 103,
+            "unphased": 14,
+            "discordant": 10
+          },
+          "correct_all_reads": 0.8110236220472441,
+          "dominant_connected_correct_core": 45,
+          "correct_cores": {
+            "8946171": 41,
+            "10343596": 45
+          },
+          "parental_orientation_votes": {
+            "1010343596": {
+              "true": 10,
+              "false": 3
+            },
+            "8946171": {
+              "false": 41,
+              "true": 1
+            },
+            "10343596": {
+              "true": 45
+            },
+            "1009014032": {
+              "true": 7,
+              "false": 6
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 230,
+          "counts": {
+            "correct": 230
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 229,
+          "correct_cores": {
+            "10343596": 229
+          },
+          "parental_orientation_votes": {
+            "10343596": {
+              "true": 229
+            },
+            "1010343596": {
+              "true": 1
+            }
+          }
+        }
+      },
+      "identical_original_alignments": null,
+      "phase_set_orientation": {
+        "1509002216": {
+          "true": 18
+        },
+        "10343596": {
+          "true": 3482,
+          "false": 24
+        },
+        "1010343596": {
+          "true": 14,
+          "false": 14
+        },
+        "1508946171": {
+          "false": 51,
+          "true": 2
+        },
+        "1009014032": {
+          "true": 30,
+          "false": 7
+        },
+        "1510001686": {
+          "true": 3
+        },
+        "8946171": {
+          "false": 5824,
+          "true": 5
+        },
+        "1511000733": {
+          "false": 2
+        }
+      }
+    },
+    "hiphase": {
+      "regions": {
+        "block": {
+          "scorable": 9742,
+          "counts": {
+            "correct": 9459,
+            "discordant": 23,
+            "unphased": 260
+          },
+          "correct_all_reads": 0.9709505235064668,
+          "dominant_connected_correct_core": 9459,
+          "correct_cores": {
+            "8946171": 9459
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 9459,
+              "false": 23
+            }
+          }
+        },
+        "left_flank": {
+          "scorable": 224,
+          "counts": {
+            "correct": 193,
+            "unphased": 30,
+            "discordant": 1
+          },
+          "correct_all_reads": 0.8616071428571429,
+          "dominant_connected_correct_core": 193,
+          "correct_cores": {
+            "8946171": 193
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 193,
+              "false": 1
+            }
+          }
+        },
+        "gap": {
+          "scorable": 127,
+          "counts": {
+            "unphased": 20,
+            "correct": 97,
+            "discordant": 10
+          },
+          "correct_all_reads": 0.7637795275590551,
+          "dominant_connected_correct_core": 97,
+          "correct_cores": {
+            "8946171": 97
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 97,
+              "false": 10
+            }
+          }
+        },
+        "right_flank": {
+          "scorable": 230,
+          "counts": {
+            "correct": 230
+          },
+          "correct_all_reads": 1.0,
+          "dominant_connected_correct_core": 230,
+          "correct_cores": {
+            "8946171": 230
+          },
+          "parental_orientation_votes": {
+            "8946171": {
+              "true": 230
+            }
+          }
+        }
+      },
+      "identical_original_alignments": 9742,
+      "phase_set_orientation": {
+        "8946171": {
+          "true": 9459,
+          "false": 23
+        }
+      }
+    }
+  }
+}

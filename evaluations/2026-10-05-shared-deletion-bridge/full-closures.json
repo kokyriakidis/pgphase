@@ -1,0 +1,17 @@
+{
+  "region": "CHM13#0#chr20:1-66210255",
+  "variant_extent_baseline": "test_data/tmp_gap_fix65/frozen_full/0/phased.vcf",
+  "baseline_binary": "f9efac33e864064418fe09e70c4502b4db43dae48f6825bc4e9556d699e6ed1b",
+  "baseline_note": "The immediately preceding masked-SNP fix added one read tag and changed no VCF records.",
+  "final_binary": "f98aead0dfc6f9e72a2e2cb99de3463234523d5be7437859cecb095a2259e6fd",
+  "all_previous_variant_extents_preserved": true,
+  "new_closures": [
+    {
+      "left": 62408056,
+      "right": 62432427,
+      "phase_sets": [
+        62385514
+      ]
+    }
+  ]
+}

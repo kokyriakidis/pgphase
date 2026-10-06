@@ -1,0 +1,31 @@
+{
+  "cases": 85,
+  "assertions": 11497,
+  "panel_windows": 111,
+  "shards": [
+    {
+      "shard": 0,
+      "cases": 2,
+      "returncode": 0,
+      "seconds": 866.3993876010063
+    },
+    {
+      "shard": 1,
+      "cases": 28,
+      "returncode": 0,
+      "seconds": 885.5047039929923
+    },
+    {
+      "shard": 2,
+      "cases": 28,
+      "returncode": 0,
+      "seconds": 596.3797935969924
+    },
+    {
+      "shard": 3,
+      "cases": 27,
+      "returncode": 0,
+      "seconds": 276.81050886699813
+    }
+  ]
+}

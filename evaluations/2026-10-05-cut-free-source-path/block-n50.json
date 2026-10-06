@@ -1,0 +1,38 @@
+{
+  "definition": "VCF phase-block N50 on chr20: span from first to last phased heterozygous site, inclusive; blocks with at least two phased heterozygous rows; valid positive PS; no truth-based splitting.",
+  "measurements": [
+    {
+      "stage": "pgphase_before",
+      "vcf": "test_data/tmp_gap_fix67/frozen_full/0/phased.vcf",
+      "phase_sets": 322,
+      "blocks_ge2": 266,
+      "span_bp": 56480587,
+      "n50_bp": 856770,
+      "largest_block_bp": 2327345,
+      "phased_het_rows": 63781,
+      "phased_homo_rows": 0
+    },
+    {
+      "stage": "pgphase_after",
+      "vcf": "test_data/tmp_gap_fix68/frozen_final/0/phased.vcf",
+      "phase_sets": 321,
+      "blocks_ge2": 265,
+      "span_bp": 56513215,
+      "n50_bp": 856770,
+      "largest_block_bp": 2327345,
+      "phased_het_rows": 63781,
+      "phased_homo_rows": 0
+    },
+    {
+      "stage": "hiphase",
+      "vcf": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.vcf.gz",
+      "phase_sets": 196,
+      "blocks_ge2": 191,
+      "span_bp": 57962524,
+      "n50_bp": 1005183,
+      "largest_block_bp": 3024470,
+      "phased_het_rows": 77123,
+      "phased_homo_rows": 0
+    }
+  ]
+}

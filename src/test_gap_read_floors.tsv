@@ -1,0 +1,14 @@
+# Original read regression bounds. Migration preserves every value and comparison.
+check	min_scored	min_correct	max_discordant	min_concordance	min_separated	exact_scorable
+gap_one_haplotype_repeat_deletion_votes_preserve_parental_block_orientation	3870	3844	26	-	-	-
+gap_exact_snp_branches_preserve_the_path_through_a_complex_catalog_allele	3876	3840	36	-	78.0/111.0	-
+gap_complementary_insertion_recall_cannot_invert_its_snp_flanks	3924	3922	2	-	-	-
+gap_shifted_compound_cigar_deletions_close_the_owning_7_9_mb_gap	4091	3926	165	-	-	-
+gap_physical_snp_switch_repair_closes_the_owning_62_mb_gap	3750	3722	28	-	-	-
+gap_quality_backed_source_path_closes_the_owning_13_mb_gap	3014	2835	179	0.94	0.86	175
+gap_a_recovered_short_insertion_retains_its_independent_source_path	3655	3523	132	0.96	64.0/67.0	67
+gap_shared_graph_rows_retain_their_independent_bam_run_certificate	3489	3363	126	-	137.0/162.0	162
+gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix	4054	3860	194	-	128.0/150.0	150
+gap_cut_free_source_paths_close_the_17_634_mb_gap	4076	4047	29	0.99	0.81	202
+gap_calibrated_repeat_snps_join_the_largest_hiphase_block	2968	2962	6	0.99	1.0	6
+gap_complementary_insertions_join_the_second_largest_hiphase_block	4409	4364	45	0.98	98.0/127.0	127

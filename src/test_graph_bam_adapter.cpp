@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -3947,6 +3948,334 @@ int main() {
         rejected.haps[0] = 0;
         ok &= check(refresh_recovered_read_haps_from_bam_snps(rejected) == 0,
                     "physical SNP refresh: unassigned reads remain for ordinary rescue");
+    }
+
+    {
+        PhasingChunk coverage;
+        coverage.reads.resize(3);
+        for (ReadRecord& read : coverage.reads) {
+            read.beg = 100;
+            read.end = 200;
+        }
+        coverage.haps = {1, 2, 0};
+        coverage.phase_sets = {7, 7, 0};
+        coverage.gap_haps = {0, 0, 1};
+        coverage.gap_phase_sets = {0, 0, 7 + kGapFillPsOffset};
+        ok &= check(core_dominates_rescue_coverage(coverage, 7),
+                    "partial rescue transfer: established core covers the cohort");
+        coverage.reads[0].end = 150;
+        coverage.reads[1].end = 150;
+        ok &= check(!core_dominates_rescue_coverage(coverage, 7),
+                    "partial rescue transfer: local rescue dominance vetoes splitting");
+        coverage.reads[2].is_skipped = true;
+        ok &= check(core_dominates_rescue_coverage(coverage, 7),
+                    "partial rescue transfer: skipped reads do not define a cohort");
+        coverage.reads[2].is_skipped = false;
+        coverage.gap_phase_sets[2] = 8 + kGapFillPsOffset;
+        ok &= check(core_dominates_rescue_coverage(coverage, 7),
+                    "partial rescue transfer: independent cohorts are not combined");
+    }
+
+    {
+        PhasingChunk masked;
+        masked.candidates.resize(3);
+        CandidateVariant& deletion = masked.candidates[0];
+        deletion.key.type = VariantType::Deletion;
+        deletion.key.pos = 100;
+        deletion.key.ref_len = 6;
+        deletion.bam_injected = true;
+        deletion.msa_verified = true;
+        deletion.counts.category = VariantCategory::NoisyCandHet;
+        deletion.phase_set = 7;
+        deletion.hap_to_cons_alle = {-1, 1, 0};
+        for (size_t ci = 1; ci < masked.candidates.size(); ++ci) {
+            CandidateVariant& snp = masked.candidates[ci];
+            snp.key.type = VariantType::Snp;
+            snp.key.pos = 100 + 3 * (ci - 1);
+            snp.key.ref_len = 1;
+            snp.key.alt = "T";
+            snp.msa_verified = true;
+            snp.counts.category = VariantCategory::NoisyCandHet;
+            snp.phase_set = 7;
+            snp.hap_to_cons_alle = {-1, 0, 1};
+        }
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.end_var_idx = 2;
+        profile.alleles = {1, -1, -1};
+        profile.bam_alleles = profile.alleles;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 1,
+                    "masked SNP deletion: ALT identifies the missing SNP haplotype");
+        for (CandidateVariant& candidate : masked.candidates)
+            std::swap(candidate.hap_to_cons_alle[1], candidate.hap_to_cons_alle[2]);
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 2,
+                    "masked SNP deletion: flipped core gauge is preserved");
+        for (CandidateVariant& candidate : masked.candidates)
+            std::swap(candidate.hap_to_cons_alle[1], candidate.hap_to_cons_alle[2]);
+        profile.alleles[1] = 1;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 0,
+                    "masked SNP deletion: contrary phased allele vetoes filling");
+        profile.alleles[1] = 0;
+        masked.candidates[1].phase_set = 8;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 0,
+                    "masked SNP deletion: another observed phase block vetoes filling");
+        profile.alleles[1] = -1;
+        masked.candidates[1].phase_set = 7;
+        profile.bam_alleles[1] = 1;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 0,
+                    "masked SNP deletion: a contrary BAM-only call vetoes filling");
+        profile.bam_alleles[1] = -1;
+        profile.bam_alleles[0] = -1;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 0,
+                    "masked SNP deletion: both channels must retain deletion ALT");
+        profile.bam_alleles[0] = 1;
+        masked.candidates[1].key.pos = 110;
+        masked.candidates[2].key.pos = 120;
+        ok &= check(masked_snp_deletion_haplotype(masked, profile, 0) == 0,
+                    "masked SNP deletion: nearby unobserved SNPs are not masked");
+    }
+
+    {
+        GraphChunkBuildResult gc;
+        gc.chunk.candidates.resize(1);
+        CandidateVariant& marker = gc.chunk.candidates[0];
+        marker.key.tid = 11;
+        marker.key.pos = 100;
+        marker.key.type = VariantType::Snp;
+        marker.key.ref_len = 1;
+        marker.key.alt = "T";
+        marker.phase_set = 7;
+        marker.counts.category = VariantCategory::CleanHetSnp;
+        marker.hap_to_cons_alle = {-1, 0, 1};
+        marker.counts.n_uniq_alles = 2;
+        gc.site_meta.push_back({"chr20", 100, "A", {"T"}});
+        gc.site_allele_orig_idx.push_back({0, 1});
+        RecoverySourceSite source;
+        source.candidate_index = 0;
+        source.phase_set = 9;
+        source.hap1_allele = 0;
+        source.hap2_allele = 1;
+        source.can_adopt = true;
+        source.msa_key = marker.key;
+        gc.recovery_source_sites.push_back(source);
+        gc.recovery_source_path_supported[9] = true;
+        gc.recovery_source_weak_cuts[9] = {};
+        RecoveryPhaseGauge gauge;
+        for (int si = 0; si < 3; ++si) {
+            VariantKey key = marker.key;
+            key.pos += si * 10;
+            gauge.bam_sites.push_back({key, 9, 0, 1, si != 0, 9});
+        }
+        for (int ri = 0; ri < 12; ++ri) {
+            const int allele = ri % 2;
+            gauge.bam_reads.push_back({std::to_string(ri), 60,
+                {{0, allele}, {1, allele}, {2, allele}}, {40, 40, 40}});
+        }
+        gc.recovery_phase_gauges.push_back(gauge);
+        ok &= check(retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: recalled allele uses independent physical clean loci");
+        gc.recovery_source_weak_cuts[9] = {105};
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: an unsupported source cut cannot certify the path");
+        gc.recovery_source_weak_cuts[9].clear();
+        gc.recovery_source_quality_cuts[9] = {105};
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: source quality cuts remain a veto");
+        gc.recovery_source_quality_cuts[9].clear();
+        gc.recovery_source_path_supported[9] = false;
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: complete independent source is required");
+        gc.recovery_source_path_supported[9] = true;
+        gc.recovery_source_sites.push_back(source);
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: competing source claims are rejected");
+        gc.recovery_source_sites.pop_back();
+        gc.recovery_source_sites[0].msa_key.reset();
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: recalled genotype provenance is required");
+        gc.recovery_source_sites[0].msa_key = marker.key;
+        gc.site_meta[0].alts[0] = "G";
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: graph and source must describe the same physical SNP");
+        gc.site_meta[0].alts[0] = "T";
+        gc.recovery_phase_gauges[0].bam_reads[0].observations[1].second = 1;
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: a contrary clean locus vetoes the recalled gauge");
+        gc.recovery_phase_gauges[0] = gauge;
+        gc.recovery_phase_gauges[0].bam_sites[2].key.pos = 110;
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: duplicate descriptions are not independent loci");
+        gc.recovery_phase_gauges[0] = gauge;
+        for (RecoveryBamRead& read : gc.recovery_phase_gauges[0].bam_reads)
+            read.base_qualities[0] = 0;
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: deletion-masked or missing physical bases abstain");
+        gc.recovery_phase_gauges[0] = gauge;
+        for (RecoveryBamRead& read : gc.recovery_phase_gauges[0].bam_reads)
+            if (read.observations[0].second == 1) read.mapq = 10;
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: both physical allele classes need mapping support");
+        gc.recovery_phase_gauges[0] = gauge;
+        gc.recovery_phase_gauges[0].bam_reads.resize(8);
+        ok &= check(!retained_source_snp_path_anchor_supported(gc, 0),
+                    "source SNP anchor: weak physical counts cannot certify parity");
+    }
+
+    {
+        IndependentBamBlockLink gauge;
+        gauge.counts = {{{30, 0}, {0, 30}}};
+        const double q17_error = std::pow(10.0, -1.7) + 0.000302;
+        const double q17_odds = std::log((1.0 - q17_error) / q17_error);
+        const auto crossed = calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds);
+        ok &= check(crossed && *crossed,
+                    "shared deletion parity: calibrated Q17 primary pair meets the 5% error bound");
+        const auto same = calibrated_indel_bridge_flip(gauge, {1, 0}, -q17_odds);
+        ok &= check(same && !*same,
+                    "shared deletion parity: the same-gauge orientation is retained");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 1}, 10.0),
+                    "shared deletion parity: a contrary molecule vetoes the bridge");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 0}, 10.0),
+                    "shared deletion parity: no physical pair means no bridge");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, 2.0),
+                    "shared deletion parity: weak physical quality cannot certify the gauge");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, -q17_odds),
+                    "shared deletion parity: likelihood and observed orientation must agree");
+        ok &= check(calibrated_indel_bridge_flip(gauge, {0, 2}, 2.0 * q17_odds).has_value(),
+                    "shared deletion parity: added agreeing evidence preserves acceptance");
+        gauge.counts = {{{7, 0}, {0, 14}}};
+        ok &= check(calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds).has_value(),
+                    "shared deletion parity: sparse precise evidence meets the joint 80% bound");
+        gauge.counts = {{{11, 0}, {1, 13}}};
+        const auto insertion = calibrated_indel_bridge_flip(gauge, {1, 0}, -5.9507);
+        ok &= check(insertion && !*insertion,
+                    "insertion parity: diploid calibration tolerates one discordant donor within the 80% bound");
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {1, 1}, -5.9507),
+                    "insertion parity: a contrary bridge cannot be hidden by calibration depth");
+        gauge.counts = {{{2, 0}, {0, 8}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds),
+                    "shared deletion parity: insufficient calibration fails the joint error bound");
+        gauge.counts = {{{30, 10}, {10, 30}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, 20.0),
+                    "shared deletion parity: high depth cannot conceal excessive calibration discordance");
+        gauge.counts = {{{30, 0}, {0, 0}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds),
+                    "shared deletion parity: calibration requires both haplotypes");
+        gauge.counts = {{{0, 30}, {30, 0}}};
+        ok &= check(!calibrated_indel_bridge_flip(gauge, {0, 1}, q17_odds),
+                    "shared deletion parity: a reversed marker gauge cannot supply the bridge");
+    }
+
+    {
+        GraphChunkBuildResult shared;
+        shared.chunk.candidates.resize(1);
+        CandidateVariant& marker = shared.chunk.candidates[0];
+        marker.key.type = VariantType::Deletion;
+        marker.key.pos = 100;
+        marker.alignment_verified = true;
+        marker.counts.n_uniq_alles = 2;
+        marker.counts.category = VariantCategory::NoisyCandHet;
+        marker.phase_set = 7;
+        marker.hap_to_cons_alle = {-1, 0, 1};
+        shared.site_meta.push_back({"chr20", 100, "AT", {"A"}});
+        shared.site_allele_orig_idx.push_back({0, 1});
+        RecoverySourceSite source;
+        source.candidate_index = 0;
+        source.can_adopt = true;
+        VariantKey key;
+        key.pos = 100;
+        key.type = VariantType::Deletion;
+        key.ref_len = 1;
+        source.msa_key = key;
+        shared.recovery_source_sites.push_back(source);
+        const auto physical = retained_shared_deletion_key(shared, 0);
+        ok &= check(physical && physical->pos == 101 && physical->ref_len == 1 &&
+                    physical->alt.empty() && !marker.msa_verified,
+                    "shared MSA deletion: catalog keeps its physical edit and source proof");
+        marker.alignment_verified = false;
+        ok &= check(!retained_shared_deletion_key(shared, 0),
+                    "shared MSA deletion: unverified graph allele is excluded");
+        marker.alignment_verified = true;
+        shared.recovery_source_sites[0].msa_key.reset();
+        ok &= check(!retained_shared_deletion_key(shared, 0),
+                    "shared MSA deletion: retained MSA provenance is required");
+        shared.recovery_source_sites[0].msa_key = key;
+        shared.recovery_source_sites.push_back(source);
+        ok &= check(!retained_shared_deletion_key(shared, 0),
+                    "shared MSA deletion: competing source claims are excluded");
+        shared.recovery_source_sites.pop_back();
+        shared.site_meta[0].alts[0] = "GC";
+        ok &= check(!retained_shared_deletion_key(shared, 0),
+                    "shared MSA deletion: a replacement is not a pure deletion");
+    }
+
+    {
+        PhasingChunk chunk;
+        chunk.candidates.resize(3);
+        for (CandidateVariant& site : chunk.candidates) {
+            site.key.type = VariantType::Snp;
+            site.key.ref_len = 1;
+            site.counts.n_uniq_alles = 2;
+            site.counts.category = VariantCategory::CleanHetSnp;
+            site.phase_set = 7;
+            site.hap_to_cons_alle = {-1, 0, 1};
+        }
+        ReadVariantProfile profile;
+        profile.start_var_idx = 0;
+        profile.alleles = {0, 1, -1};
+        profile.graph_alleles = profile.alleles;
+        profile.bam_alleles = profile.alleles;
+        profile.bam_base_qualities = {0, 40, 0};
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 2,
+                    "masked BAM SNP: a deleted REF can abstain behind a physical witness");
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {}) == 0,
+                    "masked BAM SNP: an ordinary contrary REF remains a veto");
+        profile.bam_base_qualities[1] = 17;
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 0,
+                    "masked BAM SNP: a low quality witness cannot connect the read");
+        profile.bam_base_qualities[1] = 40;
+        profile.graph_alleles[1] = 0;
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 0,
+                    "masked BAM SNP: graph and BAM witness alleles must agree");
+        profile.graph_alleles[1] = 1;
+        profile.alleles[2] = 0;
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 0,
+                    "masked BAM SNP: another unmasked contrary call vetoes connection");
+        profile.alleles[2] = -1;
+        chunk.candidates[0].phase_set = 8;
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 0,
+                    "masked BAM SNP: deleted calls cannot connect a different phase set");
+        chunk.candidates[0].phase_set = 7;
+        profile.bam_base_qualities[0] = 40;
+        ok &= check(masked_bam_snp_haplotype(chunk, profile, 1, {0}) == 0,
+                    "masked BAM SNP: a quality-bearing REF cannot be masked");
+    }
+
+    {
+        std::array<IndependentBamBlockLink, 2> gauges;
+        for (auto& gauge : gauges) gauge.counts = {{{50, 0}, {0, 50}}};
+        ok &= check(calibrated_repeat_snp_bridge_flip(gauges, {1, 0}, 0.0004) == false,
+                    "repeat SNP bridge: calibrated sparse same-gauge molecule joins");
+        ok &= check(calibrated_repeat_snp_bridge_flip(gauges, {0, 1}, 0.0004) == true,
+                    "repeat SNP bridge: calibrated reverse-gauge molecule joins");
+        ok &= check(!calibrated_repeat_snp_bridge_flip(gauges, {1, 1}, 0.0004),
+                    "repeat SNP bridge: contrary independent molecule vetoes union");
+        ok &= check(!calibrated_repeat_snp_bridge_flip(gauges, {0, 0}, 0.0004),
+                    "repeat SNP bridge: calibration without a physical bridge abstains");
+        ok &= check(!calibrated_repeat_snp_bridge_flip(gauges, {1, 0}, 0.002),
+                    "repeat SNP bridge: weak base or mapping quality abstains");
+        auto unsupported = gauges;
+        unsupported[1].counts = {{{100, 0}, {0, 0}}};
+        ok &= check(!calibrated_repeat_snp_bridge_flip(unsupported, {1, 0}, 0.0004),
+                    "repeat SNP bridge: both diploid classes must calibrate each flank");
+        unsupported[1].counts = {{{0, 50}, {50, 0}}};
+        ok &= check(!calibrated_repeat_snp_bridge_flip(unsupported, {1, 0}, 0.0004),
+                    "repeat SNP bridge: physical calls cannot reverse an established gauge");
+        unsupported[1].counts = {{{2, 0}, {0, 2}}};
+        ok &= check(!calibrated_repeat_snp_bridge_flip(unsupported, {1, 0}, 0.0004),
+                    "repeat SNP bridge: tiny calibration cannot replace a full path proof");
+        unsupported[1].counts = {{{40, 10}, {10, 40}}};
+        ok &= check(!calibrated_repeat_snp_bridge_flip(unsupported, {1, 0}, 0.0004),
+                    "repeat SNP bridge: joint error above twenty percent abstains");
     }
 
     std::ostringstream sites;

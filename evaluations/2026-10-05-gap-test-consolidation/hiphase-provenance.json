@@ -1,0 +1,57 @@
+{
+  "signature": {
+    "helper": "4286e66d89191b8f035e6e14a060cedc25e19fe2c92cba94ae57d0da02493d44",
+    "identity_helper": "306149c1c02c5d190fc26841b583b3f4ea480c482f553647b961208778378c0e",
+    "inputs": [
+      [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+        66306,
+        169116043,
+        1628148107,
+        1777684529398316204,
+        1777684591128256827
+      ],
+      [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam.bai",
+        66306,
+        169116044,
+        699544,
+        1777684547739001301,
+        1777684584108377228
+      ],
+      [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+        66306,
+        170666903,
+        1577464369,
+        1791139801524436364,
+        1791139801524436364
+      ],
+      [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam.bai",
+        66306,
+        170666963,
+        698768,
+        1791139803205409016,
+        1791139803205409016
+      ],
+      [
+        "/home/kokyriakidis/Downloads/pgphase/test_data/derived/chr20_truth_hap.tsv",
+        66306,
+        170399935,
+        12679829,
+        1789660880088322588,
+        1789660880113322165
+      ],
+      [
+        "/home/kokyriakidis/Downloads/pgphase/evaluations/2026-09-16-test-panel/panel.tsv",
+        66306,
+        174456846,
+        11872,
+        1791225619765399124,
+        1791225619765399124
+      ]
+    ]
+  },
+  "output_sha256": "1d7f607ba95613bbda1e17220899816f16e904148bb0a5cb124878b54361dd2e"
+}

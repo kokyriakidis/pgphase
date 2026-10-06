@@ -106,10 +106,13 @@ int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
 /// and -1 for missing, low-quality, compound, or different-allele observations.
 /// Candidate coordinates and allele rows are preserved. Reference belongs to
 /// the calling worker; this check performs no alignment.
+/// Optional call_error sums the verified bases' error probabilities; ambiguous
+/// calls report 1.0. Mapping error must be added by the caller.
 int bam_equivalent_deletion_allele(const bam1_t* read,
                                     const CandidateVariant& deletion,
                                     ReferenceCache& reference, int tid,
-                                    const bam_hdr_t* header, int min_baseq);
+                                    const bam_hdr_t* header, int min_baseq,
+                                    double* call_error = nullptr);
 
 /// Certify only an exact deletion ALT sequence between surviving query anchors.
 /// Shifted CIGAR deletions with compensating mismatches may match; false means

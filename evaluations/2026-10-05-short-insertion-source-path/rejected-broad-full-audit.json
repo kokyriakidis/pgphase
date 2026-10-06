@@ -1,0 +1,108 @@
+{
+  "truth_transitions": {
+    "(True, True)": 230562,
+    "(False, False)": 6765,
+    "(False, True)": 2,
+    "(None, True)": 4,
+    "(True, False)": 1
+  },
+  "changed_output_only_tags": [
+    "m84031_231217_034919_s2/111217618/ccs",
+    "m84031_231217_034919_s2/132055879/ccs",
+    "m84031_231217_034919_s2/136184402/ccs",
+    "m84031_231217_034919_s2/190780421/ccs",
+    "m84031_231217_034919_s2/200152170/ccs",
+    "m84031_231217_034919_s2/203689802/ccs",
+    "m84031_231217_034919_s2/2099140/ccs",
+    "m84031_231217_034919_s2/243471203/ccs",
+    "m84031_231217_034919_s2/58070392/ccs",
+    "m84031_231217_034919_s2/5899141/ccs",
+    "m84031_231217_034919_s2/59838783/ccs",
+    "m84031_231217_034919_s2/73797625/ccs",
+    "m84031_231217_034919_s2/88149228/ccs",
+    "m84031_231217_034919_s2/98176342/ccs",
+    "m84031_231217_062403_s3/113902771/ccs",
+    "m84031_231217_062403_s3/115212699/ccs",
+    "m84031_231217_062403_s3/120522481/ccs",
+    "m84031_231217_062403_s3/124455895/ccs",
+    "m84031_231217_062403_s3/160503076/ccs",
+    "m84031_231217_062403_s3/192610652/ccs",
+    "m84031_231217_062403_s3/228198122/ccs",
+    "m84031_231217_062403_s3/246418854/ccs",
+    "m84031_231217_062403_s3/251859153/ccs",
+    "m84031_231217_062403_s3/64553483/ccs",
+    "m84031_231217_062403_s3/79239024/ccs",
+    "m84031_231217_062403_s3/9306597/ccs"
+  ],
+  "output_only_membership_and_hp_preserved": false,
+  "output_only_cohort_transfers": {
+    "1036623545": [
+      [
+        1036620864,
+        true
+      ]
+    ],
+    "1033697766": [
+      [
+        1033320808,
+        false
+      ]
+    ]
+  },
+  "newly_discordant_reads": [
+    "m84031_231217_062403_s3/113902771/ccs"
+  ],
+  "lost_keys": 0,
+  "gained_keys": 0,
+  "changed_genotype_alleles": [],
+  "changed_nonphase_fields": [],
+  "old_phased_keys_lost": [],
+  "old_blocks_split_or_mixed_gauge": {},
+  "newly_connected_old_gaps": [
+    [
+      33747591,
+      33749688
+    ],
+    [
+      36620864,
+      36623545
+    ]
+  ],
+  "reopened_tracked_gaps": [],
+  "before_connected_tracked": [
+    96,
+    110
+  ],
+  "connected_tracked": [
+    97,
+    110
+  ],
+  "target_before_spans": false,
+  "target_after_spans": true,
+  "target_truth_scorable_reads": 67,
+  "target_scores": [
+    {
+      "phased": 61,
+      "correct": 60,
+      "read_phase_sets": 2,
+      "dominant_correct": 59,
+      "separated": 0.8805970149253731
+    },
+    {
+      "phased": 65,
+      "correct": 64,
+      "read_phase_sets": 2,
+      "dominant_correct": 60,
+      "separated": 0.8955223880597015
+    }
+  ],
+  "disjoint_flank_parent_votes": [
+    {
+      "false": 25
+    },
+    {
+      "false": 20,
+      "true": 7
+    }
+  ]
+}

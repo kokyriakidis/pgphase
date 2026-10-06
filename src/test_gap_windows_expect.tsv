@@ -123,7 +123,7 @@ graph	53947946-53962801	1	1	0.99	0.60
 graph	528850-542052	1	1	0.99	0.42
 graph	39848887-39856144	1	1	0.98	1.00
 graph	54684758-54702072	1	1	0.98	0.83
-graph	TOTAL	94	1292	0.74	0.10
+graph	TOTAL	102	1292	0.74	0.10
 # 2026-10-01: graph arm closes the 11.573 Mb owning-chunk gap without
 # changing HP assignments or discordant counts; existing floors stay intact.
 graph	11573074-11586531	1	0	0.97	0.64
@@ -165,3 +165,18 @@ graph	8977829-9014032	1	0	0.98	0.56
 # Owning 62 Mb: repair an independently supported internal graph SNP switch.
 graph	62623253-62642316	1	0	0.99	0.79
 graph	13752640-13773452	1	0	0.94	0.86
+graph	33747591-33749688	1	0	0.96	0.95
+graph	49720311-49742973	1	0	0.96	0.84
+graph	57764235-57785224	1	0	0.95	0.85
+
+# Shared catalog deletion retains its physical bridge and verified rescue core.
+graph	62408056-62432427	1	0	0.98	0.88
+
+# Native 17 Mb owner: shared deletion bridge joins two certified graph paths.
+graph	17634393-17667022	1	0	0.99	0.81
+
+# Calibrated repeat bridge: native 65 Mb owner, six of six correct/core.
+graph	65509355-65509406	1	0	0.97	1.0
+
+# Native 10 Mb owner: exact complementary insertion alleles and a calibrated bridge.
+graph	10325039-10337661	1	0	0.98	0.77

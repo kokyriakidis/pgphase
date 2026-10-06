@@ -1,0 +1,61 @@
+{
+  "sha256": {
+    "test_data/tmp_gap_fix61/pgphase-before": "3c2cb7ef7a5070416ff98a04e2c7bf9ef6b9c5501a66d9814bcd75cd8a091924",
+    "test_data/tmp_gap_fix61/pgphase-bam-only": "3374fb69e745c152bbc862fbab65fc62888a58260fc6a7ac61040bd423a0c00b",
+    "src/graph_collect.cpp": "8416299f63128c5bac01f479c22f935fffeffbdd449f78db103a5c3700968aab",
+    "src/test_gap_windows.cpp": "4ac34039a913d7b4a908a3173286d2dc97b7e8927ae03909e2ce79f51cca286a",
+    "src/test_gap_windows_required.tsv": "a54a76c21209e5cab0e1a7e6531eba64d17925461ca2340c1b3a286c4cd37848",
+    "test_data/tmp_gap_fix61/test_gap_windows-bam-only-context": "c070ddfebd34f4cdeb77f5cf2e7828a481642164a995e0fed2cfd26a25a390ab",
+    "test_data/tmp_gap_fix61/test_gap_windows-final": "72a436da6bdc8c0dad99cdc38d13b4bd54453ad826dec3adf49238e38f27363a"
+  },
+  "baseline_outputs": "test_data/tmp_gap_fix60/full-final",
+  "final_outputs": "test_data/tmp_gap_fix61/full-bam-only-final/0",
+  "owner_baseline": "test_data/tmp_gap_fix61/baseline/33",
+  "owner_final": "test_data/tmp_gap_fix61/bam-only/33",
+  "owner_region": "CHM13#0#chr20:33000001-34000000",
+  "new_gap": [
+    33747591,
+    33749688
+  ],
+  "rejected_gap": [
+    36620864,
+    36623545
+  ],
+  "full_region": "CHM13#0#chr20:1-66210255",
+  "native_shards": "test_data/tmp_gap_fix61/native-bam-only-shards",
+  "updated_native_context": "test_data/tmp_gap_fix61/native-bam-only-context",
+  "full_command": [
+    "test_data/tmp_gap_fix61/pgphase-bam-only",
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-t",
+    "4",
+    "-r",
+    "CHM13#0#chr20:1-66210255",
+    "-o",
+    "test_data/tmp_gap_fix61/full-bam-only-final/0/candidates.tsv",
+    "--phased-vcf-out",
+    "test_data/tmp_gap_fix61/full-bam-only-final/0/phased.vcf",
+    "--phased-bam-out",
+    "test_data/tmp_gap_fix61/full-bam-only-final/0/phased.bam",
+    "--phase-matrix-dump",
+    "test_data/tmp_gap_fix61/full-bam-only-final/0/matrix"
+  ],
+  "input_sha256": {
+    "test_data/chm13v2.0.chr20.renamed.fa": "d720113e666126ebb7a91b29e2c10ae143bf88c22d297affaf11902064a4aed2",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": "cf0d6cd916750cc81e8b4e0515f8a924d1a44598da1d1514823105d39438dbd0",
+    "test_data/chr20.sites.striped.vcf.gz": "f8f9d6049fa9e6e2de7847302afdb13b63ae0a5be8ca5b28a0016672be8e261c",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": "0bf8bba8898237673f067ddd0a5e72928f9f6155ea9e023312d9f4805660ab0f",
+    "test_data/derived/chr20_truth_hap.tsv": "20c57a0a0bb4f8f183c162aba19422156b8f6b7f74972cbd4eaea94167de8c61"
+  },
+  "updated_test_binary": "test_data/tmp_gap_fix61/test_gap_windows-bam-only-context",
+  "native_sweep_test_binary": "test_data/tmp_gap_fix61/test_gap_windows-final",
+  "frozen_test_source_note": "The sweep covers all 84 cases; the updated owning 36 Mb case is rerun with the final test binary alongside the new target case."
+}

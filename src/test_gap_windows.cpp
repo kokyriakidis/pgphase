@@ -39,6 +39,7 @@
 #include "../third_party/catch2/catch.hpp"
 
 #include <htslib/sam.h>
+#include <sys/stat.h>
 
 #include <algorithm>
 #include <array>
@@ -165,6 +166,9 @@ struct Outcome {
     /// phase set touching the window.
     int dominant_correct = 0;
     int window_scorable = 0;
+    int primary_scorable = 0;
+    int primary_correct = 0;
+    int core_correct = 0;
     /// Candidates inside the gap that are in an admitted class -- a CLEAN het,
     /// which the stage-1 mask accepts -- and carry no phase set. A site we hold,
     /// and that the solve is allowed to use, left unused.
@@ -249,7 +253,15 @@ std::map<std::string, Expectation> load_expectations(const std::string& path) {
     return out;
 }
 
-std::unordered_map<std::string, char> load_truth(const std::string& path) {
+const std::unordered_map<std::string, char>& load_truth(const std::string& path) {
+    struct stat metadata;
+    REQUIRE(stat(path.c_str(), &metadata) == 0);
+    const auto key = std::make_tuple(path, metadata.st_dev, metadata.st_ino,
+        metadata.st_size, metadata.st_mtim.tv_sec, metadata.st_mtim.tv_nsec,
+        metadata.st_ctim.tv_sec, metadata.st_ctim.tv_nsec);
+    static std::map<decltype(key), std::unordered_map<std::string, char>> cache;
+    const auto hit = cache.find(key);
+    if (hit != cache.end()) return hit->second;
     std::unordered_map<std::string, char> out;
     std::ifstream in(path);
     std::string line;
@@ -260,7 +272,7 @@ std::unordered_map<std::string, char> load_truth(const std::string& path) {
         if (hap.rfind("MATERNAL", 0) == 0) out[line.substr(0, tab)] = 'M';
         else if (hap.rfind("PATERNAL", 0) == 0) out[line.substr(0, tab)] = 'P';
     }
-    return out;
+    return cache.emplace(key, std::move(out)).first->second;
 }
 
 /// Whether a VCF genotype string describes a phased heterozygote. 1|2 counts:
@@ -498,6 +510,8 @@ void score_bam(const std::string& path, const Window& w,
     // flanked run, so using it as the numerator against a window-sized
     // denominator produced separated() above 1.0.
     std::unordered_map<long long, std::pair<int, int>> win_votes;
+    std::unordered_map<long long, std::pair<int, int>> primary_votes;
+    std::unordered_map<std::string, std::pair<long long, bool>> primary_tags;
     while (sam_read1(fp, hdr, rec) >= 0) {
         if ((rec->core.flag & BAM_FUNMAP) && spans.empty()) continue;
         const uint8_t* hp = bam_aux_get(rec, "HP");
@@ -514,6 +528,14 @@ void score_bam(const std::string& path, const Window& w,
         const bool mat_on_hap1 =
             (hap1 && found->second == 'M') || (!hap1 && found->second == 'P');
         if (mat_on_hap1) ++v.first; else ++v.second;
+        if (!(rec->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) &&
+            (hap == 1 || hap == 2) && set_id > 0) {
+            const std::string name = bam_get_qname(rec);
+            if (!primary_tags.emplace(name, std::make_pair(set_id, mat_on_hap1)).second)
+                FAIL("duplicate scored primary read: " << name);
+            auto& pv = primary_votes[set_id];
+            if (mat_on_hap1) ++pv.first; else ++pv.second;
+        }
         long long beg = rec->core.pos;
         long long end = bam_endpos(rec);
         if (rec->core.flag & BAM_FUNMAP) {
@@ -552,6 +574,28 @@ void score_bam(const std::string& path, const Window& w,
             if (se.second < w.gap_left || se.first > w.gap_right) continue;
             if (truth.count(name)) ++out.window_scorable;
         }
+    }
+
+    // Use each whole replay block's parental orientation, then score exactly
+    // the primary input molecules overlapping the gap. Abstentions stay in the
+    // denominator; rescue phase sets cannot count as a connected core.
+    constexpr long long kReadRescuePhaseSetOffset = 1000000000;
+    std::unordered_map<long long, int> core_counts;
+    for (const auto& [name, span] : spans) {
+        if (span.second < w.gap_left || span.first >= w.gap_right || !truth.count(name))
+            continue;
+        ++out.primary_scorable;
+        const auto tag = primary_tags.find(name);
+        if (tag == primary_tags.end()) continue;
+        const auto& vote = primary_votes.at(tag->second.first);
+        if (tag->second.second != (vote.first >= vote.second)) continue;
+        ++out.primary_correct;
+        if (tag->second.first < kReadRescuePhaseSetOffset)
+            ++core_counts[tag->second.first];
+    }
+    for (const auto& [ps, count] : core_counts) {
+        (void)ps;
+        out.core_correct = std::max(out.core_correct, count);
     }
 
     const auto placed = [](const std::pair<int, int>& v) -> int {
@@ -643,6 +687,30 @@ ReadSpans& input_read_spans(const Paths& p, const Window& w) {
     return cache.emplace(key, std::move(spans)).first->second;
 }
 
+/// Keep production-context overrides reviewable beside the gap panel.
+std::pair<long long, long long> replay_region(const Window& w) {
+    static const auto regions = [] {
+        std::map<long long, std::pair<long long, long long>> out;
+        std::ifstream in("src/test_gap_replays.tsv");
+        REQUIRE(in.good());
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#' || line.rfind("gap_left", 0) == 0)
+                continue;
+            const auto fields = split_tabs(line);
+            REQUIRE(fields.size() == 3);
+            const long long left = std::stoll(fields[0]);
+            const auto region = std::make_pair(std::stoll(fields[1]), std::stoll(fields[2]));
+            REQUIRE(region.first <= region.second);
+            REQUIRE(out.emplace(left, region).second);
+        }
+        return out;
+    }();
+    const auto it = regions.find(w.gap_left);
+    return it == regions.end()
+        ? std::make_pair(w.gap_left - 50000, w.gap_right + 50000) : it->second;
+}
+
 /// Run one arm over one window. Returns false when the binary failed, leaving
 /// its stderr on disk for the failure message.
 bool run_arm(const Paths& p, const Window& w, const std::string& arm,
@@ -657,162 +725,26 @@ bool run_arm(const Paths& p, const Window& w, const std::string& arm,
         << "/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam'"
         << " --sites '" << p.test_data << "/chr20.sites.striped.vcf.gz'"
         << " --gaf '" << p.test_data << "/HG002.chr20.annotated.coord.gaf.gz'"
-        // These graph source blocks begin beyond the 50-kb test padding.
-        // Replay their owning chunk so the tested flank gauges match production.
-        << " -r 'CHM13#0#chr20:"
-        << (w.gap_left == 62623253 ? 62000001 :
-            w.gap_left == 8977829 ? 8000001 :
-            (w.gap_left == 48971192 || w.gap_left == 48929511)
-                ? 48000001 :
-            (w.gap_left == 7047080 || w.gap_left == 7901413) ? 7000001 :
-            w.gap_left == 5511231 ? 5000001 :
-            w.gap_left == 24121713 ? 24000001 :
-            (w.gap_left == 41879449 || w.gap_left == 41880908) ? 41000001 :
-            w.gap_left == 17502614 ? 16000001 :
-            w.gap_left == 8166027 ? 8000001 :
-            (w.gap_left == 514902 || w.gap_left == 528850) ? 1 :
-            (w.gap_left == 1180618 || w.gap_left == 1194233 || w.gap_left == 1196894) ? 1000001 :
-            w.gap_left == 10727690 ? 10000001 :
-            w.gap_left == 11573074 ? 11000001 :
-            w.gap_left == 14446295 ? 14000001 :
-            w.gap_left == 15351845 ? 15000001 :
-            (w.gap_left == 53945086 || w.gap_left == 53947946)
-                ? 53000001 :
-            (w.gap_left == 20707556 || w.gap_left == 20506159) ? 20000001 :
-            w.gap_left == 33211072 ? 33000001 :
-            w.gap_left == 34046350 ? 34000001 :
-            w.gap_left == 47751480 ? 47000001 :
-            w.gap_left == 4866153 ? 4000001 :
-            w.gap_left == 30673476 ? 30000001 :
-            w.gap_left == 35328965 ? 35000001 :
-            w.gap_left == 6513891 ? 6000001 :
-            w.gap_left == 32431751 ? 32300001 :
-            w.gap_left == 32234664 ? 32000001 :
-            (w.gap_left == 23421003 || w.gap_left == 23460963) ? 23000001 :
-            w.gap_left == 50548245 ? 50000001 :
-            (w.gap_left == 13784702 || w.gap_left == 13752640) ? 13000001 :
-            w.gap_left == 12256072 ? 12000001 :
-            (w.gap_left == 19373922 || w.gap_left == 19395544 ||
-             w.gap_left == 19403172) ? 19000001 :
-            w.gap_left == 21594343 ? 21000001 :
-            (w.gap_left == 36332599 || w.gap_left == 36611593)
-                ? 36000001 :
-            w.gap_left == 38331110 ? 38000001 :
-            (w.gap_left == 39147805 || w.gap_left == 39848887)
-                ? 39000001 :
-            (w.gap_left == 64128828 || w.gap_left == 64138752 || w.gap_left == 64144256 ||
-             w.gap_left == 64140314) ? 64000001 :
-            (w.gap_left == 56662188 || w.gap_left == 56064697)
-                ? 56000001 :
-            w.gap_left == 47003897 ? 47000001 :
-            (w.gap_left == 61757551 || w.gap_left == 61738239) ? 61000001 :
-            w.gap_left == 37458817 ? 37000001 :
-            w.gap_left == 46727050 ? 46000001 :
-            (w.gap_left == 54000001 || w.gap_left == 54483506 ||
-             w.gap_left == 54684758)
-                ? 54000001 :
-            w.gap_left == 3000001 ? 3000001 :
-            (w.gap_left == 21159070 || w.gap_left == 21179807 ||
-             w.gap_left == 21377985 || w.gap_left == 21435750 ||
-             w.gap_left == 21514518)
-                ? 21000001 : w.gap_left - 50000)
-        << "-" << (w.gap_left == 62623253 ? 63000000 :
-            w.gap_left == 8977829 ? 10000000 :
-            (w.gap_left == 48971192 || w.gap_left == 48929511)
-                ? 49000000 :
-            (w.gap_left == 7047080 || w.gap_left == 7901413) ? 8000000 :
-            w.gap_left == 5511231 ? 6000000 :
-            w.gap_left == 24121713 ? 25000000 :
-            (w.gap_left == 41879449 || w.gap_left == 41880908) ? 42000000 :
-            w.gap_left == 17502614 ? 18000000 :
-            w.gap_left == 8166027 ? 9000000 :
-            (w.gap_left == 514902 || w.gap_left == 528850) ? 1000000 :
-            (w.gap_left == 1180618 || w.gap_left == 1194233 || w.gap_left == 1196894) ? 2000000 :
-            w.gap_left == 10727690 ? 11000000 :
-            w.gap_left == 11573074 ? 12000000 :
-            w.gap_left == 14446295 ? 15000000 :
-            w.gap_left == 15351845 ? 16000000 :
-            (w.gap_left == 53945086 || w.gap_left == 53947946)
-                ? 54000000 :
-            (w.gap_left == 20707556 || w.gap_left == 20506159) ? 21000000 :
-            w.gap_left == 33211072 ? 34000000 :
-            w.gap_left == 34046350 ? 35000000 :
-            w.gap_left == 47751480 ? 48000000 :
-            w.gap_left == 4866153 ? 5000000 :
-            w.gap_left == 30673476 ? 31000000 :
-            w.gap_left == 35328965 ? 36000000 :
-            w.gap_left == 6513891 ? 7000000 :
-            w.gap_left == 32431751 ? 32500000 :
-            w.gap_left == 32234664 ? 33000000 :
-            (w.gap_left == 23421003 || w.gap_left == 23460963) ? 24000000 :
-            w.gap_left == 50548245 ? 51000000 :
-            (w.gap_left == 13784702 || w.gap_left == 13752640) ? 14000000 :
-            w.gap_left == 12256072 ? 13000000 :
-            (w.gap_left == 19373922 || w.gap_left == 19395544 ||
-             w.gap_left == 19403172) ? 20000000 :
-            w.gap_left == 21594343 ? 22000000 :
-            (w.gap_left == 36332599 || w.gap_left == 36611593)
-                ? 37000000 :
-            w.gap_left == 38331110 ? 39000000 :
-            (w.gap_left == 39147805 || w.gap_left == 39848887)
-                ? 40000000 :
-            (w.gap_left == 64128828 || w.gap_left == 64138752 || w.gap_left == 64144256 ||
-             w.gap_left == 64140314) ? 65000000 :
-            (w.gap_left == 56662188 || w.gap_left == 56064697)
-                ? 57000000 :
-            w.gap_left == 47003897 ? 48000000 :
-            (w.gap_left == 61757551 || w.gap_left == 61738239) ? 62000000 :
-            w.gap_left == 37458817 ? 38000000 :
-            w.gap_left == 46727050 ? 47000000 :
-            (w.gap_left == 54000001 || w.gap_left == 54483506 ||
-             w.gap_left == 54684758)
-                ? 55000000 :
-            w.gap_left == 3000001 ? 4000000 :
-            (w.gap_left == 21159070 || w.gap_left == 21179807 ||
-             w.gap_left == 21377985 || w.gap_left == 21435750 ||
-             w.gap_left == 21514518)
-                ? 22000000 : w.gap_right + 50000) << "'"
+        << " -r 'CHM13#0#chr20:" << replay_region(w).first
+        << "-" << replay_region(w).second << "'"
         << " -t " << test_threads() << " " << flags
         << " -o '" << outdir << "/candidates.tsv'"
         << " --phased-vcf-out '" << outdir << "/native.vcf'"
         << " --phased-bam-out '" << outdir << "/phased.bam'"
         << " > '" << outdir << "/stdout.log' 2> '" << outdir << "/stderr.log'";
-    // Several gap cases replay the same owning chunk with identical inputs.
-    // Keep each case's expected output path while sharing the completed run.
-    const std::string command = cmd.str();
-    const std::string output_placeholder = "<output>";
-    std::string cache_key = p.workdir + "\n" + command;
-    for (size_t pos = 0; (pos = cache_key.find(outdir, pos)) !=
-                          std::string::npos; pos += output_placeholder.size())
-        cache_key.replace(pos, outdir.size(), output_placeholder);
-    const auto link_outputs = [](const std::filesystem::path& source_dir,
-                                 const std::filesystem::path& target_dir) {
-        std::error_code error;
-        std::filesystem::create_directories(target_dir, error);
-        if (error) return false;
-        for (const char* name : {"candidates.tsv", "native.vcf",
-                                 "phased.bam", "stdout.log", "stderr.log"}) {
-            const std::filesystem::path source = source_dir / name;
-            const std::filesystem::path target = target_dir / name;
-            if (source == target) continue;
-            std::filesystem::remove(target, error);
-            if (error) return false;
-            std::filesystem::create_hard_link(source, target, error);
-            if (error) return false;
-        }
-        return true;
+    // Persist completed pipeline outputs, but always execute the assertions.
+    // The helper fingerprints the binary and inputs and locks across shards.
+    const auto shell_quote = [](const std::string& value) {
+        std::string quoted = "'";
+        for (const char c : value)
+            quoted += c == '\'' ? "'\\''" : std::string(1, c);
+        return quoted + "'";
     };
-    static std::map<std::string, std::string> completed_runs;
-    const auto cached = completed_runs.find(cache_key);
-    if (cached != completed_runs.end())
-        return link_outputs(cached->second, outdir);
-    if (std::system(command.c_str()) != 0) return false;
-    const std::filesystem::path cache_dir =
-        std::filesystem::path(p.workdir) / ".replay-cache" /
-        ("run" + std::to_string(completed_runs.size()));
-    if (!link_outputs(outdir, cache_dir)) return false;
-    completed_runs.emplace(std::move(cache_key), cache_dir.string());
-    return true;
+    const std::string cached_command =
+        "env -u PGPHASE_GAP_FILTER -u PGPHASE_GAP_BENCHMARK -u PGPHASE_GAP_CERTIFIED "
+        "python3 scripts/cache_gap_replay.py --outdir " + shell_quote(outdir) +
+        " --command " + shell_quote(cmd.str());
+    return std::system(cached_command.c_str()) == 0;
 }
 
 /// Memoised across test cases: Catch2 runs them in one process, and the panel
@@ -907,6 +839,114 @@ Outcome measure(const Paths& p, const Window& w, const std::string& arm,
     const Outcome out = measure_uncached(p, w, arm, flags, truth);
     cache.emplace(key, out);
     return out;
+}
+
+/// Read bounds shared by owning-context regressions; '-' means no such bound.
+void check_read_floors(const std::string& name, const Outcome& got) {
+    static const auto floors = [] {
+        std::map<std::string, std::vector<std::string>> out;
+        std::ifstream in("src/test_gap_read_floors.tsv");
+        REQUIRE(in.good());
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#' || line.rfind("check", 0) == 0) continue;
+            auto fields = split_tabs(line);
+            REQUIRE(fields.size() == 7);
+            const std::string name = fields.front();
+            fields.erase(fields.begin());
+            REQUIRE(out.emplace(name, std::move(fields)).second);
+        }
+        return out;
+    }();
+    const auto it = floors.find(name);
+    REQUIRE(it != floors.end());
+    const auto& row = it->second;
+    const auto value = [](const std::string& text) {
+        const auto slash = text.find('/');
+        return slash == std::string::npos ? std::stod(text) :
+            std::stod(text.substr(0, slash)) / std::stod(text.substr(slash + 1));
+    };
+    INFO("read regression floors for " << name);
+    if (row[0] != "-") CHECK(got.scored >= std::stoi(row[0]));
+    if (row[1] != "-") CHECK(got.correct >= std::stoi(row[1]));
+    if (row[2] != "-") CHECK(got.discordant() <= std::stoi(row[2]));
+    if (row[3] != "-") CHECK(got.concordance() >= value(row[3]));
+    if (row[4] != "-") CHECK(got.separated() >= value(row[4]));
+    if (row[5] != "-") CHECK(got.window_scorable == std::stoi(row[5]));
+}
+
+struct GapBenchmark {
+    int scorable = 0;
+    int correct = 0;
+    int core_correct = 0;
+};
+
+const std::map<std::string, GapBenchmark>& gap_benchmarks() {
+    static const auto rows = [] {
+        std::map<std::string, GapBenchmark> out;
+        std::ifstream in(env_or("PGPHASE_GAP_BENCHMARK", "src/test_gap_hiphase.tsv"));
+        REQUIRE(in.good());
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#' || line.rfind("window", 0) == 0) continue;
+            const auto fields = split_tabs(line);
+            REQUIRE(fields.size() == 4);
+            REQUIRE(out.emplace(fields[0], GapBenchmark{std::stoi(fields[1]),
+                std::stoi(fields[2]), std::stoi(fields[3])}).second);
+        }
+        return out;
+    }();
+    return rows;
+}
+
+const std::set<std::string>& certified_gaps() {
+    static const auto gaps = [] {
+        std::set<std::string> out;
+        std::ifstream in(env_or("PGPHASE_GAP_CERTIFIED", "src/test_gap_certified.tsv"));
+        REQUIRE(in.good());
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#' || line == "window") continue;
+            REQUIRE(out.insert(line).second);
+        }
+        return out;
+    }();
+    return gaps;
+}
+
+void check_gap_contract(const Paths& p, const Window& w, const Outcome& got) {
+    const auto key = window_key(w);
+    const auto benchmark = gap_benchmarks().find(key);
+    REQUIRE(benchmark != gap_benchmarks().end());
+    REQUIRE(got.primary_scorable == benchmark->second.scorable);
+    constexpr double kMinCorrectPrimaryFraction = 0.80;
+    const bool quality = got.primary_scorable > 0 &&
+        static_cast<double>(got.primary_correct) / got.primary_scorable >=
+        kMinCorrectPrimaryFraction;
+    const bool parity = got.primary_correct >= benchmark->second.correct &&
+        got.core_correct >= benchmark->second.core_correct;
+    INFO("primary correctness " << got.primary_correct << "/" << got.primary_scorable
+         << "; core correct " << got.core_correct << "; HiPhase correct/core "
+         << benchmark->second.correct << "/" << benchmark->second.core_correct);
+    // Keep historical regression floors; the strict certification manifest
+    // grows when a closure has been reviewed under the current contract.
+    if (certified_gaps().count(key)) {
+        CHECK(quality);
+        CHECK(parity);
+    }
+    std::filesystem::create_directories(p.workdir);
+    const std::string report_path = p.workdir + "/gap-contract.tsv";
+    static std::set<std::string> initialized_reports;
+    const bool first = initialized_reports.insert(report_path).second;
+    std::ofstream report(report_path, first ? std::ios::trunc : std::ios::app);
+    REQUIRE(report.good());
+    if (first)
+        report << "window\tspans\tscorable\tcorrect\tcore_correct\thiphase_correct"
+                  "\thiphase_core_correct\tpasses_80pct\tpasses_parity\n";
+    report << key << '\t' << got.spans << '\t' << got.primary_scorable << '\t'
+           << got.primary_correct << '\t' << got.core_correct << '\t'
+           << benchmark->second.correct << '\t' << benchmark->second.core_correct
+           << '\t' << quality << '\t' << parity << '\n';
 }
 
 void check_against(const Window& w, const std::string& arm, const Outcome& got,
@@ -1096,14 +1136,7 @@ TEST_CASE("adjacent gap diagnosis has no interior coverage", "[gap][unit]") {
           std::string::npos);
 }
 
-TEST_CASE("original MSA SNP dropout is retried before CIGAR backfill",
-          "[gap][stitch-connectivity][msa]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_original_msa_snp_dropout_is_retried_before_cigar_backfill(const Paths& p) {
     // A short solve already connects this pair. Its owning chunk preserves the
     // two source gauges that leave 35/36 crossing reads without the MSA SNP.
     // CIGAR backfill restores paired calls after solving but cannot repair the
@@ -1155,14 +1188,7 @@ TEST_CASE("original MSA SNP dropout is retried before CIGAR backfill",
     CHECK(reads.separated() == 1.0);
 }
 
-TEST_CASE("conflicting sparse pairs retry with their observed binomial tail",
-          "[gap][stitch-connectivity][msa][sparse-pair]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_conflicting_sparse_pairs_retry_with_their_observed_binomial_tail(const Paths& p) {
     // Seven paired calls contain one opposite vote. Their 50:50 tail is
     // 0.0625, not the 0.0078125 probability of seven unanimous votes. The
     // owning chunk is needed to exercise this grouped solve's focused retry.
@@ -1220,14 +1246,7 @@ TEST_CASE("conflicting sparse pairs retry with their observed binomial tail",
     CHECK(count_hap_allele_conflicts(dir + "/native.vcf") == 0);
 }
 
-TEST_CASE("a moved deletion does not certify a whole right-block join",
-          "[gap][stitch-connectivity][msa][moved-deletion]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_moved_deletion_does_not_certify_a_whole_right_block_join(const Paths& p) {
     // Padding this replay gives exactly the owning 58--59 Mb chunk. In this
     // context the deletion has moved into the right PS while its original
     // source still has a weak cut. The right PS's own source certificate is
@@ -1269,14 +1288,7 @@ TEST_CASE("a moved deletion does not certify a whole right-block join",
     CHECK(reads.separated() >= 0.39);
 }
 
-TEST_CASE("focused retry certifies its path after CIGAR backfill",
-          "[gap][stitch-connectivity][msa][backfill-certificate]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_focused_retry_certifies_its_path_after_cigar_backfill(const Paths& p) {
     // The raw focused MSA path has no cut, but its transferred backfilled
     // matrix has a cut at 4.778 Mb. Accepting the earlier certificate removes
     // the existing 4.767 Mb bridge in the owning chromosome chunk.
@@ -1317,14 +1329,7 @@ TEST_CASE("focused retry certifies its path after CIGAR backfill",
     CHECK(reads.separated() >= 0.64);
 }
 
-TEST_CASE("an earlier focused retry does not hide a later MSA dropout",
-          "[gap][msa][retry-scheduling]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_an_earlier_focused_retry_does_not_hide_a_later_msa_dropout(const Paths& p) {
     // The owning chunk groups several seams. Its first focused retry fails;
     // the later complementary deletion pair must still receive its own solve.
     Window replay;
@@ -1388,14 +1393,7 @@ TEST_CASE("an earlier focused retry does not hide a later MSA dropout",
     CHECK(count_hap_allele_conflicts(dir + "/native.vcf") == 0);
 }
 
-TEST_CASE("complete recovery MSA blocks retain the complex left flank",
-          "[gap][msa-complete-transfer]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_recovery_msa_blocks_retain_the_complex_left_flank(const Paths& p) {
     Window gap;
     gap.gap_left = 528850;
     gap.gap_right = 542052;
@@ -1435,7 +1433,7 @@ TEST_CASE("complete recovery MSA blocks retain the complex left flank",
     parse_vcf(dir + "/native.vcf", gap, outcome);
     CHECK(outcome.spans);
     CHECK(count_hap_allele_conflicts(dir + "/native.vcf") == 0);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome flank_reads;
     score_bam(dir + "/phased.bam", gap, truth, spans, flank_reads);
@@ -1456,14 +1454,7 @@ TEST_CASE("complete recovery MSA blocks retain the complex left flank",
     CHECK(local_reads.discordant() == 0);
 }
 
-TEST_CASE("isolated shared BAM genotype survives graph repeat demotion",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_isolated_shared_bam_genotype_survives_graph_repeat_demotion(const Paths& p) {
     // Discovery needs the complete owning chunk, including both source gauges.
     Window owner;
     owner.gap_left = 21050001;
@@ -1518,15 +1509,9 @@ TEST_CASE("isolated shared BAM genotype survives graph repeat demotion",
     CHECK(reads.discordant() <= 211);
 }
 
-TEST_CASE("chr20 gap windows", "[gap][windows]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_chr20_gap_windows(const Paths& p) {
     const auto panel = load_panel(p.panel);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     REQUIRE(!panel.empty());
     REQUIRE(truth.size() > 1000);
 
@@ -1561,6 +1546,7 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
                          << " -- run scripts/refresh_gap_window_expectations.sh");
                 const Outcome got = measure(p, w, arm, flags, truth);
                 check_against(w, arm, got, it->second);
+                check_gap_contract(p, w, got);
                 if (arm == "graph" && w.gap_left == 21159070) {
                     // The 21-22 Mb recovery group includes several seams. A
                     // broad MSA retry can add deletion observations while
@@ -2048,13 +2034,7 @@ TEST_CASE("chr20 gap windows", "[gap][windows]") {
     }
 }
 
-TEST_CASE("recovery preserves complementary BAM deletion rows", "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_recovery_preserves_complementary_bam_deletion_rows(const Paths& p) {
     Window w;
     w.gap_left = 11235279;
     w.gap_right = 11262361;
@@ -2078,14 +2058,7 @@ TEST_CASE("recovery preserves complementary BAM deletion rows", "[gap][represent
                          {"GA", "G"}, {"GAA", "G"}});
 }
 
-TEST_CASE("verified MSA insertion survives graph output classification",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_verified_msa_insertion_survives_graph_output_classification(const Paths& p) {
     // The 50-kb padding makes this exactly the 35–36 Mb owning chunk.
     // The narrow panel replay keeps its existing accuracy floor and span gate.
     Window w;
@@ -2121,14 +2094,7 @@ TEST_CASE("verified MSA insertion survives graph output classification",
           phase_sets.at("35342608:G>GAGATAGAT"));
 }
 
-TEST_CASE("a phased BAM deletion survives an unphased graph duplicate",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_phased_bam_deletion_survives_an_unphased_graph_duplicate(const Paths& p) {
     Window w;
     w.gap_left = 20707556;
     w.gap_right = 20731688;
@@ -2157,14 +2123,7 @@ TEST_CASE("a phased BAM deletion survives an unphased graph duplicate",
     CHECK(recovered_rows == 1);
 }
 
-TEST_CASE("graph SNP retry preserves a verified BAM deletion connection",
-          "[gap][stitch-confidence]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_graph_snp_retry_preserves_a_verified_bam_deletion_connection(const Paths& p) {
     // This existing window replays the complete 15-Mb owning chunk. New
     // graph-allele admission checks must retain the BAM-only source connection.
     Window w;
@@ -2220,7 +2179,7 @@ TEST_CASE("graph SNP retry preserves a verified BAM deletion connection",
     CHECK(bridge.at("15367755").first == bridge.at("15380509").first);
     CHECK(bridge.at("15329499").first == bridge.at("15367755").first);
 
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, w);
     Outcome flank_reads;
     score_bam(dir + "/phased.bam", w, truth, spans, flank_reads);
@@ -2240,14 +2199,7 @@ TEST_CASE("graph SNP retry preserves a verified BAM deletion connection",
     CHECK(local_reads.scored - local_reads.correct <= 3);
 }
 
-TEST_CASE("an unsupported BAM source cut keeps the far deletion independent",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_an_unsupported_bam_source_cut_keeps_the_far_deletion_independent(const Paths& p) {
     // The BAM sub-solve assigns both sites one source PS, but no read calls
     // both alleles. The downstream deletion is supported by the right block.
     Window w;
@@ -2279,13 +2231,7 @@ TEST_CASE("an unsupported BAM source cut keeps the far deletion independent",
     CHECK(sites.at("33227050").first == sites.at("33233843").first);
 }
 
-TEST_CASE("graph SNPs bridge supported recovery blocks", "[gap][graph-bridge]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_graph_snps_bridge_supported_recovery_blocks(const Paths& p) {
     // run_arm adds 50 kb on each side; this selects the audited
     // chr20:38,233,000-38,343,000 region.
     Window w;
@@ -2325,14 +2271,7 @@ TEST_CASE("graph SNPs bridge supported recovery blocks", "[gap][graph-bridge]") 
     CHECK(*phase_sets.begin() != ".");
 }
 
-TEST_CASE("recovery stitch preserves the next flank across an unlinked seam",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_recovery_stitch_preserves_the_next_flank_across_an_unlinked_seam(const Paths& p) {
     // At 51.235-51.262 Mb, high-MAPQ reads cover both clean SNPs but no
     // molecule observes both. The next 8.7 kb has 28 clean-SNP allele links.
     Window w;
@@ -2429,14 +2368,7 @@ TEST_CASE("recovery stitch preserves the next flank across an unlinked seam",
     CHECK(middle.first == last.first);
 }
 
-TEST_CASE("a clean-SNP gap bridge keeps the prior graph gauge",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_clean_snp_gap_bridge_keeps_the_prior_graph_gauge(const Paths& p) {
     // Match the 47–48 Mb chromosome chunk. A 47.636-Mb source cut has two
     // quality-40 SNP molecules, but its left graph block was already flipped
     // at the preceding seam. Reusing the saved gauge without translating that
@@ -2474,7 +2406,7 @@ TEST_CASE("a clean-SNP gap bridge keeps the prior graph gauge",
     bam_hdr_t* header = sam_hdr_read(bam);
     REQUIRE(header != nullptr);
     bam1_t* record = bam_init1();
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     std::unordered_set<std::string> seen;
     int maternal_on_hap1 = 0;
     int paternal_on_hap1 = 0;
@@ -2504,14 +2436,7 @@ TEST_CASE("a clean-SNP gap bridge keeps the prior graph gauge",
           0.989 * static_cast<double>(total));
 }
 
-TEST_CASE("a local source path does not lose its graph bridge",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_local_source_path_does_not_lose_its_graph_bridge(const Paths& p) {
     Window w;
     w.gap_left = 56323427;
     w.gap_right = 56343002;
@@ -2544,14 +2469,7 @@ TEST_CASE("a local source path does not lose its graph bridge",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("corroborated SNP molecules join sparse graph seams",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_corroborated_snp_molecules_join_sparse_graph_seams(const Paths& p) {
     struct Bridge { long long left; long long right; bool same_allele; };
     const std::array<Bridge, 3> bridges{{
         {20875468, 20895876, true},
@@ -2592,14 +2510,7 @@ TEST_CASE("corroborated SNP molecules join sparse graph seams",
     }
 }
 
-TEST_CASE("an indel boundary with allele dropout gets an MSA retry",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_an_indel_boundary_with_allele_dropout_gets_an_msa_retry(const Paths& p) {
     Window w;
     w.gap_left = 24581764;
     w.gap_right = 24601281;
@@ -2628,14 +2539,7 @@ TEST_CASE("an indel boundary with allele dropout gets an MSA retry",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("a lone boundary SNP pair needs a repaired complete graph flank",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_lone_boundary_snp_pair_needs_a_repaired_complete_graph_flank(const Paths& p) {
     // One MAPQ-60, Q40 molecule crosses these two SNPs. Each is the only
     // clean SNP it observes in its block. Joining without repairing the
     // internal switch reverses hundreds of reads; the boundary pair alone
@@ -2678,14 +2582,7 @@ TEST_CASE("a lone boundary SNP pair needs a repaired complete graph flank",
     }
 }
 
-TEST_CASE("physical bridges survive their owning graph chunks",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_physical_bridges_survive_their_owning_graph_chunks(const Paths& p) {
     struct BridgeCase {
         long long chunk_left;
         long long chunk_right;
@@ -2889,14 +2786,7 @@ TEST_CASE("physical bridges survive their owning graph chunks",
     }
 }
 
-TEST_CASE("phased right reads retain the certified 64 Mb BAM prefix",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_phased_right_reads_retain_the_certified_64_mb_bam_prefix(const Paths& p) {
     Window chunk;
     chunk.gap_left = 64050001;
     chunk.gap_right = 64950000;
@@ -2978,14 +2868,7 @@ TEST_CASE("phased right reads retain the certified 64 Mb BAM prefix",
     CHECK(joined_reads.separated() >= 0.71);
 }
 
-TEST_CASE("source allele repair preserves complementary repeat rows",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_source_allele_repair_preserves_complementary_repeat_rows(const Paths& p) {
     // The source repair can connect this locus using its restored allele
     // observations. Keep both complementary rows; insertion length alone
     // still cannot reinterpret the deletion as insertion REF.
@@ -3027,14 +2910,7 @@ TEST_CASE("source allele repair preserves complementary repeat rows",
           rows.at("23806565:TACACACAC>T").first);
 }
 
-TEST_CASE("graph haplotypes bridge equivalent complementary BAM deletions",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_graph_haplotypes_bridge_equivalent_complementary_bam_deletions(const Paths& p) {
     // Use the whole owning chunk: the right deletion pair belongs to a BAM
     // phase block, while the left SNP's read haplotype comes from the graph.
     Window chunk;
@@ -3088,14 +2964,7 @@ TEST_CASE("graph haplotypes bridge equivalent complementary BAM deletions",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("physical links close the long 47 Mb gap without a switch",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_physical_links_close_the_long_47_mb_gap_without_a_switch(const Paths& p) {
     Window gap;
     gap.gap_left = 47003897;
     gap.gap_right = 47713869;
@@ -3133,14 +3002,7 @@ TEST_CASE("physical links close the long 47 Mb gap without a switch",
     CHECK(reads.separated() >= 0.90);
 }
 
-TEST_CASE("validated graph bridge survives a BAM phase-set ID change",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_validated_graph_bridge_survives_a_bam_phase_set_id_change(const Paths& p) {
     // The complete left graph block starts before the local BAM source block.
     // Its validation solve and the targeted injection solve therefore assign
     // different numeric PS IDs to the physical SNP/deletion bridge.
@@ -3177,14 +3039,7 @@ TEST_CASE("validated graph bridge survives a BAM phase-set ID change",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("one shared BAM anchor cannot absorb the earlier 19.4 Mb block",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_one_shared_bam_anchor_cannot_absorb_the_earlier_19_4_mb_block(const Paths& p) {
     // The two direct clean-SNP bridges join the local BAM run to the right
     // block. One shared BAM anchor still cannot absorb the earlier graph
     // prefix across the source's weak cut.
@@ -3220,14 +3075,7 @@ TEST_CASE("one shared BAM anchor cannot absorb the earlier 19.4 Mb block",
     CHECK(middle.first == last.first);
 }
 
-TEST_CASE("direct SNP proof reuses a graph block at 56.15 Mb",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_direct_snp_proof_reuses_a_graph_block_at_56_15_mb(const Paths& p) {
     // The left graph block is already joined upstream. Its next BAM edge has
     // an exact MEC SNP certificate in both read halves, so reuse is valid.
     Window region;
@@ -3263,14 +3111,7 @@ TEST_CASE("direct SNP proof reuses a graph block at 56.15 Mb",
     CHECK(reads.concordance() >= 0.95);
 }
 
-TEST_CASE("physical SNP bridge crosses the 23 Mb graph chunk boundary",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_physical_snp_bridge_crosses_the_23_mb_graph_chunk_boundary(const Paths& p) {
     // Run the two owning 1-Mb chunks: a single-window replay already joined
     // these alleles, but the full chromosome used to split them at 23 Mb.
     Window region;
@@ -3307,14 +3148,7 @@ TEST_CASE("physical SNP bridge crosses the 23 Mb graph chunk boundary",
     CHECK(reads.concordance() >= 0.97);
 }
 
-TEST_CASE("multiple BAM source labels preserve a 22.98 Mb graph bridge",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_multiple_bam_source_labels_preserve_a_22_98_mb_graph_bridge(const Paths& p) {
     // The complete left graph block has exact matches to two BAM phase sets.
     // Its boundary source remains coherent with the graph and the physical
     // SNP/deletion bridge, even though the earlier BAM source has another ID.
@@ -3350,14 +3184,7 @@ TEST_CASE("multiple BAM source labels preserve a 22.98 Mb graph bridge",
     CHECK(reads.concordance() >= 0.98);
 }
 
-TEST_CASE("a different deletion locus cannot validate a remapped bridge",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_different_deletion_locus_cannot_validate_a_remapped_bridge(const Paths& p) {
     // The 37.56-Mb boundary has one physical deletion bridge, but the other
     // deletion row is 173 bp away. Accepting that single allele after its BAM
     // source PS changes joins two graph blocks in the wrong orientation.
@@ -3386,14 +3213,7 @@ TEST_CASE("a different deletion locus cannot validate a remapped bridge",
     CHECK(phase_sets.at("37556826") != phase_sets.at("37606443"));
 }
 
-TEST_CASE("BAM transfer preserves an already connected graph phase set",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_transfer_preserves_an_already_connected_graph_phase_set(const Paths& p) {
     Window w;
     w.gap_left = 11050001;
     w.gap_right = 11950000;
@@ -3419,14 +3239,7 @@ TEST_CASE("BAM transfer preserves an already connected graph phase set",
     CHECK(phase_sets.at("11357244") == phase_sets.at("11360353"));
 }
 
-TEST_CASE("complementary BAM boundary rows close the 41.900 Mb seam",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complementary_bam_boundary_rows_close_the_41_900_mb_seam(const Paths& p) {
     // The preceding seam shares a BAM solve region with this deletion pair.
     // The verified noisy-SNP bridge now also joins its outer graph blocks;
     // both connections must keep their allele gauge and parental orientation.
@@ -3498,14 +3311,7 @@ TEST_CASE("complementary BAM boundary rows close the 41.900 Mb seam",
     CHECK(whole_chunk.concordance() >= 0.993);
 }
 
-TEST_CASE("certified deletion bridge preserves the 11.599 Mb source alleles",
-          "[gap][stitch-connectivity][msa][source-path]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_certified_deletion_bridge_preserves_the_11_599_mb_source_alleles(const Paths& p) {
     // The incomplete focused retry must still leave the original BAM rows
     // intact. A separately certified physical deletion bridge can now join
     // those blocks without replacing their solve or reversing their alleles.
@@ -3546,7 +3352,7 @@ TEST_CASE("certified deletion bridge preserves the 11.599 Mb source alleles",
     }
     CHECK(count_hap_allele_conflicts(dir + "/native.vcf") == 0);
 
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     for (const auto& interval : {std::pair<long long, long long>{11586531, 11599138},
                                 {11573074, 11586531}}) {
         Window gap;
@@ -3565,14 +3371,7 @@ TEST_CASE("certified deletion bridge preserves the 11.599 Mb source alleles",
     }
 }
 
-TEST_CASE("complete BAM source path closes the 48.929 Mb seam in its owning chunk",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_bam_source_path_closes_the_48_929_mb_seam_in_its_owning_chunk(const Paths& p) {
     // The focused BAM solve spans both graph flanks, but its only private
     // in-gap row is an indel. Keep the full adjacent phase-set context so
     // the source path and both graph/BAM gauges can validate the join.
@@ -3610,14 +3409,7 @@ TEST_CASE("complete BAM source path closes the 48.929 Mb seam in its owning chun
     CHECK(reads.concordance() >= 0.98);
 }
 
-TEST_CASE("complete adjacent graph phase sets close the 56 Mb seam in its owning chunk",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_adjacent_graph_phase_sets_close_the_56_mb_seam_in_its_owning_chunk(const Paths& p) {
     // The 120 kb replay has one BAM source block, but the ordinary grouped
     // full-chunk solve contains an unrelated later seam. The focused retry
     // must keep the established BAM rows and connect both complete graph PSs.
@@ -3657,14 +3449,7 @@ TEST_CASE("complete adjacent graph phase sets close the 56 Mb seam in its owning
     CHECK(reads.concordance() >= 0.98);
 }
 
-TEST_CASE("complete BAM path and verified deletion close the 5.31 Mb seam",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_bam_path_and_verified_deletion_close_the_5_31_mb_seam(const Paths& p) {
     // Use the entire owning chunk: an earlier seam has already reused the
     // left graph block, and the right BAM source has a weak cut farther away.
     Window chunk;
@@ -3737,14 +3522,7 @@ TEST_CASE("complete BAM path and verified deletion close the 5.31 Mb seam",
     CHECK(local_reads.concordance() >= 0.99);
 }
 
-TEST_CASE("repeat-deletion recovery preserves the 61.738 Mb flank gauges",
-          "[gap][recovery][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_repeat_deletion_recovery_preserves_the_61_738_mb_flank_gauges(const Paths& p) {
     // The raw source's deletion orientation conflicts with physical SNPs on
     // the left. Whole-chunk context catches the false joins from broad recall.
     Window chunk;
@@ -3764,6 +3542,11 @@ TEST_CASE("repeat-deletion recovery preserves the 61.738 Mb flank gauges",
     CHECK(reads.correct >= 3447);
     CHECK(reads.discordant() <= 21);
     CHECK_FALSE(reads.switched);
+    // Retain the independently verified Q17 reference call in the connected
+    // core; a per-base Q30 cutoff loses parity despite a <5% call error.
+    CHECK(reads.primary_scorable == 96);
+    CHECK(reads.primary_correct >= 94);
+    CHECK(reads.core_correct >= 91);
 
     std::ifstream vcf(dir + "/native.vcf");
     REQUIRE(vcf.good());
@@ -3796,14 +3579,7 @@ TEST_CASE("repeat-deletion recovery preserves the 61.738 Mb flank gauges",
     CHECK(calls.at("61738239").first == calls.at("61747506").first);
 }
 
-TEST_CASE("BAM-left MEC cannot reverse the 34.1 Mb graph block",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_left_mec_cannot_reverse_the_34_1_mb_graph_block(const Paths& p) {
     Window chunk;
     chunk.gap_left = 34050001;
     chunk.gap_right = 34950000;
@@ -3834,14 +3610,7 @@ TEST_CASE("BAM-left MEC cannot reverse the 34.1 Mb graph block",
     CHECK_FALSE(phased_off_edge_insertion);
 }
 
-TEST_CASE("BAM recovery admits missing MSA pairs at 17.62 Mb",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_recovery_admits_missing_msa_pairs_at_17_62_mb(const Paths& p) {
     Window w;
     w.gap_left = 17616778;
     w.gap_right = 17625527;
@@ -3873,14 +3642,7 @@ TEST_CASE("BAM recovery admits missing MSA pairs at 17.62 Mb",
     CHECK(reads.concordance() >= 0.80);
 }
 
-TEST_CASE("BAM block attaches to one supported graph flank",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_block_attaches_to_one_supported_graph_flank(const Paths& p) {
     Window w;
     w.gap_left = 14050001;
     w.gap_right = 14950000;
@@ -3908,14 +3670,7 @@ TEST_CASE("BAM block attaches to one supported graph flank",
     CHECK(phase_sets.at("14584522") != phase_sets.at("14612632"));
 }
 
-TEST_CASE("BAM recovery uses a supported run before a weak source cut",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_recovery_uses_a_supported_run_before_a_weak_source_cut(const Paths& p) {
     Window w;
     w.gap_left = 8050001;
     w.gap_right = 8950000;
@@ -3951,14 +3706,7 @@ TEST_CASE("BAM recovery uses a supported run before a weak source cut",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("BAM source path with one-haplotype molecule support closes 34.844 Mb",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_source_path_with_one_haplotype_molecule_support_closes_34_844_mb(const Paths& p) {
     Window w;
     w.gap_left = 34050001;
     w.gap_right = 34950000;
@@ -3993,14 +3741,7 @@ TEST_CASE("BAM source path with one-haplotype molecule support closes 34.844 Mb"
     CHECK(reads.concordance() >= 0.98);
 }
 
-TEST_CASE("clean indel boundaries use the phased read path",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_clean_indel_boundaries_use_the_phased_read_path(const Paths& p) {
     struct Bridge {
         long long region_left;
         long long region_right;
@@ -4052,14 +3793,7 @@ TEST_CASE("clean indel boundaries use the phased read path",
     }
 }
 
-TEST_CASE("one weak-cut BAM run attaches to one supported neighbor",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_one_weak_cut_bam_run_attaches_to_one_supported_neighbor(const Paths& p) {
     struct Bridge {
         long long region_left;
         long long region_right;
@@ -4132,14 +3866,7 @@ TEST_CASE("one weak-cut BAM run attaches to one supported neighbor",
     }
 }
 
-TEST_CASE("complete BAM blocks use split-stable allele votes without a read gauge",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_bam_blocks_use_split_stable_allele_votes_without_a_read_gauge(const Paths& p) {
     Window region;
     region.gap_left = 32050001;
     region.gap_right = 32950000;
@@ -4167,14 +3894,7 @@ TEST_CASE("complete BAM blocks use split-stable allele votes without a read gaug
     CHECK(sites.at(32490058).first == sites.at(32490150).first);
 }
 
-TEST_CASE("BAM-supported inner block connects after an invalid graph SNP is excluded",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_supported_inner_block_connects_after_an_invalid_graph_snp_is_excluded(const Paths& p) {
     Window w;
     w.gap_left = 55300000;
     w.gap_right = 55500000;
@@ -4223,14 +3943,7 @@ TEST_CASE("BAM-supported inner block connects after an invalid graph SNP is excl
     CHECK(reads.concordance() >= 0.95);
 }
 
-TEST_CASE("low-MAPQ BAM evidence cannot veto a graph heterozygote",
-          "[gap][anchor-quality]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_low_mapq_bam_evidence_cannot_veto_a_graph_heterozygote(const Paths& p) {
     Window w;
     w.gap_left = 30750000;
     w.gap_right = 30810000;
@@ -4252,14 +3965,7 @@ TEST_CASE("low-MAPQ BAM evidence cannot veto a graph heterozygote",
     CHECK(found);
 }
 
-TEST_CASE("shifted BAM deletion joins a certified graph suffix",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_shifted_bam_deletion_joins_a_certified_graph_suffix(const Paths& p) {
     // The shifted BAM deletion joins the right graph SNP. Independent
     // primary calls also certify the next graph deletion and the local SNP
     // suffix. Independent source quality and chain certificates now also
@@ -4300,14 +4006,7 @@ TEST_CASE("shifted BAM deletion joins a certified graph suffix",
     CHECK(reads.concordance() >= 0.93);
 }
 
-TEST_CASE("a directly supported BAM suffix closes the 17.865 Mb gap",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_directly_supported_bam_suffix_closes_the_17_865_mb_gap(const Paths& p) {
     // The BAM source's final weak cut lies between this clean SNP and MSA
     // insertion. Molecules calling both sites certify their common phase;
     // the earlier source prefix must retain its independent gauge.
@@ -4346,14 +4045,7 @@ TEST_CASE("a directly supported BAM suffix closes the 17.865 Mb gap",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("a newly imported BAM seam closes the 15.056 Mb gap",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_newly_imported_bam_seam_closes_the_15_056_mb_gap(const Paths& p) {
     // Reproduce the owning chunk. The first solve imports two independent
     // BAM blocks inside a wider graph seam; the physical SNP pair permits a
     // second solve across their newly exposed 15 kb boundary.
@@ -4395,14 +4087,7 @@ TEST_CASE("a newly imported BAM seam closes the 15.056 Mb gap",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("recovered right deletion joins a source-backed graph block",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_recovered_right_deletion_joins_a_source_backed_graph_block(const Paths& p) {
     Window gap;
     gap.gap_left = 8166027;
     gap.gap_right = 8172072;
@@ -4446,14 +4131,7 @@ TEST_CASE("recovered right deletion joins a source-backed graph block",
     CHECK(reads.concordance() >= 0.95);
 }
 
-TEST_CASE("adjacent anchors do not trigger a second BAM recovery solve",
-          "[gap][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_adjacent_anchors_do_not_trigger_a_second_bam_recovery_solve(const Paths& p) {
     Window region;
     region.gap_left = 17000001;
     region.gap_right = 17950000;
@@ -4487,14 +4165,7 @@ TEST_CASE("adjacent anchors do not trigger a second BAM recovery solve",
     CHECK(reads.concordance() >= 0.99);
 }
 
-TEST_CASE("shifted single-base BAM insertion closes its owning 23 Mb gap",
-          "[gap][stitch-connectivity][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_shifted_single_base_bam_insertion_closes_its_owning_23_mb_gap(const Paths& p) {
     Window chunk;
     chunk.gap_left = 23050001;
     chunk.gap_right = 23950000;
@@ -4538,14 +4209,7 @@ TEST_CASE("shifted single-base BAM insertion closes its owning 23 Mb gap",
     CHECK(reads.separated() >= 0.50);
 }
 
-TEST_CASE("a single seam admits focused recovery of complementary BAM rows",
-          "[gap][stitch-connectivity][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_a_single_seam_admits_focused_recovery_of_complementary_bam_rows(const Paths& p) {
     Window gap;
     gap.gap_left = 10727690;
     gap.gap_right = 10746628;
@@ -4587,7 +4251,7 @@ TEST_CASE("a single seam admits focused recovery of complementary BAM rows",
           calls.at("10746473:CCTTTCTTTCTTTCTTT>C").first);
     CHECK(calls.at("10706319:G>T").first == calls.at("10760419:G>A").first);
 
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     Window graph_seam;
     graph_seam.gap_left = 10706319;
     graph_seam.gap_right = 10760419;
@@ -4612,14 +4276,7 @@ TEST_CASE("a single seam admits focused recovery of complementary BAM rows",
     CHECK(local_reads.concordance() >= 0.95);
 }
 
-TEST_CASE("an internal MSA conflict does not authorize an unsupported block join",
-          "[gap][stitch-connectivity][source-conflict-guard]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_an_internal_msa_conflict_does_not_authorize_an_unsupported_block_join(const Paths& p) {
     Window gap;
     gap.gap_left = 19373922;
     gap.gap_right = 19395544;
@@ -4655,21 +4312,15 @@ TEST_CASE("an internal MSA conflict does not authorize an unsupported block join
     CHECK(short_insertion.second != calls.at("19395544:T>C").second);
 }
 
-TEST_CASE("focused recovery retains a supported partial path inside a graph seam",
-          "[gap][stitch-connectivity][representation][partial-source]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_focused_recovery_retains_a_supported_partial_path_inside_a_graph_seam(const Paths& p) {
     Window gap;
     gap.gap_left = 36332599;
     gap.gap_right = 36354890;
     std::string dir;
     REQUIRE(run_arm(p, gap, "stitch_partial_source_36m", "", dir));
     const std::set<std::string> keys{
-        "36332599:G>A", "36343992:C>CA", "36354890:CATAT>C"};
+        "36332599:G>A", "36343992:C>CA", "36354890:CATAT>C",
+        "36620864:G>A", "36623545:A>AT"};
     std::map<std::string, std::pair<std::string, std::string>> calls;
     std::ifstream vcf(dir + "/native.vcf");
     REQUIRE(vcf.good());
@@ -4692,13 +4343,18 @@ TEST_CASE("focused recovery retains a supported partial path inside a graph seam
     for (const auto& [key, call] : calls) {
         INFO(key);
         CHECK(is_phased_het(call.first));
-        CHECK(call.second == left.second);
+        if (key.compare(0, 3, "363") == 0)
+            CHECK(call.second == left.second);
     }
+    // A BAM path through imported sites cannot certify a mixed graph block.
+    CHECK(calls.at("36620864:G>A").second !=
+          calls.at("36623545:A>AT").second);
+
     // Pin the chain's relative allele orientation, not arbitrary HP labels.
     CHECK(left.first == deletion.first);
     CHECK(left.first != insertion.first);
 
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome chunk_reads;
     score_bam(dir + "/phased.bam", gap, truth, spans, chunk_reads);
@@ -4720,14 +4376,7 @@ TEST_CASE("focused recovery retains a supported partial path inside a graph seam
     CHECK(local_reads.concordance() >= 0.96);
 }
 
-TEST_CASE("focused BAM recovery retains insertion representations of graph child SNPs",
-          "[gap][representation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_focused_bam_recovery_retains_insertion_representations_of_graph_child_snps(const Paths& p) {
     Window chunk;
     chunk.gap_left = 59050001;
     chunk.gap_right = 59950000;
@@ -4770,13 +4419,7 @@ TEST_CASE("focused BAM recovery retains insertion representations of graph child
     CHECK(reads.concordance() >= 0.999);
 }
 
-TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_chr20_gap_windows_panel_totals(const Paths& p) {
     // The first test case does the emitting; this one has nothing to add to the
     // file and must not assert against expectations that do not exist yet.
     if (std::getenv("PGPHASE_EMIT_EXPECTATIONS") != nullptr) {
@@ -4785,7 +4428,7 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     }
     const auto panel = load_panel(p.panel);
     const auto expect = load_expectations(p.expectations);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
 
     // A per-window test can pass everywhere while the panel as a whole moves,
     // because each window's floor is generous on its own. These totals are the
@@ -4833,14 +4476,7 @@ TEST_CASE("chr20 gap windows: panel totals", "[gap][windows][totals]") {
     }
 }
 
-TEST_CASE("observed BAM insertion runs retain long alleles before the graph boundary",
-          "[gap][stitch-connectivity][representation][long-insertion-run]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_observed_bam_insertion_runs_retain_long_alleles_before_the_graph_boundary(const Paths& p) {
     Window gap;
     gap.gap_left = 1194233;
     gap.gap_right = 1196894;
@@ -4888,7 +4524,7 @@ TEST_CASE("observed BAM insertion runs retain long alleles before the graph boun
     CHECK(calls.at(1196967) == left);
     CHECK(calls.at(1197105) == left);
 
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome chunk_reads;
     score_bam(dir + "/phased.bam", gap, truth, spans, chunk_reads);
@@ -4908,14 +4544,7 @@ TEST_CASE("observed BAM insertion runs retain long alleles before the graph boun
     CHECK(local_reads.concordance() == 1.0);
 }
 
-TEST_CASE("equivalent BAM and graph insertions close their repeat seam",
-          "[gap][stitch-connectivity][representation][insertion-equivalence]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_equivalent_bam_and_graph_insertions_close_their_repeat_seam(const Paths& p) {
     Window gap;
     gap.gap_left = 1196894;
     gap.gap_right = 1196967;
@@ -4924,7 +4553,7 @@ TEST_CASE("equivalent BAM and graph insertions close their repeat seam",
     Outcome variants;
     parse_vcf(dir + "/native.vcf", gap, variants);
     CHECK(variants.spans);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     std::unordered_map<std::string, char> local_truth;
     for (const auto& [name, span] : spans) {
@@ -4941,14 +4570,7 @@ TEST_CASE("equivalent BAM and graph insertions close their repeat seam",
     CHECK_FALSE(local_reads.switched);
 }
 
-TEST_CASE("an attached BAM component keeps its source identity at an insertion bridge",
-          "[gap][representation][source-component]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_an_attached_bam_component_keeps_its_source_identity_at_an_insertion_bridge(const Paths& p) {
     Window gap;
     gap.gap_left = 34046350;
     gap.gap_right = 34055920;
@@ -4994,14 +4616,7 @@ TEST_CASE("an attached BAM component keeps its source identity at an insertion b
 }
 
 
-TEST_CASE("independent BAM SNP pairs certify both sides of a deletion seam",
-          "[gap][deletion][physical-path]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_independent_bam_snp_pairs_certify_both_sides_of_a_deletion_seam(const Paths& p) {
     // Both graph blocks contain an agreeing one-haplotype edge. The indel
     // bridge cannot certify those edges; independent BAM SNP pairs must.
     Window gap;
@@ -5050,14 +4665,7 @@ TEST_CASE("independent BAM SNP pairs certify both sides of a deletion seam",
     CHECK(reads.separated() >= 70.0 / 84.0);
 }
 
-TEST_CASE("padded graph repeats retain the verified BAM genotype",
-          "[gap][representation][transfer]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_padded_graph_repeats_retain_the_verified_bam_genotype(const Paths& p) {
     struct Replay {
         long long chunk_beg;
         int scored;
@@ -5074,7 +4682,7 @@ TEST_CASE("padded graph repeats retain the verified BAM genotype",
         {35000001, 3362, 3192, 170, {"35490917:TA>T"}},
         {41000001, 4154, 4109, 45, {"41885034:TA>T"}}
     };
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     for (const Replay& replay : replays) {
         DYNAMIC_SECTION("owning chunk beginning " << replay.chunk_beg) {
             // Standard padding reproduces the full source gauge. A narrow
@@ -5115,14 +4723,7 @@ TEST_CASE("padded graph repeats retain the verified BAM genotype",
     }
 }
 
-TEST_CASE("one-haplotype repeat deletion votes preserve parental block orientation",
-          "[gap][deletion][orientation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_one_haplotype_repeat_deletion_votes_preserve_parental_block_orientation(const Paths& p) {
     // Two Q30 physical ALT/ALT pairs suggest a flip here, but their repeat
     // deletion calls disagree with the independently phased flanks. A future
     // connection is allowed only in the parental orientation, with the owning
@@ -5153,7 +4754,7 @@ TEST_CASE("one-haplotype repeat deletion votes preserve parental block orientati
     const auto& right = boundaries.at(gap.gap_right);
     if (left.second == right.second)
         CHECK(left.first != right.first);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
     parse_vcf(dir + "/native.vcf", gap, owning);
@@ -5161,9 +4762,9 @@ TEST_CASE("one-haplotype repeat deletion votes preserve parental block orientati
     CHECK_FALSE(owning.switched);
     // Recovered insertion observations add 26 phased and 16 correct reads;
     // retain that coverage gain and its measured ten-error cost explicitly.
-    CHECK(owning.scored >= 3870);
-    CHECK(owning.correct >= 3844);
-    CHECK(owning.discordant() <= 26);
+
+
+    check_read_floors("gap_one_haplotype_repeat_deletion_votes_preserve_parental_block_orientation", owning);
     std::unordered_map<std::string, char> local_truth;
     for (const auto& entry : spans) {
         if (entry.second.second < gap.gap_left || entry.second.first > gap.gap_right)
@@ -5178,14 +4779,7 @@ TEST_CASE("one-haplotype repeat deletion votes preserve parental block orientati
     CHECK(local.discordant() <= 1);
 }
 
-TEST_CASE("exact SNP branches preserve the path through a complex catalog allele",
-          "[gap][representation][snp-branch]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_exact_snp_branches_preserve_the_path_through_a_complex_catalog_allele(const Paths& p) {
     // The right graph SNP also occurs in a catalog allele carrying another
     // substitution. Losing that exact branch leaves the internal path one-sided.
     // Replay the owning chunk to retain the complete left and right gauges.
@@ -5224,17 +4818,17 @@ TEST_CASE("exact SNP branches preserve the path through a complex catalog allele
     CHECK(left.first == rows.at("20523889:A>T").first);
     CHECK(left.first != rows.at("20445143:A>C").first);
     CHECK(left.first != rows.at("20540928:C>T").first);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
     parse_vcf(dir + "/native.vcf", gap, owning);
     score_bam(dir + "/phased.bam", gap, truth, spans, owning);
     CHECK(owning.spans);
     CHECK_FALSE(owning.switched);
-    CHECK(owning.scored >= 3876);
-    CHECK(owning.correct >= 3840);
-    CHECK(owning.discordant() <= 36);
-    CHECK(owning.separated() >= 78.0 / 111.0);
+
+
+
+    check_read_floors("gap_exact_snp_branches_preserve_the_path_through_a_complex_catalog_allele", owning);
     std::unordered_map<std::string, char> local_truth;
     for (const auto& [name, span] : spans) {
         if (span.second < gap.gap_left || span.first > gap.gap_right) continue;
@@ -5248,14 +4842,7 @@ TEST_CASE("exact SNP branches preserve the path through a complex catalog allele
     CHECK(local.discordant() <= 1);
 }
 
-TEST_CASE("complementary insertion recall cannot invert its SNP flanks",
-          "[gap][msa][source-gap][orientation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complementary_insertion_recall_cannot_invert_its_snp_flanks(const Paths& p) {
     // Missing insertion calls can hide a weak cut inside one BAM source PS.
     // A retry must not attach that source to both graph blocks in the wrong
     // parental orientation. Retain the complete owning-chunk flank context.
@@ -5291,13 +4878,13 @@ TEST_CASE("complementary insertion recall cannot invert its SNP flanks",
     const auto& four = rows.at("24121713:C>CTTTT");
     const auto& eight = rows.at("24121713:C>CTTTTTTTT");
     if (four.second == eight.second) CHECK(four.first != eight.first);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
     score_bam(dir + "/phased.bam", gap, truth, spans, owning);
-    CHECK(owning.scored >= 3924);
-    CHECK(owning.correct >= 3922);
-    CHECK(owning.discordant() <= 2);
+
+
+    check_read_floors("gap_complementary_insertion_recall_cannot_invert_its_snp_flanks", owning);
     std::unordered_map<std::string, char> local_truth;
     for (const auto& [name, span] : spans) {
         if (span.second < gap.gap_left || span.first > gap.gap_right) continue;
@@ -5311,14 +4898,7 @@ TEST_CASE("complementary insertion recall cannot invert its SNP flanks",
     CHECK(local.discordant() == 0);
 }
 
-TEST_CASE("overlapping recovery solves cannot exchange SNP quality certificates",
-          "[gap][msa][quality-provenance]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_overlapping_recovery_solves_cannot_exchange_snp_quality_certificates(const Paths& p) {
     // Two source solves disagree. The working BAM slot abstains, the graph's
     // independent REF survives, and each source keeps its own SNP certificate.
     Window region;
@@ -5387,20 +4967,13 @@ TEST_CASE("overlapping recovery solves cannot exchange SNP quality certificates"
     }
 }
 
-TEST_CASE("complementary insertion evidence preserves the 17.50 Mb connection",
-          "[gap][msa][insertion-connection][orientation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complementary_insertion_evidence_preserves_the_17_50_mb_connection(const Paths& p) {
     // The left block starts in the preceding chunk. A short replay cannot
     // certify its complete gauge, so keep both owning chunks in this test.
     Window gap;
     gap.gap_left = 17502614;
     gap.gap_right = 17521341;
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto expect = load_expectations(p.expectations);
     const Outcome panel = measure(p, gap, "graph", "", truth);
     const auto expected = expect.find("graph\t" + window_key(gap));
@@ -5478,14 +5051,7 @@ TEST_CASE("complementary insertion evidence preserves the 17.50 Mb connection",
     CHECK(left_parent == (votes[1][1] > votes[1][0]));
 }
 
-TEST_CASE("complete BAM evidence preserves finalized 37 Mb block orientation",
-          "[gap][recovery][complete-block][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complete_bam_evidence_preserves_finalized_37_mb_block_orientation(const Paths& p) {
     // A correct inner-edge vote must not run before source attachment, which
     // can replay a different orientation across the rest of the owning block.
     Window chunk;
@@ -5508,14 +5074,7 @@ TEST_CASE("complete BAM evidence preserves finalized 37 Mb block orientation",
     CHECK_FALSE(reads.switched);
 }
 
-TEST_CASE("complementary deletion recovery closes the owning 50 Mb gap",
-          "[gap][recovery][deletion-pair][stitch-connectivity]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complementary_deletion_recovery_closes_the_owning_50_mb_gap(const Paths& p) {
     // The short replay lacks the full adjacent source blocks. Its missing
     // allele calls must not veto a connection proven in the owning chunk.
     Window gap;
@@ -5566,14 +5125,7 @@ TEST_CASE("complementary deletion recovery closes the owning 50 Mb gap",
     CHECK(longer.first == snp.first);
 }
 
-TEST_CASE("shifted compound CIGAR deletions close the owning 7.9 Mb gap",
-          "[gap][msa][representation][deletion-pair]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_shifted_compound_cigar_deletions_close_the_owning_7_9_mb_gap(const Paths& p) {
     Window gap;
     gap.gap_left = 7901413;
     gap.gap_right = 7918883;
@@ -5615,13 +5167,13 @@ TEST_CASE("shifted compound CIGAR deletions close the owning 7.9 Mb gap",
     CHECK(rows[7918883][1].second == left.second);
     CHECK(rows[7918883][0].first == left.first);
     CHECK(rows[7918883][0].first != rows[7918883][1].first);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
     score_bam(dir + "/phased.bam", gap, truth, spans, owning);
-    CHECK(owning.scored >= 4091);
-    CHECK(owning.correct >= 3926);
-    CHECK(owning.discordant() <= 165);
+
+
+    check_read_floors("gap_shifted_compound_cigar_deletions_close_the_owning_7_9_mb_gap", owning);
     std::unordered_map<std::string, char> local_truth;
     for (const auto& [name, span] : spans) {
         if (span.second < gap.gap_left || span.first > gap.gap_right) continue;
@@ -5636,14 +5188,7 @@ TEST_CASE("shifted compound CIGAR deletions close the owning 7.9 Mb gap",
     CHECK(local.dominant_correct >= 104);
 }
 
-TEST_CASE("whole-chunk BAM fallback preserves verified recovery observations",
-          "[gap][msa][transfer][observations]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_whole_chunk_bam_fallback_preserves_verified_recovery_observations(const Paths& p) {
     // The owning chunk contains separate 19/20-base MSA insertion rows whose
     // calls differ from the later whole-chunk MSA. Existing calls must survive
     // without disabling fallback for other, previously missing observations.
@@ -5740,14 +5285,7 @@ TEST_CASE("whole-chunk BAM fallback preserves verified recovery observations",
     CHECK(lost_source_calls == 0);
 }
 
-TEST_CASE("selected BAM blocks retain verified MSA calls across graph gauge disagreement",
-          "[gap][msa][transfer][source-admission]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_selected_bam_blocks_retain_verified_msa_calls_across_graph_gauge_disagreement(const Paths& p) {
     struct Replay {
         long long gap_left, gap_right, pos;
         const char* ref;
@@ -5804,14 +5342,7 @@ TEST_CASE("selected BAM blocks retain verified MSA calls across graph gauge disa
     }
 }
 
-TEST_CASE("BAM-private blocks retain verified MSA calls without graph anchors",
-          "[gap][msa][transfer][private-block]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_bam_private_blocks_retain_verified_msa_calls_without_graph_anchors(const Paths& p) {
     Window gap;
     gap.gap_left = 21594343;
     gap.gap_right = 21612458;
@@ -5855,14 +5386,7 @@ TEST_CASE("BAM-private blocks retain verified MSA calls without graph anchors",
     CHECK(reads.discordant() <= 210);
 }
 
-TEST_CASE("verified noisy SNP and symmetric graph path close the 41.881 Mb gap",
-          "[gap][msa][stitch-connectivity][graph-path]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_verified_noisy_snp_and_symmetric_graph_path_close_the_41_881_mb_gap(const Paths& p) {
     // The right block includes a repeat SNP whose incoming edge has both
     // haplotypes but whose outgoing edge does not. Keep the complete block:
     // the direct edge around that SNP, and a previously certified BAM join,
@@ -5922,14 +5446,7 @@ TEST_CASE("verified noisy SNP and symmetric graph path close the 41.881 Mb gap",
 }
 
 
-TEST_CASE("composed physical bridges close 23.461 Mb and preserve the preceding join",
-          "[gap][stitch-connectivity][msa][source-path][composed-bridge]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_composed_physical_bridges_close_23_461_mb_and_preserve_the_preceding_join(const Paths& p) {
     Window gap;
     gap.gap_left = 23460963;
     gap.gap_right = 23480815;
@@ -5970,7 +5487,7 @@ TEST_CASE("composed physical bridges close 23.461 Mb and preserve the preceding 
     Outcome old_connection;
     parse_vcf(dir + "/native.vcf", preceding, old_connection);
     CHECK(old_connection.spans);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     Outcome orientation;
     score_bam(dir + "/phased.bam", gap, truth, input_read_spans(p, gap), orientation);
     CHECK_FALSE(orientation.switched);
@@ -5985,14 +5502,7 @@ TEST_CASE("composed physical bridges close 23.461 Mb and preserve the preceding 
     CHECK(reads.discordant() <= 60);
 }
 
-TEST_CASE("deferred physical bridge preserves read rescue across 22-24 Mb",
-          "[gap][stitch-connectivity][composed-bridge][read-rescue]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_deferred_physical_bridge_preserves_read_rescue_across_22_24_mb(const Paths& p) {
     Window gap;
     gap.gap_left = 23460963;
     gap.gap_right = 23480815;
@@ -6042,14 +5552,7 @@ TEST_CASE("deferred physical bridge preserves read rescue across 22-24 Mb",
     CHECK(seen.size() == retained_haps.size());
 }
 
-TEST_CASE("complementary insertion ALTs bridge the 9 Mb chunk boundary",
-          "[gap][stitch-connectivity][msa][complementary-insertion][chunk-boundary]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_complementary_insertion_alts_bridge_the_9_mb_chunk_boundary(const Paths& p) {
     Window gap;
     gap.gap_left = 8977829;
     gap.gap_right = 9014032;
@@ -6058,7 +5561,7 @@ TEST_CASE("complementary insertion ALTs bridge the 9 Mb chunk boundary",
     Outcome connection;
     parse_vcf(dir + "/native.vcf", gap, connection);
     CHECK(connection.spans);
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     score_bam(dir + "/phased.bam", gap, truth, input_read_spans(p, gap), connection);
     CHECK_FALSE(connection.switched);
     CHECK(connection.concordance() >= 0.98);
@@ -6090,29 +5593,22 @@ TEST_CASE("complementary insertion ALTs bridge the 9 Mb chunk boundary",
     CHECK(anchors.at(gap.gap_left).first != anchors.at(gap.gap_right).first);
 }
 
-TEST_CASE("physical SNP switch repair closes the owning 62 Mb gap",
-          "[gap][physical-switch][orientation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_physical_snp_switch_repair_closes_the_owning_62_mb_gap(const Paths& p) {
     Window gap;
     gap.gap_left = 62623253;
     gap.gap_right = 62642316;
     std::string dir;
     REQUIRE(run_arm(p, gap, "physical_switch_62m", "", dir));
-    const auto truth = load_truth(p.truth_map);
+    const auto& truth = load_truth(p.truth_map);
     const auto& spans = input_read_spans(p, gap);
     Outcome owning;
     parse_vcf(dir + "/native.vcf", gap, owning);
     score_bam(dir + "/phased.bam", gap, truth, spans, owning);
     CHECK(owning.spans);
     CHECK_FALSE(owning.switched);
-    CHECK(owning.scored >= 3750);
-    CHECK(owning.correct >= 3722);
-    CHECK(owning.discordant() <= 28);
+
+
+    check_read_floors("gap_physical_snp_switch_repair_closes_the_owning_62_mb_gap", owning);
     std::map<long long, std::pair<std::string, std::string>> rows;
     std::ifstream vcf(dir + "/native.vcf");
     REQUIRE(vcf.good());
@@ -6140,14 +5636,7 @@ TEST_CASE("physical SNP switch repair closes the owning 62 Mb gap",
     CHECK(rows.at(62722021).first == rows.at(62722416).first);
 }
 
-TEST_CASE("quality-backed source path closes the owning 13 Mb gap",
-          "[gap][source-quality-path][orientation]") {
-    const Paths p = paths();
-    if (!p.complete()) {
-        WARN("gap-window tests need inputs that are absent: " << p.missing());
-        SUCCEED("skipped: inputs absent");
-        return;
-    }
+static void gap_quality_backed_source_path_closes_the_owning_13_mb_gap(const Paths& p) {
     Window gap;
     gap.gap_left = 13752640;
     gap.gap_right = 13773452;
@@ -6159,12 +5648,12 @@ TEST_CASE("quality-backed source path closes the owning 13 Mb gap",
               input_read_spans(p, gap), owning);
     CHECK(owning.spans);
     CHECK_FALSE(owning.switched);
-    CHECK(owning.scored >= 3014);
-    CHECK(owning.correct >= 2835);
-    CHECK(owning.discordant() <= 179);
-    CHECK(owning.concordance() >= 0.94);
-    CHECK(owning.separated() >= 0.86);
-    CHECK(owning.window_scorable == 175);
+
+
+
+
+
+    check_read_floors("gap_quality_backed_source_path_closes_the_owning_13_mb_gap", owning);
     std::map<long long, std::pair<std::string, std::string>> rows;
     std::ifstream vcf(dir + "/native.vcf");
     REQUIRE(vcf.good());
@@ -6187,4 +5676,593 @@ TEST_CASE("quality-backed source path closes the owning 13 Mb gap",
         CHECK(row.first == rows.at(gap.gap_left).first);
         CHECK(row.second == rows.at(gap.gap_left).second);
     }
+}
+
+static void gap_a_recovered_short_insertion_retains_its_independent_source_path(const Paths& p) {
+    Window gap;
+    gap.gap_left = 33747591;
+    gap.gap_right = 33749688;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "short_insertion_source_33m", "", dir));
+    Outcome owning;
+    parse_vcf(dir + "/native.vcf", gap, owning);
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), owning);
+    CHECK(owning.spans);
+    CHECK_FALSE(owning.switched);
+
+
+
+
+    // HiPhase places 64 of these 67 molecules into one connected block.
+
+    check_read_floors("gap_a_recovered_short_insertion_retains_its_independent_source_path", owning);
+    std::map<long long, std::pair<std::string, std::string>> rows;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const long long pos = std::stoll(fields[1]);
+        if (pos != gap.gap_left && pos != gap.gap_right) continue;
+        const size_t separator = fields[9].rfind(':');
+        REQUIRE(separator != std::string::npos);
+        REQUIRE(rows.emplace(pos, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(separator + 1))).second);
+    }
+    REQUIRE(rows.size() == 2);
+    for (const auto& [pos, row] : rows) {
+        INFO(pos);
+        CHECK(is_phased_het(row.first));
+        CHECK(row.second == rows.at(gap.gap_left).second);
+    }
+    CHECK(rows.at(gap.gap_left).first != rows.at(gap.gap_right).first);
+    const std::map<std::string, int> core_haps{
+        {"m84031_231217_034919_s2/104792409/ccs", 1},
+        {"m84031_231217_034919_s2/199365264/ccs", 2},
+        {"m84031_231217_034919_s2/58000534/ccs", 2},
+        {"m84031_231217_062403_s3/205719379/ccs", 2}};
+    const std::set<std::string> conflicting_reads{
+        "m84031_231217_034919_s2/181539002/ccs",
+        "m84031_231217_034919_s2/261293766/ccs"};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    REQUIRE(header != nullptr);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(
+        bam_init1(), bam_destroy1);
+    REQUIRE(record != nullptr);
+    std::set<std::string> seen;
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto expected = core_haps.find(name);
+        if (expected == core_haps.end() && conflicting_reads.count(name) == 0)
+            continue;
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (expected != core_haps.end()) {
+            REQUIRE(hp != nullptr);
+            REQUIRE(ps != nullptr);
+            CHECK(bam_aux2i(hp) == expected->second);
+            CHECK(bam_aux2i(ps) == std::stoll(rows.at(gap.gap_left).second));
+        } else {
+            CHECK((hp == nullptr || bam_aux2i(hp) == 0));
+        }
+        seen.insert(name);
+    }
+    CHECK(seen.size() == core_haps.size() + conflicting_reads.size());
+}
+
+
+static void gap_shared_graph_rows_retain_their_independent_bam_run_certificate(const Paths& p) {
+    Window gap;
+    gap.gap_left = 49720311;
+    gap.gap_right = 49742973;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "shared_source_snp_49m", "", dir));
+    Outcome owning;
+    parse_vcf(dir + "/native.vcf", gap, owning);
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), owning);
+    CHECK(owning.spans);
+    CHECK_FALSE(owning.switched);
+
+
+
+
+    // Native HiPhase puts the same 137 correct molecules in one core block.
+    check_read_floors("gap_shared_graph_rows_retain_their_independent_bam_run_certificate", owning);
+    std::map<long long, std::pair<std::string, std::string>> rows;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const long long pos = std::stoll(fields[1]);
+        if (pos != gap.gap_left && pos != gap.gap_right) continue;
+        const size_t separator = fields[9].rfind(':');
+        REQUIRE(separator != std::string::npos);
+        REQUIRE(rows.emplace(pos, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(separator + 1))).second);
+    }
+    REQUIRE(rows.size() == 2);
+    CHECK(is_phased_het(rows.at(gap.gap_left).first));
+    CHECK(rows.at(gap.gap_left) == rows.at(gap.gap_right));
+}
+
+static void gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix(const Paths& p) {
+    Window gap;
+    gap.gap_left = 57764235;
+    gap.gap_right = 57785224;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "clean_snp_source_retry_57m", "", dir));
+    Outcome owning;
+    parse_vcf(dir + "/native.vcf", gap, owning);
+    score_bam(dir + "/phased.bam", gap, load_truth(p.truth_map),
+              input_read_spans(p, gap), owning);
+    CHECK(owning.spans);
+    CHECK_FALSE(owning.switched);
+
+
+
+
+    // Native HiPhase puts the same 128 correct molecules in one core block.
+    check_read_floors("gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix", owning);
+    std::map<long long, std::pair<std::string, std::string>> rows;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        REQUIRE(fields.size() >= 10);
+        const long long pos = std::stoll(fields[1]);
+        if (pos != gap.gap_left && pos != 57785772) continue;
+        const size_t separator = fields[9].rfind(':');
+        REQUIRE(separator != std::string::npos);
+        REQUIRE(rows.emplace(pos, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(separator + 1))).second);
+    }
+    REQUIRE(rows.size() == 2);
+    CHECK(is_phased_het(rows.at(gap.gap_left).first));
+    CHECK(is_phased_het(rows.at(57785772).first));
+    CHECK(rows.at(gap.gap_left).first != rows.at(57785772).first);
+    CHECK(rows.at(gap.gap_left).second == rows.at(57785772).second);
+}
+
+TEST_CASE("gap certification counts abstentions and excludes rescue cores", "[gap][unit]") {
+    const auto directory = std::filesystem::temp_directory_path() /
+        "pgphase-gap-contract-unit";
+    std::filesystem::create_directories(directory);
+    const auto path = directory / "reads.sam";
+    {
+        std::ofstream sam(path);
+        REQUIRE(sam.good());
+        sam << "@HD\tVN:1.6\n@SQ\tSN:chr20\tLN:1000\n"
+            << "maternal\t0\tchr20\t100\t60\t10M\t*\t0\t0\tAAAAAAAAAA\t*\tHP:i:1\tPS:i:100\n"
+            << "paternal\t0\tchr20\t100\t60\t10M\t*\t0\t0\tAAAAAAAAAA\t*\tHP:i:2\tPS:i:100\n"
+            << "rescued\t0\tchr20\t100\t60\t10M\t*\t0\t0\tAAAAAAAAAA\t*\tHP:i:1\tPS:i:1000000001\n"
+            << "unphased\t0\tchr20\t100\t60\t10M\t*\t0\t0\tAAAAAAAAAA\t*\n";
+    }
+    const std::unordered_map<std::string, char> truth{
+        {"maternal", 'M'}, {"paternal", 'P'}, {"rescued", 'M'}, {"unphased", 'M'}};
+    const ReadSpans spans{{"maternal", {99, 109}}, {"paternal", {99, 109}},
+        {"rescued", {99, 109}}, {"unphased", {99, 109}}};
+    Window gap;
+    gap.gap_left = 100;
+    gap.gap_right = 108;
+    Outcome got;
+    score_bam(path.string(), gap, truth, spans, got);
+    CHECK(got.primary_scorable == 4);
+    CHECK(got.primary_correct == 3);
+    CHECK(got.core_correct == 2);
+    std::filesystem::remove(path);
+}
+
+static void gap_retained_shared_deletion_closes_the_62_408_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 62408056;
+    gap.gap_right = 62432427;
+    const Outcome got = measure(p, gap, "graph", "", load_truth(p.truth_map));
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 177);
+    CHECK(got.primary_correct >= 157);
+    CHECK(got.core_correct >= 157);
+    check_gap_contract(p, gap, got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<long long, std::pair<std::string, std::string>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10) continue;
+        const long long pos = std::stoll(fields[1]);
+        if (pos != gap.gap_left && pos != gap.gap_right) continue;
+        calls[pos] = {fields[9].substr(0, 3), fields[9].substr(fields[9].rfind(':') + 1)};
+    }
+    REQUIRE(calls.size() == 2);
+    REQUIRE(is_phased_het(calls.at(gap.gap_left).first));
+    CHECK(calls.at(gap.gap_left) == calls.at(gap.gap_right));
+    const long long core = std::stoll(calls.at(gap.gap_left).second);
+    const int alt_hap = calls.at(gap.gap_left).first == "1|0" ? 1 : 2;
+    const std::set<std::string> retained{
+        "m84031_231217_034919_s2/69075309/ccs",
+        "m84031_231217_062403_s3/58004984/ccs",
+        "m84031_231217_034919_s2/36898742/ccs",
+        "m84031_231217_062403_s3/80809387/ccs"};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    std::set<std::string> seen;
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        const std::string name = bam_get_qname(record.get());
+        if (!retained.count(name)) continue;
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        REQUIRE(hp != nullptr);
+        REQUIRE(ps != nullptr);
+        CHECK(bam_aux2i(hp) == alt_hap);
+        CHECK(bam_aux2i(ps) == core);
+        seen.insert(name);
+    }
+    CHECK(seen == retained);
+}
+
+static void gap_cut_free_source_paths_close_the_17_634_mb_gap(const Paths& p) {
+    Window gap;
+    gap.gap_left = 17634393;
+    gap.gap_right = 17667022;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    check_read_floors("gap_cut_free_source_paths_close_the_17_634_mb_gap", got);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 202);
+    CHECK(got.primary_correct >= 164);
+    CHECK(got.core_correct >= 164);
+    check_gap_contract(p, gap, got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, std::string>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    const std::set<long long> positions{
+        17487837, 17521341, 17633256, 17634393, 17667022, 17723058, 17744061};
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10 || !positions.count(std::stoll(fields[1]))) continue;
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(fields[9].rfind(':') + 1))).second);
+    }
+    REQUIRE(calls.size() == 8);
+    const auto& left_snp = calls.at("17633256:G>C");
+    const long long core = std::stoll(left_snp.second);
+    for (const auto& [key, call] : calls) {
+        INFO(key);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left_snp.second);
+    }
+    CHECK(calls.at("17487837:C>G").first == left_snp.first);
+    CHECK(calls.at("17521341:A>G").first != left_snp.first);
+    CHECK(calls.at("17667022:G>T").first == left_snp.first);
+    CHECK(calls.at("17634393:CT>C").first == left_snp.first);
+    CHECK(calls.at("17634393:CTTTTTTTTTTTT>C").first != left_snp.first);
+    CHECK(calls.at("17723058:A>T").first == calls.at("17744061:G>A").first);
+
+    // Disjoint primary flanks must independently establish the same parent;
+    // a pooled major orientation alone could conceal a reversed join.
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
+static void gap_calibrated_repeat_snps_join_the_largest_hiphase_block(const Paths& p) {
+    Window gap;
+    gap.gap_left = 65509355;
+    gap.gap_right = 65509406;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    check_read_floors("gap_calibrated_repeat_snps_join_the_largest_hiphase_block", got);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 6);
+    CHECK(got.primary_correct >= 6);
+    CHECK(got.core_correct >= 6);
+    check_gap_contract(p, gap, got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, std::string>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    const std::set<long long> positions{
+        65000495, 65505704, 65509355, 65509406, 65515063, 65996492};
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10 || !positions.count(std::stoll(fields[1]))) continue;
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(fields[9].rfind(':') + 1))).second);
+    }
+    REQUIRE(calls.size() == positions.size());
+    const auto& left_snp = calls.at("65505704:C>G");
+    const long long core = std::stoll(left_snp.second);
+    for (const auto& [key, call] : calls) {
+        INFO(key);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left_snp.second);
+    }
+    CHECK(calls.at("65515063:C>A").first == left_snp.first);
+
+    // Disjoint primary flanks must independently establish the same parent;
+    // a pooled major orientation alone could conceal a reversed join.
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
+static void gap_complementary_insertions_join_the_second_largest_hiphase_block(const Paths& p) {
+    Window gap;
+    gap.gap_left = 10325039;
+    gap.gap_right = 10337661;
+    const auto& truth = load_truth(p.truth_map);
+    const Outcome got = measure(p, gap, "graph", "", truth);
+    check_read_floors("gap_complementary_insertions_join_the_second_largest_hiphase_block", got);
+    CHECK(got.spans);
+    CHECK_FALSE(got.switched);
+    CHECK(got.primary_scorable == 127);
+    CHECK(got.primary_correct >= 108);
+    CHECK(got.core_correct >= 98);
+    check_gap_contract(p, gap, got);
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    std::map<std::string, std::pair<std::string, std::string>> calls;
+    std::ifstream vcf(dir + "/native.vcf");
+    REQUIRE(vcf.good());
+    const std::set<long long> positions{
+        10002997, 10318335, 10325039, 10337661, 10343595, 10999362};
+    std::string line;
+    while (std::getline(vcf, line)) {
+        if (line.empty() || line[0] == '#') continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() < 10 || !positions.count(std::stoll(fields[1]))) continue;
+        const std::string key = fields[1] + ":" + fields[3] + ">" + fields[4];
+        REQUIRE(calls.emplace(key, std::make_pair(fields[9].substr(0, 3),
+            fields[9].substr(fields[9].rfind(':') + 1))).second);
+    }
+    REQUIRE(calls.size() == positions.size() + 1);
+    const auto& left_snp = calls.at("10318335:C>A");
+    const long long core = std::stoll(left_snp.second);
+    for (const auto& [key, call] : calls) {
+        INFO(key);
+        CHECK(is_phased_het(call.first));
+        CHECK(call.second == left_snp.second);
+    }
+    CHECK(calls.at("10325039:T>TGGAAGGAA").first == left_snp.first);
+    CHECK(calls.at("10337661:G>GA").first == left_snp.first);
+    CHECK(calls.at("10325039:T>TGGAA").first != left_snp.first);
+    CHECK(calls.at("10343595:A>G").first != left_snp.first);
+
+    // Disjoint primary flanks must independently establish the same parent;
+    // a pooled major orientation alone could conceal a reversed join.
+    const auto& spans = input_read_spans(p, gap);
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(
+        sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(
+        sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr);
+    REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != core || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first >= gap.gap_right) ++parents[1][mat_on_hap1];
+    }
+    const int orientation = parents[0][1] >= parents[0][0] ? 1 : 0;
+    for (const auto& flank : parents) {
+        const int total = flank[0] + flank[1];
+        REQUIRE(total >= 5);
+        CHECK(static_cast<double>(flank[orientation]) / total >= 0.90);
+    }
+}
+
+/// One fixture and selector for every panel window and mechanism regression.
+TEST_CASE("all gaps", "[gap][windows][integration]") {
+    const Paths p = paths();
+    if (!p.complete()) {
+        WARN("gap-window tests need inputs that are absent: " << p.missing());
+        SUCCEED("skipped: inputs absent");
+        return;
+    }
+    struct GapCheck {
+        const char* name;
+        const char* tags;
+        void (*run)(const Paths&);
+    };
+    static const GapCheck checks[] = {
+        {"complementary insertions join the second largest HiPhase block", "[gap][second-largest-block][orientation]", gap_complementary_insertions_join_the_second_largest_hiphase_block},
+        {"calibrated repeat SNPs join the largest HiPhase block", "[gap][repeat][largest-block][orientation]", gap_calibrated_repeat_snps_join_the_largest_hiphase_block},
+        {"cut-free source paths close the 17.634 Mb gap", "[gap][shared-deletion][source-path][orientation]", gap_cut_free_source_paths_close_the_17_634_mb_gap},
+        {"retained shared deletion closes the 62.408 Mb gap", "[gap][shared-deletion][masked-bam-snp][orientation]", gap_retained_shared_deletion_closes_the_62_408_mb_gap},
+        {"original MSA SNP dropout is retried before CIGAR backfill", "[gap][stitch-connectivity][msa]", gap_original_msa_snp_dropout_is_retried_before_cigar_backfill},
+        {"conflicting sparse pairs retry with their observed binomial tail", "[gap][stitch-connectivity][msa][sparse-pair]", gap_conflicting_sparse_pairs_retry_with_their_observed_binomial_tail},
+        {"a moved deletion does not certify a whole right-block join", "[gap][stitch-connectivity][msa][moved-deletion]", gap_a_moved_deletion_does_not_certify_a_whole_right_block_join},
+        {"focused retry certifies its path after CIGAR backfill", "[gap][stitch-connectivity][msa][backfill-certificate]", gap_focused_retry_certifies_its_path_after_cigar_backfill},
+        {"an earlier focused retry does not hide a later MSA dropout", "[gap][msa][retry-scheduling]", gap_an_earlier_focused_retry_does_not_hide_a_later_msa_dropout},
+        {"complete recovery MSA blocks retain the complex left flank", "[gap][msa-complete-transfer]", gap_complete_recovery_msa_blocks_retain_the_complex_left_flank},
+        {"isolated shared BAM genotype survives graph repeat demotion", "[gap][representation]", gap_isolated_shared_bam_genotype_survives_graph_repeat_demotion},
+        {"chr20 gap windows", "[gap][windows]", gap_chr20_gap_windows},
+        {"recovery preserves complementary BAM deletion rows", "[gap][representation]", gap_recovery_preserves_complementary_bam_deletion_rows},
+        {"verified MSA insertion survives graph output classification", "[gap][representation]", gap_verified_msa_insertion_survives_graph_output_classification},
+        {"a phased BAM deletion survives an unphased graph duplicate", "[gap][representation]", gap_a_phased_bam_deletion_survives_an_unphased_graph_duplicate},
+        {"graph SNP retry preserves a verified BAM deletion connection", "[gap][stitch-confidence]", gap_graph_snp_retry_preserves_a_verified_bam_deletion_connection},
+        {"an unsupported BAM source cut keeps the far deletion independent", "[gap][stitch-connectivity]", gap_an_unsupported_bam_source_cut_keeps_the_far_deletion_independent},
+        {"graph SNPs bridge supported recovery blocks", "[gap][graph-bridge]", gap_graph_snps_bridge_supported_recovery_blocks},
+        {"recovery stitch preserves the next flank across an unlinked seam", "[gap][stitch-connectivity]", gap_recovery_stitch_preserves_the_next_flank_across_an_unlinked_seam},
+        {"a clean-SNP gap bridge keeps the prior graph gauge", "[gap][stitch-connectivity]", gap_a_clean_snp_gap_bridge_keeps_the_prior_graph_gauge},
+        {"a local source path does not lose its graph bridge", "[gap][stitch-connectivity]", gap_a_local_source_path_does_not_lose_its_graph_bridge},
+        {"corroborated SNP molecules join sparse graph seams", "[gap][stitch-connectivity]", gap_corroborated_snp_molecules_join_sparse_graph_seams},
+        {"an indel boundary with allele dropout gets an MSA retry", "[gap][stitch-connectivity]", gap_an_indel_boundary_with_allele_dropout_gets_an_msa_retry},
+        {"a lone boundary SNP pair needs a repaired complete graph flank", "[gap][stitch-connectivity]", gap_a_lone_boundary_snp_pair_needs_a_repaired_complete_graph_flank},
+        {"physical bridges survive their owning graph chunks", "[gap][stitch-connectivity]", gap_physical_bridges_survive_their_owning_graph_chunks},
+        {"phased right reads retain the certified 64 Mb BAM prefix", "[gap][representation]", gap_phased_right_reads_retain_the_certified_64_mb_bam_prefix},
+        {"source allele repair preserves complementary repeat rows", "[gap][representation]", gap_source_allele_repair_preserves_complementary_repeat_rows},
+        {"graph haplotypes bridge equivalent complementary BAM deletions", "[gap][stitch-connectivity]", gap_graph_haplotypes_bridge_equivalent_complementary_bam_deletions},
+        {"physical links close the long 47 Mb gap without a switch", "[gap][stitch-connectivity]", gap_physical_links_close_the_long_47_mb_gap_without_a_switch},
+        {"validated graph bridge survives a BAM phase-set ID change", "[gap][stitch-connectivity]", gap_validated_graph_bridge_survives_a_bam_phase_set_id_change},
+        {"one shared BAM anchor cannot absorb the earlier 19.4 Mb block", "[gap][stitch-connectivity]", gap_one_shared_bam_anchor_cannot_absorb_the_earlier_19_4_mb_block},
+        {"direct SNP proof reuses a graph block at 56.15 Mb", "[gap][stitch-connectivity]", gap_direct_snp_proof_reuses_a_graph_block_at_56_15_mb},
+        {"physical SNP bridge crosses the 23 Mb graph chunk boundary", "[gap][stitch-connectivity]", gap_physical_snp_bridge_crosses_the_23_mb_graph_chunk_boundary},
+        {"multiple BAM source labels preserve a 22.98 Mb graph bridge", "[gap][stitch-connectivity]", gap_multiple_bam_source_labels_preserve_a_22_98_mb_graph_bridge},
+        {"a different deletion locus cannot validate a remapped bridge", "[gap][stitch-connectivity]", gap_a_different_deletion_locus_cannot_validate_a_remapped_bridge},
+        {"BAM transfer preserves an already connected graph phase set", "[gap][stitch-connectivity]", gap_bam_transfer_preserves_an_already_connected_graph_phase_set},
+        {"complementary BAM boundary rows close the 41.900 Mb seam", "[gap][stitch-connectivity]", gap_complementary_bam_boundary_rows_close_the_41_900_mb_seam},
+        {"certified deletion bridge preserves the 11.599 Mb source alleles", "[gap][stitch-connectivity][msa][source-path]", gap_certified_deletion_bridge_preserves_the_11_599_mb_source_alleles},
+        {"complete BAM source path closes the 48.929 Mb seam in its owning chunk", "[gap][stitch-connectivity]", gap_complete_bam_source_path_closes_the_48_929_mb_seam_in_its_owning_chunk},
+        {"complete adjacent graph phase sets close the 56 Mb seam in its owning chunk", "[gap][stitch-connectivity]", gap_complete_adjacent_graph_phase_sets_close_the_56_mb_seam_in_its_owning_chunk},
+        {"complete BAM path and verified deletion close the 5.31 Mb seam", "[gap][stitch-connectivity]", gap_complete_bam_path_and_verified_deletion_close_the_5_31_mb_seam},
+        {"repeat-deletion recovery preserves the 61.738 Mb flank gauges", "[gap][recovery][stitch-connectivity]", gap_repeat_deletion_recovery_preserves_the_61_738_mb_flank_gauges},
+        {"BAM-left MEC cannot reverse the 34.1 Mb graph block", "[gap][stitch-connectivity]", gap_bam_left_mec_cannot_reverse_the_34_1_mb_graph_block},
+        {"BAM recovery admits missing MSA pairs at 17.62 Mb", "[gap][stitch-connectivity]", gap_bam_recovery_admits_missing_msa_pairs_at_17_62_mb},
+        {"BAM block attaches to one supported graph flank", "[gap][stitch-connectivity]", gap_bam_block_attaches_to_one_supported_graph_flank},
+        {"BAM recovery uses a supported run before a weak source cut", "[gap][stitch-connectivity]", gap_bam_recovery_uses_a_supported_run_before_a_weak_source_cut},
+        {"BAM source path with one-haplotype molecule support closes 34.844 Mb", "[gap][stitch-connectivity]", gap_bam_source_path_with_one_haplotype_molecule_support_closes_34_844_mb},
+        {"clean indel boundaries use the phased read path", "[gap][stitch-connectivity]", gap_clean_indel_boundaries_use_the_phased_read_path},
+        {"one weak-cut BAM run attaches to one supported neighbor", "[gap][stitch-connectivity]", gap_one_weak_cut_bam_run_attaches_to_one_supported_neighbor},
+        {"complete BAM blocks use split-stable allele votes without a read gauge", "[gap][stitch-connectivity]", gap_complete_bam_blocks_use_split_stable_allele_votes_without_a_read_gauge},
+        {"BAM-supported inner block connects after an invalid graph SNP is excluded", "[gap][stitch-connectivity]", gap_bam_supported_inner_block_connects_after_an_invalid_graph_snp_is_excluded},
+        {"low-MAPQ BAM evidence cannot veto a graph heterozygote", "[gap][anchor-quality]", gap_low_mapq_bam_evidence_cannot_veto_a_graph_heterozygote},
+        {"shifted BAM deletion joins a certified graph suffix", "[gap][stitch-connectivity]", gap_shifted_bam_deletion_joins_a_certified_graph_suffix},
+        {"a directly supported BAM suffix closes the 17.865 Mb gap", "[gap][stitch-connectivity]", gap_a_directly_supported_bam_suffix_closes_the_17_865_mb_gap},
+        {"a newly imported BAM seam closes the 15.056 Mb gap", "[gap][stitch-connectivity]", gap_a_newly_imported_bam_seam_closes_the_15_056_mb_gap},
+        {"recovered right deletion joins a source-backed graph block", "[gap][stitch-connectivity]", gap_recovered_right_deletion_joins_a_source_backed_graph_block},
+        {"adjacent anchors do not trigger a second BAM recovery solve", "[gap][stitch-connectivity]", gap_adjacent_anchors_do_not_trigger_a_second_bam_recovery_solve},
+        {"shifted single-base BAM insertion closes its owning 23 Mb gap", "[gap][stitch-connectivity][representation]", gap_shifted_single_base_bam_insertion_closes_its_owning_23_mb_gap},
+        {"a single seam admits focused recovery of complementary BAM rows", "[gap][stitch-connectivity][representation]", gap_a_single_seam_admits_focused_recovery_of_complementary_bam_rows},
+        {"an internal MSA conflict does not authorize an unsupported block join", "[gap][stitch-connectivity][source-conflict-guard]", gap_an_internal_msa_conflict_does_not_authorize_an_unsupported_block_join},
+        {"focused recovery retains a supported partial path inside a graph seam", "[gap][stitch-connectivity][representation][partial-source]", gap_focused_recovery_retains_a_supported_partial_path_inside_a_graph_seam},
+        {"focused BAM recovery retains insertion representations of graph child SNPs", "[gap][representation]", gap_focused_bam_recovery_retains_insertion_representations_of_graph_child_snps},
+        {"chr20 gap windows: panel totals", "[gap][windows][totals]", gap_chr20_gap_windows_panel_totals},
+        {"observed BAM insertion runs retain long alleles before the graph boundary", "[gap][stitch-connectivity][representation][long-insertion-run]", gap_observed_bam_insertion_runs_retain_long_alleles_before_the_graph_boundary},
+        {"equivalent BAM and graph insertions close their repeat seam", "[gap][stitch-connectivity][representation][insertion-equivalence]", gap_equivalent_bam_and_graph_insertions_close_their_repeat_seam},
+        {"an attached BAM component keeps its source identity at an insertion bridge", "[gap][representation][source-component]", gap_an_attached_bam_component_keeps_its_source_identity_at_an_insertion_bridge},
+        {"independent BAM SNP pairs certify both sides of a deletion seam", "[gap][deletion][physical-path]", gap_independent_bam_snp_pairs_certify_both_sides_of_a_deletion_seam},
+        {"padded graph repeats retain the verified BAM genotype", "[gap][representation][transfer]", gap_padded_graph_repeats_retain_the_verified_bam_genotype},
+        {"one-haplotype repeat deletion votes preserve parental block orientation", "[gap][deletion][orientation]", gap_one_haplotype_repeat_deletion_votes_preserve_parental_block_orientation},
+        {"exact SNP branches preserve the path through a complex catalog allele", "[gap][representation][snp-branch]", gap_exact_snp_branches_preserve_the_path_through_a_complex_catalog_allele},
+        {"complementary insertion recall cannot invert its SNP flanks", "[gap][msa][source-gap][orientation]", gap_complementary_insertion_recall_cannot_invert_its_snp_flanks},
+        {"overlapping recovery solves cannot exchange SNP quality certificates", "[gap][msa][quality-provenance]", gap_overlapping_recovery_solves_cannot_exchange_snp_quality_certificates},
+        {"complementary insertion evidence preserves the 17.50 Mb connection", "[gap][msa][insertion-connection][orientation]", gap_complementary_insertion_evidence_preserves_the_17_50_mb_connection},
+        {"complete BAM evidence preserves finalized 37 Mb block orientation", "[gap][recovery][complete-block][stitch-connectivity]", gap_complete_bam_evidence_preserves_finalized_37_mb_block_orientation},
+        {"complementary deletion recovery closes the owning 50 Mb gap", "[gap][recovery][deletion-pair][stitch-connectivity]", gap_complementary_deletion_recovery_closes_the_owning_50_mb_gap},
+        {"shifted compound CIGAR deletions close the owning 7.9 Mb gap", "[gap][msa][representation][deletion-pair]", gap_shifted_compound_cigar_deletions_close_the_owning_7_9_mb_gap},
+        {"whole-chunk BAM fallback preserves verified recovery observations", "[gap][msa][transfer][observations]", gap_whole_chunk_bam_fallback_preserves_verified_recovery_observations},
+        {"selected BAM blocks retain verified MSA calls across graph gauge disagreement", "[gap][msa][transfer][source-admission]", gap_selected_bam_blocks_retain_verified_msa_calls_across_graph_gauge_disagreement},
+        {"BAM-private blocks retain verified MSA calls without graph anchors", "[gap][msa][transfer][private-block]", gap_bam_private_blocks_retain_verified_msa_calls_without_graph_anchors},
+        {"verified noisy SNP and symmetric graph path close the 41.881 Mb gap", "[gap][msa][stitch-connectivity][graph-path]", gap_verified_noisy_snp_and_symmetric_graph_path_close_the_41_881_mb_gap},
+        {"composed physical bridges close 23.461 Mb and preserve the preceding join", "[gap][stitch-connectivity][msa][source-path][composed-bridge]", gap_composed_physical_bridges_close_23_461_mb_and_preserve_the_preceding_join},
+        {"deferred physical bridge preserves read rescue across 22-24 Mb", "[gap][stitch-connectivity][composed-bridge][read-rescue]", gap_deferred_physical_bridge_preserves_read_rescue_across_22_24_mb},
+        {"complementary insertion ALTs bridge the 9 Mb chunk boundary", "[gap][stitch-connectivity][msa][complementary-insertion][chunk-boundary]", gap_complementary_insertion_alts_bridge_the_9_mb_chunk_boundary},
+        {"physical SNP switch repair closes the owning 62 Mb gap", "[gap][physical-switch][orientation]", gap_physical_snp_switch_repair_closes_the_owning_62_mb_gap},
+        {"quality-backed source path closes the owning 13 Mb gap", "[gap][source-quality-path][orientation]", gap_quality_backed_source_path_closes_the_owning_13_mb_gap},
+        {"a recovered short insertion retains its independent source path", "[gap][short-insertion-source][orientation]", gap_a_recovered_short_insertion_retains_its_independent_source_path},
+        {"shared graph rows retain their independent BAM run certificate", "[gap][shared-source-snp][orientation]", gap_shared_graph_rows_retain_their_independent_bam_run_certificate},
+        {"a clean SNP retry certifies a complete independent BAM suffix", "[gap][clean-snp-source-retry][orientation]", gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix},
+    };
+    const std::string filter = env_or("PGPHASE_GAP_FILTER", "");
+    const bool emitting = std::getenv("PGPHASE_EMIT_EXPECTATIONS") != nullptr;
+    int selected = 0;
+    for (const auto& check : checks) {
+        if (emitting && std::string(check.name) != "chr20 gap windows") continue;
+        if (!filter.empty() && std::string(check.name).find(filter) == std::string::npos &&
+            std::string(check.tags).find(filter) == std::string::npos) continue;
+        ++selected;
+        DYNAMIC_SECTION(check.name) {
+            INFO("regression tags: " << check.tags);
+            check.run(p);
+        }
+    }
+    REQUIRE(selected > 0);
 }

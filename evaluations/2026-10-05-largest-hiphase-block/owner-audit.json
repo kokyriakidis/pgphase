@@ -1,0 +1,16 @@
+{
+  "old_primary_output_reads": 2971,
+  "new_primary_output_reads": 2971,
+  "old_correct": 2962,
+  "new_correct": 2962,
+  "old_discordant": 6,
+  "new_discordant": 6,
+  "old_variant_records": 1591,
+  "new_variant_records": 1591,
+  "changed_variant_gauges": 578,
+  "changed_read_tags": 1518,
+  "lost_correct_assignments": 0,
+  "lost_phased_assignments": 0,
+  "variant_alleles_counts_and_filters_preserved": true,
+  "new_assignments": []
+}

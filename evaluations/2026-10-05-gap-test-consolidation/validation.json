@@ -1,0 +1,34 @@
+{
+  "binary_sha256": "f31a9166e0c8e871b28c3174ee95286e8bdc8cbd42c184dafc0e6eb7ce0019e6",
+  "regression_checks": 84,
+  "panel_gaps": 112,
+  "native_cases": 4,
+  "assertions": 13232,
+  "make_window_tests_seconds": 32.45,
+  "closed": 99,
+  "closed_meeting_contract": 30,
+  "historical_closed_shortfalls": 69,
+  "closed_below_80pct": 16,
+  "closed_below_hiphase_parity": 62,
+  "certified": [
+    "33747591-33749688",
+    "49720311-49742973",
+    "57764235-57785224"
+  ],
+  "original_coverage": {
+    "original_assertion_sites": 1201,
+    "migrated_literal_bounds": 38,
+    "all_other_original_assertions_preserved": true,
+    "named_integration_checks": 84,
+    "owning_region_overrides": 72,
+    "original_region_expression_comparisons": 216,
+    "regions_identical": true
+  },
+  "selectors": {
+    "selected_seconds": 0.2890523200039752,
+    "selected_returncode": 0,
+    "unmatched_filter_rejected": true,
+    "missing_fixtures_skip": true,
+    "states_unchanged": true
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "changed_tags": {
+    "m84031_231217_062403_s3/205719379/ccs": {
+      "before": [
+        2,
+        1033320808
+      ],
+      "after": [
+        2,
+        33320808
+      ]
+    },
+    "m84031_231217_034919_s2/199365264/ccs": {
+      "before": [
+        2,
+        1033320808
+      ],
+      "after": [
+        2,
+        33320808
+      ]
+    },
+    "m84031_231217_034919_s2/58000534/ccs": {
+      "before": [
+        2,
+        1033320808
+      ],
+      "after": [
+        2,
+        33320808
+      ]
+    },
+    "m84031_231217_034919_s2/104792409/ccs": {
+      "before": [
+        1,
+        1033320808
+      ],
+      "after": [
+        1,
+        33320808
+      ]
+    }
+  },
+  "same_output_molecules": true,
+  "all_parental_status_preserved": true,
+  "vcf_byte_identical": true,
+  "vcf_sha256": "5c577ed3e1f9a8efe7572585b21c57beb5279fd1c8801013fc490aada353befe"
+}

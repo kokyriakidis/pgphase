@@ -1,0 +1,304 @@
+{
+  "native_replays_compared": 329,
+  "variant_records_preserved_in_every_replay": true,
+  "existing_read_tags_preserved_in_every_replay": true,
+  "changed_outputs": [
+    {
+      "check": "chr20 gap windows",
+      "section": "graph / window 1180618-1194189",
+      "output": "graph/w1180618-1194189/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "chr20 gap windows",
+      "section": "graph / window 1194233-1196894",
+      "output": "graph/w1194233-1196894/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "chr20 gap windows",
+      "section": "graph / window 1196894-1196967",
+      "output": "graph/w1196894-1196967/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "physical bridges survive their owning graph chunks",
+      "section": null,
+      "output": "stitch_single_molecule_1508171/w1050001-1950000/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "chr20 gap windows: panel totals",
+      "section": null,
+      "output": "graph/w1180618-1194189/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "chr20 gap windows: panel totals",
+      "section": null,
+      "output": "graph/w1194233-1196894/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "chr20 gap windows: panel totals",
+      "section": null,
+      "output": "graph/w1196894-1196967/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "observed BAM insertion runs retain long alleles before the graph boundary",
+      "section": null,
+      "output": "stitch_long_insertion_run_1m/w1194233-1196894/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    },
+    {
+      "check": "equivalent BAM and graph insertions close their repeat seam",
+      "section": null,
+      "output": "stitch_equivalent_insertion_1m/w1196894-1196967/phased.bam",
+      "variant_records_unchanged": 1528,
+      "primary_reads_unchanged": 4197,
+      "existing_assignments_preserved": 4044,
+      "new_assignments": 1,
+      "truth_before": {
+        "True": 4034,
+        "None": 153,
+        "False": 10
+      },
+      "truth_after": {
+        "True": 4035,
+        "None": 152,
+        "False": 10
+      },
+      "changed_reads": [
+        {
+          "read": "m84031_231217_062403_s3/204411306/ccs",
+          "before": [
+            0,
+            0
+          ],
+          "after": [
+            1,
+            1142089
+          ],
+          "correct": true
+        }
+      ]
+    }
+  ]
+}

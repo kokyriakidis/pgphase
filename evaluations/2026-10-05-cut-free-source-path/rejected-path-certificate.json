@@ -1,0 +1,17 @@
+{
+  "rejected_binary_sha256": "fab5b8a55127bfa7dc330fbb029d55c6f1cd82c0b858a746ee49d788fbd13bfd",
+  "scope": "complete chr20, actual task-start full replay vs first unrestricted cut-free source certificate",
+  "unexpected_closure": [
+    37598255,
+    37606443
+  ],
+  "lost_correct_primary_assignments": 156,
+  "lost_phased_primary_assignments": 1,
+  "unchanged_read_tags_with_changed_parental_orientation": 141,
+  "gap_original_primary_reads": 104,
+  "gap_correct": 75,
+  "gap_correct_fraction": 0.7211538461538461,
+  "gap_hiphase_correct": 65,
+  "gap_hiphase_core_correct": 65,
+  "decision": "Reject unrestricted certificate. Permit the new source path only beside the retained shared catalog deletion used by the independently calibrated bridge."
+}

@@ -1,0 +1,58 @@
+{
+  "measurements": [
+    {
+      "stage": "pgphase_before",
+      "source": "test_data/tmp_gap_fix68/frozen_final/0/phased.bam",
+      "input_primary_reads": 6,
+      "truth_scorable": 6,
+      "counts": {
+        "correct": 6,
+        "discordant": 0,
+        "unphased": 0
+      },
+      "correct_all_reads": 1.0,
+      "read_phase_sets": 1,
+      "dominant_correct": 6,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "pgphase_after",
+      "source": "test_data/tmp_gap_fix69/frozen_final/0/phased.bam",
+      "input_primary_reads": 6,
+      "truth_scorable": 6,
+      "counts": {
+        "correct": 6,
+        "discordant": 0,
+        "unphased": 0
+      },
+      "correct_all_reads": 1.0,
+      "read_phase_sets": 1,
+      "dominant_correct": 6,
+      "identical_input_alignments": null
+    },
+    {
+      "stage": "hiphase",
+      "source": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+      "input_primary_reads": 6,
+      "truth_scorable": 6,
+      "counts": {
+        "correct": 0,
+        "discordant": 6,
+        "unphased": 0
+      },
+      "correct_all_reads": 0.0,
+      "read_phase_sets": 1,
+      "dominant_correct": 0,
+      "identical_input_alignments": 6
+    }
+  ],
+  "hiphase_correct_pgphase_not": [],
+  "pgphase_correct_hiphase_not": [
+    "m84031_231217_034919_s2/208340405/ccs",
+    "m84031_231217_034919_s2/176428386/ccs",
+    "m84031_231217_034919_s2/211681690/ccs",
+    "m84031_231217_034919_s2/187043831/ccs",
+    "m84031_231217_034919_s2/144967436/ccs",
+    "m84031_231217_034919_s2/131662605/ccs"
+  ]
+}

@@ -1,0 +1,92 @@
+[
+  {
+    "qname": "m84031_231217_034919_s2/106632349/ccs",
+    "mapq": 5,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_034919_s2/74844377/ccs",
+    "mapq": 5,
+    "graph_allele": 0,
+    "bam_base": [
+      "T",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_062403_s3/8847623/ccs",
+    "mapq": 5,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_062403_s3/158533041/ccs",
+    "mapq": 3,
+    "graph_allele": null,
+    "bam_base": null
+  },
+  {
+    "qname": "m84031_231217_034919_s2/38994922/ccs",
+    "mapq": 4,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_062403_s3/58393503/ccs",
+    "mapq": 4,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_062403_s3/51320216/ccs",
+    "mapq": 4,
+    "graph_allele": null,
+    "bam_base": null
+  },
+  {
+    "qname": "m84031_231217_062403_s3/164168230/ccs",
+    "mapq": 4,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_034919_s2/245500039/ccs",
+    "mapq": 15,
+    "graph_allele": null,
+    "bam_base": null
+  },
+  {
+    "qname": "m84031_231217_062403_s3/113509675/ccs",
+    "mapq": 3,
+    "graph_allele": 0,
+    "bam_base": [
+      "T",
+      40
+    ]
+  },
+  {
+    "qname": "m84031_231217_034919_s2/204931572/ccs",
+    "mapq": 10,
+    "graph_allele": 0,
+    "bam_base": [
+      "A",
+      40
+    ]
+  }
+]

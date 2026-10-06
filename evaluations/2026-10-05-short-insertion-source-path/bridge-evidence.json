@@ -1,0 +1,17 @@
+{
+  "source_dump": "test_data/tmp_gap_fix61/bam-only/33/matrix.recovery.chunk0.window2.chunk-1.recovery-source.tsv",
+  "source_dump_sha256": "21fb44e1a8307fdf9f0c6c9b8f08667a6f55ac09fef933ad6ac8bf1927eeda95",
+  "original_source_phase_set": 33697766,
+  "source_endpoint_rows": [
+    "VAR\t78\t33747591\tX\t4\t2\t1\tC\t33697766\t0\t1\t0\t0\t0\t31\t29\t0.48333333333333334",
+    "VAR\t82\t33749689\tI\t256\t1\t0\tTTCT\t33697766\t1\t0\t0\t0\t0\t31\t24\t0.43636363636363634",
+    "VAR\t96\t33762265\tI\t256\t1\t0\tAAA\t33697766\t1\t0\t0\t0\t0\t5\t5\t0.5",
+    "VAR\t97\t33762265\tI\t256\t1\t0\tAAAA\t33697766\t0\t1\t0\t0\t0\t7\t3\t0.29999999999999999"
+  ],
+  "diagnostic_trace": [
+    "[source-small-bridge] snp=33747591 insertion=33749689 alt=TTCT support=24,10 log_odds=-164.860097239 source=1 left_path=1"
+  ],
+  "diagnostic_binary_sha256": "b18ff6aa23f6613c2091148b04fd6d084d3218652abcd2c8b4e27d3e25cb2280",
+  "diagnostic_only": true,
+  "final_owner_vcf_identical_to_traced_trial": true
+}

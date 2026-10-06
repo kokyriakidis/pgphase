@@ -69,6 +69,9 @@ struct RecoverySourceSite {
     // Exact clean SNP in both the graph and this independent BAM solve.
     bool clean_shared_snp = false;
     bool can_adopt = false;
+    // Preserve the independent consensus edit when a catalog row keeps its
+    // graph representation and therefore cannot retain the source MSA flag.
+    std::optional<VariantKey> msa_key = std::nullopt;
 };
 
 struct RecoverySourceRead {
@@ -77,10 +80,23 @@ struct RecoverySourceRead {
     int hap = 0;
 };
 
+/// A partial rescue transfer must not split a cohort with greater local read
+/// coverage than its destination core. Coordinates are half-open intervals.
+bool core_dominates_rescue_coverage(const PhasingChunk& chunk, hts_pos_t phase_set);
+
+/// Return the deletion-ALT haplotype when both observation channels call ALT,
+/// opposite-haplotype MSA SNPs are masked by the deletion, and no phased call
+/// contradicts that haplotype. Physical CIGAR and source support are separate.
+int masked_snp_deletion_haplotype(const PhasingChunk& chunk,
+                                const ReadVariantProfile& profile, size_t deletion_i);
+
 struct DeferredPhysicalBridge {
     std::vector<std::pair<VariantKey, int>> left_anchors;
     std::vector<std::pair<VariantKey, int>> right_anchors;
     bool flip = false;
+    // A calibrated shared deletion also certifies its retained rescue marker.
+    std::optional<VariantKey> shared_deletion;
+    std::optional<VariantKey> calibrated_insertion;
     // Boundary certificates retain the downstream owning chunk until rescue ends.
     std::optional<size_t> right_chunk_index;
 };
@@ -152,6 +168,23 @@ void rebuild_read_var_cr(PhasingChunk& chunk);
 /// exactly one original ALT. Whole multiallelic candidates have no binary match.
 const std::string* selected_graph_candidate_alt(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
+
+/// Certify a shared recalled SNP with Q30 physical calls and two independent
+/// clean source loci per molecule, on both haplotypes of a complete source.
+bool retained_source_snp_path_anchor_supported(
+    const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
+
+/// Recover the physical catalog deletion behind a shared, alignment-verified
+/// MSA source row. A graph representation may retain repeat classification.
+/// Read evidence must separately certify its current haplotype gauge.
+std::optional<VariantKey> retained_shared_deletion_key(
+    const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
+
+/// Check a staged BAM read against an independently calibrated clean SNP.
+/// Physically deleted REF calls may abstain; every other phased call must agree.
+int masked_bam_snp_haplotype(const PhasingChunk& chunk,
+                            const ReadVariantProfile& profile, size_t witness_index,
+                            const std::vector<size_t>& physically_masked);
 
 /// Fill missing phased SNP observations from unique, identical catalog branches.
 /// Keeps the original candidate counts, genotypes, PS labels and read gauges;
@@ -296,6 +329,19 @@ struct IndependentBamBlockLink {
 /// its p-value is small.
 bool independent_bam_block_is_supported(
     const std::vector<IndependentBamBlockLink>& links);
+
+/// Require a diploid indel gauge and unanimous physical pairs. Bridge
+/// error stays <=5%; calibration Wilson error, <=1% physical gauge error and
+/// bridge error together stay <=20%.
+std::optional<bool> calibrated_indel_bridge_flip(
+    const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
+    double log_odds);
+
+/// Orient a physical repeat bridge after independent read gauges calibrate
+/// both flanks. The joint calibration and molecule error must stay below 20%.
+std::optional<bool> calibrated_repeat_snp_bridge_flip(
+    const std::array<IndependentBamBlockLink, 2>& gauges,
+    const std::array<int, 2>& parity, double wrong_parity_bound);
 
 /// Apply statistically validated BAM assignments only to reads that remain
 /// unassigned after graph stitching and excluded-site rescue.

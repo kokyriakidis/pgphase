@@ -1,0 +1,72 @@
+{
+  "before": {
+    "n50_bp": 856770,
+    "largest_block_bp": 2327345,
+    "blocks_with_two_hets": 265,
+    "overlapping_blocks": [
+      {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 65509355,
+        "rows": 3915
+      },
+      {
+        "ps": 65509406,
+        "left": 65509406,
+        "right": 66194203,
+        "rows": 1024
+      }
+    ],
+    "scorable": 9843,
+    "counts": {
+      "correct": 9339,
+      "unphased": 100,
+      "discordant": 404
+    },
+    "correct_all_reads": 0.948796098750381,
+    "dominant_core_correct": 7226
+  },
+  "after": {
+    "n50_bp": 863977,
+    "largest_block_bp": 3012193,
+    "blocks_with_two_hets": 264,
+    "overlapping_blocks": [
+      {
+        "ps": 63896021,
+        "left": 63182011,
+        "right": 66194203,
+        "rows": 4939
+      }
+    ],
+    "scorable": 9843,
+    "counts": {
+      "correct": 9339,
+      "unphased": 100,
+      "discordant": 404
+    },
+    "correct_all_reads": 0.948796098750381,
+    "dominant_core_correct": 9209
+  },
+  "hiphase": {
+    "n50_bp": 1005183,
+    "largest_block_bp": 3024470,
+    "blocks_with_two_hets": 191,
+    "overlapping_blocks": [
+      {
+        "ps": 63182011,
+        "left": 63182011,
+        "right": 66206480,
+        "rows": 5820
+      }
+    ],
+    "scorable": 9843,
+    "counts": {
+      "correct": 6681,
+      "unphased": 247,
+      "discordant": 2915
+    },
+    "correct_all_reads": 0.6787564766839378,
+    "dominant_core_correct": 6681,
+    "identical_input_alignments": 9843
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "sha256": {
+    "src/graph_collect.cpp": "c3e272b14380902aa87685708e8c9feb539b7e70ebc393d7577d39d8a441c73f",
+    "src/test_gap_windows.cpp": "d5ea8bb3421d4c8c802eea6c0fc6d0ec50d565f7807fc7e359b9af4875f89f9a",
+    "src/test_gap_windows_expect.tsv": "1be774c6d7eeefe398e3c0de09ebe9430b16bad6fccdc87ae10f0008b5194dfc",
+    "test_data/tmp_gap_fix62/pgphase-before": "3374fb69e745c152bbc862fbab65fc62888a58260fc6a7ac61040bd423a0c00b",
+    "test_data/tmp_gap_fix62/pgphase-certified": "db17374ae2f37a68e803ce397b09f90a75705b0bff23b40aea1498aeccd662a0",
+    "test_data/tmp_gap_fix62/test_gap_windows-final": "8338f4348dc5e3131016a0f60dd14e67c0eb7e615108b4cce89a420c7f81f3b5"
+  },
+  "input_sha256": {
+    "test_data/chm13v2.0.chr20.renamed.fa": "d720113e666126ebb7a91b29e2c10ae143bf88c22d297affaf11902064a4aed2",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam": "cf0d6cd916750cc81e8b4e0515f8a924d1a44598da1d1514823105d39438dbd0",
+    "test_data/chr20.sites.striped.vcf.gz": "f8f9d6049fa9e6e2de7847302afdb13b63ae0a5be8ca5b28a0016672be8e261c",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz": "0bf8bba8898237673f067ddd0a5e72928f9f6155ea9e023312d9f4805660ab0f",
+    "test_data/derived/chr20_truth_hap.tsv": "20c57a0a0bb4f8f183c162aba19422156b8f6b7f74972cbd4eaea94167de8c61"
+  },
+  "baseline_outputs": "test_data/tmp_gap_fix61/full-bam-only-final/0",
+  "original_accepted_outputs": "test_data/tmp_gap_fix60/full-final",
+  "final_outputs": "test_data/tmp_gap_fix62/full-certified",
+  "owner_baseline": "test_data/tmp_gap_fix61/bam-only/33",
+  "owner_final": "test_data/tmp_gap_fix62/certified/33",
+  "owner_region": "CHM13#0#chr20:33000001-34000000",
+  "gap": [
+    33747591,
+    33749688
+  ],
+  "native_shards": "test_data/tmp_gap_fix62/native-final-shards",
+  "full_command": [
+    "test_data/tmp_gap_fix62/pgphase-certified",
+    "collect-graph-variation",
+    "--ref",
+    "test_data/chm13v2.0.chr20.renamed.fa",
+    "--bam",
+    "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+    "--sites",
+    "test_data/chr20.sites.striped.vcf.gz",
+    "--gaf",
+    "test_data/HG002.chr20.annotated.coord.gaf.gz",
+    "-t",
+    "8",
+    "-o",
+    "test_data/tmp_gap_fix62/full-certified/candidates.tsv",
+    "--phased-vcf-out",
+    "test_data/tmp_gap_fix62/full-certified/phased.vcf",
+    "--phased-bam-out",
+    "test_data/tmp_gap_fix62/full-certified/phased.bam"
+  ]
+}

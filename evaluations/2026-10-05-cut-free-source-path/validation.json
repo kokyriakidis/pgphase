@@ -1,0 +1,41 @@
+{
+  "binary_sha256": "96e95ef60a81898b58989268e4eecf7f758766376cfd000121caf9d09d5f8b70",
+  "registered_gap_checks": 86,
+  "mechanism_checks": 85,
+  "panel_windows": 114,
+  "selected_invocations": 199,
+  "failed_invocations": 0,
+  "official_window_test_cases": 4,
+  "official_window_test_assertions": 13411,
+  "gap_assertions": 13400,
+  "official_window_tests_seconds": 33.24,
+  "panel_spans": 101,
+  "panel_80pct_and_hiphase_parity": 36,
+  "gap_unit_cases": 3,
+  "gap_unit_assertions": 11,
+  "predicate_cases": 47,
+  "predicate_assertions": 1551,
+  "production_build": "pass, zero new warnings",
+  "unit_tests": "pass",
+  "standard_validation_gates": "pass",
+  "cache_helper_tests": 4,
+  "benchmark_helper_tests": 2,
+  "benchmark_windows_remeasured_on_identical_alignments": 114,
+  "new_regression_assertions": 549,
+  "task_start_regression_failures": 9,
+  "matched_native_replays": 332,
+  "lost_correct_or_phased_assignments": 0,
+  "warm_gap_dev_check_seconds": 0.05,
+  "complete_chr20_replay_seconds": 413.5558897329902,
+  "full_chromosome_variant_records": 64188,
+  "full_chromosome_correct_reads": 230567,
+  "new_full_chromosome_closures": [
+    [
+      17634393,
+      17667022
+    ]
+  ],
+  "new_gap_original_primary_truth_scorable": 202,
+  "new_gap_correct_and_core_correct": 164,
+  "new_gap_correct_qnames_identical_to_hiphase": true
+}

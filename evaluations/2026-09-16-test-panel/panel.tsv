@@ -194,3 +194,23 @@ gap_left	gap_right	gap_bp	reads_in_gap	competitor	competitor_acc	competitor_scor
 # Comparator unmeasured; 119 primary overlaps have independent parental truth.
 62623253	62642316	19063	119	not_measured	0.0000	0
 13752640	13773452	20812	175	hiphase_dv	0.8629	151
+33747591	33749688	2097	67	hiphase_dv	0.9552	66
+
+# Shared graph/BAM SNP runs; matched native HiPhase 137 correct, 25 abstentions.
+49720311	49742973	22662	162	hiphase_dv	0.8457	137
+
+# Complete BAM suffix with one-haplotype physical SNP evidence; matched HiPhase.
+57764235	57785224	20989	150	hiphase_dv	0.8533	135
+
+# Shared catalog deletion bridge; identical-input HiPhase total/core 157/177.
+62408056	62432427	24371	177	hiphase_dv	0.8870	159
+
+# Cut-free source paths and calibrated shared deletion; HiPhase core 164/202.
+17634393	17667022	32629	202	hiphase_dv	0.8118	164
+
+# Calibrated SNP bridge inside HiPhase largest block; 6/6 under local flank
+# orientation. Whole-PS HiPhase scoring is 0/6 due to an internal phase switch.
+65509355	65509406	51	6	hiphase_dv	1.0000	6
+
+# Complementary insertion bridge inside the second-largest HiPhase block.
+10325039	10337661	12622	127	hiphase_dv	0.7638	97

@@ -1,0 +1,425 @@
+{
+  "regression_checks": [
+    [
+      "original MSA SNP dropout is retried before CIGAR backfill",
+      "[gap][stitch-connectivity][msa]",
+      "gap_original_msa_snp_dropout_is_retried_before_cigar_backfill"
+    ],
+    [
+      "conflicting sparse pairs retry with their observed binomial tail",
+      "[gap][stitch-connectivity][msa][sparse-pair]",
+      "gap_conflicting_sparse_pairs_retry_with_their_observed_binomial_tail"
+    ],
+    [
+      "a moved deletion does not certify a whole right-block join",
+      "[gap][stitch-connectivity][msa][moved-deletion]",
+      "gap_a_moved_deletion_does_not_certify_a_whole_right_block_join"
+    ],
+    [
+      "focused retry certifies its path after CIGAR backfill",
+      "[gap][stitch-connectivity][msa][backfill-certificate]",
+      "gap_focused_retry_certifies_its_path_after_cigar_backfill"
+    ],
+    [
+      "an earlier focused retry does not hide a later MSA dropout",
+      "[gap][msa][retry-scheduling]",
+      "gap_an_earlier_focused_retry_does_not_hide_a_later_msa_dropout"
+    ],
+    [
+      "complete recovery MSA blocks retain the complex left flank",
+      "[gap][msa-complete-transfer]",
+      "gap_complete_recovery_msa_blocks_retain_the_complex_left_flank"
+    ],
+    [
+      "isolated shared BAM genotype survives graph repeat demotion",
+      "[gap][representation]",
+      "gap_isolated_shared_bam_genotype_survives_graph_repeat_demotion"
+    ],
+    [
+      "chr20 gap windows",
+      "[gap][windows]",
+      "gap_chr20_gap_windows"
+    ],
+    [
+      "recovery preserves complementary BAM deletion rows",
+      "[gap][representation]",
+      "gap_recovery_preserves_complementary_bam_deletion_rows"
+    ],
+    [
+      "verified MSA insertion survives graph output classification",
+      "[gap][representation]",
+      "gap_verified_msa_insertion_survives_graph_output_classification"
+    ],
+    [
+      "a phased BAM deletion survives an unphased graph duplicate",
+      "[gap][representation]",
+      "gap_a_phased_bam_deletion_survives_an_unphased_graph_duplicate"
+    ],
+    [
+      "graph SNP retry preserves a verified BAM deletion connection",
+      "[gap][stitch-confidence]",
+      "gap_graph_snp_retry_preserves_a_verified_bam_deletion_connection"
+    ],
+    [
+      "an unsupported BAM source cut keeps the far deletion independent",
+      "[gap][stitch-connectivity]",
+      "gap_an_unsupported_bam_source_cut_keeps_the_far_deletion_independent"
+    ],
+    [
+      "graph SNPs bridge supported recovery blocks",
+      "[gap][graph-bridge]",
+      "gap_graph_snps_bridge_supported_recovery_blocks"
+    ],
+    [
+      "recovery stitch preserves the next flank across an unlinked seam",
+      "[gap][stitch-connectivity]",
+      "gap_recovery_stitch_preserves_the_next_flank_across_an_unlinked_seam"
+    ],
+    [
+      "a clean-SNP gap bridge keeps the prior graph gauge",
+      "[gap][stitch-connectivity]",
+      "gap_a_clean_snp_gap_bridge_keeps_the_prior_graph_gauge"
+    ],
+    [
+      "a local source path does not lose its graph bridge",
+      "[gap][stitch-connectivity]",
+      "gap_a_local_source_path_does_not_lose_its_graph_bridge"
+    ],
+    [
+      "corroborated SNP molecules join sparse graph seams",
+      "[gap][stitch-connectivity]",
+      "gap_corroborated_snp_molecules_join_sparse_graph_seams"
+    ],
+    [
+      "an indel boundary with allele dropout gets an MSA retry",
+      "[gap][stitch-connectivity]",
+      "gap_an_indel_boundary_with_allele_dropout_gets_an_msa_retry"
+    ],
+    [
+      "a lone boundary SNP pair needs a repaired complete graph flank",
+      "[gap][stitch-connectivity]",
+      "gap_a_lone_boundary_snp_pair_needs_a_repaired_complete_graph_flank"
+    ],
+    [
+      "physical bridges survive their owning graph chunks",
+      "[gap][stitch-connectivity]",
+      "gap_physical_bridges_survive_their_owning_graph_chunks"
+    ],
+    [
+      "phased right reads retain the certified 64 Mb BAM prefix",
+      "[gap][representation]",
+      "gap_phased_right_reads_retain_the_certified_64_mb_bam_prefix"
+    ],
+    [
+      "source allele repair preserves complementary repeat rows",
+      "[gap][representation]",
+      "gap_source_allele_repair_preserves_complementary_repeat_rows"
+    ],
+    [
+      "graph haplotypes bridge equivalent complementary BAM deletions",
+      "[gap][stitch-connectivity]",
+      "gap_graph_haplotypes_bridge_equivalent_complementary_bam_deletions"
+    ],
+    [
+      "physical links close the long 47 Mb gap without a switch",
+      "[gap][stitch-connectivity]",
+      "gap_physical_links_close_the_long_47_mb_gap_without_a_switch"
+    ],
+    [
+      "validated graph bridge survives a BAM phase-set ID change",
+      "[gap][stitch-connectivity]",
+      "gap_validated_graph_bridge_survives_a_bam_phase_set_id_change"
+    ],
+    [
+      "one shared BAM anchor cannot absorb the earlier 19.4 Mb block",
+      "[gap][stitch-connectivity]",
+      "gap_one_shared_bam_anchor_cannot_absorb_the_earlier_19_4_mb_block"
+    ],
+    [
+      "direct SNP proof reuses a graph block at 56.15 Mb",
+      "[gap][stitch-connectivity]",
+      "gap_direct_snp_proof_reuses_a_graph_block_at_56_15_mb"
+    ],
+    [
+      "physical SNP bridge crosses the 23 Mb graph chunk boundary",
+      "[gap][stitch-connectivity]",
+      "gap_physical_snp_bridge_crosses_the_23_mb_graph_chunk_boundary"
+    ],
+    [
+      "multiple BAM source labels preserve a 22.98 Mb graph bridge",
+      "[gap][stitch-connectivity]",
+      "gap_multiple_bam_source_labels_preserve_a_22_98_mb_graph_bridge"
+    ],
+    [
+      "a different deletion locus cannot validate a remapped bridge",
+      "[gap][stitch-connectivity]",
+      "gap_a_different_deletion_locus_cannot_validate_a_remapped_bridge"
+    ],
+    [
+      "BAM transfer preserves an already connected graph phase set",
+      "[gap][stitch-connectivity]",
+      "gap_bam_transfer_preserves_an_already_connected_graph_phase_set"
+    ],
+    [
+      "complementary BAM boundary rows close the 41.900 Mb seam",
+      "[gap][stitch-connectivity]",
+      "gap_complementary_bam_boundary_rows_close_the_41_900_mb_seam"
+    ],
+    [
+      "certified deletion bridge preserves the 11.599 Mb source alleles",
+      "[gap][stitch-connectivity][msa][source-path]",
+      "gap_certified_deletion_bridge_preserves_the_11_599_mb_source_alleles"
+    ],
+    [
+      "complete BAM source path closes the 48.929 Mb seam in its owning chunk",
+      "[gap][stitch-connectivity]",
+      "gap_complete_bam_source_path_closes_the_48_929_mb_seam_in_its_owning_chunk"
+    ],
+    [
+      "complete adjacent graph phase sets close the 56 Mb seam in its owning chunk",
+      "[gap][stitch-connectivity]",
+      "gap_complete_adjacent_graph_phase_sets_close_the_56_mb_seam_in_its_owning_chunk"
+    ],
+    [
+      "complete BAM path and verified deletion close the 5.31 Mb seam",
+      "[gap][stitch-connectivity]",
+      "gap_complete_bam_path_and_verified_deletion_close_the_5_31_mb_seam"
+    ],
+    [
+      "repeat-deletion recovery preserves the 61.738 Mb flank gauges",
+      "[gap][recovery][stitch-connectivity]",
+      "gap_repeat_deletion_recovery_preserves_the_61_738_mb_flank_gauges"
+    ],
+    [
+      "BAM-left MEC cannot reverse the 34.1 Mb graph block",
+      "[gap][stitch-connectivity]",
+      "gap_bam_left_mec_cannot_reverse_the_34_1_mb_graph_block"
+    ],
+    [
+      "BAM recovery admits missing MSA pairs at 17.62 Mb",
+      "[gap][stitch-connectivity]",
+      "gap_bam_recovery_admits_missing_msa_pairs_at_17_62_mb"
+    ],
+    [
+      "BAM block attaches to one supported graph flank",
+      "[gap][stitch-connectivity]",
+      "gap_bam_block_attaches_to_one_supported_graph_flank"
+    ],
+    [
+      "BAM recovery uses a supported run before a weak source cut",
+      "[gap][stitch-connectivity]",
+      "gap_bam_recovery_uses_a_supported_run_before_a_weak_source_cut"
+    ],
+    [
+      "BAM source path with one-haplotype molecule support closes 34.844 Mb",
+      "[gap][stitch-connectivity]",
+      "gap_bam_source_path_with_one_haplotype_molecule_support_closes_34_844_mb"
+    ],
+    [
+      "clean indel boundaries use the phased read path",
+      "[gap][stitch-connectivity]",
+      "gap_clean_indel_boundaries_use_the_phased_read_path"
+    ],
+    [
+      "one weak-cut BAM run attaches to one supported neighbor",
+      "[gap][stitch-connectivity]",
+      "gap_one_weak_cut_bam_run_attaches_to_one_supported_neighbor"
+    ],
+    [
+      "complete BAM blocks use split-stable allele votes without a read gauge",
+      "[gap][stitch-connectivity]",
+      "gap_complete_bam_blocks_use_split_stable_allele_votes_without_a_read_gauge"
+    ],
+    [
+      "BAM-supported inner block connects after an invalid graph SNP is excluded",
+      "[gap][stitch-connectivity]",
+      "gap_bam_supported_inner_block_connects_after_an_invalid_graph_snp_is_excluded"
+    ],
+    [
+      "low-MAPQ BAM evidence cannot veto a graph heterozygote",
+      "[gap][anchor-quality]",
+      "gap_low_mapq_bam_evidence_cannot_veto_a_graph_heterozygote"
+    ],
+    [
+      "shifted BAM deletion joins a certified graph suffix",
+      "[gap][stitch-connectivity]",
+      "gap_shifted_bam_deletion_joins_a_certified_graph_suffix"
+    ],
+    [
+      "a directly supported BAM suffix closes the 17.865 Mb gap",
+      "[gap][stitch-connectivity]",
+      "gap_a_directly_supported_bam_suffix_closes_the_17_865_mb_gap"
+    ],
+    [
+      "a newly imported BAM seam closes the 15.056 Mb gap",
+      "[gap][stitch-connectivity]",
+      "gap_a_newly_imported_bam_seam_closes_the_15_056_mb_gap"
+    ],
+    [
+      "recovered right deletion joins a source-backed graph block",
+      "[gap][stitch-connectivity]",
+      "gap_recovered_right_deletion_joins_a_source_backed_graph_block"
+    ],
+    [
+      "adjacent anchors do not trigger a second BAM recovery solve",
+      "[gap][stitch-connectivity]",
+      "gap_adjacent_anchors_do_not_trigger_a_second_bam_recovery_solve"
+    ],
+    [
+      "shifted single-base BAM insertion closes its owning 23 Mb gap",
+      "[gap][stitch-connectivity][representation]",
+      "gap_shifted_single_base_bam_insertion_closes_its_owning_23_mb_gap"
+    ],
+    [
+      "a single seam admits focused recovery of complementary BAM rows",
+      "[gap][stitch-connectivity][representation]",
+      "gap_a_single_seam_admits_focused_recovery_of_complementary_bam_rows"
+    ],
+    [
+      "an internal MSA conflict does not authorize an unsupported block join",
+      "[gap][stitch-connectivity][source-conflict-guard]",
+      "gap_an_internal_msa_conflict_does_not_authorize_an_unsupported_block_join"
+    ],
+    [
+      "focused recovery retains a supported partial path inside a graph seam",
+      "[gap][stitch-connectivity][representation][partial-source]",
+      "gap_focused_recovery_retains_a_supported_partial_path_inside_a_graph_seam"
+    ],
+    [
+      "focused BAM recovery retains insertion representations of graph child SNPs",
+      "[gap][representation]",
+      "gap_focused_bam_recovery_retains_insertion_representations_of_graph_child_snps"
+    ],
+    [
+      "chr20 gap windows: panel totals",
+      "[gap][windows][totals]",
+      "gap_chr20_gap_windows_panel_totals"
+    ],
+    [
+      "observed BAM insertion runs retain long alleles before the graph boundary",
+      "[gap][stitch-connectivity][representation][long-insertion-run]",
+      "gap_observed_bam_insertion_runs_retain_long_alleles_before_the_graph_boundary"
+    ],
+    [
+      "equivalent BAM and graph insertions close their repeat seam",
+      "[gap][stitch-connectivity][representation][insertion-equivalence]",
+      "gap_equivalent_bam_and_graph_insertions_close_their_repeat_seam"
+    ],
+    [
+      "an attached BAM component keeps its source identity at an insertion bridge",
+      "[gap][representation][source-component]",
+      "gap_an_attached_bam_component_keeps_its_source_identity_at_an_insertion_bridge"
+    ],
+    [
+      "independent BAM SNP pairs certify both sides of a deletion seam",
+      "[gap][deletion][physical-path]",
+      "gap_independent_bam_snp_pairs_certify_both_sides_of_a_deletion_seam"
+    ],
+    [
+      "padded graph repeats retain the verified BAM genotype",
+      "[gap][representation][transfer]",
+      "gap_padded_graph_repeats_retain_the_verified_bam_genotype"
+    ],
+    [
+      "one-haplotype repeat deletion votes preserve parental block orientation",
+      "[gap][deletion][orientation]",
+      "gap_one_haplotype_repeat_deletion_votes_preserve_parental_block_orientation"
+    ],
+    [
+      "exact SNP branches preserve the path through a complex catalog allele",
+      "[gap][representation][snp-branch]",
+      "gap_exact_snp_branches_preserve_the_path_through_a_complex_catalog_allele"
+    ],
+    [
+      "complementary insertion recall cannot invert its SNP flanks",
+      "[gap][msa][source-gap][orientation]",
+      "gap_complementary_insertion_recall_cannot_invert_its_snp_flanks"
+    ],
+    [
+      "overlapping recovery solves cannot exchange SNP quality certificates",
+      "[gap][msa][quality-provenance]",
+      "gap_overlapping_recovery_solves_cannot_exchange_snp_quality_certificates"
+    ],
+    [
+      "complementary insertion evidence preserves the 17.50 Mb connection",
+      "[gap][msa][insertion-connection][orientation]",
+      "gap_complementary_insertion_evidence_preserves_the_17_50_mb_connection"
+    ],
+    [
+      "complete BAM evidence preserves finalized 37 Mb block orientation",
+      "[gap][recovery][complete-block][stitch-connectivity]",
+      "gap_complete_bam_evidence_preserves_finalized_37_mb_block_orientation"
+    ],
+    [
+      "complementary deletion recovery closes the owning 50 Mb gap",
+      "[gap][recovery][deletion-pair][stitch-connectivity]",
+      "gap_complementary_deletion_recovery_closes_the_owning_50_mb_gap"
+    ],
+    [
+      "shifted compound CIGAR deletions close the owning 7.9 Mb gap",
+      "[gap][msa][representation][deletion-pair]",
+      "gap_shifted_compound_cigar_deletions_close_the_owning_7_9_mb_gap"
+    ],
+    [
+      "whole-chunk BAM fallback preserves verified recovery observations",
+      "[gap][msa][transfer][observations]",
+      "gap_whole_chunk_bam_fallback_preserves_verified_recovery_observations"
+    ],
+    [
+      "selected BAM blocks retain verified MSA calls across graph gauge disagreement",
+      "[gap][msa][transfer][source-admission]",
+      "gap_selected_bam_blocks_retain_verified_msa_calls_across_graph_gauge_disagreement"
+    ],
+    [
+      "BAM-private blocks retain verified MSA calls without graph anchors",
+      "[gap][msa][transfer][private-block]",
+      "gap_bam_private_blocks_retain_verified_msa_calls_without_graph_anchors"
+    ],
+    [
+      "verified noisy SNP and symmetric graph path close the 41.881 Mb gap",
+      "[gap][msa][stitch-connectivity][graph-path]",
+      "gap_verified_noisy_snp_and_symmetric_graph_path_close_the_41_881_mb_gap"
+    ],
+    [
+      "composed physical bridges close 23.461 Mb and preserve the preceding join",
+      "[gap][stitch-connectivity][msa][source-path][composed-bridge]",
+      "gap_composed_physical_bridges_close_23_461_mb_and_preserve_the_preceding_join"
+    ],
+    [
+      "deferred physical bridge preserves read rescue across 22-24 Mb",
+      "[gap][stitch-connectivity][composed-bridge][read-rescue]",
+      "gap_deferred_physical_bridge_preserves_read_rescue_across_22_24_mb"
+    ],
+    [
+      "complementary insertion ALTs bridge the 9 Mb chunk boundary",
+      "[gap][stitch-connectivity][msa][complementary-insertion][chunk-boundary]",
+      "gap_complementary_insertion_alts_bridge_the_9_mb_chunk_boundary"
+    ],
+    [
+      "physical SNP switch repair closes the owning 62 Mb gap",
+      "[gap][physical-switch][orientation]",
+      "gap_physical_snp_switch_repair_closes_the_owning_62_mb_gap"
+    ],
+    [
+      "quality-backed source path closes the owning 13 Mb gap",
+      "[gap][source-quality-path][orientation]",
+      "gap_quality_backed_source_path_closes_the_owning_13_mb_gap"
+    ],
+    [
+      "a recovered short insertion retains its independent source path",
+      "[gap][short-insertion-source][orientation]",
+      "gap_a_recovered_short_insertion_retains_its_independent_source_path"
+    ],
+    [
+      "shared graph rows retain their independent BAM run certificate",
+      "[gap][shared-source-snp][orientation]",
+      "gap_shared_graph_rows_retain_their_independent_bam_run_certificate"
+    ],
+    [
+      "a clean SNP retry certifies a complete independent BAM suffix",
+      "[gap][clean-snp-source-retry][orientation]",
+      "gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix"
+    ]
+  ],
+  "replay_regions": 72
+}

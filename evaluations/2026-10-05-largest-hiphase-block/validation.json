@@ -1,0 +1,55 @@
+{
+  "baseline_binary_sha256": "96e95ef60a81898b58989268e4eecf7f758766376cfd000121caf9d09d5f8b70",
+  "final_binary_sha256": "477aaecb8adadf8f6f20bc380676de81f15d51f8eacbdb787c2cf5a8bf18140e",
+  "build": {
+    "exit_code": 0,
+    "new_warnings": 0
+  },
+  "unit_tests": {
+    "exit_code": 0
+  },
+  "predicate_tests": {
+    "exit_code": 0,
+    "cases": 47,
+    "assertions": 1551
+  },
+  "golden_gates": {
+    "exit_code": 0,
+    "hifi_tsv_and_vcf": true,
+    "ont_tsv_and_vcf": true,
+    "hifi_t1_t4_deterministic": true
+  },
+  "window_tests": {
+    "exit_code": 0,
+    "cases": 4,
+    "assertions": 13494,
+    "cache_helper_tests": 4,
+    "warm_seconds": 35.46890465098841
+  },
+  "selected_gap_checks": {
+    "exit_code": 0,
+    "checks": 201
+  },
+  "owner_regression": {
+    "exit_code": 0,
+    "assertions": 546,
+    "old_binary_failing_assertions": 5
+  },
+  "development_timing": [
+    {
+      "command": "make gap-dev-check",
+      "exit_code": 0,
+      "seconds": 0.03845102099876385
+    },
+    {
+      "command": "make gap-owner-check GAP=largest HiPhase",
+      "exit_code": 0,
+      "seconds": 0.5084947160066804
+    }
+  ],
+  "full_chromosome_seconds": 448.4003860410012,
+  "panel_windows": 115,
+  "panel_spans": 102,
+  "panel_80pct_and_hiphase_parity": 37,
+  "native_preservation_audits": 335
+}

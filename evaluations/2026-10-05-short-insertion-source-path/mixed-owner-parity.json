@@ -1,0 +1,7 @@
+{
+  "region": "CHM13#0#chr20:36000001-37000000",
+  "before": "test_data/tmp_gap_fix61/baseline/36",
+  "after": "test_data/tmp_gap_fix61/bam-only/36",
+  "vcf_byte_identical": true,
+  "vcf_sha256": "3f221e6b8ad8d36cdc00677cfc8e273552376a9b8fd0ee0630e4aee77a0add80"
+}
