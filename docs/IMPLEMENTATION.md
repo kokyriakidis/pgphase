@@ -204,7 +204,9 @@ cross-chunk coordination -- the worker pool already provides the parallelism.
 
 With `--bam`, the alignment's sample-specific sites join the catalog's sites
 **before** phasing, and one solve phases them all.
-`src/union_phase.cpp` holds the model; `collect_pipeline.cpp` runs the
+The model is in `src/union_*.cpp`, one file per stage (`union_inject`,
+`union_reads`, `union_em`, `union_windows`, `union_labels`; `union_phase` is
+the driver); `collect_pipeline.cpp` runs the
 alignment solve (`inject_alignment_private_sites`); `graph_collect.cpp` wires it
 per chunk. Chunk stitching, read rescue and the deferred last-resort labels run
 after the batch. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with

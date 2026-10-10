@@ -53,10 +53,16 @@ SOURCES_CXX = src/main.cpp \
 	src/graph_bam_adapter.cpp \
 	src/graph_sites.cpp \
 	src/graph_query.cpp \
-	src/union_phase.cpp
+	src/union_phase.cpp \
+	src/union_inject.cpp \
+	src/union_em.cpp \
+	src/union_windows.cpp \
+	src/union_reads.cpp \
+	src/union_labels.cpp
 SOURCES_C = src/sdust.c src/cgranges.c src/kalloc.c
 
 OBJS = $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o)
+UNION_OBJS = src/union_phase.o src/union_inject.o src/union_em.o src/union_windows.o src/union_reads.o src/union_labels.o
 EDLIB_OBJ = src/edlib.o
 OBJS += $(EDLIB_OBJ)
 
@@ -70,6 +76,24 @@ all: pgphase
 
 check: pgphase
 	bash scripts/validate_collect_gates.sh
+
+# Development loop (scripts/dev/pg): dev = build + all fast tests; quick/full =
+# run, score and compare with the pinned baseline and competitors; same = output
+# identity with the baseline (refactors). TIER=quick|full for same/diff/pin.
+.PHONY: dev quick full same diff pin
+TIER ?= quick
+dev:
+	scripts/dev/pg test
+quick:
+	scripts/dev/pg quick
+full:
+	scripts/dev/pg full
+same:
+	scripts/dev/pg same $(TIER)
+diff:
+	scripts/dev/pg diff $(TIER)
+pin:
+	scripts/dev/pg pin $(TIER)
 
 predicate-tests: test_phase_predicates
 	./test_phase_predicates
@@ -146,7 +170,7 @@ src/align.o: src/align.cpp
 src/graph_collect.o: src/graph_collect.cpp
 	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
 
-src/union_phase.o: src/union_phase.cpp
+$(UNION_OBJS): src/%.o: src/%.cpp
 	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
 
 %.o: %.cpp
@@ -221,7 +245,7 @@ test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
-test_union_phase: src/test_union_phase.cpp src/union_phase.o src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
+test_union_phase: src/test_union_phase.cpp $(UNION_OBJS) src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
 test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)

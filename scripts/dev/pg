@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# pgphase development loop. `scripts/dev/pg help` lists the commands.
+set -euo pipefail
+
+readonly here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=env.sh
+source "${here}/env.sh"
+readonly root="${PGDEV_ROOT}"
+readonly runs="${PGDEV_CACHE}/runs"
+readonly unit_tests=(test_allele_identity test_allele_context test_allele_genotype test_graph_sites
+                     test_graph_bam_adapter test_noise_filter test_union_phase test_phase_predicates)
+
+die() { echo "pg: $*" >&2; exit 1; }
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
+
+  test                 build pgphase and the unit tests (-j), run the unit and
+                       predicate tests; prints one line per binary
+  quick | full         run the tier with ./pgphase --bam (cached by binary and
+                       arguments), score it, and compare with the pinned
+                       baseline and the competitors
+  same  [TIER]         is ./pgphase output-identical to the baseline? (refactors)
+  diff  [TIER]         which arms_phaseable reads changed class vs the baseline
+  pin   [TIER]         make ./pgphase's run the baseline for TIER
+  pin-dir TIER DIR [--graph-only]
+                       make an existing run directory the baseline for TIER
+  path  [TIER]         print the run directory of ./pgphase for TIER
+
+TIER is quick (default) or full. quick runs the windows in
+scripts/dev/quick_regions.bed (about 30 s); full runs the whole contig (about
+2 min). Arguments after -- go to pgphase and are part of the cache key.
+Environment: PGDEV_BIN overrides the binary; --graph-only drops --bam.
+Paths come from scripts/dev/env.sh and scripts/dev/local.env.
+EOF
+}
+
+py() { "${PGDEV_PYTHON}" -I "$@"; }
+
+# Build TARGETS quietly; show compiler warnings from src/, and everything on failure.
+build() {
+    local log; log="$(mktemp)"
+    if ! make -C "${root}" -s -j"${PGDEV_THREADS}" "${@:-pgphase}" > "${log}" 2>&1; then
+        cat "${log}" >&2; rm -f "${log}"; die "build failed"
+    fi
+    grep -E "^src/.*warning:" "${log}" >&2 || true
+    rm -f "${log}"
+}
+
+cmd_test() {
+    local start=$SECONDS failed=0 t out
+    build pgphase "${unit_tests[@]}"
+    echo "build   $((SECONDS - start)) s"
+    for t in "${unit_tests[@]}"; do
+        if out=$(cd "${root}" && "./${t}" 2>&1); then
+            printf "pass    %-24s %s\n" "${t}" "$(tail -1 <<<"${out}")"
+        else
+            printf "FAIL    %s\n%s\n" "${t}" "$(grep -E "FAIL|failed|Error" <<<"${out}" | head -20)"
+            failed=1
+        fi
+    done
+    echo "total   $((SECONDS - start)) s"
+    return "${failed}"
+}
+
+# Positional state set by parse_tier.
+tier=quick
+graph_only=0
+extra=()
+parse_tier() {
+    if [[ $# -gt 0 && "$1" != "--" ]]; then tier="$1"; shift; fi
+    [[ "${tier}" == quick || "${tier}" == full ]] || die "unknown tier '${tier}'"
+    [[ $# -gt 0 && "$1" == "--" ]] && shift
+    for a in "$@"; do
+        if [[ "${a}" == --graph-only ]]; then graph_only=1; else extra+=("${a}"); fi
+    done
+}
+
+region_args() {
+    if [[ "${tier}" == full ]]; then
+        echo "-r ${PGDEV_CONTIG}"
+    else
+        awk '!/^#/ && NF >= 3 {printf "-r %s:%d-%d ", $1, $2 + 1, $3}' "${here}/quick_regions.bed"
+    fi
+}
+
+regions_bed() { [[ "${tier}" == quick ]] && echo "--regions ${here}/quick_regions.bed" || true; }
+
+run_dir() {
+    local bin="${PGDEV_BIN:-${root}/pgphase}" key
+    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; } | sha256sum | cut -c1-12)"
+    echo "${runs}/${tier}-${key}"
+}
+
+# Run (or reuse) the tier for the binary; prints the run directory.
+ensure_run() {
+    local bin="${PGDEV_BIN:-${root}/pgphase}" dir tmp start bam_args=()
+    dir="$(run_dir)"
+    [[ -f "${dir}/score.json" ]] && { echo "${dir}"; return; }
+    [[ -n "${PGDEV_TRUTH_VCF}" ]] || die "set PGDEV_TRUTH_VCF (scripts/dev/local.env)"
+    tmp="${dir}.tmp.$$"
+    rm -rf "${tmp}"; mkdir -p "${tmp}"
+    [[ "${graph_only}" == 1 ]] || bam_args=(--bam "${PGDEV_BAM}")
+    start=$SECONDS
+    # shellcheck disable=SC2046
+    "${bin}" collect-graph-variation --ref "${PGDEV_REF}" "${bam_args[@]}" \
+        --sites "${PGDEV_SITES}" --gaf "${PGDEV_GAF}" $(region_args) --threads "${PGDEV_THREADS}" \
+        -o "${tmp}/candidates.tsv" --phased-vcf-out "${tmp}/phased.vcf" \
+        --phased-bam-out "${tmp}/phased.bam" "${extra[@]}" > /dev/null 2> "${tmp}/stderr.log" \
+        || { tail -20 "${tmp}/stderr.log" >&2; die "pgphase failed (log: ${tmp}/stderr.log)"; }
+    local secs=$((SECONDS - start))
+    {
+        echo "binary	$(readlink -f "${bin}")"
+        echo "sha256	$(sha256sum "${bin}" | cut -d' ' -f1)"
+        echo "git	$(git -C "${root}" rev-parse --short HEAD 2>/dev/null)$(git -C "${root}" diff --quiet 2>/dev/null || echo "-dirty")"
+        echo "tier	${tier}"
+        echo "graph_only	${graph_only}"
+        echo "args	${extra[*]:-}"
+        echo "seconds	${secs}"
+        echo "date	$(date -Is)"
+    } > "${tmp}/meta.tsv"
+    # shellcheck disable=SC2046
+    py "${here}/score.py" run "${tmp}" $(regions_bed) --json "${tmp}/score.json"
+    rm -rf "${dir}"; mv "${tmp}" "${dir}"
+    echo "${dir}"
+}
+
+baseline_link() { echo "${PGDEV_CACHE}/baseline-${tier}$([[ "${graph_only}" == 1 ]] && echo -graph)"; }
+
+baseline_dir() {
+    local link; link="$(baseline_link)"
+    [[ -e "${link}" ]] || die "no baseline for ${tier}; run 'scripts/dev/pg pin ${tier}'"
+    readlink -f "${link}"
+}
+
+# Score each competitor once per tier; cached by its file identity.
+competitor_scores() {
+    local pair name dir key out
+    for pair in ${PGDEV_COMPETITORS}; do
+        name="${pair%%=*}"; dir="${pair#*=}"
+        key="$( { stat -c '%s %Y' "${dir}/phased.bam" "${dir}"/phased.vcf*; cat "${here}/score.py"; \
+                  [[ "${tier}" == quick ]] && cat "${here}/quick_regions.bed"; } | sha256sum | cut -c1-12)"
+        out="${PGDEV_CACHE}/competitors/${name}-${tier}-${key}.json"
+        if [[ ! -f "${out}" ]]; then
+            mkdir -p "$(dirname "${out}")"
+            # shellcheck disable=SC2046
+            py "${here}/score.py" run "${dir}" $(regions_bed) --json "${out}.tmp" && mv "${out}.tmp" "${out}"
+        fi
+        echo "${name}=${out}"
+    done
+}
+
+cmd_eval() {
+    parse_tier "$@"
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    local start=$SECONDS dir base names files pair
+    dir="$(ensure_run)"
+    echo "run      ${dir}  ($(awk -F'\t' '$1=="seconds" {print $2}' "${dir}/meta.tsv") s pgphase, $((SECONDS - start)) s total)"
+    names="baseline,run"; files=()
+    if base="$(baseline_dir 2>/dev/null)"; then
+        files+=("${base}/score.json")
+    else
+        echo "(no baseline for ${tier}: 'scripts/dev/pg pin ${tier}' makes this run the baseline)"
+        names="run"
+    fi
+    files+=("${dir}/score.json")
+    for pair in $(competitor_scores); do names+=",${pair%%=*}"; files+=("${pair#*=}"); done
+    echo
+    py "${here}/score.py" table "${files[@]}" --names "${names}"
+}
+
+cmd_same() {
+    parse_tier "$@"
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    local dir base
+    dir="$(ensure_run)"; base="$(baseline_dir)"
+    echo "run      ${dir}"; echo "baseline ${base}"
+    if py "${here}/identity.py" "${base}" "${dir}"; then echo "SAME"; else echo "DIFFERENT"; return 1; fi
+}
+
+cmd_diff() {
+    parse_tier "$@"
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    local dir base
+    dir="$(ensure_run)"; base="$(baseline_dir)"
+    # shellcheck disable=SC2046
+    py "${here}/score.py" diff "${base}" "${dir}" $(regions_bed) --out "${dir}/changed_reads.tsv"
+}
+
+cmd_pin() {
+    parse_tier "$@"
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    local dir; dir="$(ensure_run)"
+    ln -sfn "${dir}" "$(baseline_link)"
+    echo "$(basename "$(baseline_link)") -> ${dir}"
+}
+
+cmd_pin_dir() {
+    tier="$1"; local src; src="$(readlink -f "$2")"
+    [[ "${3:-}" == --graph-only ]] && graph_only=1
+    [[ -f "${src}/phased.bam" && -f "${src}/phased.vcf" ]] || die "${src} lacks phased.bam/phased.vcf"
+    if [[ ! -f "${src}/score.json" ]]; then
+        # shellcheck disable=SC2046
+        py "${here}/score.py" run "${src}" $(regions_bed) --json "${src}/score.json"
+    fi
+    mkdir -p "${PGDEV_CACHE}"
+    ln -sfn "${src}" "$(baseline_link)"
+    echo "$(basename "$(baseline_link)") -> ${src}"
+}
+
+main() {
+    local cmd="${1:-help}"; shift || true
+    mkdir -p "${runs}"
+    case "${cmd}" in
+        test) cmd_test ;;
+        quick|full) cmd_eval "${cmd}" "$@" ;;
+        same) cmd_same "$@" ;;
+        diff) cmd_diff "$@" ;;
+        pin) cmd_pin "$@" ;;
+        pin-dir) [[ $# -ge 2 ]] || die "usage: pg pin-dir TIER DIR [--graph-only]"; cmd_pin_dir "$@" ;;
+        path) parse_tier "$@"; run_dir ;;
+        help|-h|--help) usage ;;
+        *) usage >&2; exit 1 ;;
+    esac
+}
+
+main "$@"
