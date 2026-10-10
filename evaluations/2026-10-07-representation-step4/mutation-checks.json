@@ -1,0 +1,30 @@
+{
+  "disable_projection": {
+    "exit": 1,
+    "failed_checks": 16
+  },
+  "choose_conflicting_call": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "lose_original_profiles": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_alt_sequence": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "nonreference_alt_class": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_read_footprint": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "borrow_parent_reference": {
+    "exit": 1,
+    "failed_checks": 1
+  }
+}

@@ -1,0 +1,362 @@
+[
+  {
+    "qname": "m84031_231217_062403_s3/89395698/ccs",
+    "span": [
+      46384098,
+      46394101
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/19338129/ccs",
+    "span": [
+      46384231,
+      46398047
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/182653779/ccs",
+    "span": [
+      46384287,
+      46397342
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/223675704/ccs",
+    "span": [
+      46385421,
+      46398814
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/139006833/ccs",
+    "span": [
+      46385513,
+      46406321
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "unphased",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/248055448/ccs",
+    "span": [
+      46385964,
+      46400607
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "discordant",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/194318754/ccs",
+    "span": [
+      46386197,
+      46391184
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/233245306/ccs",
+    "span": [
+      46386494,
+      46404011
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/164955756/ccs",
+    "span": [
+      46386597,
+      46407003
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/61019327/ccs",
+    "span": [
+      46387360,
+      46401853
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/212666093/ccs",
+    "span": [
+      46388033,
+      46405186
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "unphased",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/266668500/ccs",
+    "span": [
+      46388101,
+      46392122
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/238753127/ccs",
+    "span": [
+      46388109,
+      46399915
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/19401930/ccs",
+    "span": [
+      46388230,
+      46404704
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/156304043/ccs",
+    "span": [
+      46388488,
+      46407292
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/209654690/ccs",
+    "span": [
+      46390281,
+      46406309
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/205588641/ccs",
+    "span": [
+      46390815,
+      46405253
+    ],
+    "before": [
+      1,
+      1045883706
+    ],
+    "after": [
+      2,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/184946661/ccs",
+    "span": [
+      46391003,
+      46405547
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "discordant",
+    "status_after": "discordant",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/151328463/ccs",
+    "span": [
+      46393302,
+      46405907
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/231999765/ccs",
+    "span": [
+      46401065,
+      46405665
+    ],
+    "before": [
+      2,
+      1045883706
+    ],
+    "after": [
+      1,
+      45854428
+    ],
+    "status_before": "correct",
+    "status_after": "correct",
+    "target_neighborhood": true
+  }
+]

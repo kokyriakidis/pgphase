@@ -1,0 +1,511 @@
+{
+  "physical": 3,
+  "beg": 65769387,
+  "end": 65769441,
+  "molecules": 39,
+  "reference_length": 55,
+  "maximum_parent_length": 55,
+  "maximum_path_length": 55,
+  "query_lengths": {
+    "33": 1,
+    "51": 13,
+    "53": 2,
+    "55": 2,
+    "73": 1,
+    "74": 2,
+    "75": 1,
+    "113": 1,
+    "189": 1,
+    "255": 1,
+    "292": 1,
+    "312": 7,
+    "313": 1,
+    "329": 1,
+    "349": 1,
+    "350": 1,
+    "405": 1,
+    "407": 1
+  },
+  "queries_longer_than_catalog": 21,
+  "unavoidable_length_residual": 4327,
+  "path_residual": 4383,
+  "original_diploid_cost": 4404,
+  "same_hiphase_input_alignments": true,
+  "raw_query_slices_and_cigar_length_balance_verified": true,
+  "reads": [
+    {
+      "read": "m84031_231217_034919_s2/222168805/ccs",
+      "query_length": 113,
+      "internal_inserted_bases": 58,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769389,
+          "length": 58
+        }
+      ],
+      "length_lower_bound": 58,
+      "path_residual": 58
+    },
+    {
+      "read": "m84031_231217_034919_s2/68357033/ccs",
+      "query_length": 407,
+      "internal_inserted_bases": 352,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 352
+        }
+      ],
+      "length_lower_bound": 352,
+      "path_residual": 352
+    },
+    {
+      "read": "m84031_231217_062403_s3/218894420/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_062403_s3/194379877/ccs",
+      "query_length": 55,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 0,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 0
+    },
+    {
+      "read": "m84031_231217_034919_s2/224529847/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_034919_s2/167841565/ccs",
+      "query_length": 74,
+      "internal_inserted_bases": 19,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769389,
+          "length": 1
+        },
+        {
+          "boundary": 65769428,
+          "length": 18
+        }
+      ],
+      "length_lower_bound": 19,
+      "path_residual": 19
+    },
+    {
+      "read": "m84031_231217_034919_s2/107613064/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/182980203/ccs",
+      "query_length": 350,
+      "internal_inserted_bases": 295,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 295
+        }
+      ],
+      "length_lower_bound": 295,
+      "path_residual": 295
+    },
+    {
+      "read": "m84031_231217_062403_s3/266863521/ccs",
+      "query_length": 349,
+      "internal_inserted_bases": 294,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 294
+        }
+      ],
+      "length_lower_bound": 294,
+      "path_residual": 294
+    },
+    {
+      "read": "m84031_231217_034919_s2/188683572/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_062403_s3/118295240/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/50005396/ccs",
+      "query_length": 329,
+      "internal_inserted_bases": 274,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769409,
+          "length": 274
+        }
+      ],
+      "length_lower_bound": 274,
+      "path_residual": 274
+    },
+    {
+      "read": "m84031_231217_034919_s2/116068444/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_062403_s3/83891086/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769412,
+          "length": 239
+        },
+        {
+          "boundary": 65769428,
+          "length": 18
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_034919_s2/91359509/ccs",
+      "query_length": 53,
+      "internal_inserted_bases": 1,
+      "internal_deleted_bases": 3,
+      "insertions": [
+        {
+          "boundary": 65769428,
+          "length": 1
+        }
+      ],
+      "length_lower_bound": 0,
+      "path_residual": 2
+    },
+    {
+      "read": "m84031_231217_034919_s2/243138756/ccs",
+      "query_length": 189,
+      "internal_inserted_bases": 134,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 134
+        }
+      ],
+      "length_lower_bound": 134,
+      "path_residual": 134
+    },
+    {
+      "read": "m84031_231217_034919_s2/139267947/ccs",
+      "query_length": 33,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 22,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 1
+    },
+    {
+      "read": "m84031_231217_062403_s3/107087432/ccs",
+      "query_length": 255,
+      "internal_inserted_bases": 200,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 200
+        }
+      ],
+      "length_lower_bound": 200,
+      "path_residual": 200
+    },
+    {
+      "read": "m84031_231217_062403_s3/93852904/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_034919_s2/119017774/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/66720009/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_062403_s3/198184415/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_062403_s3/203229246/ccs",
+      "query_length": 75,
+      "internal_inserted_bases": 20,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769414,
+          "length": 20
+        }
+      ],
+      "length_lower_bound": 20,
+      "path_residual": 20
+    },
+    {
+      "read": "m84031_231217_062403_s3/31920296/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/21239289/ccs",
+      "query_length": 313,
+      "internal_inserted_bases": 258,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 258
+        }
+      ],
+      "length_lower_bound": 258,
+      "path_residual": 258
+    },
+    {
+      "read": "m84031_231217_062403_s3/113379266/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/109382600/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/145688297/ccs",
+      "query_length": 73,
+      "internal_inserted_bases": 18,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769428,
+          "length": 18
+        }
+      ],
+      "length_lower_bound": 18,
+      "path_residual": 18
+    },
+    {
+      "read": "m84031_231217_062403_s3/235607507/ccs",
+      "query_length": 405,
+      "internal_inserted_bases": 350,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 350
+        }
+      ],
+      "length_lower_bound": 350,
+      "path_residual": 350
+    },
+    {
+      "read": "m84031_231217_062403_s3/96538809/ccs",
+      "query_length": 55,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 0,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 0
+    },
+    {
+      "read": "m84031_231217_062403_s3/98305457/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_034919_s2/225184849/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_062403_s3/150538243/ccs",
+      "query_length": 53,
+      "internal_inserted_bases": 1,
+      "internal_deleted_bases": 3,
+      "insertions": [
+        {
+          "boundary": 65769428,
+          "length": 1
+        }
+      ],
+      "length_lower_bound": 0,
+      "path_residual": 2
+    },
+    {
+      "read": "m84031_231217_034919_s2/118885054/ccs",
+      "query_length": 292,
+      "internal_inserted_bases": 237,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 237
+        }
+      ],
+      "length_lower_bound": 237,
+      "path_residual": 237
+    },
+    {
+      "read": "m84031_231217_062403_s3/164303719/ccs",
+      "query_length": 312,
+      "internal_inserted_bases": 257,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769402,
+          "length": 257
+        }
+      ],
+      "length_lower_bound": 257,
+      "path_residual": 257
+    },
+    {
+      "read": "m84031_231217_034919_s2/255921159/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_034919_s2/156829319/ccs",
+      "query_length": 74,
+      "internal_inserted_bases": 19,
+      "internal_deleted_bases": 0,
+      "insertions": [
+        {
+          "boundary": 65769429,
+          "length": 19
+        }
+      ],
+      "length_lower_bound": 19,
+      "path_residual": 19
+    },
+    {
+      "read": "m84031_231217_034919_s2/31985339/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 4
+    },
+    {
+      "read": "m84031_231217_062403_s3/34800876/ccs",
+      "query_length": 51,
+      "internal_inserted_bases": 0,
+      "internal_deleted_bases": 4,
+      "insertions": [],
+      "length_lower_bound": 0,
+      "path_residual": 3
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+[
+  {
+    "owner": "matrix4-final",
+    "candidates": 1551,
+    "explicit_pairs": 1551,
+    "selected_alt_alt_pairs": 0,
+    "collapsed_other_alt_classes": 0,
+    "duplicate_complete_pairs": 31,
+    "joint_molecule_loci": 1749,
+    "molecule_calls": {
+      "1": 808,
+      "0": 837,
+      "-2": 104
+    },
+    "unique_conflicting_reads": 101,
+    "conflict_reasons": {
+      "opposing_retained_calls": 104
+    },
+    "conflicting_source_patterns": [
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 0
+          },
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 1
+          }
+        ],
+        "molecule_loci": 1
+      },
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 1
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 0
+          }
+        ],
+        "molecule_loci": 94
+      },
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 0
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 1
+          }
+        ],
+        "molecule_loci": 9
+      }
+    ],
+    "all_calls_trace_to_original_channels": true,
+    "all_retained_graph_bam_pair_calls_represented": true,
+    "independent_reduction_and_query_coordinates_match": true
+  },
+  {
+    "owner": "matrix5-final",
+    "candidates": 1825,
+    "explicit_pairs": 1825,
+    "selected_alt_alt_pairs": 0,
+    "collapsed_other_alt_classes": 0,
+    "duplicate_complete_pairs": 7,
+    "joint_molecule_loci": 413,
+    "molecule_calls": {
+      "1": 221,
+      "0": 185,
+      "-2": 7
+    },
+    "unique_conflicting_reads": 7,
+    "conflict_reasons": {
+      "opposing_retained_calls": 7
+    },
+    "conflicting_source_patterns": [
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 1
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 0
+          }
+        ],
+        "molecule_loci": 6
+      },
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 0
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 1
+          }
+        ],
+        "molecule_loci": 1
+      }
+    ],
+    "all_calls_trace_to_original_channels": true,
+    "all_retained_graph_bam_pair_calls_represented": true,
+    "independent_reduction_and_query_coordinates_match": true
+  },
+  {
+    "owner": "matrix65-final",
+    "candidates": 2077,
+    "explicit_pairs": 2077,
+    "selected_alt_alt_pairs": 0,
+    "collapsed_other_alt_classes": 0,
+    "duplicate_complete_pairs": 11,
+    "joint_molecule_loci": 391,
+    "molecule_calls": {
+      "1": 184,
+      "0": 207
+    },
+    "unique_conflicting_reads": 0,
+    "conflict_reasons": {},
+    "conflicting_source_patterns": [],
+    "all_calls_trace_to_original_channels": true,
+    "all_retained_graph_bam_pair_calls_represented": true,
+    "independent_reduction_and_query_coordinates_match": true
+  },
+  {
+    "owner": "whole-final",
+    "candidates": 1614,
+    "explicit_pairs": 1431,
+    "selected_alt_alt_pairs": 3,
+    "collapsed_other_alt_classes": 99,
+    "duplicate_complete_pairs": 23,
+    "joint_molecule_loci": 1370,
+    "molecule_calls": {
+      "1": 663,
+      "0": 656,
+      "-2": 51
+    },
+    "unique_conflicting_reads": 50,
+    "conflict_reasons": {
+      "opposing_retained_calls": 51
+    },
+    "conflicting_source_patterns": [
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 0
+          },
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 1
+          }
+        ],
+        "molecule_loci": 1
+      },
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 1
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 0
+          }
+        ],
+        "molecule_loci": 48
+      },
+      {
+        "sources": [
+          {
+            "bam_injected": "0",
+            "category": "16",
+            "canonical_allele": 0
+          },
+          {
+            "bam_injected": "1",
+            "category": "256",
+            "canonical_allele": 1
+          }
+        ],
+        "molecule_loci": 2
+      }
+    ],
+    "all_calls_trace_to_original_channels": true,
+    "all_retained_graph_bam_pair_calls_represented": true,
+    "independent_reduction_and_query_coordinates_match": true
+  }
+]

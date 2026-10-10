@@ -1,0 +1,117 @@
+{
+  "oracle": "arbitrary-precision counts of all optimal alignments plus independent anchored-edit oracle",
+  "wall_seconds": 20.022383699018974,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "parents": 269,
+      "attempts": 1980,
+      "changes": {
+        "overlap->valid": 7
+      },
+      "new_unique_sequences": 0,
+      "final_hypotheses": 516,
+      "previous_tables_byte_identical": true,
+      "all_original_valid_compositions_retained": true,
+      "raw_replay_byte_identical": true,
+      "resolved": [
+        {
+          "physical": "18",
+          "parent_allele": "0",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "1",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "2",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "4",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "5",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "6",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCCCCCCACCA"
+        },
+        {
+          "physical": "18",
+          "parent_allele": "7",
+          "candidate": "1094",
+          "alt_index": "1",
+          "status": "valid",
+          "sequence": "GTAACCGCCCCCCGGCGCCCCCCCCCCCCCCCCCCCACCA"
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 6,
+      "parents": 91,
+      "attempts": 68,
+      "changes": {},
+      "new_unique_sequences": 0,
+      "final_hypotheses": 91,
+      "previous_tables_byte_identical": true,
+      "all_original_valid_compositions_retained": true,
+      "raw_replay_byte_identical": true,
+      "resolved": []
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 10,
+      "parents": 243,
+      "attempts": 13951,
+      "changes": {},
+      "new_unique_sequences": 0,
+      "final_hypotheses": 12509,
+      "previous_tables_byte_identical": true,
+      "all_original_valid_compositions_retained": true,
+      "raw_replay_byte_identical": true,
+      "resolved": []
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "parents": 131,
+      "attempts": 177,
+      "changes": {},
+      "new_unique_sequences": 0,
+      "final_hypotheses": 234,
+      "previous_tables_byte_identical": true,
+      "all_original_valid_compositions_retained": true,
+      "raw_replay_byte_identical": true,
+      "resolved": []
+    }
+  ]
+}

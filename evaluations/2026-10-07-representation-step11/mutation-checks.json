@@ -1,0 +1,50 @@
+{
+  "omit_no_edit_choices": {
+    "exit": 1,
+    "failed_checks": 208
+  },
+  "retain_only_first_alt": {
+    "exit": 1,
+    "failed_checks": 205
+  },
+  "prune_unsupported_length_prefix": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "expose_truncated_catalog": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_prefix_limit": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "discard_overlap_pruning": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "collapse_parent_provenance": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "forget_selected_backtracking": {
+    "exit": 1,
+    "failed_checks": 5
+  },
+  "ignore_recursion_depth_limit": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "keep_duplicate_physical_choices": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "ignore_full_alt_table": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "use_input_neighbor_order": {
+    "exit": 1,
+    "failed_checks": 6889
+  }
+}

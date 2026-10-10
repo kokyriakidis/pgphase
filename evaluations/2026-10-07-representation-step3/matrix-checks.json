@@ -1,0 +1,14 @@
+{
+  "before": "test_data/tmp_representation_step2/matrix5/matrix.chunk0.bam-overlay-output.tsv",
+  "after": "test_data/tmp_representation_step3/matrix5/matrix.chunk0.bam-overlay-output.tsv",
+  "before_sha256": "cc1b26e94cfbf52e205964d91279fab7e941014b65a55173d533a8a2cb490e5c",
+  "after_sha256": "cc1b26e94cfbf52e205964d91279fab7e941014b65a55173d533a8a2cb490e5c",
+  "candidates": 1825,
+  "reads": 4256,
+  "candidate_state_unchanged": true,
+  "read_state_unchanged": true,
+  "graph_channel_unchanged": true,
+  "snp_certificates_unchanged": true,
+  "changes": {},
+  "examples": []
+}

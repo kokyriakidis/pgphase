@@ -1,0 +1,50 @@
+[
+  {
+    "owner": "matrix4-final",
+    "catalog_sha256": "8464b540ded77a6ed5db714b91c43639f8251864db1660993bed4041b28812d5",
+    "catalogs_byte_identical": true,
+    "original_cohorts_costs_and_fits_byte_identical": true,
+    "baseline_residual_sha256": "bb771946650059b8adff3fb6d93f15c95cd0a25391738654ff1cf9a41b547afc",
+    "physical_read_context_rows": 1796,
+    "old_path_residual": 712,
+    "nested_residual": 712,
+    "costs_equal_by_identical_catalogs_and_queries": true,
+    "new_scoring_required": false
+  },
+  {
+    "owner": "matrix5-final",
+    "catalog_sha256": "39d9741e2c15d115a324eedee944cc0e6d0ac1f08b3458227161b5af3f9c5473",
+    "catalogs_byte_identical": true,
+    "original_cohorts_costs_and_fits_byte_identical": true,
+    "baseline_residual_sha256": "203cc084c59f7edb90a126ec8c97c0dc568a192bd9d79930122d1f693c7d3e92",
+    "physical_read_context_rows": 413,
+    "old_path_residual": 38,
+    "nested_residual": 38,
+    "costs_equal_by_identical_catalogs_and_queries": true,
+    "new_scoring_required": false
+  },
+  {
+    "owner": "matrix65-final",
+    "catalog_sha256": "e4e93cd80e625736a0910f2dd6d4741a6d7690f4195f16a73274646054337985",
+    "catalogs_byte_identical": true,
+    "original_cohorts_costs_and_fits_byte_identical": true,
+    "baseline_residual_sha256": "12286011beff01545546ba22bcaca76e958c772356b8099e8a451ba1208f0ea5",
+    "physical_read_context_rows": 425,
+    "old_path_residual": 6455,
+    "nested_residual": 6455,
+    "costs_equal_by_identical_catalogs_and_queries": true,
+    "new_scoring_required": false
+  },
+  {
+    "owner": "whole-final",
+    "catalog_sha256": "0003d62694b6adf94f75ac8d14c0e4ce3460a872b3d7b0271e07cd694e791c9d",
+    "catalogs_byte_identical": true,
+    "original_cohorts_costs_and_fits_byte_identical": true,
+    "baseline_residual_sha256": "8af9b2562ca5e8a3244aee758b9bcce884878ff65f0783ed1689100462c61891",
+    "physical_read_context_rows": 1337,
+    "old_path_residual": 323,
+    "nested_residual": 323,
+    "costs_equal_by_identical_catalogs_and_queries": true,
+    "new_scoring_required": false
+  }
+]

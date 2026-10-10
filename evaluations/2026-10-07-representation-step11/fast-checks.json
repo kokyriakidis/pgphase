@@ -1,0 +1,30 @@
+{
+  "test_binary_sha256": "a73d85c87c2d443eff549601f849349afe9df393ac3eefb18cd187a2b211979c",
+  "timings": {
+    "fixtures": {
+      "executions": 100,
+      "average_ms": 230.1489649200812,
+      "result": "11613 checks, 0 failures"
+    },
+    "matrix4-final": {
+      "executions": 100,
+      "average_ms": 39.32289164979011,
+      "result": "1980 parent/neighbor compositions"
+    },
+    "matrix5-final": {
+      "executions": 100,
+      "average_ms": 14.512009960017167,
+      "result": "68 parent/neighbor compositions"
+    },
+    "matrix65-final": {
+      "executions": 100,
+      "average_ms": 388.39640641992446,
+      "result": "13951 parent/neighbor compositions"
+    },
+    "whole-final": {
+      "executions": 100,
+      "average_ms": 15.355885619937908,
+      "result": "177 parent/neighbor compositions"
+    }
+  }
+}

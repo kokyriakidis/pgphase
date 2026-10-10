@@ -1,0 +1,172 @@
+{
+  "before": "test_data/tmp_joint_evidence_investigation/5/matrix.chunk0.bam-overlay-output.tsv",
+  "after": "test_data/tmp_representation_step2/matrix5/matrix.chunk0.bam-overlay-output.tsv",
+  "before_sha256": "c0f30a3e7e2397a90b3373a9c4c01355d143893de5b387ec78c3a57afe73e3dd",
+  "after_sha256": "cc1b26e94cfbf52e205964d91279fab7e941014b65a55173d533a8a2cb490e5c",
+  "candidates": 1825,
+  "reads": 4256,
+  "candidate_state_unchanged": true,
+  "read_state_unchanged": true,
+  "graph_channel_unchanged": true,
+  "snp_certificates_unchanged": true,
+  "changes": {
+    "changed_observations": 9870,
+    "changed_effective_calls": 0,
+    "added_bam_calls": 9870,
+    "added_graph_bam_disagreements": 697,
+    "withheld_bam_calls": 0,
+    "changed_known_bam_calls": 0
+  },
+  "examples": [
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1079,
+      "position": "5689697",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1090,
+      "position": "5692649",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1093,
+      "position": "5693569",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1097,
+      "position": "5694456",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1099,
+      "position": "5694932",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1101,
+      "position": "5696425",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1105,
+      "position": "5699266",
+      "before": [
+        0,
+        0,
+        -1
+      ],
+      "after": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100142133/ccs",
+      "candidate": 1112,
+      "position": "5705033",
+      "before": [
+        1,
+        1,
+        -1
+      ],
+      "after": [
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100206714/ccs",
+      "candidate": 1215,
+      "position": "5758080",
+      "before": [
+        1,
+        1,
+        -1
+      ],
+      "after": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "read": "m84031_231217_034919_s2/100335737/ccs",
+      "candidate": 1709,
+      "position": "5958312",
+      "before": [
+        1,
+        1,
+        -1
+      ],
+      "after": [
+        1,
+        1,
+        1
+      ]
+    }
+  ]
+}

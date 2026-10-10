@@ -1,0 +1,2558 @@
+{
+  "interpretation": "Evaluation-only held-out parental separability; no production confidence threshold inferred",
+  "bins": [
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 41
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 12
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 60
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 59,
+        "correct": 122,
+        "discordant": 30
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 34
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 16
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 17
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 7,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 10,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 12,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 9
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 29
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 17
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 68
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 59,
+        "discordant": 35,
+        "correct": 148
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 32
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 16
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 33
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 10,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 8
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 25
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 23,
+        "discordant": 12,
+        "correct": 66
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 26
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 11
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 22
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 60,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 15
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 10,
+        "discordant": 7,
+        "correct": 26
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 23
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 11
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 19
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 8
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 13,
+        "correct": 29,
+        "discordant": 6
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 6
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 15
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 14,
+        "discordant": 5,
+        "correct": 32
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 26
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 19
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 21
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 6
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 22
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 5,
+        "discordant": 10,
+        "correct": 58
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 81
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 17
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 44
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 14,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "matrix4-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 14
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 20
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 25,
+        "unassigned": 64
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 11
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 22
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 42,
+        "discordant": 4,
+        "unassigned": 61
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 10
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 19,
+        "unassigned": 22
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 13,
+        "unassigned": 12
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7,
+        "unassigned": 8
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "discordant": 1,
+        "unassigned": 10,
+        "correct": 10
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7,
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 2,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 15
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 2,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 18
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 43,
+        "discordant": 8
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 12
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 16,
+        "discordant": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 4,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 20,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 8
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 22
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 32,
+        "discordant": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 17
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 9
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 12,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 20,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 7
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 5
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 28,
+        "discordant": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 10
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 3,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 12,
+        "discordant": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 20,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 11
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 20,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 12
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 6
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "ambiguous_pair",
+      "counts": {
+        "unassigned": 13
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "unstable_pair",
+      "counts": {
+        "unassigned": 14
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 16,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 20,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 260,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 13
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 32
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 22,
+        "correct": 128,
+        "discordant": 25
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 18
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 16
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 3,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 43
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 24,
+        "discordant": 30,
+        "correct": 145
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 22
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 27
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 8
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 10,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 14
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 12,
+        "discordant": 8,
+        "correct": 76
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 21
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 11
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 17
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 60,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 17,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 9
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "discordant": 6,
+        "correct": 28,
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 24
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 11
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 15
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 22,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 7,
+        "correct": 25,
+        "discordant": 5
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 13
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 14
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 6
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 27,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 2
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 5
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "discordant": 4,
+        "correct": 20,
+        "unassigned": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 1
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 28
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 18
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 18
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 3
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 4
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 35,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 6
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 0,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 3
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "outside_or_tied_sequence",
+      "counts": {
+        "unassigned": 6
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 1,
+      "partition": "stable_member",
+      "counts": {
+        "unassigned": 5,
+        "discordant": 7,
+        "correct": 41
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 2,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 76
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 3,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 17
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 4,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 36
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 18,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 7
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 31,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 5
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 62,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    },
+    {
+      "owner": "whole-final",
+      "minimum_base_quality": 40,
+      "nearest_margin": 404,
+      "partition": "stable_member",
+      "counts": {
+        "correct": 10
+      }
+    }
+  ]
+}

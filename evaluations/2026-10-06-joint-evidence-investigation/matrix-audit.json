@@ -1,0 +1,4833 @@
+[
+  {
+    "window": "4766928-4792960",
+    "owning_region": [
+      4000001,
+      5000000
+    ],
+    "matrix": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_joint_evidence_investigation/4/matrix.chunk0.bam-overlay-output.tsv",
+    "dominant_core": 4878943,
+    "scorable": 175,
+    "pgphase_counts": {
+      "correct": 154,
+      "unphased": 7,
+      "discordant": 14
+    },
+    "pgphase_core_correct": 154,
+    "hiphase_correct": 154,
+    "modes": {
+      "effective": {
+        "counts": {
+          "targets": 7,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 7,
+          "direct_snp_vote_abstains": 7
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/20321995/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              4878943
+            ],
+            "callable_sites": 37,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210179182/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/242683882/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 74,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247990213/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 88,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/260441414/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27727649/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 95,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/127863251/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 90,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "graph": {
+        "counts": {
+          "targets": 7,
+          "missing_read_profile": 0,
+          "no_callable_observations": 1,
+          "potentially_connected": 6,
+          "direct_snp_vote_abstains": 7
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/20321995/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              4878943
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210179182/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/242683882/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247990213/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/260441414/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27727649/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/127863251/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "bam": {
+        "counts": {
+          "targets": 7,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 7,
+          "direct_snp_vote_abstains": 7
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/20321995/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              4878943
+            ],
+            "callable_sites": 37,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210179182/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/242683882/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 74,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247990213/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 88,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/260441414/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27727649/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 95,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/127863251/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 90,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "agreement_union": {
+        "counts": {
+          "targets": 7,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 7,
+          "direct_snp_vote_abstains": 7
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/20321995/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              4878943
+            ],
+            "callable_sites": 37,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210179182/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/242683882/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 74,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247990213/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 88,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/260441414/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27727649/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 95,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/127863251/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 90,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "window": "5309406-5345085",
+    "owning_region": [
+      5000001,
+      6000000
+    ],
+    "matrix": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_joint_evidence_investigation/5/matrix.chunk0.bam-overlay-output.tsv",
+    "dominant_core": 5239261,
+    "scorable": 226,
+    "pgphase_counts": {
+      "correct": 206,
+      "unphased": 19,
+      "discordant": 1
+    },
+    "pgphase_core_correct": 140,
+    "hiphase_correct": 220,
+    "modes": {
+      "effective": {
+        "counts": {
+          "targets": 80,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 75,
+          "direct_snp_vote_abstains": 80
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/106761484/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 50,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/114164405/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/122293343/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/125962164/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/129111978/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/13240726/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/145166684/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 54,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/150081891/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 59,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/154011672/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/159124039/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 41,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163517545/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 28,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163778255/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 30,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/18353866/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/189336923/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 15,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/196283821/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210310269/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 41,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/211686970/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 33,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/213587060/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/216601294/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 85,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/218633325/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/232128687/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/234489758/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/239536227/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 61,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/243009377/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 27,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/245437077/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 50,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247861150/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 25,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248382435/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248714479/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 102,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27983967/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 48,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/28578564/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 87,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/30544765/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/31721931/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 52,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/36310319/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/40833881/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 97,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/44634652/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/45552686/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/50139701/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 72,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/5309248/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 62,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/65867126/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/69603204/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 42,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/79954322/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 22,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/83498770/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/101586109/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 79,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/103224266/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/115736971/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 45,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/129368814/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/132382994/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/138153104/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/145883816/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 36,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147849912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147920268/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 28,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/149226713/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/152502780/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/154799995/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/167512900/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/169544626/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 35,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187564596/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187697638/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/189203552/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 79,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/205261166/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 58,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/217844175/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 83,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/231934722/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/242288232/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 59,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/244060618/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/248777012/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/251005422/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 63,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/255660610/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/30479259/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 62,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39127912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39781452/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/42404936/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 39,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/44764773/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 29,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/4719324/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 37,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/50991523/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/57672619/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/61279530/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 5,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/64749926/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 99,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/82316478/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 70,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/89394040/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 70,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/93983395/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "graph": {
+        "counts": {
+          "targets": 80,
+          "missing_read_profile": 0,
+          "no_callable_observations": 5,
+          "potentially_connected": 75,
+          "direct_snp_vote_abstains": 80
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/106761484/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/114164405/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/122293343/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/125962164/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/129111978/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/13240726/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/145166684/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/150081891/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/154011672/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/159124039/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163517545/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163778255/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/18353866/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/189336923/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/196283821/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210310269/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/211686970/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/213587060/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/216601294/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/218633325/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/232128687/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/234489758/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/239536227/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/243009377/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/245437077/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247861150/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248382435/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248714479/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27983967/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/28578564/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/30544765/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/31721931/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/36310319/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/40833881/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/44634652/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/45552686/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/50139701/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/5309248/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/65867126/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/69603204/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/79954322/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/83498770/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/101586109/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/103224266/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/115736971/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/129368814/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/132382994/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/138153104/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/145883816/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147849912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147920268/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/149226713/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/152502780/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/154799995/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/167512900/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/169544626/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187564596/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187697638/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/189203552/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/205261166/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/217844175/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/231934722/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/242288232/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/244060618/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/248777012/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/251005422/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/255660610/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/30479259/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39127912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39781452/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/42404936/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 0,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/44764773/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/4719324/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/50991523/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/57672619/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/61279530/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/64749926/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/82316478/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/89394040/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 1,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/93983395/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "bam": {
+        "counts": {
+          "targets": 80,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 61,
+          "direct_snp_vote_abstains": 80
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/106761484/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 49,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/114164405/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/122293343/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/125962164/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 64,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/129111978/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/13240726/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/145166684/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 52,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/150081891/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 58,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/154011672/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/159124039/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163517545/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 28,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163778255/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 29,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/18353866/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 64,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/189336923/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 14,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/196283821/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210310269/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/211686970/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/213587060/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/216601294/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 84,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/218633325/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/232128687/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/234489758/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/239536227/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 60,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/243009377/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 26,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/245437077/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 50,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247861150/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 24,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248382435/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248714479/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 101,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27983967/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 47,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/28578564/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 86,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/30544765/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/31721931/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 51,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/36310319/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/40833881/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 95,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/44634652/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/45552686/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/50139701/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 71,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/5309248/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 60,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/65867126/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 38,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/69603204/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 42,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/79954322/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 21,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/83498770/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/101586109/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 78,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/103224266/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/115736971/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/129368814/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 39,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/132382994/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/138153104/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 31,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/145883816/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 34,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147849912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147920268/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 27,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/149226713/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/152502780/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/154799995/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 42,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/167512900/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/169544626/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 34,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187564596/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187697638/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 31,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/189203552/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 78,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/205261166/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 58,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/217844175/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 82,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/231934722/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 42,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/242288232/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/244060618/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/248777012/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 54,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/251005422/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 63,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/255660610/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/30479259/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 61,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39127912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 31,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39781452/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/42404936/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 39,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/44764773/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 29,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/4719324/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 36,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/50991523/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/57672619/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/61279530/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 3,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/64749926/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 98,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/82316478/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/89394040/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 70,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/93983395/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 64,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "agreement_union": {
+        "counts": {
+          "targets": 80,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 75,
+          "direct_snp_vote_abstains": 80
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_034919_s2/106761484/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 50,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/114164405/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/122293343/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/125962164/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/129111978/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/13240726/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/145166684/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 54,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/150081891/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 59,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/154011672/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/159124039/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 41,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163517545/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 28,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/163778255/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 30,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/18353866/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 65,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/189336923/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 15,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/196283821/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/210310269/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 41,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/211686970/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 33,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/213587060/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/216601294/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 85,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/218633325/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/232128687/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/234489758/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/239536227/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 61,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/243009377/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 27,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/245437077/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 50,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/247861150/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 25,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248382435/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/248714479/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 102,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/27983967/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 48,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/28578564/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 87,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/30544765/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/31721931/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 52,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/36310319/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/40833881/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 97,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/44634652/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/45552686/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 67,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/50139701/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 72,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/5309248/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 62,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/65867126/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/69603204/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 42,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/79954322/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 22,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_034919_s2/83498770/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/101586109/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 79,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/103224266/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/115736971/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 45,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/129368814/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 40,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/132382994/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 68,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/138153104/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/145883816/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 36,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147849912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/147920268/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 28,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/149226713/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 44,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/152502780/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/154799995/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/167512900/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/169544626/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 35,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187564596/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 56,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/187697638/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/189203552/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 79,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/205261166/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 58,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/217844175/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 83,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/231934722/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 43,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/242288232/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 59,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/244060618/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 46,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/248777012/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 55,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/251005422/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 63,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/255660610/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/30479259/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 62,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39127912/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 32,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/39781452/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 69,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/42404936/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 39,
+            "core_snp_votes": {},
+            "potentially_connected": false,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/44764773/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 29,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/4719324/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 37,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/50991523/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 57,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/57672619/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 53,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/61279530/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 5,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/64749926/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 99,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/82316478/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              1,
+              1005239261
+            ],
+            "callable_sites": 70,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/89394040/ccs",
+            "pgphase_status": "correct",
+            "tags": [
+              2,
+              1005239261
+            ],
+            "callable_sites": 70,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/93983395/ccs",
+            "pgphase_status": "unphased",
+            "tags": [
+              0,
+              0
+            ],
+            "callable_sites": 66,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "window": "6513891-6516221",
+    "owning_region": [
+      6000001,
+      7000000
+    ],
+    "matrix": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_joint_evidence_investigation/6/matrix.chunk0.bam-overlay-output.tsv",
+    "dominant_core": 6513891,
+    "scorable": 98,
+    "pgphase_counts": {
+      "correct": 86,
+      "discordant": 12
+    },
+    "pgphase_core_correct": 86,
+    "hiphase_correct": 88,
+    "modes": {
+      "effective": {
+        "counts": {
+          "targets": 2,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 2,
+          "direct_snp_vote_correct": 2,
+          "conflicting_direct_snp_votes": 0
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_062403_s3/179439586/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 4,
+            "core_snp_votes": {
+              "true": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 1,
+            "diagnostic_correct": true
+          },
+          {
+            "read": "m84031_231217_062403_s3/21958939/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 5,
+            "core_snp_votes": {
+              "true": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 1,
+            "diagnostic_correct": true
+          }
+        ]
+      },
+      "graph": {
+        "counts": {
+          "targets": 2,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 2,
+          "direct_snp_vote_wrong": 2,
+          "conflicting_direct_snp_votes": 0
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_062403_s3/179439586/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {
+              "false": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 2,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/21958939/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 2,
+            "core_snp_votes": {
+              "false": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 2,
+            "diagnostic_correct": false
+          }
+        ]
+      },
+      "bam": {
+        "counts": {
+          "targets": 2,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 2,
+          "direct_snp_vote_correct": 2,
+          "conflicting_direct_snp_votes": 0
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_062403_s3/179439586/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 3,
+            "core_snp_votes": {
+              "true": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 1,
+            "diagnostic_correct": true
+          },
+          {
+            "read": "m84031_231217_062403_s3/21958939/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 4,
+            "core_snp_votes": {
+              "true": 1
+            },
+            "potentially_connected": true,
+            "diagnostic_hap": 1,
+            "diagnostic_correct": true
+          }
+        ]
+      },
+      "agreement_union": {
+        "counts": {
+          "targets": 2,
+          "missing_read_profile": 0,
+          "no_callable_observations": 0,
+          "potentially_connected": 2,
+          "direct_snp_vote_abstains": 2
+        },
+        "reads": [
+          {
+            "read": "m84031_231217_062403_s3/179439586/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 3,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          },
+          {
+            "read": "m84031_231217_062403_s3/21958939/ccs",
+            "pgphase_status": "discordant",
+            "tags": [
+              2,
+              6513891
+            ],
+            "callable_sites": 4,
+            "core_snp_votes": {},
+            "potentially_connected": true,
+            "diagnostic_hap": 0,
+            "diagnostic_correct": false
+          }
+        ]
+      }
+    }
+  }
+]

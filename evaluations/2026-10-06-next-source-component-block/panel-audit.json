@@ -1,0 +1,159 @@
+{
+  "native_output_labels": 248,
+  "independent_requests": 128,
+  "comparison_pairs": 129,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "12beb76e831986814ebb50a6d55eacbfd024f517224f7ca11039c80d06272058",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w22980600-23008891/phased.bam",
+      "before_counts": {
+        "correct": 571,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "after_counts": {
+        "correct": 571,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "changed_read_tags": 13,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w45866904-46636707/phased.bam",
+      "before_counts": {
+        "correct": 5423,
+        "unphased": 1808,
+        "discordant": 802
+      },
+      "after_counts": {
+        "correct": 5426,
+        "unphased": 1806,
+        "discordant": 801
+      },
+      "changed_read_tags": 20,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w46389864-46402979/phased.bam",
+      "before_counts": {
+        "correct": 3905,
+        "unphased": 120,
+        "discordant": 17
+      },
+      "after_counts": {
+        "correct": 3908,
+        "unphased": 118,
+        "discordant": 16
+      },
+      "changed_read_tags": 20,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w46402979-46405048/phased.bam",
+      "before_counts": {
+        "correct": 3905,
+        "unphased": 120,
+        "discordant": 17
+      },
+      "after_counts": {
+        "correct": 3908,
+        "unphased": 118,
+        "discordant": 16
+      },
+      "changed_read_tags": 20,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w46727050-46748667/phased.bam",
+      "before_counts": {
+        "correct": 3905,
+        "unphased": 120,
+        "discordant": 17
+      },
+      "after_counts": {
+        "correct": 3908,
+        "unphased": 118,
+        "discordant": 16
+      },
+      "changed_read_tags": 20,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_multiple_source_labels_23m/w22550001-23450000/phased.bam",
+      "before_counts": {
+        "correct": 3562,
+        "discordant": 66,
+        "unphased": 324
+      },
+      "after_counts": {
+        "correct": 3562,
+        "discordant": 66,
+        "unphased": 324
+      },
+      "changed_read_tags": 13,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_validation_ps_remap/w22950001-23050000/phased.bam",
+      "before_counts": {
+        "correct": 855,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "after_counts": {
+        "correct": 855,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "changed_read_tags": 13,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

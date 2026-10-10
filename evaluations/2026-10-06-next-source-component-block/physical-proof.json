@@ -1,0 +1,68 @@
+{
+  "baseline_binary_sha256": "098e6b4895707ecc6a7d2af558b1c4aa9688741f9f742b807e339851596d117e",
+  "source_weak_cut": 46389864,
+  "native_core_phase_set": 46629630,
+  "sources": {
+    "46319271": {
+      "shared_deletion_pos": 46388262,
+      "shared_deletion_length": 14,
+      "left_insertion_pos": 46389865,
+      "component_gauge_supported": true,
+      "whole_core_coverage_supported": false
+    },
+    "46405048": {
+      "right_insertion_pos": 46405049,
+      "component_gauge_supported": true,
+      "whole_core_coverage_supported": false
+    }
+  },
+  "shared_deletion_parental_calls": {
+    "maternal_ref": 30,
+    "paternal_alt": 32
+  },
+  "independent_upstream_snp_parental_calls": {
+    "maternal_ref": 17,
+    "paternal_alt": 22
+  },
+  "local_insertion_rule": "promote only a saved agreeing rescue after a complete bounded physical repeat call; preserve existing core labels",
+  "read_joint_error_limit": 0.05,
+  "minimum_primary_mapq": 20,
+  "target_owning_read_floor": {
+    "scored": 3924,
+    "correct": 3908,
+    "discordant": 16
+  },
+  "old_correct_and_phased_reads_lost": 0,
+  "independent_parental_flanks": {
+    "upstream": {
+      "correct": 40,
+      "discordant": 0
+    },
+    "downstream": {
+      "correct": 10,
+      "discordant": 0
+    }
+  },
+  "restored_molecules": {
+    "m84031_231217_034919_s2/139006833/ccs": {
+      "hap": 2,
+      "phase_set": 46629630,
+      "parent_correct": true
+    },
+    "m84031_231217_034919_s2/248055448/ccs": {
+      "hap": 2,
+      "phase_set": 46629630,
+      "parent_correct": true
+    },
+    "m84031_231217_034919_s2/212666093/ccs": {
+      "hap": 2,
+      "phase_set": 46629630,
+      "parent_correct": true
+    },
+    "m84031_231217_034919_s2/209654690/ccs": {
+      "hap": 2,
+      "phase_set": 46629630,
+      "parent_correct": true
+    }
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "native_output_labels": 246,
+  "independent_requests": 128,
+  "comparison_pairs": 129,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "098e6b4895707ecc6a7d2af558b1c4aa9688741f9f742b807e339851596d117e",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "graph/w19365840-19373922/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19373922-19377345/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19373922-19395544/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19395544-19403172/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19403172-19414720/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_internal_conflict_guard_19m/w19373922-19395544/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_one_anchor_19m/w19050001-19950000/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_weak_source/w19050000-19950000/phased.bam",
+      "before_counts": {
+        "correct": 4033,
+        "discordant": 41,
+        "unphased": 154
+      },
+      "after_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "changed_read_tags": 26,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

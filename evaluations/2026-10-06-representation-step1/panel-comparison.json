@@ -1,0 +1,8 @@
+{
+  "windows": 141,
+  "changed_native_measurements": 0,
+  "named_checks": 107,
+  "named_checks_passed": 107,
+  "pipeline_binary_sha256": "088b5c56e17d04828af0ccbfede26b9ca3ff65476a62f796066af7a6ac63eb9d",
+  "cold_parallel_seconds": 666.447299210995
+}

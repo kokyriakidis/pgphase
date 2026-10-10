@@ -1,0 +1,495 @@
+{
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "shared_physical_context_groups": [],
+      "contexts": 31,
+      "molecule_locus_records": 1796,
+      "added_records": 82,
+      "affected_contexts": 4,
+      "raw_sequences_qualities_bounds_mapq_verified": true,
+      "old_provenance_identical": true,
+      "loci": [
+        {
+          "locus": 0,
+          "old_molecules": 24,
+          "full_molecules": 24,
+          "added_molecules": 0
+        },
+        {
+          "locus": 1,
+          "old_molecules": 12,
+          "full_molecules": 49,
+          "added_molecules": 37
+        },
+        {
+          "locus": 2,
+          "old_molecules": 21,
+          "full_molecules": 21,
+          "added_molecules": 0
+        },
+        {
+          "locus": 3,
+          "old_molecules": 55,
+          "full_molecules": 55,
+          "added_molecules": 0
+        },
+        {
+          "locus": 4,
+          "old_molecules": 68,
+          "full_molecules": 69,
+          "added_molecules": 1
+        },
+        {
+          "locus": 5,
+          "old_molecules": 69,
+          "full_molecules": 69,
+          "added_molecules": 0
+        },
+        {
+          "locus": 6,
+          "old_molecules": 64,
+          "full_molecules": 64,
+          "added_molecules": 0
+        },
+        {
+          "locus": 7,
+          "old_molecules": 61,
+          "full_molecules": 61,
+          "added_molecules": 0
+        },
+        {
+          "locus": 8,
+          "old_molecules": 69,
+          "full_molecules": 69,
+          "added_molecules": 0
+        },
+        {
+          "locus": 9,
+          "old_molecules": 62,
+          "full_molecules": 62,
+          "added_molecules": 0
+        },
+        {
+          "locus": 10,
+          "old_molecules": 77,
+          "full_molecules": 77,
+          "added_molecules": 0
+        },
+        {
+          "locus": 11,
+          "old_molecules": 80,
+          "full_molecules": 80,
+          "added_molecules": 0
+        },
+        {
+          "locus": 12,
+          "old_molecules": 77,
+          "full_molecules": 77,
+          "added_molecules": 0
+        },
+        {
+          "locus": 13,
+          "old_molecules": 75,
+          "full_molecules": 75,
+          "added_molecules": 0
+        },
+        {
+          "locus": 14,
+          "old_molecules": 68,
+          "full_molecules": 68,
+          "added_molecules": 0
+        },
+        {
+          "locus": 15,
+          "old_molecules": 57,
+          "full_molecules": 57,
+          "added_molecules": 0
+        },
+        {
+          "locus": 16,
+          "old_molecules": 59,
+          "full_molecules": 59,
+          "added_molecules": 0
+        },
+        {
+          "locus": 17,
+          "old_molecules": 57,
+          "full_molecules": 57,
+          "added_molecules": 0
+        },
+        {
+          "locus": 18,
+          "old_molecules": 62,
+          "full_molecules": 62,
+          "added_molecules": 0
+        },
+        {
+          "locus": 19,
+          "old_molecules": 26,
+          "full_molecules": 69,
+          "added_molecules": 43
+        },
+        {
+          "locus": 20,
+          "old_molecules": 68,
+          "full_molecules": 68,
+          "added_molecules": 0
+        },
+        {
+          "locus": 21,
+          "old_molecules": 44,
+          "full_molecules": 44,
+          "added_molecules": 0
+        },
+        {
+          "locus": 22,
+          "old_molecules": 48,
+          "full_molecules": 48,
+          "added_molecules": 0
+        },
+        {
+          "locus": 23,
+          "old_molecules": 52,
+          "full_molecules": 52,
+          "added_molecules": 0
+        },
+        {
+          "locus": 24,
+          "old_molecules": 53,
+          "full_molecules": 53,
+          "added_molecules": 0
+        },
+        {
+          "locus": 25,
+          "old_molecules": 55,
+          "full_molecules": 55,
+          "added_molecules": 0
+        },
+        {
+          "locus": 26,
+          "old_molecules": 65,
+          "full_molecules": 65,
+          "added_molecules": 0
+        },
+        {
+          "locus": 27,
+          "old_molecules": 63,
+          "full_molecules": 63,
+          "added_molecules": 0
+        },
+        {
+          "locus": 28,
+          "old_molecules": 56,
+          "full_molecules": 56,
+          "added_molecules": 0
+        },
+        {
+          "locus": 29,
+          "old_molecules": 33,
+          "full_molecules": 34,
+          "added_molecules": 1
+        },
+        {
+          "locus": 30,
+          "old_molecules": 34,
+          "full_molecules": 34,
+          "added_molecules": 0
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "shared_physical_context_groups": [
+        [
+          "5",
+          "6"
+        ]
+      ],
+      "contexts": 7,
+      "molecule_locus_records": 484,
+      "added_records": 72,
+      "affected_contexts": 3,
+      "raw_sequences_qualities_bounds_mapq_verified": true,
+      "old_provenance_identical": true,
+      "loci": [
+        {
+          "locus": 0,
+          "old_molecules": 56,
+          "full_molecules": 56,
+          "added_molecules": 0
+        },
+        {
+          "locus": 1,
+          "old_molecules": 75,
+          "full_molecules": 75,
+          "added_molecules": 0
+        },
+        {
+          "locus": 2,
+          "old_molecules": 72,
+          "full_molecules": 72,
+          "added_molecules": 0
+        },
+        {
+          "locus": 3,
+          "old_molecules": 58,
+          "full_molecules": 75,
+          "added_molecules": 17
+        },
+        {
+          "locus": 4,
+          "old_molecules": 64,
+          "full_molecules": 64,
+          "added_molecules": 0
+        },
+        {
+          "locus": 5,
+          "old_molecules": 49,
+          "full_molecules": 71,
+          "added_molecules": 22
+        },
+        {
+          "locus": 6,
+          "old_molecules": 38,
+          "full_molecules": 71,
+          "added_molecules": 33
+        }
+      ]
+    },
+    {
+      "owner": "matrix65-final",
+      "shared_physical_context_groups": [
+        [
+          "7",
+          "8"
+        ]
+      ],
+      "contexts": 11,
+      "molecule_locus_records": 483,
+      "added_records": 97,
+      "affected_contexts": 8,
+      "raw_sequences_qualities_bounds_mapq_verified": true,
+      "old_provenance_identical": true,
+      "loci": [
+        {
+          "locus": 0,
+          "old_molecules": 24,
+          "full_molecules": 24,
+          "added_molecules": 0
+        },
+        {
+          "locus": 1,
+          "old_molecules": 38,
+          "full_molecules": 42,
+          "added_molecules": 4
+        },
+        {
+          "locus": 2,
+          "old_molecules": 36,
+          "full_molecules": 38,
+          "added_molecules": 2
+        },
+        {
+          "locus": 3,
+          "old_molecules": 25,
+          "full_molecules": 39,
+          "added_molecules": 14
+        },
+        {
+          "locus": 4,
+          "old_molecules": 25,
+          "full_molecules": 28,
+          "added_molecules": 3
+        },
+        {
+          "locus": 5,
+          "old_molecules": 52,
+          "full_molecules": 52,
+          "added_molecules": 0
+        },
+        {
+          "locus": 6,
+          "old_molecules": 24,
+          "full_molecules": 37,
+          "added_molecules": 13
+        },
+        {
+          "locus": 7,
+          "old_molecules": 18,
+          "full_molecules": 58,
+          "added_molecules": 40
+        },
+        {
+          "locus": 8,
+          "old_molecules": 39,
+          "full_molecules": 58,
+          "added_molecules": 19
+        },
+        {
+          "locus": 9,
+          "old_molecules": 52,
+          "full_molecules": 54,
+          "added_molecules": 2
+        },
+        {
+          "locus": 10,
+          "old_molecules": 53,
+          "full_molecules": 53,
+          "added_molecules": 0
+        }
+      ]
+    },
+    {
+      "owner": "whole-final",
+      "shared_physical_context_groups": [],
+      "contexts": 23,
+      "molecule_locus_records": 1337,
+      "added_records": 0,
+      "affected_contexts": 0,
+      "raw_sequences_qualities_bounds_mapq_verified": true,
+      "old_provenance_identical": true,
+      "loci": [
+        {
+          "locus": 0,
+          "old_molecules": 24,
+          "full_molecules": 24,
+          "added_molecules": 0
+        },
+        {
+          "locus": 1,
+          "old_molecules": 21,
+          "full_molecules": 21,
+          "added_molecules": 0
+        },
+        {
+          "locus": 2,
+          "old_molecules": 55,
+          "full_molecules": 55,
+          "added_molecules": 0
+        },
+        {
+          "locus": 3,
+          "old_molecules": 69,
+          "full_molecules": 69,
+          "added_molecules": 0
+        },
+        {
+          "locus": 4,
+          "old_molecules": 64,
+          "full_molecules": 64,
+          "added_molecules": 0
+        },
+        {
+          "locus": 5,
+          "old_molecules": 69,
+          "full_molecules": 69,
+          "added_molecules": 0
+        },
+        {
+          "locus": 6,
+          "old_molecules": 62,
+          "full_molecules": 62,
+          "added_molecules": 0
+        },
+        {
+          "locus": 7,
+          "old_molecules": 77,
+          "full_molecules": 77,
+          "added_molecules": 0
+        },
+        {
+          "locus": 8,
+          "old_molecules": 80,
+          "full_molecules": 80,
+          "added_molecules": 0
+        },
+        {
+          "locus": 9,
+          "old_molecules": 77,
+          "full_molecules": 77,
+          "added_molecules": 0
+        },
+        {
+          "locus": 10,
+          "old_molecules": 75,
+          "full_molecules": 75,
+          "added_molecules": 0
+        },
+        {
+          "locus": 11,
+          "old_molecules": 68,
+          "full_molecules": 68,
+          "added_molecules": 0
+        },
+        {
+          "locus": 12,
+          "old_molecules": 57,
+          "full_molecules": 57,
+          "added_molecules": 0
+        },
+        {
+          "locus": 13,
+          "old_molecules": 59,
+          "full_molecules": 59,
+          "added_molecules": 0
+        },
+        {
+          "locus": 14,
+          "old_molecules": 69,
+          "full_molecules": 69,
+          "added_molecules": 0
+        },
+        {
+          "locus": 15,
+          "old_molecules": 45,
+          "full_molecules": 45,
+          "added_molecules": 0
+        },
+        {
+          "locus": 16,
+          "old_molecules": 52,
+          "full_molecules": 52,
+          "added_molecules": 0
+        },
+        {
+          "locus": 17,
+          "old_molecules": 55,
+          "full_molecules": 55,
+          "added_molecules": 0
+        },
+        {
+          "locus": 18,
+          "old_molecules": 65,
+          "full_molecules": 65,
+          "added_molecules": 0
+        },
+        {
+          "locus": 19,
+          "old_molecules": 63,
+          "full_molecules": 63,
+          "added_molecules": 0
+        },
+        {
+          "locus": 20,
+          "old_molecules": 56,
+          "full_molecules": 56,
+          "added_molecules": 0
+        },
+        {
+          "locus": 21,
+          "old_molecules": 34,
+          "full_molecules": 34,
+          "added_molecules": 0
+        },
+        {
+          "locus": 22,
+          "old_molecules": 41,
+          "full_molecules": 41,
+          "added_molecules": 0
+        }
+      ]
+    }
+  ],
+  "added_records": 251
+}

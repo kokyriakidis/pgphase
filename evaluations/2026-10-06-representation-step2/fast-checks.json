@@ -1,0 +1,6 @@
+{
+  "runs": 100,
+  "haplotype_fixtures_per_run": 3328,
+  "total_seconds": 0.2872692850069143,
+  "mean_ms": 2.872692850069143
+}

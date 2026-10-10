@@ -1,0 +1,46 @@
+{
+  "binary_sha256": "c6bcf86a43b5301cd90960eeb8b525d14944494dfb8381f9b676c5641952e674",
+  "full_output": "test_data/tmp_gap_fix91/final_current/0",
+  "accepted_gap": [
+    4874129,
+    4884130
+  ],
+  "whole_hiphase_target_read_parity": false,
+  "whole_target_deficits": {
+    "dominant_core_correct": 67,
+    "correct": 4
+  },
+  "build": "passed without errors or warnings",
+  "units_and_phasing_predicates": "passed; 1551 predicate assertions in 47 cases",
+  "new_in_memory_checks": 13,
+  "cache_helper_tests": {
+    "cases": 4,
+    "result": "passed"
+  },
+  "goldens": "HiFi/ONT TSV and VCF match; HiFi one/four-thread outputs identical",
+  "owning_threads": "one/four-thread read tags, candidate bytes and complete VCF identical",
+  "new_native_fixture": {
+    "assertions": 757,
+    "result": "passed",
+    "baseline_fails_core_parity": true,
+    "warm_seconds": 1.12
+  },
+  "full_gap_suite": {
+    "assertions": 18138,
+    "cases": 5,
+    "result": "passed"
+  },
+  "native_panel": {
+    "native_output_labels": 250,
+    "independent_requests": 128,
+    "comparison_pairs": 128
+  },
+  "changed_native_labels": 12,
+  "full_preservation": "all previous correct/phased reads, haplotypes, core tags, block extents, VCF records and candidate bytes preserved",
+  "full_read_transitions": {
+    "correct->correct": 230965,
+    "unphased->unphased": 19027,
+    "discordant->discordant": 6620
+  },
+  "n50_bp": 955496
+}

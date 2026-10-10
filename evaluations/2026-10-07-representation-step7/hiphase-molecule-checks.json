@@ -1,0 +1,10 @@
+{
+  "verified_identical_primary_alignments": 1568,
+  "status_cache": "test_data/tmp_representation_step7/hiphase-molecule-tags.json",
+  "global_primary_reads": 272016,
+  "global_orientation": true,
+  "contig_alias": "CHM13#0#chr20 -> chr20",
+  "sequence_qualities_mapq_flags_verified": true,
+  "hiphase": "test_data/tmp_gap_fix48/competitor/hiphase_dv/phased.bam",
+  "helper_sha256": "6c8a749472a1c9b23657f13d7002be746dbe4735929fbb81127da2b26c8642ef"
+}

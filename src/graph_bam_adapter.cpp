@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <ostream>
@@ -1159,6 +1160,7 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
             new_cands.push_back(pair_cand);
             new_ids.push_back(pair_id);
             new_meta.push_back(out.site_meta[i]);
+            new_meta.back().non_selected_alt_class = multi;
             new_allele_counts.push_back({ref_c, alt_c});
             new_fwd_strand.push_back({fwd_ref, fwd_alt});
             new_rev_strand.push_back({rev_ref, rev_alt});
@@ -1511,6 +1513,204 @@ const std::string* selected_graph_candidate_alt(
     return alt.empty() || alt == "*" ? nullptr : &alt;
 }
 
+void rebuild_joint_candidate_loci(GraphChunkBuildResult& graph_chunk,
+        const std::function<char(hts_pos_t)>& reference_base) {
+    std::map<CandidateIdentityKey, std::vector<size_t>> descriptions;
+    std::map<AlleleContrastKey, std::vector<size_t>> contrasts;
+    graph_chunk.candidate_allele_contrasts.assign(graph_chunk.chunk.candidates.size(), std::nullopt);
+    for (size_t ci = 0; ci < graph_chunk.chunk.candidates.size(); ++ci) {
+        if (ci >= graph_chunk.site_meta.size() || ci >= graph_chunk.site_allele_orig_idx.size()) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        if (meta.non_selected_alt_class) continue;
+        const CandidateVariant& row = graph_chunk.chunk.candidates[ci];
+        const auto& original = graph_chunk.site_allele_orig_idx[ci];
+        std::array<int, 2> local = {row.hap_to_cons_alle[1], row.hap_to_cons_alle[2]};
+        if (local[0] < 0 || local[1] < 0 || local[0] == local[1]) {
+            if (row.counts.n_uniq_alles != 2 || original.size() != 2) continue;
+            local = {0, 1};
+        }
+        const auto sequence = [&](int allele) -> const std::string* {
+            if (allele < 0 || allele >= row.counts.n_uniq_alles ||
+                static_cast<size_t>(allele) >= original.size()) return nullptr;
+            const int source = original[static_cast<size_t>(allele)];
+            if (source == 0) return &meta.ref;
+            return source > 0 && static_cast<size_t>(source) <= meta.alts.size()
+                ? &meta.alts[static_cast<size_t>(source - 1)] : nullptr;
+        };
+        const std::string* first = sequence(local[0]);
+        const std::string* second = sequence(local[1]);
+        if (first == nullptr || second == nullptr) continue;
+        const auto contrast = normalize_allele_contrast(meta.pos, meta.ref, *first, *second, reference_base);
+        if (!contrast) continue;
+        if (contrast->reversed) std::swap(local[0], local[1]);
+        graph_chunk.candidate_allele_contrasts[ci] = CandidateAlleleContrast{contrast->key, local};
+        contrasts[contrast->key].push_back(ci);
+        // Keep the established REF/ALT consumers in their original 0/1 gauge.
+        if (row.counts.n_uniq_alles == 2 && original.size() == 2 && original[0] == 0 &&
+            local == std::array<int, 2>{0, 1} && !contrast->key.alleles[0])
+            descriptions[*contrast->key.alleles[1]].push_back(ci);
+    }
+    graph_chunk.joint_candidate_loci.clear();
+    for (auto& [identity, members] : descriptions) {
+        if (members.size() > 1)
+            graph_chunk.joint_candidate_loci.emplace_back(identity, std::move(members));
+    }
+    graph_chunk.joint_allele_contrasts.clear();
+    for (auto& [contrast, members] : contrasts) {
+        if (members.size() > 1)
+            graph_chunk.joint_allele_contrasts.emplace_back(contrast, std::move(members));
+    }
+}
+
+MoleculeAlleleEvidence joint_contrast_molecule_evidence(
+        const GraphChunkBuildResult& graph_chunk, const std::vector<size_t>& members,
+        const ReadVariantProfile& profile) {
+    MoleculeAlleleEvidence evidence;
+    if (profile.start_var_idx < 0) return evidence;
+    for (const size_t ci : members) {
+        const auto& contrast = graph_chunk.candidate_allele_contrasts[ci];
+        if (!contrast || ci < static_cast<size_t>(profile.start_var_idx)) continue;
+        const size_t offset = ci - static_cast<size_t>(profile.start_var_idx);
+        const auto add = [&](const std::vector<int>& calls, const std::vector<int>& query_indices) {
+            if (offset >= calls.size()) return;
+            const int call = calls[offset];
+            const int allele = call == kConflictingBamAllele ? kConflictingBamAllele
+                : call == contrast->local_alleles[0] ? 0
+                : call == contrast->local_alleles[1] ? 1 : -1;
+            evidence.add(ci, allele, offset < query_indices.size() ? query_indices[offset] : 0);
+        };
+        // A primary profile may already prefer one channel. Inspect original
+        // channels when retained, so that preference cannot erase a conflict.
+        if (profile.graph_alleles.empty())
+            add(profile.alleles, profile.alt_qi);
+        else
+            add(profile.graph_alleles, {});
+        add(profile.bam_alleles, profile.bam_qi);
+    }
+    return evidence;
+}
+
+void phase_joint_graph_candidates(GraphChunkBuildResult& graph_chunk, const Options& opts,
+        const std::function<char(hts_pos_t)>& reference_base) {
+    rebuild_joint_candidate_loci(graph_chunk, reference_base);
+    PhasingChunk& chunk = graph_chunk.chunk;
+    std::vector<const std::vector<size_t>*> projected;
+    for (const auto& [identity, members] : graph_chunk.joint_candidate_loci) {
+        (void)identity;
+        const CandidateVariant& first = chunk.candidates[members.front()];
+        // Identity cannot widen MSA/repeat admission or equate phase-set gauges.
+        if ((first.lcd_var_i_to_cate != kCandCleanHetSnp &&
+             first.lcd_var_i_to_cate != kCandCleanHetIndel) ||
+            !first.msa_insertion_alts.empty() || first.is_homopolymer_indel ||
+            first.phase_set > 0) continue;
+        const bool compatible = std::all_of(members.begin(), members.end(), [&](size_t ci) {
+            const CandidateVariant& row = chunk.candidates[ci];
+            return row.lcd_var_i_to_cate == first.lcd_var_i_to_cate &&
+                row.counts.category == first.counts.category && row.phase_set <= 0 &&
+                row.hap_to_cons_alle[1] < 0 && row.hap_to_cons_alle[2] < 0 &&
+                (!opts.snarl_allele_phasing || graph_chunk.site_meta[ci].alts.size() == 1) &&
+                row.msa_insertion_alts.empty() && !row.is_homopolymer_indel &&
+                row.read_rescue_requires_validation == first.read_rescue_requires_validation &&
+                row.bam_independent_genotype == first.bam_independent_genotype &&
+                row.gap_link_supported == first.gap_link_supported &&
+                row.hp_gap_scorable == first.hp_gap_scorable;
+        });
+        if (!compatible) continue;
+        std::vector<VariantKey> edits;
+        for (const size_t ci : members) {
+            const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+            edits.push_back(vcf_to_variant_key(chunk.region.tid, meta.pos, meta.ref,
+                *selected_graph_candidate_alt(graph_chunk, ci)));
+        }
+        const bool covered = std::all_of(chunk.read_var_profile.begin(), chunk.read_var_profile.end(),
+            [&](const ReadVariantProfile& profile) {
+                for (size_t i = 1; i < members.size(); ++i) {
+                    const int offset = static_cast<int>(members[i]) - profile.start_var_idx;
+                    if (profile.start_var_idx < 0 || offset < 0 ||
+                        static_cast<size_t>(offset) >= profile.alleles.size()) continue;
+                    const int allele = profile.alleles[offset];
+                    if (allele != 0 && allele != 1) continue;
+                    const GraphSiteMeta& source_meta = graph_chunk.site_meta[members[i]];
+                    const GraphSiteMeta& parent_meta = graph_chunk.site_meta[members.front()];
+                    const bool same_contrast = source_meta.pos == parent_meta.pos &&
+                        source_meta.ref == parent_meta.ref &&
+                        *selected_graph_candidate_alt(graph_chunk, members[i]) ==
+                        *selected_graph_candidate_alt(graph_chunk, members.front());
+                    const int parent_offset = static_cast<int>(members.front()) - profile.start_var_idx;
+                    const auto& graph_calls = profile.graph_alleles.empty()
+                        ? profile.alleles : profile.graph_alleles;
+                    const int parent_call = parent_offset >= 0 &&
+                        static_cast<size_t>(parent_offset) < graph_calls.size()
+                        ? graph_calls[parent_offset] : -1;
+                    // A primitive event's REF does not certify the full allele
+                    // at a containing snarl, which may have other sample ALTs.
+                    if (!same_contrast && parent_call != 0 && parent_call != 1) return false;
+                    const ReadRecord& read = chunk.reads[profile.read_id];
+                    // A graph walk through a shifted site cannot establish a
+                    // complete contrast outside the molecule's physical span.
+                    if ((edits[i].pos != edits[0].pos || edits[i].ref_len != edits[0].ref_len) &&
+                        !supports_normalized_observation(allele, read.beg, read.end,
+                            edits[i].pos, edits[i].ref_len, edits[0].pos, edits[0].ref_len)) return false;
+                }
+                return true;
+            });
+        if (covered) projected.push_back(&members);
+    }
+    if (!opts.phase_matrix_dump_prefix.empty())
+        std::fprintf(stderr, "[joint-candidate-loci] duplicates=%zu projected=%zu\n",
+                     graph_chunk.joint_candidate_loci.size(), projected.size());
+    if (projected.empty()) {
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
+        return;
+    }
+    std::vector<ReadVariantProfile> original_profiles = chunk.read_var_profile;
+    std::vector<std::pair<size_t, uint32_t>> original_masks;
+    for (const auto* members : projected) {
+        for (size_t i = 1; i < members->size(); ++i) {
+            CandidateVariant& row = chunk.candidates[(*members)[i]];
+            original_masks.emplace_back((*members)[i], row.lcd_var_i_to_cate);
+            row.lcd_var_i_to_cate = 0;
+        }
+        for (ReadVariantProfile& profile : chunk.read_var_profile) {
+            MoleculeAlleleEvidence evidence;
+            for (const size_t ci : *members) {
+                const int offset = static_cast<int>(ci) - profile.start_var_idx;
+                if (profile.start_var_idx < 0 || offset < 0 ||
+                    static_cast<size_t>(offset) >= profile.alleles.size()) continue;
+                evidence.add(ci, profile.alleles[offset],
+                    static_cast<size_t>(offset) < profile.alt_qi.size() ? profile.alt_qi[offset] : 0);
+            }
+            if (evidence.observations().empty()) continue;
+            update_read_var_profile_with_allele(static_cast<int>(members->front()),
+                evidence.allele() < 0 ? -1 : evidence.allele(), evidence.query_index(), profile);
+        }
+    }
+    const auto restore = [&]() {
+        for (const auto& [ci, mask] : original_masks) chunk.candidates[ci].lcd_var_i_to_cate = mask;
+        chunk.read_var_profile = std::move(original_profiles);
+        rebuild_read_var_cr(chunk);
+    };
+    try {
+        rebuild_read_var_cr(chunk);
+        assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineClean);
+        for (const auto* members : projected) {
+            const CandidateVariant& phased = chunk.candidates[members->front()];
+            for (size_t i = 1; i < members->size(); ++i) {
+                CandidateVariant& alias = chunk.candidates[(*members)[i]];
+                alias.phase_set = phased.phase_set;
+                alias.hap_alt = phased.hap_alt;
+                alias.hap_ref = phased.hap_ref;
+                alias.hap_to_cons_alle = phased.hap_to_cons_alle;
+                alias.hap_to_alle_profile = phased.hap_to_alle_profile;
+            }
+        }
+    } catch (...) {
+        restore();
+        throw;
+    }
+    restore();
+}
+
 bool retained_source_snp_path_anchor_supported(
         const GraphChunkBuildResult& gc, size_t candidate_index) {
     constexpr int kMinQuality = 30;
@@ -1592,8 +1792,8 @@ bool retained_source_snp_path_anchor_supported(
     return false;
 }
 
-std::optional<VariantKey> retained_shared_deletion_key(
-        const GraphChunkBuildResult& gc, size_t candidate_index) {
+static std::optional<VariantKey> retained_shared_indel_key(
+        const GraphChunkBuildResult& gc, size_t candidate_index, VariantType type) {
     if (candidate_index >= gc.chunk.candidates.size() ||
         candidate_index >= gc.site_meta.size()) return std::nullopt;
     const CandidateVariant& candidate = gc.chunk.candidates[candidate_index];
@@ -1608,16 +1808,26 @@ std::optional<VariantKey> retained_shared_deletion_key(
         origin = &source;
     }
     if (origin == nullptr || !origin->can_adopt || !origin->msa_key ||
-        origin->msa_key->type != VariantType::Deletion ||
-        !origin->msa_key->alt.empty()) return std::nullopt;
+        origin->msa_key->type != type) return std::nullopt;
     const std::string* alt = selected_graph_candidate_alt(gc, candidate_index);
     if (alt == nullptr) return std::nullopt;
     const GraphSiteMeta& meta = gc.site_meta[candidate_index];
     const VariantKey key = vcf_to_variant_key(
         origin->msa_key->tid, meta.pos, meta.ref, *alt);
-    if (key.type != VariantType::Deletion || !key.alt.empty() || key.ref_len <= 0 ||
-        key.ref_len != origin->msa_key->ref_len) return std::nullopt;
+    if (key.type != type || (type == VariantType::Deletion ?
+        !key.alt.empty() || !origin->msa_key->alt.empty() || key.ref_len <= 0 || key.ref_len != origin->msa_key->ref_len :
+        key.alt.empty() || exact_comp_var_site(&key, &*origin->msa_key) != 0)) return std::nullopt;
     return key;
+}
+
+std::optional<VariantKey> retained_shared_deletion_key(
+        const GraphChunkBuildResult& gc, size_t candidate_index) {
+    return retained_shared_indel_key(gc, candidate_index, VariantType::Deletion);
+}
+
+std::optional<VariantKey> retained_shared_insertion_key(
+        const GraphChunkBuildResult& gc, size_t candidate_index) {
+    return retained_shared_indel_key(gc, candidate_index, VariantType::Insertion);
 }
 
 int masked_bam_snp_haplotype(const PhasingChunk& chunk,
@@ -2042,6 +2252,33 @@ std::optional<bool> calibrated_source_deletion_bridge_flip(
         !std::isfinite(quality_error_bound) || quality_error_bound < 0.0 ||
         quality_error_bound > kMaxJointError) return std::nullopt;
     return parity[1] != 0;
+}
+
+size_t tandem_insertion_motif_length(const std::string& first, const std::string& second) {
+    constexpr size_t kMaxMotifLength = 8;
+    if (second.empty() || first.size() >= second.size()) return 0;
+    for (size_t period = 1; period <= kMaxMotifLength && period <= second.size(); ++period) {
+        if (first.size() % period != 0 || second.size() % period != 0) continue;
+        const auto repeats = [&second, period](const std::string& sequence) {
+            for (size_t i = 0; i < sequence.size(); ++i)
+                if (sequence[i] != second[i % period]) return false;
+            return true;
+        };
+        if (repeats(first) && repeats(second)) return period;
+    }
+    return 0;
+}
+
+int bounded_tandem_insertion_class(int observed, int first, int second,
+                                   const std::array<int, 2>& distances) {
+    constexpr int kMaxLengthSlippage = 2;
+    constexpr int kMaxSharedEdits = 1;
+    if (first < 0 || second <= first || distances[0] < 0 || distances[1] < 0) return -1;
+    const std::array<int, 2> slippage{std::abs(observed - first), std::abs(observed - second)};
+    if (slippage[0] == slippage[1] || distances[0] == distances[1]) return -1;
+    const int allele = slippage[1] < slippage[0] ? 1 : 0;
+    return slippage[allele] <= kMaxLengthSlippage && distances[allele] < distances[1 - allele] &&
+        distances[allele] <= slippage[allele] + kMaxSharedEdits ? allele : -1;
 }
 
 int complementary_insertion_length_class(int observed, int first, int second) {
@@ -3339,6 +3576,75 @@ void detach_bam_sites_across_weak_cuts(GraphChunkBuildResult& gc) {
     }
 }
 
+void retain_disjoint_recovery_sources(GraphChunkBuildResult& gc,
+                                      const GraphChunkBuildResult& before) {
+    std::unordered_set<size_t> claimed;
+    for (const RecoverySourceSite& site : gc.recovery_source_sites)
+        claimed.insert(site.candidate_index);
+    std::map<hts_pos_t, std::vector<RecoverySourceSite>> groups;
+    std::unordered_set<hts_pos_t> rejected;
+    for (RecoverySourceSite site : before.recovery_source_sites) {
+        if (site.candidate_index >= before.chunk.candidates.size()) {
+            rejected.insert(site.phase_set);
+            continue;
+        }
+        const VariantKey& key = before.chunk.candidates[site.candidate_index].key;
+        std::optional<size_t> current;
+        for (size_t ci = 0; ci < gc.chunk.candidates.size(); ++ci) {
+            if (exact_comp_var_site(&key, &gc.chunk.candidates[ci].key) != 0) continue;
+            if (current) { current.reset(); break; }
+            current = ci;
+        }
+        if (!current || claimed.count(*current) != 0) {
+            rejected.insert(site.phase_set);
+            continue;
+        }
+        site.candidate_index = *current;
+        groups[site.phase_set].push_back(std::move(site));
+    }
+    std::set<hts_pos_t> used;
+    for (const auto& [ps, supported] : gc.recovery_source_path_supported) {
+        (void)supported;
+        used.insert(ps);
+    }
+    for (const CandidateVariant& candidate : gc.chunk.candidates)
+        if (candidate.phase_set > 0) used.insert(candidate.phase_set);
+    std::map<hts_pos_t, hts_pos_t> retained;
+    for (auto& [ps, sites] : groups) {
+        if (rejected.count(ps) != 0) continue;
+        const auto path = before.recovery_source_path_supported.find(ps);
+        const auto weak = before.recovery_source_weak_cuts.find(ps);
+        if (path == before.recovery_source_path_supported.end() ||
+            weak == before.recovery_source_weak_cuts.end()) continue;
+        hts_pos_t mapped = ps;
+        // Source IDs name independent solves, rather than live graph blocks.
+        while (mapped <= 0 || used.count(mapped) != 0) ++mapped;
+        used.insert(mapped);
+        retained.emplace(ps, mapped);
+        gc.recovery_source_path_supported.emplace(mapped, path->second);
+        gc.recovery_source_weak_cuts.emplace(mapped, weak->second);
+        const auto quality = before.recovery_source_quality_cuts.find(ps);
+        if (quality != before.recovery_source_quality_cuts.end())
+            gc.recovery_source_quality_cuts.emplace(mapped, quality->second);
+        for (RecoverySourceSite& site : sites) {
+            site.phase_set = mapped;
+            gc.recovery_source_sites.push_back(std::move(site));
+        }
+    }
+    std::unordered_map<std::string, size_t> reads;
+    for (size_t ri = 0; ri < gc.chunk.reads.size(); ++ri)
+        reads.emplace(gc.chunk.reads[ri].qname, ri);
+    for (RecoverySourceRead read : before.recovery_source_reads) {
+        const auto ps = retained.find(read.phase_set);
+        if (ps == retained.end() || read.read_index >= before.chunk.reads.size()) continue;
+        const auto ri = reads.find(before.chunk.reads[read.read_index].qname);
+        if (ri == reads.end()) continue;
+        read.phase_set = ps->second;
+        read.read_index = ri->second;
+        gc.recovery_source_reads.push_back(read);
+    }
+}
+
 bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
                                     size_t candidate_index) {
     if (candidate_index >= gc.chunk.candidates.size()) return false;
@@ -3390,8 +3696,8 @@ bool bam_source_site_path_supported(const GraphChunkBuildResult& gc,
     return anchored;
 }
 
-bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& gc,
-                                          size_t candidate_index) {
+static bool bam_source_site_to_graph_supported(const GraphChunkBuildResult& gc,
+        size_t candidate_index, bool downstream, size_t min_shared_loci = 1) {
     const PhasingChunk& chunk = gc.chunk;
     if (candidate_index >= chunk.candidates.size()) return false;
     const CandidateVariant& marker = chunk.candidates[candidate_index];
@@ -3415,18 +3721,22 @@ bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& gc,
     };
     const int gauge = orientation(marker, *origin);
     if (gauge < 0) return false;
-    const hts_pos_t first = marker.key.sort_pos();
-    hts_pos_t last = std::numeric_limits<hts_pos_t>::max();
+    const hts_pos_t marker_pos = marker.key.sort_pos();
+    std::set<hts_pos_t> graph_positions;
     for (const RecoverySourceSite& site : gc.recovery_source_sites) {
         if (site.phase_set != origin->phase_set || !site.clean_shared_snp ||
             site.candidate_index >= chunk.candidates.size()) continue;
         const CandidateVariant& row = chunk.candidates[site.candidate_index];
         if (!row.bam_injected && row.phase_set == marker.phase_set &&
             row.counts.category == VariantCategory::CleanHetSnp &&
-            is_phase_set_anchor(row) && row.key.sort_pos() > first)
-            last = std::min(last, row.key.sort_pos());
+            is_phase_set_anchor(row) && (downstream ? row.key.sort_pos() > marker_pos : row.key.sort_pos() < marker_pos))
+            graph_positions.insert(row.key.sort_pos());
     }
-    if (last == std::numeric_limits<hts_pos_t>::max()) return false;
+    if (graph_positions.size() < min_shared_loci) return false;
+    const hts_pos_t graph_pos = downstream ? *std::next(graph_positions.begin(), min_shared_loci - 1) :
+        *std::next(graph_positions.rbegin(), min_shared_loci - 1);
+    const hts_pos_t first = std::min(marker_pos, graph_pos);
+    const hts_pos_t last = std::max(marker_pos, graph_pos);
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
         const CandidateVariant& row = chunk.candidates[ci];
         if (row.phase_set != marker.phase_set || !is_phase_set_anchor(row) ||
@@ -3451,6 +3761,72 @@ bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& gc,
     const auto quality = gc.recovery_source_quality_cuts.find(origin->phase_set);
     return !crosses(weak->second) &&
         (quality == gc.recovery_source_quality_cuts.end() || !crosses(quality->second));
+}
+
+bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& gc,
+                                          size_t candidate_index) {
+    return bam_source_site_to_graph_supported(gc, candidate_index, true);
+}
+
+bool bam_source_suffix_from_graph_supported(const GraphChunkBuildResult& gc,
+                                            size_t candidate_index) {
+    return bam_source_site_to_graph_supported(gc, candidate_index, false);
+}
+
+bool retained_source_component_gauge_supported(const GraphChunkBuildResult& gc,
+                                                size_t candidate_index) {
+    constexpr size_t kMinSharedLoci = 2;
+    if (candidate_index >= gc.chunk.candidates.size()) return false;
+    const CandidateVariant& marker = gc.chunk.candidates[candidate_index];
+    if (!is_phase_set_anchor(marker)) return false;
+    const bool verified_deletion = marker.bam_injected && marker.msa_verified &&
+        marker.alignment_verified && marker.key.type == VariantType::Deletion && marker.key.alt.empty();
+    if (marker.key.type != VariantType::Insertion && !verified_deletion &&
+        !retained_shared_deletion_key(gc, candidate_index)) return false;
+    const RecoverySourceSite* origin = nullptr;
+    for (const RecoverySourceSite& source : gc.recovery_source_sites) {
+        if (source.candidate_index != candidate_index) continue;
+        if (origin) return false;
+        origin = &source;
+    }
+    if (!origin || !origin->can_adopt || !origin->msa_key || origin->phase_set <= 0 ||
+        (origin->msa_key->type != VariantType::Insertion && origin->msa_key->type != VariantType::Deletion) ||
+        marker.hap_to_cons_alle[1] < 0 || marker.hap_to_cons_alle[1] > 1 ||
+        marker.hap_to_cons_alle[2] != 1 - marker.hap_to_cons_alle[1] ||
+        origin->hap1_allele < 0 || origin->hap1_allele > 1 || origin->hap2_allele != 1 - origin->hap1_allele)
+        return false;
+    if (verified_deletion) {
+        if (exact_comp_var_site(&marker.key, &*origin->msa_key) != 0) return false;
+        return bam_source_site_to_graph_supported(gc, candidate_index, false, kMinSharedLoci) ||
+            bam_source_site_to_graph_supported(gc, candidate_index, true, kMinSharedLoci);
+    }
+    const auto weak = gc.recovery_source_weak_cuts.find(origin->phase_set);
+    if (weak == gc.recovery_source_weak_cuts.end()) return false;
+    const hts_pos_t pos = marker.key.sort_pos();
+    hts_pos_t left = 0, right = std::numeric_limits<hts_pos_t>::max();
+    const auto bound = [&](const auto& cuts) {
+        for (const hts_pos_t cut : cuts) {
+            if (cut < pos) left = std::max(left, cut);
+            else right = std::min(right, cut);
+        }
+    };
+    bound(weak->second);
+    const auto quality = gc.recovery_source_quality_cuts.find(origin->phase_set);
+    if (quality != gc.recovery_source_quality_cuts.end()) bound(quality->second);
+    const bool flip = marker.hap_to_cons_alle[1] != origin->hap1_allele;
+    std::set<hts_pos_t> loci;
+    for (const RecoverySourceSite& source : gc.recovery_source_sites) {
+        if (source.phase_set != origin->phase_set || source.candidate_index >= gc.chunk.candidates.size()) continue;
+        const CandidateVariant& row = gc.chunk.candidates[source.candidate_index];
+        if (!is_phase_set_anchor(row) || row.key.sort_pos() <= left || row.key.sort_pos() > right) continue;
+        if (!source.can_adopt || row.phase_set != marker.phase_set ||
+            source.hap1_allele < 0 || source.hap1_allele > 1 || source.hap2_allele != 1 - source.hap1_allele ||
+            row.hap_to_cons_alle[2] != 1 - row.hap_to_cons_alle[1] ||
+            (row.hap_to_cons_alle[1] != source.hap1_allele) != flip) return false;
+        if (source.clean_shared_snp && !row.bam_injected && row.counts.category == VariantCategory::CleanHetSnp)
+            loci.insert(row.key.sort_pos());
+    }
+    return loci.size() >= kMinSharedLoci;
 }
 
 // Require both observed allele classes and the same significant orientation

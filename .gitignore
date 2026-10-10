@@ -5,6 +5,7 @@
 /test_graph_sites
 /test_graph_phase
 /test_graph_bam_adapter
+/test_allele_identity
 /test_hybrid_inject
 /test_noise_filter
 /dist/
@@ -133,3 +134,7 @@ test_port_parity
 /test_upstream_phase
 
 /src/test_gap_hiphase.tsv.json
+
+/test_allele_context
+
+/test_allele_genotype

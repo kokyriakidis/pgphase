@@ -1,0 +1,34 @@
+{
+  "ignore_reference_validation": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "ignore_padding_ambiguity": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "collapse_ambiguous_nested_duplicates": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "count_exact_raw_duplicates": {
+    "exit": 1,
+    "failed_checks": 22
+  },
+  "count_padded_duplicates": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "count_shifted_repeat_aliases": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "permit_consumed_reference_overlap": {
+    "exit": 1,
+    "failed_checks": 4
+  },
+  "fail_to_consume_deleted_reference": {
+    "exit": 1,
+    "failed_checks": 2001
+  }
+}

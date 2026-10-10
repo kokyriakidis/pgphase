@@ -1,0 +1,38 @@
+{
+  "primary_reads": 256612,
+  "before_counts": {
+    "correct": 230894,
+    "unphased": 19074,
+    "discordant": 6644
+  },
+  "after_counts": {
+    "correct": 230901,
+    "unphased": 19069,
+    "discordant": 6642
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_read_tags": 32,
+  "changed_evidence": [],
+  "changed_tags_with_status_change_outside_gap": [],
+  "unchanged_rescue_reclassification_outside_gap": [],
+  "removed_variant_keys": [],
+  "added_variant_keys": [],
+  "transitions": {
+    "correct->correct": 230894,
+    "unphased->unphased": 19069,
+    "discordant->discordant": 6642,
+    "unphased->correct": 5,
+    "discordant->correct": 2
+  },
+  "newly_correct": [
+    "m84031_231217_034919_s2/148244683/ccs",
+    "m84031_231217_034919_s2/191500267/ccs",
+    "m84031_231217_034919_s2/228786494/ccs",
+    "m84031_231217_034919_s2/241177946/ccs",
+    "m84031_231217_034919_s2/66458994/ccs",
+    "m84031_231217_062403_s3/192088190/ccs",
+    "m84031_231217_062403_s3/82513030/ccs"
+  ]
+}

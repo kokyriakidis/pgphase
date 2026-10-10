@@ -162,8 +162,8 @@ struct Outcome {
     /// Reads correctly separated into ONE block, over every read in the window
     /// that truth can score. This is the product the pipeline exists to make:
     /// purity alone hides fragmentation (two immaculate half-blocks separate
-    /// nobody), and block count alone hides switches. Measured on the largest
-    /// phase set touching the window.
+    /// nobody), and block count alone hides switches. Use the greatest
+    /// correct-read count in one phase set touching the window.
     int dominant_correct = 0;
     int window_scorable = 0;
     int primary_scorable = 0;
@@ -558,17 +558,12 @@ void score_bam(const std::string& path, const Window& w,
     // A side counts as placed only when it is confident: at least five scored
     // reads and at least 90% of them agreeing. Two confidently placed ends that
     // disagree are a switch inside one block.
-    // The dominant block: the phase set scoring the most reads in this window,
-    // and how many of those it places on the right parent.
+    // Adding correct rescues to another core cannot erase existing coverage.
+    // Select the best correctly placed cohort, rather than the most tagged one.
     {
-        int best_n = 0;
-        for (const auto& kv : win_votes) {
-            const int n = kv.second.first + kv.second.second;
-            if (n > best_n) {
-                best_n = n;
-                out.dominant_correct = std::max(kv.second.first, kv.second.second);
-            }
-        }
+        for (const auto& kv : win_votes)
+            out.dominant_correct = std::max(out.dominant_correct,
+                std::max(kv.second.first, kv.second.second));
         out.window_scorable = 0;
         for (const auto& [name, se] : spans) {
             if (se.second < w.gap_left || se.first > w.gap_right) continue;
@@ -5880,6 +5875,41 @@ static void gap_a_clean_snp_retry_certifies_a_complete_independent_bam_suffix(co
     CHECK(rows.at(gap.gap_left).second == rows.at(57785772).second);
 }
 
+TEST_CASE("correct rescue promotion preserves the best connected coverage", "[gap][unit][score]") {
+    const auto directory = std::filesystem::temp_directory_path() / "pgphase-gap-score-unit";
+    std::filesystem::create_directories(directory);
+    const auto path = directory / "reads.sam";
+    std::unordered_map<std::string, char> truth;
+    ReadSpans spans;
+    Window gap;
+    gap.gap_left = 100; gap.gap_right = 108;
+    for (const bool promoted : {false, true}) {
+        {
+            std::ofstream sam(path);
+            REQUIRE(sam.good());
+            sam << "@HD\tVN:1.6\n@SQ\tSN:chr20\tLN:1000\n";
+            const auto add = [&](const std::string& name, char parent, long long ps) {
+                truth[name] = parent; spans[name] = {99, 109};
+                sam << name << "\t0\tchr20\t100\t60\t10M\t*\t0\t0\tAAAAAAAAAA\t*\tHP:i:1\tPS:i:" << ps << '\n';
+            };
+            for (int i = 0; i < 5; ++i) add("accurate" + std::to_string(i), 'M', 100);
+            for (int i = 0; i < 2; ++i) {
+                add("correct" + std::to_string(i), 'M', 200);
+                add("wrong" + std::to_string(i), 'P', 200);
+                add("rescue" + std::to_string(i), 'M', promoted ? 200 : 1000000200);
+            }
+        }
+        Outcome got;
+        score_bam(path.string(), gap, truth, spans, got);
+        CHECK(got.correct == 9);
+        CHECK(got.primary_correct == 9);
+        CHECK(got.core_correct == 5);
+        CHECK(got.dominant_correct == 5);
+        CHECK(got.window_scorable == 11);
+    }
+    std::filesystem::remove(path);
+}
+
 TEST_CASE("gap certification counts abstentions and excludes rescue cores", "[gap][unit]") {
     const auto directory = std::filesystem::temp_directory_path() /
         "pgphase-gap-contract-unit";
@@ -7306,6 +7336,281 @@ static void gap_calibrated_deletion_chain_closes_the_56_mb_boundary(const Paths&
     }
 }
 
+static void gap_overlapping_source_reads_close_the_36_259_mb_orphan(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{36252907, 36259922, 90, 81, 80},
+                              std::array<long long, 5>{36261301, 36268291, 100, 97, 96}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        INFO("overlapping source interval " << gap.gap_left << '-' << gap.gap_right);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        check_read_floors("gap_overlapping_source_reads_close_the_36_259_mb_orphan", got);
+    }
+    Window gap;
+    gap.gap_left = 36252907; gap.gap_right = 36259922;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/191500267/ccs", "m84031_231217_034919_s2/241177946/ccs",
+        "m84031_231217_062403_s3/192088190/ccs", "m84031_231217_062403_s3/82513030/ccs"};
+    std::set<std::string> checked;
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 36156319 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap1); checked.insert(name); }
+        if (span->second.first <= 36247421 && span->second.second < gap.gap_left) ++parents[0][mat_on_hap1];
+        if (span->second.first > gap.gap_left && span->second.second >= 36268558) ++parents[1][mat_on_hap1];
+    }
+    CHECK(checked == restored);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.80);
+    }
+}
+
+static void gap_complex_tandem_reads_close_the_19_373_mb_orphan(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{19365840, 19373922, 89, 87, 86},
+                              std::array<long long, 5>{19373922, 19377345, 67, 60, 58}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        INFO("complex tandem interval " << gap.gap_left << '-' << gap.gap_right);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        check_read_floors("gap_complex_tandem_reads_close_the_19_373_mb_orphan", got);
+    }
+    Window gap;
+    gap.gap_left = 19365840; gap.gap_right = 19373922;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/104666973/ccs", "m84031_231217_034919_s2/108529068/ccs",
+        "m84031_231217_034919_s2/223283860/ccs", "m84031_231217_062403_s3/171511257/ccs"};
+    std::set<std::string> checked;
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 19000747 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap1); checked.insert(name); }
+        if (span->second.first <= 19358995 && span->second.second >= 19366000 && span->second.second < 19373923)
+            ++parents[0][mat_on_hap1];
+        if (span->second.first > 19365841 && span->second.first <= 19373907 && span->second.second >= 19373998)
+            ++parents[1][mat_on_hap1];
+    }
+    CHECK(checked == restored);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.90);
+    }
+}
+
+static void gap_source_components_close_the_46_403_mb_orphan(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{46389864, 46402979, 118, 107, 107},
+                              std::array<long long, 5>{46402979, 46405048, 75, 72, 72}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        INFO("retained source component interval " << gap.gap_left << '-' << gap.gap_right);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        check_read_floors("gap_source_components_close_the_46_403_mb_orphan", got);
+    }
+    Window gap;
+    gap.gap_left = 46389864; gap.gap_right = 46402979;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/139006833/ccs", "m84031_231217_034919_s2/212666093/ccs",
+        "m84031_231217_034919_s2/248055448/ccs", "m84031_231217_034919_s2/209654690/ccs"};
+    std::set<std::string> checked;
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 46629630 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap2 = (bam_aux2i(hp) == 2) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap2); checked.insert(name); }
+        if (span->second.first <= 46384021 && span->second.second >= 46388276 && span->second.second < 46402980)
+            ++parents[0][mat_on_hap2];
+        if (span->second.first > 46402980 && span->second.first <= 46405032 && span->second.second >= 46407855)
+            ++parents[1][mat_on_hap2];
+    }
+    CHECK(checked == restored);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.90);
+    }
+}
+
+static void gap_complementary_deletion_reads_close_the_4_637_mb_orphan(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{4625182, 4637298, 127, 113, 113},
+                              std::array<long long, 5>{4637298, 4642430, 87, 76, 76}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        INFO("calibrated complementary deletion interval " << gap.gap_left << '-' << gap.gap_right);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        check_read_floors("gap_complementary_deletion_reads_close_the_4_637_mb_orphan", got);
+    }
+    Window gap;
+    gap.gap_left = 4625182; gap.gap_right = 4637298;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/113051567/ccs", "m84031_231217_034919_s2/7277844/ccs",
+        "m84031_231217_034919_s2/164692629/ccs", "m84031_231217_034919_s2/244580560/ccs"};
+    std::set<std::string> checked;
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 4878943 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap1); checked.insert(name); }
+        if (span->second.first <= 4618685 && span->second.second < 4625183)
+            ++parents[0][mat_on_hap1];
+        if (span->second.first > 4637328 && span->second.first <= 4642430 && span->second.second >= 4646873)
+            ++parents[1][mat_on_hap1];
+    }
+    CHECK(checked == restored);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.90);
+    }
+}
+
+static void gap_shared_insertion_source_closes_the_4_874_mb_gap(const Paths& p) {
+    const auto& truth = load_truth(p.truth_map);
+    for (const auto& bounds : {std::array<long long, 5>{4874129, 4884130, 64, 54, 53}}) {
+        Window gap;
+        gap.gap_left = bounds[0]; gap.gap_right = bounds[1];
+        const Outcome got = measure(p, gap, "graph", "", truth);
+        INFO("verified shared insertion source interval " << gap.gap_left << '-' << gap.gap_right);
+        CHECK(got.spans);
+        CHECK_FALSE(got.switched);
+        CHECK(got.primary_scorable == bounds[2]);
+        CHECK(got.primary_correct >= bounds[3]);
+        CHECK(got.core_correct >= bounds[4]);
+        check_gap_contract(p, gap, got);
+        check_read_floors("gap_shared_insertion_source_closes_the_4_874_mb_gap", got);
+    }
+    Window gap;
+    gap.gap_left = 4874129; gap.gap_right = 4884130;
+    std::string dir;
+    REQUIRE(run_arm(p, gap, "graph", "", dir));
+    const auto& spans = input_read_spans(p, gap);
+    const std::set<std::string> restored{
+        "m84031_231217_034919_s2/159058286/ccs", "m84031_231217_034919_s2/109974913/ccs",
+        "m84031_231217_062403_s3/105712769/ccs", "m84031_231217_062403_s3/220401034/ccs",
+        "m84031_231217_034919_s2/258343457/ccs"};
+    std::set<std::string> checked;
+    bool preserved_rescue = false;
+    std::array<std::array<int, 2>, 2> parents{};
+    const std::unique_ptr<samFile, decltype(&hts_close)> bam(sam_open((dir + "/phased.bam").c_str(), "r"), hts_close);
+    REQUIRE(bam != nullptr);
+    const std::unique_ptr<bam_hdr_t, decltype(&bam_hdr_destroy)> header(sam_hdr_read(bam.get()), bam_hdr_destroy);
+    const std::unique_ptr<bam1_t, decltype(&bam_destroy1)> record(bam_init1(), bam_destroy1);
+    REQUIRE(header != nullptr); REQUIRE(record != nullptr);
+    while (sam_read1(bam.get(), header.get(), record.get()) >= 0) {
+        if (record->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) continue;
+        const std::string name = bam_get_qname(record.get());
+        const auto parent = truth.find(name);
+        const auto span = spans.find(name);
+        const uint8_t* hp = bam_aux_get(record.get(), "HP");
+        const uint8_t* ps = bam_aux_get(record.get(), "PS");
+        if (name == "m84031_231217_062403_s3/109381842/ccs") {
+            REQUIRE(hp != nullptr); REQUIRE(ps != nullptr);
+            CHECK(bam_aux2i(hp) == 1);
+            CHECK(bam_aux2i(ps) == 1004878943);
+            preserved_rescue = true;
+        }
+        if (parent == truth.end() || span == spans.end() || hp == nullptr || ps == nullptr ||
+            bam_aux2i(ps) != 4878943 || (bam_aux2i(hp) != 1 && bam_aux2i(hp) != 2)) continue;
+        const bool mat_on_hap1 = (bam_aux2i(hp) == 1) == (parent->second == 'M');
+        if (restored.count(name)) { CHECK(mat_on_hap1); checked.insert(name); }
+        if (span->second.first <= 4854217 && span->second.second < 4874129)
+            ++parents[0][mat_on_hap1];
+        if (span->second.first > 4884130 && span->second.first <= 4886360 && span->second.second >= 4890000)
+            ++parents[1][mat_on_hap1];
+    }
+    CHECK(checked == restored);
+    CHECK(preserved_rescue);
+    for (const auto& cohort : parents) {
+        REQUIRE(cohort[0] + cohort[1] >= 3);
+        CHECK(static_cast<double>(cohort[1]) / (cohort[0] + cohort[1]) >= 0.90);
+    }
+}
+
 TEST_CASE("all gaps", "[gap][windows][integration]") {
     const Paths p = paths();
     if (!p.complete()) {
@@ -7319,6 +7624,11 @@ TEST_CASE("all gaps", "[gap][windows][integration]") {
         void (*run)(const Paths&);
     };
     static const GapCheck checks[] = {
+        {"shared insertion source closes the 4.874 Mb gap", "[gap][shared-insertion][orientation]", gap_shared_insertion_source_closes_the_4_874_mb_gap},
+        {"complementary deletion reads close the 4.637 Mb orphan", "[gap][complementary-deletion][orientation]", gap_complementary_deletion_reads_close_the_4_637_mb_orphan},
+        {"source components close the 46.403 Mb orphan", "[gap][source-component][orientation]", gap_source_components_close_the_46_403_mb_orphan},
+        {"complex tandem reads close the 19.373 Mb orphan", "[gap][complex-tandem][orientation]", gap_complex_tandem_reads_close_the_19_373_mb_orphan},
+        {"overlapping source reads close the 36.259 Mb orphan", "[gap][source-overlap][orientation]", gap_overlapping_source_reads_close_the_36_259_mb_orphan},
         {"calibrated deletion chain closes the 56 Mb boundary", "[gap][deletion-chain][orientation]", gap_calibrated_deletion_chain_closes_the_56_mb_boundary},
         {"Calibrated tandem insertions close the 0.865 Mb gap", "[gap][tandem-insertion][orientation]", gap_calibrated_tandem_insertions_close_the_0_865_mb_gap},
         {"calibrated mixed repeat closes the 57.085 Mb gap", "[gap][stitch-connectivity][msa][orientation]", gap_calibrated_mixed_repeat_closes_the_57_085_mb_gap},

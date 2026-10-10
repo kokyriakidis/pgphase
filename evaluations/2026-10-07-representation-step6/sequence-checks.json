@@ -1,0 +1,70 @@
+{
+  "seconds": 126.07147629599785,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "molecules": 1749,
+      "states": {
+        "scored": 1714,
+        "uncovered": 35
+      },
+      "source_conflicts": 104,
+      "conflict_rankings": {
+        "selected_1": 52,
+        "other_allele_closer": 43,
+        "tie": 8,
+        "selected_0": 1
+      },
+      "original_sequence_quality_cigar_verified": 1714,
+      "independent_scalar_dp_verified": 1714
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 7,
+      "molecules": 413,
+      "states": {
+        "scored": 412,
+        "uncovered": 1
+      },
+      "source_conflicts": 7,
+      "conflict_rankings": {
+        "selected_1": 2,
+        "other_allele_closer": 4,
+        "tie": 1
+      },
+      "original_sequence_quality_cigar_verified": 412,
+      "independent_scalar_dp_verified": 412
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 11,
+      "molecules": 391,
+      "states": {
+        "scored": 386,
+        "uncovered": 5
+      },
+      "source_conflicts": 0,
+      "conflict_rankings": {},
+      "original_sequence_quality_cigar_verified": 386,
+      "independent_scalar_dp_verified": 386
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "molecules": 1370,
+      "states": {
+        "scored": 1337,
+        "uncovered": 33
+      },
+      "source_conflicts": 51,
+      "conflict_rankings": {
+        "selected_1": 32,
+        "other_allele_closer": 18,
+        "tie": 1
+      },
+      "original_sequence_quality_cigar_verified": 1337,
+      "independent_scalar_dp_verified": 1337
+    }
+  ]
+}

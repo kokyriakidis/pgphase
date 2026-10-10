@@ -1,0 +1,63 @@
+{
+  "seconds": 2.1154080760024954,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "descriptions": 31,
+      "physical_contexts": 31,
+      "alias_groups": [],
+      "legacy_molecule_records": 1796,
+      "unique_physical_molecule_records": 1796,
+      "redundant_records_removed": 0,
+      "independently_verified_full_and_heldout_fits": 1827,
+      "unchanged_verified_individual_costs": 14981
+    },
+    {
+      "owner": "matrix5-final",
+      "descriptions": 7,
+      "physical_contexts": 6,
+      "alias_groups": [
+        [
+          5,
+          6
+        ]
+      ],
+      "legacy_molecule_records": 484,
+      "unique_physical_molecule_records": 413,
+      "redundant_records_removed": 71,
+      "independently_verified_full_and_heldout_fits": 419,
+      "unchanged_verified_individual_costs": 6290
+    },
+    {
+      "owner": "matrix65-final",
+      "descriptions": 11,
+      "physical_contexts": 10,
+      "alias_groups": [
+        [
+          7,
+          8
+        ]
+      ],
+      "legacy_molecule_records": 483,
+      "unique_physical_molecule_records": 425,
+      "redundant_records_removed": 58,
+      "independently_verified_full_and_heldout_fits": 435,
+      "unchanged_verified_individual_costs": 12202
+    },
+    {
+      "owner": "whole-final",
+      "descriptions": 23,
+      "physical_contexts": 23,
+      "alias_groups": [],
+      "legacy_molecule_records": 1337,
+      "unique_physical_molecule_records": 1337,
+      "redundant_records_removed": 0,
+      "independently_verified_full_and_heldout_fits": 1360,
+      "unchanged_verified_individual_costs": 7095
+    }
+  ],
+  "physical_contexts": 70,
+  "physical_molecule_records": 3971,
+  "legacy_projections_identical": true,
+  "raw_cohorts_and_costs_match_independently_verified_bam_state": true
+}

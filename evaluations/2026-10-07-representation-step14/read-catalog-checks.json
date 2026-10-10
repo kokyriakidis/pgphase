@@ -1,0 +1,54 @@
+[
+  {
+    "owner": "matrix4-final",
+    "contexts": 31,
+    "read_context_rows": 1796,
+    "hypotheses": 120,
+    "new_unique_sequences": 25,
+    "full_hypotheses": 541,
+    "statuses_complete": true,
+    "previous_tables_byte_identical": true,
+    "independent_support_and_catalogs_verified": true,
+    "heldout_discovery_censuses": 1796,
+    "raw_replay_byte_identical": true
+  },
+  {
+    "owner": "matrix5-final",
+    "contexts": 6,
+    "read_context_rows": 413,
+    "hypotheses": 24,
+    "new_unique_sequences": 3,
+    "full_hypotheses": 94,
+    "statuses_complete": true,
+    "previous_tables_byte_identical": true,
+    "independent_support_and_catalogs_verified": true,
+    "heldout_discovery_censuses": 413,
+    "raw_replay_byte_identical": true
+  },
+  {
+    "owner": "matrix65-final",
+    "contexts": 10,
+    "read_context_rows": 425,
+    "hypotheses": 36,
+    "new_unique_sequences": 21,
+    "full_hypotheses": 12530,
+    "statuses_complete": true,
+    "previous_tables_byte_identical": true,
+    "independent_support_and_catalogs_verified": true,
+    "heldout_discovery_censuses": 425,
+    "raw_replay_byte_identical": true
+  },
+  {
+    "owner": "whole-final",
+    "contexts": 23,
+    "read_context_rows": 1337,
+    "hypotheses": 75,
+    "new_unique_sequences": 14,
+    "full_hypotheses": 248,
+    "statuses_complete": true,
+    "previous_tables_byte_identical": true,
+    "independent_support_and_catalogs_verified": true,
+    "heldout_discovery_censuses": 1337,
+    "raw_replay_byte_identical": true
+  }
+]

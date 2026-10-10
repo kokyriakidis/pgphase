@@ -1,0 +1,14 @@
+{
+  "ignore_conflict": {
+    "exit": 1,
+    "failed_checks": 25
+  },
+  "borrow_query_index": {
+    "exit": 1,
+    "failed_checks": 21
+  },
+  "repeat_provenance": {
+    "exit": 1,
+    "failed_checks": 48
+  }
+}

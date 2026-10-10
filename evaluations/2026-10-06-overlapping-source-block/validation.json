@@ -1,0 +1,48 @@
+{
+  "binary_sha256": "10ee7e7a82564a4877e99783a339c9b4b999b1b0c5c5f78fc6975946fa5f8712",
+  "full_output": "test_data/tmp_gap_fix87/final/0",
+  "accepted_read_connections": [
+    [
+      36252907,
+      36259922
+    ],
+    [
+      36261301,
+      36268291
+    ]
+  ],
+  "whole_hiphase_target_closed": false,
+  "build": "passed, no compiler errors or new warnings; comment-only final rebuild produces identical binary",
+  "unit_tests": "passed",
+  "phasing_predicates": {
+    "cases": 47,
+    "assertions": 1551,
+    "result": "passed"
+  },
+  "goldens": "HiFi and ONT TSV/VCF match; HiFi 1 versus 4 threads identical",
+  "owning_threads": "identical candidates, VCF records and BAM assignments",
+  "new_native_fixture": {
+    "assertions": 699,
+    "result": "passed",
+    "baseline_assertions": 697,
+    "baseline_failed_assertions": 17,
+    "cached_seconds": 0.66
+  },
+  "full_gap_suite": {
+    "assertions": 17715,
+    "cases": 4,
+    "result": "passed"
+  },
+  "cache_helper_tests": {
+    "cases": 4,
+    "result": "passed"
+  },
+  "native_panel": {
+    "output_labels": 244,
+    "independent_requests": 128,
+    "comparison_pairs": 129,
+    "changed_output_labels": 13,
+    "result": "passed; all previous correct/phased assignments and every VCF record preserved"
+  },
+  "full_preservation": "all prior correct/phased reads, block extents, 82287 variant keys and full VCF records retained; status changes restricted to target neighborhood"
+}

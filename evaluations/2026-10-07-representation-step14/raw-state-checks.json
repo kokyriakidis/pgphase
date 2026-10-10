@@ -1,0 +1,34 @@
+{
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "raw_tables": 6,
+      "result": "1980 parent/neighbor compositions",
+      "precomputed_outputs_absent": true,
+      "byte_identical": true
+    },
+    {
+      "owner": "matrix5-final",
+      "raw_tables": 6,
+      "result": "68 parent/neighbor compositions",
+      "precomputed_outputs_absent": true,
+      "byte_identical": true
+    },
+    {
+      "owner": "matrix65-final",
+      "raw_tables": 6,
+      "result": "13951 parent/neighbor compositions",
+      "precomputed_outputs_absent": true,
+      "byte_identical": true
+    },
+    {
+      "owner": "whole-final",
+      "raw_tables": 6,
+      "result": "177 parent/neighbor compositions",
+      "precomputed_outputs_absent": true,
+      "byte_identical": true
+    }
+  ],
+  "missing_raw_catalog_rejected": true,
+  "missing_catalog_exit": -6
+}

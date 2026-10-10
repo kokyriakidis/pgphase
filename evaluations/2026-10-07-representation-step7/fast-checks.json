@@ -1,0 +1,30 @@
+{
+  "test_binary_sha256": "31c2b2dfd499acd2c8509f42fe22d43fd506cf57bdce256c36ead5ae16aa81b5",
+  "timings": {
+    "fixtures": {
+      "executions": 100,
+      "average_ms": 8.279164420091547,
+      "result": "12069 checks, 0 failures"
+    },
+    "matrix4-final": {
+      "executions": 100,
+      "average_ms": 28.87425381981302,
+      "result": "31 full contexts, 1714 scored molecules"
+    },
+    "matrix5-final": {
+      "executions": 100,
+      "average_ms": 13.376011599902995,
+      "result": "7 full contexts, 412 scored molecules"
+    },
+    "matrix65-final": {
+      "executions": 100,
+      "average_ms": 49.88586471998133,
+      "result": "11 full contexts, 386 scored molecules"
+    },
+    "whole-final": {
+      "executions": 100,
+      "average_ms": 18.2776317599928,
+      "result": "23 full contexts, 1337 scored molecules"
+    }
+  }
+}

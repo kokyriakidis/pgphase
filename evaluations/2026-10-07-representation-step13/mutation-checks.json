@@ -1,0 +1,34 @@
+{
+  "ignore_parent_alt_offsets": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_left_boundary_guard": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_right_boundary_guard": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_mapping_status": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "lose_parent_changes": {
+    "exit": 1,
+    "failed_checks": 514
+  },
+  "treat_noops_as_ref_constraints": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "admit_arbitrary_repeat_traceback": {
+    "exit": 1,
+    "failed_checks": 234
+  },
+  "discard_supported_anchored_compositions": {
+    "exit": 1,
+    "failed_checks": 1
+  }
+}

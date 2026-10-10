@@ -1,0 +1,13 @@
+{
+  "owning_region": "CHM13#0#chr20:5000001-6000000",
+  "candidate_rows_identical": true,
+  "vcf_rows_identical": true,
+  "primary_tags_identical": true,
+  "parental_status_identical": true,
+  "primary_reads": 4256,
+  "parental_counts": {
+    "correct": 4001,
+    "unphased": 232,
+    "discordant": 23
+  }
+}

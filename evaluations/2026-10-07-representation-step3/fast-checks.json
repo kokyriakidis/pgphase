@@ -1,0 +1,7 @@
+{
+  "executions": 100,
+  "total_seconds": 0.36631184301222675,
+  "average_ms": 3.6631184301222675,
+  "molecule_permutations_per_execution": 42,
+  "complete_haplotype_fixtures_per_execution": 3328
+}

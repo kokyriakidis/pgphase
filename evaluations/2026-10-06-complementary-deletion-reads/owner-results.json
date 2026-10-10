@@ -1,0 +1,39 @@
+{
+  "binary_sha256": "f836c348e7cb5e7f7970e8cf08d506f8f1e3a064eda15ec171e502988a4aba9a",
+  "before_counts": {
+    "correct": 3844,
+    "discordant": 26,
+    "unphased": 256
+  },
+  "after_counts": {
+    "correct": 3862,
+    "discordant": 26,
+    "unphased": 238
+  },
+  "changed_tags": 18,
+  "changed_reads": [
+    "m84031_231217_034919_s2/102893220/ccs",
+    "m84031_231217_034919_s2/102962122/ccs",
+    "m84031_231217_034919_s2/113051567/ccs",
+    "m84031_231217_034919_s2/164692629/ccs",
+    "m84031_231217_034919_s2/244580560/ccs",
+    "m84031_231217_034919_s2/267059894/ccs",
+    "m84031_231217_034919_s2/70714331/ccs",
+    "m84031_231217_034919_s2/7277844/ccs",
+    "m84031_231217_034919_s2/79303086/ccs",
+    "m84031_231217_062403_s3/112134509/ccs",
+    "m84031_231217_062403_s3/115610845/ccs",
+    "m84031_231217_062403_s3/117834759/ccs",
+    "m84031_231217_062403_s3/127864569/ccs",
+    "m84031_231217_062403_s3/135402525/ccs",
+    "m84031_231217_062403_s3/166397686/ccs",
+    "m84031_231217_062403_s3/185928536/ccs",
+    "m84031_231217_062403_s3/32904016/ccs",
+    "m84031_231217_062403_s3/38669493/ccs"
+  ],
+  "previous_phased_tags_identical": true,
+  "lost_correct_assignments": [],
+  "candidate_bytes_identical": true,
+  "complete_vcf_records_identical": true,
+  "one_four_thread_tags_candidates_vcf_identical": true
+}

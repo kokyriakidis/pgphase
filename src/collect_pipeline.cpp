@@ -9,6 +9,9 @@
 
 #include "collect_pipeline.hpp"
 
+#include "allele_context.hpp"
+#include "allele_genotype.hpp"
+#include "allele_identity.hpp"
 #include "arg_parse.hpp"
 #include "bam_digar.hpp"
 #include "collect_bam_output.hpp"
@@ -1340,20 +1343,7 @@ namespace {
 
 /// Identity of a candidate, for matching the alignment's calls against the
 /// catalog's. Same fields exact_comp_var_site compares.
-struct CandKey {
-    hts_pos_t pos;
-    int type;
-    int ref_len;
-    std::string alt;
-    bool operator<(const CandKey& other) const {
-        return std::tie(pos, type, ref_len, alt) <
-               std::tie(other.pos, other.type, other.ref_len, other.alt);
-    }
-    bool operator==(const CandKey& other) const {
-        return pos == other.pos && type == other.type && ref_len == other.ref_len &&
-               alt == other.alt;
-    }
-};
+using CandKey = CandidateIdentityKey;
 
 CandKey cand_key_of(const CandidateVariant& cand) {
     return CandKey{cand.key.sort_pos(), static_cast<int>(cand.key.type), cand.key.ref_len,
@@ -1368,20 +1358,19 @@ using CandidateIndex = std::map<CandKey, size_t>;
 struct ParentCandidateMatch {
     size_t index;
     bool is_raw;
+    bool ambiguous = false;
 };
 
 static ParentCandidateMatch find_parent_candidate(
-        const CandidateIndex& raw_index,
-        const CandidateIndex& sequence_index,
+        const CandidateIdentityIndex& raw_index,
+        const CandidateIdentityIndex& sequence_index,
         const CandKey& key,
         size_t missing_index) {
-    const auto raw = raw_index.find(key);
-    if (raw != raw_index.end()) return ParentCandidateMatch{raw->second, true};
-
-    const auto sequence = sequence_index.find(key);
-    if (sequence != sequence_index.end())
-        return ParentCandidateMatch{sequence->second, false};
-    return ParentCandidateMatch{missing_index, false};
+    const auto match = match_candidate_identity(raw_index, sequence_index, key);
+    return match ? ParentCandidateMatch{match->index, match->is_raw}
+                 : ParentCandidateMatch{missing_index, false,
+                       raw_index.entries().count(key) != 0 ||
+                       sequence_index.entries().count(key) != 0};
 }
 
 // A targeted BAM homozygote can veto a graph-only seam anchor only when
@@ -3199,11 +3188,11 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
 
     // Match graph alleles by their selected reference sequence, not their
     // graph walk. This index is also used below for candidate transfer.
-    CandidateIndex parent_seq_index;
-    CandidateIndex parent_cand_index;
+    CandidateIdentityIndex parent_seq_index;
+    CandidateIdentityIndex parent_cand_index;
     std::vector<uint8_t> suffix_padded_parents(chunk.candidates.size(), 0);
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        parent_cand_index.emplace(cand_key_of(chunk.candidates[ci]), ci);
+        parent_cand_index.insert(cand_key_of(chunk.candidates[ci]), ci);
         const std::string* alt = selected_graph_candidate_alt(graph_chunk, ci);
         if (alt == nullptr) continue;
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
@@ -3211,7 +3200,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
             vcf_to_variant_key(solve_tid, meta.pos, meta.ref, *alt);
         const CandKey key{translated.sort_pos(), static_cast<int>(translated.type),
                           translated.ref_len, translated.alt};
-        parent_seq_index.emplace(key, ci);
+        parent_seq_index.insert(key, ci);
         if (meta.ref.size() != alt->size()) {
             size_t prefix = 0;
             while (prefix < std::min(meta.ref.size(), alt->size()) &&
@@ -3439,7 +3428,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     matched->hap_to_cons_alle[1] >= 0 &&
                     matched->hap_to_cons_alle[2] >= 0 &&
                     matched->hap_to_cons_alle[1] != matched->hap_to_cons_alle[2];
-                const bool can_adopt = cand.counts.n_uniq_alles == 2 &&
+                const bool can_adopt = !parent.ambiguous && cand.counts.n_uniq_alles == 2 &&
                     cand.hap_to_cons_alle[1] < 2 &&
                     cand.hap_to_cons_alle[2] < 2 &&
                     (matched == nullptr || matched->counts.n_uniq_alles == 2);
@@ -3485,6 +3474,8 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                 if (inserted) audit.push_back(std::move(rec));
             }
 
+            // An unresolved existing identity is not a private new locus.
+            if (parent.ambiguous) continue;
             if (parent.index < chunk.candidates.size()) {
                 // The same clean heterozygote in both representations is a
                 // direct gauge anchor: allele 0 and allele 1 have identical
@@ -3991,15 +3982,24 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
     merged_meta.reserve(slots.size());
     merged_orig.reserve(slots.size());
     std::vector<long> old_to_new(chunk.candidates.size(), -1);
-    std::map<CandKey, size_t> index_of;
+    CandidateIdentityIndex index_of;
     const bool had_meta = graph_chunk.site_meta.size() == chunk.candidates.size();
     std::map<size_t, CandKey> seq_key_of_parent;
-    for (const auto& entry : parent_seq_index) seq_key_of_parent.emplace(entry.second, entry.first);
+    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+        const std::string* alt = selected_graph_candidate_alt(graph_chunk, ci);
+        if (alt == nullptr) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        const VariantKey translated =
+            vcf_to_variant_key(solve_tid, meta.pos, meta.ref, *alt);
+        seq_key_of_parent.emplace(ci,
+            CandKey{translated.sort_pos(), static_cast<int>(translated.type),
+                    translated.ref_len, translated.alt});
+    }
     for (const Slot& slot : slots) {
-        index_of.emplace(slot.key, merged_cands.size());
+        index_of.insert(slot.key, merged_cands.size());
         if (slot.old_index >= 0) {
             auto seq = seq_key_of_parent.find(static_cast<size_t>(slot.old_index));
-            if (seq != seq_key_of_parent.end()) index_of.emplace(seq->second, merged_cands.size());
+            if (seq != seq_key_of_parent.end()) index_of.insert(seq->second, merged_cands.size());
         }
         if (slot.old_index >= 0) {
             const size_t ci = static_cast<size_t>(slot.old_index);
@@ -4245,30 +4245,30 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         if (it != observed.end())
             for (const auto& entry : it->second) {
                 auto idx = index_of.find(entry.first);
-                if (idx == index_of.end()) continue;
-                const auto prior_bam = bam_observations.find(idx->second);
+                if (!idx) continue;
+                const auto prior_bam = bam_observations.find(*idx);
                 // A retry is another independent solve, not a resolution of
                 // the earlier contradictory calls. Preserve that abstention.
                 if (prior_bam != bam_observations.end() &&
                     prior_bam->second.first == kConflictingBamAllele)
                     continue;
-                const auto graph_call = graph_observations.find(idx->second);
+                const auto graph_call = graph_observations.find(*idx);
                 if (entry.second.first == kConflictingBamAllele && graph_call != graph_observations.end())
                     // A BAM disagreement does not erase an independent graph
                     // call. Keep it in the working profile and expose the BAM
                     // ambiguity separately, without borrowing its quality.
-                    alleles.insert_or_assign(idx->second, std::make_pair(graph_call->second, 0));
+                    alleles.insert_or_assign(*idx, std::make_pair(graph_call->second, 0));
                 else
-                    alleles.insert_or_assign(idx->second, entry.second);
-                bam_observations.insert_or_assign(idx->second, entry.second);
+                    alleles.insert_or_assign(*idx, entry.second);
+                bam_observations.insert_or_assign(*idx, entry.second);
                 // This replay replaces the BAM call, so its certificate must
                 // replace the previous one too, including an absent quality.
-                bam_snp_qualities.erase(idx->second);
+                bam_snp_qualities.erase(*idx);
                 if (entry.second.first >= 0 &&
                     read_qualities != observed_snp_qualities.end()) {
                     const auto quality = read_qualities->second.find(entry.first);
                     if (quality != read_qualities->second.end())
-                        bam_snp_qualities.insert_or_assign(idx->second, quality->second);
+                        bam_snp_qualities.insert_or_assign(*idx, quality->second);
                 }
             }
         // Channel calls can outlive a missing primary allele. Their complete
@@ -4357,15 +4357,15 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
         const auto mapped = phase_set_remap.find(
             SourcePhaseSet{site.solve_id, site.phase_set});
         const auto final_index = index_of.find(site.key);
-        if (mapped == phase_set_remap.end() || final_index == index_of.end())
+        if (mapped == phase_set_remap.end() || !final_index)
             continue;
         graph_chunk.recovery_source_sites.push_back(RecoverySourceSite{
-            final_index->second, mapped->second,
+            *final_index, mapped->second,
             site.hap1_allele, site.hap2_allele,
             site.graph_phase_set, site.graph_hap1_allele,
             site.graph_clean_snp, site.can_adopt &&
                 independent_msa_phase_sets.count(
-                    chunk.candidates[final_index->second].phase_set) == 0,
+                    chunk.candidates[*final_index].phase_set) == 0,
             site.msa_key});
     }
 
@@ -4484,9 +4484,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                     const auto destination = index_of.find(key);
                     const bool omitted = group_omits_position(windows, groups[gi], key.pos);
                     int bam_allele = -1, primary_allele = -1;
-                    if (destination != index_of.end() && read != final_read_by_qname.end()) {
+                    if (destination.has_value() && read != final_read_by_qname.end()) {
                         const auto& target = chunk.read_var_profile[read->second];
-                        const int offset = static_cast<int>(destination->second) - target.start_var_idx;
+                        const int offset = static_cast<int>(*destination) - target.start_var_idx;
                         if (target.start_var_idx >= 0 && offset >= 0) {
                             const size_t k = static_cast<size_t>(offset);
                             if (k < target.bam_alleles.size()) bam_allele = target.bam_alleles[k];
@@ -4497,9 +4497,9 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
                           << '\t' << key.alt << '\t' << site.lcd_var_i_to_cate << '\t'
                           << site.msa_verified << '\t' << src.reads[ri].qname << '\t'
                           << profile.alleles[oi] << '\t'
-                          << (destination == index_of.end() ? -1 : static_cast<long>(destination->second))
+                          << (!destination ? -1 : static_cast<long>(*destination))
                           << '\t' << bam_allele << '\t' << primary_allele << '\t'
-                          << (omitted ? "other_seam_owner" : destination == index_of.end()
+                          << (omitted ? "other_seam_owner" : !destination
                               ? "candidate_not_transferred" : read == final_read_by_qname.end()
                               ? "read_not_transferred" : "mapped") << '\t'
                           << site.phase_set << '\t' << is_phase_set_anchor(site) << '\n';
@@ -5036,7 +5036,7 @@ bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
 
 static void add_bam_observation_to_graph_profile(
         ReadVariantProfile& profile, size_t candidate_i, int allele, int alt_qi) {
-    if (allele != 0 && allele != 1) return;
+    if (allele != 0 && allele != 1 && allele != kConflictingBamAllele) return;
     if (profile.start_var_idx >= 0 &&
         candidate_i >= static_cast<size_t>(profile.start_var_idx)) {
         const size_t offset = candidate_i - static_cast<size_t>(profile.start_var_idx);
@@ -5103,7 +5103,7 @@ static void add_bam_observation_to_graph_profile(
     profile.bam_qi[offset] = alt_qi;
 }
 
-/// Add exact sequence-matched BAM alleles to existing graph candidates.
+/// Add uniquely sequence-matched BAM alleles to existing graph candidates.
 ///
 /// The whole-chunk BAM solve used for output fallback sees reads and private
 /// indels that the GAF profile can omit. Candidate state and graph phasing stay
@@ -5113,38 +5113,69 @@ static void attach_bam_observations_to_graph_profiles(
         GraphChunkBuildResult& graph_chunk,
         const PhasingChunk& bam,
         int solve_tid,
+        WorkerContext& context,
+        bool audit_matches,
         const std::unordered_map<std::string_view, size_t>& graph_read_by_qname) {
     PhasingChunk& graph = graph_chunk.chunk;
-    CandidateIndex raw_index;
-    CandidateIndex sequence_index;
+    CandidateIdentityIndex raw_index;
+    CandidateIdentityIndex sequence_index;
+    CandidateIdentityIndex normalized_index;
+    const auto reference_base = [&](hts_pos_t pos) {
+        return context.ref.base(solve_tid, pos, context.primary_header());
+    };
+    rebuild_joint_candidate_loci(graph_chunk, reference_base);
+    std::vector<std::optional<VariantKey>> parent_edits(graph.candidates.size());
     for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
         const CandidateVariant& candidate = graph.candidates[ci];
         if (candidate.counts.n_uniq_alles != 2) continue;
-        raw_index.emplace(cand_key_of(candidate), ci);
+        raw_index.insert(cand_key_of(candidate), ci);
         const std::string* alt = selected_graph_candidate_alt(graph_chunk, ci);
         if (alt == nullptr) continue;
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
         const VariantKey translated =
             vcf_to_variant_key(solve_tid, meta.pos, meta.ref, *alt);
-        sequence_index.emplace(
+        parent_edits[ci] = translated;
+        const auto normalized = normalize_candidate_identity(meta.pos, meta.ref, *alt,
+                                                              reference_base);
+        if (normalized && graph_chunk.site_allele_orig_idx[ci][0] == 0)
+            normalized_index.insert(*normalized, ci);
+        sequence_index.insert(
             CandKey{translated.sort_pos(), static_cast<int>(translated.type),
                     translated.ref_len, translated.alt},
             ci);
     }
 
     const size_t missing_candidate = graph.candidates.size();
+    std::vector<std::optional<CandKey>> normalized_sources(bam.candidates.size());
+    for (size_t ci = 0; ci < bam.candidates.size(); ++ci) {
+        const CandidateVariant& candidate = bam.candidates[ci];
+        if (candidate.counts.n_uniq_alles > 2) continue;
+        const VariantKey& key = candidate.key;
+        const std::string ref = key.ref_len > 0
+            ? context.ref.subseq(solve_tid, key.pos, key.ref_len, context.primary_header())
+            : std::string();
+        normalized_sources[ci] = normalize_candidate_identity(key.pos, ref, key.alt,
+                                                              reference_base);
+    }
     std::vector<size_t> graph_candidate_by_bam_candidate(
         bam.candidates.size(), missing_candidate);
+    std::vector<uint8_t> shifted_candidates(bam.candidates.size(), 0);
+    size_t exact_matches = 0, shifted_matches = 0, shifted_calls = 0, unsupported_calls = 0;
     for (size_t bam_candidate_i = 0;
          bam_candidate_i < bam.candidates.size(); ++bam_candidate_i) {
         const CandidateVariant& candidate = bam.candidates[bam_candidate_i];
         if (candidate.counts.n_uniq_alles > 2) continue;
-        const ParentCandidateMatch parent = find_parent_candidate(
-            raw_index, sequence_index, cand_key_of(candidate),
-            missing_candidate);
-        graph_candidate_by_bam_candidate[bam_candidate_i] = parent.index;
+        const auto parent = match_normalized_candidate_identity(
+            raw_index, sequence_index, normalized_index, cand_key_of(candidate),
+            normalized_sources[bam_candidate_i]);
+        if (!parent) continue;
+        graph_candidate_by_bam_candidate[bam_candidate_i] = parent->index;
+        shifted_candidates[bam_candidate_i] = parent->is_normalized;
+        if (parent->is_normalized) ++shifted_matches;
+        else ++exact_matches;
     }
 
+    size_t merged_descriptions = 0, conflicting_molecules = 0;
     for (size_t bam_read_i = 0;
          bam_read_i < bam.reads.size() &&
          bam_read_i < bam.read_var_profile.size(); ++bam_read_i) {
@@ -5156,6 +5187,7 @@ static void attach_bam_observations_to_graph_profiles(
 
         const ReadVariantProfile& source = bam.read_var_profile[bam_read_i];
         if (source.start_var_idx < 0) continue;
+        std::map<size_t, MoleculeAlleleEvidence> molecule_evidence;
         for (size_t offset = 0; offset < source.alleles.size(); ++offset) {
             const size_t bam_candidate_i =
                 static_cast<size_t>(source.start_var_idx) + offset;
@@ -5165,12 +5197,402 @@ static void attach_bam_observations_to_graph_profiles(
             const size_t graph_candidate_i =
                 graph_candidate_by_bam_candidate[bam_candidate_i];
             if (graph_candidate_i == missing_candidate) continue;
+            if (shifted_candidates[bam_candidate_i] != 0) {
+                const VariantKey& original = bam.candidates[bam_candidate_i].key;
+                const auto& parent = parent_edits[graph_candidate_i];
+                const ReadVariantProfile& graph_profile = graph.read_var_profile[graph_read_i];
+                const int graph_offset = static_cast<int>(graph_candidate_i) - graph_profile.start_var_idx;
+                const auto& graph_calls = graph_profile.graph_alleles.empty()
+                    ? graph_profile.alleles : graph_profile.graph_alleles;
+                const int graph_allele = graph_profile.start_var_idx >= 0 && graph_offset >= 0 &&
+                    static_cast<size_t>(graph_offset) < graph_calls.size()
+                    ? graph_calls[static_cast<size_t>(graph_offset)] : -1;
+                if (!parent || !supports_normalized_observation(graph_allele,
+                        bam.reads[bam_read_i].beg, bam.reads[bam_read_i].end,
+                        original.pos, original.ref_len, parent->pos, parent->ref_len)) {
+                    ++unsupported_calls;
+                    continue;
+                }
+                ++shifted_calls;
+            }
 
-            add_bam_observation_to_graph_profile(
-                graph.read_var_profile[graph_read_i],
-                graph_candidate_i, allele,
+            molecule_evidence[graph_candidate_i].add(bam_candidate_i, allele,
                 offset < source.alt_qi.size() ? source.alt_qi[offset] : 0);
         }
+        for (const auto& [candidate_i, evidence] : molecule_evidence) {
+            merged_descriptions += evidence.observations().size() - 1;
+            conflicting_molecules += evidence.allele() == kConflictingBamAllele;
+            add_bam_observation_to_graph_profile(graph.read_var_profile[graph_read_i],
+                candidate_i, evidence.allele(), evidence.query_index());
+        }
+    }
+    if (audit_matches)
+        std::fprintf(stderr, "[allele-identity-overlay] exact=%zu shifted=%zu shifted_calls=%zu unsupported=%zu merged=%zu conflicts=%zu\n",
+                     exact_matches, shifted_matches, shifted_calls, unsupported_calls,
+                     merged_descriptions, conflicting_molecules);
+}
+
+static void dump_joint_sequence_evidence(
+        const GraphChunkBuildResult& gc, const PhasingChunk& bam,
+        const std::function<char(hts_pos_t)>& reference_base, const Options& opts) {
+    const std::string prefix = opts.phase_matrix_dump_prefix + ".chunk" +
+        std::to_string(gc.chunk.region.chunk_id);
+    const std::string context_path = prefix + ".joint-contexts.tsv";
+    const std::string parent_path = prefix + ".joint-parents.tsv";
+    const std::string sequence_path = prefix + ".joint-sequences.tsv";
+    const std::string cohort_path = prefix + ".joint-cohort.tsv";
+    const std::string allele_path = prefix + ".joint-alleles.tsv";
+    const std::string cost_path = prefix + ".joint-costs.tsv";
+    const std::string genotype_path = prefix + ".joint-genotypes.tsv";
+    const std::string heldout_path = prefix + ".joint-heldout.tsv";
+    std::ofstream contexts(context_path);
+    std::ofstream parents(parent_path);
+    std::ofstream sequences(sequence_path);
+    std::ofstream cohort(cohort_path);
+    std::ofstream alleles(allele_path);
+    std::ofstream costs(cost_path);
+    std::ofstream genotypes(genotype_path);
+    std::ofstream heldout(heldout_path);
+    if (!contexts || !parents || !sequences || !cohort || !alleles || !costs || !genotypes || !heldout)
+        throw std::runtime_error("cannot write joint sequence evidence: " + prefix);
+    contexts << "locus\tstatus\tbeg\tend\tallele0\tallele1\tother_alleles\treference\n";
+    parents << "locus\tcandidate\tpos\tref\talts\n";
+    sequences << "locus\tread\tsource_allele\tstatus\tquery_beg\tquery_end\tmapq"
+                 "\tsequence\tqualities_hex\tdistance0\tdistance1\tother_distance\tnearest\n";
+    cohort << "locus\tread\tsource_allele\tstatus\tquery_beg\tquery_end\tmapq"
+              "\tsequence\tqualities_hex\tdistance0\tdistance1\tother_distance\tnearest\n";
+    alleles << "locus\tallele\tsequence\n";
+    costs << "locus\tread\tcosts\n";
+    genotypes << "locus\tmolecules\tcost\trunner_up\ttied_pairs\tallele0\tallele1\tconflicting_molecules\n";
+    heldout << "locus\tread\tcost\trunner_up\ttied_pairs\tallele0\tallele1\tallele\tsame_pair\n";
+    const auto write_fit = [](std::ostream& out, const DiploidAlleleFit& fit) {
+        if (fit.cost) out << *fit.cost; else out << '.';
+        out << '\t';
+        if (fit.runner_up_cost) out << *fit.runner_up_cost; else out << '.';
+        out << '\t' << fit.tied_pairs << '\t';
+        if (fit.alleles) out << (*fit.alleles)[0] << '\t' << (*fit.alleles)[1];
+        else out << ".\t.";
+    };
+    std::unordered_map<std::string_view, std::optional<size_t>> bam_by_qname;
+    std::vector<const bam1_t*> alignments;
+    for (size_t i = 0; i < bam.reads.size(); ++i) {
+        const auto [entry, inserted] = bam_by_qname.emplace(bam.reads[i].qname, i);
+        if (!inserted) entry->second.reset();
+        alignments.push_back(bam.reads[i].alignment.get());
+    }
+    std::vector<std::optional<AlleleSequenceContext>> sequence_contexts;
+    for (const auto& [contrast, members] : gc.joint_allele_contrasts) {
+        std::vector<AlleleSiteContext> sites;
+        for (const size_t ci : members) {
+            const auto& meta = gc.site_meta[ci];
+            sites.push_back({meta.pos, meta.ref, meta.alts});
+        }
+        sequence_contexts.push_back(build_allele_sequence_context(contrast, sites, reference_base));
+    }
+    std::ofstream physical_contexts(prefix + ".physical-contexts.tsv");
+    std::ofstream physical_members(prefix + ".physical-members.tsv");
+    std::ofstream physical_alleles(prefix + ".physical-alleles.tsv");
+    std::ofstream physical_cohort(prefix + ".physical-cohort.tsv");
+    std::ofstream physical_costs(prefix + ".physical-costs.tsv");
+    std::ofstream physical_genotypes(prefix + ".physical-genotypes.tsv");
+    std::ofstream physical_heldout(prefix + ".physical-heldout.tsv");
+    std::ofstream composition_sites(prefix + ".composition-sites.tsv");
+    std::ofstream composition_contexts(prefix + ".composition-contexts.tsv");
+    std::ofstream site_catalog(prefix + ".site-catalog.tsv");
+    std::ofstream compositions(prefix + ".compositions.tsv");
+    std::ofstream composed_alleles(prefix + ".composed-alleles.tsv");
+    std::ofstream path_status(prefix + ".path-status.tsv");
+    std::ofstream sequence_paths(prefix + ".sequence-paths.tsv");
+    std::ofstream path_alleles(prefix + ".path-alleles.tsv");
+    std::ofstream parent_maps(prefix + ".parent-maps.tsv");
+    std::ofstream matched_subpaths(prefix + ".matched-subpaths.tsv");
+    std::ofstream nested_compositions(prefix + ".nested-compositions.tsv");
+    std::ofstream nested_alleles(prefix + ".nested-alleles.tsv");
+    std::ofstream read_catalog_status(prefix + ".read-catalog-status.tsv");
+    std::ofstream read_hypotheses(prefix + ".read-hypotheses.tsv");
+    std::ofstream read_support(prefix + ".read-support.tsv");
+    std::ofstream read_exclusions(prefix + ".read-exclusions.tsv");
+    std::ofstream read_alleles(prefix + ".read-alleles.tsv");
+    if (!physical_contexts || !physical_members || !physical_alleles || !physical_cohort ||
+        !physical_costs || !physical_genotypes || !physical_heldout || !composition_sites ||
+        !compositions || !composed_alleles || !composition_contexts || !site_catalog ||
+        !path_status || !sequence_paths || !path_alleles || !parent_maps || !matched_subpaths ||
+        !nested_compositions || !nested_alleles || !read_catalog_status || !read_hypotheses ||
+        !read_support || !read_exclusions || !read_alleles)
+        throw std::runtime_error("cannot write physical sequence evidence: " + prefix);
+    physical_contexts << "physical\tbeg\tend\n";
+    physical_members << "physical\tlocus\tallele0\tallele1\n";
+    physical_alleles << "physical\tallele\tsequence\n";
+    physical_cohort << "physical\tread\tquery_beg\tquery_end\tmapq\tsequence\tqualities_hex\n";
+    physical_costs << "physical\tread\tcosts\n";
+    physical_genotypes << "physical\tmolecules\tcost\trunner_up\ttied_pairs\tallele0\tallele1\tconflicting_molecules\n";
+    physical_heldout << "physical\tread\tcost\trunner_up\ttied_pairs\tallele0\tallele1\tallele\tsame_pair\n";
+    composition_sites << "physical\tcandidate\tpos\tref\talt_index\talt\tbam_injected\tmsa_verified\tcategory\n";
+    composition_contexts << "physical\tbeg\tend\treference\n";
+    site_catalog << "candidate\tpos\tref\talt_index\talt\tbam_injected\tmsa_verified\tcategory\n";
+    compositions << "physical\tparent_allele\tcandidate\talt_index\tstatus\tsequence\n";
+    composed_alleles << "physical\tallele\tsequence\n";
+    path_status << "physical\tstatus\tvisited_prefixes\toverlap_prefixes\tunsupported_paths\tpaths\n";
+    sequence_paths << "physical\tpath\tparent_allele\tneighbors\tsequence\n";
+    path_alleles << "physical\tallele\tsequence\n";
+    parent_maps << "physical\tparent_allele\tstatus\tdistance\tmatched_bases\tsubpaths\n";
+    matched_subpaths << "physical\tparent_allele\tref_beg\talt_beg\tlength\n";
+    nested_compositions << "physical\tparent_allele\tcandidate\talt_index\tstatus\tsequence\n";
+    nested_alleles << "physical\tallele\tsequence\n";
+    read_catalog_status << "physical\tstatus\tmolecules\tconflicting\tunsupported\thypotheses\n";
+    read_hypotheses << "physical\thypothesis\tsequence\tmolecules\n";
+    read_support << "physical\thypothesis\tmolecule\n";
+    read_exclusions << "physical\tmolecule\treason\n";
+    read_alleles << "physical\tallele\tsequence\n";
+    for (size_t ci = 0; ci < gc.site_meta.size(); ++ci) {
+        const auto& meta = gc.site_meta[ci];
+        for (size_t alt_i = 0; alt_i < meta.alts.size(); ++alt_i)
+            site_catalog << ci << '\t' << meta.pos << '\t' << meta.ref << '\t' << alt_i + 1
+                << '\t' << meta.alts[alt_i] << '\t' << gc.chunk.candidates[ci].bam_injected
+                << '\t' << gc.chunk.candidates[ci].msa_verified << '\t'
+                << gc.chunk.candidates[ci].lcd_var_i_to_cate << '\n';
+    }
+    struct PhysicalContextState {
+        std::map<std::string, AlleleReadSlice> slices;
+        std::vector<MoleculeAlleleCosts> observations;
+        DiploidAlleleModel model;
+    };
+    std::vector<PhysicalContextState> physical_states;
+    std::vector<std::optional<size_t>> physical_by_locus(sequence_contexts.size());
+    for (const auto& [key, members] : group_allele_contexts(sequence_contexts)) {
+        const size_t id = physical_states.size();
+        physical_contexts << id << '\t' << key.beg << '\t' << key.end << '\n';
+        for (const size_t member : members) {
+            physical_by_locus[member] = id;
+            physical_members << id << '\t' << member;
+            for (const auto& allele : sequence_contexts[member]->alleles)
+                physical_members << '\t' << std::distance(key.alleles.begin(),
+                    std::lower_bound(key.alleles.begin(), key.alleles.end(), allele));
+            physical_members << '\n';
+        }
+        for (size_t i = 0; i < key.alleles.size(); ++i)
+            physical_alleles << id << '\t' << i << '\t' << key.alleles[i] << '\n';
+        std::set<size_t> parent_candidates;
+        for (const size_t member : members)
+            for (const size_t ci : gc.joint_allele_contrasts[member].second)
+                parent_candidates.insert(ci);
+        std::string reference;
+        for (hts_pos_t pos = key.beg; pos <= key.end; ++pos)
+            reference += reference_base(pos);
+        composition_contexts << id << '\t' << key.beg << '\t' << key.end << '\t' << reference << '\n';
+        std::vector<AlleleReferenceMap> parent_mappings;
+        for (size_t parent = 0; parent < key.alleles.size(); ++parent) {
+            parent_mappings.push_back(map_allele_reference(reference, key.alleles[parent]));
+            const auto& mapping = parent_mappings.back();
+            const char* status = mapping.status == AlleleMapStatus::Complete ? "complete"
+                : mapping.status == AlleleMapStatus::Limited ? "limited" : "unsupported";
+            size_t matched = 0;
+            for (const auto& span : mapping.matches) {
+                matched += span.length;
+                matched_subpaths << id << '\t' << parent << '\t' << span.ref_beg << '\t'
+                    << span.alt_beg << '\t' << span.length << '\n';
+            }
+            parent_maps << id << '\t' << parent << '\t' << status << '\t' << mapping.distance
+                << '\t' << matched << '\t' << mapping.matches.size() << '\n';
+        }
+        std::set<std::string> complete_sequences(key.alleles.begin(), key.alleles.end());
+        std::set<std::string> nested_sequences;
+        std::vector<AlleleNeighborSite> neighbors;
+        for (size_t ci = 0; ci < gc.site_meta.size(); ++ci) {
+            const auto& meta = gc.site_meta[ci];
+            // Keep aligned outer flanks and all neighbor alternatives. Source
+            // genotype/phase labels cannot preselect a compatible sequence.
+            if (parent_candidates.count(ci) || meta.ref.empty() || meta.pos <= key.beg ||
+                meta.pos + static_cast<hts_pos_t>(meta.ref.size()) - 1 >= key.end) continue;
+            neighbors.push_back({ci, meta.pos, meta.ref, meta.alts});
+            for (size_t alt_i = 0; alt_i < meta.alts.size(); ++alt_i) {
+                composition_sites << id << '\t' << ci << '\t' << meta.pos << '\t' << meta.ref
+                    << '\t' << alt_i + 1 << '\t' << meta.alts[alt_i] << '\t'
+                    << gc.chunk.candidates[ci].bam_injected << '\t' << gc.chunk.candidates[ci].msa_verified
+                    << '\t' << gc.chunk.candidates[ci].lcd_var_i_to_cate << '\n';
+                for (size_t parent_i = 0; parent_i < key.alleles.size(); ++parent_i) {
+                    const auto composed = compose_allele_sequence(key.beg, key.end,
+                        {{key.beg, reference, key.alleles[parent_i]},
+                         {meta.pos, meta.ref, meta.alts[alt_i]}}, reference_base);
+                    const char* status = composed.status == AlleleCompositionStatus::Valid ? "valid"
+                        : composed.status == AlleleCompositionStatus::Overlap ? "overlap" : "unsupported";
+                    compositions << id << '\t' << parent_i << '\t' << ci << '\t' << alt_i + 1
+                        << '\t' << status << '\t' << (composed.sequence.empty() ? "." : composed.sequence) << '\n';
+                    if (composed.status == AlleleCompositionStatus::Valid)
+                        complete_sequences.insert(composed.sequence);
+                    const auto nested = compose_allele_on_subpaths(key.beg, parent_mappings[parent_i],
+                        {{meta.pos, meta.ref, meta.alts[alt_i]}});
+                    const char* nested_status = nested.status == AlleleCompositionStatus::Valid ? "valid"
+                        : nested.status == AlleleCompositionStatus::Overlap ? "overlap" : "unsupported";
+                    nested_compositions << id << '\t' << parent_i << '\t' << ci << '\t' << alt_i + 1
+                        << '\t' << nested_status << '\t' << (nested.sequence.empty() ? "." : nested.sequence) << '\n';
+                    if (nested.status == AlleleCompositionStatus::Valid) nested_sequences.insert(nested.sequence);
+                }
+            }
+        }
+        size_t composed_i = 0;
+        for (const auto& sequence : complete_sequences)
+            composed_alleles << id << '\t' << composed_i++ << '\t' << sequence << '\n';
+        const auto paths = build_allele_sequence_paths(key.beg, key.end, key.alleles, neighbors, reference_base);
+        const char* status = paths.status == AllelePathStatus::Complete ? "complete"
+            : paths.status == AllelePathStatus::Limited ? "limited" : "unsupported";
+        path_status << id << '\t' << status << '\t' << paths.visited_prefixes << '\t'
+            << paths.overlap_prefixes << '\t' << paths.unsupported_paths << '\t' << paths.paths.size() << '\n';
+        for (size_t path = 0; path < paths.paths.size(); ++path) {
+            const auto& entry = paths.paths[path];
+            sequence_paths << id << '\t' << path << '\t' << entry.parent_allele << '\t';
+            if (entry.neighbors.empty()) sequence_paths << '.';
+            for (size_t i = 0; i < entry.neighbors.size(); ++i) {
+                if (i) sequence_paths << ',';
+                sequence_paths << entry.neighbors[i].first << ':' << entry.neighbors[i].second;
+            }
+            sequence_paths << '\t' << entry.sequence << '\n';
+            complete_sequences.insert(entry.sequence);
+        }
+        composed_i = 0;
+        for (const auto& sequence : complete_sequences)
+            path_alleles << id << '\t' << composed_i++ << '\t' << sequence << '\n';
+        complete_sequences.insert(nested_sequences.begin(), nested_sequences.end());
+        composed_i = 0;
+        for (const auto& sequence : complete_sequences)
+            nested_alleles << id << '\t' << composed_i++ << '\t' << sequence << '\n';
+        PhysicalContextState state;
+        state.slices = collect_allele_read_slices(alignments, *sequence_contexts[members.front()],
+            std::min(opts.min_mapq, opts.recovery_min_mapq), opts.include_filtered);
+        std::vector<MoleculeAlleleSequence> read_observations;
+        for (const auto& [name, slice] : state.slices) read_observations.push_back({name, slice.sequence});
+        const auto read_catalog = build_read_allele_catalog(read_observations);
+        read_catalog_status << id << '\t' << (read_catalog.status == ReadAlleleCatalogStatus::Complete ? "complete" : "limited")
+            << '\t' << read_catalog.eligible_molecules << '\t' << read_catalog.conflicting_molecules.size()
+            << '\t' << read_catalog.unsupported_molecules.size() << '\t' << read_catalog.hypotheses.size() << '\n';
+        for (const auto& name : read_catalog.conflicting_molecules) read_exclusions << id << '\t' << name << "\tconflicting\n";
+        for (const auto& name : read_catalog.unsupported_molecules) read_exclusions << id << '\t' << name << "\tunsupported\n";
+        for (size_t i = 0; i < read_catalog.hypotheses.size(); ++i) {
+            const auto& hypothesis = read_catalog.hypotheses[i];
+            read_hypotheses << id << '\t' << i << '\t' << hypothesis.sequence << '\t' << hypothesis.molecules.size() << '\n';
+            for (const auto& name : hypothesis.molecules) read_support << id << '\t' << i << '\t' << name << '\n';
+            complete_sequences.insert(hypothesis.sequence);
+        }
+        composed_i = 0;
+        for (const auto& sequence : complete_sequences) read_alleles << id << '\t' << composed_i++ << '\t' << sequence << '\n';
+        for (const auto& [name, slice] : state.slices) {
+            physical_cohort << id << '\t' << name << '\t' << slice.query_beg << '\t'
+                << slice.query_end << '\t' << slice.mapq << '\t' << slice.sequence << '\t';
+            for (const uint8_t quality : slice.qualities)
+                physical_cohort << "0123456789abcdef"[quality >> 4] << "0123456789abcdef"[quality & 15];
+            physical_cohort << '\n';
+            const auto full_costs = score_allele_sequences(key.alleles, slice.sequence);
+            state.observations.push_back({name, full_costs});
+            physical_costs << id << '\t' << name << '\t';
+            for (size_t i = 0; i < full_costs.size(); ++i) {
+                if (i > 0) physical_costs << ',';
+                physical_costs << full_costs[i];
+            }
+            physical_costs << '\n';
+        }
+        state.model = fit_diploid_alleles(key.alleles.size(), state.observations);
+        physical_genotypes << id << '\t' << state.model.heldout.size() << '\t';
+        write_fit(physical_genotypes, state.model.fit);
+        physical_genotypes << '\t' << state.model.conflicting_molecules.size() << '\n';
+        for (const auto& read : state.model.heldout) {
+            physical_heldout << id << '\t' << read.molecule << '\t';
+            write_fit(physical_heldout, read.fit);
+            physical_heldout << '\t' << read.allele << '\t' << read.same_pair << '\n';
+        }
+        physical_states.push_back(std::move(state));
+    }
+    size_t locus = 0;
+    for (const auto& [contrast, members] : gc.joint_allele_contrasts) {
+        (void)contrast;
+        for (const size_t ci : members) {
+            const auto& meta = gc.site_meta[ci];
+            parents << locus << '\t' << ci << '\t' << meta.pos << '\t' << meta.ref << '\t';
+            for (size_t i = 0; i < meta.alts.size(); ++i) {
+                if (i > 0) parents << ',';
+                parents << meta.alts[i];
+            }
+            parents << '\n';
+        }
+        const auto& context = sequence_contexts[locus];
+        const auto hypotheses = context ? full_allele_sequences(*context) : std::vector<std::string>{};
+        std::unordered_map<std::string, int> source_alleles;
+        for (size_t i = 0; i < hypotheses.size(); ++i)
+            alleles << locus << '\t' << i << '\t' << hypotheses[i] << '\n';
+        contexts << locus << '\t';
+        if (!context) contexts << "unsupported\t.\t.\t.\t.\t.\t.\n";
+        else {
+            contexts << "valid\t" << context->beg << '\t' << context->end << '\t'
+                << context->alleles[0] << '\t' << context->alleles[1] << '\t';
+            for (size_t i = 0; i < context->other_alleles.size(); ++i) {
+                if (i > 0) contexts << ',';
+                contexts << context->other_alleles[i];
+            }
+            contexts << '\t';
+            for (hts_pos_t pos = context->beg; pos <= context->end; ++pos)
+                contexts << reference_base(pos);
+            contexts << '\n';
+        }
+        for (const auto& profile : gc.chunk.read_var_profile) {
+            const auto evidence = joint_contrast_molecule_evidence(gc, members, profile);
+            if (evidence.observations().empty()) continue;
+            const auto& name = gc.chunk.reads[profile.read_id].qname;
+            source_alleles.emplace(name, evidence.allele());
+            sequences << locus << '\t' << name << '\t' << evidence.allele() << '\t';
+            const auto found = bam_by_qname.find(name);
+            const bam1_t* alignment = found != bam_by_qname.end() && found->second
+                ? bam.reads[*found->second].alignment.get() : nullptr;
+            const auto slice = context ? extract_allele_read_slice(alignment, *context) : std::nullopt;
+            if (!slice) {
+                sequences << (!context ? "unsupported" : alignment == nullptr ? "no_unique_alignment" : "uncovered")
+                    << "\t.\t.\t.\t.\t.\t.\t.\t.\t.\n";
+                continue;
+            }
+            const auto score = score_allele_context(*context, slice->sequence);
+            sequences << "scored\t" << slice->query_beg << '\t' << slice->query_end << '\t'
+                << slice->mapq << '\t' << slice->sequence << '\t';
+            for (const uint8_t quality : slice->qualities)
+                sequences << "0123456789abcdef"[quality >> 4] << "0123456789abcdef"[quality & 15];
+            sequences << '\t' << score.distances[0] << '\t' << score.distances[1] << '\t'
+                << score.other_distance << '\t' << score.nearest << '\n';
+        }
+        if (context) {
+            // Per-contrast tables are projections of one physical solve.
+            const auto& state = physical_states[*physical_by_locus[locus]];
+            for (const auto& [name, slice] : state.slices) {
+                const auto score = score_allele_context(*context, slice.sequence);
+                cohort << locus << '\t' << name << '\t';
+                const auto source = source_alleles.find(name);
+                if (source != source_alleles.end()) cohort << source->second;
+                else cohort << '.';
+                cohort << "\tscored\t" << slice.query_beg << '\t' << slice.query_end << '\t'
+                    << slice.mapq << '\t' << slice.sequence << '\t';
+                for (const uint8_t quality : slice.qualities)
+                    cohort << "0123456789abcdef"[quality >> 4] << "0123456789abcdef"[quality & 15];
+                cohort << '\t' << score.distances[0] << '\t' << score.distances[1] << '\t'
+                    << score.other_distance << '\t' << score.nearest << '\n';
+            }
+            for (const auto& observation : state.observations) {
+                const auto& full_costs = observation.costs;
+                costs << locus << '\t' << observation.molecule << '\t';
+                for (size_t i = 0; i < full_costs.size(); ++i) {
+                    if (i > 0) costs << ',';
+                    costs << full_costs[i];
+                }
+                costs << '\n';
+            }
+        }
+        const DiploidAlleleModel empty_model;
+        const auto& model = physical_by_locus[locus]
+            ? physical_states[*physical_by_locus[locus]].model : empty_model;
+        genotypes << locus << '\t' << model.heldout.size() << '\t';
+        write_fit(genotypes, model.fit);
+        genotypes << '\t' << model.conflicting_molecules.size() << '\n';
+        for (const auto& read : model.heldout) {
+            heldout << locus << '\t' << read.molecule << '\t';
+            write_fit(heldout, read.fit);
+            heldout << '\t' << read.allele << '\t' << read.same_pair << '\n';
+        }
+        ++locus;
     }
 }
 
@@ -5210,9 +5632,80 @@ size_t recover_independent_bam_read_blocks_in_place(
     if (!opts.phase_matrix_dump_prefix.empty())
         dump_recovery_phase_state(graph, opts, "bam-overlay-input");
     attach_bam_observations_to_graph_profiles(
-        graph_chunk, bam, solve_tid, graph_read_by_qname);
+        graph_chunk, bam, solve_tid, context, !opts.phase_matrix_dump_prefix.empty(),
+        graph_read_by_qname);
     if (!opts.phase_matrix_dump_prefix.empty())
         dump_recovery_phase_state(graph, opts, "bam-overlay-output");
+    if (!opts.phase_matrix_dump_prefix.empty()) {
+        const std::string path = opts.phase_matrix_dump_prefix + ".chunk" +
+            std::to_string(graph.region.chunk_id) + ".joint-loci.tsv";
+        std::ofstream out(path);
+        if (!out) throw std::runtime_error("cannot write joint candidate loci: " + path);
+        out << "locus\tcanonical_pos\ttype\tref_len\talt\tcandidate\tsite_id\tbam_injected"
+               "\tphysical_pos\traw_alt\tcategory\tphase_set\thap1\thap2\n";
+        size_t locus_i = 0;
+        for (const auto& [identity, members] : graph_chunk.joint_candidate_loci) {
+            for (const size_t ci : members) {
+                const CandidateVariant& row = graph.candidates[ci];
+                out << locus_i << '\t' << identity.pos << '\t' << identity.type << '\t'
+                    << identity.ref_len << '\t' << identity.alt << '\t' << ci << '\t'
+                    << graph_chunk.site_ids[ci] << '\t' << row.bam_injected << '\t'
+                    << row.key.pos << '\t' << row.key.alt << '\t' << row.lcd_var_i_to_cate
+                    << '\t' << row.phase_set << '\t' << row.hap_to_cons_alle[1]
+                    << '\t' << row.hap_to_cons_alle[2] << '\n';
+            }
+            ++locus_i;
+        }
+        const std::string contrast_path = opts.phase_matrix_dump_prefix + ".chunk" +
+            std::to_string(graph.region.chunk_id) + ".allele-contrasts.tsv";
+        std::ofstream contrast_out(contrast_path);
+        if (!contrast_out) throw std::runtime_error("cannot write allele contrasts: " + contrast_path);
+        contrast_out << "candidate\tsite_id\tbam_injected\tcategory\tphase_set\tmsa_verified"
+                        "\tnon_selected_alt_class\tlocal0\tlocal1\tallele0\tallele1\n";
+        const auto write_allele = [](std::ostream& output,
+                const std::optional<CandidateIdentityKey>& allele) {
+            if (!allele) output << "REF";
+            else output << allele->pos << ':' << allele->type << ':' << allele->ref_len << ':' << allele->alt;
+        };
+        for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+            const CandidateVariant& row = graph.candidates[ci];
+            const auto& contrast = graph_chunk.candidate_allele_contrasts[ci];
+            contrast_out << ci << '\t' << graph_chunk.site_ids[ci] << '\t' << row.bam_injected << '\t'
+                << row.lcd_var_i_to_cate << '\t' << row.phase_set << '\t' << row.msa_verified << '\t'
+                << graph_chunk.site_meta[ci].non_selected_alt_class;
+            if (!contrast) contrast_out << "\t.\t.\t.\t.\n";
+            else {
+                contrast_out << '\t' << contrast->local_alleles[0] << '\t' << contrast->local_alleles[1] << '\t';
+                write_allele(contrast_out, contrast->key.alleles[0]);
+                contrast_out << '\t';
+                write_allele(contrast_out, contrast->key.alleles[1]);
+                contrast_out << '\n';
+            }
+        }
+        const std::string molecule_path = opts.phase_matrix_dump_prefix + ".chunk" +
+            std::to_string(graph.region.chunk_id) + ".joint-molecules.tsv";
+        std::ofstream molecule_out(molecule_path);
+        if (!molecule_out) throw std::runtime_error("cannot write joint molecule evidence: " + molecule_path);
+        molecule_out << "locus\tread\tallele\tquery_index\tobservations\n";
+        locus_i = 0;
+        for (const auto& [contrast, members] : graph_chunk.joint_allele_contrasts) {
+            (void)contrast;
+            for (const ReadVariantProfile& profile : graph.read_var_profile) {
+                const auto evidence = joint_contrast_molecule_evidence(graph_chunk, members, profile);
+                if (evidence.observations().empty()) continue;
+                molecule_out << locus_i << '\t' << graph.reads[profile.read_id].qname << '\t'
+                    << evidence.allele() << '\t' << evidence.query_index() << '\t';
+                for (const SourceAlleleObservation& call : evidence.observations())
+                    molecule_out << call.candidate_index << ':' << call.allele << ':' << call.query_index << ',';
+                molecule_out << '\n';
+            }
+            ++locus_i;
+        }
+        const auto reference_base = [&](hts_pos_t pos) {
+            return context.ref.base(solve_tid, pos, context.primary_header());
+        };
+        dump_joint_sequence_evidence(graph_chunk, bam, reference_base, opts);
+    }
 
     struct BamBlockEvidence {
         std::unordered_map<hts_pos_t, size_t> link_by_graph_phase_set;

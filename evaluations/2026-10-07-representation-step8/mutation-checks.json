@@ -1,0 +1,30 @@
+{
+  "retain_first_tied_pair": {
+    "exit": 1,
+    "failed_checks": 2126
+  },
+  "train_on_heldout_read": {
+    "exit": 1,
+    "failed_checks": 4110
+  },
+  "count_duplicate_molecules": {
+    "exit": 1,
+    "failed_checks": 3
+  },
+  "overwrite_conflicting_molecule": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "force_heterozygous_pairs": {
+    "exit": 1,
+    "failed_checks": 2857
+  },
+  "overflow_cohort_cost": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_other_read_hypotheses": {
+    "exit": 1,
+    "failed_checks": 471
+  }
+}

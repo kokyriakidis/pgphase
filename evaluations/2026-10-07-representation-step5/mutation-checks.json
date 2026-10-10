@@ -1,0 +1,34 @@
+{
+  "discard_first_allele": {
+    "exit": 1,
+    "failed_checks": 9
+  },
+  "ignore_alt_order": {
+    "exit": 1,
+    "failed_checks": 7
+  },
+  "invent_reference_class": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "prefer_primary": {
+    "exit": 1,
+    "failed_checks": 3
+  },
+  "ignore_other_alt_class": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "erase_existing_conflict": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "omit_class_provenance": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_original_walk_mapping": {
+    "exit": 1,
+    "failed_checks": 2
+  }
+}

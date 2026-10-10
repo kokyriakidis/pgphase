@@ -1,0 +1,48 @@
+{
+  "owner": "matrix65-final",
+  "physical": 3,
+  "original_molecules": 39,
+  "seed_max_length": 55,
+  "long_consensus_length": 312,
+  "short_consensus_length": 51,
+  "exact_long_supporters": 6,
+  "exact_short_supporters": 12,
+  "msa_long_cluster_molecules": 16,
+  "msa_short_cluster_molecules": 23,
+  "reversed_order_consensuses_and_membership_identical": true,
+  "long_supporter_exclusions_verified": 6,
+  "all_msa_input_rows_preserved": true,
+  "exact_group_consensuses_verified": 4,
+  "old_catalog_missing_both_msa_consensuses": true,
+  "read_hypotheses_match_independent_grouping": true,
+  "production_uses_msa_results": false,
+  "posthoc_exact_support_parental_counts": {
+    "51": {
+      "MATERNAL": 0,
+      "PATERNAL": 12
+    },
+    "312": {
+      "MATERNAL": 6,
+      "PATERNAL": 0
+    },
+    "53": {
+      "MATERNAL": 2,
+      "PATERNAL": 0
+    },
+    "55": {
+      "MATERNAL": 0,
+      "PATERNAL": 2
+    }
+  },
+  "posthoc_msa_cluster_parental_counts": {
+    "51": {
+      "MATERNAL": 4,
+      "PATERNAL": 19
+    },
+    "312": {
+      "MATERNAL": 11,
+      "PATERNAL": 5
+    }
+  },
+  "truth_used_for_discovery": false
+}

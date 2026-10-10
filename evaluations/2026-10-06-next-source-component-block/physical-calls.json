@@ -1,0 +1,3053 @@
+{
+  "46389865": {
+    "region": [
+      46389849,
+      46389899
+    ],
+    "calls": {
+      "m84031_231217_034919_s2/15143207/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0020972623149688786,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46368229,
+          46396012
+        ]
+      },
+      "m84031_231217_034919_s2/198904440/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": 2,
+        "error": 0.10199726231496889,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46370892,
+          46395251
+        ]
+      },
+      "m84031_231217_062403_s3/203493200/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46371130,
+          46394936
+        ]
+      },
+      "m84031_231217_062403_s3/263392641/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46371163,
+          46399589
+        ]
+      },
+      "m84031_231217_034919_s2/52233649/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46371358,
+          46390381
+        ]
+      },
+      "m84031_231217_034919_s2/98308845/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46372138,
+          46390399
+        ]
+      },
+      "m84031_231217_034919_s2/134285194/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.10031822776601684,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46372467,
+          46397616
+        ]
+      },
+      "m84031_231217_034919_s2/140709084/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46374348,
+          46392436
+        ]
+      },
+      "m84031_231217_034919_s2/139136802/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.02626419659449073,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46375575,
+          46401449
+        ]
+      },
+      "m84031_231217_034919_s2/256313465/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46376459,
+          46402441
+        ]
+      },
+      "m84031_231217_062403_s3/35524671/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.006627801210818769,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46376481,
+          46392003
+        ]
+      },
+      "m84031_231217_034919_s2/69666987/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46376566,
+          46399172
+        ]
+      },
+      "m84031_231217_034919_s2/212339414/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46377097,
+          46396820
+        ]
+      },
+      "m84031_231217_034919_s2/96866759/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.0020972623149688786,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46377102,
+          46393525
+        ]
+      },
+      "m84031_231217_062403_s3/177541696/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46377161,
+          46400159
+        ]
+      },
+      "m84031_231217_062403_s3/107283949/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46377958,
+          46396443
+        ]
+      },
+      "m84031_231217_034919_s2/143459702/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378110,
+          46391611
+        ]
+      },
+      "m84031_231217_062403_s3/240386165/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378163,
+          46397552
+        ]
+      },
+      "m84031_231217_062403_s3/33493651/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378218,
+          46396576
+        ]
+      },
+      "m84031_231217_062403_s3/46273973/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378293,
+          46390769
+        ]
+      },
+      "m84031_231217_062403_s3/57019832/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0006344555320336759,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378701,
+          46393296
+        ]
+      },
+      "m84031_231217_034919_s2/186061603/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.10010200000000001,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46378923,
+          46398641
+        ]
+      },
+      "m84031_231217_062403_s3/253695248/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46379182,
+          46395201
+        ]
+      },
+      "m84031_231217_034919_s2/170592309/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46379569,
+          46406086
+        ]
+      },
+      "m84031_231217_062403_s3/248057694/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46380399,
+          46402418
+        ]
+      },
+      "m84031_231217_062403_s3/253432469/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46380648,
+          46404237
+        ]
+      },
+      "m84031_231217_034919_s2/246744818/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46380723,
+          46397883
+        ]
+      },
+      "m84031_231217_034919_s2/212014024/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0200546231496888,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46381204,
+          46397501
+        ]
+      },
+      "m84031_231217_034919_s2/42207122/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46381326,
+          46401408
+        ]
+      },
+      "m84031_231217_062403_s3/94571408/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46382223,
+          46396804
+        ]
+      },
+      "m84031_231217_034919_s2/84544880/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46382922,
+          46406755
+        ]
+      },
+      "m84031_231217_034919_s2/186388702/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383224,
+          46401368
+        ]
+      },
+      "m84031_231217_062403_s3/146212959/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46383499,
+          46396056
+        ]
+      },
+      "m84031_231217_062403_s3/187568578/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383600,
+          46396050
+        ]
+      },
+      "m84031_231217_062403_s3/89003437/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383843,
+          46400090
+        ]
+      },
+      "m84031_231217_034919_s2/40244203/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.020054623149688797,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383871,
+          46410233
+        ]
+      },
+      "m84031_231217_062403_s3/89395698/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.00020251785082358833,
+        "MQ": 59,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46384098,
+          46394101
+        ]
+      },
+      "m84031_231217_034919_s2/182653779/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46384287,
+          46397342
+        ]
+      },
+      "m84031_231217_062403_s3/125832970/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46384421,
+          46403171
+        ]
+      },
+      "m84031_231217_034919_s2/251595453/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46384896,
+          46397833
+        ]
+      },
+      "m84031_231217_062403_s3/223675704/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46385421,
+          46398814
+        ]
+      },
+      "m84031_231217_034919_s2/139006833/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46385513,
+          46406321
+        ]
+      },
+      "m84031_231217_062403_s3/235803084/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46385644,
+          46400798
+        ]
+      },
+      "m84031_231217_034919_s2/248055448/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.002097262314968879,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "discordant",
+        "span": [
+          46385964,
+          46400607
+        ]
+      },
+      "m84031_231217_062403_s3/92407602/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.006411573444801931,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46386045,
+          46407824
+        ]
+      },
+      "m84031_231217_062403_s3/194318754/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0027178508235883346,
+        "MQ": 29,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46386197,
+          46391184
+        ]
+      },
+      "m84031_231217_062403_s3/233245306/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.0200546231496888,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46386494,
+          46404011
+        ]
+      },
+      "m84031_231217_062403_s3/164955756/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46386597,
+          46407003
+        ]
+      },
+      "m84031_231217_034919_s2/61019327/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46387360,
+          46401853
+        ]
+      },
+      "m84031_231217_034919_s2/212666093/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46388033,
+          46405186
+        ]
+      },
+      "m84031_231217_034919_s2/266668500/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.008162143411069946,
+        "MQ": 24,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46388101,
+          46392122
+        ]
+      },
+      "m84031_231217_034919_s2/238753127/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46388109,
+          46399915
+        ]
+      },
+      "m84031_231217_062403_s3/19401930/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46388230,
+          46404704
+        ]
+      },
+      "m84031_231217_034919_s2/156304043/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46388488,
+          46407292
+        ]
+      },
+      "m84031_231217_034919_s2/102108589/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46389244,
+          46401366
+        ]
+      }
+    },
+    "gauges": {
+      "46384021": {
+        "(0, 'G')": 13,
+        "(1, 'G')": 3,
+        "(1, 'A')": 9,
+        "(0, 'A')": 5
+      },
+      "46407462": {
+        "(0, 'C')": 1
+      }
+    }
+  },
+  "46402980": {
+    "region": [
+      46402964,
+      46403025
+    ],
+    "calls": {
+      "m84031_231217_034919_s2/170592309/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46379569,
+          46406086
+        ]
+      },
+      "m84031_231217_062403_s3/253432469/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46380648,
+          46404237
+        ]
+      },
+      "m84031_231217_034919_s2/84544880/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46382922,
+          46406755
+        ]
+      },
+      "m84031_231217_034919_s2/40244203/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383871,
+          46410233
+        ]
+      },
+      "m84031_231217_062403_s3/125832970/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46384421,
+          46403171
+        ]
+      },
+      "m84031_231217_034919_s2/139006833/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46385513,
+          46406321
+        ]
+      },
+      "m84031_231217_062403_s3/92407602/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46386045,
+          46407824
+        ]
+      },
+      "m84031_231217_062403_s3/233245306/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46386494,
+          46404011
+        ]
+      },
+      "m84031_231217_062403_s3/164955756/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46386597,
+          46407003
+        ]
+      },
+      "m84031_231217_034919_s2/212666093/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46388033,
+          46405186
+        ]
+      },
+      "m84031_231217_062403_s3/19401930/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46388230,
+          46404704
+        ]
+      },
+      "m84031_231217_034919_s2/156304043/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46388488,
+          46407292
+        ]
+      },
+      "m84031_231217_034919_s2/208143514/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46390119,
+          46407195
+        ]
+      },
+      "m84031_231217_034919_s2/68226259/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46390353,
+          46403233
+        ]
+      },
+      "m84031_231217_034919_s2/2951671/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390613,
+          46413704
+        ]
+      },
+      "m84031_231217_062403_s3/244912000/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390786,
+          46411879
+        ]
+      },
+      "m84031_231217_062403_s3/205588641/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390815,
+          46405253
+        ]
+      },
+      "m84031_231217_062403_s3/106630030/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390905,
+          46407921
+        ]
+      },
+      "m84031_231217_062403_s3/184946661/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "discordant",
+        "span": [
+          46391003,
+          46405547
+        ]
+      },
+      "m84031_231217_034919_s2/228721062/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46391126,
+          46409867
+        ]
+      },
+      "m84031_231217_062403_s3/264242800/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46391411,
+          46412617
+        ]
+      },
+      "m84031_231217_034919_s2/123144567/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46392203,
+          46409089
+        ]
+      },
+      "m84031_231217_034919_s2/156372589/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46392460,
+          46414592
+        ]
+      },
+      "m84031_231217_062403_s3/4130917/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46392706,
+          46420237
+        ]
+      },
+      "m84031_231217_062403_s3/44960779/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46392906,
+          46411102
+        ]
+      },
+      "m84031_231217_034919_s2/79826984/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393088,
+          46411817
+        ]
+      },
+      "m84031_231217_034919_s2/151328463/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393302,
+          46405907
+        ]
+      },
+      "m84031_231217_062403_s3/263521198/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393358,
+          46411955
+        ]
+      },
+      "m84031_231217_062403_s3/79565271/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393413,
+          46414725
+        ]
+      },
+      "m84031_231217_062403_s3/63635933/ccs": {
+        "allele": 1,
+        "distances": [
+          3,
+          2
+        ],
+        "net": -3,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393421,
+          46411475
+        ]
+      },
+      "m84031_231217_062403_s3/179832715/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393880,
+          46407819
+        ]
+      },
+      "m84031_231217_034919_s2/171378440/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394170,
+          46415518
+        ]
+      },
+      "m84031_231217_062403_s3/115151693/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394674,
+          46411073
+        ]
+      },
+      "m84031_231217_062403_s3/23792250/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46394815,
+          46413244
+        ]
+      },
+      "m84031_231217_062403_s3/67179483/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394845,
+          46418555
+        ]
+      },
+      "m84031_231217_034919_s2/248779713/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395004,
+          46416599
+        ]
+      },
+      "m84031_231217_062403_s3/206571743/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46395454,
+          46412080
+        ]
+      },
+      "m84031_231217_034919_s2/227872200/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395508,
+          46414496
+        ]
+      },
+      "m84031_231217_034919_s2/219288611/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.0200546231496888,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46395561,
+          46409747
+        ]
+      },
+      "m84031_231217_034919_s2/167188284/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395596,
+          46410960
+        ]
+      },
+      "m84031_231217_034919_s2/221123329/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46396102,
+          46408697
+        ]
+      },
+      "m84031_231217_062403_s3/13173027/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46396190,
+          46413403
+        ]
+      },
+      "m84031_231217_062403_s3/4459275/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46396499,
+          46412378
+        ]
+      },
+      "m84031_231217_034919_s2/39392515/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46397446,
+          46412441
+        ]
+      },
+      "m84031_231217_034919_s2/71632111/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46397761,
+          46410392
+        ]
+      },
+      "m84031_231217_034919_s2/251660833/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46397917,
+          46418098
+        ]
+      },
+      "m84031_231217_062403_s3/52826110/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46398219,
+          46411448
+        ]
+      },
+      "m84031_231217_034919_s2/126616981/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46398301,
+          46417526
+        ]
+      },
+      "m84031_231217_062403_s3/38344571/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46398667,
+          46413398
+        ]
+      },
+      "m84031_231217_062403_s3/103812630/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399344,
+          46427397
+        ]
+      },
+      "m84031_231217_062403_s3/30474379/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399685,
+          46413186
+        ]
+      },
+      "m84031_231217_062403_s3/168427913/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46399896,
+          46423437
+        ]
+      },
+      "m84031_231217_034919_s2/80874123/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399938,
+          46414210
+        ]
+      },
+      "m84031_231217_034919_s2/254871976/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46399972,
+          46421761
+        ]
+      },
+      "m84031_231217_062403_s3/264179957/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399983,
+          46414816
+        ]
+      },
+      "m84031_231217_062403_s3/211224528/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46400230,
+          46416812
+        ]
+      },
+      "m84031_231217_034919_s2/231999765/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.006524555320336759,
+        "MQ": 25,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401065,
+          46405665
+        ]
+      },
+      "m84031_231217_062403_s3/121442433/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46401109,
+          46414472
+        ]
+      },
+      "m84031_231217_034919_s2/182588138/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": -2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46401307,
+          46421072
+        ]
+      },
+      "m84031_231217_062403_s3/64426083/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401389,
+          46414033
+        ]
+      },
+      "m84031_231217_034919_s2/167118465/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401407,
+          46424913
+        ]
+      },
+      "m84031_231217_034919_s2/102043553/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401832,
+          46412550
+        ]
+      }
+    },
+    "gauges": {
+      "46384021": {
+        "(1, 'G')": 2,
+        "(1, 'A')": 1
+      },
+      "46407462": {
+        "(0, 'C')": 4,
+        "(1, 'C')": 16,
+        "(0, 'G')": 15,
+        "(1, 'G')": 9
+      }
+    }
+  },
+  "46405049": {
+    "region": [
+      46405033,
+      46405081
+    ],
+    "calls": {
+      "m84031_231217_034919_s2/170592309/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46379569,
+          46406086
+        ]
+      },
+      "m84031_231217_034919_s2/84544880/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0006344555320336759,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46382922,
+          46406755
+        ]
+      },
+      "m84031_231217_034919_s2/40244203/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46383871,
+          46410233
+        ]
+      },
+      "m84031_231217_034919_s2/139006833/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46385513,
+          46406321
+        ]
+      },
+      "m84031_231217_062403_s3/92407602/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46386045,
+          46407824
+        ]
+      },
+      "m84031_231217_062403_s3/164955756/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.020054623149688797,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46386597,
+          46407003
+        ]
+      },
+      "m84031_231217_034919_s2/212666093/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46388033,
+          46405186
+        ]
+      },
+      "m84031_231217_034919_s2/156304043/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46388488,
+          46407292
+        ]
+      },
+      "m84031_231217_034919_s2/208143514/ccs": {
+        "allele": 1,
+        "distances": [
+          3,
+          2
+        ],
+        "net": 3,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "unphased",
+        "span": [
+          46390119,
+          46407195
+        ]
+      },
+      "m84031_231217_034919_s2/209654690/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": 2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390281,
+          46406309
+        ]
+      },
+      "m84031_231217_034919_s2/2951671/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390613,
+          46413704
+        ]
+      },
+      "m84031_231217_062403_s3/244912000/ccs": {
+        "allele": 1,
+        "distances": [
+          3,
+          2
+        ],
+        "net": 3,
+        "error": 0.10631157344480194,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390786,
+          46411879
+        ]
+      },
+      "m84031_231217_062403_s3/205588641/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390815,
+          46405253
+        ]
+      },
+      "m84031_231217_062403_s3/106630030/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46390905,
+          46407921
+        ]
+      },
+      "m84031_231217_062403_s3/184946661/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "discordant",
+        "span": [
+          46391003,
+          46405547
+        ]
+      },
+      "m84031_231217_034919_s2/228721062/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46391126,
+          46409867
+        ]
+      },
+      "m84031_231217_062403_s3/264242800/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46391411,
+          46412617
+        ]
+      },
+      "m84031_231217_034919_s2/123144567/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46392203,
+          46409089
+        ]
+      },
+      "m84031_231217_034919_s2/156372589/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46392460,
+          46414592
+        ]
+      },
+      "m84031_231217_062403_s3/4130917/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46392706,
+          46420237
+        ]
+      },
+      "m84031_231217_062403_s3/44960779/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46392906,
+          46411102
+        ]
+      },
+      "m84031_231217_034919_s2/79826984/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393088,
+          46411817
+        ]
+      },
+      "m84031_231217_034919_s2/151328463/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393302,
+          46405907
+        ]
+      },
+      "m84031_231217_062403_s3/263521198/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46393358,
+          46411955
+        ]
+      },
+      "m84031_231217_062403_s3/79565271/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393413,
+          46414725
+        ]
+      },
+      "m84031_231217_062403_s3/63635933/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393421,
+          46411475
+        ]
+      },
+      "m84031_231217_062403_s3/179832715/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46393880,
+          46407819
+        ]
+      },
+      "m84031_231217_034919_s2/171378440/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394170,
+          46415518
+        ]
+      },
+      "m84031_231217_062403_s3/115151693/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394674,
+          46411073
+        ]
+      },
+      "m84031_231217_062403_s3/23792250/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46394815,
+          46413244
+        ]
+      },
+      "m84031_231217_062403_s3/67179483/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46394845,
+          46418555
+        ]
+      },
+      "m84031_231217_034919_s2/248779713/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395004,
+          46416599
+        ]
+      },
+      "m84031_231217_062403_s3/206571743/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46395454,
+          46412080
+        ]
+      },
+      "m84031_231217_034919_s2/227872200/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0004182277660168379,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395508,
+          46414496
+        ]
+      },
+      "m84031_231217_034919_s2/219288611/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46395561,
+          46409747
+        ]
+      },
+      "m84031_231217_034919_s2/167188284/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46395596,
+          46410960
+        ]
+      },
+      "m84031_231217_034919_s2/221123329/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.002313490080985717,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46396102,
+          46408697
+        ]
+      },
+      "m84031_231217_062403_s3/13173027/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": 2,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46396190,
+          46413403
+        ]
+      },
+      "m84031_231217_062403_s3/4459275/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46396499,
+          46412378
+        ]
+      },
+      "m84031_231217_034919_s2/39392515/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46397446,
+          46412441
+        ]
+      },
+      "m84031_231217_034919_s2/71632111/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46397761,
+          46410392
+        ]
+      },
+      "m84031_231217_034919_s2/251660833/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46397917,
+          46418098
+        ]
+      },
+      "m84031_231217_062403_s3/52826110/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46398219,
+          46411448
+        ]
+      },
+      "m84031_231217_034919_s2/126616981/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46398301,
+          46417526
+        ]
+      },
+      "m84031_231217_062403_s3/38344571/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46398667,
+          46413398
+        ]
+      },
+      "m84031_231217_062403_s3/103812630/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399344,
+          46427397
+        ]
+      },
+      "m84031_231217_062403_s3/30474379/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399685,
+          46413186
+        ]
+      },
+      "m84031_231217_062403_s3/168427913/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.0020972623149688786,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46399896,
+          46423437
+        ]
+      },
+      "m84031_231217_034919_s2/80874123/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399938,
+          46414210
+        ]
+      },
+      "m84031_231217_034919_s2/254871976/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46399972,
+          46421761
+        ]
+      },
+      "m84031_231217_062403_s3/264179957/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46399983,
+          46414816
+        ]
+      },
+      "m84031_231217_062403_s3/211224528/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46400230,
+          46416812
+        ]
+      },
+      "m84031_231217_034919_s2/197002318/ccs": {
+        "allele": 1,
+        "distances": [
+          2,
+          1
+        ],
+        "net": 2,
+        "error": 0.002313490080985717,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46400994,
+          46415041
+        ]
+      },
+      "m84031_231217_034919_s2/231999765/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.006524555320336759,
+        "MQ": 25,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401065,
+          46405665
+        ]
+      },
+      "m84031_231217_062403_s3/121442433/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46401109,
+          46414472
+        ]
+      },
+      "m84031_231217_034919_s2/182588138/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46401307,
+          46421072
+        ]
+      },
+      "m84031_231217_062403_s3/64426083/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401389,
+          46414033
+        ]
+      },
+      "m84031_231217_034919_s2/167118465/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401407,
+          46424913
+        ]
+      },
+      "m84031_231217_034919_s2/102043553/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46401832,
+          46412550
+        ]
+      },
+      "m84031_231217_062403_s3/87230307/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46403025,
+          46415081
+        ]
+      },
+      "m84031_231217_034919_s2/119804928/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46403096,
+          46422999
+        ]
+      },
+      "m84031_231217_034919_s2/175310951/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.002313490080985717,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46403205,
+          46416384
+        ]
+      },
+      "m84031_231217_034919_s2/55185854/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.0006344555320336759,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46403221,
+          46418185
+        ]
+      },
+      "m84031_231217_034919_s2/194643581/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46403308,
+          46429782
+        ]
+      },
+      "m84031_231217_062403_s3/80347662/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46403886,
+          46428297
+        ]
+      },
+      "m84031_231217_034919_s2/222630120/ccs": {
+        "allele": 1,
+        "distances": [
+          1,
+          0
+        ],
+        "net": 1,
+        "error": 0.0202,
+        "MQ": 20,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46404049,
+          46407528
+        ]
+      },
+      "m84031_231217_062403_s3/229443758/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0006344555320336759,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46404226,
+          46423280
+        ]
+      },
+      "m84031_231217_062403_s3/126879201/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.0200546231496888,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46404359,
+          46419972
+        ]
+      },
+      "m84031_231217_062403_s3/24777730/ccs": {
+        "allele": 0,
+        "distances": [
+          0,
+          1
+        ],
+        "net": 0,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "MATERNAL",
+        "status": "correct",
+        "span": [
+          46404631,
+          46415581
+        ]
+      },
+      "m84031_231217_034919_s2/75827266/ccs": {
+        "allele": 0,
+        "distances": [
+          1,
+          2
+        ],
+        "net": -1,
+        "error": 0.000202,
+        "MQ": 60,
+        "parent": "PATERNAL",
+        "status": "correct",
+        "span": [
+          46404888,
+          46419828
+        ]
+      }
+    },
+    "gauges": {
+      "46384021": {
+        "(0, 'G')": 1,
+        "(1, 'A')": 1
+      },
+      "46407462": {
+        "(0, 'C')": 8,
+        "(1, 'C')": 17,
+        "(0, 'G')": 26,
+        "(1, 'G')": 3
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "omit_parent_alternatives": {
+    "exit": 1,
+    "failed_checks": 4
+  },
+  "omit_reference_decoy": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "accept_selected_ties": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_reference_skip": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "erase_base_qualities": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "shift_query_slice": {
+    "exit": 1,
+    "failed_checks": 8
+  },
+  "use_local_alignment": {
+    "exit": 1,
+    "failed_checks": 6
+  }
+}

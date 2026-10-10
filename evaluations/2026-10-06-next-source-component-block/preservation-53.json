@@ -1,0 +1,20 @@
+{
+  "production_sha256": "12beb76e831986814ebb50a6d55eacbfd024f517224f7ca11039c80d06272058",
+  "before_counts": {
+    "correct": 3898,
+    "unphased": 48,
+    "discordant": 9
+  },
+  "after_counts": {
+    "correct": 3898,
+    "unphased": 48,
+    "discordant": 9
+  },
+  "changed_read_tags": 0,
+  "lost_correct_assignments": 0,
+  "complete_vcf_records_identical": true,
+  "protected_molecules": [
+    "m84031_231217_062403_s3/128325537/ccs",
+    "m84031_231217_062403_s3/146674213/ccs"
+  ]
+}

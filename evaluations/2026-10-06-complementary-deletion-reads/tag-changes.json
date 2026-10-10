@@ -1,0 +1,762 @@
+[
+  {
+    "qname": "m84031_231217_034919_s2/138284715/ccs",
+    "span": [
+      3836143,
+      3850754
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/202311784/ccs",
+    "span": [
+      3836150,
+      3850756
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/182257949/ccs",
+    "span": [
+      3836663,
+      3852921
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/266997922/ccs",
+    "span": [
+      3836860,
+      3848634
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/34082664/ccs",
+    "span": [
+      3837719,
+      3853758
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/163185361/ccs",
+    "span": [
+      3839309,
+      3852160
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/205784278/ccs",
+    "span": [
+      3839324,
+      3853386
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/66128958/ccs",
+    "span": [
+      3842009,
+      3855366
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/106305412/ccs",
+    "span": [
+      3842126,
+      3851826
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      2475250
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/241176420/ccs",
+    "span": [
+      3842286,
+      3849143
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      2475250
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/165942139/ccs",
+    "span": [
+      3844015,
+      3855124
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      2475250
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/113051567/ccs",
+    "span": [
+      4619141,
+      4638437
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/7277844/ccs",
+    "span": [
+      4619247,
+      4637737
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/164692629/ccs",
+    "span": [
+      4619906,
+      4626952
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/115610845/ccs",
+    "span": [
+      4619938,
+      4638152
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/244580560/ccs",
+    "span": [
+      4620057,
+      4639061
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/117834759/ccs",
+    "span": [
+      4620188,
+      4635617
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/127864569/ccs",
+    "span": [
+      4620542,
+      4635994
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/102893220/ccs",
+    "span": [
+      4620979,
+      4636670
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/38669493/ccs",
+    "span": [
+      4621947,
+      4633614
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/70714331/ccs",
+    "span": [
+      4621954,
+      4635793
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/102962122/ccs",
+    "span": [
+      4622021,
+      4641336
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/166397686/ccs",
+    "span": [
+      4622077,
+      4627881
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/185928536/ccs",
+    "span": [
+      4622079,
+      4636161
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/112134509/ccs",
+    "span": [
+      4622140,
+      4634534
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/135402525/ccs",
+    "span": [
+      4622352,
+      4635761
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/32904016/ccs",
+    "span": [
+      4624034,
+      4640440
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/267059894/ccs",
+    "span": [
+      4624755,
+      4640501
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      4878943
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_034919_s2/79303086/ccs",
+    "span": [
+      4624869,
+      4636218
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      4878943
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": true
+  },
+  {
+    "qname": "m84031_231217_062403_s3/252970370/ccs",
+    "span": [
+      11234813,
+      11247889
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      11157014
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/248582091/ccs",
+    "span": [
+      19328127,
+      19340498
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/61738406/ccs",
+    "span": [
+      19328653,
+      19341677
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/89000940/ccs",
+    "span": [
+      19328921,
+      19340757
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/100928632/ccs",
+    "span": [
+      19329087,
+      19339578
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/58786583/ccs",
+    "span": [
+      19329173,
+      19340967
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/67898024/ccs",
+    "span": [
+      19329365,
+      19340468
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/192482051/ccs",
+    "span": [
+      19335070,
+      19340676
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      17883198
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_034919_s2/116330389/ccs",
+    "span": [
+      41903470,
+      41920362
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      2,
+      41816999
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/35983929/ccs",
+    "span": [
+      41903573,
+      41919786
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      41816999
+    ],
+    "parent": "PATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  },
+  {
+    "qname": "m84031_231217_062403_s3/147657584/ccs",
+    "span": [
+      48212433,
+      48226395
+    ],
+    "before": [
+      0,
+      0
+    ],
+    "after": [
+      1,
+      48950389
+    ],
+    "parent": "MATERNAL",
+    "before_status": "unphased",
+    "after_status": "correct",
+    "target_neighborhood": false
+  }
+]

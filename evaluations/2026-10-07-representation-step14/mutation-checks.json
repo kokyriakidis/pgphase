@@ -1,0 +1,34 @@
+{
+  "admit_singleton_sequences": {
+    "exit": 1,
+    "failed_checks": 209
+  },
+  "count_aliases_as_molecules": {
+    "exit": 1,
+    "failed_checks": 209
+  },
+  "retain_conflicting_names": {
+    "exit": 1,
+    "failed_checks": 4
+  },
+  "retain_invalid_name_aliases": {
+    "exit": 1,
+    "failed_checks": 5
+  },
+  "ignore_molecule_exclusion": {
+    "exit": 1,
+    "failed_checks": 4
+  },
+  "expose_partial_catalog": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_hypothesis_budget": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "ignore_read_dna_length_bound": {
+    "exit": 1,
+    "failed_checks": 1
+  }
+}

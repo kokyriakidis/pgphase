@@ -1,0 +1,48 @@
+{
+  "upstream_insertion": 19365841,
+  "complementary_insertions": 19373923,
+  "motifs": [
+    "TTTAT",
+    "TTCC"
+  ],
+  "independent_upstream_snp_calibration": [
+    [
+      12,
+      1
+    ],
+    [
+      0,
+      17
+    ]
+  ],
+  "physical_bridges_by_core_haplotype_and_parity": [
+    [
+      12,
+      0
+    ],
+    [
+      10,
+      0
+    ]
+  ],
+  "accepted": true,
+  "calibration_min_mapq": 30,
+  "calibration_max_call_error": 0.01,
+  "read_max_combined_call_error": 0.2,
+  "rescued_short_read_mapq": [
+    21,
+    17
+  ],
+  "physical_whole_repeat_control": {
+    "upstream_REF_maternal": 26,
+    "upstream_ALT_paternal": 29,
+    "orphan_short_maternal": 23,
+    "orphan_long_paternal": 28
+  },
+  "nonsegregating_compound_control": {
+    "short_PATERNAL": 3,
+    "short_MATERNAL": 1,
+    "long_PATERNAL": 18,
+    "long_MATERNAL": 19
+  }
+}

@@ -1,0 +1,787 @@
+{
+  "native_output_labels": 250,
+  "independent_requests": 128,
+  "comparison_pairs": 129,
+  "runtime_environments": [
+    "/usr/lib/x86_64-linux-gnu"
+  ],
+  "binary_sha256": "f836c348e7cb5e7f7970e8cf08d506f8f1e3a064eda15ec171e502988a4aba9a",
+  "verified_current_binary_states": true,
+  "changed_outputs": [
+    {
+      "output": "backfill_certificate_4m/w4050001-4950000/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "discordant": 26,
+        "unphased": 256
+      },
+      "after_counts": {
+        "correct": 3862,
+        "discordant": 26,
+        "unphased": 238
+      },
+      "changed_read_tags": 18,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11050001-12950000/phased.bam",
+      "before_counts": {
+        "correct": 8159,
+        "discordant": 95,
+        "unphased": 547
+      },
+      "after_counts": {
+        "correct": 8160,
+        "discordant": 95,
+        "unphased": 546
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11050001-12955838/phased.bam",
+      "before_counts": {
+        "correct": 8159,
+        "discordant": 95,
+        "unphased": 622
+      },
+      "after_counts": {
+        "correct": 8160,
+        "discordant": 95,
+        "unphased": 621
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11235279-11262361/phased.bam",
+      "before_counts": {
+        "correct": 591,
+        "unphased": 65,
+        "discordant": 1
+      },
+      "after_counts": {
+        "correct": 592,
+        "unphased": 64,
+        "discordant": 1
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11255370-11262360/phased.bam",
+      "before_counts": {
+        "correct": 489,
+        "unphased": 65,
+        "discordant": 2
+      },
+      "after_counts": {
+        "correct": 490,
+        "unphased": 64,
+        "discordant": 2
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11573074-11586531/phased.bam",
+      "before_counts": {
+        "correct": 4024,
+        "discordant": 80,
+        "unphased": 485
+      },
+      "after_counts": {
+        "correct": 4025,
+        "discordant": 80,
+        "unphased": 484
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w11796979-11813446/phased.bam",
+      "before_counts": {
+        "correct": 4024,
+        "discordant": 80,
+        "unphased": 485
+      },
+      "after_counts": {
+        "correct": 4025,
+        "discordant": 80,
+        "unphased": 484
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19365840-19373922/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19373922-19377345/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19373922-19395544/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19395544-19403172/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w19403172-19414720/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w22980600-23008891/phased.bam",
+      "before_counts": {
+        "correct": 571,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "after_counts": {
+        "correct": 573,
+        "discordant": 3,
+        "unphased": 1
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w3852321-3890461/phased.bam",
+      "before_counts": {
+        "correct": 474,
+        "discordant": 58,
+        "unphased": 56
+      },
+      "after_counts": {
+        "correct": 485,
+        "discordant": 58,
+        "unphased": 45
+      },
+      "changed_read_tags": 11,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w41879449-41880908/phased.bam",
+      "before_counts": {
+        "correct": 4129,
+        "unphased": 483,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 4131,
+        "unphased": 481,
+        "discordant": 27
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w41880908-41885033/phased.bam",
+      "before_counts": {
+        "correct": 4129,
+        "unphased": 483,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 4131,
+        "unphased": 481,
+        "discordant": 27
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w41900800-41919471/phased.bam",
+      "before_counts": {
+        "correct": 607,
+        "unphased": 28,
+        "discordant": 5
+      },
+      "after_counts": {
+        "correct": 609,
+        "unphased": 26,
+        "discordant": 5
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w4625182-4637298/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "discordant": 26,
+        "unphased": 256
+      },
+      "after_counts": {
+        "correct": 3862,
+        "discordant": 26,
+        "unphased": 238
+      },
+      "changed_read_tags": 18,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w4637298-4642430/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "discordant": 26,
+        "unphased": 256
+      },
+      "after_counts": {
+        "correct": 3862,
+        "discordant": 26,
+        "unphased": 238
+      },
+      "changed_read_tags": 18,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w48225787-48229445/phased.bam",
+      "before_counts": {
+        "correct": 404,
+        "unphased": 114
+      },
+      "after_counts": {
+        "correct": 405,
+        "unphased": 113
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w48929511-48950388/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "unphased": 236,
+        "discordant": 57
+      },
+      "after_counts": {
+        "correct": 3845,
+        "unphased": 235,
+        "discordant": 57
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "graph/w48971192-48982663/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "unphased": 236,
+        "discordant": 57
+      },
+      "after_counts": {
+        "correct": 3845,
+        "unphased": 235,
+        "discordant": 57
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "padded_repeat_transfer/w41050001-41950000/phased.bam",
+      "before_counts": {
+        "correct": 4129,
+        "unphased": 483,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 4131,
+        "unphased": 481,
+        "discordant": 27
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "repeat_deletion_parental_orientation_4m/w4866153-4874129/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "discordant": 26,
+        "unphased": 256
+      },
+      "after_counts": {
+        "correct": 3862,
+        "discordant": 26,
+        "unphased": 238
+      },
+      "changed_read_tags": 18,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "retained_snp_quality/w3000001-4000000/phased.bam",
+      "before_counts": {
+        "correct": 3771,
+        "discordant": 76,
+        "unphased": 106
+      },
+      "after_counts": {
+        "correct": 3782,
+        "discordant": 76,
+        "unphased": 95
+      },
+      "changed_read_tags": 11,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_complementary_41m/w41050001-41950000/phased.bam",
+      "before_counts": {
+        "correct": 4129,
+        "unphased": 483,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 4131,
+        "unphased": 481,
+        "discordant": 27
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_full_ps_48m/w48050001-48950000/phased.bam",
+      "before_counts": {
+        "correct": 3844,
+        "unphased": 236,
+        "discordant": 57
+      },
+      "after_counts": {
+        "correct": 3845,
+        "unphased": 235,
+        "discordant": 57
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_incomplete_11m/w11050001-11950000/phased.bam",
+      "before_counts": {
+        "correct": 4024,
+        "discordant": 80,
+        "unphased": 485
+      },
+      "after_counts": {
+        "correct": 4025,
+        "discordant": 80,
+        "unphased": 484
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_internal_conflict_guard_19m/w19373922-19395544/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_multiple_source_labels_23m/w22550001-23450000/phased.bam",
+      "before_counts": {
+        "correct": 3562,
+        "discordant": 66,
+        "unphased": 324
+      },
+      "after_counts": {
+        "correct": 3564,
+        "discordant": 66,
+        "unphased": 322
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_one_anchor_19m/w19050001-19950000/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_preserve_graph/w11050001-11950000/phased.bam",
+      "before_counts": {
+        "correct": 4024,
+        "discordant": 80,
+        "unphased": 485
+      },
+      "after_counts": {
+        "correct": 4025,
+        "discordant": 80,
+        "unphased": 484
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_single_molecule_3573979/w3050001-3950000/phased.bam",
+      "before_counts": {
+        "correct": 3771,
+        "discordant": 76,
+        "unphased": 106
+      },
+      "after_counts": {
+        "correct": 3782,
+        "discordant": 76,
+        "unphased": 95
+      },
+      "changed_read_tags": 11,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_validation_ps_remap/w22950001-23050000/phased.bam",
+      "before_counts": {
+        "correct": 855,
+        "discordant": 3,
+        "unphased": 3
+      },
+      "after_counts": {
+        "correct": 857,
+        "discordant": 3,
+        "unphased": 1
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "stitch_weak_source/w19050000-19950000/phased.bam",
+      "before_counts": {
+        "correct": 4054,
+        "unphased": 154,
+        "discordant": 20
+      },
+      "after_counts": {
+        "correct": 4061,
+        "unphased": 147,
+        "discordant": 20
+      },
+      "changed_read_tags": 7,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "verified_graph_gauge_11862429/w11573074-11586531/phased.bam",
+      "before_counts": {
+        "correct": 4024,
+        "discordant": 80,
+        "unphased": 485
+      },
+      "after_counts": {
+        "correct": 4025,
+        "discordant": 80,
+        "unphased": 484
+      },
+      "changed_read_tags": 1,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    },
+    {
+      "output": "verified_noisy_snp_graph_path_41m/w41880908-41885033/phased.bam",
+      "before_counts": {
+        "correct": 4129,
+        "unphased": 483,
+        "discordant": 27
+      },
+      "after_counts": {
+        "correct": 4131,
+        "unphased": 481,
+        "discordant": 27
+      },
+      "changed_read_tags": 2,
+      "lost_correct_assignments": [],
+      "lost_correct_changed_tags": [],
+      "changed_evidence": [],
+      "lost_phased_assignments": [],
+      "changed_variant_records": 0,
+      "missing_variant_keys": [],
+      "added_variant_keys": []
+    }
+  ]
+}

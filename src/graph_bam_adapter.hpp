@@ -9,6 +9,7 @@
 // three-phase depth/AF filtering along the way.
 
 #include "collect_types.hpp"
+#include "allele_identity.hpp"
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
 
@@ -58,6 +59,14 @@ struct GraphSiteMeta {
     bool bam_alt_deletion_no_ref = false;
     bool bam_low_fraction_snp = false;
     std::vector<std::array<int, 2>> physical_allele_strands = {};
+    // Decomposed graph zero means "not selected ALT", not literal REF.
+    bool non_selected_alt_class = false;
+};
+
+struct CandidateAlleleContrast {
+    AlleleContrastKey key;
+    // Canonical sequence order mapped to the original profile's allele indices.
+    std::array<int, 2> local_alleles;
 };
 
 // Output of build_graph_chunk: a PhasingChunk ready for k-means phasing,
@@ -111,6 +120,11 @@ struct DeferredPhysicalBridge {
 };
 
 struct GraphChunkBuildResult {
+    /// Reference-equivalent descriptions; original rows retain recovery/output
+    /// contracts. Rebuild this index after changing candidate indices.
+    std::vector<std::pair<CandidateIdentityKey, std::vector<size_t>>> joint_candidate_loci;
+    std::vector<std::optional<CandidateAlleleContrast>> candidate_allele_contrasts;
+    std::vector<std::pair<AlleleContrastKey, std::vector<size_t>>> joint_allele_contrasts;
     /// Complete selected BAM phase-set membership, including shared graph rows.
     std::vector<RecoverySourceSite> recovery_source_sites;
     std::vector<RecoverySourceRead> recovery_source_reads;
@@ -150,6 +164,21 @@ struct GraphChunkBuildResult {
     std::vector<FilteredGraphSite> filtered_sites;
 };
 
+/// Group complete biallelic REF/ALT descriptions without combining their contracts.
+void rebuild_joint_candidate_loci(GraphChunkBuildResult& graph_chunk,
+    const std::function<char(hts_pos_t)>& reference_base);
+
+/// Reduce dependent graph/BAM calls in a complete contrast's canonical gauge.
+/// Preserve conflicts and abstain on alleles outside the selected sample pair.
+MoleculeAlleleEvidence joint_contrast_molecule_evidence(
+    const GraphChunkBuildResult& graph_chunk, const std::vector<size_t>& members,
+    const ReadVariantProfile& profile);
+
+/// Project compatible aliases to one molecule vote in the initial clean solve,
+/// then restore original profiles/metadata and share the resulting locus phase.
+void phase_joint_graph_candidates(GraphChunkBuildResult& graph_chunk, const Options& opts,
+    const std::function<char(hts_pos_t)>& reference_base);
+
 /// True only when every neighboring source anchor is separated by a weak cut.
 /// Co-located rows retain their source contrast; a source singleton has no
 /// internal edge to classify. `weak_cuts` must be coordinate ordered.
@@ -187,6 +216,10 @@ bool retained_source_snp_path_anchor_supported(
 /// MSA source row. A graph representation may retain repeat classification.
 /// Read evidence must separately certify its current haplotype gauge.
 std::optional<VariantKey> retained_shared_deletion_key(
+    const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
+
+/// Canonical catalog insertion matching its independently verified source edit.
+std::optional<VariantKey> retained_shared_insertion_key(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
 
 /// Check a staged BAM read against an independently calibrated clean SNP.
@@ -267,10 +300,25 @@ void detach_bam_sites_across_weak_cuts(GraphChunkBuildResult& graph_chunk);
 bool bam_source_site_path_supported(const GraphChunkBuildResult& graph_chunk,
                                     size_t candidate_index);
 
+/// Retain earlier source certificates when a retry leaves their entire site
+/// cohort untouched. Remap candidate/read indices without changing HP gauges.
+void retain_disjoint_recovery_sources(GraphChunkBuildResult& graph_chunk,
+                                      const GraphChunkBuildResult& before);
+
 /// Certify a source run from a BAM marker to its first exact shared graph SNP.
 /// A complete graph path must separately certify the rest of the live block.
 bool bam_source_prefix_to_graph_supported(const GraphChunkBuildResult& graph_chunk,
                                           size_t candidate_index);
+
+/// Certify a source run from its nearest exact preceding graph SNP to a marker.
+/// A cut leaving the marker does not invalidate this already anchored suffix.
+bool bam_source_suffix_from_graph_supported(const GraphChunkBuildResult& graph_chunk,
+                                            size_t candidate_index);
+
+/// Certify an insertion or shared deletion within its uncut source component.
+/// Verified BAM deletions use two shared SNPs and their complete intervening path.
+bool retained_source_component_gauge_supported(const GraphChunkBuildResult& graph_chunk,
+                                                size_t candidate_index);
 
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                                const std::vector<GraphReadAllele>& rows,
@@ -356,6 +404,14 @@ std::optional<bool> calibrated_indel_bridge_flip(
 std::optional<bool> calibrated_source_deletion_bridge_flip(
     const IndependentBamBlockLink& gauge, const std::array<int, 2>& parity,
     double quality_error_bound);
+
+/// Find a shared pure insertion motif up to eight bases; the first allele may
+/// be reference. Return zero for a compound or incompatible sequence pair.
+size_t tandem_insertion_motif_length(const std::string& first, const std::string& second);
+
+/// Require bounded length slippage and agreeing complete-sequence distances.
+int bounded_tandem_insertion_class(int observed, int first, int second,
+                                   const std::array<int, 2>& distances);
 
 /// Separate non-reference repeat lengths; zero length and equidistant calls abstain.
 int complementary_insertion_length_class(int observed, int first, int second);

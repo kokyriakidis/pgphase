@@ -1,0 +1,22 @@
+{
+  "previous_independently_verified_cost_state_unchanged": [
+    "test_data/tmp_representation_step7/accepted/matrix4-final/matrix.chunk0.joint-contexts.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix4-final/matrix.chunk0.joint-sequences.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix4-final/matrix.chunk0.joint-costs.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix4-final/matrix.chunk0.joint-genotypes.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix5-final/matrix.chunk0.joint-contexts.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix5-final/matrix.chunk0.joint-sequences.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix5-final/matrix.chunk0.joint-costs.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix5-final/matrix.chunk0.joint-genotypes.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix65-final/matrix.chunk0.joint-contexts.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix65-final/matrix.chunk0.joint-sequences.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix65-final/matrix.chunk0.joint-costs.tsv",
+    "test_data/tmp_representation_step7/accepted/matrix65-final/matrix.chunk0.joint-genotypes.tsv",
+    "test_data/tmp_representation_step7/accepted/whole-final/matrix.chunk0.joint-contexts.tsv",
+    "test_data/tmp_representation_step7/accepted/whole-final/matrix.chunk0.joint-sequences.tsv",
+    "test_data/tmp_representation_step7/accepted/whole-final/matrix.chunk0.joint-costs.tsv",
+    "test_data/tmp_representation_step7/accepted/whole-final/matrix.chunk0.joint-genotypes.tsv"
+  ],
+  "input_metadata_identical": true,
+  "floors_and_panel_unchanged": true
+}

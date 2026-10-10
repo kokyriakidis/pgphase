@@ -16535,3 +16535,1502 @@ regression takes 0.48 seconds. Final binary SHA256:
 `d9d05f6ea9d5735abc2457f995e5404341003fa0ff621c47df206ff9e3c2b45e`; full output
 `test_data/tmp_gap_fix86/final/0`. Detailed validation: the evaluation directory
 above, `validation.json` and `panel-audit.json`.
+
+## 2026-10-06: Retain source provenance at the overlapping 36.259 Mb orphan
+
+The expanded next-block audit includes adjacent phased-site PS transitions,
+not only spaces between phase-set extents. It finds two qualifying missed
+connections in HiPhase rank-8 block 36,137,653–37,393,302 (1,255,650 bp),
+ahead of the previously considered rank-43 prefix. A separate BAM source
+36,259,922–36,261,301 overlaps the already spanning main graph core.
+Larger remaining extent-uncovered blocks have HiPhase seam correctness below
+80% of all original truth-scorable primary overlapping reads.
+
+A later focused retry discarded earlier source sites, read gauges and cuts
+while retaining their candidates and observations. The final read assignment
+lost the original D1 36,252,908 shared-SNP certificate. The exit cut at its
+VCF position 36,252,907 does not invalidate the bounded suffix from the
+preceding exact shared graph SNP. Retain an old source only when every exact
+candidate survives uniquely and is unclaimed by the refreshed source; remap
+source IDs and candidate/read indices and preserve the original gauge/cuts.
+The new bounded D1 assignment requires that exit cut, two consistent preceding
+shared SNPs, an uncut suffix, a same-core downstream graph SNP within 20 kb,
+an intervening separate BAM anchor and no compound MSA anchor within 32 bp.
+Each original primary MAPQ30 read must pass the existing complete-repeat
+physical call; contrary clean phased SNP observations veto its assignment.
+
+The missed intervals 36,252,907–36,259,922 and 36,261,301–36,268,291 now have
+81/90 and 97/100 correct original reads, versus HiPhase 80/90 and 96/100.
+Connected core counts improve 65→80 and 84→96, matching HiPhase at both.
+The native owner gains five previously unphased correct reads and corrects two
+discordant labels; it loses no correct/phased labels or variant evidence.
+Eight previous correct rescue reads also move into the established main core.
+One- and four-thread candidate TSVs, VCF records and BAM assignments agree.
+A broader trial lost 11 unrelated correct labels and was rejected.
+
+HiPhase's homozygous repeat calls avoid pgphase's I5/I6 and I1 orphan contrast.
+This change does not reclassify those variant calls or certify a new block
+join. The target's leading 36,137,653–36,140,083 interval remains open
+(HiPhase only 40/82 correct); the entire HiPhase target is not declared closed.
+Both accepted read connections enter the committed panel, certified manifest,
+HiPhase reference, expectations and native owner regression. The old binary
+fails 17 assertions; the repair passes 699 with parental flank and restored
+molecule checks. Cached runtime is 0.66 seconds. Units, 1,551 predicate
+assertions and HiFi/ONT golden/determinism gates pass.
+
+Evidence: `evaluations/2026-10-06-overlapping-source-block/`.
+
+Full chr20 preserves 250 blocks, N50 955,496 bp and largest 3,012,193 bp.
+Correct 230,894→230,901; discordant 6,644→6,642; unphased 19,074→19,069.
+No previously correct/phased read, variant key/evidence or block extent is
+lost, and no status change occurs outside the target neighborhood. Whole
+HiPhase-target correct/core counts improve 4,841/4,744→4,848/4,759, versus
+HiPhase 4,906/4,906, so the whole-target deficits remain 58/147.
+
+Retaining source provenance also attaches 17 already correct 56.671 Mb rescue
+labels to their established core. All full-chromosome VCF records, including
+GT/PS, are identical; only the 32 read labels change.
+
+Final gap suite: 17,715 assertions / four cases; cache helper: four tests.
+All 244 native output labels (including new baseline controls) / 128 current
+independent requests preserve every old correct/phased read and VCF record.
+Thirteen labels change only read tags in the two affected owner regions.
+Final SHA256: `10ee7e7a82564a4877e99783a339c9b4b999b1b0c5c5f78fc6975946fa5f8712`;
+full output `test_data/tmp_gap_fix87/final/0`. Results and checks are in the
+linked evaluation's `results.json`, `panel-audit.json` and `validation.json`.
+
+## 2026-10-06: Complete complex tandem reads at the 19.373 Mb orphan
+
+The refreshed audit checks overlapping PS transitions in all 50 largest
+HiPhase blocks, including blocks whose coordinate span is already covered.
+The next qualifying missed connection is in rank-18 block
+18,442,592–19,464,219 (1,021,628 bp). The two intervals
+19,365,840–19,373,922 and 19,373,922–19,377,345 have HiPhase 86/89 and
+54/67 correct original primary overlaps. Pgphase starts at 66/89 and 39/67,
+with only 60 and 33 correct in the dominant connected core.
+
+The useful verified TTCC one-/two-copy insertion contrast has period four;
+the preceding TTTAT contrast has period five. The existing physical caller's
+one-/two-base motif restriction excludes both. The nearby compound 10/14
+insertion segregates poorly; HiPhase calls its longer insertion homozygous.
+Complete original-repeat controls identify 26 maternal REF and 29 paternal
+ALT calls at TTTAT, and 23 maternal short / 28 paternal long calls at TTCC.
+No production truth or competitor genotype demotion is introduced.
+
+New read assignment inside an existing spanning core reconstructs whole
+pure three- to eight-base repeats, bounded to 256 reference bases in either
+direction, with external 16-base flanks. Unique complete-sequence distance
+and nearest net-length class must agree, with at most two bases of slippage
+and one additional shared edit. Compound edits abstain. Independent MAPQ30
+SNP-bearing reads ending before the orphan calibrate the upstream repeat
+(12/1 and 0/17 core-gauge counts). Separate MAPQ30 physical crossing reads
+support both classes (12 and 10 unanimous bridges). The existing calibrated
+repeat gate rejects random gauge association, contrary bridges and excessive
+joint error. Each assigned molecule supplies its own physical call; contrary
+clean phased SNPs or inconsistent repeat calls veto assignment.
+
+The first MAPQ30 assignment trial corrects 21 wrong labels but reaches only
+84 core-correct reads in the first interval. Two short, already correct rescue
+reads at MAPQ21/17 have complete repeat calls whose combined mapping and
+external-base error is below 20%. Calibration retains MAPQ30; assignment now
+uses that explicit error bound rather than excluding those molecules. Low
+MAPQ assignment calls cannot nominate a block join.
+
+Final native counts are 87/89 correct / 86 core at the first interval and
+60/67 correct / 58 core at the second, versus HiPhase 86/86 and 54/54. The
+first retains one discordant and one unphased original read; the second has
+seven discordant reads. Native 19–20 Mb owner: 4,033→4,054 correct,
+41→20 discordant and 154 unphased unchanged, with no correct/phased read
+loss. Twenty-six read tags change, including five old correct rescues attached
+to the existing core. Every candidate TSV byte and VCF record remains identical;
+one-/four-thread candidates, VCF records and BAM assignments agree.
+
+Both connections enter the committed panel, certified manifest, HiPhase
+reference and measured expectations; the new native regression checks both
+parental flanks, repaired molecules and the two short rescue reads. It fails
+18 assertions with the starting binary and passes 710 after repair. Warm
+runtime is 0.76 seconds. Fifteen new pure predicate checks and 1,551 existing
+predicate assertions pass, as do all units and HiFi/ONT golden/determinism
+gates. The existing 19 Mb unsupported-join guard remains intact: no source
+variant PS or block-link certificate is changed. The later
+19,377,345–19,395,544 seam remains open (HiPhase 102/131 correct, 77.86%),
+and the entire HiPhase target is not declared closed. Evidence and replay:
+`evaluations/2026-10-06-next-overlapping-block/`.
+
+Full chr20: correct 230,901→230,922, discordant 6,642→6,621, unphased
+19,069 unchanged. No previously correct/phased read, complete VCF record or
+block extent is lost; all 64,483 VCF records including GT/PS are identical,
+and no status change occurs outside the target neighborhood. N50 remains
+955,496 bp, with 250 blocks and largest 3,012,193 bp. Whole-target correct
+reads improve 4,373→4,394 (HiPhase 4,389); connected-core correct reads
+improve 3,949→3,975, leaving a 414-read deficit versus HiPhase.
+
+The full suite exposed a historical window-score defect: `separated` chose
+the phase set with the most tagged reads before counting its correct reads.
+Correct rescue promotions changed that selection, reporting 58 while the old
+core's 59 correct reads remained intact. The corrected score takes the greatest
+correct-read count across phase sets, retaining its local orientation convention.
+A synthetic promotion counterexample fails one of 16 assertions before the
+score correction and passes all 16 after it. No production owner-preservation
+guard is needed; no right-core read moved. The existing 0.42 floor is retained,
+as are all other expectations and the original-primary certification logic.
+Final complete gap suite: 17,841 assertions / five cases; cache helper: four
+tests. Final binary SHA256:
+`098e6b4895707ecc6a7d2af558b1c4aa9688741f9f742b807e339851596d117e`;
+full output `test_data/tmp_gap_fix88/final/0`.
+All 246 native output labels / 128 current independent requests preserve every
+old correct/phased read and complete VCF record. Eight labels change only read
+tags in the affected owner region. The final evaluation's `panel-audit.json`
+and `validation.json` record these checks.
+
+## 2026-10-06: Anchor retained source components at the 46.403 Mb orphan
+
+The refreshed original-read audit of the 50 largest HiPhase blocks identifies
+rank 30, chr20:45,866,904–46,636,707 (769,804 bp), as the next qualifying missed
+connection. Pgphase already spans its coordinates, but total/core correctness
+is 104/88 at 46,389,864–46,402,979 (118 original primary overlaps) and 70/62 at
+46,402,979–46,405,048 (75 overlaps). HiPhase gets 106/106 and 72/72, respectively.
+
+The 14 bp deletion at 46,388,261 is retained as a verified graph catalog row
+with its original MSA source edit and gauge. Complete original-read controls
+separate 30 maternal REF / 32 paternal ALT calls, with independent upstream
+SNP counts 17 maternal / 22 paternal. Nearby one-base repeats are less reliable.
+The overlapping one-base source deletion at 46,402,980 remains separate inside
+the core; the weak source cut is at 46,389,864. The old read promoter requires
+a new shared-deletion block bridge, an entirely uncut source and core coverage
+at least equal to rescue coverage at every coordinate in the chunk. It rejects
+already anchored source components that only need read placement in a spanning
+core; all three useful markers pass their local shared-SNP gauges but the
+whole-core coverage predicate fails.
+
+Local promotion now requires the marker's original uncut component to retain
+at least two distinct shared clean graph SNP loci, with every retained source
+anchor in that component in one consistent current gauge. Weak and quality
+cuts bound eligible evidence. A nearby overlapping BAM-only island must have
+clean SNPs in the same core on both sides. Pure shared deletions physically
+confirm their own primary REF/ALT calls to fill or correct a read. Insertions
+promote only already rescued reads agreeing with their physical whole-repeat
+call, using bounded length and complete sequence distances. They cannot replace
+an established core label, preserving a stronger deletion call against a noisy
+repeat. Known mapping/base qualities, <=5% physical plus mapping error, and no
+contrary clean phased SNP remain required. Other ordinary cores, source
+components, candidate gauges and block connections are preserved.
+
+Native final: 107/118 correct / 107 core (90.68%, two discordant, nine unphased)
+and 72/75 correct / 72 core (96.00%, one discordant, two unphased). Both total and
+core counts match or exceed HiPhase. The 46–47 Mb owner improves 3,905 correct /
+17 discordant / 120 unphased to 3,908/16/118, with no old correct/phased read
+loss. Twenty tags change: two abstentions and one wrong label become correct,
+16 already correct rescues enter the core, and one old wrong rescue keeps its
+haplotype while entering the core. Candidate TSV bytes and complete VCF records
+are identical; one-/four-thread candidates, VCF records and BAM assignments
+match.
+
+Both connections enter the panel, certified manifest, identical-input HiPhase
+reference, replay map, required sites and measured expectations. The owner
+regression verifies original denominators, total/core floors, parental flanks,
+restored molecules and whole-owner accuracy. The starting binary fails 15 of
+720 assertions; the repair passes all 724 in 0.76 seconds warm. Sixteen new
+in-memory component-gauge checks, all units, 1,551 phasing-predicate assertions
+and HiFi/ONT golden/determinism gates pass. Evidence and replay:
+`evaluations/2026-10-06-next-source-component-block/`.
+
+The first preservation audit rejects applying the local exception to unshared
+short source deletions: the 53 Mb native replay promotes 13 rescues and leaves
+six with an opposite parental majority. Two unchanged reads then lose their
+measured orientation. Unshared deletions retain the complete-source and
+whole-cohort guards; only a shared catalog deletion can supply the local
+physical deletion certificate. Two additional unit checks assert this scope.
+No acceptance threshold or old expectation is lowered.
+
+Final validation: 17,954 gap assertions / five cases and four cache-helper
+tests pass. All 248 native output labels / 128 current independent requests
+(129 comparison pairs) preserve every old correct/phased read and complete
+VCF record; seven labels change only read tags. The 53 Mb control retains every
+HP/PS label and VCF record exactly. Final binary SHA256:
+`12beb76e831986814ebb50a6d55eacbfd024f517224f7ca11039c80d06272058`;
+full output `test_data/tmp_gap_fix89/final/0`.
+
+Full chr20: 230,925 correct / 6,620 discordant / 19,067 unphased, versus
+230,922 / 6,621 / 19,069 before. All 20 tag changes overlap the target
+neighborhood. No old correct/phased read or block extent is lost; all 64,483
+complete VCF records and every byte of the 82,287-site candidate TSV are
+unchanged. N50 remains 955,496 bp; largest block remains 3,012,193 bp.
+The repaired connections meet HiPhase, while the entire 769,804 bp target
+still trails by four total correct and 22 connected-core correct reads
+(3,038/3,020 versus 3,042/3,042 on 3,129 primary overlaps). Whole-block read
+parity remains open and is recorded explicitly in `results.json` and
+`validation.json`.
+
+## 2026-10-06: Place complete complementary deletion reads at 4.637 Mb
+
+The refreshed original-primary audit of the 50 largest HiPhase blocks finds
+rank 34, chr20:4,570,122–5,196,043 (625,922 bp), as the next qualifying missed
+connection. Coordinates already span, but pgphase total/core correct counts
+are 95/95 at 4,625,182–4,637,298 (127 primary overlaps) and 69/69 at
+4,637,298–4,642,430 (87 overlaps). HiPhase gets 113/113 and 76/76.
+
+HiPhase uses a four/eight-base AGGA-repeat deletion contrast. Pgphase retains
+equivalent MSA- and alignment-verified source deletions at 4,625,183 with
+complementary gauges in the connected core. The single-marker read promoter
+rejects that compound contrast, and complete physical deletion calling only
+recognizes one/two-base motifs. Eighteen SNP-desert reads remain unphased
+despite informative original sequence. Full-repeat calls recover ten paternal
+short and eight maternal long deletion reads. Independent Q30 SNP calls at
+4,618,685 yield molecule-half gauges [[0,8],[11,0]] and [[1,7],[8,0]]. The nearby
+2/3-base homopolymer contrast mixes both parents in either length class and
+has no clean SNP in its own phase set; it cannot supply a read certificate.
+
+Complete-repeat deletion calling uses the existing fundamental-motif detector
+up to eight bases. A separate read fill requires complementary verified source
+deletions in one existing core, independent diploid clean-graph-SNP calibration
+within 20 kb in both deterministic molecule halves, the retained gauge and
+bounded association/error. Complete sequence and net deletion length must
+agree with bounded slippage. Known primary MAPQ30 alignments, <=5% physical
+plus mapping error, and no contrary clean phased SNP are required. Only reads
+without core or rescue haplotypes qualify; candidate representations, joins
+and existing read tags are unchanged. Parental truth remains evaluation only.
+
+Native owner: 3,844 correct / 26 discordant / 256 unphased becomes 3,862/26/238.
+The two connections reach 113/127 (88.98%) and 76/87 (87.36%) total/core correct,
+matching HiPhase, with no discordant read. All 18 changed labels are abstentions
+becoming correct core reads. Both connections enter the panel, certified
+manifest, HiPhase table, owner replay map, required sites and measured floors.
+The native fixture fails 15 of 734 assertions on the starting binary and passes
+738 on the repair, in 0.88 seconds warm. Four additional in-memory checks cover
+the four-base motif, measured calibration, contradictory gauges and noisy
+homopolymer abstention. All units, 1,551 predicate assertions and HiFi/ONT
+golden/determinism gates pass. Evidence:
+`evaluations/2026-10-06-complementary-deletion-reads/`.
+
+Final binary SHA256:
+`f836c348e7cb5e7f7970e8cf08d506f8f1e3a064eda15ec171e502988a4aba9a`;
+full output `test_data/tmp_gap_fix90/final/0`. Complete gap suite passes
+18,067 assertions / five cases; four cache-helper tests pass. Native one-/four-
+thread candidate TSV bytes, complete VCF records and every HP/PS label match.
+
+Full chr20: 230,965 correct / 6,620 discordant / 19,027 unphased, versus
+230,925 / 6,620 / 19,067 before. All 40 changed labels are abstentions becoming
+correct core reads: 18 at the target and 22 in the 3, 11, 19, 41 and 48 Mb
+chunks. Every previous phased HP/PS label and correct assignment is identical;
+all old block extents, all 64,483 complete VCF records and every candidate TSV
+byte survive. N50 remains 955,496 bp; largest block remains 3,012,193 bp.
+
+The entire 625,922 bp HiPhase target still trails by four total and 89 dominant-
+core correct reads (2,511/2,426 versus 2,515/2,515 on 2,622 primary overlaps).
+The separate 4,874,129–4,884,130 transition retains 54 total / 31 core correct
+versus HiPhase's 53 / 53 on 64 overlaps and remains uncertified. This repair
+closes the two AGGA-repeat connections; whole-block parity is explicitly open
+in `results.json`, `validation.json` and `after-screened-seams.json`.
+Final native-panel audit: 250 output labels / 128 current independent requests
+and 129 comparison pairs pass. Thirty-seven labels improve read tags while
+preserving every old correct/phased read and complete VCF record. The final
+`panel-audit.json` and `validation.json` tie these checks to the immutable
+production binary.
+
+
+## 2026-10-06 — Retained shared insertion closes the 4.874 Mb read gap
+
+Close chr20:4874129–4884130, the remaining rescue-to-core gap from the
+complementary-deletion evaluation. On the same 64 original truth-scorable
+primary overlaps, pgphase retains 54 correct / 1 discordant / 9 unphased reads
+and improves connected-core correct 31→53. HiPhase has 53 correct / 1 discordant
+/ 10 unphased, all 53 correct in its core. Overall correctness is 84.375%;
+connected-core correctness is 82.8125%, including abstentions. Both parity gates
+and the 80% threshold pass. Original/HiPhase alignment geometry is verified.
+
+The shared A>AC catalog insertion at 4878943 retains verified source MSA
+identity while keeping the graph representation without an MSA flag. Recognize
+its exact canonical insertion and retain the complete-repeat physical-call
+check: 17 correct rescues enter the existing core with unchanged haplotypes.
+Five more correct rescues end before that insertion. Their verified source
+single-base deletion at 4866154 can use two shared clean SNPs and every
+intervening anchor in one source/current gauge. Unadoptable earlier rows outside
+that path no longer veto it; cuts and ambiguous/intervening source rows still
+veto. A separately anchored canonical shared insertion from another source
+within 20 kb in the same core is also mandatory. Absent that certificate, the
+old complete-source and whole-cohort rules remain in effect. The complete-repeat
+REF/deletion caller can certify a neighboring shared sequence difference when
+strict equivalence abstains. Only agreeing existing rescues move, with at most
+5% physical/mapping error and no contrary clean SNP; ordinary core tags remain
+protected. No variant block or haplotype is replaced.
+
+The native 4–5 Mb owner promotes 23 tags (22 correct, one already discordant)
+while retaining 3862 correct / 26 discordant / 238 unphased reads. The correct
+MAT molecule m84031_231217_062403_s3/109381842/ccs disagrees with physical markers
+and retains its original rescue assignment; the regression checks it explicitly.
+One/four-thread tags, candidate bytes and complete VCF records match. Add the
+new closure to the certified panel, native replay map, HiPhase reference,
+required insertion evidence, measured expectations, and independent parental
+flank checks. Existing floors are retained; graph TOTAL span floor moves
+121→122 for the added row.
+
+Validation: build without errors/warnings, all units, 13 new in-memory checks,
+1551 predicate assertions / 47 cases, HiFi/ONT goldens and HiFi determinism pass.
+The new fixture passes 757 assertions in about 1.1 seconds warm; the initial
+binary fails three assertions including core parity 31≥53. Full suite: 18138
+assertions / five cases, plus four cache-helper tests. The native audit covers
+250 output labels / 128 current requests / 128 comparison pairs; twelve labels
+change tags while preserving every old correct/phased read and complete VCF
+record. The 53 Mb control keeps every tag and VCF record exactly.
+
+Full chr20 retains 230965 correct / 6620 discordant / 19027 unphased reads.
+All 47 tag changes promote rescues without changing HP or correctness: target
+22 correct + one old discordant, 23 correct near 13 Mb, one correct near 48 Mb.
+Other effects are reported without claiming additional closures. Every old
+correct/phased read, ordinary core tag, block extent, all 64483 complete VCF
+records and every byte of the 82287-site candidate TSV survive. N50 remains
+955496 bp, largest block 3012193 bp, 250 blocks. The whole 625922 bp HiPhase
+target still trails by four total and 67 connected-core correct reads outside
+the repaired interval (pgphase 2511/2448, HiPhase 2515/2515, 2622 overlaps).
+Do not claim whole-block parity. Evidence:
+`evaluations/2026-10-06-shared-insertion-source/`; full output
+`test_data/tmp_gap_fix91/final_current/0`; final SHA256
+`c6bcf86a43b5301cd90960eeb8b525d14944494dfb8381f9b676c5641952e674`.
+
+## 2026-10-06 — Investigate general graph/gap inference instead of one-gap rules
+
+Current executable unchanged: c6bcf86a43b5301cd90960eeb8b525d14944494dfb8381f9b676c5641952e674.
+Reaudit all 141 tracked windows on original primary overlaps and current full
+chr20. Native and full results each pass 65 and fail 76 contracts; six windows
+change failure category with owning/stitch context. Of 59 remaining targets
+where HiPhase meets 80%, only five lack a spanning block. Seven span but fail
+80%, 30 span/meet 80% but miss total correctness, and 17 miss only connected
+core parity. Fifty have only repeat/noisy candidates inside. A VCF gap seam
+inventory does not nominate the majority of these read-level deficits.
+
+Fresh 4/5/6 Mb matrices expose retained information: at 5.309–5.345 Mb, pgphase
+has 206 correct / one wrong / 19 unphased, with 140 correct core, versus
+HiPhase 220/1/5 with core 220. Seventy-five of the 80 missing HiPhase-correct
+core reads have an optimistic allele path to a core SNP; none has a direct
+core SNP observation. Two wrong 6.514 Mb reads have correct BAM/effective SNP
+votes but wrong graph votes; additive rescue and spaced refresh leave HP intact.
+
+Same-read HiPhase controls use current pgphase VCF at 5.25–5.40 Mb, with GT
+unphased and PS cleared. Default and local-only each give 199 correct / two
+wrong / 25 unphased, core 126. Adding the graph's existing but un-emitted
+5315591 C>CT gives 208/8/10, core 208. Replacing the two compound insertion
+rows by one ALT/ALT diploid contrast as well gives 215/1/10, core 215. Full
+competitor DeepVariant input gives 220/1/5, core 220. Existing pgphase VCF fields
+are preserved in these final surgical controls. The current working matrix
+already has 43 left-SNP/insertion pairs and five insertion/deletion pairs,
+both allele classes present; the latter pairs are BAM-only. Observation
+representation and core integration matter beyond merely admitting more sites.
+
+Extract/replay the current exact MEC kernel unchanged on three saved matrices.
+All-site binary predictions give 153, 201, 93 correct versus owning 154, 206,
+86; the 6 Mb improvement also loses five old correct core calls. These are
+diagnostic predictions, not accepted closures. Kernel invocations take 2–5 ms.
+Strict SNP-priority costs give 153/202/88 correct; the centered 6 Mb arm
+matches HiPhase's 88 in full and both read halves without losing any old
+correct core call. Weighting helps that fixture but does not reach 5 Mb parity.
+Naive binary all-site optimization does not replace complete locus alleles,
+channel disagreement calibration and a shared component/read inference stage.
+
+Proposed direction: keep graph/BAM/MSA allele likelihoods at complete diploid
+loci, count original molecules once, infer site/read/core connection jointly,
+nominate deficits inside already spanning blocks, and cache immutable evidence
+separately from solver results. Validate a generic adapter/component stage on
+all 59 targets before adding another allele-shape-specific promotion path.
+No production behavior, binary, expectations or certified closure changes.
+All three owning runs, six HiPhase controls and 72 kernel calls succeed;
+diagnostic syntax checks pass. Evidence, controls, scripts and limitations:
+`evaluations/2026-10-06-joint-evidence-investigation/`.
+
+### 2026-10-06 — representation and MSA provenance follow-up
+
+Reference-normalizing the current 64,483-row full VCF validates all REF alleles
+and moves 504 records. It reveals ten equivalent allele pairs, all with the
+same phased GT/PS, three with different AD; the raw VCF has no exact duplicates.
+The three saved owning matrices contain 96 raw-key collision groups. These
+are not a duplicate-allele count: decomposition retains a common graph site
+key while selected alternatives remain in parallel metadata. Single-index
+recovery maps keep the first collision; the audit establishes this ambiguity
+hazard, not a specific wrong transfer or independent double-weighting event.
+
+`msa_verified` is set at MSA candidate construction, initially with zero depth,
+not by independent genotype/read/phase validation. Some consensuses use current
+HP/PS grouping. Prefer supported MSA allele sequences when reconciling graph
+representations, but preserve provenance and infer orientation jointly.
+Canonicalize reference-anchored allele identity, merge equivalent descriptions
+with molecule-level counts, and keep distinct ALT1/ALT2 contrasts together.
+Deleting co-located alternatives or blindly enabling existing noisy-site
+merging/admission is not supported by these measurements.
+Diagnostic only; no production or expectation changes. Reproduction and all
+duplicate pairs: `evaluations/2026-10-06-joint-evidence-investigation/README.md`
+and `representation-audit.json` in the same directory.
+
+### 2026-10-06 — representation repair step 1: unique handoff identities
+
+Added `allele_identity.*` with an exact per-contig candidate identity index.
+The same row can be inserted repeatedly; multiple rows claiming the same key
+remain ambiguous in either order. Raw and selected-sequence indexes must agree
+when both contain a query. Distinct selected graph alternatives remain separate
+even if they share a topology key. Seam recovery, final transfer reindexing and
+whole-chunk BAM overlay use this index. An ambiguous existing locus cannot be
+appended as a private BAM site. Every parent sequence alias enters final
+reindexing, including duplicate aliases, so ambiguity cannot disappear there.
+Existing graph candidates/profiles remain intact; this step does not normalize
+repeat shifts, deduplicate candidate rows or combine diploid alleles/read depths.
+
+The standalone identity checks fail five assertions when mutated back to
+first-entry-wins and pass with the fix. A hundred warm runs average 1.3 ms
+including process startup. These checks join unit-tests and gap-dev-check
+without invoking the pipeline. Build/unit/predicate checks pass without new
+warnings; 47 predicate cases pass 1,551 assertions. HiFi/ONT TSV and VCF golden
+gates, HiFi t1/t4 determinism and four replay-cache tests pass. All 107 registered
+gap sections pass in cold parallel verification (666.4 s); the warmed standard
+window suite passes 18,138 assertions in five cases. Every one of the 141 native
+panel measurements is unchanged. Recomputed identical-alignment HiPhase counts
+match the committed benchmark exactly. No expectations or closure floors change.
+
+Full chr20 candidate output is byte-identical; all 64,483 VCF data records and
+256,612 primary HP/PS pairs match the starting output. Parental counts remain
+230,965 correct / 6,620 discordant / 19,027 unphased; 250 blocks retain N50
+955,496 bp and largest block 3,012,193 bp. Thus collision safeguards have no
+observed biological effect on this dataset. The ten normalized duplicate pairs
+and historical phasing deficits still require the next representation steps.
+Executable: `088b5c56e17d04828af0ccbfede26b9ca3ff65476a62f796066af7a6ac63eb9d`.
+Evidence, fast states, full/panel comparisons and the subsequent milestones:
+`evaluations/2026-10-06-representation-step1/`. Current matching semantics are
+documented in `docs/IMPLEMENTATION.md`.
+
+## 2026-10-06 — Representation repair step 2: reference-normalized aliases
+
+Continued the staged representation repair after collision-safe exact matching.
+Added `normalize_candidate_identity` to `src/allele_identity.*`: validate REF
+against worker-local reference bases, uppercase DNA, trim context, left-align
+repeat edits by extension/suffix trimming, and retain full compound ALT changes.
+Unknown reference context or symbolic/unchanged alleles supply no normalized
+identity. Canonical coordinates are aliases; candidate physical positions and
+observation footprints are unchanged.
+
+Enabled normalized identities first in the whole-chunk BAM observation overlay.
+Its exact indexes retain the step-1 collision rule; the normalized index must
+agree with any exact destination and remains ambiguous for duplicate graph rows.
+New shifted matches require a unique BAM source description, an actual graph
+REF/selected-ALT contrast, read coverage of both original physical edits plus
+outside flanks, and an independent graph call on the same read/candidate.
+Identity equivalence alone does not certify a missing source reference class. The overlay retains graph disagreements without importing source
+HP/PS or changing graph genotypes/counts. Seam transfer remains exact pending
+molecule/provenance merging and explicit normalized source-gauge handling.
+
+Fast verification: 3,328 independently applied complete-haplotype fixtures,
+idempotence and equality of equivalent edits, focused repeat/compound/boundary
+cases, normalized-index conflict checks and short-read footprint checks. One
+hundred runs average 2.9 ms. Mutants disabling repeat shifts, normalized conflict
+checks or footprint checks fail 772, two and one checks respectively. The shared
+helper agrees with independently unanchored `bcftools norm` output on all 64,483
+frozen chr20 records, including 504 realignments (about 0.28 s batch time).
+The preceding audit missed nine repeat-shift duplicate pairs because reference
+bases brought into ALT by bcftools can be lowercase. Case-consistent comparison
+finds 19 pairs, all agreeing on GT/PS; eight have different AD. They must not be
+merged by summing overlapping read depth. This stage identifies them without
+removing candidate rows.
+
+A saved full 5–6 Mb owning matrix now contains 173 additional normalized aliases
+and 9,870 additional BAM observations, with 1,446 unsupported calls rejected
+(three uncovered; 1,443 previously covered calls lack independent graph evidence).
+All 1,825 candidate states, 4,256 incoming read states, independent graph calls
+and SNP certificates remain unchanged. The 697 added graph/BAM disagreements
+remain visible separately; no effective working allele changed. The owning
+output preserves all 4,256 primary HP/PS pairs and parental classifications
+(4,001 correct, 23 discordant, 232 unphased), candidate TSV and VCF records.
+The 5.31 Mb regression passes 351 assertions. Build, unit tests, 47 phasing
+predicate cases/1,551 assertions, HiFi/ONT golden TSV/VCF gates, t1/t4 determinism
+and four replay-cache tests pass. Evidence and reproducible audits are in
+`evaluations/2026-10-06-representation-step2/`.
+
+The broad provisional normalized overlay passed 105/107 named checks, but its
+additional output rescues exceeded two stronger owning error ceilings: 37 vs 36
+discordant at the 47 Mb deletion context and 133 vs 132 in the 33 Mb short
+insertion context. Full chr20 added 29 correct/four discordant rescue tags from
+33 previously unphased reads (HiPhase on the same 33: 29 correct, one discordant,
+three unphased). No closure was accepted. Coverage and identity equivalence
+alone did not certify the missing source REF class. The corrected normalized
+admission requires an independent graph call at the same candidate/read;
+source-only missing calls await complete-contrast/confidence handling. A fast
+fixture and removal mutant enforce that distinction. Both owning tests now
+pass their unchanged bounds (1,007 and 333 assertions). Provisional evidence is
+kept in the step-2 evaluation's `provisional/` directory.
+
+Final step-2 verification uses binary
+`5c47ca57f979344cce86d167b18225b20d9ffc7accc47a99dd602c7236694ee7`.
+All 107 named checks pass without expectation/floor changes (705.4 s cold);
+the standard warm `make window-tests` passes 18,138 assertions in five cases.
+All 141 native measurements and their HiPhase comparisons are unchanged. The
+HiPhase state validates unchanged input/index, truth, panel, helper and competitor
+identities/checksum before reusing the previously identical-primary-alignment
+measurements. Full chr20 preserves all 256,612 primary HP/PS pairs and parental
+classifications (230,965 correct, 6,620 discordant, 19,027 unphased), byte-identical
+82,287 candidate rows and identical 64,483 VCF data records. N50 remains 955,496 bp,
+largest block 3,012,193 bp across 250 blocks. All full/native per-window HiPhase
+contract classifications match the preceding investigation. No new gap closure
+or connected-core improvement is claimed; complete-contrast and molecule-level
+merging are the next representation stages.
+
+## 2026-10-07 — Representation repair step 3: source molecule reduction
+
+The whole-chunk BAM overlay now reduces supported source observations once per
+read and unique graph destination using `MoleculeAlleleEvidence`. Agreeing
+source descriptions supply one call; opposing calls remain
+`kConflictingBamAllele` and supply no BAM vote. Repeating a source call is
+idempotent. Source candidate indices, alleles and query coordinates remain
+available during reduction without rewriting the source chunk. A query index
+is a read coordinate, not confidence: disagreement clears it to zero rather
+than selecting the largest value. Different reads and distinct allele contrasts
+remain independent.
+
+Removed the overlay's blanket rejection of normalized BAM source collisions.
+Graph destination uniqueness, complete REF/ALT sequence identity, coverage of
+both edits/outside flanks and independent graph observation requirements remain.
+Existing targeted-recovery BAM calls/conflicts and SNP quality certificates
+retain precedence over this whole-chunk fallback. Graph candidate rows,
+classification, counts and source gauges are not combined here. Their graph-ID
+versus physical-ALT interpretation and `bam_injected`-dependent recovery paths
+must survive a later joint-locus representation before row compaction. The 19
+normalized duplicate output pairs and split ALT contrasts remain open work.
+
+Fast tests cover all 42 order permutations, conflicting/unknown calls,
+idempotence, provenance, query-coordinate disagreement and independent
+reads/alleles, plus a normalized repeat-shifted matching/reduction cohort.
+Mutants ignoring conflicts, borrowing query coordinates or retaining repeated
+provenance fail 25, 21 and 48 checks. The identity binary still verifies 3,328
+independent complete-haplotype fixtures; 100 runs average 3.7 ms including
+startup. Build, units, all 47 phasing predicate cases (1,551 assertions),
+HiFi/ONT goldens, HiFi t1/t4 determinism and replay-cache checks pass. Both prior
+normalized-admission owning guards (33 Mb insertion source: 1,007 assertions;
+47 Mb independent SNP pairs: 333) pass without changed floors. The helper agrees
+with bcftools on all 64,483 frozen chromosome records, including 504 realigned
+records.
+
+The 5–6 Mb owning matrix is byte-identical to step 2, with no duplicate source
+cohort to reduce: all 1,825 candidates, 4,256 read states, independent graph calls
+and measured SNP qualities remain intact. Owning output and all primary tags
+are unchanged (4,001 correct, 23 discordant, 232 unphased). The full chromosome
+candidate TSV and phased BAM are byte-identical; all 64,483 VCF records and all
+256,612 primary read HP/PS and parental states are unchanged: 230,965 correct,
+6,620 discordant, 19,027 unphased. Variant blocks remain 250, N50 955,496 bp,
+largest 3,012,193 bp. This step verifies safe source-evidence reduction, without
+claiming a new closure or measured biological phasing improvement.
+
+Evidence and reproducible audits:
+`evaluations/2026-10-07-representation-step3/`. Starting executable SHA256
+`5c47ca57f979344cce86d167b18225b20d9ffc7accc47a99dd602c7236694ee7`;
+production SHA256
+`fe0ae0862c1f3596921218fee6b3f4b5f6cdcef9d6ee674df1cd687cc3d69b50`.
+
+All 107 named window/mechanism checks pass in 707.3 seconds cold. All 141 native
+and full panel measurements are unchanged versus step 2, including original
+primary-read denominators, total correctness and dominant connected-core
+HiPhase comparisons. Among 118 HiPhase >=80% windows, the full closure contract
+still records 59 passing and 59 failing windows. No expectation, read floor or
+closure manifest was changed by this step.
+The standard cached `make window-tests` passes all 18,138 assertions in five test
+cases, and the final build retains the evaluated production checksum.
+
+
+## 2026-10-07 — Representation repair step 4: joint candidate loci
+
+Added a joint locus view keyed by the shared reference-validated complete
+REF/ALT normalizer. Original candidate indices, graph topology IDs, physical
+BAM edits, classification, counts, observation/quality channels, recovery source
+membership and phase gauges remain intact. Rebuild after recovery reindexing;
+phase-matrix diagnostics record every original member and its canonical edit.
+ALT/ALT contrasts, invalid reference context and different ALT sequences cannot
+become aliases. Identity alone establishes neither genotype nor confidence.
+
+Both graph worker paths now use the joint view in the initial clean solve.
+Compatible clean heterozygous descriptions temporarily contribute one row and
+one allele per molecule; agreement is idempotent and conflict abstains. Query
+coordinates survive only when agreeing, without quality summation. The solve's
+PS/consensus is copied to compatible aliases; original category masks and all
+profiles/channels are restored, including sparse extents and interval indexing.
+MSA/repeat admission, recovery/source gauges and incompatible category or rescue
+contracts cannot be widened. Non-selected ALT classes are excluded from this
+projection. Full output rows and later rescue votes remain separate consumers;
+complete allele contrasts and source-confidence handling precede their merging.
+
+Shifted projection requires coverage of both physical edits and outside flanks.
+Graph read bounds currently record first/last observed sites, not complete GAF
+alignment spans, so this uses conservative observed-site extents. Do not replace
+those bounds with canonical coordinates to make coverage pass. For differing
+complete POS/REF/selected-ALT contexts, every informative alias observation
+requires an existing independent graph call at the representative; exact
+complete contrasts can retain alias-only calls. A single unsupported observation
+keeps the cohort on the original solve.
+
+A rejected broader projection passed 106/107 named checks but introduced 49
+additional discordant read assignments in the 65–66 Mb largest-block owner
+(2,913 correct/55 discordant versus unchanged floors 2,962/six). Its saved matrix
+showed 24 short-deletion REF calls and one ALT call without a callable containing
+snarl parent near 65,996,178. A primitive marker's REF does not certify a larger
+snarl's full REF when other sample alleles exist. The independent-parent guard
+prevents this confidence borrowing without coordinate-specific rules. The
+largest-block owner now passes all 742 unchanged assertions, preserving 2,962
+correct/six discordant/three unphased reads. One safe insertion cohort in that
+owner is projected, with the final full matrix and emitted output unchanged.
+Rejected/provisional replays are explicitly separated from accepted results.
+Interrupted Python runners can continue their queued children; isolated work
+paths are necessary before starting replacement replays.
+
+Focused production-adapter fixtures verify two/four descriptions against one
+locus, read labels, vote counts/margins, conflict abstention, sparse alias-only
+coverage, all restored channels/qualities, original depths/provenance,
+consistent alias orientation, source indices/gauges/certificates, admission,
+physical coverage and the independent-parent guard. Seven actual production
+adapter mutants fail (16, one, one, one, one, two and one checks respectively).
+One hundred focused runs average 2.53 ms including process startup. Build, unit
+checks, all 47 phasing predicate cases (1,551 assertions), HiFi/ONT TSV/VCF
+goldens and HiFi t1/t4 determinism pass. The identity helper still matches
+bcftools on all 64,483 frozen records, including 504 realignments.
+
+The 4–5 Mb owner recognizes 31 loci/63 descriptions (26 mixed graph/BAM
+classifications), the 5–6 Mb owner seven/14 (five mixed), and the 65–66 Mb owner
+11/22. All three preserve the complete saved candidate/read/channel/quality
+matrix, emitted candidate/VCF rows, primary HP/PS and parental statuses. Mixed
+classification contracts stay visible but do not acquire clean admission.
+
+Accepted full chr20 output preserves all 82,287 candidate rows, 64,483 VCF
+records and 256,612 primary HP/PS and parental states: 230,965 correct, 6,620
+discordant and 19,027 unphased. N50 stays 955,496 bp, largest block 3,012,193 bp
+across 250 variant blocks. No new gap closure is claimed by this representation
+stage. Starting executable SHA256
+`fe0ae0862c1f3596921218fee6b3f4b5f6cdcef9d6ee674df1cd687cc3d69b50`;
+accepted production SHA256
+`7bccceb86f200cb11ae7526d215d368c9ddc47255945747101fad008a024758f`.
+Evidence and reproducible audits: `evaluations/2026-10-07-representation-step4/`.
+
+All 107 registered window/mechanism checks pass (714.1 seconds cold). All 141
+native and full panel measurements, original-read denominators, total correct
+counts and dominant connected-core comparisons against HiPhase match step 3.
+Among 118 HiPhase >=80% windows, the full closure contract remains 59 passing
+and 59 failing. No expectation, read floor or closure manifest changed.
+The cached standard `make window-tests` passes 18,138 assertions in five
+cases, including all four replay-cache checks. The final build retains the
+evaluated production checksum.
+
+
+## 2026-10-07 — Representation repair step 5: complete allele-pair evidence
+
+Added reference-validated unordered pairs of normalized sequence alleles, with
+canonical-to-original profile index mapping. Literal REF is an explicit identity;
+unknown calls remain unknown. ALT/ALT pairs survive, and two independent REF/ALT
+rows cannot collapse into an ALT/ALT genotype. The graph chunk retains per-row
+`candidate_allele_contrasts` and duplicate `joint_allele_contrasts`. Multiallelic
+rows require an already selected distinct consensus pair; depths alone do not
+supply a genotype. Binary rows retain their original pair. Metadata, physical
+contexts, classification, confidence, source gauges and recovery indices remain
+on their original rows. The old REF/ALT view retains its 0/1 admission contract.
+
+Graph decomposition explicitly records `non_selected_alt_class` when profile
+zero denotes another non-selected ALT. Such a class cannot claim literal REF
+in the complete sequence-pair view. The molecule adapter projects original graph
+and BAM channels into the canonical pair, independently of their source phase
+gauges. Repeated descriptions provide one allele; opposing calls and existing
+BAM conflicts remain conflicting. Calls outside the selected pair abstain,
+including genomic REF at an ALT/ALT site. A preferred primary channel cannot
+hide a retained graph/BAM disagreement. Query indices survive only when agreeing;
+they are coordinates, not additive confidence. Original source observations and
+quality certificates remain available. The generic evidence reducer now retains
+pre-existing conflict sentinels as explicit observations rather than erasing them.
+
+New phase-matrix outputs retain canonical pairs/source indices and one
+molecule/duplicate-contrast reduction, including conflicts. This evidence stage
+does not widen clean admission, certify parent reference classes, calibrate
+source likelihoods, or replace component/recovery inference. Physical parent
+context and confidence remain necessary before mixed-class votes can join a
+solve. Parental truth remains evaluation-only.
+
+The independent sequence oracle verifies 5,664 complete haplotype-pair fixtures,
+including order reversal and reference/ALT/ALT/motif/padded contexts. Production
+adapter fixtures verify original graph walk remapping, MSA ALT order, binary and
+multiallelic profile gauges, sparse coverage, unknown/outside-pair abstention,
+conflicts, ambiguous genotypes, source metadata and quality preservation.
+Eight production mutants fail 9, 7, one, three, one, one, one and two assertions.
+Over 100 runs the adapter averages 2.04 ms, the complete-pair fixtures 8.07 ms,
+including startup. Build, units, all 47 phasing predicate cases (1,551 assertions),
+HiFi/ONT TSV/VCF goldens and HiFi t1/t4 determinism pass. The edit identity helper
+still agrees with bcftools 1.24 on all 64,483 frozen records (504 realignments).
+Fresh HiPhase measurements validate all 141 windows on identical primary
+alignments and match the existing competitor measurement state.
+
+The three standard owning matrices and emitted outputs/primary HP/PS/parental
+statuses are unchanged. Their joint evidence contains 31/seven/11 duplicate
+contrasts and 1,749/413/391 molecule-locus records in 4–5/5–6/65–66 Mb. Conflicts
+number 104/seven/zero (101/seven/zero distinct reads). All calls trace to original
+channels; an independent saved-state audit reproduces canonical membership,
+retained channel completeness, reduction and query-coordinate handling.
+At 4–5 Mb, 94 conflicts are graph repeat ALT versus noisy/MSA BAM REF, nine the
+reverse, and one opposing graph descriptions; at 5–6 Mb the seven split six/one.
+These are disagreements across descriptions, not within the same candidate's
+retained graph/BAM channels. Identity and MSA provenance alone do not resolve
+which complete physical-context observation is reliable. Default owners contain
+only REF/ALT candidates; no recovered ALT/ALT genotype is inferred from them.
+
+Accepted full chr20 output preserves all 82,287 candidate rows, 64,483 VCF
+records and 256,612 primary HP/PS/parental states: 230,965 correct, 6,620 discordant
+and 19,027 unphased. N50 remains 955,496 bp, largest block 3,012,193 bp across
+250 variant blocks. No new gap closure or biological accuracy gain is claimed
+for this representation adapter. Starting executable SHA256
+`7bccceb86f200cb11ae7526d215d368c9ddc47255945747101fad008a024758f`;
+production SHA256
+`cf849f5fa6fac264f2b5d7b01f6c768590da9cf8ac578e478264014ea53b1750`.
+Evidence and reproduction: `evaluations/2026-10-07-representation-step5/`.
+
+The existing whole-snarl mode on 4–5 Mb retains three real ALT/ALT pairs among
+1,431 explicit contrasts over 1,614 candidates. Its 99 collapsed other-ALT
+classes cannot claim explicit sequence pairs; another 84 rows lack a selected
+valid pair. Twenty-three duplicate pairs have 1,370 molecule/locus observations
+and 51 conflicts (50 reads). The independent original-channel audit passes.
+The complete saved matrix, output and primary states match the starting binary
+under those same options (3,866 correct/27 discordant/235 unphased). This is an
+existing-mode representation check, not a new closure acceptance.
+
+All 107 registered window/mechanism checks pass (714.8 seconds cold). All 141
+native and full panel measurements and total/dominant-core HiPhase comparisons
+match step 4. Among 118 HiPhase >=80% windows, the full closure contract remains
+59 passing and 59 failing. No expectation, read floor or closure manifest changed.
+The cached standard `make window-tests` passes all 18,138 assertions in five
+cases and all four replay-cache checks. The final build retains the evaluated
+production checksum.
+
+### 2026-10-07 — Representation step 6: original full-context sequence evidence
+
+Added `allele_context` to reconstruct a complete physical sequence window for
+both canonical selected alleles and every distinct competing parent ALT/literal
+REF. The union of full parent spans and normalized edits has 16 outside reference
+bases per side. Context/reference/allele validity and a 4,096-base computational
+limit are explicit; unsupported contexts remain unknown. These are diagnostic
+work limits, not phasing admission rules.
+
+The whole-chunk overlay's already loaded original primary BAM records supply
+one sequence slice per molecule/duplicate contrast. Both outside flanks must be
+aligned; internal I/D are retained, reference skips and incomplete coverage
+abstain, and unknown bases cannot become matches. BAM SEQ already follows
+reference orientation on reverse alignments. Original query bounds, MAPQ and
+all qualities including unknown 255 are retained. Duplicate primary identities
+remain ambiguous. No extra BAM fetch or source-channel preference is involved.
+
+Global edit-distance scores retain both selected costs and the best other-parent
+cost. A selected allele is uniquely nearest only if strictly better than both
+its selected counterpart and every competing hypothesis. Ties/unselected winners
+remain unresolved. Distances are not calibrated confidence; qualities are saved
+for a later validated error model. Scores run only with matrix diagnostics and
+do not change admission, profiles, HP/PS, component joining or recovery/output.
+The new `.joint-contexts.tsv`, `.joint-parents.tsv` and `.joint-sequences.tsv`
+preserve immutable sequence evidence for millisecond scorer replays. The
+original channel/provenance matrix remains separate and intact.
+
+The generic primitive-REF pitfall now has an explicit physical-context fixture:
+a third full parent branch changes elsewhere while carrying REF at the short
+primitive marker. Its exact read sequence favors that branch, not full parent
+REF. Full REF/ALT and ALT/ALT, padded/motif-shifted edits, source ordering,
+reverse reads, I/D, clipping, skips, partial coverage and unknown/low qualities
+are tested. The focused binary has 545 checks, including 500 independent scalar
+DP score fixtures. Seven actual production mutations fail cleanly with four,
+one, one, one, one, eight and six checks. Focused fixtures average 6.44 ms;
+saved real states score in 26.78/12.81/48.27/16.92 ms including startup over 100
+runs for default 4–5/5–6/65–66 Mb and whole-snarl 4–5 Mb respectively.
+
+An independent FASTA/parent-metadata builder and original-BAM/pysam audit verifies
+all 3,849 real slices, quality bytes, physical bounds and scalar-DP scores.
+This one-time audit takes 126.1 s. Complete coverage is 1,714/1,749, 412/413,
+386/391 and 1,337/1,370 molecule records for those same owners; all contexts
+and all conflicting observations are covered. Among 111 default 4/5 Mb source
+conflicts, 55 uniquely favor a selected allele, 47 favor another full parent
+allele and nine tie. Whole-snarl mode's 51 conflicts split 32/18/one. This
+provides direct sequence evidence that source preference or MSA provenance
+alone cannot resolve an incomplete selected-pair representation. These are
+rankings, not truth-genotype assertions or new biological accuracy gains.
+The next component inference stage must retain unselected parent hypotheses
+and uncertainty, with calibrated read error/quality and diploid allele choice.
+
+All four owning matrices, candidate/VCF rows, primary tags and parental states
+are unchanged from step 5. Default correct/discordant/unphased counts remain
+3,862/26/238, 4,001/23/232, 2,962/6/3; whole-snarl 3,866/27/235 under its own
+unchanged flags. The original-index/channel audit still validates the three
+real ALT/ALT pairs and 99 collapsed other-ALT flags. No new closure or floor
+change is proposed. Starting binary `cf849f5fa6fac264f2b5d7b01f6c768590da9cf8ac578e478264014ea53b1750`;
+production `e6a9aae89bdbe011be7d7759f67efcfe1f29b9c7c77d2c12298a867f37fdde68`.
+Evidence/reproduction: `evaluations/2026-10-07-representation-step6/`.
+
+Step-6 final validation: build, units, all 47 phasing predicates (1,551 assertions),
+HiFi/ONT TSV/VCF goldens and HiFi t1/t4 determinism pass without new warnings.
+All 107 registered window/mechanism checks pass in 719.9 seconds cold. The full
+chr20 replay preserves all 82,287 candidate rows, 64,483 VCF records and 256,612
+primary HP/PS/parental states: 230,965 correct, 6,620 discordant, 19,027 unphased.
+N50 remains 955,496 bp, largest block 3,012,193 bp across 250 variant blocks.
+All 141 native/full panel measurements and HiPhase classifications match step 5.
+Among 118 HiPhase >=80% windows, 59 still meet and 59 still fail the full closure
+contract. Competitor measurements reuse the previously verified identical-primary
+alignment state only after input/index/truth/panel/competitor/helper identities
+validate. No expectation, read floor, closure certificate or panel was changed.
+
+The standard cached `make window-tests` passes all 18,138 assertions in five
+cases and four replay-cache tests. The final step-6 build retains its evaluated
+production checksum; `manifest.json` records input metadata, extracted evidence,
+source identities and unchanged floor/panel hashes.
+
+### 2026-10-07 — Representation step 7: complete allele costs and held-out diploid fits
+
+Added `allele_genotype` and the full sequence/cost table to matrix diagnostics.
+Every selected/unselected parent sequence has its own molecule cost. Sequence
+indices are sorted and unique, independent of source ALT ordering or the
+original selected pair. The transparent objective evaluates every unordered
+pair including homozygous pairs, minimizing the sum of each original molecule's
+distance to the nearer sequence. Duplicated vectors count once; conflicting
+vectors for a molecule remain unknown. Cohort totals are 64-bit. Tied best fits
+have no selected pair, and minimum/runner-up costs and tie counts remain explicit.
+The objective is not an error likelihood or calibrated genotype confidence.
+
+Leave-one-molecule-out fits reuse pair totals and subtract that molecule's exact
+contribution, matching fresh exhaustive training solves without re-alignment.
+Empty training data abstains. Held-out calls require a unique nearest hypothesis
+across the complete allele table and membership in the independently fitted pair;
+matching the complete-cohort pair is a separate stability flag. One molecule
+cannot certify its own second allele. Production receives no truth or source HP.
+Candidate consensus genotypes, profiles, admission, joins, HP/PS and output are
+unchanged. No fitting runs without matrix diagnostics. New `.joint-alleles.tsv`,
+`.joint-costs.tsv`, `.joint-genotypes.tsv` and `.joint-heldout.tsv` preserve this
+model and uncertainty alongside original sequence/quality/source tables.
+
+Across default 4–5/5–6/65–66 Mb and whole-snarl 4–5 Mb there are 31/seven/11/23
+contexts. Different unique fitted pairs number ten/two/six/two; ambiguous full
+fits zero/one/one/zero; pairs stable for every held-out molecule 27/six/nine/23.
+Inferred ALT/ALT fits number eight/zero/two/two. These are diagnostic genotype
+fits, not newly accepted sample genotypes or closures. Default 4–5 Mb locus 4
+reduces cost from 53 to 15 over all 68 held-out-stable molecules. Among 111 source
+conflicts in the two default repeat-heavy chunks, 67 fit a stable held-out pair's
+unique closest allele and 44 remain outside/tied. Whole mode's 51 split 33/18.
+No new phasing vote follows from these numbers.
+
+Parental evaluation holds each read out of both genotype fitting and the
+truth-only orientation vote. Experimental correct/discordant/unassigned records
+are 1,094/105/515, 130/25/257, 257/6/123 and 1,023/85/229. These are molecule/locus
+separability records, repeated across loci/modes, not production read accuracy.
+Even exact sequence matches at minimum BQ >=40 and MAPQ >=40 have 16 discordances
+among 439 stable-member records (413 correct/ten unassigned). Margin >=2 correlates
+with better separability (1,265 correct/one discordant/17 unassigned); no such
+truth-selected threshold was installed. Modes share original reads and are not
+independent calibration folds. Some stable fits also have massive absolute
+residual: 65–66 Mb locus 3 costs 4,331 over 25 molecules, exposing unmodeled
+sequence inside the reference window. Thus exact/quality/stability evidence
+alone cannot establish parental phase. A consumer needs joint neighboring-site/
+graph constraints and a validated error model before promoting these fits.
+
+The focused binary passes 12,069 checks including 1,000 exhaustive matrix oracles,
+fresh held-out fits, ALT/ALT recovery, homozygous hypotheses, read/allele-order
+permutation, ties, single-read/empty training, outside alleles, duplicates,
+conflicts and 64-bit sums. Seven production mutants fail. Independent scalar
+DP verifies all 38,517 individual allele costs over 3,849 original slices in
+117.1 seconds once. Independent NumPy exhaustive fits verify every full/held-out
+model; production tables match cached replay byte for byte. This comparison
+caught text-vs-numeric locus ordering in the replay serializer, now corrected.
+Over 100 runs, focused fixtures average 8.28 ms; cached complete scoring/fitting/
+held-out table writes average 28.87/13.38/49.89/18.28 ms, without BAM/pipeline work.
+
+HiPhase was audited afresh on all 1,568 distinct cached primary molecules,
+including CIGAR/bounds, SEQ, quality bytes, MAPQ and flags. Its legacy header
+shortens CHM13#0# names; order and contig lengths match. Global competitor
+orientation uses the complete output; per-record HiPhase correct counts are
+1,666/333/26/1,299 for the four owner states. These comparisons use exact cached
+molecules, not a panel subset or extrapolation. All 141 panel measurements also
+validate against unchanged input/index/truth/panel/competitor/helper identities.
+All four owner outputs, original matrices and sequence/quality/provenance tables
+remain unchanged; default parental counts are 3,862/26/238, 4,001/23/232,
+2,962/6/3 and whole-mode 3,866/27/235. No floor, expectation or certificate moved.
+Starting binary `e6a9aae89bdbe011be7d7759f67efcfe1f29b9c7c77d2c12298a867f37fdde68`;
+production `5746188fb9e6e737be9017bf39cefb11fd4ea1f88c1a72b6325490b720fd7bbe`.
+Evidence/reproduction: `evaluations/2026-10-07-representation-step7/`.
+
+Step-7 original-BAM census audit discovers a prerequisite before consuming the
+fits: the saved sequence state is conditioned on a retained original-contrast
+observation. Applying the whole-BAM recovery MAPQ/primary/flag filters, complete
+aligned outer anchors, no reference skip, DNA validity and the 4,096-base slice
+bound reveals 82/72/97 omitted eligible molecule/locus records across four/three/
+eight contexts in the three default owners; whole-snarl mode omits none in this
+state. There are 251 omitted records in 15 default contexts. Default 4–5 Mb locus
+19 observes only 26 of 69 eligible molecules; 5–6 Mb loci 5/6 observe 49/38 of
+an identical 71-molecule physical cohort. These diagnostics describe their
+supplied contrast-observed cohorts, not a complete sample genotype census.
+The next input step must score all eligible fully covered original primary
+molecules independently of source allele-call admission, including originally
+unknown calls, then test joint neighboring-site/graph inference and error
+calibration. See `audit_cohort_coverage.py` and `cohort-coverage-checks.json`.
+No genotypes or phasing certificates were installed from a censored cohort.
+
+Final step-7 validation passes build, units, all phasing predicates, HiFi/ONT
+TSV/VCF goldens, t1/t4 determinism and all 107 registered checks (716.4 s cold).
+The standard cached suite passes 18,138 assertions in five cases and four cache
+tests. Full chr20 preserves all 82,287 candidate rows, 64,483 VCF records and
+256,612 primary HP/PS/parental states (230,965 correct/6,620 discordant/19,027
+unphased). N50 955,496 bp, largest block 3,012,193 bp across 250 blocks. All 141
+native/full panel measurements and HiPhase classifications match step 6;
+59 of 118 HiPhase >=80% windows still pass the full closure contract and 59
+still fail. No floor, expectation, panel or closure certificate changed.
+
+
+## 2026-10-07 — Representation step 8: uncensor the physical genotype cohort
+
+The step-7 genotype input required a retained source allele observation. Replace
+that gate with `collect_allele_read_slices` over every original primary BAM
+alignment retained by the owning whole-chunk solve. Match recovery MAPQ and
+configured QC/duplicate admission; exclude unmapped/secondary/supplementary
+records. Duplicate eligible primary names stay ambiguous before coverage tests.
+Require complete aligned context anchors and retain internal I/D, original SEQ,
+qualities, MAPQ and query bounds. Graph membership and solver skip state do not
+restrict admission. Source calls annotate the new `.joint-cohort.tsv`; the old
+contrast-observed `.joint-sequences.tsv` remains byte-identical. Full/held-out
+fits and cached `--state` now require the complete physical cohort. Candidate
+genotypes, phase joins, read HP/PS and production output remain unchanged.
+
+Independent original-BAM census verifies all 4,100 molecule/locus slices and
+exactly 251 additions across 15 contexts: default 4–5 Mb 82, 5–6 Mb 72, 65–66 Mb
+97, whole-snarl 4–5 Mb zero. Eight fitted pairs change, including three newly
+ambiguous fits. Default 5 Mb loci 5/6 now share all 71 molecules and identical
+costs/fits; default 65 Mb loci 7/8 formerly retained 18/39 and selected different
+unique pairs, but now both use all 58 and retain the same two-way tie. Original
+source observations and all original phases survive unchanged.
+
+All 667 context/cohort and 12,069 genotype checks pass, as do the 47 predicate
+cases (1,551 assertions), full unit suite and HiFi/ONT golden/determinism gates.
+Six actual production cohort mutants fail (102/3/1/53/3/3 checks); all seven
+fitter mutants remain detected. Independently solve every full and held-out
+pair. Scalar DP verifies the 11,510 added individual distances, and all 38,517
+retained distances equal the unchanged independently verified step-7 state.
+Cached allele/cost/genotype/held-out tables exactly match all four production
+owners. Over 100 executions during broad verification, complete saved scoring,
+fitting, held-out fitting and writing average 41.5/20.4/65.4/20.6 ms. The cached
+independent acceptance audit takes 15.3 seconds without rechecking old scalar DP.
+
+Fresh HiPhase audit verifies identical original CIGAR, sequence, quality, MAPQ,
+flags, coordinates and reference lengths for all 1,683 distinct cohort molecules;
+only the established chr20 contig-name alias differs. Evaluation-only held-out
+parental separability (correct/wrong/unassigned) is 1,134/105/557,
+123/5/356, 269/16/198 and 1,023/85/229; identical molecule/locus HiPhase correct
+counts are 1,748/405/26/1,299. These are repeated molecule/locus records, not
+production HP predictions or independent folds. No confidence threshold or
+closure is accepted. Single-parent fits still absorb neighboring variation:
+65 Mb locus 3 has cost 4,404 across 39 molecules and a margin of one. Next,
+deduplicate physically identical contexts and represent compatible neighboring
+edit sequences before consuming phase constraints or calibrating errors.
+
+The final owning outputs and full chr20 run preserve every candidate, VCF call,
+original contrast/source table and primary read HP/PS and parental status.
+Full chr20 remains 82,287 candidates, 64,483 VCF rows, 256,612 primary reads;
+230,965 correct / 6,620 discordant / 19,027 unphased. The 250 blocks retain
+N50 955,496 bp and largest 3,012,193 bp. Final binary:
+`d69176d69537b5f6030710ef0db97705c4b3f2bc783d9e1e8e626861abfb87d8`.
+All 107/107 registered checks pass in 722.0 seconds cold. The standard cached
+suite passes 18,138 assertions in five cases plus four replay-cache tests.
+All 141 native/full panel contracts and HiPhase comparisons equal step 7;
+118 HiPhase >=80%-correct windows retain 59 passes and 59 full-contract deficits.
+HiPhase panel measurements retain a verified identical input/helper/output state
+and equal the committed measurements. No floor or panel expectation is
+refreshed. Original inputs and retained independently
+verified baseline costs are unchanged. See
+`evaluations/2026-10-07-representation-step8/README.md` and its audits.
+
+
+## 2026-10-07 — Representation step 9: deduplicate physical contexts
+
+Add `PhysicalAlleleContextKey` and `group_allele_contexts`, scoped to one owning
+contig/chunk. Identity requires equal inclusive reference bounds and equal
+sorted unique complete sequence tables. Selected source pair, allele order,
+source channel and redundant allele entries are provenance, not another model.
+Different coordinates or full alternatives remain distinct; unsupported
+contexts have no identity. Overlapping contexts are not composed in this step.
+
+Collect, score and fit one original-BAM cohort per physical group. New
+`.physical-contexts`, `-members`, `-alleles`, `-cohort`, `-costs`, `-genotypes`
+and `-heldout.tsv` save that model and each original contrast's selected
+full-table mapping. Existing `.joint-*` files remain byte-identical compatibility
+views of this shared state, not independent phase evidence. No candidate
+classification/genotype, phase join, HP/PS or production output changes.
+
+The four owners contain 31/6/10/23 physical groups for 31/7/11/23 descriptions.
+Default 5 Mb descriptions 5/6 share 71 molecules; default 65 Mb descriptions 7/8
+share 58. Remove 129 repeated molecule/context records: physical counts are
+1,796/413/425/1,337, total 3,971 rather than 4,100. Full allele distances number
+40,568 rather than 50,027, removing 9,459 repeated distances and repeated fits.
+Every actual molecule survives. The latter shared context retains its two-way
+genotype tie; a different selected source pair cannot force another decision.
+
+Independent Python grouping/mapping and fresh exhaustive NumPy reductions verify
+all 70 full and 3,971 held-out fits, complete nearest-allele membership, ties,
+runner-up costs and stability. Each cohort and cost vector exactly matches the
+unchanged original-BAM state independently verified in step 8. Verify baseline
+hashes and original input identities rather than rerunning scalar DP/BAM I/O on
+unchanged states. Physical and compatibility cached tables exactly match
+production output. The independent audit takes 2.1 seconds.
+
+All 1,170 context/group/cohort checks and 12,069 genotype checks pass, as do
+all unit tests, the 47 predicates/1,551 assertions and HiFi/ONT golden and
+thread-determinism gates. One hundred group/allele permutations preserve exact
+physical identities, order and memberships. Six actual production identity
+mutants fail (ignore left/right bounds, ignore complete alternatives, selected
+pair identity, missing aliases, independent descriptions); seven existing
+fitter mutants remain detected. Cached full scoring/fitting/held-out fitting
+and both table exports average 37.1/13.5/52.5/19.8 ms over 100 executions during
+broader verification; genotype fixtures average 8.6 ms. Saved replay requires
+the raw physical cohort and rejects legacy-only state.
+
+The physical union retains exactly the 1,683 original molecules whose CIGAR,
+SEQ, qualities, MAPQ, flags and coordinates were checked against HiPhase in
+step 8. Unchanged inputs and cached parental/HiPhase state are verified before
+reuse. Deduplicate evaluation-only held-out parental separability as well:
+correct/wrong/unassigned now 1,134/105/557, 82/5/326, 269/16/140 and
+1,023/85/229; HiPhase correct on identical physical records is
+1,748/334/26/1,299. Numerical differences remove repeated measurements, not
+read phases. These are diagnostic parental orientations using other molecules,
+not production HP/PS, confidence estimates, independent folds or closures.
+
+All four owning outputs and the full chr20 run preserve candidate rows, VCF
+calls, original source/contrast tables and every primary HP/PS/parental status.
+Full chr20 remains 82,287 candidates, 64,483 VCF rows, 256,612 primary reads;
+230,965 correct / 6,620 discordant / 19,027 unphased. N50 remains 955,496 bp,
+largest 3,012,193 bp across 250 blocks. Final binary:
+`a7dd51f5d76b93c4189e356d9dad89d312ebd53c8f2d00a766f6f80e1f453c51`.
+All 107/107 registered checks pass in 716.6 seconds cold. The standard cached
+suite passes 18,138 assertions in five cases plus four replay-cache tests.
+All 141 native/full panel metrics and HiPhase classifications match step 8;
+118 HiPhase >=80%-correct windows still have 59 passes and 59 full-contract
+deficits. No floor, expectation, panel or closure certificate is refreshed.
+
+Next represent compatible neighboring edits in full haplotype sequences before
+consuming phase links or calibrating errors. Exact physical deduplication does
+not explain neighboring variation: the 65 Mb context with cost 4,404 across 39
+molecules still has the same residual. No truth-derived threshold is installed.
+See `evaluations/2026-10-07-representation-step9/README.md` and its audits.
+
+## 2026-10-07 — Representation step 10: anchored neighbor composition
+
+Implement `compose_allele_sequence` and a diagnostic parent-plus-one-neighbor
+catalog. Reference-validate raw edits, trim shared padding, and apply compatible
+minimal edits in original reference coordinates. Exact repeated anchored inputs
+and unambiguous padded descriptions count once. Preserve unsupported and
+unresolved overlaps without inventing a sequence. No-op REF inputs assert no edit,
+not a reference genotype across an entire parent. No genotype/phase/truth label
+admits a neighbor or chooses its ALT.
+
+Important representation pitfall: isolated left alignment can move a repeat edit
+away from another edit that conflicts at its original coordinates. A focused
+fixture caught this; the composer now retains anchored positions. Padding itself
+can admit multiple placements. The independent owning audit found a full parent
+and a nested `C(T)n` insertion whose suffix-first keys matched but prefix-first
+placements could represent two insertions. Differently padded ambiguous inputs
+cannot be collapsed solely on one minimal key. Exact raw duplicates are handled
+separately, and ambiguous corridors touching another edit remain unresolved.
+These conservative overlap results do not prove haplotype incompatibility.
+
+Retain all original complete parent hypotheses. For each physical parent, attempt
+every raw ALT of every other candidate whose full REF stays strictly inside the
+aligned outer anchors, excluding that parent's original candidate IDs. Include
+all graph/BAM channels and categories; source and MSA metadata are annotations.
+The five new `.site-catalog`, `.composition-contexts`, `.composition-sites`,
+`.compositions` and `.composed-alleles.tsv` tables retain raw sites, reference,
+all attempted combinations, uncertainty and sorted valid sequences. Expanded
+catalog indices are separate from original fitted allele indices. This step
+composes one neighbor per attempt; it does not yet assemble all-neighbor paths
+or fit the expanded catalog in the pipeline. A compound parent remains one
+trimmed replacement; matching internal subpaths require independently verified
+REF-to-ALT alignment rather than treating every nested edit as incompatible.
+
+Four owners retain 70 physical contexts and 3,971 original molecule/context
+records. Their 480 scoped neighbor ALT records and 16,176 composition attempts
+produce 2,890 valid rows, 13,286 unresolved overlaps and 1,598 additional unique
+sequences. Original 734 hypotheses become 2,332. `audit_compositions.py` verifies
+reference, complete raw site membership, every parent/neighbor attempt, both
+extreme maximal padding trims with an independent Python renderer, exact sorted
+catalogs and cached replay bytes. All original `.joint-*` and `.physical-*`
+state stays byte-identical to hash-protected step 9; original inputs remain
+unchanged. Original costs, models and previously verified identical HiPhase
+alignments can therefore be reused without repeating expensive unchanged BAM
+extraction or model reductions.
+
+3,191 context/composition/cohort checks, 12,069 genotype checks, all unit tests,
+47 predicate cases/1,551 assertions and HiFi/ONT golden/thread gates pass.
+Eight mutations of the production composer are caught, including both repeat
+pitfalls. Saved-state `test_allele_context --compose` reconstructs catalogs from
+five raw input tables without BAM/pipeline access. Raw-only replays reproduce
+all outputs and reject a missing raw catalog. Over 100 executions per owner,
+composition/enumeration/export averages 15.7/7.9/60.9/12.6 ms; focused fixtures
+average 15.2 ms. Independent composition audit takes about 0.44 s. Final warning
+cleanup produces a byte-identical executable; final build has no new warnings.
+
+An evaluation-only same-cohort scorer finds best-sequence residuals
+1,260->803, 38->38, 7,331->6,670 and 397->323: 1,192 fewer edit mismatches over
+302 molecule/context records. These are unconstrained per-read lower bounds;
+a larger catalog can fit sequencing error. They are not diploid genotype fits,
+confidence estimates, independent folds, read phase or closure claims. Difficult
+65 Mb physical context 3 still has 4,383 residual over 39 molecules versus old
+unconstrained 4,384; its original diploid cost remains 4,404. One-neighbor
+composition alone does not resolve that deficit. Next construct and verify
+multi-neighbor paths and repeat placement using original physical sequence/path
+evidence, then evaluate joint inference and error calibration. No truth-derived
+threshold is installed.
+
+All four owning runs preserve candidates, VCFs, source matrices, HP/PS and
+parental status. HiPhase panel signatures validate against unchanged inputs and
+measurements equal the committed competitor table. Final binary:
+`bfe9a26e258cf295fd5e6af9a8c5771f1401d88150ed9ec3811733f2d378903e`.
+The full chromosome preserves 82,287 candidates, 64,483 VCF rows and all
+256,612 primary HP/PS assignments and parental statuses. Correct/discordant/
+unphased remain 230,965/6,620/19,027; 250 blocks retain N50 955,496 bp and
+largest 3,012,193 bp. All 107/107 registered checks pass in 718.5 seconds for
+one cold final acceptance run. All 141 native/full panel metrics and HiPhase
+classifications match step 9; 118 HiPhase >=80%-correct windows still have
+59 passes and 59 full-contract deficits. The standard cached suite passes
+18,138 assertions in five cases plus four replay-cache tests.
+No floor, expectation, panel or closure certificate is refreshed. See
+`evaluations/2026-10-07-representation-step10/README.md` and its audits.
+
+## 2026-10-07 — Representation step 11: physical multi-neighbor paths
+
+Implement `build_allele_sequence_paths` over the anchored composer. Enumerate each
+original parent with no-edit/one-ALT choices at scoped physical neighbors. Omission
+is not a literal REF genotype. Retain original parent index and each selected
+source candidate/ALT index; expanded path sequences are deduplicated separately.
+Source phase, genotype, channel, category and MSA flag do not select a path.
+
+Prune unresolved-overlap prefixes: adding edits cannot remove their existing
+conflict under this composer. Keep unsupported prefixes expandable, because an
+overlong insertion can become supported after a later deletion. Count unsupported
+terminal paths. Bound search to 65,536 visited prefixes and 64 physical neighbor
+sites. A limit clears all partial paths and returns `limited`; incomplete search
+cannot establish genotype absence. New `.path-status`, `.sequence-paths` and
+`.path-alleles.tsv` diagnostics preserve search uncertainty, source provenance
+and the union of old one-neighbor hypotheses with complete valid path catalogs.
+No expanded catalog enters genotype fitting, confidence or production phase.
+
+An intermediate search hit its limit at 65 Mb context 4: five source site tables
+had 7,286,424 combinations per parent. Inspection found identical complete raw
+neighbor tables 1752/1753 at 65,769,539 (REF length 5, 28 ALTs) and 1757/1758 at
+65,769,573 (REF length 1, 37 ALTs). These are aliases, not independent physical
+choices. The first candidate-based builder could also combine different ALTs of
+two copies of `AA->{CA,AC}` and invent `CC`. A focused regression reproduced
+three failing assertions before the correction.
+
+Group exact raw POS/REF and sorted unique full ALT tables; each physical neighbor
+chooses one ALT and applies one edit. Map it back to the first matching original
+ALT index of every alias, independent of original ALT order. Preserve literal
+redundant entries in raw source tables; they do not create additional physical
+choices. Different bounds, REF strings or alternative tables remain separate.
+Duplicate candidate IDs remain unsupported. Context 4 now has three physical
+neighbors and 6,612 combinations per parent; it completes in 20,930 visited
+prefixes and emits 19,837 paths. This is both a representation correction and a
+search reduction; alias labels are never additional independent observations.
+
+All 70/70 searches complete. Four owners emit 711/101/23,203/245 paths and add
+89/0/10,929/0 unique sequences beyond step 10. Total catalog grows from 2,332 to
+13,350 hypotheses (11,018 added). There are 21,142 paths selecting at least two
+physical neighbors; raw multiple-source counts would overcount aliases. These
+measurements span overlapping contexts and comparison arms, not independent
+reads, loci or phase constraints.
+
+Independent `audit_paths.py` checks all prior matrix files against immutable
+step-10 hashes/bytes; independently groups raw sites, composes/prunes anchored
+edits and reproduces every counter and emitted path. It enumerates all 62,577
+full physical assignments without pruning and agrees on all 24,260 valid paths.
+Both extreme maximal shared-padding placements agree on every emitted sequence.
+The audit takes 4.2 seconds. Five-table raw-only saved-state replay reconstructs
+all six legacy/path outputs byte-for-byte and rejects a missing raw site catalog.
+Original input metadata, physical cohorts, costs, full/held-out fits and source
+state are unchanged; verified BAM/HiPhase molecule identities remain reusable.
+
+11,613 context/composition/path/cohort checks pass, including 100 randomized
+four-site complete assignment/permutation cases, physical alias atomicity and
+ALT-index mapping, different full tables, source/parent provenance, conflict
+pruning, exact/insufficient/zero budgets, depth limits and a compensating deletion
+following an overlong prefix. Twelve mutations of the production builder are
+caught. All 12,069 genotype checks, existing unit tests, 47 predicate cases/1,551
+assertions and HiFi/ONT golden/thread gates pass without new warnings. Saved raw
+path reconstruction, composition and export over 100 runs averages
+39.3/14.5/388.4/15.4 ms for the four owners during acceptance load; focused
+fixtures average 230.1 ms. No BAM or pipeline replay is needed in this loop.
+
+Same-cohort unconstrained best-sequence residuals improve over step 10 from
+803->712, 38->38, 6,670->6,455 and 323->323: 306 fewer edit mismatches over 105
+read/context records. Every old distance vector matches verified baseline state.
+These are per-read lower bounds, not diploid fits or calibrated phase confidence;
+a larger catalog can fit sequencing errors. Difficult 65 Mb context 3 still has
+its high residual and original diploid cost 4,404. Completing conservative
+combination enumeration does not resolve ambiguous internal compound-parent
+alignment, repeat placement or graph-walk/read consistency. Next verify matched
+internal REF-to-ALT paths and constrain inference with physical reads/graph paths
+before error calibration; do not blindly send this large catalog into a quadratic
+diploid fitter. No truth-derived threshold is installed.
+
+Accepted final owning outputs retain candidates, VCFs, source matrices and every
+primary HP/PS and parental status. HiPhase panel input/index/truth/panel/helper
+fingerprints pass and measurements equal committed values. Pre-dedup owning/full/
+registered outputs are preliminary only. One inherited full script ignored an
+extra binary argument; that incorrect-binary run is excluded. The new explicit-
+binary `replay_full.sh` and separate immutable `candidate-pgphase` avoid this
+verification pitfall. Original worker directories were not interrupted/reused.
+Final binary: `b94bc35b4fba83829f7c4f5f14512347b4fbc0fd61d18c328e985065c9b93527`.
+The final explicit-binary chromosome run preserves 82,287 candidates, 64,483
+VCF rows and all 256,612 primary HP/PS assignments and parental statuses,
+including connected-core and rescue tags. Correct/discordant/unphased remain
+230,965/6,620/19,027; its 250 blocks retain N50 955,496 bp and largest
+3,012,193 bp. All 107/107 registered checks pass in 788.3 seconds in final
+cold acceptance. All 141 native/full panel metrics and HiPhase classifications
+match step 10; 118 HiPhase >=80%-correct windows still have 59 passes and
+59 full-contract deficits. The official cached suite using the same frozen
+`PGPHASE_BIN` passes 18,138 assertions in five cases plus four cache tests.
+Cache signatures include the literal executable token, so identical contents at
+`./pgphase` miss the immutable-path cache. An extra default-path cold suite was
+stopped after the frozen-path suite passed; its partial outputs are excluded.
+No floor, expectation, panel or closure certificate is refreshed. See
+`evaluations/2026-10-07-representation-step11/README.md` and its audits.
+
+## 2026-10-07: representation step 12 — all-optimal parent/reference subpaths
+
+Implement `map_allele_reference` as a diagnostic-only primitive before nested
+composition inside compound parents. Global unit-edit forward/backward costs
+certify only exact match edges shared by every optimal alignment. Every complete
+alignment consumes each reference base once; its unique optimal consuming edge
+is mandatory, and only equal-base diagonals become matches. Coalesce consecutive
+matches in both complete strings. A fixed subpath survives ambiguity elsewhere;
+a single arbitrary traceback cannot resolve repeat placement. Altered/deleted
+bases and ambiguous matches retain no mapping.
+
+Both strings are uppercase A/C/G/T, at most 4,096 bases; empty strings are valid.
+The default work bound is 1,048,576 matrix cells including boundaries. Limited
+or unsupported results contain distance -1 and no partial subpaths. The backward
+matrix plus rolling forward row keeps memory bounded. State is local to the call;
+normal phasing does not invoke the mapper. Mathematical invariance under this
+edit model is not biological compatibility or calibrated confidence.
+
+Two matrix tables preserve original physical/parent indices: `parent-maps` saves
+status/cost/matched-base/subpath counts, and `matched-subpaths` saves zero-based
+REF/ALT offsets and lengths. `test_allele_context --maps` reconstructs all eight
+composition/path/map tables from five raw inputs without BAM or precomputed
+outputs. Missing raw site state is rejected. The original anchored composer,
+sequence catalogs, full/held-out genotype fits and phase decisions are unchanged.
+
+Four owning runs contain 70 contexts/734 original parents; every mapping
+completes. Independent arbitrary-precision optimal-path counts certify every
+exported edge and distance: 629 parents have multiple optimal alignments, and
+26,017 of 53,679 REF bases are certified in 1,062 subpaths. Counts include
+comparison arms/overlapping contexts, not independent loci or evidence votes.
+All preceding matrix/cohort/cost/fit/source tables remain byte-identical to
+hash-verified step 11. Among old unresolved parent/neighbor attempts, 30 in the
+4–5 Mb default owner have their whole raw neighbor REF inside a certified
+subpath. They are candidates for the next composition step, not accepted new
+haplotypes or joins. No original parent index is replaced.
+
+14,184 context/composition/path/cohort checks pass, including 500 independent
+exhaustive optimal-traceback intersections and targeted compound-island, repeat
+I/D, equal-cost mismatch/gap, empty DNA, case, invalid DNA and budget cases.
+All 12,069 genotype checks, existing unit tests and 47 predicate cases/1,551
+assertions pass with no new warnings. Eight actual production mapper mutations
+are detected. Complete saved-state composition/path/map export over 100 runs
+averages 34.9/9.1/311.3/17.0 ms for the four owners; fixtures average 137.7 ms
+under acceptance load. The independent all-parent Python audit takes 18.9 s.
+HiFi/ONT golden and thread-determinism gates pass.
+
+New diagnosis of the difficult 65 Mb physical context 3: every parent/path
+hypothesis is at most 55 bases, but 21/39 original query slices are longer,
+up to 407 bases. Independent aligned-pair extraction reproduces every saved
+slice; internal CIGAR insertions/deletions exactly explain the lengths. All
+39 primary input alignments match HiPhase. The length-only residual lower bound
+is 4,327 of the 4,383 best-path residual edits (98.7%); the original diploid cost
+remains 4,404. All eleven scoped neighbor ALTs are shorter than their 23-base REF.
+Parent alignment or combining only these tables cannot supply the missing long
+sequence. Preserve read-driven expansion hypotheses with graph/MSA evidence,
+then constrain/calibrate diploid inference. The diagnosis proves catalog length
+incompleteness, not a biological expansion genotype; a larger catalog must not
+become independent phase evidence or overfit each read's sequencing errors.
+
+Final explicit-binary full chr20 preserves 82,287 candidates, 64,483 VCF rows,
+all 256,612 primary HP/PS and parental classifications, connected core and
+rescues. Correct/discordant/unphased remain 230,965/6,620/19,027; 250 blocks retain
+N50 955,496 bp and largest 3,012,193 bp. Owning candidate/VCF/matrix/read state
+also agrees with step 11. HiPhase panel input/index/truth/panel/helper signatures
+are verified before cached measurements are reused. No floor, panel, expectation
+or closure certificate is refreshed. Evidence and reproduction:
+`evaluations/2026-10-07-representation-step12/README.md`.
+
+Final binary: `b93796a43194c7c9d37c1ce39295bd89eca95b7e0c72a68b14341b1bdb6d526e`.
+All 107/107 registered checks pass in 722.0 s; official cached suite passes
+18,138 assertions in five cases plus four replay-cache tests. All 141 native/full
+panel metrics and HiPhase classifications match step 11. Of 118 HiPhase >=80%
+correct windows, 59 pass and 59 fail the full closure contract. No new closure
+is claimed; >=80% original primary correctness including abstentions and both
+total/core counts at least HiPhase remain the production acceptance rules.
+Final source/input/evidence hashes are frozen in the step-12 manifest.
+
+## 2026-10-07: representation step 13 — compose through mandatory subpaths
+
+Add `compose_allele_on_subpaths` over maps returned by `map_allele_reference`.
+Maps retain their validated uppercase REF/ALT strings, binding cached offsets to
+exact inputs and allowing all neighbor attempts to reuse one parent alignment.
+First preserve the anchored composer's valid/unsupported results. Only an
+unresolved overlap may use a complete map and independently valid original-REF
+neighbor composition. Whole raw REF must fit inside one mandatory matched span;
+no-op REF imposes no genotype constraint. Equal-length replacements can touch
+matched span edges, while length-changing edits require a matched base on both
+sides of their whole raw REF. This conservative guard does not arbitrarily order
+a neighbor insertion beside a parent insertion (`AC`, parent `TAC`, neighbor
+`AC->GAC` must not choose `TGAC` over `GTAC`). Recompose translated raw edits on
+the complete parent sequence using certified ALT offsets and all existing
+REF/duplicate/shifted-alias/ambiguous-padding/overlap validation. Limited maps
+retain supported anchored outputs but cannot authorize a mapped fallback.
+
+Matrix-only `nested-compositions` records each original parent/source/ALT attempt;
+`nested-alleles` retains the entire old path catalog plus unique nested sequences.
+The primitive accepts explicit multiple-neighbor sets, but this diagnostic
+catalog adds one neighbor ALT per attempt. Old composition/path/map/cohort/cost/
+fit/source tables remain unchanged. Existing physical choices and source-alias
+atomicity remain in the old path builder; new source paths are not evidence votes.
+Normal phasing, confidence and genotype fitting still use their original inputs.
+
+Independent arbitrary-precision optimal-path counting and anchored-edit oracles
+verify all 16,176 attempts over 734 original parents in 70 physical contexts,
+including every legacy composition and previous table's frozen hash/bytes.
+Seven of step 12's 30 whole-REF-contained overlap candidates now compose;
+23 remain unresolved under the conservative length-change guard. The seven
+are context 18 parents 0/1/2/4/5/6/7 plus candidate 1094, POS 4,760,662 A->C,
+an MSA-verified injected BAM SNP. Fixed-length replacement of its mandatory
+matched base is defined even at the start of the matched span. All original
+parent changes and source/ALT indices survive. Channel/MSA/category annotations
+do not select alignment, neighbor or ALT.
+
+No unique sequence is added: all seven already occur through different parent/
+neighbor paths in the prior multi-neighbor catalog. For example, parent 0 plus
+1094 matches reference parent 3 plus 1091/1094 or 1091/1093. All four nested
+catalogs equal the old path tables exactly, including indices. Hash-verified
+cohorts, original cost vectors and full/held-out fits also agree. Therefore every
+per-read sequence cost remains identical without redundant rescoring. Verified
+path residuals remain 712/38/6,455/323 over 1,796/413/425/1,337 read/context rows.
+The 65 Mb context 3's missing long hypotheses still explain 4,327/4,383 residual
+edits; cached subpaths cannot supply absent sequence length. Next preserve
+read-supported expansion hypotheses with graph/MSA evidence and calibrated
+joint inference; this provenance correction is not a new gap closure.
+
+14,713 context/composition/path/cohort checks pass: new compound-island and
+matched-edge SNPs, guarded I/D, mixed SNP/indel permutations, exact/padded
+aliases, no-op non-constraints, conflicting/masked edits, invalid raw inputs,
+parent length/ALT-offset changes, budgets, same-boundary insertions, repeats
+and 500 randomized compound-parent substitutions checked against independent
+exhaustive optimal-traceback intersections. All 12,069 genotype checks, existing
+unit tests and 47 predicate cases/1,551 assertions pass without new warnings.
+Eight actual production mutations are caught (ALT offsets, either edge guard,
+map completeness, retained parent changes, no-ops, arbitrary repeat matches,
+anchored result preservation). HiFi/ONT golden and thread gates pass.
+
+`test_allele_context --nested` reconstructs all ten composition/path/map/nested
+tables from five raw inputs with no BAM or precomputed outputs. Every replay
+matches production bytes and missing raw site state is rejected. Over 100 runs
+under acceptance load, reconstruction/export averages 39.6/8.5/376.2/16.2 ms;
+fixtures average 140.3 ms. The independent all-parent/attempt oracle takes 20.0 s.
+All four owning outputs retain candidates, VCF rows, primary HP/PS, parental
+classifications and source/read-channel state. HiPhase cached panel signatures
+are reverified against current original inputs/indices/truth/panel/helpers.
+No floor, expectation, panel or closure certificate is refreshed. Evidence:
+`evaluations/2026-10-07-representation-step13/README.md`.
+
+Final binary: `5459c5d8b7a755403919f9361f4e8b119dbe9c162cf1d11c83db61d74d767484`.
+Full chr20 preserves 82,287 candidates, 64,483 VCF rows and all 256,612 primary
+HP/PS and parental classifications (core and rescues included). Counts remain
+230,965 correct / 6,620 discordant / 19,027 unphased; 250 blocks retain N50
+955,496 bp and largest 3,012,193 bp. All 107/107 registered checks pass in
+717.8 s, plus the official cached suite's 18,138 assertions/five cases and
+four cache tests. All 141 native/full panel metrics and HiPhase classes match
+step 12; 118 HiPhase >=80%-correct windows still have 59 full-contract passes
+and 59 deficits. Production phasing and gap closure counts remain unchanged.
+No floor or certificate changes. The final manifest freezes source and evidence;
+>=80% original primary correctness including abstentions and total/core counts
+at least HiPhase remain the closure rule.
+
+## 2026-10-07: representation step 14 — recover repeated complete read sequences
+
+Step 13 left the 65 Mb physical context 3's length deficit unchanged. Implement
+`build_read_allele_catalog` as the next diagnostic primitive: exact complete
+sequences repeated by at least two distinct original physical molecule names,
+case-normalized A/C/G/T, nonempty and at most 4,096 bases. Duplicate descriptions
+are idempotent; any conflicting or invalid record rejects that name entirely.
+Excluded names are removed before validation/grouping. Canonical sequences and
+supporter names retain discovery provenance. Exceeding 64 hypotheses returns
+`limited` and clears all partial hypotheses. Support is not confidence.
+
+Matrix diagnostics export admission status, hypotheses, supporters, exclusions
+and a sorted union with every old nested sequence. Six raw tables reconstruct
+all fifteen output tables without BAM/precomputed state. No MSA/source/category,
+genotype, truth or HP/PS admits or selects a hypothesis. Original physical fits
+and phase joins keep their original inputs. This is a missing-hypothesis fix,
+not a new production gap closure. Detailed evidence and reproduction live in
+`evaluations/2026-10-07-representation-step14/`.
+
+Across four owners and 70 contexts, 255 repeated exact hypotheses add 63 unique
+sequences: 25/3/21/14 across the 4–5 Mb, 5–6 Mb, 65–66 Mb and whole-snarl owners.
+All old matrix tables remain byte-identical. Original 3,971 physical read/context
+rows and 1,683 distinct names are retained. Catalog/status/provenance validation
+agrees with independent grouping for all rows, including exclusion of each
+scored name before discovery. All catalogs complete.
+
+Reuse the verified old path minima only after frozen hash and exact catalog/
+query identity checks; step 13 added no unique sequence. Independently verify
+all 2,917 novel-sequence edit costs by scalar DP. Discovery-held-out minima fall
+712→436, 38→22, 6,455→1,360 and 323→213. These are all-hypothesis representation
+lower bounds, not diploid fits or correctness rates. Only new discovery excludes
+the scored name; upstream old catalog discovery is not cross-validated here.
+
+Context 3 at 65,769,387–65,769,441 retains all 39 primary molecules. Four exact
+supported sequence lengths/supports are 51/12, 53/2, 55/2 and 312/6; three are
+novel versus the old maximum-55-base catalog. Its residual falls 4,383→711 with
+full discovery, or →715 with each scored name excluded, improving 28/39 rows.
+The six exact long supporters leave five other supporters in each replay.
+
+An evaluation-only abPOA driver verifies raw input MSA rows and independently
+aligns all 39 molecules with the production default alignment penalties. Its
+consensuses exactly match the 312- and 51-base hypotheses, with long/short cluster
+sizes 16/23. Reversed read order retains sequences and memberships. Removing
+each of the six exact long supporters yields the same consensuses and removes
+only that name from its cluster. Four exact-group MSAs preserve their original
+sequence too. This shows missing hypotheses in the supplied catalog; it does
+not prove their sequence is absent from every possible GBZ walk. The verifier
+is not linked into production and its results do not drive admission.
+
+Focused context tests pass 14,933 checks. Eight actual rule mutations are
+rejected: singleton admission, alias overcounting, retaining conflicting names,
+retaining invalid-name aliases, ignoring exclusion, publishing partial bounded
+catalogs, ignoring the hypothesis budget and ignoring sequence length. Over
+100 runs fixtures average 166 ms and raw owner reconstruction 47/10/428/19 ms.
+No additional full catalog rescoring is needed during development. All unit
+and HiFi/ONT golden gates pass; HiFi t1/t4 output remains deterministic.
+
+Next: test diploid fitting and competing hypotheses on the expanded catalog,
+with excluded-name discovery rebuilt for each scored molecule, before calibrating
+confidence or authorizing joins. Two exact supporters can share systematic repeat
+errors. Any eventual closure retains the >=80% correct original truth-scorable
+primary-read condition, abstentions included, and total/connected-core correct
+counts at least HiPhase.
+
+Post-hoc parental checks expose a further limit: all six exact long supporters
+are maternal and all twelve exact short supporters paternal, but the whole-cohort
+MSA clusters mix labels (long 11 maternal/5 paternal; short 4 maternal/19 paternal).
+Even majority-labeling those clusters gives only 30/39 correct (76.9%) in this
+context. MSA verifies the sequence without certifying its per-read memberships;
+blindly adopting those assignments would miss the user's 80% condition. Truth
+annotates this evaluation only and does not feed production discovery.
+
+The final frozen binary is
+`5a17f417187a0a29a893781a9dc40b1c4072470c02d314a7a07fbc4ed57827bd`.
+Four owning candidate/VCF/channel/primary-tag/parental outputs match step 13.
+Full chr20 preserves 82,287 candidates, 64,483 VCF rows, all 256,612 primary HP/PS
+and parental statuses, and connected-core/previously phased tags. Counts remain
+230,965 correct, 6,620 discordant and 19,027 unphased. The 250 blocks retain
+N50 955,496 bp and largest block 3,012,193 bp. No production closure is claimed.
+
+Final acceptance passes all 107 registered checks in 720.6 seconds. The official
+suite passes 18,138 assertions in five cases and all four cache tests. All 141
+native/full panel metrics and HiPhase classifications match step 13: 118 HiPhase
+>=80%-correct windows include 59 passing and 59 failing full closure contracts.
+Competitor fingerprints are rechecked before cached measurements are reused.
+No floors, panel, expectations or certificates are refreshed. Final production
+source/binary remain unchanged during acceptance. `manifest.json` freezes the
+final code, baseline, inputs, raw state, accepted outputs, mutation and timing
+checks; its hashes are verified independently.

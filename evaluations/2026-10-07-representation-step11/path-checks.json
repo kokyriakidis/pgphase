@@ -1,0 +1,843 @@
+{
+  "seconds": 4.16151410099701,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "statuses": {
+        "complete": 31
+      },
+      "paths": 711,
+      "unpruned_full_assignments_verified": 6015,
+      "multiple_physical_neighbor_paths": 182,
+      "multiple_source_description_paths": 182,
+      "new_unique_sequences": 89,
+      "old_hypotheses": 427,
+      "path_hypotheses": 516,
+      "previous_tables_byte_identical": true,
+      "physical_contexts": [
+        {
+          "physical": 0,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 6,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 6,
+          "added_sequences": 0
+        },
+        {
+          "physical": 1,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 19,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 19,
+          "added_sequences": 0
+        },
+        {
+          "physical": 2,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 21,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 21,
+          "added_sequences": 0
+        },
+        {
+          "physical": 3,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 8,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 4,
+          "neighbor_sites": 3,
+          "physical_neighbor_sites": 3,
+          "status": "complete",
+          "visited_prefixes": 1405,
+          "overlap_prefixes": 1080,
+          "unsupported_paths": 0,
+          "paths": 126,
+          "added_sequences": 0
+        },
+        {
+          "physical": 5,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 6,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 7,
+          "neighbor_sites": 4,
+          "physical_neighbor_sites": 4,
+          "status": "complete",
+          "visited_prefixes": 53,
+          "overlap_prefixes": 11,
+          "unsupported_paths": 0,
+          "paths": 19,
+          "added_sequences": 9
+        },
+        {
+          "physical": 8,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 8,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 9,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 10,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 11,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 12,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 13,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 7,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 14,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 18,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 15,
+          "added_sequences": 0
+        },
+        {
+          "physical": 15,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 16,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 13,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 13,
+          "added_sequences": 0
+        },
+        {
+          "physical": 17,
+          "neighbor_sites": 2,
+          "physical_neighbor_sites": 2,
+          "status": "complete",
+          "visited_prefixes": 1324,
+          "overlap_prefixes": 1155,
+          "unsupported_paths": 0,
+          "paths": 68,
+          "added_sequences": 0
+        },
+        {
+          "physical": 18,
+          "neighbor_sites": 3,
+          "physical_neighbor_sites": 3,
+          "status": "complete",
+          "visited_prefixes": 148,
+          "overlap_prefixes": 71,
+          "unsupported_paths": 0,
+          "paths": 31,
+          "added_sequences": 7
+        },
+        {
+          "physical": 19,
+          "neighbor_sites": 3,
+          "physical_neighbor_sites": 3,
+          "status": "complete",
+          "visited_prefixes": 410,
+          "overlap_prefixes": 80,
+          "unsupported_paths": 0,
+          "paths": 140,
+          "added_sequences": 36
+        },
+        {
+          "physical": 20,
+          "neighbor_sites": 2,
+          "physical_neighbor_sites": 2,
+          "status": "complete",
+          "visited_prefixes": 65,
+          "overlap_prefixes": 32,
+          "unsupported_paths": 0,
+          "paths": 18,
+          "added_sequences": 0
+        },
+        {
+          "physical": 21,
+          "neighbor_sites": 2,
+          "physical_neighbor_sites": 2,
+          "status": "complete",
+          "visited_prefixes": 102,
+          "overlap_prefixes": 62,
+          "unsupported_paths": 0,
+          "paths": 17,
+          "added_sequences": 0
+        },
+        {
+          "physical": 22,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 30,
+          "overlap_prefixes": 16,
+          "unsupported_paths": 0,
+          "paths": 9,
+          "added_sequences": 0
+        },
+        {
+          "physical": 23,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 7,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 24,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 21,
+          "overlap_prefixes": 6,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 25,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 26,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 27,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 28,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 6,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 6,
+          "added_sequences": 0
+        },
+        {
+          "physical": 29,
+          "neighbor_sites": 3,
+          "physical_neighbor_sites": 3,
+          "status": "complete",
+          "visited_prefixes": 416,
+          "overlap_prefixes": 194,
+          "unsupported_paths": 0,
+          "paths": 123,
+          "added_sequences": 37
+        },
+        {
+          "physical": 30,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 6,
+      "statuses": {
+        "complete": 6
+      },
+      "paths": 101,
+      "unpruned_full_assignments_verified": 159,
+      "multiple_physical_neighbor_paths": 0,
+      "multiple_source_description_paths": 0,
+      "new_unique_sequences": 0,
+      "old_hypotheses": 91,
+      "path_hypotheses": 91,
+      "previous_tables_byte_identical": true,
+      "physical_contexts": [
+        {
+          "physical": 0,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 14,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 14,
+          "added_sequences": 0
+        },
+        {
+          "physical": 1,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 2,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 15,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 15,
+          "added_sequences": 0
+        },
+        {
+          "physical": 3,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 72,
+          "overlap_prefixes": 49,
+          "unsupported_paths": 0,
+          "paths": 15,
+          "added_sequences": 0
+        },
+        {
+          "physical": 4,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 20,
+          "overlap_prefixes": 9,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 5,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 45,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 45,
+          "added_sequences": 0
+        }
+      ]
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 10,
+      "statuses": {
+        "complete": 10
+      },
+      "paths": 23203,
+      "unpruned_full_assignments_verified": 56095,
+      "multiple_physical_neighbor_paths": 20960,
+      "multiple_source_description_paths": 21466,
+      "new_unique_sequences": 10929,
+      "old_hypotheses": 1580,
+      "path_hypotheses": 12509,
+      "previous_tables_byte_identical": true,
+      "physical_contexts": [
+        {
+          "physical": 0,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 481,
+          "overlap_prefixes": 105,
+          "unsupported_paths": 0,
+          "paths": 363,
+          "added_sequences": 0
+        },
+        {
+          "physical": 1,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 48,
+          "overlap_prefixes": 10,
+          "unsupported_paths": 0,
+          "paths": 22,
+          "added_sequences": 0
+        },
+        {
+          "physical": 2,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 24,
+          "overlap_prefixes": 4,
+          "unsupported_paths": 0,
+          "paths": 12,
+          "added_sequences": 0
+        },
+        {
+          "physical": 3,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 156,
+          "overlap_prefixes": 85,
+          "unsupported_paths": 0,
+          "paths": 59,
+          "added_sequences": 0
+        },
+        {
+          "physical": 4,
+          "neighbor_sites": 5,
+          "physical_neighbor_sites": 3,
+          "status": "complete",
+          "visited_prefixes": 20930,
+          "overlap_prefixes": 418,
+          "unsupported_paths": 0,
+          "paths": 19837,
+          "added_sequences": 9583
+        },
+        {
+          "physical": 5,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 8,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 6,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 210,
+          "overlap_prefixes": 153,
+          "unsupported_paths": 0,
+          "paths": 42,
+          "added_sequences": 0
+        },
+        {
+          "physical": 7,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 11340,
+          "overlap_prefixes": 10282,
+          "unsupported_paths": 0,
+          "paths": 950,
+          "added_sequences": 0
+        },
+        {
+          "physical": 8,
+          "neighbor_sites": 3,
+          "physical_neighbor_sites": 2,
+          "status": "complete",
+          "visited_prefixes": 912,
+          "overlap_prefixes": 282,
+          "unsupported_paths": 0,
+          "paths": 405,
+          "added_sequences": 60
+        },
+        {
+          "physical": 9,
+          "neighbor_sites": 5,
+          "physical_neighbor_sites": 5,
+          "status": "complete",
+          "visited_prefixes": 3934,
+          "overlap_prefixes": 826,
+          "unsupported_paths": 0,
+          "paths": 1505,
+          "added_sequences": 1286
+        }
+      ]
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "statuses": {
+        "complete": 23
+      },
+      "paths": 245,
+      "unpruned_full_assignments_verified": 308,
+      "multiple_physical_neighbor_paths": 0,
+      "multiple_source_description_paths": 0,
+      "new_unique_sequences": 0,
+      "old_hypotheses": 234,
+      "path_hypotheses": 234,
+      "previous_tables_byte_identical": true,
+      "physical_contexts": [
+        {
+          "physical": 0,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 6,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 6,
+          "added_sequences": 0
+        },
+        {
+          "physical": 1,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 195,
+          "overlap_prefixes": 63,
+          "unsupported_paths": 0,
+          "paths": 117,
+          "added_sequences": 0
+        },
+        {
+          "physical": 2,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 7,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 3,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 8,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 4,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 5,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 6,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 8,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 8,
+          "added_sequences": 0
+        },
+        {
+          "physical": 7,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 8,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 9,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 10,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 11,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 7,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 12,
+          "neighbor_sites": 1,
+          "physical_neighbor_sites": 1,
+          "status": "complete",
+          "visited_prefixes": 18,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 15,
+          "added_sequences": 0
+        },
+        {
+          "physical": 13,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 14,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 13,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 13,
+          "added_sequences": 0
+        },
+        {
+          "physical": 15,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 16,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 17,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 7,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 7,
+          "added_sequences": 0
+        },
+        {
+          "physical": 18,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 4,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 4,
+          "added_sequences": 0
+        },
+        {
+          "physical": 19,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        },
+        {
+          "physical": 20,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 2,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 2,
+          "added_sequences": 0
+        },
+        {
+          "physical": 21,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 6,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 6,
+          "added_sequences": 0
+        },
+        {
+          "physical": 22,
+          "neighbor_sites": 0,
+          "physical_neighbor_sites": 0,
+          "status": "complete",
+          "visited_prefixes": 5,
+          "overlap_prefixes": 0,
+          "unsupported_paths": 0,
+          "paths": 5,
+          "added_sequences": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "binary_sha256": "088b5c56e17d04828af0ccbfede26b9ca3ff65476a62f796066af7a6ac63eb9d",
+  "candidates_byte_identical": true,
+  "vcf_rows_identical": true,
+  "before_vcf_rows": 64483,
+  "after_vcf_rows": 64483,
+  "primary_reads": 256612,
+  "scorable_primary_reads": 256612,
+  "changed_primary_hp_ps": 0,
+  "changed_parental_status": 0,
+  "before_parental_counts": {
+    "correct": 230965,
+    "unphased": 19027,
+    "discordant": 6620
+  },
+  "after_parental_counts": {
+    "correct": 230965,
+    "unphased": 19027,
+    "discordant": 6620
+  },
+  "before_blocks": {
+    "count": 250,
+    "n50_bp": 955496,
+    "largest_block_bp": 3012193
+  },
+  "after_blocks": {
+    "count": 250,
+    "n50_bp": 955496,
+    "largest_block_bp": 3012193
+  },
+  "changed_primary_examples": []
+}

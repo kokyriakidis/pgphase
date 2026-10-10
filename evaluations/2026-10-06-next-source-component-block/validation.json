@@ -1,0 +1,54 @@
+{
+  "binary_sha256": "12beb76e831986814ebb50a6d55eacbfd024f517224f7ca11039c80d06272058",
+  "full_output": "test_data/tmp_gap_fix89/final/0",
+  "accepted_read_connections": [
+    [
+      46389864,
+      46402979
+    ],
+    [
+      46402979,
+      46405048
+    ]
+  ],
+  "whole_hiphase_target_read_parity": false,
+  "whole_target_deficits": {
+    "dominant_core_correct": 22,
+    "correct": 4
+  },
+  "build": "passed; no errors or new warnings",
+  "unit_tests": "passed, including 16 new source-component predicate checks",
+  "phasing_predicates": {
+    "cases": 47,
+    "assertions": 1551,
+    "result": "passed"
+  },
+  "goldens": "HiFi and ONT TSV/VCF match; HiFi 1 versus 4 threads identical",
+  "owning_threads": "identical candidates, VCF records and BAM assignments",
+  "new_native_fixture": {
+    "assertions": 724,
+    "result": "passed",
+    "baseline_assertions": 720,
+    "baseline_failed_assertions": 15,
+    "cached_seconds": 0.76
+  },
+  "unshared_deletion_control": "53 Mb native replay: every HP/PS label and complete VCF record identical to baseline",
+  "full_gap_suite": {
+    "assertions": 17954,
+    "cases": 5,
+    "result": "passed"
+  },
+  "cache_helper_tests": {
+    "cases": 4,
+    "result": "passed"
+  },
+  "native_panel": {
+    "output_labels": 248,
+    "independent_requests": 128,
+    "comparison_pairs": 129,
+    "changed_output_labels": 7,
+    "result": "passed; every previous correct/phased assignment and complete VCF record preserved"
+  },
+  "full_preservation": "all prior correct/phased reads, all block extents, all 64483 VCF records and every byte of the 82287-site candidate TSV retained; no tag change outside target neighborhood",
+  "n50_bp": 955496
+}

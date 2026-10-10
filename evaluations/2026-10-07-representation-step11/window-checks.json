@@ -1,0 +1,758 @@
+{
+  "binary": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/candidate-pgphase",
+  "binary_sha256": "b94bc35b4fba83829f7c4f5f14512347b4fbc0fd61d18c328e985065c9b93527",
+  "registered_checks": 107,
+  "passed": 107,
+  "seconds": 788.2797772689955,
+  "results": [
+    {
+      "name": "chr20 gap windows",
+      "index": 0,
+      "exit": 0,
+      "seconds": 759.8275929310184,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/0/test.log"
+    },
+    {
+      "name": "shared insertion source closes the 4.874 Mb gap",
+      "index": 1,
+      "exit": 0,
+      "seconds": 51.15000806900207,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/1/test.log"
+    },
+    {
+      "name": "complementary deletion reads close the 4.637 Mb orphan",
+      "index": 2,
+      "exit": 0,
+      "seconds": 51.32502552101505,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/2/test.log"
+    },
+    {
+      "name": "source components close the 46.403 Mb orphan",
+      "index": 3,
+      "exit": 0,
+      "seconds": 10.418254946998786,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/3/test.log"
+    },
+    {
+      "name": "complex tandem reads close the 19.373 Mb orphan",
+      "index": 4,
+      "exit": 0,
+      "seconds": 11.42847308999626,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/4/test.log"
+    },
+    {
+      "name": "overlapping source reads close the 36.259 Mb orphan",
+      "index": 5,
+      "exit": 0,
+      "seconds": 22.867203741014237,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/5/test.log"
+    },
+    {
+      "name": "calibrated deletion chain closes the 56 Mb boundary",
+      "index": 6,
+      "exit": 0,
+      "seconds": 20.202305579005042,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/6/test.log"
+    },
+    {
+      "name": "Calibrated tandem insertions close the 0.865 Mb gap",
+      "index": 7,
+      "exit": 0,
+      "seconds": 28.970468395011267,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/7/test.log"
+    },
+    {
+      "name": "calibrated mixed repeat closes the 57.085 Mb gap",
+      "index": 8,
+      "exit": 0,
+      "seconds": 31.87257452798076,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/8/test.log"
+    },
+    {
+      "name": "equivalent mixed repeat closes the 55.309 Mb endpoint",
+      "index": 9,
+      "exit": 0,
+      "seconds": 42.65278873499483,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/9/test.log"
+    },
+    {
+      "name": "long repeat anchors close the 15.023 and 15.100 Mb gaps",
+      "index": 10,
+      "exit": 0,
+      "seconds": 41.53582351800287,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/10/test.log"
+    },
+    {
+      "name": "compound insertion prefix closes the 45.876 Mb gap",
+      "index": 11,
+      "exit": 0,
+      "seconds": 45.000744810007745,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/11/test.log"
+    },
+    {
+      "name": "Physical terminal insertion completes the 12.954 Mb block",
+      "index": 12,
+      "exit": 0,
+      "seconds": 33.1122964489914,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/12/test.log"
+    },
+    {
+      "name": "Physical graph repeat chain closes the 12.717 Mb gap",
+      "index": 13,
+      "exit": 0,
+      "seconds": 19.561108380003134,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/13/test.log"
+    },
+    {
+      "name": "Physical repeat SNP validation closes the 11.796 Mb gap",
+      "index": 14,
+      "exit": 0,
+      "seconds": 20.86841544599156,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/14/test.log"
+    },
+    {
+      "name": "REF-absent graph SNP recovers the 40.633 Mb terminal deletion",
+      "index": 15,
+      "exit": 0,
+      "seconds": 13.84217139199609,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/15/test.log"
+    },
+    {
+      "name": "cut-free insertion prefix closes the 36.268 Mb gap",
+      "index": 16,
+      "exit": 0,
+      "seconds": 0.9380994779930916,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/16/test.log"
+    },
+    {
+      "name": "homozygous graph SNP does not split a supported block",
+      "index": 17,
+      "exit": 0,
+      "seconds": 1.1972293219878338,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/17/test.log"
+    },
+    {
+      "name": "calibrated source deletion joins the fourth largest HiPhase block",
+      "index": 18,
+      "exit": 0,
+      "seconds": 14.932032546988921,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/18/test.log"
+    },
+    {
+      "name": "physically contradicted graph SNPs close the 25.855 Mb seam",
+      "index": 19,
+      "exit": 0,
+      "seconds": 24.779687039990677,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/19/test.log"
+    },
+    {
+      "name": "complementary insertions join the second largest HiPhase block",
+      "index": 20,
+      "exit": 0,
+      "seconds": 20.55291075599962,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/20/test.log"
+    },
+    {
+      "name": "calibrated repeat SNPs join the largest HiPhase block",
+      "index": 21,
+      "exit": 0,
+      "seconds": 33.01787068898557,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/21/test.log"
+    },
+    {
+      "name": "cut-free source paths close the 17.634 Mb gap",
+      "index": 22,
+      "exit": 0,
+      "seconds": 15.016839240997797,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/22/test.log"
+    },
+    {
+      "name": "retained shared deletion closes the 62.408 Mb gap",
+      "index": 23,
+      "exit": 0,
+      "seconds": 18.52839350598515,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/23/test.log"
+    },
+    {
+      "name": "original MSA SNP dropout is retried before CIGAR backfill",
+      "index": 24,
+      "exit": 0,
+      "seconds": 0.6332659799954854,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/24/test.log"
+    },
+    {
+      "name": "conflicting sparse pairs retry with their observed binomial tail",
+      "index": 25,
+      "exit": 0,
+      "seconds": 16.703810583014274,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/25/test.log"
+    },
+    {
+      "name": "a moved deletion does not certify a whole right-block join",
+      "index": 26,
+      "exit": 0,
+      "seconds": 15.794991328002652,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/26/test.log"
+    },
+    {
+      "name": "focused retry certifies its path after CIGAR backfill",
+      "index": 27,
+      "exit": 0,
+      "seconds": 0.6589188519865274,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/27/test.log"
+    },
+    {
+      "name": "an earlier focused retry does not hide a later MSA dropout",
+      "index": 28,
+      "exit": 0,
+      "seconds": 25.628758507984458,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/28/test.log"
+    },
+    {
+      "name": "complete recovery MSA blocks retain the complex left flank",
+      "index": 29,
+      "exit": 0,
+      "seconds": 0.4769711529952474,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/29/test.log"
+    },
+    {
+      "name": "isolated shared BAM genotype survives graph repeat demotion",
+      "index": 30,
+      "exit": 0,
+      "seconds": 0.4077238500176463,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/30/test.log"
+    },
+    {
+      "name": "recovery preserves complementary BAM deletion rows",
+      "index": 31,
+      "exit": 0,
+      "seconds": 1.8637067710224073,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/31/test.log"
+    },
+    {
+      "name": "verified MSA insertion survives graph output classification",
+      "index": 32,
+      "exit": 0,
+      "seconds": 11.483783379982924,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/32/test.log"
+    },
+    {
+      "name": "a phased BAM deletion survives an unphased graph duplicate",
+      "index": 33,
+      "exit": 0,
+      "seconds": 10.884803087014006,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/33/test.log"
+    },
+    {
+      "name": "graph SNP retry preserves a verified BAM deletion connection",
+      "index": 34,
+      "exit": 0,
+      "seconds": 0.8787849720101804,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/34/test.log"
+    },
+    {
+      "name": "an unsupported BAM source cut keeps the far deletion independent",
+      "index": 35,
+      "exit": 0,
+      "seconds": 14.75676871300675,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/35/test.log"
+    },
+    {
+      "name": "graph SNPs bridge supported recovery blocks",
+      "index": 36,
+      "exit": 0,
+      "seconds": 2.1635102200089023,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/36/test.log"
+    },
+    {
+      "name": "recovery stitch preserves the next flank across an unlinked seam",
+      "index": 37,
+      "exit": 0,
+      "seconds": 29.643037422007183,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/37/test.log"
+    },
+    {
+      "name": "a clean-SNP gap bridge keeps the prior graph gauge",
+      "index": 38,
+      "exit": 0,
+      "seconds": 15.725730086996919,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/38/test.log"
+    },
+    {
+      "name": "a local source path does not lose its graph bridge",
+      "index": 39,
+      "exit": 0,
+      "seconds": 0.7757652869913727,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/39/test.log"
+    },
+    {
+      "name": "corroborated SNP molecules join sparse graph seams",
+      "index": 40,
+      "exit": 0,
+      "seconds": 1.5109099370019976,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/40/test.log"
+    },
+    {
+      "name": "an indel boundary with allele dropout gets an MSA retry",
+      "index": 41,
+      "exit": 0,
+      "seconds": 0.8066651569970418,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/41/test.log"
+    },
+    {
+      "name": "a lone boundary SNP pair needs a repaired complete graph flank",
+      "index": 42,
+      "exit": 0,
+      "seconds": 1.113737104984466,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/42/test.log"
+    },
+    {
+      "name": "physical bridges survive their owning graph chunks",
+      "index": 43,
+      "exit": 0,
+      "seconds": 403.9649934140034,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/43/test.log"
+    },
+    {
+      "name": "phased right reads retain the certified 64 Mb BAM prefix",
+      "index": 44,
+      "exit": 0,
+      "seconds": 32.417619621002814,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/44/test.log"
+    },
+    {
+      "name": "source allele repair preserves complementary repeat rows",
+      "index": 45,
+      "exit": 0,
+      "seconds": 0.22283861000323668,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/45/test.log"
+    },
+    {
+      "name": "graph haplotypes bridge equivalent complementary BAM deletions",
+      "index": 46,
+      "exit": 0,
+      "seconds": 21.45192030601902,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/46/test.log"
+    },
+    {
+      "name": "physical links close the long 47 Mb gap without a switch",
+      "index": 47,
+      "exit": 0,
+      "seconds": 0.8926304620108567,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/47/test.log"
+    },
+    {
+      "name": "validated graph bridge survives a BAM phase-set ID change",
+      "index": 48,
+      "exit": 0,
+      "seconds": 2.786132286011707,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/48/test.log"
+    },
+    {
+      "name": "one shared BAM anchor cannot absorb the earlier 19.4 Mb block",
+      "index": 49,
+      "exit": 0,
+      "seconds": 0.24439075498958118,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/49/test.log"
+    },
+    {
+      "name": "direct SNP proof reuses a graph block at 56.15 Mb",
+      "index": 50,
+      "exit": 0,
+      "seconds": 0.6158340749971103,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/50/test.log"
+    },
+    {
+      "name": "physical SNP bridge crosses the 23 Mb graph chunk boundary",
+      "index": 51,
+      "exit": 0,
+      "seconds": 16.121872593997978,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/51/test.log"
+    },
+    {
+      "name": "multiple BAM source labels preserve a 22.98 Mb graph bridge",
+      "index": 52,
+      "exit": 0,
+      "seconds": 12.749812763009686,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/52/test.log"
+    },
+    {
+      "name": "a different deletion locus cannot validate a remapped bridge",
+      "index": 53,
+      "exit": 0,
+      "seconds": 9.07258451799862,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/53/test.log"
+    },
+    {
+      "name": "BAM transfer preserves an already connected graph phase set",
+      "index": 54,
+      "exit": 0,
+      "seconds": 0.1397692150203511,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/54/test.log"
+    },
+    {
+      "name": "complementary BAM boundary rows close the 41.900 Mb seam",
+      "index": 55,
+      "exit": 0,
+      "seconds": 11.828888965013903,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/55/test.log"
+    },
+    {
+      "name": "certified deletion bridge preserves the 11.599 Mb source alleles",
+      "index": 56,
+      "exit": 0,
+      "seconds": 0.41371018398785964,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/56/test.log"
+    },
+    {
+      "name": "complete BAM source path closes the 48.929 Mb seam in its owning chunk",
+      "index": 57,
+      "exit": 0,
+      "seconds": 0.40037905902136117,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/57/test.log"
+    },
+    {
+      "name": "complete adjacent graph phase sets close the 56 Mb seam in its owning chunk",
+      "index": 58,
+      "exit": 0,
+      "seconds": 0.4066506090166513,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/58/test.log"
+    },
+    {
+      "name": "complete BAM path and verified deletion close the 5.31 Mb seam",
+      "index": 59,
+      "exit": 0,
+      "seconds": 24.780068751977524,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/59/test.log"
+    },
+    {
+      "name": "repeat-deletion recovery preserves the 61.738 Mb flank gauges",
+      "index": 60,
+      "exit": 0,
+      "seconds": 9.683083590003662,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/60/test.log"
+    },
+    {
+      "name": "BAM-left MEC cannot reverse the 34.1 Mb graph block",
+      "index": 61,
+      "exit": 0,
+      "seconds": 12.945478353998624,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/61/test.log"
+    },
+    {
+      "name": "BAM recovery admits missing MSA pairs at 17.62 Mb",
+      "index": 62,
+      "exit": 0,
+      "seconds": 1.61970358598046,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/62/test.log"
+    },
+    {
+      "name": "BAM block attaches to one supported graph flank",
+      "index": 63,
+      "exit": 0,
+      "seconds": 11.527859119989444,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/63/test.log"
+    },
+    {
+      "name": "BAM recovery uses a supported run before a weak source cut",
+      "index": 64,
+      "exit": 0,
+      "seconds": 18.564435695996508,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/64/test.log"
+    },
+    {
+      "name": "BAM source path with one-haplotype molecule support closes 34.844 Mb",
+      "index": 65,
+      "exit": 0,
+      "seconds": 0.4043235350109171,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/65/test.log"
+    },
+    {
+      "name": "clean indel boundaries use the phased read path",
+      "index": 66,
+      "exit": 0,
+      "seconds": 0.543325365986675,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/66/test.log"
+    },
+    {
+      "name": "one weak-cut BAM run attaches to one supported neighbor",
+      "index": 67,
+      "exit": 0,
+      "seconds": 0.5278331279987469,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/67/test.log"
+    },
+    {
+      "name": "complete BAM blocks use split-stable allele votes without a read gauge",
+      "index": 68,
+      "exit": 0,
+      "seconds": 0.13740786400740035,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/68/test.log"
+    },
+    {
+      "name": "BAM-supported inner block connects after an invalid graph SNP is excluded",
+      "index": 69,
+      "exit": 0,
+      "seconds": 5.297054633003427,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/69/test.log"
+    },
+    {
+      "name": "low-MAPQ BAM evidence cannot veto a graph heterozygote",
+      "index": 70,
+      "exit": 0,
+      "seconds": 4.142115271999501,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/70/test.log"
+    },
+    {
+      "name": "shifted BAM deletion joins a certified graph suffix",
+      "index": 71,
+      "exit": 0,
+      "seconds": 0.3679194659925997,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/71/test.log"
+    },
+    {
+      "name": "a directly supported BAM suffix closes the 17.865 Mb gap",
+      "index": 72,
+      "exit": 0,
+      "seconds": 0.36418103700270876,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/72/test.log"
+    },
+    {
+      "name": "a newly imported BAM seam closes the 15.056 Mb gap",
+      "index": 73,
+      "exit": 0,
+      "seconds": 16.334842026000842,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/73/test.log"
+    },
+    {
+      "name": "recovered right deletion joins a source-backed graph block",
+      "index": 74,
+      "exit": 0,
+      "seconds": 0.3652387639740482,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/74/test.log"
+    },
+    {
+      "name": "adjacent anchors do not trigger a second BAM recovery solve",
+      "index": 75,
+      "exit": 0,
+      "seconds": 10.490754767990438,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/75/test.log"
+    },
+    {
+      "name": "shifted single-base BAM insertion closes its owning 23 Mb gap",
+      "index": 76,
+      "exit": 0,
+      "seconds": 0.3938157329976093,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/76/test.log"
+    },
+    {
+      "name": "a single seam admits focused recovery of complementary BAM rows",
+      "index": 77,
+      "exit": 0,
+      "seconds": 0.42381938398466446,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/77/test.log"
+    },
+    {
+      "name": "an internal MSA conflict does not authorize an unsupported block join",
+      "index": 78,
+      "exit": 0,
+      "seconds": 0.13245528598781675,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/78/test.log"
+    },
+    {
+      "name": "focused recovery retains a supported partial path inside a graph seam",
+      "index": 79,
+      "exit": 0,
+      "seconds": 0.367927134007914,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/79/test.log"
+    },
+    {
+      "name": "focused BAM recovery retains insertion representations of graph child SNPs",
+      "index": 80,
+      "exit": 0,
+      "seconds": 0.3813663839828223,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/80/test.log"
+    },
+    {
+      "name": "chr20 gap windows: panel totals",
+      "index": 81,
+      "exit": 0,
+      "seconds": 165.91834365201066,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/81/test.log"
+    },
+    {
+      "name": "observed BAM insertion runs retain long alleles before the graph boundary",
+      "index": 82,
+      "exit": 0,
+      "seconds": 0.35128782101674005,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/82/test.log"
+    },
+    {
+      "name": "equivalent BAM and graph insertions close their repeat seam",
+      "index": 83,
+      "exit": 0,
+      "seconds": 0.346111834020121,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/83/test.log"
+    },
+    {
+      "name": "an attached BAM component keeps its source identity at an insertion bridge",
+      "index": 84,
+      "exit": 0,
+      "seconds": 0.3465113010024652,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/84/test.log"
+    },
+    {
+      "name": "independent BAM SNP pairs certify both sides of a deletion seam",
+      "index": 85,
+      "exit": 0,
+      "seconds": 0.34398015300394036,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/85/test.log"
+    },
+    {
+      "name": "padded graph repeats retain the verified BAM genotype",
+      "index": 86,
+      "exit": 0,
+      "seconds": 13.475437862012768,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/86/test.log"
+    },
+    {
+      "name": "one-haplotype repeat deletion votes preserve parental block orientation",
+      "index": 87,
+      "exit": 0,
+      "seconds": 0.35472779200063087,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/87/test.log"
+    },
+    {
+      "name": "exact SNP branches preserve the path through a complex catalog allele",
+      "index": 88,
+      "exit": 0,
+      "seconds": 0.3495188929955475,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/88/test.log"
+    },
+    {
+      "name": "complementary insertion recall cannot invert its SNP flanks",
+      "index": 89,
+      "exit": 0,
+      "seconds": 0.34520783097832464,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/89/test.log"
+    },
+    {
+      "name": "overlapping recovery solves cannot exchange SNP quality certificates",
+      "index": 90,
+      "exit": 0,
+      "seconds": 14.402329131989973,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/90/test.log"
+    },
+    {
+      "name": "complementary insertion evidence preserves the 17.50 Mb connection",
+      "index": 91,
+      "exit": 0,
+      "seconds": 0.48726553199230693,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/91/test.log"
+    },
+    {
+      "name": "complete BAM evidence preserves finalized 37 Mb block orientation",
+      "index": 92,
+      "exit": 0,
+      "seconds": 0.3468875079997815,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/92/test.log"
+    },
+    {
+      "name": "complementary deletion recovery closes the owning 50 Mb gap",
+      "index": 93,
+      "exit": 0,
+      "seconds": 0.35348557800170965,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/93/test.log"
+    },
+    {
+      "name": "shifted compound CIGAR deletions close the owning 7.9 Mb gap",
+      "index": 94,
+      "exit": 0,
+      "seconds": 0.3505155300081242,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/94/test.log"
+    },
+    {
+      "name": "whole-chunk BAM fallback preserves verified recovery observations",
+      "index": 95,
+      "exit": 0,
+      "seconds": 9.711463452986209,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/95/test.log"
+    },
+    {
+      "name": "selected BAM blocks retain verified MSA calls across graph gauge disagreement",
+      "index": 96,
+      "exit": 0,
+      "seconds": 0.5076614530116785,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/96/test.log"
+    },
+    {
+      "name": "BAM-private blocks retain verified MSA calls without graph anchors",
+      "index": 97,
+      "exit": 0,
+      "seconds": 0.3454284940089565,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/97/test.log"
+    },
+    {
+      "name": "verified noisy SNP and symmetric graph path close the 41.881 Mb gap",
+      "index": 98,
+      "exit": 0,
+      "seconds": 0.34917343300185166,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/98/test.log"
+    },
+    {
+      "name": "composed physical bridges close 23.461 Mb and preserve the preceding join",
+      "index": 99,
+      "exit": 0,
+      "seconds": 0.5308551280177198,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/99/test.log"
+    },
+    {
+      "name": "deferred physical bridge preserves read rescue across 22-24 Mb",
+      "index": 100,
+      "exit": 0,
+      "seconds": 12.50249612701009,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/100/test.log"
+    },
+    {
+      "name": "complementary insertion ALTs bridge the 9 Mb chunk boundary",
+      "index": 101,
+      "exit": 0,
+      "seconds": 0.36914696599706076,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/101/test.log"
+    },
+    {
+      "name": "physical SNP switch repair closes the owning 62 Mb gap",
+      "index": 102,
+      "exit": 0,
+      "seconds": 0.3516934319923166,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/102/test.log"
+    },
+    {
+      "name": "quality-backed source path closes the owning 13 Mb gap",
+      "index": 103,
+      "exit": 0,
+      "seconds": 0.3415412309987005,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/103/test.log"
+    },
+    {
+      "name": "a recovered short insertion retains its independent source path",
+      "index": 104,
+      "exit": 0,
+      "seconds": 0.3504293729783967,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/104/test.log"
+    },
+    {
+      "name": "shared graph rows retain their independent BAM run certificate",
+      "index": 105,
+      "exit": 0,
+      "seconds": 0.34932006400777027,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/105/test.log"
+    },
+    {
+      "name": "a clean SNP retry certifies a complete independent BAM suffix",
+      "index": 106,
+      "exit": 0,
+      "seconds": 0.3411831659905147,
+      "log": "/home/kokyriakidis/Downloads/pgphase/test_data/tmp_representation_step11/accepted-final/windows/106/test.log"
+    }
+  ]
+}

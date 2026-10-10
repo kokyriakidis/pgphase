@@ -1,0 +1,26 @@
+{
+  "admit_secondary": {
+    "exit": 1,
+    "failed_checks": 102
+  },
+  "ignore_mapq_floor": {
+    "exit": 1,
+    "failed_checks": 3
+  },
+  "ignore_filtered_policy": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "revive_duplicate_primary": {
+    "exit": 1,
+    "failed_checks": 53
+  },
+  "coverage_before_uniqueness": {
+    "exit": 1,
+    "failed_checks": 3
+  },
+  "admit_reference_skip": {
+    "exit": 1,
+    "failed_checks": 3
+  }
+}

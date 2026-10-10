@@ -25,3 +25,8 @@ gap_equivalent_mixed_repeat_closes_the_55_309_mb_endpoint	4082	4045	37	0.99	66.0
 gap_compound_insertion_prefix_closes_the_45_876_mb_gap	2362	1577	785	0.66	129.0/141.0	141
 gap_long_repeat_anchors_close_the_15_mb_block	4314	4300	14	0.99	-	-
 gap_calibrated_deletion_chain_closes_the_56_mb_boundary	8153	8042	111	8042.0/8153.0	214.0/246.0	246
+gap_overlapping_source_reads_close_the_36_259_mb_orphan	3807	3675	132	3675.0/3807.0	-	-
+gap_complex_tandem_reads_close_the_19_373_mb_orphan	4074	4054	20	4054.0/4074.0	-	-
+gap_source_components_close_the_46_403_mb_orphan	3924	3908	16	3908.0/3924.0	-	-
+gap_complementary_deletion_reads_close_the_4_637_mb_orphan	3888	3862	26	3862.0/3888.0	-	-
+gap_shared_insertion_source_closes_the_4_874_mb_gap	3888	3862	26	3862.0/3888.0	-	-

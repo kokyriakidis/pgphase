@@ -1,0 +1,200 @@
+{
+  "target": {
+    "left": 36137653,
+    "right": 37393302,
+    "length": 1255650,
+    "hiphase_rank": 8
+  },
+  "production_sha256": "10ee7e7a82564a4877e99783a339c9b4b999b1b0c5c5f78fc6975946fa5f8712",
+  "tools": {
+    "before": {
+      "gap1": {
+        "scorable": 90,
+        "counts": {
+          "discordant": 9,
+          "correct": 74,
+          "unphased": 7
+        },
+        "correct_fraction": 0.8222222222222222,
+        "dominant_core_correct": 65,
+        "core_counts": {
+          "36156319": 65,
+          "36261163": 1
+        }
+      },
+      "gap2": {
+        "scorable": 100,
+        "counts": {
+          "correct": 93,
+          "discordant": 4,
+          "unphased": 3
+        },
+        "correct_fraction": 0.93,
+        "dominant_core_correct": 84,
+        "core_counts": {
+          "36156319": 84,
+          "36261163": 1
+        }
+      },
+      "prefix": {
+        "scorable": 82,
+        "counts": {
+          "correct": 38,
+          "discordant": 37,
+          "unphased": 7
+        },
+        "correct_fraction": 0.4634146341463415,
+        "dominant_core_correct": 31,
+        "core_counts": {
+          "36069696": 31,
+          "36156319": 7
+        }
+      },
+      "block": {
+        "scorable": 5118,
+        "counts": {
+          "correct": 4841,
+          "discordant": 83,
+          "unphased": 194
+        },
+        "correct_fraction": 0.9458772958186792,
+        "dominant_core_correct": 4744,
+        "core_counts": {
+          "36156319": 4744,
+          "36069696": 31,
+          "36261163": 1
+        }
+      }
+    },
+    "pgphase": {
+      "gap1": {
+        "scorable": 90,
+        "counts": {
+          "discordant": 7,
+          "correct": 81,
+          "unphased": 2
+        },
+        "correct_fraction": 0.9,
+        "dominant_core_correct": 80,
+        "core_counts": {
+          "36156319": 80,
+          "36261163": 1
+        }
+      },
+      "gap2": {
+        "scorable": 100,
+        "counts": {
+          "correct": 97,
+          "discordant": 2,
+          "unphased": 1
+        },
+        "correct_fraction": 0.97,
+        "dominant_core_correct": 96,
+        "core_counts": {
+          "36156319": 96,
+          "36261163": 1
+        }
+      },
+      "prefix": {
+        "scorable": 82,
+        "counts": {
+          "correct": 38,
+          "discordant": 37,
+          "unphased": 7
+        },
+        "correct_fraction": 0.4634146341463415,
+        "dominant_core_correct": 31,
+        "core_counts": {
+          "36069696": 31,
+          "36156319": 7
+        }
+      },
+      "block": {
+        "scorable": 5118,
+        "counts": {
+          "correct": 4848,
+          "discordant": 81,
+          "unphased": 189
+        },
+        "correct_fraction": 0.9472450175849941,
+        "dominant_core_correct": 4759,
+        "core_counts": {
+          "36156319": 4759,
+          "36069696": 31,
+          "36261163": 1
+        }
+      }
+    },
+    "hiphase": {
+      "gap1": {
+        "scorable": 90,
+        "counts": {
+          "discordant": 7,
+          "correct": 80,
+          "unphased": 3
+        },
+        "correct_fraction": 0.8888888888888888,
+        "dominant_core_correct": 80,
+        "core_counts": {
+          "36137653": 80
+        }
+      },
+      "gap2": {
+        "scorable": 100,
+        "counts": {
+          "correct": 96,
+          "discordant": 2,
+          "unphased": 2
+        },
+        "correct_fraction": 0.96,
+        "dominant_core_correct": 96,
+        "core_counts": {
+          "36137653": 96
+        }
+      },
+      "prefix": {
+        "scorable": 82,
+        "counts": {
+          "discordant": 21,
+          "correct": 40,
+          "unphased": 21
+        },
+        "correct_fraction": 0.4878048780487805,
+        "dominant_core_correct": 40,
+        "core_counts": {
+          "36137653": 40
+        }
+      },
+      "block": {
+        "scorable": 5118,
+        "counts": {
+          "correct": 4906,
+          "unphased": 145,
+          "discordant": 67
+        },
+        "correct_fraction": 0.9585775693630324,
+        "dominant_core_correct": 4906,
+        "core_counts": {
+          "36137653": 4906
+        }
+      }
+    }
+  },
+  "blocks": {
+    "count": 250,
+    "n50_bp": 955496,
+    "largest_block_bp": 3012193,
+    "covering_target": [],
+    "covering_gap": [
+      [
+        36140083,
+        37397733
+      ]
+    ],
+    "previous_extents_preserved": true
+  },
+  "whole_block_deficits": {
+    "dominant_core_correct": 147,
+    "correct": 58
+  }
+}

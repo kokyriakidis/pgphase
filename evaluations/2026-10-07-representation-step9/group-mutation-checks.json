@@ -1,0 +1,26 @@
+{
+  "ignore_left_bound": {
+    "exit": 1,
+    "failed_checks": 1
+  },
+  "ignore_right_bound": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "ignore_other_hypotheses": {
+    "exit": 1,
+    "failed_checks": 2
+  },
+  "use_selected_pair_as_identity": {
+    "exit": -6,
+    "failed_checks": 1
+  },
+  "retain_only_first_description": {
+    "exit": 1,
+    "failed_checks": 77
+  },
+  "make_each_description_independent": {
+    "exit": 1,
+    "failed_checks": 743
+  }
+}

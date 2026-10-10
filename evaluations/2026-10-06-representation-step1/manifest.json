@@ -1,0 +1,176 @@
+{
+  "production_sha256": "088b5c56e17d04828af0ccbfede26b9ca3ff65476a62f796066af7a6ac63eb9d",
+  "starting_sha256": "c6bcf86a43b5301cd90960eeb8b525d14944494dfb8381f9b676c5641952e674",
+  "files": [
+    {
+      "path": "pgphase",
+      "size": 14804184,
+      "sha256": "088b5c56e17d04828af0ccbfede26b9ca3ff65476a62f796066af7a6ac63eb9d"
+    },
+    {
+      "path": "test_data/tmp_representation_step1/pgphase.before",
+      "size": 14793992,
+      "sha256": "c6bcf86a43b5301cd90960eeb8b525d14944494dfb8381f9b676c5641952e674"
+    },
+    {
+      "path": ".gitignore",
+      "size": 2612,
+      "sha256": "f4e6a0d76c2ad68a41bfebb2f2fdb2c7201361e382ad8e4793d32fd72ab2f2f3"
+    },
+    {
+      "path": "Makefile",
+      "size": 11902,
+      "sha256": "d3fd32e1972fd6d47038b0af21b71630fc31e16ddb1fa834a8aacdb1aea7f665"
+    },
+    {
+      "path": "src/allele_identity.hpp",
+      "size": 1327,
+      "sha256": "d18918bce36687dd8ab1eb918a17687495c59974f5670db6c7db5ec95086280a"
+    },
+    {
+      "path": "src/allele_identity.cpp",
+      "size": 1858,
+      "sha256": "873afaf3c633009c0f7269238dfbaade16062e232237970adc56e51efcad155c"
+    },
+    {
+      "path": "src/test_allele_identity.cpp",
+      "size": 3847,
+      "sha256": "f416f69e88a5cdb4b7f728fbe722923b362dbf598cfc139733f48260b4bedb12"
+    },
+    {
+      "path": "src/collect_pipeline.cpp",
+      "size": 297670,
+      "sha256": "129c3d2c1b33a045a236b64e23e117a7ff75a457f1c5b651c3427455a35f5d8b"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "size": 344248,
+      "sha256": "37fcfa1e1c9abee31c097ed25ecb60c97995ac1a21e0a329e7ac7332e7b4a281"
+    },
+    {
+      "path": "CHECKPOINT.md",
+      "size": 1027834,
+      "sha256": "b2cb500cc98f8f88c5eb74d6b4627102eaf7e630bc1c01278b76c474072f4a8f"
+    },
+    {
+      "path": "src/test_gap_windows.cpp",
+      "size": 377973,
+      "sha256": "77a7acadd87420ec38ddd38a9f2caa2e36d6bb31e67f7578ac37e26aeaabbe6b"
+    },
+    {
+      "path": "src/test_gap_windows_expect.tsv",
+      "size": 10038,
+      "sha256": "f2a9a254f1bedbf2dac8487a14b54fd4dba78f0af799a4de8d2ee1c6e6929363"
+    },
+    {
+      "path": "src/test_gap_certified.tsv",
+      "size": 847,
+      "sha256": "47dee7721323d39fa4e58c34941433dab1c660f9d6aa1f86509df469e25cb717"
+    },
+    {
+      "path": "src/test_gap_hiphase.tsv",
+      "size": 4119,
+      "sha256": "a9983a729c2d98515ff5186ea9eb6fb140c5c015fe8008e25ef5cc267ef571c4"
+    },
+    {
+      "path": "test_data/tmp_gap_fix91/final_current/0/candidates.tsv",
+      "size": 9022481,
+      "sha256": "928a125df5cbb509a1ddc9805e648e0a42eb219da1895c0c09d6fc15c875f485"
+    },
+    {
+      "path": "test_data/tmp_gap_fix91/final_current/0/phased.vcf",
+      "size": 10853416,
+      "sha256": "04fba03080c414f9d618f9de5ec568caabe798004883eeb9b41942c4fd35cba9"
+    },
+    {
+      "path": "test_data/tmp_gap_fix91/final_current/0/phased.bam",
+      "size": 1941403,
+      "sha256": "0dcf7d4663e79a4eaf4c0493716507ccc4682dcdb1c4cd3f6c601fc976ba3f7e"
+    },
+    {
+      "path": "test_data/tmp_representation_step1/full-current/candidates.tsv",
+      "size": 9022481,
+      "sha256": "928a125df5cbb509a1ddc9805e648e0a42eb219da1895c0c09d6fc15c875f485"
+    },
+    {
+      "path": "test_data/tmp_representation_step1/full-current/phased.vcf",
+      "size": 10853416,
+      "sha256": "04fba03080c414f9d618f9de5ec568caabe798004883eeb9b41942c4fd35cba9"
+    },
+    {
+      "path": "test_data/tmp_representation_step1/full-current/phased.bam",
+      "size": 1941403,
+      "sha256": "0dcf7d4663e79a4eaf4c0493716507ccc4682dcdb1c4cd3f6c601fc976ba3f7e"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/README.md",
+      "size": 6528,
+      "sha256": "5383f725e468698f7aec2bd9c3916e5fd757a6ddf9f5ad1262973a1622dd45dd"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/audit_full.py",
+      "size": 2763,
+      "sha256": "674c0c698cc7047cf422c6f30f6bfae68a1689d2b686f0cb1a9cab577fe79970"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/cache-tests.log",
+      "size": 102,
+      "sha256": "a8e2927d5252c2bf820bc1eb9c6be6d51ad88b7a60b04fd29c99c3a1b2a627fb"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/check_windows.py",
+      "size": 2402,
+      "sha256": "886695586efbdb694cb388200dd645fb8071dcc2f94b0a808323d4d7c7c2065c"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/full-comparison.json",
+      "size": 773,
+      "sha256": "892eec64bfc9d38d8b98356c22579d1fe148db6e9dbc25f026babd8537abbf11"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/golden-gates.log",
+      "size": 1160,
+      "sha256": "17f92d2a7bdde209ffdf2298afdcb073827f0554bdd85ca0eea4ebafaf6d39b5"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/hiphase-verified.tsv",
+      "size": 4119,
+      "sha256": "a9983a729c2d98515ff5186ea9eb6fb140c5c015fe8008e25ef5cc267ef571c4"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/hiphase-verified.tsv.json",
+      "size": 1677,
+      "sha256": "9999009e9582a85f50cc5ad8ec318202b40df03b0a7e3879eae1848a08f1a7ab"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/identity-checks.json",
+      "size": 591,
+      "sha256": "975284b8a88417bbc96318c1b820000b1c17e1c6742a89601e63cf5bb628d64d"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/panel-after.tsv",
+      "size": 5951,
+      "sha256": "d11a767597a6b3549db18571252eff0b457dc5bf3cc9dcbe7303daaf92030aaf"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/panel-comparison.json",
+      "size": 251,
+      "sha256": "0d785665408e2af5a42568ef674e4e9708229400a4c12f829169dbc7a10ac045"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/standard-windows.log",
+      "size": 295,
+      "sha256": "54f440c8b168f61082be9f0f810e5f62b135a2341383a38c7b5e7840374c1279"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/unit-and-predicate.log",
+      "size": 2524,
+      "sha256": "8fff239781ea479c4484ae20d555a7dafcb2e737cdf4da7e91e415e83d9226e4"
+    },
+    {
+      "path": "evaluations/2026-10-06-representation-step1/window-checks.json",
+      "size": 29639,
+      "sha256": "8a5b5ac4b3961df659d97df4c4853721c28422bca8a0c05615f5977066d64ebe"
+    }
+  ]
+}

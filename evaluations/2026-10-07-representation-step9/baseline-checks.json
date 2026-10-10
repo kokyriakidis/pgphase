@@ -1,0 +1,12 @@
+{
+  "floors_and_panel_unchanged": [
+    "src/test_gap_certified.tsv",
+    "src/test_gap_hiphase.tsv",
+    "src/test_gap_read_floors.tsv",
+    "src/test_gap_replays.tsv",
+    "src/test_gap_windows_expect.tsv",
+    "src/test_gap_windows_required.tsv",
+    "evaluations/2026-09-16-test-panel/panel.tsv"
+  ],
+  "final_binary_sha256": "a7dd51f5d76b93c4189e356d9dad89d312ebd53c8f2d00a766f6f80e1f453c51"
+}

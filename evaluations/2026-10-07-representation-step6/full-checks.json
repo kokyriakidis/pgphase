@@ -1,0 +1,35 @@
+{
+  "binary_sha256": "e6a9aae89bdbe011be7d7759f67efcfe1f29b9c7c77d2c12298a867f37fdde68",
+  "candidates_byte_identical": true,
+  "vcf_rows_identical": true,
+  "before_vcf_rows": 64483,
+  "after_vcf_rows": 64483,
+  "primary_reads": 256612,
+  "scorable_primary_reads": 256612,
+  "changed_primary_hp_ps": 0,
+  "changed_parental_status": 0,
+  "changed_status_transitions": {},
+  "previously_phased_tags_unchanged": true,
+  "connected_core_tags_unchanged": true,
+  "before_parental_counts": {
+    "correct": 230965,
+    "unphased": 19027,
+    "discordant": 6620
+  },
+  "after_parental_counts": {
+    "correct": 230965,
+    "unphased": 19027,
+    "discordant": 6620
+  },
+  "before_blocks": {
+    "count": 250,
+    "n50_bp": 955496,
+    "largest_block_bp": 3012193
+  },
+  "after_blocks": {
+    "count": 250,
+    "n50_bp": 955496,
+    "largest_block_bp": 3012193
+  },
+  "changed_primary_examples": []
+}

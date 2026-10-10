@@ -1,0 +1,12 @@
+{
+  "--joint-contrasts": {
+    "executions": 100,
+    "average_ms": 2.0354652201058343,
+    "test_binary_sha256": "b53a2134a51f38f96aa94dd2b72c1e808ffe6da5e1e813530b43c0deaab87943"
+  },
+  "--contrasts": {
+    "executions": 100,
+    "average_ms": 8.072637100121938,
+    "test_binary_sha256": "9a6c73a1a3da8019a801b47990eb61b334ec5c3b2860516d31b57bcbe9683e9a"
+  }
+}

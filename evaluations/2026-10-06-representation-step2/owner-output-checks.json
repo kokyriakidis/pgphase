@@ -1,0 +1,17 @@
+{
+  "primary_reads": 4256,
+  "before_counts": {
+    "correct": 4001,
+    "unphased": 232,
+    "discordant": 23
+  },
+  "after_counts": {
+    "correct": 4001,
+    "unphased": 232,
+    "discordant": 23
+  },
+  "changed_hp_ps": 0,
+  "changed_truth_status": 0,
+  "candidates_identical": true,
+  "variants_identical": true
+}

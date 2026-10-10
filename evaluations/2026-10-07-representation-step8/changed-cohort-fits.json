@@ -1,0 +1,194 @@
+[
+  {
+    "owner": "matrix4-final",
+    "locus": 1,
+    "before": {
+      "locus": "1",
+      "molecules": "12",
+      "cost": "2",
+      "runner_up": "5",
+      "tied_pairs": "1",
+      "allele0": "4",
+      "allele1": "12",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "1",
+      "molecules": "49",
+      "cost": "10",
+      "runner_up": "16",
+      "tied_pairs": "1",
+      "allele0": "6",
+      "allele1": "12",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix4-final",
+    "locus": 29,
+    "before": {
+      "locus": "29",
+      "molecules": "33",
+      "cost": "109",
+      "runner_up": "111",
+      "tied_pairs": "1",
+      "allele0": "4",
+      "allele1": "6",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "29",
+      "molecules": "34",
+      "cost": "114",
+      "runner_up": "114",
+      "tied_pairs": "2",
+      "allele0": ".",
+      "allele1": ".",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix5-final",
+    "locus": 3,
+    "before": {
+      "locus": "3",
+      "molecules": "58",
+      "cost": "10",
+      "runner_up": "20",
+      "tied_pairs": "1",
+      "allele0": "4",
+      "allele1": "5",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "3",
+      "molecules": "75",
+      "cost": "22",
+      "runner_up": "29",
+      "tied_pairs": "1",
+      "allele0": "3",
+      "allele1": "4",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix65-final",
+    "locus": 3,
+    "before": {
+      "locus": "3",
+      "molecules": "25",
+      "cost": "4331",
+      "runner_up": "4333",
+      "tied_pairs": "1",
+      "allele0": "4",
+      "allele1": "7",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "3",
+      "molecules": "39",
+      "cost": "4404",
+      "runner_up": "4405",
+      "tied_pairs": "1",
+      "allele0": "7",
+      "allele1": "9",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix65-final",
+    "locus": 4,
+    "before": {
+      "locus": "4",
+      "molecules": "25",
+      "cost": "686",
+      "runner_up": "689",
+      "tied_pairs": "1",
+      "allele0": "2",
+      "allele1": "3",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "4",
+      "molecules": "28",
+      "cost": "706",
+      "runner_up": "707",
+      "tied_pairs": "1",
+      "allele0": "1",
+      "allele1": "2",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix65-final",
+    "locus": 6,
+    "before": {
+      "locus": "6",
+      "molecules": "24",
+      "cost": "233",
+      "runner_up": "235",
+      "tied_pairs": "1",
+      "allele0": "3",
+      "allele1": "5",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "6",
+      "molecules": "37",
+      "cost": "308",
+      "runner_up": "590",
+      "tied_pairs": "1",
+      "allele0": "0",
+      "allele1": "5",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix65-final",
+    "locus": 7,
+    "before": {
+      "locus": "7",
+      "molecules": "18",
+      "cost": "7",
+      "runner_up": "8",
+      "tied_pairs": "1",
+      "allele0": "51",
+      "allele1": "53",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "7",
+      "molecules": "58",
+      "cost": "176",
+      "runner_up": "176",
+      "tied_pairs": "2",
+      "allele0": ".",
+      "allele1": ".",
+      "conflicting_molecules": "0"
+    }
+  },
+  {
+    "owner": "matrix65-final",
+    "locus": 8,
+    "before": {
+      "locus": "8",
+      "molecules": "39",
+      "cost": "71",
+      "runner_up": "85",
+      "tied_pairs": "1",
+      "allele0": "0",
+      "allele1": "53",
+      "conflicting_molecules": "0"
+    },
+    "after": {
+      "locus": "8",
+      "molecules": "58",
+      "cost": "176",
+      "runner_up": "176",
+      "tied_pairs": "2",
+      "allele0": ".",
+      "allele1": ".",
+      "conflicting_molecules": "0"
+    }
+  }
+]

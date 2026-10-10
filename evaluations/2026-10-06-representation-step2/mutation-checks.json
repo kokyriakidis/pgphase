@@ -1,0 +1,22 @@
+[
+  {
+    "name": "no-repeat-shift",
+    "exit": 1,
+    "failed_checks": 772
+  },
+  {
+    "name": "ignore-canonical-conflict",
+    "exit": 1,
+    "failed_checks": 2
+  },
+  {
+    "name": "ignore-read-footprint",
+    "exit": 1,
+    "failed_checks": 1
+  },
+  {
+    "name": "ignore-independent-graph-call",
+    "exit": 1,
+    "failed_checks": 1
+  }
+]

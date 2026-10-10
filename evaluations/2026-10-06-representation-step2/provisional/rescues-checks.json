@@ -1,0 +1,682 @@
+{
+  "changed_primary_reads": 33,
+  "pgphase_counts": {
+    "correct": 29,
+    "discordant": 4
+  },
+  "hiphase_counts": {
+    "correct": 29,
+    "discordant": 1,
+    "unphased": 3
+  },
+  "output_rescue_only": true,
+  "status_pairs": {
+    "correct/correct": 26,
+    "correct/discordant": 1,
+    "discordant/correct": 3,
+    "correct/unphased": 2,
+    "discordant/unphased": 1
+  },
+  "reads": [
+    {
+      "read": "m84031_231217_034919_s2/131534098/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33989382,
+      "end": 34004608,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/134155743/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33991143,
+      "end": 34011027,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/134288876/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33989615,
+      "end": 34002520,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/1443786/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33991810,
+      "end": 34004578,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/154536964/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1003981464
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        3597791
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 4048692,
+      "end": 4056736,
+      "mapq": 48
+    },
+    {
+      "read": "m84031_231217_034919_s2/157816287/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33988872,
+      "end": 34004161,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/161354382/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33985813,
+      "end": 34000157,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/165744060/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1038294482
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        38151397
+      ],
+      "hiphase_parental_status": "discordant",
+      "beg": 39088211,
+      "end": 39102775,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/180358726/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1002475250
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        2342133
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 2483535,
+      "end": 2497162,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/187369918/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33988527,
+      "end": 33992771,
+      "mapq": 25
+    },
+    {
+      "read": "m84031_231217_034919_s2/242878056/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33987483,
+      "end": 34003433,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/248580793/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990592,
+      "end": 33997059,
+      "mapq": 38
+    },
+    {
+      "read": "m84031_231217_034919_s2/253104444/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1038294482
+      ],
+      "parental_status": "discordant",
+      "hiphase": [
+        1,
+        38151397
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 39090481,
+      "end": 39101962,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/25823557/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33985803,
+      "end": 34002906,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/38143977/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "discordant",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990470,
+      "end": 33996710,
+      "mapq": 35
+    },
+    {
+      "read": "m84031_231217_034919_s2/45155240/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990706,
+      "end": 34007029,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/51972946/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990371,
+      "end": 34005460,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/87561067/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1038294482
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        38151397
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 39092043,
+      "end": 39103274,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_034919_s2/93783597/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33985555,
+      "end": 33999238,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/107810487/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        0,
+        0
+      ],
+      "hiphase_parental_status": "unphased",
+      "beg": 33991731,
+      "end": 34006753,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/123732095/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        0,
+        0
+      ],
+      "hiphase_parental_status": "unphased",
+      "beg": 33989568,
+      "end": 34007424,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/145690334/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1046875643
+      ],
+      "parental_status": "discordant",
+      "hiphase": [
+        0,
+        0
+      ],
+      "hiphase_parental_status": "unphased",
+      "beg": 47059144,
+      "end": 47069868,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/157554305/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33991511,
+      "end": 33998979,
+      "mapq": 44
+    },
+    {
+      "read": "m84031_231217_062403_s3/165810513/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1038294482
+      ],
+      "parental_status": "discordant",
+      "hiphase": [
+        1,
+        38151397
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 39088381,
+      "end": 39100422,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/177013400/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33988237,
+      "end": 34006897,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/230032895/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33991357,
+      "end": 34008409,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/251203656/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990605,
+      "end": 34016105,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/44371801/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33987399,
+      "end": 34000935,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/55908204/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        1,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        2,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990331,
+      "end": 34010025,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/67505921/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33988715,
+      "end": 34004284,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/85070315/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1002475250
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        2342133
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 2484152,
+      "end": 2499645,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/96995497/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33991096,
+      "end": 34015314,
+      "mapq": 60
+    },
+    {
+      "read": "m84031_231217_062403_s3/97912597/ccs",
+      "before": [
+        0,
+        0
+      ],
+      "after": [
+        2,
+        1033954611
+      ],
+      "parental_status": "correct",
+      "hiphase": [
+        1,
+        33954611
+      ],
+      "hiphase_parental_status": "correct",
+      "beg": 33990775,
+      "end": 33997215,
+      "mapq": 38
+    }
+  ]
+}

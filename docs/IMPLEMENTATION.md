@@ -73,16 +73,16 @@ holding its own FAI handle:
 | 1 | `query_gbz_interval_gaf_ffi` | the GAF rows overlapping this chunk's interval |
 | 2 | `build_graph_chunk`; with `--bam`, `exclude_ref_absent_graph_snps` | the catalog's sites become candidates and GAF rows become read profiles. Before graph phasing, high-MAPQ BAM bases validate clean biallelic SNPs: a graph SNP with no callable REF and decisive ALT support is flagged for homozygous ALT reclassification after the initial solve when no physical deletion is observed, retaining its catalog alleles and counts. With a substantial physical deletion allele it is made ineligible. The chunk is rebuilt from the same GAF rows. Allele identity in the remaining graph sites is a **graph-walk identity**. |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
-| 4 | `assign_hap_based_on_germline_het_vars_kmeans(kCandGermlineClean)`; `reclassify_physically_validated_graph_snps`; with `--bam`, `supplement_phased_snp_branches` | stage 1: the clean k-means over catalog sites; then retire physically validated homozygous, REF-absent padded and physically under-supported repeat SNP anchors, preserving surviving gauges and clearing reads in phase sets without a heterozygote; then restore missing calls at already phased SNPs when another catalog allele carries the identical unique oriented SNP branch |
+| 4 | `phase_joint_graph_candidates`; `reclassify_physically_validated_graph_snps`; with `--bam`, `supplement_phased_snp_branches` | stage 1: the clean k-means over catalog sites, projecting compatible reference-equivalent descriptions to one molecule vote; then retire physically validated homozygous, REF-absent padded and physically under-supported repeat SNP anchors, preserving surviving gauges and clearing reads in phase sets without a heterozygote; then restore missing calls at already phased SNPs when another catalog allele carries the identical unique oriented SNP branch |
 | 5 | **seam recovery, when `--bam` is present** | `recover_phase_set_seams_in_place` targets bounded gaps, imports independent BAM phase blocks, and refreshes shared-site observations; `stitch_recovery_phase_sets_left_to_right` joins blocks on decisive allele evidence, then source-block transfer atomically attaches supported graph flanks and can join adjacent graph blocks through one fully supported run before a weak BAM cut; a detached BAM-only run with no internal weak cut can also join a graph block through decisive physical SNP pairs; a complete left graph path or BAM run and a complete right BAM run can defer a physical clean-SNP union until output-only rescue finishes, preserving those rescue cohorts; an MSA-verified BAM insertion run after a weak source cut can attach to the left block through established read HP votes while the later graph block remains independent; after a boundary deletion moves, a newly exposed deletion seam may attach the BAM suffix and its audited prefix certified by complementary deletion ALT calls |
-| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve, stages independent read assignments, and records BAM alleles missing from graph read profiles at exact sequence-matched biallelic candidates; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six; reads without graph profiles remain output-only |
+| 6 | `recover_independent_bam_read_blocks_in_place`, when `--bam` is present | runs one whole-chunk BAM solve, stages independent read assignments, and records one merged BAM observation per read and uniquely matched biallelic graph candidate; graph-validated BAM blocks contribute all assigned reads, while other blocks require a haplotype score margin of at least six; reads without graph profiles remain output-only |
 | 7 | `rescue_unphased_graph_reads` | after cross-chunk stitching fixes the final HP gauge, first completes graph-only excluded-site rescue, then uses the recorded exact BAM alleles to fill still-unphased reads; neither pass changes candidates or joins phase sets |
 | 8 | `apply_independent_bam_read_blocks` | fills graph-profile reads still unassigned after graph stitching and excluded-site rescue; the output merger also emits staged BAM-only reads, preserving every BAM phase block instead of joining it to a graph block |
 | 9 | `apply_equivalent_insertion_joins` | applies repeat-placement insertion connections certified on the final recovery matrix; updates core candidate/read gauges across the batch while preserving every output-only rescue and BAM fallback block |
 | 10 | `apply_deferred_physical_bridges` | applies the staged physical connections after rescue cohorts have been recorded |
 | 11 | `promote_calibrated_insertion_reads` | verifies the completed complementary-insertion bridge union and physically confirms exact alleles or calibrated complementary repeat classes before connecting unassigned or rescue reads to its core |
 | 12 | `promote_calibrated_source_rescues` | connects existing rescues in a calibrated source-deletion union only when the entire uncut source retains one gauge, the rescue has an agreeing BAM observation, and no clean phased SNP contradicts it |
-| 13 | `promote_verified_source_indel_rescues` | independently verifies already tagged rescues against a retained MSA source edit and moves qualifying reads into their existing connected core |
+| 13 | `promote_verified_source_indel_rescues` | independently verifies retained MSA edits and their source gauges before placing reads in the existing core; an uncut component anchored by two shared SNPs can supply its own read certificate inside a spanning core |
 | 14 | `connect_masked_bam_fallback_reads` | connects already tagged BAM fallback reads whose false graph REF call is physically deleted, through an independently calibrated Q30 graph/BAM SNP in a certified shared-deletion union |
 | 15 | `fill_masked_snp_deletion_reads` | fills unassigned deletion-ALT reads whose verified opposite-haplotype SNPs are physically masked, using the allele gauge of already phased core reads |
 | 16 | `recover_validated_repeat_snp_seams` | after rescue, connects a BAM-only complementary-deletion block to the restored verified SNP prefix exposed by physical repeat-SNP validation; independently calibrated read cohorts and quality-bearing physical bridges certify the missing connection |
@@ -92,6 +92,62 @@ holding its own FAI handle:
 | 20 | `recover_calibrated_deletion_chains` | connects two complementary MSA deletion contrasts in a clean-SNP desert using disjoint diploid SNP calibration and a calibrated physical bridge; carries certified read calls through chunk-boundary replay |
 | 21 | `recover_compound_insertion_prefixes` | connects a verified BAM compound insertion pair to a phased graph homopolymer marker through diploid physical bridges and separately calibrated source gauges; confirms reads through their own graph-marker allele |
 | 22 | `recover_terminal_graph_insertions` | attaches an excluded single-base terminal insertion, or an equivalent complementary insertion/deletion pair, as phased nonanchors when original BAM edits and two surviving graph SNPs agree in independent cohorts; preserves existing haplotypes and physically verifies source rescues |
+| 23 | `assign_supported_source_deletion_reads` | verifies original repeat lengths at a retained one-base source deletion before an overlapping BAM orphan, and assigns agreeing reads to the established spanning core using the original shared-SNP gauge |
+| 24 | `assign_calibrated_complementary_deletion_reads` | compares complete complementary source-deletion haplotypes inside an existing core; independent diploid graph-SNP cohorts certify their retained orientation before filling unassigned reads |
+| 25 | `assign_calibrated_complex_tandem_reads` | calls complete pure repeats with three- to eight-base motifs inside an existing spanning core; independently calibrates the upstream repeat on graph-SNP molecules and orients the orphan repeat through diploid physical bridges |
+
+Complementary pure BAM deletions at the same position can describe two ALT
+classes rather than separate REF/ALT markers. Both must be MSA- and
+alignment-verified, at most 32 bases, with opposite allele gauges in the same
+existing core. Complete-repeat calling recognizes fundamental motifs up to
+eight bases, compares both deletion haplotypes with 16 bp external flanks,
+and requires agreement between net deletion length and unique whole-sequence
+edit distance. Length slippage is at most two bases, with at most one additional
+shared edit. The nearest clean graph SNP in that core, within 20 kb, supplies
+original Q30 base calls. Deterministic read halves must independently contain
+both alleles and SNP haplotypes, agree on the retained gauge, pass the diploid
+association test and bound combined gauge error at 20%. Calibration molecules
+have at most 1% physical/mapping/base error. Assignment requires primary
+nonduplicate MAPQ30 reads, known repeat-flank qualities and at most 5% physical
+plus mapping error. Only reads without core or rescue haplotypes qualify;
+contrary clean phased SNP observations veto assignment. This read fill keeps
+candidate representations, phase-set connections and prior read labels intact.
+
+For a complementary BAM insertion pair with a pure three- to eight-base motif
+inside an already spanning core, original read sequence can recover an allele
+gauge that a nearby compound MSA contrast obscures. A preceding verified
+single insertion in that core and a preceding clean graph SNP must each lie
+within 20 kb of their next marker. The repeat caller reconstructs the complete
+reference run, bounded to 256 bases in either direction, with 16-base external
+flanks. Unique whole-sequence distance and nearest net-length class must agree,
+with at most two bases of slippage and one additional shared sequence edit.
+Compound insertions and substitutions/deletions are outside this caller.
+
+MAPQ30 primary nonduplicate molecules ending before the orphan independently
+calibrate the upstream repeat against the graph SNP. Other MAPQ30 molecules
+bridge the two repeats, with both allele classes represented and at least two
+bridges per class. The existing calibrated-repeat gate rejects random gauge
+association, contrary bridge parity and joint error above 20%. Assignment uses
+each original read's own complete-repeat calls with combined mapping and
+external-base error at most 20%; these reads do not nominate a join. Contrary
+clean phased SNPs and contradictory repeat calls veto assignment. Variants,
+source phase sets and block-link certificates remain unchanged.
+
+For an overlapping orphan inside an established core, a one-base MSA deletion
+can identify original BAM reads after the core already spans the orphan.
+The original source must contain the cut leaving that marker. Its suffix
+from the nearest preceding exact shared graph SNP must have unique source
+provenance, one current allele gauge, and no internal weak or quality cut;
+a cut at the suffix's exit remains outside that proof. At least two earlier
+shared clean SNPs must confirm the same gauge. A clean graph SNP in the same
+core must follow within 20 kb, with an intervening separately phased BAM
+anchor. A neighboring verified MSA anchor within 32 bp vetoes the binary call,
+since decomposed alleles require a joint sequence check. Original primary
+nonduplicate MAPQ30 reads need their own complete bounded repeat sequence and
+length call, matching external anchors, at most two bases of length slippage,
+and call error at most 20%. A contradictory clean phased SNP observation
+vetoes assignment. This stage preserves variants and connects read labels to
+an existing core; it supplies no new block-link certificate.
 
 Complementary tandem insertion recovery accepts two-base motifs with any
 larger whole-copy allele. When the two classes differ by more than one
@@ -866,6 +922,44 @@ The complete source, shared-SNP gauge, coverage and contrary-call guards above
 remain required. Primary mapping quality may be at least 20 for this shared
 marker, with the same measured total error bound of 5%.
 
+An overlapping BAM-only island within 20 kb of the marker can also expose an
+already anchored source component inside a core with clean phased SNPs on
+both sides of that island. The marker's original source component must retain
+at least two distinct shared clean graph SNPs and a single consistent current
+allele gauge for every retained source anchor. Weak and quality cuts bound
+the component; a cut leaving the marker belongs to its preceding component.
+Evidence from another component cannot certify this gauge. This local read
+certificate does not require a new shared-deletion block join or global core
+coverage dominance: only the already spanning core receives reads, and no
+candidate or phase-set connection changes.
+
+For this local component, pure shared deletions use their canonical catalog
+edit and physical primary REF/ALT sequence to fill or correct a read label.
+Assignments in another ordinary core remain protected. Shared insertions use
+the canonical catalog allele only when it exactly matches the retained verified
+MSA insertion, including position and inserted sequence. Their graph row does
+not need the MSA flag. Insertions only promote an existing agreeing rescue; whole-repeat length and complete-sequence distance
+must agree under the bounded tandem caller, with 16-base external flanks.
+They cannot overwrite an established core label. Primary mapping quality must
+be at least 20, known external base quality at least 10, and combined physical
+and mapping error at most 5%. Contrary clean phased SNPs veto both paths.
+This physically supplied call may replace a missing local graph observation;
+the original complete-source promotion path retains its existing guards.
+A verified injected pure deletion with exact retained MSA identity may also
+promote an agreeing rescue through two shared clean SNPs on one side. Every
+intervening oriented row must retain unique, adoptable source provenance in the
+same current core and gauge, with no weak or quality cut inside that path.
+Unadoptable rows outside this path cannot veto it. A separate source must also
+supply a verified canonical shared insertion within 20 kb in the same core,
+with its complete component independently anchored on two shared clean SNPs.
+This exception preserves existing haplotypes and ordinary core assignments.
+If strict deletion equivalence abstains, the existing complete-repeat caller
+checks REF versus deletion across the entire tract and 16-base external flanks,
+requiring unique edit-distance and length agreement, bounded slippage, known
+flank qualities and the same 5% combined error limit. Other unshared deletions
+retain their complete-source and whole-cohort guards: partial promotion can
+strand an uncertified rescue remainder.
+
 Within that certified union, an already tagged whole-chunk BAM fallback may
 enter the core when its false REF calls are physically deleted in its original
 primary alignment. Each ignored call must be a clean graph SNP in the same
@@ -998,6 +1092,14 @@ phase-set extents within the chunk, preserves every original phased row, and
 must certify a complete read-supported source path across both graph flanks
 before replacing the source solve. Complementary co-located rows remain
 separate. Admission does not bypass path or transfer validation.
+A later retry retains earlier source sites, source read gauges, and weak/quality
+cuts when every site in that original source still has one exact candidate and
+none is claimed by the new solve. A refreshed, missing, or ambiguous member
+vetoes retention of the entire old source. Candidate indices are matched by
+variant identity, read indices by qname, and retained source IDs avoid live
+and new source IDs. Retention runs after the retry's transfer and stitch, so
+its earlier decisions still use the new solve's evidence.
+
 If that focused trial fails, a broad fallback must independently satisfy its
 unique-boundary admission rules. A request justified only by complementary
 co-located rows cannot authorize the fallback.
@@ -1253,6 +1355,374 @@ sites without a measured BAM base. This retains the quality of each original
 SNP; a primary allele update does not invent a quality-bearing BAM call.
 The post-transfer invariant gate rejects a populated BAM quality channel whose
 length differs from the primary allele profile.
+
+Recovery matches candidates through collision-aware exact raw and selected-ALT
+sequence indexes. Repeated insertion of the same row is idempotent; multiple
+rows claiming one key make that key ambiguous permanently. When both indexes
+contain a queried key, they must identify the same unique row. Distinct graph
+alternatives can share a topology key and still match uniquely through their
+selected sequence. An ambiguous existing identity cannot become a newly
+appended BAM locus. The final transfer index and whole-chunk BAM overlay apply
+the same uniqueness rule, so ambiguous keys cannot borrow the first row's
+observations, quality certificates or source gauge. Candidate rows and their
+existing graph observations remain separate. Seam transfers and their rebuilt
+index compare exact physical edits.
+
+`candidate_allele_contrasts` retains both selected sequence alleles, including
+ALT/ALT genotypes. Each allele is reference-validated and normalized independently;
+literal reference is an explicit identity, while missing or invalid sequence
+produces no contrast. The unordered pair is canonical, with a mapping back to
+the original profile's allele indices. Two REF/ALT rows sharing one ALT do not
+become an ALT/ALT pair. Multiallelic candidates require an existing distinct
+haplotype-consensus pair; the view does not guess a genotype from allele counts.
+`joint_allele_contrasts` groups identical complete pairs, preserving original
+candidate indices, classification, confidence flags and source gauges.
+
+Graph decomposition records `GraphSiteMeta::non_selected_alt_class` when zero
+means another non-selected allele rather than literal reference. Such collapsed
+classes cannot supply explicit sequence contrasts. The ordinary REF/ALT locus
+view is the subset retaining its original 0/1 gauge.
+
+`joint_contrast_molecule_evidence` maps each original graph/BAM channel into the
+complete pair's canonical gauge. Dependent descriptions cast one call; opposing
+calls and existing BAM conflicts remain conflicting. Calls outside the selected
+pair abstain, including genomic REF at an ALT/ALT locus. A profile without an
+explicit graph channel uses its primary calls; retained graph/BAM channels are
+inspected together so primary-channel preference cannot hide disagreement.
+This evidence adapter does not widen phasing admission, certify parent context,
+resolve conflicts using quality, or replace the existing rescue/output solver.
+
+When `--phase-matrix-dump` is set, the whole-chunk BAM overlay also evaluates
+physical sequence evidence for duplicate complete pairs. `allele_context` pads
+the union of normalized edits and complete parent REF spans with 16 reference
+bases on each side. It reconstructs the selected sequences and retains literal
+REF and every distinct unselected parent ALT as competing hypotheses. Invalid
+REF/ALT, unavailable reference flanks or sequences/windows longer than 4,096
+bases yield unsupported context. These limits bound diagnostic alignment work;
+they are not phasing admission thresholds.
+
+The extractor uses the already loaded original primary BAM records, requiring
+aligned bases at both outer flanks. It retains internal insertions and deletions,
+rejects reference skips and unknown query bases, and abstains on incomplete
+coverage or ambiguous primary alignment identity. BAM SEQ already follows
+reference orientation, including reverse alignments. Query bounds are zero-based
+half-open; context bounds are one-based inclusive. Original MAPQ and every base
+quality, including unknown quality 255, survive unchanged.
+
+Global unit-cost edit distances rank the selected and competing sequences.
+A selected allele is uniquely nearest only when its distance is strictly smaller
+than both the other selected allele and every unselected hypothesis. Ties and
+closer unselected alleles remain unresolved. Distances are not calibrated
+posteriors, and qualities are retained for calibration rather than converted to
+confidence here. The rankings do not change profiles, admission, HP/PS or output.
+No sequence scoring runs when matrix diagnostics are disabled.
+
+`.chunkN.joint-contexts.tsv`, `.joint-parents.tsv` and `.joint-sequences.tsv`
+record the padded reference, complete hypotheses, original parent alleles,
+source reduction, query slices, hexadecimal quality bytes and distances.
+They preserve one sequence observation per molecule/contrast, irrespective of
+the number of source descriptions. `test_allele_context --replay CONTEXTS.tsv
+SEQUENCES.tsv` rescores completed state without BAM access or pipeline replay;
+`make gap-dev-check` includes the focused context fixtures.
+
+The diagnostic cohort model retains a sorted, unique full sequence table and
+one complete vector of allele distances per molecule. Sequence-table order is
+independent of source ALT order or the originally selected pair. Every parent
+alternative has its own cost; reducing all alternatives to one minimum cannot
+supply a diploid genotype fit.
+
+`fit_diploid_alleles` evaluates all unordered pairs, including homozygous pairs,
+using the sum of each molecule's distance to the nearer allele. Repeated identical
+molecule costs count once; conflicting cost vectors for the same molecule remain
+unknown. Nonnegative complete vectors are required. Costs use 64-bit cohort sums.
+It records the minimum and runner-up costs and tied-pair count. Equal best fits
+have no selected genotype. This is a transparent edit-cost objective, not a
+likelihood/error model or a replacement for the candidate's consensus genotype.
+
+Each molecule also has a leave-one-molecule-out fit. The implementation reuses
+pair totals and subtracts that molecule's contribution, obtaining exactly the
+fit on the other molecules without realigning or rerunning all training solves.
+An empty training cohort abstains. A held-out allele is recorded only if its
+sequence is uniquely closer than every full-table alternative and belongs to
+the independently fitted pair. The record separately states whether this pair
+matches the complete-cohort fit; unstable pairs and ties retain uncertainty.
+Held-out stability does not establish parental phase or calibrated confidence.
+
+With matrix diagnostics, `.chunkN.joint-alleles.tsv`, `.joint-costs.tsv`,
+`.joint-genotypes.tsv` and `.joint-heldout.tsv` save full hypotheses, individual
+molecule costs and complete/held-out fits. Original contexts, sequences, qualities
+and source provenance remain in their existing tables. `test_allele_genotype
+--state INPUT_FOLDER OUTPUT_PREFIX` evaluates immutable sequence state without
+BAM access or pipeline replay; `make gap-dev-check` includes the genotype fixtures.
+The diagnostic input is every eligible, uniquely identified original primary
+BAM molecule loaded by the owning whole-chunk solve that fully covers the parent
+context. Graph membership, retained variant calls and solver admission do not
+restrict this cohort. The recovery MAPQ floor and configured QC/duplicate policy
+match BAM loading. Duplicate eligible primary names remain ambiguous before
+coverage is checked, so a covering alignment cannot hide a second primary record.
+Aligned outer anchors, internal CIGAR operations, unknown bases and the context
+length bound still govern physical extraction.
+
+`.chunkN.joint-cohort.tsv` saves these complete query slices, original qualities,
+MAPQ and bounds in deterministic molecule-name order. An existing source allele
+is annotation only; `.` means no retained source observation. The original
+contrast-observed `.joint-sequences.tsv` remains a separate provenance table.
+Costs and full/held-out fits use the complete physical cohort; saved replay
+cannot silently fall back to censored source observations.
+
+Descriptions on one contig share a physical context only when their inclusive
+reference bounds and sorted, unique complete sequence hypotheses match exactly.
+The identity excludes selected contrast, source channel and candidate enumeration.
+Different coordinates, incomplete contexts or different alternative tables do
+not share a physical model. Overlapping contexts are not combined by this rule.
+Each physical context collects, scores and fits its cohort once; each eligible
+molecule contributes once to its full and held-out fits.
+
+`.chunkN.physical-contexts.tsv` and `.physical-alleles.tsv` define deterministic
+physical identities and full allele indices. `.physical-members.tsv` maps each
+original contrast to its physical identity and its selected full-table indices.
+`.physical-cohort.tsv` stores one original sequence/quality/bounds/MAPQ row per
+physical context and molecule, without a source-allele admission or phase gauge.
+`.physical-costs.tsv`, `.physical-genotypes.tsv` and `.physical-heldout.tsv`
+record this one shared solve. Existing `.joint-*` tables remain per-description
+compatibility/provenance projections; they are not separate evidence units.
+Saved-state `test_allele_genotype --state` requires the physical cohort, groups
+saved complete contexts, fits each physical identity once, and reproduces both
+physical tables and their per-description cost/fit projections without BAM access.
+
+Matrix diagnostics also export a catalog of parent-plus-one-neighbor sequences.
+For each complete physical context, the catalog retains every original full
+parent sequence and attempts each parent sequence with every ALT of each other
+candidate whose entire raw REF lies strictly inside the context's outer anchors.
+All source channels, candidate categories and ALT indices participate; source
+classification and MSA verification are annotations, not admission conditions.
+Candidates belonging to the context's original parent descriptions are excluded
+from its neighbor list. Sites crossing the aligned outer anchors are not composed.
+This catalog does not enumerate combinations of multiple neighbors.
+
+`compose_allele_sequence` validates every raw REF against the original reference
+window and applies minimal edits in those original reference coordinates. Shared
+padding can be trimmed; independent repeat left alignment cannot determine the
+placement of edits beside one another. Exact repeated anchored inputs and
+unambiguous padded duplicates apply once. Differently padded duplicates with
+ambiguous placements, shifted aliases, competing insertions at one boundary,
+edits inside deleted reference and neighbors touching an ambiguous padding
+corridor return an unresolved overlap without a sequence. These conservative
+overlap results do not prove that no compatible haplotype exists. Unsupported
+DNA, incomplete bounds or sequences exceeding the diagnostic length bound
+remain unsupported. A REF/no-op input imposes no edit; it does not assert a
+reference genotype across a containing parent span. Compound parent alleles
+remain one trimmed replacement; the composer does not infer their internal
+REF-to-ALT alignment or matched subpaths for nested edits.
+
+`.chunkN.site-catalog.tsv` saves every raw candidate ALT and its metadata.
+`.composition-contexts.tsv` saves physical bounds and original reference;
+`.composition-sites.tsv` saves the scoped neighbor ALTs. `.compositions.tsv`
+preserves every parent/neighbor attempt, ALT index and valid/overlap/unsupported
+status. `.composed-alleles.tsv` is the sorted unique union of original hypotheses
+and valid composed sequences. These additional sequences do not enter the
+physical genotype or held-out fits. `test_allele_context --compose INPUT_FOLDER
+OUTPUT_PREFIX` reconstructs the scoped catalog and all compositions from saved
+raw sites, parent membership and reference, without BAM or pipeline access.
+
+The separate `build_allele_sequence_paths` diagnostic enumerates each original
+parent with combinations of the same scoped neighbor candidates. Each physical neighbor site
+contributes either no edit or exactly one raw ALT; no-edit omission does not
+assert a literal REF genotype. Candidates are ordered by ID and duplicate IDs
+are unsupported. Equal raw POS/REF and sorted unique complete ALT tables share
+one physical choice, independent of source order or ALT order. Different bounds,
+REFs or complete alternative tables are not merged. Each chosen sequence maps
+back to the first matching original ALT index of every alias, preserving source
+provenance. Literal repeated ALT entries remain in raw source tables; they do
+not define more physical choices. Aliases cannot choose different ALTs of one
+physical site. Selected source indices are annotations, not extra evidence units.
+
+Depth-first enumeration prunes unresolved-overlap prefixes because adding edits
+cannot remove their existing conflict under the anchored composer. Unsupported
+prefixes still expand: an overlong intermediate insertion can become supported
+after a later deletion. Terminal unsupported paths retain an explicit count.
+Search is bounded to 65,536 visited prefixes and 64 physical neighbor sites per
+physical context. Exceeding either bound returns `limited` and no paths; a partial
+search is never presented as a complete catalog. `complete` means enumeration
+finished under the conservative composer, not that all biological haplotypes or
+internal compound-parent alignments have been resolved.
+
+`.chunkN.path-status.tsv` records completeness, visited/pruned prefixes,
+unsupported terminal paths and emitted path count. `.sequence-paths.tsv` saves
+each parent index, selected candidate/ALT list and complete sequence.
+`.path-alleles.tsv` preserves the entire one-neighbor catalog and adds unique
+supported multi-neighbor sequences only from complete searches. A limited or
+unsupported search retains its existing catalog. `test_allele_context --paths
+INPUT_FOLDER OUTPUT_PREFIX` reconstructs both catalogs and all path state from
+the five raw composition input tables. Expanded paths and hypotheses do not
+enter physical genotype fitting, confidence estimates or production phase joins.
+
+The separate `map_allele_reference` diagnostic maps each original full parent
+sequence to the complete reference context using global unit edit distance.
+Only exact match edges present in every optimal alignment are returned. Backward
+costs and a rolling forward row identify all optimal edges consuming each
+reference base; a unique consuming edge certifies a match only when its bases
+are equal. Consecutive certified matches in both strings become one subpath.
+Substitutions, deletions and alternative repeat placements have no certified
+match. Ambiguity elsewhere does not discard an independently fixed subpath.
+The map retains its validated, case-normalized REF and ALT strings so subsequent
+composition reuses a map bound to those exact inputs. These are mathematical
+alignment invariants, not biological or confidence
+certificates. Neither a single optimal traceback nor shared end padding is
+assumed to determine repeat placement.
+
+Both DNA strings are case-normalized, must contain only A/C/G/T and may be at
+most 4,096 bases each. Empty strings are supported. The matrix is bounded to
+1,048,576 cells, including its boundary row and column. Insufficient work budget
+returns `limited`; invalid DNA or excessive length returns `unsupported`. Neither
+returns a cost or partial subpaths. `complete` certifies that the all-optimal
+analysis finished, while unreturned reference positions remain unresolved.
+
+`.chunkN.parent-maps.tsv` records the original parent index, map status, distance,
+matched-base count and subpath count. `.matched-subpaths.tsv` records zero-based
+half-open REF and ALT offsets and lengths. `test_allele_context --maps INPUT_FOLDER
+OUTPUT_PREFIX` rebuilds these two tables and the existing six composition/path
+tables from the same five raw inputs without BAM access.
+
+`compose_allele_on_subpaths` takes a returned map and the one-based start of its
+complete reference context. It first attempts the original anchored composition
+and preserves any valid or unsupported result. Only an unresolved overlap may
+use the mapped fallback, which requires a complete map and independently valid
+neighbor composition on the original reference. Each non-no-op neighbor's whole
+raw REF must lie inside one certified subpath. Equal-length replacements can
+touch the subpath edges; length-changing edits require a matched base on both
+sides of their raw REF. This conservative guard leaves insertion order beside
+an existing parent edit unresolved. Omitted/no-op REF entries impose no genotype
+constraint. Raw DNA, REF and bounds are still validated by the anchored composer.
+
+Translated edits use the certified ALT offsets and are composed on the unchanged
+complete parent sequence. The existing composer validates their REF again and
+retains its duplicate, shifted-alias, ambiguous-padding and overlap checks.
+An incomplete map cannot authorize the fallback. All cached state is per context;
+neighbor attempts reuse the parent map instead of realigning it. The primitive
+supports an explicitly supplied set of neighbors, while the diagnostic catalog
+attempts one neighbor ALT at a time. Existing physical-site path choices remain
+coupled by their complete ALT tables.
+
+`.chunkN.nested-compositions.tsv` records every mapped-fallback parent/neighbor
+attempt with original source and ALT indices. `.nested-alleles.tsv` preserves
+the entire existing multi-neighbor catalog and adds unique valid nested
+sequences. Its allele indices are separate from original fitted parent indices.
+`test_allele_context --nested INPUT_FOLDER OUTPUT_PREFIX` reconstructs all ten
+composition/path/map/nested tables from the five raw inputs. Old composition and
+path tables retain their existing behavior. Expanded nested hypotheses remain
+diagnostic: physical genotype fits, read confidence and phase decisions still
+use their original inputs.
+
+`build_read_allele_catalog` discovers additional complete-context sequences from
+the saved original read slices. A hypothesis requires an exact, case-normalized
+A/C/G/T sequence shared by at least two distinct physical molecule names. Source
+aliases count once. A name with conflicting sequences or any unsupported record
+abstains entirely; empty sequences, anonymous names and sequences longer than
+4,096 bases are unsupported. Sequences and supporter names have canonical order.
+An optional excluded molecule is removed before validation and discovery, so
+held-out scoring cannot use its own contribution to admit a new hypothesis.
+Support is a discovery condition, not calibrated genotype or phasing confidence.
+The catalog admits at most 64 hypotheses; exceeding this budget returns `limited`
+and publishes no partial hypotheses.
+
+With matrix diagnostics enabled, `.chunkN.read-catalog-status.tsv` records the
+admission census and completion status, `.read-hypotheses.tsv` records exact
+sequences and distinct support counts, `.read-support.tsv` retains supporter
+names, and `.read-exclusions.tsv` records conflicting/unsupported names.
+`.read-alleles.tsv` preserves the entire nested catalog and adds unique read
+hypotheses. No MSA result, graph source label, existing genotype, HP/PS or parental
+truth is used to admit these sequences. `test_allele_context --read-catalogs
+INPUT_FOLDER OUTPUT_PREFIX` reconstructs all fifteen diagnostic tables from the
+five existing raw inputs plus `.physical-cohort.tsv`, without BAM access.
+The expanded read catalog remains diagnostic; physical genotype fits and phase
+decisions continue to receive their original inputs.
+
+These fits describe the supplied parent hypotheses and owning alignment census;
+unmodeled neighboring variants and uncalibrated errors still limit their use
+for genotype certification or phasing.
+These diagnostic fits do not change original candidate genotypes, profiles,
+admission, component joins, HP/PS or output. Production fitting receives no
+parental truth or source phase labels.
+
+`GraphChunkBuildResult::joint_candidate_loci` groups reference-validated,
+normalized biallelic REF/ALT descriptions while retaining their original
+candidate indices, metadata and recovery/output contracts. Graph topology IDs,
+physical BAM edits, classification, depths and source membership remain on
+their original rows. Different ALT sequences, invalid reference context and
+ALT/ALT contrasts do not become REF/ALT aliases. Rebuild the locus view after
+candidate reindexing; the whole-chunk overlay does this on the recovered table.
+
+The initial graph solve uses `phase_joint_graph_candidates` to project compatible
+aliases onto one eligible clean heterozygous row per locus. Members must have
+the same category mask/classification and rescue/gap admission flags, no MSA
+ALT list or homopolymer flag, and no established PS or haplotype consensus.
+Graph modes treating other ALTs as the non-selected class may project only
+single-ALT sites. Equal normalized edits can still have different complete allele
+contexts: a primitive marker's REF does not establish the full REF of a containing
+snarl that has other sample alleles. For differing VCF POS/REF/selected-ALT
+contexts, each informative alias call also requires an existing independent graph
+call at the representative. Exact complete contrasts can retain alias-only
+observations. Before projecting shifted members, informative alias observations
+must cover both physical edits and their outside flanks. A cohort with any
+unsupported shifted observation retains the original solve rather than extending
+the interpretation beyond a molecule's span. Graph read bounds here are the
+first and last observed site positions, a conservative extent within the
+alignment; this check does not infer full CIGAR coverage. Each read's agreeing
+calls provide one allele; opposing calls abstain. Query coordinates survive only
+when they agree. Sparse profiles can temporarily grow to reach the representative.
+Duplicate masks are excluded during the shared clean k-means, with original
+counts retained rather than summed. The solve shares its resulting consensus/PS
+and haplotype tallies with
+compatible aliases, then restores original masks and all observation/quality
+channels and rebuilds the read interval tree. Indices and source certificates
+remain stable. With no compatible duplicates it runs the original clean solve.
+Mixed admission classes and recovered phase gauges remain distinct; this initial
+projection does not deduplicate late rescue votes or emitted records.
+
+With a phase-matrix dump prefix, `.chunkN.allele-contrasts.tsv` records canonical
+sequence pairs and their original allele indices, category, source PS, MSA
+provenance and collapsed-class flag. `.chunkN.joint-molecules.tsv` records the
+canonical per-molecule reduction for duplicate complete contrasts, including
+conflicts and all retained source observations. Original channels, physical
+contexts and qualities remain in the full phase matrix and candidate metadata.
+
+With a phase-matrix dump prefix, the initial solve reports duplicate/projected
+locus counts and the whole-chunk overlay writes `.chunkN.joint-loci.tsv`, mapping
+canonical identities to original graph/BAM rows, categories and local phase
+states. This diagnostic table does not supply production confidence or truth.
+
+The whole-chunk BAM observation overlay additionally compares reference-normalized
+identities. `normalize_candidate_identity` validates REF against the worker's
+reference cache, compares uppercase ACGT, trims common context and left-aligns
+repeat edits by extending the alleles on the left and trimming their common
+suffix. Compound replacements retain their complete changed sequence. Unknown
+reference context, symbolic alleles and unchanged alleles do not supply a
+normalized identity; established exact matching remains available. Graph aliases
+require an actual REF/selected-ALT pair, with original allele zero as REF.
+Multiple graph rows claiming one normalized identity make that identity
+ambiguous, and exact matching cannot bypass that ambiguity or a different
+normalized destination. Equivalent BAM source rows may share that unique
+destination: the overlay reduces supported source calls once per read and
+destination before transferring the BAM observation. Agreeing calls produce one
+allele; opposing calls produce `kConflictingBamAllele`, which supplies no BAM
+vote. Repeating a source call is idempotent. The reducer retains original source
+indices, alleles and query coordinates during transfer; the source chunk remains
+intact. A query coordinate survives only when all agreeing calls have the same
+coordinate, otherwise it is zero (unknown). Query coordinates are not quality
+scores and are never added or maximized. Each read's reduction is independent.
+
+Normalization supplies a matching alias without moving candidate coordinates,
+changing genotypes, summing depth or importing a source phase gauge. Each shifted
+BAM observation must cover the union of the original source and graph physical
+edits, including outside flanks, and already have an independent graph call
+at the matched candidate. Missing graph calls abstain for normalized aliases:
+identity equivalence does not establish the source reference-class confidence. The overlay
+continues to fill missing observations for the post-stitch rescue while retaining
+independent graph disagreements. The overlay preserves an already selected
+targeted-recovery BAM call or conflict; the whole-chunk solve cannot replace its
+allele or quality certificate. Candidate-row deduplication and complete
+ALT1/ALT2 contrasts are separate from this matching stage.
 
 A sub-solve phase-set number is local to that solve and can collide with a graph
 phase set that uses the opposite HP gauge. Recovery therefore keys local phase
@@ -2574,6 +3044,13 @@ and dominant core correct counts. Historical gaps retain their existing
 regression floors. All windows write their contract status to
 `gap-contract.tsv` under the test work directory, so uncertified shortfalls
 remain visible. New closures must join the certification manifest.
+
+The historical window-local `separated` score takes the greatest correctly
+oriented read count among phase sets, divided by all scored overlaps. It uses
+each phase set's window-local parental majority. Selecting the phase set with
+the most tagged reads instead would let correct rescue promotions reduce
+reported connected correctness. The original-primary certification above
+keeps its whole-replay orientation and excludes rescue phase sets from the core.
 
 Window tests keep successful replay outputs and completion state in
 `test_data/.gap-replay-cache/` (`PGPHASE_TEST_CACHE` overrides this directory).

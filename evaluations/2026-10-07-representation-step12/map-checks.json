@@ -1,0 +1,116 @@
+{
+  "oracle": "all-optimal path counts with arbitrary precision, matched-edge count equals total",
+  "wall_seconds": 18.93500539503293,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "parents": 269,
+      "complete": 269,
+      "multiple_optimal_alignments": 232,
+      "reference_bases": 14895,
+      "certified_matched_bases": 7189,
+      "matched_subpaths": 400,
+      "previous_tables_byte_identical": true,
+      "raw_replay_byte_identical": true,
+      "overlaps": {
+        "overlap_attempts": 1720,
+        "unresolved_raw_ref": 1690,
+        "whole_raw_ref_certified": 30
+      },
+      "examples": [
+        {
+          "physical": "18",
+          "parent": "0",
+          "candidate": "1094",
+          "pos": "4760662",
+          "ref": "A",
+          "alt_index": "1"
+        },
+        {
+          "physical": "18",
+          "parent": "1",
+          "candidate": "1094",
+          "pos": "4760662",
+          "ref": "A",
+          "alt_index": "1"
+        },
+        {
+          "physical": "18",
+          "parent": "2",
+          "candidate": "1094",
+          "pos": "4760662",
+          "ref": "A",
+          "alt_index": "1"
+        },
+        {
+          "physical": "18",
+          "parent": "4",
+          "candidate": "1094",
+          "pos": "4760662",
+          "ref": "A",
+          "alt_index": "1"
+        },
+        {
+          "physical": "18",
+          "parent": "5",
+          "candidate": "1094",
+          "pos": "4760662",
+          "ref": "A",
+          "alt_index": "1"
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 6,
+      "parents": 91,
+      "complete": 91,
+      "multiple_optimal_alignments": 79,
+      "reference_bases": 3714,
+      "certified_matched_bases": 1809,
+      "matched_subpaths": 156,
+      "previous_tables_byte_identical": true,
+      "raw_replay_byte_identical": true,
+      "overlaps": {
+        "overlap_attempts": 58,
+        "unresolved_raw_ref": 58
+      },
+      "examples": []
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 10,
+      "parents": 243,
+      "complete": 243,
+      "multiple_optimal_alignments": 220,
+      "reference_bases": 28891,
+      "certified_matched_bases": 13422,
+      "matched_subpaths": 326,
+      "previous_tables_byte_identical": true,
+      "raw_replay_byte_identical": true,
+      "overlaps": {
+        "overlap_attempts": 11445,
+        "unresolved_raw_ref": 11445
+      },
+      "examples": []
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "parents": 131,
+      "complete": 131,
+      "multiple_optimal_alignments": 98,
+      "reference_bases": 6179,
+      "certified_matched_bases": 3597,
+      "matched_subpaths": 180,
+      "previous_tables_byte_identical": true,
+      "raw_replay_byte_identical": true,
+      "overlaps": {
+        "overlap_attempts": 63,
+        "unresolved_raw_ref": 63
+      },
+      "examples": []
+    }
+  ]
+}

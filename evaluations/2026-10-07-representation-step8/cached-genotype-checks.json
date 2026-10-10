@@ -1,0 +1,1523 @@
+{
+  "seconds": 15.317457991011906,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "molecules": 1796,
+      "different_unique_pairs": 11,
+      "ambiguous_pairs": 1,
+      "stable_for_every_heldout_molecule": 28,
+      "inferred_alt_alt_pairs": 9,
+      "partitions": {
+        "stable_member": 1422,
+        "outside_or_tied_sequence": 313,
+        "ambiguous_pair": 49,
+        "unstable_pair": 12
+      },
+      "conflict_partitions": {
+        "stable_member": 62,
+        "outside_or_tied_sequence": 30,
+        "unstable_pair": 4,
+        "ambiguous_pair": 8
+      },
+      "scalar_distance_checks": 2022,
+      "retained_verified_distance_checks": 12959,
+      "changed_pairs_after_uncensoring": 2,
+      "loci": [
+        {
+          "locus": 0,
+          "alleles": 6,
+          "molecules": 24,
+          "cost": 48,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            4
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 24,
+          "evaluation_only_parental_correct": 24,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 24
+        },
+        {
+          "locus": 1,
+          "alleles": 19,
+          "molecules": 49,
+          "cost": 10,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            6,
+            12
+          ],
+          "original_pair": [
+            4,
+            12
+          ],
+          "stable_heldout": 49,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 49,
+          "identical_molecule_hiphase_correct": 49
+        },
+        {
+          "locus": 2,
+          "alleles": 21,
+          "molecules": 21,
+          "cost": 121,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            15,
+            17
+          ],
+          "original_pair": [
+            16,
+            17
+          ],
+          "stable_heldout": 21,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 21,
+          "identical_molecule_hiphase_correct": 21
+        },
+        {
+          "locus": 3,
+          "alleles": 8,
+          "molecules": 55,
+          "cost": 8,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 55,
+          "evaluation_only_parental_correct": 28,
+          "evaluation_only_parental_discordant": 21,
+          "evaluation_only_parental_unassigned": 6,
+          "identical_molecule_hiphase_correct": 53
+        },
+        {
+          "locus": 4,
+          "alleles": 19,
+          "molecules": 69,
+          "cost": 16,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            8,
+            9
+          ],
+          "original_pair": [
+            9,
+            11
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 69,
+          "identical_molecule_hiphase_correct": 59
+        },
+        {
+          "locus": 5,
+          "alleles": 4,
+          "molecules": 69,
+          "cost": 11,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 34,
+          "evaluation_only_parental_discordant": 26,
+          "evaluation_only_parental_unassigned": 9,
+          "identical_molecule_hiphase_correct": 63
+        },
+        {
+          "locus": 6,
+          "alleles": 2,
+          "molecules": 64,
+          "cost": 2,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 64,
+          "evaluation_only_parental_correct": 64,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 64
+        },
+        {
+          "locus": 7,
+          "alleles": 3,
+          "molecules": 61,
+          "cost": 503,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            2
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 61,
+          "evaluation_only_parental_correct": 59,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 2,
+          "identical_molecule_hiphase_correct": 61
+        },
+        {
+          "locus": 8,
+          "alleles": 8,
+          "molecules": 69,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            4
+          ],
+          "original_pair": [
+            2,
+            4
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 68,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 1,
+          "identical_molecule_hiphase_correct": 69
+        },
+        {
+          "locus": 9,
+          "alleles": 5,
+          "molecules": 62,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 62,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 13,
+          "evaluation_only_parental_unassigned": 8,
+          "identical_molecule_hiphase_correct": 62
+        },
+        {
+          "locus": 10,
+          "alleles": 4,
+          "molecules": 77,
+          "cost": 4,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 77,
+          "evaluation_only_parental_correct": 76,
+          "evaluation_only_parental_discordant": 1,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 77
+        },
+        {
+          "locus": 11,
+          "alleles": 2,
+          "molecules": 80,
+          "cost": 6,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 80,
+          "evaluation_only_parental_correct": 80,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 80
+        },
+        {
+          "locus": 12,
+          "alleles": 5,
+          "molecules": 77,
+          "cost": 17,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 77,
+          "evaluation_only_parental_correct": 57,
+          "evaluation_only_parental_discordant": 7,
+          "evaluation_only_parental_unassigned": 13,
+          "identical_molecule_hiphase_correct": 77
+        },
+        {
+          "locus": 13,
+          "alleles": 7,
+          "molecules": 75,
+          "cost": 22,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            5
+          ],
+          "original_pair": [
+            1,
+            5
+          ],
+          "stable_heldout": 75,
+          "evaluation_only_parental_correct": 55,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 20,
+          "identical_molecule_hiphase_correct": 75
+        },
+        {
+          "locus": 14,
+          "alleles": 3,
+          "molecules": 68,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 68,
+          "evaluation_only_parental_correct": 68,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 68
+        },
+        {
+          "locus": 15,
+          "alleles": 4,
+          "molecules": 57,
+          "cost": 14,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 57,
+          "evaluation_only_parental_correct": 38,
+          "evaluation_only_parental_discordant": 10,
+          "evaluation_only_parental_unassigned": 9,
+          "identical_molecule_hiphase_correct": 57
+        },
+        {
+          "locus": 16,
+          "alleles": 13,
+          "molecules": 59,
+          "cost": 22,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            5,
+            8
+          ],
+          "original_pair": [
+            5,
+            8
+          ],
+          "stable_heldout": 59,
+          "evaluation_only_parental_correct": 47,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 12,
+          "identical_molecule_hiphase_correct": 59
+        },
+        {
+          "locus": 17,
+          "alleles": 34,
+          "molecules": 57,
+          "cost": 42,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            16,
+            19
+          ],
+          "original_pair": [
+            17,
+            19
+          ],
+          "stable_heldout": 57,
+          "evaluation_only_parental_correct": 23,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 34,
+          "identical_molecule_hiphase_correct": 57
+        },
+        {
+          "locus": 18,
+          "alleles": 8,
+          "molecules": 62,
+          "cost": 67,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            3,
+            5
+          ],
+          "original_pair": [
+            3,
+            4
+          ],
+          "stable_heldout": 60,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 62,
+          "identical_molecule_hiphase_correct": 62
+        },
+        {
+          "locus": 19,
+          "alleles": 30,
+          "molecules": 69,
+          "cost": 200,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            23,
+            29
+          ],
+          "original_pair": [
+            24,
+            25
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 58,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 11,
+          "identical_molecule_hiphase_correct": 69
+        },
+        {
+          "locus": 20,
+          "alleles": 5,
+          "molecules": 68,
+          "cost": 44,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 68,
+          "evaluation_only_parental_correct": 43,
+          "evaluation_only_parental_discordant": 11,
+          "evaluation_only_parental_unassigned": 14,
+          "identical_molecule_hiphase_correct": 68
+        },
+        {
+          "locus": 21,
+          "alleles": 8,
+          "molecules": 44,
+          "cost": 32,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            4
+          ],
+          "original_pair": [
+            1,
+            4
+          ],
+          "stable_heldout": 19,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 44,
+          "identical_molecule_hiphase_correct": 44
+        },
+        {
+          "locus": 22,
+          "alleles": 5,
+          "molecules": 48,
+          "cost": 18,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 48,
+          "evaluation_only_parental_correct": 25,
+          "evaluation_only_parental_discordant": 9,
+          "evaluation_only_parental_unassigned": 14,
+          "identical_molecule_hiphase_correct": 48
+        },
+        {
+          "locus": 23,
+          "alleles": 7,
+          "molecules": 52,
+          "cost": 109,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            6
+          ],
+          "original_pair": [
+            1,
+            6
+          ],
+          "stable_heldout": 52,
+          "evaluation_only_parental_correct": 51,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 1,
+          "identical_molecule_hiphase_correct": 52
+        },
+        {
+          "locus": 24,
+          "alleles": 7,
+          "molecules": 53,
+          "cost": 29,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            4
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 53,
+          "evaluation_only_parental_correct": 26,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 27,
+          "identical_molecule_hiphase_correct": 53
+        },
+        {
+          "locus": 25,
+          "alleles": 4,
+          "molecules": 55,
+          "cost": 16,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 55,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 7,
+          "evaluation_only_parental_unassigned": 7,
+          "identical_molecule_hiphase_correct": 55
+        },
+        {
+          "locus": 26,
+          "alleles": 5,
+          "molecules": 65,
+          "cost": 3,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 65,
+          "evaluation_only_parental_correct": 65,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 65
+        },
+        {
+          "locus": 27,
+          "alleles": 2,
+          "molecules": 63,
+          "cost": 5,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 63,
+          "evaluation_only_parental_correct": 63,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 63
+        },
+        {
+          "locus": 28,
+          "alleles": 6,
+          "molecules": 56,
+          "cost": 17,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            3,
+            4
+          ],
+          "stable_heldout": 56,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 56,
+          "identical_molecule_hiphase_correct": 26
+        },
+        {
+          "locus": 29,
+          "alleles": 10,
+          "molecules": 34,
+          "cost": 114,
+          "tied_pairs": 2,
+          "inferred_pair": null,
+          "original_pair": [
+            4,
+            6
+          ],
+          "stable_heldout": 0,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 34,
+          "identical_molecule_hiphase_correct": 34
+        },
+        {
+          "locus": 30,
+          "alleles": 5,
+          "molecules": 34,
+          "cost": 23,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 34,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 34,
+          "identical_molecule_hiphase_correct": 34
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 7,
+      "molecules": 484,
+      "different_unique_pairs": 3,
+      "ambiguous_pairs": 1,
+      "stable_for_every_heldout_molecule": 6,
+      "inferred_alt_alt_pairs": 1,
+      "partitions": {
+        "stable_member": 309,
+        "outside_or_tied_sequence": 103,
+        "ambiguous_pair": 60,
+        "unstable_pair": 12
+      },
+      "conflict_partitions": {
+        "stable_member": 2,
+        "outside_or_tied_sequence": 5
+      },
+      "scalar_distance_checks": 2611,
+      "retained_verified_distance_checks": 6874,
+      "changed_pairs_after_uncensoring": 1,
+      "loci": [
+        {
+          "locus": 0,
+          "alleles": 14,
+          "molecules": 56,
+          "cost": 19,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            12,
+            13
+          ],
+          "original_pair": [
+            12,
+            13
+          ],
+          "stable_heldout": 56,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 5,
+          "evaluation_only_parental_unassigned": 10,
+          "identical_molecule_hiphase_correct": 54
+        },
+        {
+          "locus": 1,
+          "alleles": 5,
+          "molecules": 75,
+          "cost": 8,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 75,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 75,
+          "identical_molecule_hiphase_correct": 1
+        },
+        {
+          "locus": 2,
+          "alleles": 15,
+          "molecules": 72,
+          "cost": 19,
+          "tied_pairs": 2,
+          "inferred_pair": null,
+          "original_pair": [
+            8,
+            10
+          ],
+          "stable_heldout": 0,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 72,
+          "identical_molecule_hiphase_correct": 71
+        },
+        {
+          "locus": 3,
+          "alleles": 8,
+          "molecules": 75,
+          "cost": 22,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            3,
+            4
+          ],
+          "original_pair": [
+            4,
+            5
+          ],
+          "stable_heldout": 75,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 75,
+          "identical_molecule_hiphase_correct": 75
+        },
+        {
+          "locus": 4,
+          "alleles": 4,
+          "molecules": 64,
+          "cost": 6,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 64,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 64,
+          "identical_molecule_hiphase_correct": 62
+        },
+        {
+          "locus": 5,
+          "alleles": 45,
+          "molecules": 71,
+          "cost": 44,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            15,
+            23
+          ],
+          "original_pair": [
+            23,
+            28
+          ],
+          "stable_heldout": 71,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 30,
+          "identical_molecule_hiphase_correct": 71
+        },
+        {
+          "locus": 6,
+          "alleles": 45,
+          "molecules": 71,
+          "cost": 44,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            15,
+            23
+          ],
+          "original_pair": [
+            23,
+            29
+          ],
+          "stable_heldout": 71,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 30,
+          "identical_molecule_hiphase_correct": 71
+        }
+      ]
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 11,
+      "molecules": 483,
+      "different_unique_pairs": 6,
+      "ambiguous_pairs": 3,
+      "stable_for_every_heldout_molecule": 6,
+      "inferred_alt_alt_pairs": 2,
+      "partitions": {
+        "ambiguous_pair": 81,
+        "unstable_pair": 61,
+        "stable_member": 285,
+        "outside_or_tied_sequence": 56
+      },
+      "conflict_partitions": {},
+      "scalar_distance_checks": 6877,
+      "retained_verified_distance_checks": 11589,
+      "changed_pairs_after_uncensoring": 5,
+      "loci": [
+        {
+          "locus": 0,
+          "alleles": 13,
+          "molecules": 24,
+          "cost": 91,
+          "tied_pairs": 3,
+          "inferred_pair": null,
+          "original_pair": [
+            2,
+            5
+          ],
+          "stable_heldout": 0,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 24,
+          "identical_molecule_hiphase_correct": 24
+        },
+        {
+          "locus": 1,
+          "alleles": 16,
+          "molecules": 42,
+          "cost": 85,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            3,
+            7
+          ],
+          "original_pair": [
+            5,
+            7
+          ],
+          "stable_heldout": 42,
+          "evaluation_only_parental_correct": 39,
+          "evaluation_only_parental_discordant": 1,
+          "evaluation_only_parental_unassigned": 2,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 2,
+          "alleles": 8,
+          "molecules": 38,
+          "cost": 90,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            6
+          ],
+          "original_pair": [
+            2,
+            6
+          ],
+          "stable_heldout": 38,
+          "evaluation_only_parental_correct": 31,
+          "evaluation_only_parental_discordant": 1,
+          "evaluation_only_parental_unassigned": 6,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 3,
+          "alleles": 12,
+          "molecules": 39,
+          "cost": 4404,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            7,
+            9
+          ],
+          "original_pair": [
+            3,
+            7
+          ],
+          "stable_heldout": 38,
+          "evaluation_only_parental_correct": 13,
+          "evaluation_only_parental_discordant": 10,
+          "evaluation_only_parental_unassigned": 16,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 4,
+          "alleles": 6,
+          "molecules": 28,
+          "cost": 706,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 27,
+          "evaluation_only_parental_correct": 14,
+          "evaluation_only_parental_discordant": 3,
+          "evaluation_only_parental_unassigned": 11,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 5,
+          "alleles": 8,
+          "molecules": 52,
+          "cost": 8,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 52,
+          "evaluation_only_parental_correct": 51,
+          "evaluation_only_parental_discordant": 1,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 6,
+          "alleles": 15,
+          "molecules": 37,
+          "cost": 308,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            5
+          ],
+          "original_pair": [
+            3,
+            5
+          ],
+          "stable_heldout": 37,
+          "evaluation_only_parental_correct": 30,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 7,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 7,
+          "alleles": 108,
+          "molecules": 58,
+          "cost": 176,
+          "tied_pairs": 2,
+          "inferred_pair": null,
+          "original_pair": [
+            20,
+            53
+          ],
+          "stable_heldout": 0,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 58,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 8,
+          "alleles": 108,
+          "molecules": 58,
+          "cost": 176,
+          "tied_pairs": 2,
+          "inferred_pair": null,
+          "original_pair": [
+            15,
+            53
+          ],
+          "stable_heldout": 0,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 58,
+          "identical_molecule_hiphase_correct": 0
+        },
+        {
+          "locus": 9,
+          "alleles": 22,
+          "molecules": 54,
+          "cost": 173,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            19,
+            21
+          ],
+          "original_pair": [
+            16,
+            21
+          ],
+          "stable_heldout": 54,
+          "evaluation_only_parental_correct": 43,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 11,
+          "identical_molecule_hiphase_correct": 1
+        },
+        {
+          "locus": 10,
+          "alleles": 35,
+          "molecules": 53,
+          "cost": 1628,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            10,
+            24
+          ],
+          "original_pair": [
+            9,
+            10
+          ],
+          "stable_heldout": 53,
+          "evaluation_only_parental_correct": 48,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 5,
+          "identical_molecule_hiphase_correct": 1
+        }
+      ]
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "molecules": 1337,
+      "different_unique_pairs": 2,
+      "ambiguous_pairs": 0,
+      "stable_for_every_heldout_molecule": 23,
+      "inferred_alt_alt_pairs": 2,
+      "partitions": {
+        "stable_member": 1185,
+        "outside_or_tied_sequence": 152
+      },
+      "conflict_partitions": {
+        "stable_member": 33,
+        "outside_or_tied_sequence": 18
+      },
+      "scalar_distance_checks": 0,
+      "retained_verified_distance_checks": 7095,
+      "changed_pairs_after_uncensoring": 0,
+      "loci": [
+        {
+          "locus": 0,
+          "alleles": 6,
+          "molecules": 24,
+          "cost": 48,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            4
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 24,
+          "evaluation_only_parental_correct": 24,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 24
+        },
+        {
+          "locus": 1,
+          "alleles": 15,
+          "molecules": 21,
+          "cost": 131,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            10,
+            11
+          ],
+          "original_pair": [
+            10,
+            11
+          ],
+          "stable_heldout": 21,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 21,
+          "identical_molecule_hiphase_correct": 21
+        },
+        {
+          "locus": 2,
+          "alleles": 8,
+          "molecules": 55,
+          "cost": 8,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 55,
+          "evaluation_only_parental_correct": 28,
+          "evaluation_only_parental_discordant": 21,
+          "evaluation_only_parental_unassigned": 6,
+          "identical_molecule_hiphase_correct": 53
+        },
+        {
+          "locus": 3,
+          "alleles": 4,
+          "molecules": 69,
+          "cost": 11,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 34,
+          "evaluation_only_parental_discordant": 26,
+          "evaluation_only_parental_unassigned": 9,
+          "identical_molecule_hiphase_correct": 63
+        },
+        {
+          "locus": 4,
+          "alleles": 2,
+          "molecules": 64,
+          "cost": 2,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 64,
+          "evaluation_only_parental_correct": 64,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 64
+        },
+        {
+          "locus": 5,
+          "alleles": 8,
+          "molecules": 69,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            4
+          ],
+          "original_pair": [
+            2,
+            4
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 68,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 1,
+          "identical_molecule_hiphase_correct": 69
+        },
+        {
+          "locus": 6,
+          "alleles": 5,
+          "molecules": 62,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 62,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 13,
+          "evaluation_only_parental_unassigned": 8,
+          "identical_molecule_hiphase_correct": 62
+        },
+        {
+          "locus": 7,
+          "alleles": 4,
+          "molecules": 77,
+          "cost": 4,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 77,
+          "evaluation_only_parental_correct": 76,
+          "evaluation_only_parental_discordant": 1,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 77
+        },
+        {
+          "locus": 8,
+          "alleles": 2,
+          "molecules": 80,
+          "cost": 6,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 80,
+          "evaluation_only_parental_correct": 80,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 80
+        },
+        {
+          "locus": 9,
+          "alleles": 5,
+          "molecules": 77,
+          "cost": 17,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            2,
+            3
+          ],
+          "stable_heldout": 77,
+          "evaluation_only_parental_correct": 57,
+          "evaluation_only_parental_discordant": 7,
+          "evaluation_only_parental_unassigned": 13,
+          "identical_molecule_hiphase_correct": 77
+        },
+        {
+          "locus": 10,
+          "alleles": 7,
+          "molecules": 75,
+          "cost": 22,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            5
+          ],
+          "original_pair": [
+            1,
+            5
+          ],
+          "stable_heldout": 75,
+          "evaluation_only_parental_correct": 55,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 20,
+          "identical_molecule_hiphase_correct": 75
+        },
+        {
+          "locus": 11,
+          "alleles": 3,
+          "molecules": 68,
+          "cost": 9,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 68,
+          "evaluation_only_parental_correct": 68,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 68
+        },
+        {
+          "locus": 12,
+          "alleles": 4,
+          "molecules": 57,
+          "cost": 14,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 57,
+          "evaluation_only_parental_correct": 38,
+          "evaluation_only_parental_discordant": 10,
+          "evaluation_only_parental_unassigned": 9,
+          "identical_molecule_hiphase_correct": 57
+        },
+        {
+          "locus": 13,
+          "alleles": 13,
+          "molecules": 59,
+          "cost": 22,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            5,
+            8
+          ],
+          "original_pair": [
+            5,
+            8
+          ],
+          "stable_heldout": 59,
+          "evaluation_only_parental_correct": 47,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 12,
+          "identical_molecule_hiphase_correct": 59
+        },
+        {
+          "locus": 14,
+          "alleles": 5,
+          "molecules": 69,
+          "cost": 32,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            4
+          ],
+          "original_pair": [
+            1,
+            4
+          ],
+          "stable_heldout": 69,
+          "evaluation_only_parental_correct": 47,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 22,
+          "identical_molecule_hiphase_correct": 69
+        },
+        {
+          "locus": 15,
+          "alleles": 4,
+          "molecules": 45,
+          "cost": 16,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            3
+          ],
+          "original_pair": [
+            1,
+            3
+          ],
+          "stable_heldout": 45,
+          "evaluation_only_parental_correct": 35,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 10,
+          "identical_molecule_hiphase_correct": 45
+        },
+        {
+          "locus": 16,
+          "alleles": 7,
+          "molecules": 52,
+          "cost": 109,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            6
+          ],
+          "original_pair": [
+            1,
+            6
+          ],
+          "stable_heldout": 52,
+          "evaluation_only_parental_correct": 51,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 1,
+          "identical_molecule_hiphase_correct": 52
+        },
+        {
+          "locus": 17,
+          "alleles": 4,
+          "molecules": 55,
+          "cost": 16,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 55,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 7,
+          "evaluation_only_parental_unassigned": 7,
+          "identical_molecule_hiphase_correct": 55
+        },
+        {
+          "locus": 18,
+          "alleles": 5,
+          "molecules": 65,
+          "cost": 3,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 65,
+          "evaluation_only_parental_correct": 65,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 65
+        },
+        {
+          "locus": 19,
+          "alleles": 2,
+          "molecules": 63,
+          "cost": 5,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            0,
+            1
+          ],
+          "original_pair": [
+            0,
+            1
+          ],
+          "stable_heldout": 63,
+          "evaluation_only_parental_correct": 63,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 63
+        },
+        {
+          "locus": 20,
+          "alleles": 6,
+          "molecules": 56,
+          "cost": 17,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            2,
+            3
+          ],
+          "original_pair": [
+            3,
+            4
+          ],
+          "stable_heldout": 56,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 56,
+          "identical_molecule_hiphase_correct": 26
+        },
+        {
+          "locus": 21,
+          "alleles": 5,
+          "molecules": 34,
+          "cost": 23,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            2
+          ],
+          "original_pair": [
+            1,
+            2
+          ],
+          "stable_heldout": 34,
+          "evaluation_only_parental_correct": 0,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 34,
+          "identical_molecule_hiphase_correct": 34
+        },
+        {
+          "locus": 22,
+          "alleles": 7,
+          "molecules": 41,
+          "cost": 2,
+          "tied_pairs": 1,
+          "inferred_pair": [
+            1,
+            5
+          ],
+          "original_pair": [
+            1,
+            5
+          ],
+          "stable_heldout": 41,
+          "evaluation_only_parental_correct": 41,
+          "evaluation_only_parental_discordant": 0,
+          "evaluation_only_parental_unassigned": 0,
+          "identical_molecule_hiphase_correct": 41
+        }
+      ]
+    }
+  ]
+}

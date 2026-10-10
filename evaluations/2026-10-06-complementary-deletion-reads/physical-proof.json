@@ -1,0 +1,543 @@
+{
+  "normalized_deletion_position": 4625183,
+  "repeat_bounds": [
+    4625183,
+    4625233
+  ],
+  "fundamental_motif_length": 4,
+  "deletion_lengths": [
+    4,
+    8
+  ],
+  "clean_snp_position": 4618685,
+  "independent_cohort_counts": [
+    [
+      [
+        0,
+        8
+      ],
+      [
+        11,
+        0
+      ]
+    ],
+    [
+      [
+        1,
+        7
+      ],
+      [
+        8,
+        0
+      ]
+    ]
+  ],
+  "newly_correct_original_reads": [
+    {
+      "qname": "m84031_231217_034919_s2/113051567/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4619141,
+        4638437
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/7277844/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4619247,
+        4637737
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/164692629/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4619906,
+        4626952
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/115610845/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4619938,
+        4638152
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/244580560/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4620057,
+        4639061
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/117834759/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4620188,
+        4635617
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/127864569/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4620542,
+        4635994
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/102893220/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4620979,
+        4636670
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/38669493/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4621947,
+        4633614
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/70714331/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4621954,
+        4635793
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/102962122/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4622021,
+        4641336
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/166397686/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4622077,
+        4627881
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/185928536/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 5,
+      "distance": [
+        1,
+        3
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4622079,
+        4636161
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/112134509/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4622140,
+        4634534
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/135402525/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 22,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4622352,
+        4635761
+      ]
+    },
+    {
+      "qname": "m84031_231217_062403_s3/32904016/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 5,
+      "distance": [
+        1,
+        5
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4624034,
+        4640440
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/267059894/ccs",
+      "parent": "MAT",
+      "allele": 1,
+      "qual": 40,
+      "observed": 8,
+      "distance": [
+        4,
+        0
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4624755,
+        4640501
+      ]
+    },
+    {
+      "qname": "m84031_231217_034919_s2/79303086/ccs",
+      "parent": "PAT",
+      "allele": 0,
+      "qual": 40,
+      "observed": 4,
+      "distance": [
+        0,
+        4
+      ],
+      "before_status": "unphased",
+      "before_tag": [
+        0,
+        0
+      ],
+      "left_snp": [
+        null,
+        null
+      ],
+      "right_snp": [
+        null,
+        null
+      ],
+      "span": [
+        4624869,
+        4636218
+      ]
+    }
+  ],
+  "homopolymer_control_position": 4637299,
+  "homopolymer_control_has_no_clean_snp_in_its_phase_set": true
+}

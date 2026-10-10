@@ -1,0 +1,461 @@
+{
+  "interpretation": "Unconstrained per-read best-sequence edit-cost lower bound; no genotype, error confidence, phase decision or closure claim.",
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "molecules": 1796,
+      "old_residual": 1260,
+      "composed_residual": 803,
+      "improved_molecules": 183,
+      "physical_contexts": {
+        "0": {
+          "molecules": 24,
+          "old_residual": 48,
+          "composed_residual": 48,
+          "improved_molecules": 0
+        },
+        "1": {
+          "molecules": 49,
+          "old_residual": 7,
+          "composed_residual": 7,
+          "improved_molecules": 0
+        },
+        "2": {
+          "molecules": 21,
+          "old_residual": 98,
+          "composed_residual": 98,
+          "improved_molecules": 0
+        },
+        "3": {
+          "molecules": 55,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "4": {
+          "molecules": 69,
+          "old_residual": 5,
+          "composed_residual": 5,
+          "improved_molecules": 0
+        },
+        "5": {
+          "molecules": 69,
+          "old_residual": 2,
+          "composed_residual": 2,
+          "improved_molecules": 0
+        },
+        "6": {
+          "molecules": 64,
+          "old_residual": 2,
+          "composed_residual": 2,
+          "improved_molecules": 0
+        },
+        "7": {
+          "molecules": 61,
+          "old_residual": 503,
+          "composed_residual": 273,
+          "improved_molecules": 30
+        },
+        "8": {
+          "molecules": 69,
+          "old_residual": 7,
+          "composed_residual": 7,
+          "improved_molecules": 0
+        },
+        "9": {
+          "molecules": 62,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "10": {
+          "molecules": 77,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "11": {
+          "molecules": 80,
+          "old_residual": 6,
+          "composed_residual": 6,
+          "improved_molecules": 0
+        },
+        "12": {
+          "molecules": 77,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "13": {
+          "molecules": 75,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "14": {
+          "molecules": 68,
+          "old_residual": 9,
+          "composed_residual": 9,
+          "improved_molecules": 0
+        },
+        "15": {
+          "molecules": 57,
+          "old_residual": 5,
+          "composed_residual": 5,
+          "improved_molecules": 0
+        },
+        "16": {
+          "molecules": 59,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "17": {
+          "molecules": 57,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "18": {
+          "molecules": 62,
+          "old_residual": 66,
+          "composed_residual": 24,
+          "improved_molecules": 42
+        },
+        "19": {
+          "molecules": 69,
+          "old_residual": 190,
+          "composed_residual": 75,
+          "improved_molecules": 65
+        },
+        "20": {
+          "molecules": 68,
+          "old_residual": 32,
+          "composed_residual": 3,
+          "improved_molecules": 29
+        },
+        "21": {
+          "molecules": 44,
+          "old_residual": 9,
+          "composed_residual": 9,
+          "improved_molecules": 0
+        },
+        "22": {
+          "molecules": 48,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "23": {
+          "molecules": 52,
+          "old_residual": 109,
+          "composed_residual": 109,
+          "improved_molecules": 0
+        },
+        "24": {
+          "molecules": 53,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "25": {
+          "molecules": 55,
+          "old_residual": 9,
+          "composed_residual": 9,
+          "improved_molecules": 0
+        },
+        "26": {
+          "molecules": 65,
+          "old_residual": 3,
+          "composed_residual": 3,
+          "improved_molecules": 0
+        },
+        "27": {
+          "molecules": 63,
+          "old_residual": 5,
+          "composed_residual": 5,
+          "improved_molecules": 0
+        },
+        "28": {
+          "molecules": 56,
+          "old_residual": 0,
+          "composed_residual": 0,
+          "improved_molecules": 0
+        },
+        "29": {
+          "molecules": 34,
+          "old_residual": 101,
+          "composed_residual": 60,
+          "improved_molecules": 17
+        },
+        "30": {
+          "molecules": 34,
+          "old_residual": 23,
+          "composed_residual": 23,
+          "improved_molecules": 0
+        }
+      }
+    },
+    {
+      "owner": "matrix5-final",
+      "molecules": 413,
+      "old_residual": 38,
+      "composed_residual": 38,
+      "improved_molecules": 0,
+      "physical_contexts": {
+        "0": {
+          "molecules": 56,
+          "old_residual": 10,
+          "composed_residual": 10,
+          "improved_molecules": 0
+        },
+        "1": {
+          "molecules": 75,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "2": {
+          "molecules": 72,
+          "old_residual": 6,
+          "composed_residual": 6,
+          "improved_molecules": 0
+        },
+        "3": {
+          "molecules": 75,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "4": {
+          "molecules": 64,
+          "old_residual": 0,
+          "composed_residual": 0,
+          "improved_molecules": 0
+        },
+        "5": {
+          "molecules": 71,
+          "old_residual": 20,
+          "composed_residual": 20,
+          "improved_molecules": 0
+        }
+      }
+    },
+    {
+      "owner": "matrix65-final",
+      "molecules": 425,
+      "old_residual": 7331,
+      "composed_residual": 6670,
+      "improved_molecules": 104,
+      "physical_contexts": {
+        "0": {
+          "molecules": 24,
+          "old_residual": 88,
+          "composed_residual": 64,
+          "improved_molecules": 2
+        },
+        "1": {
+          "molecules": 42,
+          "old_residual": 62,
+          "composed_residual": 38,
+          "improved_molecules": 24
+        },
+        "2": {
+          "molecules": 38,
+          "old_residual": 88,
+          "composed_residual": 73,
+          "improved_molecules": 15
+        },
+        "3": {
+          "molecules": 39,
+          "old_residual": 4384,
+          "composed_residual": 4383,
+          "improved_molecules": 1
+        },
+        "4": {
+          "molecules": 28,
+          "old_residual": 701,
+          "composed_residual": 191,
+          "improved_molecules": 9
+        },
+        "5": {
+          "molecules": 52,
+          "old_residual": 8,
+          "composed_residual": 8,
+          "improved_molecules": 0
+        },
+        "6": {
+          "molecules": 37,
+          "old_residual": 208,
+          "composed_residual": 208,
+          "improved_molecules": 0
+        },
+        "7": {
+          "molecules": 58,
+          "old_residual": 71,
+          "composed_residual": 51,
+          "improved_molecules": 20
+        },
+        "8": {
+          "molecules": 54,
+          "old_residual": 153,
+          "composed_residual": 153,
+          "improved_molecules": 0
+        },
+        "9": {
+          "molecules": 53,
+          "old_residual": 1568,
+          "composed_residual": 1501,
+          "improved_molecules": 33
+        }
+      }
+    },
+    {
+      "owner": "whole-final",
+      "molecules": 1337,
+      "old_residual": 397,
+      "composed_residual": 323,
+      "improved_molecules": 15,
+      "physical_contexts": {
+        "0": {
+          "molecules": 24,
+          "old_residual": 48,
+          "composed_residual": 48,
+          "improved_molecules": 0
+        },
+        "1": {
+          "molecules": 21,
+          "old_residual": 130,
+          "composed_residual": 56,
+          "improved_molecules": 15
+        },
+        "2": {
+          "molecules": 41,
+          "old_residual": 2,
+          "composed_residual": 2,
+          "improved_molecules": 0
+        },
+        "3": {
+          "molecules": 55,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "4": {
+          "molecules": 69,
+          "old_residual": 2,
+          "composed_residual": 2,
+          "improved_molecules": 0
+        },
+        "5": {
+          "molecules": 64,
+          "old_residual": 2,
+          "composed_residual": 2,
+          "improved_molecules": 0
+        },
+        "6": {
+          "molecules": 69,
+          "old_residual": 7,
+          "composed_residual": 7,
+          "improved_molecules": 0
+        },
+        "7": {
+          "molecules": 62,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "8": {
+          "molecules": 77,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "9": {
+          "molecules": 80,
+          "old_residual": 6,
+          "composed_residual": 6,
+          "improved_molecules": 0
+        },
+        "10": {
+          "molecules": 77,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "11": {
+          "molecules": 75,
+          "old_residual": 1,
+          "composed_residual": 1,
+          "improved_molecules": 0
+        },
+        "12": {
+          "molecules": 68,
+          "old_residual": 9,
+          "composed_residual": 9,
+          "improved_molecules": 0
+        },
+        "13": {
+          "molecules": 57,
+          "old_residual": 5,
+          "composed_residual": 5,
+          "improved_molecules": 0
+        },
+        "14": {
+          "molecules": 59,
+          "old_residual": 4,
+          "composed_residual": 4,
+          "improved_molecules": 0
+        },
+        "15": {
+          "molecules": 69,
+          "old_residual": 10,
+          "composed_residual": 10,
+          "improved_molecules": 0
+        },
+        "16": {
+          "molecules": 45,
+          "old_residual": 12,
+          "composed_residual": 12,
+          "improved_molecules": 0
+        },
+        "17": {
+          "molecules": 52,
+          "old_residual": 109,
+          "composed_residual": 109,
+          "improved_molecules": 0
+        },
+        "18": {
+          "molecules": 55,
+          "old_residual": 9,
+          "composed_residual": 9,
+          "improved_molecules": 0
+        },
+        "19": {
+          "molecules": 65,
+          "old_residual": 3,
+          "composed_residual": 3,
+          "improved_molecules": 0
+        },
+        "20": {
+          "molecules": 63,
+          "old_residual": 5,
+          "composed_residual": 5,
+          "improved_molecules": 0
+        },
+        "21": {
+          "molecules": 56,
+          "old_residual": 0,
+          "composed_residual": 0,
+          "improved_molecules": 0
+        },
+        "22": {
+          "molecules": 34,
+          "old_residual": 23,
+          "composed_residual": 23,
+          "improved_molecules": 0
+        }
+      }
+    }
+  ]
+}

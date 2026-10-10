@@ -1,0 +1,328 @@
+{
+  "production_sha256": "fe0ae0862c1f3596921218fee6b3f4b5f6cdcef9d6ee674df1cd687cc3d69b50",
+  "starting_sha256": "5c47ca57f979344cce86d167b18225b20d9ffc7accc47a99dd602c7236694ee7",
+  "files": [
+    {
+      "path": "CHECKPOINT.md",
+      "size": 1036736,
+      "sha256": "2b0fd46040b50b0229ed1a2bccc8c5a538f0e8c21652e13f66556c3c15f5bf63"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "size": 346544,
+      "sha256": "2b76249a6002bd0ced6af4978428d58fd68b27b56c348eb915ff3003f4e2720a"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/README.md",
+      "size": 6409,
+      "sha256": "2ceb7ea22d1d53615db6fe0b1cd202e4b13f2169883c096c3953e829f0e53217"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/audit_full.py",
+      "size": 3368,
+      "sha256": "55d985a2ff6903c72bd08486def512f280a0d12d6b699beb1d43cbb6af7556eb"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/audit_matrix.py",
+      "size": 2976,
+      "sha256": "271fd22fed6a5a6b47b95a46d70bc2c0c38e2188a6074e79b1f1d9bd19fca4b5"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/audit_owner.py",
+      "size": 1537,
+      "sha256": "ebe7c03e2dc35d0e8085593306409ff31b1c019ad5e6ade8117c398627fe2000"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/audit_panel.py",
+      "size": 7094,
+      "sha256": "3f653260fcbd2f70bd3be64a1a7e2c2059a0f8a239ef1e7e73c8792218c1dc3f"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/build.log",
+      "size": 763,
+      "sha256": "1b38cfd5c24dae0a69165e2f732ca99891e2a19b9021557fcb151950a733538b"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/cache-tests.log",
+      "size": 102,
+      "sha256": "4501bad0357344daf99965189c34a2b7e05d51437a941aedb52b753671215728"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/compare_panel.py",
+      "size": 998,
+      "sha256": "0bc41df286cbbae5b2c9edcbd3cdc95bb85e4d57035eef19c7e5385c49643034"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/fast-checks.json",
+      "size": 198,
+      "sha256": "15d2db61b028b33de930591de2952abc1a12d3003eb11f52aafdcde00a46bd6b"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/fast-gates.log",
+      "size": 683,
+      "sha256": "7c864ac3a6d789595623283e174661e7cddaf532f85488909a4d9f53e583903f"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/fast-verification.log",
+      "size": 209,
+      "sha256": "96c5eaaa037a67e52c2e4c5de93011310d2a45909511a3682e98f1067f40fb36"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/final-build.log",
+      "size": 36,
+      "sha256": "68c5f548009ee20966e380682cc0b78f39bea9c8895af0403577a7204fef2e99"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/full-comparison.json",
+      "size": 894,
+      "sha256": "d573286b6ce43c49bc47f4f273bda7f7e440682a548c9de0901bea5d886b5b07"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/golden-gates.log",
+      "size": 493,
+      "sha256": "f73c5917a38ef44348e959043c3985b71ae81511989b342f10faef5b0732d8da"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/hiphase-validation.log",
+      "size": 34,
+      "sha256": "471276577ebd5a77f84f9582271c531a104776062cf1ca4ed715eb83585a85db"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/hiphase-verified.tsv",
+      "size": 4119,
+      "sha256": "a9983a729c2d98515ff5186ea9eb6fb140c5c015fe8008e25ef5cc267ef571c4"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/hiphase-verified.tsv.json",
+      "size": 1677,
+      "sha256": "9999009e9582a85f50cc5ad8ec318202b40df03b0a7e3879eae1848a08f1a7ab"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/matrix-checks.json",
+      "size": 581,
+      "sha256": "15b871d60518b223209659eba4174332c87037db7f074e8f20b3f533bfd081bd"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/matrix-checks.log",
+      "size": 581,
+      "sha256": "15b871d60518b223209659eba4174332c87037db7f074e8f20b3f533bfd081bd"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/mutation-checks.json",
+      "size": 209,
+      "sha256": "96c5eaaa037a67e52c2e4c5de93011310d2a45909511a3682e98f1067f40fb36"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/native-gap-contract.tsv",
+      "size": 5951,
+      "sha256": "d11a767597a6b3549db18571252eff0b457dc5bf3cc9dcbe7303daaf92030aaf"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/normalization-checks.json",
+      "size": 11469,
+      "sha256": "10f8e35c84bc1d6c5802ae329f13151f6308a98c15a5e69c6e7e931fbf759e2e"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/normalization-checks.log",
+      "size": 11469,
+      "sha256": "10f8e35c84bc1d6c5802ae329f13151f6308a98c15a5e69c6e7e931fbf759e2e"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/owner-output-checks.json",
+      "size": 308,
+      "sha256": "8e436536061efc6cbbc92058d3f91d63ef14debe2877a304caaf978c5e6bf16b"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/owner33.log",
+      "size": 236,
+      "sha256": "d2ae9f3ecbf8f386e1fe9b47abfda0d651a2d12b2eefd13c55c093154291eec7"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/owner47.log",
+      "size": 233,
+      "sha256": "9b193a8360fe299413888a5a200e36337fef8f466a6b8ffc4ae07807a492739e"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/panel-audit.json",
+      "size": 160999,
+      "sha256": "3a8946628deb94d61bbd7ef369b997be5f729726ab4586770f165ad751841ec7"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/panel-audit.log",
+      "size": 918,
+      "sha256": "0424093233f5d6ca71dd51ce490ee5f21e4b65b78e36ac52aa5009c124d566aa"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/panel-comparison.json",
+      "size": 142,
+      "sha256": "66da81485616e145128136c0d5d3ed53f7d6b3781cda1936f28ae66d7315b703"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/panel-comparison.log",
+      "size": 142,
+      "sha256": "66da81485616e145128136c0d5d3ed53f7d6b3781cda1936f28ae66d7315b703"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/standard-windows.log",
+      "size": 295,
+      "sha256": "ce1658bb2d0a2ca9a1068930e005051ab05fd6a804ba2e79f13124165d370bd1"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/verify_fast.py",
+      "size": 2106,
+      "sha256": "8d984c1265a15af35a287f7c1761b2306508a3d8d101f4fb323266bfb4240178"
+    },
+    {
+      "path": "evaluations/2026-10-07-representation-step3/window-checks.json",
+      "size": 28980,
+      "sha256": "16b5e0e11550d6fe2929afcf00fee8918e0087049638d10d597fc1a7e7127e42"
+    },
+    {
+      "path": "pgphase",
+      "size": 14815808,
+      "sha256": "fe0ae0862c1f3596921218fee6b3f4b5f6cdcef9d6ee674df1cd687cc3d69b50"
+    },
+    {
+      "path": "src/allele_identity.cpp",
+      "size": 6889,
+      "sha256": "6c1e7731e951d5852184f509ee3c3169c43cafe50693c814e7d83aecafcfcdf7"
+    },
+    {
+      "path": "src/allele_identity.hpp",
+      "size": 3128,
+      "sha256": "081e9614ad775cc68b2fe30cc38aa036a9b34810e365d012a7e446c614d3e263"
+    },
+    {
+      "path": "src/collect_pipeline.cpp",
+      "size": 301422,
+      "sha256": "85a470f0d527d275a5ffce2694e7d6c3ebfc6820477e03b1ab9fd9291ad5b0d1"
+    },
+    {
+      "path": "src/test_allele_identity.cpp",
+      "size": 17449,
+      "sha256": "0ed82f46e2183731bc0b6359efbdfce9da55e0082d871665856f30db2236b221"
+    },
+    {
+      "path": "test_data/tmp_representation_step2/full-current/candidates.tsv",
+      "size": 9022481,
+      "sha256": "928a125df5cbb509a1ddc9805e648e0a42eb219da1895c0c09d6fc15c875f485"
+    },
+    {
+      "path": "test_data/tmp_representation_step2/full-current/phased.bam",
+      "size": 1941403,
+      "sha256": "0dcf7d4663e79a4eaf4c0493716507ccc4682dcdb1c4cd3f6c601fc976ba3f7e"
+    },
+    {
+      "path": "test_data/tmp_representation_step2/full-current/phased.vcf",
+      "size": 10853416,
+      "sha256": "41c3a7edc1691aaf24a778625d84899b8a2160e7f21f9895f4b3f8201968d143"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/CHECKPOINT.md",
+      "size": 1032938,
+      "sha256": "75c0cd96f3707305617088ba8bb3c74e2f28a76857d7c82ea841da80ff510675"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/IMPLEMENTATION.md",
+      "size": 345771,
+      "sha256": "503c913584951c34e068067c746350f0e7c76c9e245f9014433747fd477bf4c6"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/allele_identity.cpp",
+      "size": 5788,
+      "sha256": "5ae09817d114d804996d40df7fbdd2e632236e6bbd1bdfe3b21e85c4c0dd13a8"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/allele_identity.hpp",
+      "size": 2495,
+      "sha256": "6d32cae5cfb5bcbba5e006ff56e6bc850d51fa52c05bf04fbff0c94a915af690"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/collect_pipeline.cpp",
+      "size": 301269,
+      "sha256": "618d366bcdc7ccb9a54435f64360890b98bd57df376186d5c94df27346f46dd8"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/baseline_src/test_allele_identity.cpp",
+      "size": 12023,
+      "sha256": "9ab4af2da9a070fd5afd280e3fe0b77b675a38e36a12e81cf8f7b2950931fd3a"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/full-current/candidates.tsv",
+      "size": 9022481,
+      "sha256": "928a125df5cbb509a1ddc9805e648e0a42eb219da1895c0c09d6fc15c875f485"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/full-current/phased.bam",
+      "size": 1941403,
+      "sha256": "0dcf7d4663e79a4eaf4c0493716507ccc4682dcdb1c4cd3f6c601fc976ba3f7e"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/full-current/phased.vcf",
+      "size": 10853416,
+      "sha256": "41c3a7edc1691aaf24a778625d84899b8a2160e7f21f9895f4b3f8201968d143"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/pgphase.before",
+      "size": 14814936,
+      "sha256": "5c47ca57f979344cce86d167b18225b20d9ffc7accc47a99dd602c7236694ee7"
+    },
+    {
+      "path": "test_data/tmp_representation_step3/pgphase.step3",
+      "size": 14815808,
+      "sha256": "fe0ae0862c1f3596921218fee6b3f4b5f6cdcef9d6ee674df1cd687cc3d69b50"
+    }
+  ],
+  "input_metadata": [
+    {
+      "path": "test_data/chm13v2.0.chr20.renamed.fa",
+      "size": 67037899,
+      "mtime_ns": 1777580431186148146
+    },
+    {
+      "path": "test_data/chm13v2.0.chr20.renamed.fa.fai",
+      "size": 32,
+      "mtime_ns": 1790700393443098387
+    },
+    {
+      "path": "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam",
+      "size": 1628148107,
+      "mtime_ns": 1777684529398316204
+    },
+    {
+      "path": "test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam.bai",
+      "size": 699544,
+      "mtime_ns": 1777684547739001301
+    },
+    {
+      "path": "test_data/chr20.sites.striped.vcf.gz",
+      "size": 656334074,
+      "mtime_ns": 1779089336279080637
+    },
+    {
+      "path": "test_data/chr20.sites.striped.vcf.gz.tbi",
+      "size": 46469,
+      "mtime_ns": 1779089366892614716
+    },
+    {
+      "path": "test_data/HG002.chr20.annotated.coord.gaf.gz",
+      "size": 840749997,
+      "mtime_ns": 1778217680609834235
+    },
+    {
+      "path": "test_data/HG002.chr20.annotated.coord.gaf.gz.tbi",
+      "size": 313469,
+      "mtime_ns": 1778217693623626164
+    },
+    {
+      "path": "test_data/derived/chr20_truth_hap.tsv",
+      "size": 12679829,
+      "mtime_ns": 1789660880088322588
+    },
+    {
+      "path": "evaluations/2026-09-16-test-panel/panel.tsv",
+      "size": 14358,
+      "mtime_ns": 1791329660466581110
+    }
+  ]
+}

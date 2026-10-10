@@ -1,0 +1,30 @@
+{
+  "seconds": 117.13670422998257,
+  "oracle": "independent scalar global edit-distance DP",
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "molecules": 1714,
+      "individual_allele_distance_checks": 12959
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 7,
+      "molecules": 412,
+      "individual_allele_distance_checks": 6874
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 11,
+      "molecules": 386,
+      "individual_allele_distance_checks": 11589
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "molecules": 1337,
+      "individual_allele_distance_checks": 7095
+    }
+  ]
+}

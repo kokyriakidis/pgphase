@@ -1,0 +1,296 @@
+[
+  {
+    "owner": "matrix4-final",
+    "outcomes": {
+      "resolved": 7,
+      "unguarded_length_change": 23
+    },
+    "details": [
+      {
+        "physical": "18",
+        "parent": "0",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "1",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "2",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "4",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "5",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "6",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "18",
+        "parent": "7",
+        "candidate": "1094",
+        "pos": "4760662",
+        "ref": "A",
+        "alt": "C",
+        "reason": "resolved"
+      },
+      {
+        "physical": "21",
+        "parent": "0",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "2",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "3",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "4",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "5",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "6",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "21",
+        "parent": "7",
+        "candidate": "1262",
+        "pos": "4823837",
+        "ref": "C",
+        "alt": "CA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "1",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "2",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "3",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "4",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "5",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "24",
+        "parent": "6",
+        "candidate": "1328",
+        "pos": "4843598",
+        "ref": "C",
+        "alt": "CTTTT",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "7",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGGGGGA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "8",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGGGGGA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "7",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGGGGA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "8",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGGGGA",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "7",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGG",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "8",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGG",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "7",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGG",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "8",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGGAGGG",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "7",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGAGGG",
+        "reason": "unguarded_length_change"
+      },
+      {
+        "physical": "29",
+        "parent": "8",
+        "candidate": "1447",
+        "pos": "4884138",
+        "ref": "AGGGGGGA",
+        "alt": "AGGGGGAGGG",
+        "reason": "unguarded_length_change"
+      }
+    ]
+  },
+  {
+    "owner": "matrix5-final",
+    "outcomes": {},
+    "details": []
+  },
+  {
+    "owner": "matrix65-final",
+    "outcomes": {},
+    "details": []
+  },
+  {
+    "owner": "whole-final",
+    "outcomes": {},
+    "details": []
+  }
+]

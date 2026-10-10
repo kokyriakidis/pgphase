@@ -1,0 +1,14 @@
+{
+  "first_wins_mutant_exit": 1,
+  "first_wins_failures": [
+    "FAIL: identity: duplicate rows abstain permanently in either order",
+    "FAIL: identity: duplicate rows abstain permanently in either order",
+    "FAIL: identity: ambiguous topology key cannot select the first graph row",
+    "FAIL: identity: duplicate sequence descriptions cannot select the first row",
+    "FAIL: identity: unique raw entry cannot bypass ambiguous sequence identity"
+  ],
+  "fixed_exit": 0,
+  "fixed_stdout": "ALL PASS",
+  "warm_test_runs": 100,
+  "warm_mean_ms_with_process_startup": 1.3162596599431708
+}

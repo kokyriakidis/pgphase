@@ -1,0 +1,807 @@
+{
+  "interpretation": "Current diagnostic fits condition on the original contrast-observed cohort; no complete sample genotype or phasing certificate claimed",
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "contexts": 31,
+      "contexts_with_omitted_molecules": 4,
+      "omitted_molecule_locus_records": 82,
+      "loci": [
+        {
+          "locus": 0,
+          "contrast_observed_molecules": 24,
+          "fully_covered_primary_molecules": 24,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 1,
+          "contrast_observed_molecules": 12,
+          "fully_covered_primary_molecules": 49,
+          "omitted_molecules": 37,
+          "omitted_names": [
+            "m84031_231217_034919_s2/109385065/ccs",
+            "m84031_231217_034919_s2/121768841/ccs",
+            "m84031_231217_034919_s2/152569505/ccs",
+            "m84031_231217_034919_s2/179377420/ccs",
+            "m84031_231217_034919_s2/184553858/ccs",
+            "m84031_231217_034919_s2/20777764/ccs",
+            "m84031_231217_034919_s2/229311224/ccs",
+            "m84031_231217_034919_s2/231997830/ccs",
+            "m84031_231217_034919_s2/240059340/ccs",
+            "m84031_231217_034919_s2/254019877/ccs",
+            "m84031_231217_034919_s2/256247556/ccs",
+            "m84031_231217_034919_s2/42599096/ccs",
+            "m84031_231217_034919_s2/53153893/ccs",
+            "m84031_231217_034919_s2/63768577/ccs",
+            "m84031_231217_034919_s2/65536303/ccs",
+            "m84031_231217_034919_s2/70915932/ccs",
+            "m84031_231217_034919_s2/96866894/ccs",
+            "m84031_231217_062403_s3/11076311/ccs",
+            "m84031_231217_062403_s3/147588984/ccs",
+            "m84031_231217_062403_s3/151322683/ccs",
+            "m84031_231217_062403_s3/161092711/ccs",
+            "m84031_231217_062403_s3/166924809/ccs",
+            "m84031_231217_062403_s3/173477317/ccs",
+            "m84031_231217_062403_s3/175966968/ccs",
+            "m84031_231217_062403_s3/191239361/ccs",
+            "m84031_231217_062403_s3/201654766/ccs",
+            "m84031_231217_062403_s3/214958915/ccs",
+            "m84031_231217_062403_s3/233443650/ccs",
+            "m84031_231217_062403_s3/25627984/ccs",
+            "m84031_231217_062403_s3/261754753/ccs",
+            "m84031_231217_062403_s3/34346073/ccs",
+            "m84031_231217_062403_s3/37948562/ccs",
+            "m84031_231217_062403_s3/49287815/ccs",
+            "m84031_231217_062403_s3/53872168/ccs",
+            "m84031_231217_062403_s3/88346740/ccs",
+            "m84031_231217_062403_s3/9175311/ccs",
+            "m84031_231217_062403_s3/9310804/ccs"
+          ]
+        },
+        {
+          "locus": 2,
+          "contrast_observed_molecules": 21,
+          "fully_covered_primary_molecules": 21,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 3,
+          "contrast_observed_molecules": 55,
+          "fully_covered_primary_molecules": 55,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 4,
+          "contrast_observed_molecules": 68,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 1,
+          "omitted_names": [
+            "m84031_231217_062403_s3/186454613/ccs"
+          ]
+        },
+        {
+          "locus": 5,
+          "contrast_observed_molecules": 69,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 6,
+          "contrast_observed_molecules": 64,
+          "fully_covered_primary_molecules": 64,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 7,
+          "contrast_observed_molecules": 61,
+          "fully_covered_primary_molecules": 61,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 8,
+          "contrast_observed_molecules": 69,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 9,
+          "contrast_observed_molecules": 62,
+          "fully_covered_primary_molecules": 62,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 10,
+          "contrast_observed_molecules": 77,
+          "fully_covered_primary_molecules": 77,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 11,
+          "contrast_observed_molecules": 80,
+          "fully_covered_primary_molecules": 80,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 12,
+          "contrast_observed_molecules": 77,
+          "fully_covered_primary_molecules": 77,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 13,
+          "contrast_observed_molecules": 75,
+          "fully_covered_primary_molecules": 75,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 14,
+          "contrast_observed_molecules": 68,
+          "fully_covered_primary_molecules": 68,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 15,
+          "contrast_observed_molecules": 57,
+          "fully_covered_primary_molecules": 57,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 16,
+          "contrast_observed_molecules": 59,
+          "fully_covered_primary_molecules": 59,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 17,
+          "contrast_observed_molecules": 57,
+          "fully_covered_primary_molecules": 57,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 18,
+          "contrast_observed_molecules": 62,
+          "fully_covered_primary_molecules": 62,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 19,
+          "contrast_observed_molecules": 26,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 43,
+          "omitted_names": [
+            "m84031_231217_034919_s2/126353854/ccs",
+            "m84031_231217_034919_s2/128323961/ccs",
+            "m84031_231217_034919_s2/128781145/ccs",
+            "m84031_231217_034919_s2/131143472/ccs",
+            "m84031_231217_034919_s2/137301559/ccs",
+            "m84031_231217_034919_s2/140776198/ccs",
+            "m84031_231217_034919_s2/146082400/ccs",
+            "m84031_231217_034919_s2/156764959/ccs",
+            "m84031_231217_034919_s2/172163272/ccs",
+            "m84031_231217_034919_s2/176034817/ccs",
+            "m84031_231217_034919_s2/19142008/ccs",
+            "m84031_231217_034919_s2/207684947/ccs",
+            "m84031_231217_034919_s2/216467591/ccs",
+            "m84031_231217_034919_s2/219676754/ccs",
+            "m84031_231217_034919_s2/233641016/ccs",
+            "m84031_231217_034919_s2/253035001/ccs",
+            "m84031_231217_034919_s2/262541069/ccs",
+            "m84031_231217_034919_s2/33100115/ccs",
+            "m84031_231217_034919_s2/41353257/ccs",
+            "m84031_231217_034919_s2/593684/ccs",
+            "m84031_231217_034919_s2/61672594/ccs",
+            "m84031_231217_062403_s3/117706040/ccs",
+            "m84031_231217_062403_s3/155716691/ccs",
+            "m84031_231217_062403_s3/158206425/ccs",
+            "m84031_231217_062403_s3/161219615/ccs",
+            "m84031_231217_062403_s3/177275055/ccs",
+            "m84031_231217_062403_s3/178459692/ccs",
+            "m84031_231217_062403_s3/185077676/ccs",
+            "m84031_231217_062403_s3/196216343/ccs",
+            "m84031_231217_062403_s3/223680259/ccs",
+            "m84031_231217_062403_s3/244910796/ccs",
+            "m84031_231217_062403_s3/247138045/ccs",
+            "m84031_231217_062403_s3/247403611/ccs",
+            "m84031_231217_062403_s3/249959221/ccs",
+            "m84031_231217_062403_s3/254675082/ccs",
+            "m84031_231217_062403_s3/32245754/ccs",
+            "m84031_231217_062403_s3/33557621/ccs",
+            "m84031_231217_062403_s3/55836823/ccs",
+            "m84031_231217_062403_s3/59182942/ccs",
+            "m84031_231217_062403_s3/61082571/ccs",
+            "m84031_231217_062403_s3/66193752/ccs",
+            "m84031_231217_062403_s3/67311447/ccs",
+            "m84031_231217_062403_s3/86052443/ccs"
+          ]
+        },
+        {
+          "locus": 20,
+          "contrast_observed_molecules": 68,
+          "fully_covered_primary_molecules": 68,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 21,
+          "contrast_observed_molecules": 44,
+          "fully_covered_primary_molecules": 44,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 22,
+          "contrast_observed_molecules": 48,
+          "fully_covered_primary_molecules": 48,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 23,
+          "contrast_observed_molecules": 52,
+          "fully_covered_primary_molecules": 52,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 24,
+          "contrast_observed_molecules": 53,
+          "fully_covered_primary_molecules": 53,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 25,
+          "contrast_observed_molecules": 55,
+          "fully_covered_primary_molecules": 55,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 26,
+          "contrast_observed_molecules": 65,
+          "fully_covered_primary_molecules": 65,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 27,
+          "contrast_observed_molecules": 63,
+          "fully_covered_primary_molecules": 63,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 28,
+          "contrast_observed_molecules": 56,
+          "fully_covered_primary_molecules": 56,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 29,
+          "contrast_observed_molecules": 33,
+          "fully_covered_primary_molecules": 34,
+          "omitted_molecules": 1,
+          "omitted_names": [
+            "m84031_231217_034919_s2/218238136/ccs"
+          ]
+        },
+        {
+          "locus": 30,
+          "contrast_observed_molecules": 34,
+          "fully_covered_primary_molecules": 34,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        }
+      ]
+    },
+    {
+      "owner": "matrix5-final",
+      "contexts": 7,
+      "contexts_with_omitted_molecules": 3,
+      "omitted_molecule_locus_records": 72,
+      "loci": [
+        {
+          "locus": 0,
+          "contrast_observed_molecules": 56,
+          "fully_covered_primary_molecules": 56,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 1,
+          "contrast_observed_molecules": 75,
+          "fully_covered_primary_molecules": 75,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 2,
+          "contrast_observed_molecules": 72,
+          "fully_covered_primary_molecules": 72,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 3,
+          "contrast_observed_molecules": 58,
+          "fully_covered_primary_molecules": 75,
+          "omitted_molecules": 17,
+          "omitted_names": [
+            "m84031_231217_034919_s2/18353866/ccs",
+            "m84031_231217_034919_s2/213587060/ccs",
+            "m84031_231217_034919_s2/216601294/ccs",
+            "m84031_231217_034919_s2/232128687/ccs",
+            "m84031_231217_034919_s2/234489758/ccs",
+            "m84031_231217_034919_s2/239536227/ccs",
+            "m84031_231217_034919_s2/243009377/ccs",
+            "m84031_231217_034919_s2/27983967/ccs",
+            "m84031_231217_034919_s2/28578564/ccs",
+            "m84031_231217_034919_s2/79954322/ccs",
+            "m84031_231217_062403_s3/187564596/ccs",
+            "m84031_231217_062403_s3/187697638/ccs",
+            "m84031_231217_062403_s3/217844175/ccs",
+            "m84031_231217_062403_s3/248777012/ccs",
+            "m84031_231217_062403_s3/30479259/ccs",
+            "m84031_231217_062403_s3/39127912/ccs",
+            "m84031_231217_062403_s3/50991523/ccs"
+          ]
+        },
+        {
+          "locus": 4,
+          "contrast_observed_molecules": 64,
+          "fully_covered_primary_molecules": 64,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 5,
+          "contrast_observed_molecules": 49,
+          "fully_covered_primary_molecules": 71,
+          "omitted_molecules": 22,
+          "omitted_names": [
+            "m84031_231217_034919_s2/124059950/ccs",
+            "m84031_231217_034919_s2/127010262/ccs",
+            "m84031_231217_034919_s2/150864287/ccs",
+            "m84031_231217_034919_s2/154014723/ccs",
+            "m84031_231217_034919_s2/163119183/ccs",
+            "m84031_231217_034919_s2/218172319/ccs",
+            "m84031_231217_034919_s2/24317601/ccs",
+            "m84031_231217_034919_s2/264373471/ccs",
+            "m84031_231217_034919_s2/30085847/ccs",
+            "m84031_231217_034919_s2/45354235/ccs",
+            "m84031_231217_034919_s2/7736908/ccs",
+            "m84031_231217_062403_s3/135139323/ccs",
+            "m84031_231217_062403_s3/138478826/ccs",
+            "m84031_231217_062403_s3/139072003/ccs",
+            "m84031_231217_062403_s3/155062036/ccs",
+            "m84031_231217_062403_s3/162072158/ccs",
+            "m84031_231217_062403_s3/195170118/ccs",
+            "m84031_231217_062403_s3/204408462/ccs",
+            "m84031_231217_062403_s3/227480624/ccs",
+            "m84031_231217_062403_s3/250024804/ccs",
+            "m84031_231217_062403_s3/264635512/ccs",
+            "m84031_231217_062403_s3/44370840/ccs"
+          ]
+        },
+        {
+          "locus": 6,
+          "contrast_observed_molecules": 38,
+          "fully_covered_primary_molecules": 71,
+          "omitted_molecules": 33,
+          "omitted_names": [
+            "m84031_231217_034919_s2/10814238/ccs",
+            "m84031_231217_034919_s2/123339836/ccs",
+            "m84031_231217_034919_s2/127010262/ccs",
+            "m84031_231217_034919_s2/127274053/ccs",
+            "m84031_231217_034919_s2/143529392/ccs",
+            "m84031_231217_034919_s2/149163811/ccs",
+            "m84031_231217_034919_s2/150864287/ccs",
+            "m84031_231217_034919_s2/154014723/ccs",
+            "m84031_231217_034919_s2/15795676/ccs",
+            "m84031_231217_034919_s2/163119183/ccs",
+            "m84031_231217_034919_s2/208017269/ccs",
+            "m84031_231217_034919_s2/214698250/ccs",
+            "m84031_231217_034919_s2/218172319/ccs",
+            "m84031_231217_034919_s2/222628538/ccs",
+            "m84031_231217_034919_s2/231866906/ccs",
+            "m84031_231217_034919_s2/24317601/ccs",
+            "m84031_231217_034919_s2/262017194/ccs",
+            "m84031_231217_034919_s2/264373471/ccs",
+            "m84031_231217_034919_s2/45354235/ccs",
+            "m84031_231217_062403_s3/117769279/ccs",
+            "m84031_231217_062403_s3/138478826/ccs",
+            "m84031_231217_062403_s3/139072003/ccs",
+            "m84031_231217_062403_s3/140447722/ccs",
+            "m84031_231217_062403_s3/162072158/ccs",
+            "m84031_231217_062403_s3/165548527/ccs",
+            "m84031_231217_062403_s3/168759305/ccs",
+            "m84031_231217_062403_s3/168823237/ccs",
+            "m84031_231217_062403_s3/188158003/ccs",
+            "m84031_231217_062403_s3/235738953/ccs",
+            "m84031_231217_062403_s3/250024804/ccs",
+            "m84031_231217_062403_s3/263849787/ccs",
+            "m84031_231217_062403_s3/44370840/ccs",
+            "m84031_231217_062403_s3/47125564/ccs"
+          ]
+        }
+      ]
+    },
+    {
+      "owner": "matrix65-final",
+      "contexts": 11,
+      "contexts_with_omitted_molecules": 8,
+      "omitted_molecule_locus_records": 97,
+      "loci": [
+        {
+          "locus": 0,
+          "contrast_observed_molecules": 24,
+          "fully_covered_primary_molecules": 24,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 1,
+          "contrast_observed_molecules": 38,
+          "fully_covered_primary_molecules": 42,
+          "omitted_molecules": 4,
+          "omitted_names": [
+            "m84031_231217_034919_s2/250024825/ccs",
+            "m84031_231217_062403_s3/161355524/ccs",
+            "m84031_231217_062403_s3/35326156/ccs",
+            "m84031_231217_062403_s3/48107489/ccs"
+          ]
+        },
+        {
+          "locus": 2,
+          "contrast_observed_molecules": 36,
+          "fully_covered_primary_molecules": 38,
+          "omitted_molecules": 2,
+          "omitted_names": [
+            "m84031_231217_034919_s2/176425181/ccs",
+            "m84031_231217_062403_s3/215356879/ccs"
+          ]
+        },
+        {
+          "locus": 3,
+          "contrast_observed_molecules": 25,
+          "fully_covered_primary_molecules": 39,
+          "omitted_molecules": 14,
+          "omitted_names": [
+            "m84031_231217_034919_s2/107613064/ccs",
+            "m84031_231217_034919_s2/109382600/ccs",
+            "m84031_231217_034919_s2/116068444/ccs",
+            "m84031_231217_034919_s2/119017774/ccs",
+            "m84031_231217_034919_s2/139267947/ccs",
+            "m84031_231217_034919_s2/225184849/ccs",
+            "m84031_231217_034919_s2/255921159/ccs",
+            "m84031_231217_034919_s2/31985339/ccs",
+            "m84031_231217_062403_s3/113379266/ccs",
+            "m84031_231217_062403_s3/118295240/ccs",
+            "m84031_231217_062403_s3/198184415/ccs",
+            "m84031_231217_062403_s3/218894420/ccs",
+            "m84031_231217_062403_s3/31920296/ccs",
+            "m84031_231217_062403_s3/34800876/ccs"
+          ]
+        },
+        {
+          "locus": 4,
+          "contrast_observed_molecules": 25,
+          "fully_covered_primary_molecules": 28,
+          "omitted_molecules": 3,
+          "omitted_names": [
+            "m84031_231217_034919_s2/139267947/ccs",
+            "m84031_231217_034919_s2/224529847/ccs",
+            "m84031_231217_062403_s3/31920296/ccs"
+          ]
+        },
+        {
+          "locus": 5,
+          "contrast_observed_molecules": 52,
+          "fully_covered_primary_molecules": 52,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 6,
+          "contrast_observed_molecules": 24,
+          "fully_covered_primary_molecules": 37,
+          "omitted_molecules": 13,
+          "omitted_names": [
+            "m84031_231217_034919_s2/150345379/ccs",
+            "m84031_231217_034919_s2/16321106/ccs",
+            "m84031_231217_034919_s2/196083952/ccs",
+            "m84031_231217_034919_s2/208931471/ccs",
+            "m84031_231217_034919_s2/39850015/ccs",
+            "m84031_231217_034919_s2/42666067/ccs",
+            "m84031_231217_034919_s2/65733517/ccs",
+            "m84031_231217_062403_s3/106631839/ccs",
+            "m84031_231217_062403_s3/241238276/ccs",
+            "m84031_231217_062403_s3/259523300/ccs",
+            "m84031_231217_062403_s3/44042441/ccs",
+            "m84031_231217_062403_s3/64684648/ccs",
+            "m84031_231217_062403_s3/85983359/ccs"
+          ]
+        },
+        {
+          "locus": 7,
+          "contrast_observed_molecules": 18,
+          "fully_covered_primary_molecules": 58,
+          "omitted_molecules": 40,
+          "omitted_names": [
+            "m84031_231217_034919_s2/126158772/ccs",
+            "m84031_231217_034919_s2/160959550/ccs",
+            "m84031_231217_034919_s2/199689872/ccs",
+            "m84031_231217_034919_s2/201855835/ccs",
+            "m84031_231217_034919_s2/202835562/ccs",
+            "m84031_231217_034919_s2/206178475/ccs",
+            "m84031_231217_034919_s2/207230605/ccs",
+            "m84031_231217_034919_s2/215679564/ccs",
+            "m84031_231217_034919_s2/229572939/ccs",
+            "m84031_231217_034919_s2/46599978/ccs",
+            "m84031_231217_034919_s2/52561786/ccs",
+            "m84031_231217_034919_s2/58002331/ccs",
+            "m84031_231217_034919_s2/64359340/ccs",
+            "m84031_231217_034919_s2/78712024/ccs",
+            "m84031_231217_034919_s2/84676251/ccs",
+            "m84031_231217_034919_s2/90967742/ccs",
+            "m84031_231217_034919_s2/93459109/ccs",
+            "m84031_231217_062403_s3/105775680/ccs",
+            "m84031_231217_062403_s3/123604242/ccs",
+            "m84031_231217_062403_s3/140641491/ccs",
+            "m84031_231217_062403_s3/15271083/ccs",
+            "m84031_231217_062403_s3/157156167/ccs",
+            "m84031_231217_062403_s3/157157318/ccs",
+            "m84031_231217_062403_s3/183047697/ccs",
+            "m84031_231217_062403_s3/183440935/ccs",
+            "m84031_231217_062403_s3/184159422/ccs",
+            "m84031_231217_062403_s3/193858852/ccs",
+            "m84031_231217_062403_s3/199626392/ccs",
+            "m84031_231217_062403_s3/20319684/ccs",
+            "m84031_231217_062403_s3/216532060/ccs",
+            "m84031_231217_062403_s3/226427294/ccs",
+            "m84031_231217_062403_s3/239535528/ccs",
+            "m84031_231217_062403_s3/246943686/ccs",
+            "m84031_231217_062403_s3/25757115/ccs",
+            "m84031_231217_062403_s3/25826982/ccs",
+            "m84031_231217_062403_s3/261096204/ccs",
+            "m84031_231217_062403_s3/38540096/ccs",
+            "m84031_231217_062403_s3/45613114/ccs",
+            "m84031_231217_062403_s3/69338872/ccs",
+            "m84031_231217_062403_s3/97781679/ccs"
+          ]
+        },
+        {
+          "locus": 8,
+          "contrast_observed_molecules": 39,
+          "fully_covered_primary_molecules": 58,
+          "omitted_molecules": 19,
+          "omitted_names": [
+            "m84031_231217_034919_s2/143327260/ccs",
+            "m84031_231217_034919_s2/199689872/ccs",
+            "m84031_231217_034919_s2/206178475/ccs",
+            "m84031_231217_034919_s2/207230605/ccs",
+            "m84031_231217_034919_s2/37032213/ccs",
+            "m84031_231217_034919_s2/46599978/ccs",
+            "m84031_231217_034919_s2/52561786/ccs",
+            "m84031_231217_034919_s2/84676251/ccs",
+            "m84031_231217_034919_s2/90967742/ccs",
+            "m84031_231217_062403_s3/179505321/ccs",
+            "m84031_231217_062403_s3/184159422/ccs",
+            "m84031_231217_062403_s3/20319684/ccs",
+            "m84031_231217_062403_s3/214041358/ccs",
+            "m84031_231217_062403_s3/216532060/ccs",
+            "m84031_231217_062403_s3/239535528/ccs",
+            "m84031_231217_062403_s3/261096204/ccs",
+            "m84031_231217_062403_s3/38540096/ccs",
+            "m84031_231217_062403_s3/69338872/ccs",
+            "m84031_231217_062403_s3/97781679/ccs"
+          ]
+        },
+        {
+          "locus": 9,
+          "contrast_observed_molecules": 52,
+          "fully_covered_primary_molecules": 54,
+          "omitted_molecules": 2,
+          "omitted_names": [
+            "m84031_231217_034919_s2/93459109/ccs",
+            "m84031_231217_062403_s3/199626392/ccs"
+          ]
+        },
+        {
+          "locus": 10,
+          "contrast_observed_molecules": 53,
+          "fully_covered_primary_molecules": 53,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        }
+      ]
+    },
+    {
+      "owner": "whole-final",
+      "contexts": 23,
+      "contexts_with_omitted_molecules": 0,
+      "omitted_molecule_locus_records": 0,
+      "loci": [
+        {
+          "locus": 0,
+          "contrast_observed_molecules": 24,
+          "fully_covered_primary_molecules": 24,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 1,
+          "contrast_observed_molecules": 21,
+          "fully_covered_primary_molecules": 21,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 2,
+          "contrast_observed_molecules": 55,
+          "fully_covered_primary_molecules": 55,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 3,
+          "contrast_observed_molecules": 69,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 4,
+          "contrast_observed_molecules": 64,
+          "fully_covered_primary_molecules": 64,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 5,
+          "contrast_observed_molecules": 69,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 6,
+          "contrast_observed_molecules": 62,
+          "fully_covered_primary_molecules": 62,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 7,
+          "contrast_observed_molecules": 77,
+          "fully_covered_primary_molecules": 77,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 8,
+          "contrast_observed_molecules": 80,
+          "fully_covered_primary_molecules": 80,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 9,
+          "contrast_observed_molecules": 77,
+          "fully_covered_primary_molecules": 77,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 10,
+          "contrast_observed_molecules": 75,
+          "fully_covered_primary_molecules": 75,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 11,
+          "contrast_observed_molecules": 68,
+          "fully_covered_primary_molecules": 68,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 12,
+          "contrast_observed_molecules": 57,
+          "fully_covered_primary_molecules": 57,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 13,
+          "contrast_observed_molecules": 59,
+          "fully_covered_primary_molecules": 59,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 14,
+          "contrast_observed_molecules": 69,
+          "fully_covered_primary_molecules": 69,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 15,
+          "contrast_observed_molecules": 45,
+          "fully_covered_primary_molecules": 45,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 16,
+          "contrast_observed_molecules": 52,
+          "fully_covered_primary_molecules": 52,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 17,
+          "contrast_observed_molecules": 55,
+          "fully_covered_primary_molecules": 55,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 18,
+          "contrast_observed_molecules": 65,
+          "fully_covered_primary_molecules": 65,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 19,
+          "contrast_observed_molecules": 63,
+          "fully_covered_primary_molecules": 63,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 20,
+          "contrast_observed_molecules": 56,
+          "fully_covered_primary_molecules": 56,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 21,
+          "contrast_observed_molecules": 34,
+          "fully_covered_primary_molecules": 34,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        },
+        {
+          "locus": 22,
+          "contrast_observed_molecules": 41,
+          "fully_covered_primary_molecules": 41,
+          "omitted_molecules": 0,
+          "omitted_names": []
+        }
+      ]
+    }
+  ]
+}

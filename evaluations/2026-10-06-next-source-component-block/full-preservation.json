@@ -1,0 +1,36 @@
+{
+  "primary_reads": 256612,
+  "before_counts": {
+    "correct": 230922,
+    "unphased": 19069,
+    "discordant": 6621
+  },
+  "after_counts": {
+    "correct": 230925,
+    "unphased": 19067,
+    "discordant": 6620
+  },
+  "lost_correct_assignments": [],
+  "lost_correct_changed_tags": [],
+  "lost_phased_assignments": 0,
+  "changed_read_tags": 20,
+  "changed_evidence": [],
+  "changed_variant_records": [],
+  "variant_records": 64483,
+  "changed_tags_with_status_change_outside_gap": [],
+  "unchanged_rescue_reclassification_outside_gap": [],
+  "removed_variant_keys": [],
+  "added_variant_keys": [],
+  "transitions": {
+    "correct->correct": 230922,
+    "unphased->unphased": 19067,
+    "discordant->discordant": 6620,
+    "unphased->correct": 2,
+    "discordant->correct": 1
+  },
+  "newly_correct": [
+    "m84031_231217_034919_s2/139006833/ccs",
+    "m84031_231217_034919_s2/212666093/ccs",
+    "m84031_231217_034919_s2/248055448/ccs"
+  ]
+}

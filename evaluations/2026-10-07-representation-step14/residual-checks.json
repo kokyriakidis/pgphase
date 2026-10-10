@@ -1,0 +1,59 @@
+{
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "rows": 1796,
+      "novel_distance_checks": 1206,
+      "old_residual": 712,
+      "read_residual": 398,
+      "discovery_heldout_residual": 436,
+      "improved_reads": 86,
+      "old_costs_reused_after_hash_and_input_identity": true,
+      "independent_scalar_dp_matches": true
+    },
+    {
+      "owner": "matrix5-final",
+      "rows": 413,
+      "novel_distance_checks": 198,
+      "old_residual": 38,
+      "read_residual": 20,
+      "discovery_heldout_residual": 22,
+      "improved_reads": 16,
+      "old_costs_reused_after_hash_and_input_identity": true,
+      "independent_scalar_dp_matches": true
+    },
+    {
+      "owner": "matrix65-final",
+      "rows": 425,
+      "novel_distance_checks": 927,
+      "old_residual": 6455,
+      "read_residual": 1258,
+      "discovery_heldout_residual": 1360,
+      "improved_reads": 176,
+      "old_costs_reused_after_hash_and_input_identity": true,
+      "independent_scalar_dp_matches": true
+    },
+    {
+      "owner": "whole-final",
+      "rows": 1337,
+      "novel_distance_checks": 586,
+      "old_residual": 323,
+      "read_residual": 203,
+      "discovery_heldout_residual": 213,
+      "improved_reads": 64,
+      "old_costs_reused_after_hash_and_input_identity": true,
+      "independent_scalar_dp_matches": true
+    }
+  ],
+  "target": {
+    "physical": 3,
+    "rows": 39,
+    "old_residual": 4383,
+    "read_residual": 711,
+    "discovery_heldout_residual": 715,
+    "improved_reads": 28,
+    "old_max_allele_length": 55,
+    "new_max_allele_length": 312,
+    "exact_long_molecules": 6
+  }
+}

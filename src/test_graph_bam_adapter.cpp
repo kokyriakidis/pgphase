@@ -2,6 +2,7 @@
 
 #include "collect_phase.hpp"
 #include "collect_output.hpp"
+#include "collect_var.hpp"
 
 #include <algorithm>
 #include <array>
@@ -61,8 +62,363 @@ static GraphSite make_site(const std::string& id,
     return site;
 }
 
-int main() {
+static void test_bounded_tandem_insertion_calls() {
+    check(tandem_insertion_motif_length("", "GAAGGAAG") == 4, "complete source deletion uses a four-base fundamental motif");
+    check(tandem_insertion_motif_length("TTCC", "TTCCTTCC") == 4, "four-base repeat motif is callable");
+    check(tandem_insertion_motif_length("", "TTTAT") == 5, "reference versus five-base repeat is callable");
+    check(tandem_insertion_motif_length("AT", "ATATAT") == 2, "short motif uses its fundamental period");
+    check(tandem_insertion_motif_length("ATATATAGAG", "ATATATATAGAGAG") == 0, "compound MSA contrast is not a pure repeat");
+    check(tandem_insertion_motif_length("TTCC", "TTCCAAAA") == 0, "incompatible motifs abstain");
+    check(tandem_insertion_motif_length("TTCC", "TTCC") == 0, "identical insertion alleles abstain");
+    check(bounded_tandem_insertion_class(4, 4, 8, {0, 4}) == 0, "complete short allele");
+    check(bounded_tandem_insertion_class(8, 4, 8, {4, 0}) == 1, "complete long allele");
+    check(bounded_tandem_insertion_class(7, 4, 8, {3, 1}) == 1, "one base of length error retains its sequence class");
+    check(bounded_tandem_insertion_class(6, 4, 8, {2, 2}) == -1, "equidistant length and sequence abstain");
+    check(bounded_tandem_insertion_class(8, 4, 8, {0, 4}) == -1, "length versus sequence disagreement abstains");
+    check(bounded_tandem_insertion_class(12, 4, 8, {8, 4}) == -1, "unbounded length slippage abstains");
+    check(bounded_tandem_insertion_class(8, 4, 8, {6, 2}) == -1, "unexplained sequence edits abstain");
+    check(bounded_tandem_insertion_class(0, 0, 5, {0, 5}) == 0, "complete reference allele is informative");
+    check(bounded_tandem_insertion_class(5, 0, 5, {5, 0}) == 1, "five-base alternate allele");
+}
+
+static bool test_joint_candidate_loci() {
     bool ok = true;
+    const std::string reference = "CAAATG";
+    const auto base = [&](hts_pos_t pos) {
+        return pos >= 1 && pos <= static_cast<hts_pos_t>(reference.size())
+            ? reference[static_cast<size_t>(pos - 1)] : 'N';
+    };
+    const auto fixture = [&](size_t copies) {
+        GraphChunkBuildResult gc;
+        gc.chunk.region.tid = 0;
+        gc.chunk.ref_beg = 1;
+        gc.chunk.ref_end = reference.size();
+        for (size_t ci = 0; ci < copies; ++ci) {
+            CandidateVariant row;
+            row.key = vcf_to_variant_key(0, std::min<hts_pos_t>(2 + ci, 4), "A", "AA");
+            row.bam_injected = ci % 2 != 0;
+            row.graph_site = !row.bam_injected;
+            row.msa_verified = row.bam_injected;
+            if (row.graph_site) row.key.alt = ">graph" + std::to_string(ci);
+            row.counts.category = VariantCategory::CleanHetIndel;
+            row.counts.n_uniq_alles = 2;
+            row.counts.ref_cov = 4;
+            row.counts.alt_cov = 4;
+            row.counts.total_cov = 8;
+            row.counts.alle_covs = {4, 4};
+            row.lcd_var_i_to_cate = kCandCleanHetIndel;
+            gc.chunk.candidates.push_back(row);
+            gc.site_ids.push_back("source" + std::to_string(ci));
+            GraphSiteMeta meta;
+            meta.chrom = "chr1";
+            meta.pos = std::min<hts_pos_t>(2 + ci, 4);
+            meta.ref = "A";
+            meta.alts = {"AA"};
+            gc.site_meta.push_back(meta);
+            gc.site_allele_orig_idx.push_back({0, 1});
+        }
+        for (int ri = 0; ri < 8; ++ri) {
+            ReadRecord read;
+            read.qname = "read" + std::to_string(ri);
+            read.beg = 1;
+            read.end = reference.size();
+            gc.chunk.reads.push_back(std::move(read));
+            ReadVariantProfile profile;
+            profile.read_id = ri;
+            profile.start_var_idx = 0;
+            profile.end_var_idx = copies - 1;
+            profile.alleles.assign(copies, ri % 2);
+            profile.alt_qi.assign(copies, 42);
+            profile.graph_alleles = profile.alleles;
+            profile.bam_alleles = profile.alleles;
+            profile.bam_qi.assign(copies, 43);
+            profile.bam_base_qualities.assign(copies, 31);
+            gc.chunk.read_var_profile.push_back(profile);
+        }
+        rebuild_read_var_cr(gc.chunk);
+        return gc;
+    };
+    Options opts;
+    auto single = fixture(1);
+    phase_joint_graph_candidates(single, opts, base);
+    for (const size_t copies : {2, 4}) {
+        auto gc = fixture(copies);
+        const auto profiles = gc.chunk.read_var_profile;
+        const auto candidates = gc.chunk.candidates;
+        const auto ids = gc.site_ids;
+        phase_joint_graph_candidates(gc, opts, base);
+        ok &= check(gc.joint_candidate_loci.size() == 1 &&
+                    gc.joint_candidate_loci[0].second.size() == copies,
+                    "joint locus: graph and physical BAM aliases share one complete contrast");
+        ok &= check(gc.chunk.haps == single.chunk.haps && gc.chunk.phase_sets == single.chunk.phase_sets,
+                    "joint locus: additional descriptions cannot change the single-locus read phase");
+        for (size_t ri = 0; ri < profiles.size(); ++ri) {
+            const auto& p = gc.chunk.read_var_profile[ri];
+            const auto& old = profiles[ri];
+            ok &= check(gc.chunk.reads[ri].n_vars_scored == single.chunk.reads[ri].n_vars_scored &&
+                        gc.chunk.reads[ri].hap_score_margin == single.chunk.reads[ri].hap_score_margin,
+                        "joint locus: aliases cannot increase vote count or haplotype margin");
+            ok &= check(p.alleles == old.alleles && p.alt_qi == old.alt_qi &&
+                        p.graph_alleles == old.graph_alleles && p.bam_alleles == old.bam_alleles &&
+                        p.bam_qi == old.bam_qi && p.bam_base_qualities == old.bam_base_qualities,
+                        "joint locus: all original observation channels and quality certificates survive");
+        }
+        for (size_t ci = 0; ci < copies; ++ci) {
+            const auto& row = gc.chunk.candidates[ci];
+            const auto& old = candidates[ci];
+            ok &= check(row.key.alt == old.key.alt && row.key.pos == old.key.pos &&
+                        row.bam_injected == old.bam_injected && row.graph_site == old.graph_site &&
+                        row.msa_verified == old.msa_verified && row.counts.alle_covs == old.counts.alle_covs &&
+                        row.lcd_var_i_to_cate == old.lcd_var_i_to_cate && gc.site_ids == ids,
+                        "joint locus: physical/topology identities, depths and provenance remain distinct");
+            ok &= check(row.hap_to_cons_alle == gc.chunk.candidates[0].hap_to_cons_alle &&
+                        row.phase_set == gc.chunk.candidates[0].phase_set,
+                        "joint locus: aliases receive one consistently oriented result");
+        }
+    }
+    auto conflict = fixture(2);
+    conflict.recovery_source_sites = {{1, 777, 0, 1, 0, -1, false, true}};
+    conflict.equivalent_insertion_joins = {{0, 1}};
+    conflict.chunk.read_var_profile[0].alleles = {0, 1};
+    rebuild_read_var_cr(conflict.chunk);
+    phase_joint_graph_candidates(conflict, opts, base);
+    ok &= check(conflict.chunk.haps[0] == 0 && conflict.chunk.reads[0].n_vars_scored == 0,
+                "joint locus: opposing descriptions abstain instead of choosing the first call");
+    auto exact = fixture(2);
+    exact.site_meta[1] = exact.site_meta[0];
+    exact.chunk.candidates[1].key = vcf_to_variant_key(0, 2, "A", "AA");
+    auto& sparse = exact.chunk.read_var_profile[1];
+    sparse.start_var_idx = sparse.end_var_idx = 1;
+    for (auto* values : {&sparse.alleles, &sparse.alt_qi, &sparse.graph_alleles,
+                        &sparse.bam_alleles, &sparse.bam_qi}) values->erase(values->begin());
+    sparse.bam_base_qualities.erase(sparse.bam_base_qualities.begin());
+    rebuild_read_var_cr(exact.chunk);
+    phase_joint_graph_candidates(exact, opts, base);
+    ok &= check(exact.chunk.haps[1] != 0 && exact.chunk.read_var_profile[1].start_var_idx == 1 &&
+                exact.chunk.read_var_profile[1].alleles == std::vector<int>{1},
+                "joint locus: alias-only sparse coverage votes once and restores its original extent");
+    ok &= check(conflict.recovery_source_sites[0].candidate_index == 1 &&
+                conflict.recovery_source_sites[0].phase_set == 777 &&
+                conflict.equivalent_insertion_joins == std::vector<std::pair<size_t, size_t>>{{0, 1}},
+                "joint locus: recovery source membership, gauge and certificate indices survive");
+    auto filtered = fixture(2);
+    filtered.chunk.candidates[1].lcd_var_i_to_cate = kCandNoisyCandHet;
+    filtered.chunk.candidates[1].counts.category = VariantCategory::NoisyCandHet;
+    phase_joint_graph_candidates(filtered, opts, base);
+    ok &= check(filtered.chunk.candidates[1].phase_set <= 0 &&
+                filtered.chunk.candidates[1].lcd_var_i_to_cate == kCandNoisyCandHet,
+                "joint locus: identity cannot promote an excluded noisy row into the clean solve");
+    auto multiallelic = fixture(2);
+    multiallelic.site_meta[0].alts.push_back("AAA");
+    multiallelic.site_meta[1].alts.push_back("AAA");
+    opts.snarl_allele_phasing = true;
+    phase_joint_graph_candidates(multiallelic, opts, base);
+    ok &= check(multiallelic.chunk.reads[0].n_vars_scored == 2,
+                "joint locus: non-selected ALT classes cannot claim an actual reference contrast");
+    auto partial = fixture(2);
+    partial.chunk.reads[1].beg = 4;
+    opts.snarl_allele_phasing = false;
+    phase_joint_graph_candidates(partial, opts, base);
+    ok &= check(partial.chunk.reads[0].n_vars_scored == 2 &&
+                partial.chunk.read_var_profile[1].alleles == std::vector<int>({1, 1}),
+                "joint locus: incomplete molecule coverage cannot project a shifted alias leftward");
+    auto unsupported = fixture(2);
+    unsupported.chunk.read_var_profile[1].alleles[0] = -1;
+    unsupported.chunk.read_var_profile[1].graph_alleles[0] = -1;
+    phase_joint_graph_candidates(unsupported, opts, base);
+    ok &= check(unsupported.chunk.reads[0].n_vars_scored == 2 &&
+                unsupported.chunk.read_var_profile[1].alleles == std::vector<int>({-1, 1}),
+                "joint locus: a different allele context cannot certify a missing parent REF class");
+    conflict.site_allele_orig_idx[1] = {1, 2};
+    rebuild_joint_candidate_loci(conflict, base);
+    ok &= check(conflict.joint_candidate_loci.empty(), "joint locus: ALT/ALT is not a REF/ALT alias");
+    conflict.site_allele_orig_idx[1] = {0, 1};
+    conflict.site_meta[1].alts = {"AAA"};
+    rebuild_joint_candidate_loci(conflict, base);
+    ok &= check(conflict.joint_candidate_loci.empty(), "joint locus: distinct repeat lengths remain separate");
+    conflict.site_meta[1].alts = {"AA"};
+    conflict.site_meta[1].ref = "C";
+    rebuild_joint_candidate_loci(conflict, base);
+    ok &= check(conflict.joint_candidate_loci.empty(), "joint locus: an invalid reference cannot join aliases");
+    return ok;
+}
+
+static bool test_joint_allele_contrasts() {
+    bool ok = true;
+    const std::string reference = "CAAATG";
+    const auto base = [&](hts_pos_t pos) { return pos >= 1 && pos <= 6 ? reference[pos - 1] : 'N'; };
+    GraphChunkBuildResult gc;
+    for (size_t ci = 0; ci < 3; ++ci) {
+        CandidateVariant row;
+        row.counts.n_uniq_alles = ci == 2 ? 2 : 3;
+        row.bam_injected = row.msa_verified = ci == 1;
+        row.phase_set = ci == 1 ? 777 : 123;
+        row.hap_to_cons_alle[1] = ci == 2 ? 0 : 1;
+        row.hap_to_cons_alle[2] = ci == 2 ? 1 : 2;
+        if (ci == 1) row.msa_insertion_alts = {"AA", "A"};
+        gc.chunk.candidates.push_back(row);
+        GraphSiteMeta meta;
+        meta.pos = ci == 1 ? 3 : 2;
+        meta.ref = "A";
+        meta.alts = ci == 1 ? std::vector<std::string>{"AAA", "AA"}
+                           : std::vector<std::string>{"AA", "AAA"};
+        gc.site_meta.push_back(meta);
+        gc.site_allele_orig_idx.push_back(ci == 2 ? std::vector<int>{0, 1} : std::vector<int>{0, 1, 2});
+    }
+    gc.recovery_source_sites = {{1, 777, 1, 2, 0, -1, false, true}};
+    rebuild_joint_candidate_loci(gc, base);
+    ok &= check(gc.joint_allele_contrasts.size() == 1 &&
+        gc.joint_allele_contrasts[0].second == std::vector<size_t>{0, 1} &&
+        gc.joint_candidate_loci.empty(), "joint contrast: graph/MSA ALT pairs match without absorbing a REF/ALT row");
+    ok &= check(gc.candidate_allele_contrasts[0] && gc.candidate_allele_contrasts[1] &&
+        gc.candidate_allele_contrasts[0]->local_alleles == std::array<int, 2>{1, 2} &&
+        gc.candidate_allele_contrasts[1]->local_alleles == std::array<int, 2>{2, 1},
+        "joint contrast: reordered ALT lists retain canonical-to-original allele mapping");
+    const std::vector<size_t> members{0, 1};
+    ReadVariantProfile profile;
+    profile.start_var_idx = 0; profile.end_var_idx = 2;
+    profile.alleles = {1, 2, 1}; profile.alt_qi = {40, 41, 42};
+    profile.graph_alleles = {1, -1, 1}; profile.bam_alleles = {-1, 2, -1};
+    profile.bam_qi = {0, 41, 0}; profile.bam_base_qualities = {0, 31, 0};
+    const auto original = profile;
+    auto evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == 0 && evidence.observations().size() == 2 && evidence.query_index() == 0,
+        "joint contrast: differently indexed graph/BAM agreement supplies one canonical molecule call");
+    evidence = joint_contrast_molecule_evidence(gc, {1, 0, 1, 0}, profile);
+    ok &= check(evidence.allele() == 0 && evidence.observations().size() == 2,
+        "joint contrast: repeated descriptions and reversed source order cannot add votes");
+    profile.graph_alleles[0] = 0; profile.bam_alleles[1] = 0;
+    evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == -1 && evidence.observations().empty(),
+        "joint contrast: genomic REF is outside an ALT/ALT sample contrast, not an ALT absence vote");
+    profile = original;
+    profile.bam_alleles[0] = 2;
+    evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == kConflictingBamAllele && evidence.query_index() == 0,
+        "joint contrast: graph/BAM conflict survives a primary profile preferring graph");
+    profile.bam_alleles[0] = kConflictingBamAllele;
+    evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == kConflictingBamAllele,
+        "joint contrast: an existing BAM conflict cannot disappear during canonical projection");
+    profile = original; profile.graph_alleles.clear(); profile.bam_alleles.clear();
+    evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == 0, "joint contrast: profiles without retained channels use their original calls");
+    profile.start_var_idx = profile.end_var_idx = 1; profile.alleles = {2}; profile.alt_qi = {41};
+    evidence = joint_contrast_molecule_evidence(gc, members, profile);
+    ok &= check(evidence.allele() == 0 && evidence.observations().size() == 1,
+        "joint contrast: sparse alias-only profiles retain original allele indices");
+    ok &= check(gc.chunk.candidates[1].phase_set == 777 && gc.chunk.candidates[1].msa_verified &&
+        gc.chunk.candidates[1].hap_to_cons_alle[1] == 1 && gc.recovery_source_sites[0].candidate_index == 1 &&
+        original.alleles == std::vector<int>{1, 2, 1} && original.bam_base_qualities[1] == 31,
+        "joint contrast: no confidence, category, source gauge, observation or quality is rewritten");
+    gc.site_allele_orig_idx[2] = {2, 1};
+    rebuild_joint_candidate_loci(gc, base);
+    ok &= check(gc.joint_allele_contrasts.size() == 1 &&
+        gc.joint_allele_contrasts[0].second == std::vector<size_t>{0, 1, 2} &&
+        gc.candidate_allele_contrasts[2]->local_alleles == std::array<int, 2>{1, 0},
+        "joint contrast: remapped original graph walks define sequences, not profile index numbers");
+    evidence = joint_contrast_molecule_evidence(gc, {0, 1, 2}, original);
+    ok &= check(evidence.allele() == 0 && evidence.observations().size() == 3,
+        "joint contrast: binary ALT/ALT graph indices and multiallelic MSA indices share one molecule gauge");
+    gc.site_allele_orig_idx[2] = {0, 1};
+    gc.site_meta[0].non_selected_alt_class = true;
+    rebuild_joint_candidate_loci(gc, base);
+    ok &= check(!gc.candidate_allele_contrasts[0] && gc.joint_allele_contrasts.empty(),
+        "joint contrast: a non-selected ALT class cannot claim a literal sequence pair");
+    gc.site_meta[0].non_selected_alt_class = false;
+    gc.chunk.candidates[0].hap_to_cons_alle[1] = gc.chunk.candidates[0].hap_to_cons_alle[2] = -1;
+    rebuild_joint_candidate_loci(gc, base);
+    ok &= check(!gc.candidate_allele_contrasts[0], "joint contrast: an unselected multiallelic genotype remains unknown");
+    gc.chunk.candidates[0].hap_to_cons_alle[1] = 1; gc.chunk.candidates[0].hap_to_cons_alle[2] = 9;
+    rebuild_joint_candidate_loci(gc, base);
+    ok &= check(!gc.candidate_allele_contrasts[0], "joint contrast: invalid consensus indices cannot borrow an ALT");
+    return ok;
+}
+
+int main(int argc, char** argv) {
+    if (argc == 2 && std::strcmp(argv[1], "--joint-contrasts") == 0) {
+        const bool ok = test_joint_allele_contrasts();
+        if (ok) std::cout << "ALL PASS\n";
+        return ok ? 0 : 1;
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--joint-loci") == 0) {
+        const bool ok = test_joint_candidate_loci();
+        if (ok) std::cout << "ALL PASS\n";
+        return ok ? 0 : 1;
+    }
+    test_bounded_tandem_insertion_calls();
+    bool ok = true;
+    ok &= test_joint_candidate_loci();
+    ok &= test_joint_allele_contrasts();
+    {
+        GraphChunkBuildResult before;
+        for (const hts_pos_t pos : {100, 200}) {
+            CandidateVariant site;
+            site.key.tid = 0; site.key.pos = pos;
+            site.key.type = VariantType::Deletion; site.key.ref_len = 1;
+            site.phase_set = 77;
+            before.chunk.candidates.push_back(site);
+        }
+        before.recovery_source_sites = {{0, 77, 0, 1, 0, -1, false, true},
+                                        {1, 77, 1, 0, 0, -1, false, false}};
+        before.recovery_source_path_supported[77] = false;
+        before.recovery_source_weak_cuts[77] = {150};
+        before.recovery_source_quality_cuts[77] = {150};
+        before.chunk.reads.resize(2);
+        before.chunk.reads[0].qname = "first";
+        before.chunk.reads[1].qname = "second";
+        before.recovery_source_reads = {{0, 77, 1}, {1, 77, 2}};
+        const auto retry = [&]() {
+            GraphChunkBuildResult current;
+            CandidateVariant fresh = before.chunk.candidates.front();
+            fresh.key.pos = 300;
+            current.chunk.candidates = {before.chunk.candidates[1], fresh,
+                                         before.chunk.candidates[0]};
+            current.chunk.reads.resize(2);
+            current.chunk.reads[0].qname = "second";
+            current.chunk.reads[1].qname = "first";
+            current.recovery_source_sites = {{1, 77, 1, 0, 0, -1, false, true}};
+            current.recovery_source_path_supported[77] = true;
+            current.recovery_source_weak_cuts[77] = {};
+            return current;
+        };
+        GraphChunkBuildResult current = retry();
+        retain_disjoint_recovery_sources(current, before);
+        ok &= check(current.recovery_source_sites.size() == 3,
+                    "focused retry retains the entire disjoint previous source");
+        ok &= check(current.recovery_source_sites[1].candidate_index == 2 &&
+                    current.recovery_source_sites[2].candidate_index == 0,
+                    "previous source indices follow the reordered candidates");
+        const hts_pos_t retained = current.recovery_source_sites[1].phase_set;
+        ok &= check(retained != 77 && !current.recovery_source_path_supported.at(retained) &&
+                    current.recovery_source_weak_cuts.at(retained) == std::vector<hts_pos_t>{150} &&
+                    current.recovery_source_quality_cuts.at(retained) == std::vector<hts_pos_t>{150},
+                    "retained source keeps its independent ID and all cut evidence");
+        ok &= check(current.recovery_source_sites[1].hap1_allele == 0 &&
+                    !current.recovery_source_sites[2].can_adopt &&
+                    current.recovery_source_reads.size() == 2 &&
+                    current.recovery_source_reads[0].read_index == 1 &&
+                    current.recovery_source_reads[1].read_index == 0 &&
+                    current.recovery_source_reads[0].hap == 1 &&
+                    current.recovery_source_reads[1].hap == 2,
+                    "source read reorder preserves HP gauges and adoption vetoes");
+        current = retry();
+        current.recovery_source_sites.push_back({2, 88, 0, 1, 0, -1, false, true});
+        retain_disjoint_recovery_sources(current, before);
+        ok &= check(current.recovery_source_sites.size() == 2 &&
+                    current.recovery_source_reads.empty(),
+                    "one refreshed site vetoes retention of its entire old source");
+        current = retry();
+        current.chunk.candidates.pop_back();
+        retain_disjoint_recovery_sources(current, before);
+        ok &= check(current.recovery_source_sites.size() == 1,
+                    "missing old member vetoes partial source retention");
+        current = retry();
+        current.chunk.candidates.push_back(before.chunk.candidates[0]);
+        retain_disjoint_recovery_sources(current, before);
+        ok &= check(current.recovery_source_sites.size() == 1,
+                    "ambiguous current key cannot inherit source provenance");
+    }
 
     {
         GraphSiteCatalog catalog;
@@ -1063,6 +1419,29 @@ int main() {
             return result;
         };
         source = make_prefix();
+        source.chunk.candidates[0].key.type = VariantType::Deletion;
+        source.chunk.candidates[0].key.alt.clear();
+        source.chunk.candidates[0].key.ref_len = 1;
+        source.chunk.candidates[0].key.pos = 251;
+        ok &= check(bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: the cut leaving a marker preserves its preceding shared-SNP gauge");
+        source.recovery_source_weak_cuts[kOriginalPhaseSet] = {225};
+        ok &= check(!bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: an internal cut vetoes the marker gauge");
+        source.recovery_source_weak_cuts[kOriginalPhaseSet] = {150, 250};
+        ok &= check(bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: cuts outside the bounded suffix are irrelevant");
+        source.recovery_source_quality_cuts[kOriginalPhaseSet] = {225};
+        ok &= check(!bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: quality cuts retain their veto");
+        source.recovery_source_quality_cuts[kOriginalPhaseSet].clear();
+        source.chunk.candidates[1].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(!bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: a changed shared SNP gauge cannot certify the marker");
+        source.chunk.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(bam_source_suffix_from_graph_supported(source, 0),
+                    "BAM suffix: a coherent current reversal retains the original source");
+        source = make_prefix();
         ok &= check(bam_source_prefix_to_graph_supported(source, 0),
                     "BAM prefix: a later source cut does not break the shared-SNP prefix");
         source.recovery_source_weak_cuts[kOriginalPhaseSet] = {150};
@@ -1107,6 +1486,131 @@ int main() {
                     "BAM prefix: missing path evidence is not a cut-free certificate");
         ok &= check(!bam_source_prefix_to_graph_supported(source, 9),
                     "BAM prefix: missing marker is rejected");
+    }
+
+    {
+        const auto make_component = [] {
+            GraphChunkBuildResult gc;
+            for (const hts_pos_t pos : {100, 200, 251}) {
+                CandidateVariant row;
+                row.key.pos = pos;
+                row.key.type = pos == 251 ? VariantType::Insertion : VariantType::Snp;
+                row.key.ref_len = pos == 251 ? 0 : 1;
+                row.key.alt = "A";
+                row.bam_injected = pos == 251;
+                row.phase_set = 7;
+                row.counts.category = pos == 251 ? VariantCategory::NoisyCandHet : VariantCategory::CleanHetSnp;
+                row.counts.n_uniq_alles = 2;
+                row.hap_to_cons_alle = {-1, 0, 1};
+                RecoverySourceSite source;
+                source.candidate_index = gc.chunk.candidates.size();
+                source.phase_set = 9;
+                source.can_adopt = true;
+                source.hap1_allele = 0; source.hap2_allele = 1;
+                source.clean_shared_snp = pos != 251;
+                source.msa_key = row.key;
+                gc.chunk.candidates.push_back(row);
+                gc.recovery_source_sites.push_back(source);
+            }
+            gc.recovery_source_weak_cuts[9] = {250, 400};
+            gc.recovery_source_path_supported[9] = false;
+            return gc;
+        };
+        auto gc = make_component();
+        ok &= check(retained_source_component_gauge_supported(gc, 2),
+                    "source component: a cut leaving the marker preserves two local SNP gauges");
+        gc.recovery_source_weak_cuts[9] = {150, 250};
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: a gauge across a weak cut cannot contribute");
+        gc = make_component(); gc.recovery_source_quality_cuts[9] = {150};
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: quality cuts also bound independent evidence");
+        gc = make_component(); gc.chunk.candidates[0].hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: contrary SNP gauge vetoes promotion");
+        for (auto& row : gc.chunk.candidates) row.hap_to_cons_alle = {-1, 1, 0};
+        ok &= check(retained_source_component_gauge_supported(gc, 2),
+                    "source component: a coherent current reversal preserves source provenance");
+        gc = make_component(); gc.chunk.candidates[0].phase_set = 8;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: a shared SNP in another core cannot certify reads");
+        gc = make_component(); gc.recovery_source_sites[0].can_adopt = false;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: every retained source anchor needs verified identity");
+        gc = make_component(); gc.recovery_source_sites[0].clean_shared_snp = false;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: one shared locus cannot certify promotion");
+        gc = make_component(); gc.chunk.candidates[0].key.pos = 200;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: duplicate coordinates are only one independent locus");
+        gc = make_component(); gc.recovery_source_sites[2].msa_key.reset();
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: missing physical edit abstains");
+        gc = make_component(); gc.recovery_source_sites.push_back(gc.recovery_source_sites[2]);
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: duplicate marker provenance is ambiguous");
+        gc = make_component(); gc.recovery_source_weak_cuts.clear();
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: missing cut audit is not a certificate");
+        gc = make_component(); gc.recovery_source_sites[1].hap1_allele = -1;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: unknown source orientation abstains");
+        ok &= check(!retained_source_component_gauge_supported(gc, 9),
+                    "source component: missing marker abstains");
+        gc = make_component();
+        gc.chunk.candidates[2].key.type = VariantType::Deletion;
+        gc.chunk.candidates[2].key.ref_len = 1;
+        gc.chunk.candidates[2].key.alt.clear();
+        gc.recovery_source_sites[2].msa_key = gc.chunk.candidates[2].key;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: an unshared short deletion retains whole-cohort guards");
+        gc.recovery_source_weak_cuts[9] = {400};
+        gc.chunk.candidates[2].msa_verified = true;
+        gc.chunk.candidates[2].alignment_verified = true;
+        ok &= check(retained_source_component_gauge_supported(gc, 2),
+                    "source component: an exact verified BAM deletion can certify its rescued reads");
+        gc.recovery_source_sites[2].msa_key->ref_len = 2;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source deletion: a different consensus edit cannot certify physical calls");
+        gc.recovery_source_sites[2].msa_key->ref_len = 1;
+        auto unrelated = gc.chunk.candidates[0];
+        unrelated.key.pos = 50;
+        gc.chunk.candidates.push_back(unrelated);
+        auto unrelated_source = gc.recovery_source_sites[0];
+        unrelated_source.candidate_index = 3;
+        unrelated_source.can_adopt = false;
+        unrelated_source.clean_shared_snp = false;
+        gc.recovery_source_sites.push_back(unrelated_source);
+        ok &= check(retained_source_component_gauge_supported(gc, 2),
+                    "source deletion: an earlier unadoptable row outside the two-SNP path does not veto read placement");
+        gc.chunk.candidates[3].key.pos = 150;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source deletion: an unadoptable row inside the two-SNP path still vetoes placement");
+        gc.recovery_source_sites.pop_back();
+        gc.chunk.candidates.pop_back();
+        gc.recovery_source_sites[0].clean_shared_snp = false;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source deletion: one shared SNP cannot certify read placement");
+        gc.recovery_source_sites[0].clean_shared_snp = true;
+        gc.recovery_source_quality_cuts[9] = {150};
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: BAM deletions also respect source quality cuts");
+        gc.recovery_source_quality_cuts[9].clear();
+        gc.chunk.candidates[2].alignment_verified = false;
+        ok &= check(!retained_source_component_gauge_supported(gc, 2),
+                    "source component: an unverified BAM deletion retains whole-cohort guards");
+        gc.chunk.candidates[2].msa_verified = false;
+        gc.recovery_source_weak_cuts[9] = {250, 400};
+        gc.chunk.candidates[2].bam_injected = false;
+        gc.chunk.candidates[2].alignment_verified = true;
+        gc.chunk.candidates[2].key.ref_len = 15;
+        gc.recovery_source_sites[2].msa_key->ref_len = 14;
+        gc.site_meta.resize(3);
+        gc.site_meta[2] = {"chr20", 250, "ACAGAAACAATGTCT", {"A"}};
+        gc.site_allele_orig_idx.resize(3);
+        gc.site_allele_orig_idx[2] = {0, 1};
+        ok &= check(retained_source_component_gauge_supported(gc, 2),
+                    "source component: the identical shared deletion can certify physical read calls");
     }
 
     GraphSiteCatalog catalog;
@@ -1389,6 +1893,9 @@ int main() {
         default_opts.snarl_allele_phasing = true;
         auto tb = build_graph_chunk(tri_both_cat.view_all(), tb_rows, "chr1", 0, 200, 0, default_opts);
 
+        ok &= check(tb.site_meta.size() == 2 && tb.site_meta[0].non_selected_alt_class &&
+                    tb.site_meta[1].non_selected_alt_class,
+                    "multiallelic decomp: collapsed other-ALT classes remain explicit");
         ok &= check(tb.chunk.candidates.size() == 2,
                     "multiallelic decomp: triallelic → 2 biallelic pairs");
         ok &= check(tb.site_ids.size() == 2 &&
@@ -4387,6 +4894,50 @@ int main() {
     }
 
     {
+        GraphChunkBuildResult shared;
+        shared.chunk.candidates.resize(1);
+        CandidateVariant& marker = shared.chunk.candidates[0];
+        marker.key.pos = 100;
+        marker.key.type = VariantType::Insertion;
+        marker.alignment_verified = true;
+        marker.counts.n_uniq_alles = 2;
+        marker.counts.category = VariantCategory::RepeatHetIndel;
+        marker.phase_set = 7;
+        marker.hap_to_cons_alle = {-1, 0, 1};
+        shared.site_meta.push_back({"chr20", 100, "A", {"AC"}});
+        shared.site_allele_orig_idx.push_back({0, 1});
+        RecoverySourceSite source;
+        source.can_adopt = true;
+        VariantKey physical;
+        physical.pos = 101; physical.type = VariantType::Insertion; physical.alt = "C";
+        source.msa_key = physical;
+        shared.recovery_source_sites.push_back(source);
+        const auto key = retained_shared_insertion_key(shared, 0);
+        ok &= check(key && key->pos == 101 && key->alt == "C" && !shared.chunk.candidates[0].msa_verified,
+                    "shared insertion: canonical catalog allele retains exact MSA provenance");
+        shared.chunk.candidates[0].alignment_verified = false;
+        ok &= check(!retained_shared_insertion_key(shared, 0),
+                    "shared insertion: an unverified graph allele cannot supply physical identity");
+        shared.chunk.candidates[0].alignment_verified = true;
+        shared.recovery_source_sites[0].can_adopt = false;
+        ok &= check(!retained_shared_insertion_key(shared, 0),
+                    "shared insertion: an unadoptable source cannot certify the graph row");
+        shared.recovery_source_sites[0].can_adopt = true;
+        shared.recovery_source_sites[0].msa_key->alt = "G";
+        ok &= check(!retained_shared_insertion_key(shared, 0),
+                    "shared insertion: a different inserted sequence is not the catalog allele");
+        shared.recovery_source_sites[0].msa_key->alt = "C";
+        ++shared.recovery_source_sites[0].msa_key->pos;
+        ok &= check(!retained_shared_insertion_key(shared, 0),
+                    "shared insertion: a moved source edit needs its own physical certificate");
+        --shared.recovery_source_sites[0].msa_key->pos;
+        shared.recovery_source_sites.push_back(shared.recovery_source_sites[0]);
+        ok &= check(!retained_shared_insertion_key(shared, 0),
+                    "shared insertion: competing source claims cannot certify the cohort");
+        shared.recovery_source_sites.pop_back();
+    }
+
+    {
         PhasingChunk chunk;
         chunk.candidates.resize(3);
         for (CandidateVariant& site : chunk.candidates) {
@@ -4484,6 +5035,16 @@ int main() {
         for (auto& cohort : cohorts) cohort.counts = {{{0, 3}, {3, 0}}};
         ok &= check(!calibrated_verified_insertion_hap1(cohorts),
                     "verified insertion: sparse associations cannot certify a gauge");
+        cohorts[0].counts = {{{0, 8}, {11, 0}}};
+        cohorts[1].counts = {{{1, 7}, {8, 0}}};
+        ok &= check(calibrated_verified_insertion_hap1(cohorts) == 1,
+                    "complementary deletion: independent SNP cohorts certify the complete four/eight-base contrast");
+        cohorts[1].counts = {{{7, 1}, {0, 8}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "complementary deletion: opposing SNP cohorts cannot place desert reads");
+        for (auto& cohort : cohorts) cohort.counts = {{{10, 13}, {14, 13}}};
+        ok &= check(!calibrated_verified_insertion_hap1(cohorts),
+                    "complementary deletion: noisy homopolymer lengths cannot supply a gauge");
     }
 
     {

@@ -1,0 +1,9 @@
+tool	position	ref	alt	GT	PS
+pgphase	36259922	CA	C	1|0	36261163
+pgphase	36261163	C	CTTTTT	0|1	36261163
+pgphase	36261163	C	CTTTTTT	1|0	36261163
+pgphase	36261301	A	AT	0|1	36261163
+hiphase	36259922	C	CA	0/0	None
+hiphase	36261163	C	CTTTTT	0/0	None
+hiphase	36261166	T	TTTTTTT	1/1	None
+hiphase	36261310	T	TT	1/1	None

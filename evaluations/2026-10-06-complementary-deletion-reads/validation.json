@@ -1,0 +1,62 @@
+{
+  "binary_sha256": "f836c348e7cb5e7f7970e8cf08d506f8f1e3a064eda15ec171e502988a4aba9a",
+  "full_output": "test_data/tmp_gap_fix90/final/0",
+  "accepted_read_connections": [
+    [
+      4625182,
+      4637298
+    ],
+    [
+      4637298,
+      4642430
+    ]
+  ],
+  "whole_hiphase_target_read_parity": false,
+  "whole_target_deficits": {
+    "dominant_core_correct": 89,
+    "correct": 4
+  },
+  "build": "passed; no errors or new warnings",
+  "unit_tests": "passed, including four new motif/calibration checks",
+  "phasing_predicates": {
+    "cases": 47,
+    "assertions": 1551,
+    "result": "passed"
+  },
+  "goldens": "HiFi and ONT TSV/VCF match; HiFi 1 versus 4 threads identical",
+  "owning_threads": "identical candidates, complete VCF records and every HP/PS label",
+  "new_native_fixture": {
+    "assertions": 738,
+    "result": "passed",
+    "baseline_assertions": 734,
+    "baseline_failed_assertions": 15,
+    "cached_seconds": 0.88
+  },
+  "full_gap_suite": {
+    "assertions": 18067,
+    "cases": 5,
+    "result": "passed"
+  },
+  "cache_helper_tests": {
+    "cases": 4,
+    "result": "passed"
+  },
+  "native_panel": {
+    "output_labels": 250,
+    "independent_requests": 128,
+    "comparison_pairs": 129,
+    "changed_output_labels": 37,
+    "result": "passed; every previous correct/phased read and complete VCF record preserved"
+  },
+  "full_preservation": "every prior phased HP/PS label, correct assignment, block extent, complete VCF record and candidate TSV byte retained",
+  "full_read_transitions": {
+    "correct->correct": 230925,
+    "unphased->unphased": 19027,
+    "discordant->discordant": 6620,
+    "unphased->correct": 40
+  },
+  "outside_target_read_transitions": {
+    "unphased->correct": 22
+  },
+  "n50_bp": 955496
+}

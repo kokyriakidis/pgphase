@@ -1,0 +1,68 @@
+{
+  "interpretation": "Cached independent step-8 parental separability projected onto exactly equal deduplicated physical input and full/held-out fits; not production phasing or independent folds",
+  "verified_distinct_molecules": 1683,
+  "owners": [
+    {
+      "owner": "matrix4-final",
+      "physical_molecule_records": 1796,
+      "heldout_evaluation_only_outcomes": {
+        "correct": 1134,
+        "unassigned": 557,
+        "discordant": 105
+      },
+      "partitions": {
+        "stable_member": 1422,
+        "outside_or_tied_sequence": 313,
+        "ambiguous_pair": 49,
+        "unstable_pair": 12
+      },
+      "identical_physical_records_hiphase_correct": 1748
+    },
+    {
+      "owner": "matrix5-final",
+      "physical_molecule_records": 413,
+      "heldout_evaluation_only_outcomes": {
+        "correct": 82,
+        "unassigned": 326,
+        "discordant": 5
+      },
+      "partitions": {
+        "stable_member": 268,
+        "outside_or_tied_sequence": 73,
+        "ambiguous_pair": 60,
+        "unstable_pair": 12
+      },
+      "identical_physical_records_hiphase_correct": 334
+    },
+    {
+      "owner": "matrix65-final",
+      "physical_molecule_records": 425,
+      "heldout_evaluation_only_outcomes": {
+        "unassigned": 140,
+        "correct": 269,
+        "discordant": 16
+      },
+      "partitions": {
+        "ambiguous_pair": 52,
+        "unstable_pair": 32,
+        "stable_member": 285,
+        "outside_or_tied_sequence": 56
+      },
+      "identical_physical_records_hiphase_correct": 26
+    },
+    {
+      "owner": "whole-final",
+      "physical_molecule_records": 1337,
+      "heldout_evaluation_only_outcomes": {
+        "correct": 1023,
+        "unassigned": 229,
+        "discordant": 85
+      },
+      "partitions": {
+        "stable_member": 1185,
+        "outside_or_tied_sequence": 152
+      },
+      "identical_physical_records_hiphase_correct": 1299
+    }
+  ]
+}
