@@ -1,4 +1,4 @@
-// Union gap phasing (--union-gap-phasing): the catalog's sites are phased
+// Union gap phasing (--bam): the catalog's sites are phased
 // together with the alignment's sample-specific heterozygotes -- clean calls
 // and MSA-verified noisy calls the catalog lacks -- by EM over the whole
 // read x site matrix, plus local haplotype windows over noisy loci.
@@ -43,8 +43,6 @@ CandKey cand_key_of(const CandidateVariant& cand) {
 // A site is admitted only if each of its two alleles is seen by at least this
 // many reads mapped at kDefaultMinMapq or better.
 constexpr int kUnionMinConfidentAlleleReads = 2;
-// A hidden complement site takes calls only from reads the graph left silent.
-constexpr bool kComplementSilentReadsOnly = true;
 
 /// VCF-form metadata for an alignment candidate the catalog never held, in the
 /// convention the graph writer emits and vcf_to_variant_key reads back. An
@@ -336,8 +334,9 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         }
         for (auto& call : calls) {
             const auto comp = complement_of_new.find(std::get<0>(call));
-            if (kComplementSilentReadsOnly && comp != complement_of_new.end() && ri < old_profiles) {
-                // The read speaks through the graph row already.
+            // A hidden complement site takes calls only from reads the graph
+            // left silent: the read speaks through the graph row already.
+            if (comp != complement_of_new.end() && ri < old_profiles) {
                 const ReadVariantProfile& old = graph.read_var_profile[ri];
                 bool graph_call = false;
                 for (const size_t row : *comp->second) {
@@ -734,15 +733,6 @@ constexpr size_t kAlleleWindowMaxReads = 100;
 // An indel is a candidate for a two-allele pair when at most this fraction of
 // the reads at it carry the reference.
 constexpr double kPairMaxRefFraction = 0.2;
-// Merge two-allele rows into one EM site (measured: more phased variants, more
-// flips, fewer correct reads -- off).
-constexpr bool kMergeTwoAlleleRows = false;
-// Keep the MSA's own per-read calls at injected indel sites.
-constexpr bool kRealignKeepsMsaCalls = true;
-// A site is a weak bridge when fewer than this fraction of its covering reads call it.
-constexpr double kBridgeMinCalledFraction = 0.5;
-constexpr bool kBridgeDepthRule = false;
-constexpr bool kBridgeHomopolymerRule = true;
 // Alignment reads missing from the graph chunk are added from this MAPQ:
 // confidently placed, so not a paralog the graph put elsewhere.
 constexpr int kAddedReadMinMapq = 20;
@@ -1341,7 +1331,7 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam) 
             int& slot = prof->alleles[ci - static_cast<size_t>(lo)];
             // The MSA already called this read here; realignment only fills reads
             // it did not call.
-            if (kRealignKeepsMsaCalls && slot >= 0) continue;
+            if (slot >= 0) continue;
             if (slot != a) { slot = a; ++changed; }
         }
     }
@@ -1769,97 +1759,9 @@ size_t apply_deferred_read_labels(GraphChunkBuildResult& graph_chunk) {
     return applied;
 }
 
-// A two-allele (1/2) heterozygote at a repeat: the alignment solve reports it
-// as two REF-versus-ALT rows, each with almost no REF reads. Judged one row at
-// a time, a read carrying the other allele looks like ALT to both rows, and its
-// calls cancel. The two rows become one EM site instead: every spanning read is
-// realigned to the reference carrying allele A and carrying allele B.
-struct TwoAlleleLocus { size_t row_a; size_t row_b; size_t window; };
-
-static std::vector<TwoAlleleLocus> two_allele_loci(const PhasingChunk& chunk, const PhasingChunk& bam,
-                                                   std::vector<LocusWindowSite>& windows) {
-    std::vector<TwoAlleleLocus> out;
-    if (bam.ref_seq.empty()) return out;
-    const ReferenceView ref{bam};
-    const auto is_acgt = [](const std::string& s) {
-        return s.find_first_not_of("ACGTacgt") == std::string::npos;
-    };
-    struct Row { size_t ci; hts_pos_t p0; hts_pos_t end0; std::string alt; int reads; int depth; hts_pos_t lo; hts_pos_t hi; };
-    std::vector<Row> rows;
-    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        const CandidateVariant& c = chunk.candidates[ci];
-        if (!c.bam_injected || (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-        if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
-        if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
-        // A row's REF count holds every read without its ALT, the other allele's
-        // carriers included, so REF-lessness shows only for the pair together.
-        const int alt_reads = c.counts.alt_cov;
-        if (alt_reads < kLocusMinSide) continue;
-        const hts_pos_t p0 = c.key.pos - 1, end0 = p0 + c.key.ref_len;
-        rows.push_back(Row{ci, p0, end0, c.key.alt, alt_reads, alt_reads + c.counts.ref_cov,
-                           p0 - ref.repeat_left(p0), end0 + ref.repeat_right(end0)});
-    }
-    std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.lo < b.lo; });
-    const SpanningReadIndex index(bam, chunk);
-    for (size_t i = 0; i < rows.size();) {
-        size_t j = i + 1;
-        hts_pos_t group_hi = rows[i].hi;
-        while (j < rows.size() && rows[j].lo <= group_hi) group_hi = std::max(group_hi, rows[j++].hi);
-        std::vector<const Row*> group;
-        for (size_t k = i; k < j; ++k) group.push_back(&rows[k]);
-        i = j;
-        if (group.size() < 2) continue;
-        std::sort(group.begin(), group.end(), [](const Row* a, const Row* b) { return a->reads > b->reads; });
-        const Row& a = *group[0];
-        const Row& b = *group[1];
-        // Together the two alleles must hold the locus: little room for REF.
-        if (a.reads + b.reads < (1.0 - kPairMaxRefFraction) * std::max(a.depth, b.depth)) continue;
-        const hts_pos_t lo = std::min(a.p0, b.p0), hi = std::max(a.end0, b.end0);
-        const hts_pos_t w0 = std::max<hts_pos_t>(0, lo - ref.repeat_left(lo) - kAlleleWindowFlank);
-        const hts_pos_t w1 = hi + ref.repeat_right(hi) + kAlleleWindowFlank;
-        if (w1 - w0 > kLocusMaxLength || a.p0 < w0 || b.p0 < w0 || a.end0 > w1 || b.end0 > w1) continue;
-        const std::string hap_a = ref.slice(w0, a.p0) + a.alt + ref.slice(a.end0, w1);
-        const std::string hap_b = ref.slice(w0, b.p0) + b.alt + ref.slice(b.end0, w1);
-        if (hap_a == hap_b || hap_a.find('N') != std::string::npos) continue;
-        LocusWindowSite site;
-        site.pos = w0 + 1;
-        site.end = w1;
-        int n0 = 0, n1 = 0;
-        for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
-            const int da = locus_edit_distance(seq, hap_a), db = locus_edit_distance(seq, hap_b);
-            if (da == db) continue;
-            const int side = da < db ? 0 : 1;
-            (side == 0 ? n0 : n1)++;
-            site.observations.emplace_back(
-                ri, side, static_cast<float>(std::min(kLocusMaxObsError, 0.5 * std::exp(-std::abs(da - db)))));
-        }
-        const int called = n0 + n1;
-        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) continue;
-        out.push_back(TwoAlleleLocus{a.ci, b.ci, windows.size()});
-        windows.push_back(std::move(site));
-    }
-    return out;
-}
-
 std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam) {
     const PhasingChunk& chunk = graph_chunk.chunk;
     std::vector<char> weak(chunk.candidates.size(), 0);
-    // Reads covering each site, and reads calling it.
-    std::vector<hts_pos_t> begs, ends;
-    for (const ReadRecord& r : chunk.reads) {
-        if (r.is_skipped || r.end <= r.beg) continue;
-        begs.push_back(r.beg);
-        ends.push_back(r.end);
-    }
-    std::sort(begs.begin(), begs.end());
-    std::sort(ends.begin(), ends.end());
-    std::vector<int> called(chunk.candidates.size(), 0);
-    for (size_t ri = 0; ri < chunk.read_var_profile.size() && ri < chunk.reads.size(); ++ri) {
-        const ReadVariantProfile& p = chunk.read_var_profile[ri];
-        if (p.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
-        for (size_t k = 0; k < p.alleles.size(); ++k)
-            if (p.alleles[k] >= 0) ++called[static_cast<size_t>(p.start_var_idx) + k];
-    }
     const bool have_ref = !bam.ref_seq.empty();
     const ReferenceView ref{bam};
     const bool have_meta = graph_chunk.site_meta.size() == chunk.candidates.size() &&
@@ -1867,14 +1769,7 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
         const CandidateVariant& c = chunk.candidates[ci];
         if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-        const hts_pos_t pos = c.key.pos;
-        const long covering = static_cast<long>(std::upper_bound(begs.begin(), begs.end(), pos) - begs.begin()) -
-                              static_cast<long>(std::upper_bound(ends.begin(), ends.end(), pos) - ends.begin());
-        if (kBridgeDepthRule && covering > 0 && called[ci] < kBridgeMinCalledFraction * covering) {
-            weak[ci] = 1;
-            continue;
-        }
-        if (!kBridgeHomopolymerRule || c.key.type == VariantType::Snp) continue;
+        if (c.key.type == VariantType::Snp) continue;
         // One homopolymer base between the two alleles.
         if (!c.msa_insertion_alts.empty()) {
             for (size_t a = 0; a < c.msa_insertion_alts.size(); ++a)
@@ -1921,56 +1816,18 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
     // Pileup calls at repeat indels are unreliable; the alignment's indel sites
     // are re-called per read by realignment to their two exact alleles.
     if (bam != nullptr) realign_indel_observations(chunk, *bam);
-    // Two-allele loci enter the EM as one site; their two rows sit out the
-    // solve and take their phase from it afterwards.
-    std::vector<LocusWindowSite> pair_windows;
-    std::vector<TwoAlleleLocus> pairs;
-    std::vector<std::pair<size_t, uint32_t>> parked;  // row, original category bits
-    if (bam != nullptr) {
-        if (kMergeTwoAlleleRows) pairs = two_allele_loci(chunk, *bam, pair_windows);
-        for (const TwoAlleleLocus& p : pairs)
-            for (const size_t row : {p.row_a, p.row_b}) {
-                parked.emplace_back(row, chunk.candidates[row].lcd_var_i_to_cate);
-                chunk.candidates[row].lcd_var_i_to_cate &= ~kCandGermlineVarCate;
-            }
-    }
     // The first solve labels reads where the clean stage could not (dense
     // noisy regions); those labels seed the windows the second solve adds.
     const std::vector<char> weak = bam != nullptr ? bridge_weak_sites(graph_chunk, *bam) : std::vector<char>{};
     const std::vector<char>* weak_ptr = bam != nullptr ? &weak : nullptr;
-    phase_chunk_by_global_em(chunk, pair_windows.empty() ? nullptr : &pair_windows, weak_ptr);
-    std::vector<LocusWindowSite> loci = pair_windows;
+    phase_chunk_by_global_em(chunk, nullptr, weak_ptr);
+    std::vector<LocusWindowSite> loci;
     if (bam != nullptr) {
-        std::vector<LocusWindowSite> haplotype_windows = build_locus_window_sites(*bam, chunk);
-        // A haplotype window over a two-allele locus would count its reads twice.
-        for (LocusWindowSite& w : haplotype_windows) {
-            bool overlaps = false;
-            for (const LocusWindowSite& p : pair_windows)
-                if (w.pos <= p.end && p.pos <= w.end) { overlaps = true; break; }
-            if (!overlaps) loci.push_back(std::move(w));
-        }
+        loci = build_locus_window_sites(*bam, chunk);
         std::vector<LocusWindowSite> alleles = build_allele_window_sites(*bam, graph_chunk, loci);
         loci.insert(loci.end(), std::make_move_iterator(alleles.begin()), std::make_move_iterator(alleles.end()));
     }
     phase_chunk_by_global_em(chunk, &loci, weak_ptr);
-    for (const auto& [row, bits] : parked) chunk.candidates[row].lcd_var_i_to_cate = bits;
-    for (size_t i = 0; i < pairs.size(); ++i) {
-        const LocusWindowSite& w = loci[i];  // pair windows lead the list
-        CandidateVariant& a = chunk.candidates[pairs[i].row_a];
-        CandidateVariant& b = chunk.candidates[pairs[i].row_b];
-        if (w.phase < 0 || w.error >= kEmUnreliableError) {
-            for (CandidateVariant* c : {&a, &b}) {
-                c->phase_set = kUnsetCandidatePhaseSet;
-                c->hap_to_cons_alle[1] = c->hap_to_cons_alle[2] = -1;
-                c->hap_alt = c->hap_ref = 0;
-            }
-            continue;
-        }
-        // Side 0 is allele A; phase 0 puts side 0 on haplotype 1.
-        const bool a_on_hap1 = w.phase == 0;
-        set_site_phase(a, w.block, a_on_hap1 ? 1 : 0, a_on_hap1 ? 0 : 1);
-        set_site_phase(b, w.block, a_on_hap1 ? 0 : 1, a_on_hap1 ? 1 : 0);
-    }
     // Last resort: reads still unlabelled take their haplotype from MSA-verified
     // indels whose phase the labelled reads already establish.
     if (bam != nullptr) {

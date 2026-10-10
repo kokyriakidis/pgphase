@@ -32,30 +32,6 @@ std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
     hts_pos_t pos, const std::string& alt, ReferenceCache& reference,
     int tid, const bam_hdr_t* header);
 
-/// Compare two pure insertion edits on the same supplied reference background.
-/// Positions are 1-based insertion coordinates; reference_between covers
-/// [left_pos, right_pos). The caller may supply verified common SNP alleles.
-/// Ambiguous bases, reversed positions and incomplete background abstain.
-bool insertion_edits_are_equivalent(
-    hts_pos_t left_pos, std::string_view left_alt,
-    hts_pos_t right_pos, std::string_view right_alt,
-    std::string_view reference_between);
-
-/// Query index of a shifted multi-base insertion ALT whose reference edit and
-/// full crossed path match the candidate with known base qualities. Return -1
-/// for exact placement, missing, different or compound events. This only calls
-/// an ALT; it never changes source observations, assignments or candidate rows.
-int bam_shifted_repeat_insertion_query_index(
-    const bam1_t* read, const CandidateVariant& insertion,
-    const PhasingChunk& chunk, int min_baseq);
-int bam_shifted_repeat_insertion_query_index(
-    const bam1_t* read, const CandidateVariant& insertion,
-    ReferenceCache& reference, int tid, const bam_hdr_t* header, int min_baseq);
-
-/// Call a site only when both consensus alignment paths agree with exact local flanks.
-int call_msa_site_allele(const std::array<AlnStr, 2>& alignments,
-                         const VariantKey& key, hts_pos_t ref_beg,
-                         const std::array<AlnStr, 2>* consensuses = nullptr);
 
 
 /// Extend MSA het profiles only if the expanded observations pass the existing AF gate.
@@ -97,76 +73,10 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
                               const std::string& alt,
                               bool upstream_reference_bytes = false);
 
-/// Call an exact BAM indel CIGAR allele with quality-checked flanks.
-/// Returns 0 for REF, 1 for ALT, and -1 for an ambiguous alignment.
-int bam_exact_indel_allele(const bam1_t* bam, const CandidateVariant& var,
-                           int min_bq, int* alt_qi);
-
-/// Return 1 for an exact or sequence-equivalent deletion, 0 for verified REF,
-/// and -1 for missing, low-quality, compound, or different-allele observations.
-/// Candidate coordinates and allele rows are preserved. Reference belongs to
-/// the calling worker; this check performs no alignment.
-/// Optional call_error sums the verified bases' error probabilities; ambiguous
-/// calls report 1.0. Mapping error must be added by the caller.
-int bam_equivalent_deletion_allele(const bam1_t* read,
-                                    const CandidateVariant& deletion,
-                                    ReferenceCache& reference, int tid,
-                                    const bam_hdr_t* header, int min_baseq,
-                                    double* call_error = nullptr);
-
-/// Certify only an exact deletion ALT sequence between surviving query anchors.
-/// Shifted CIGAR deletions with compensating mismatches may match; false means
-/// unverified, never REF. No read labels, candidate rows or alignments change.
-bool bam_matches_deletion_sequence(const bam1_t* read,
-                                    const CandidateVariant& deletion,
-                                    ReferenceCache& reference, int tid,
-                                    const bam_hdr_t* header, int min_baseq);
-
-/// Recover missing ALT calls for shifted, single-base MSA insertions in targeted
-/// recovery windows, inclusive of their VCF anchors. Require MAPQ30 and Q30
-/// sequence-equivalent CIGAR evidence;
-/// Preserve existing calls and complex alleles. Reindex profiles before phasing.
-/// Returns the number of added calls; ordinary BAM runs with no windows are inert.
-int backfill_shifted_msa_insertions(PhasingChunk& chunk, const Options& opts);
-
 /// Update the primary allele, growing the sparse range and retaining the site
 /// offsets of populated provenance channels. New sites have no BAM base quality.
 void update_read_var_profile_with_allele(int var_idx, int allele, int alt_qi,
                                          ReadVariantProfile& profile);
-
-/// Temporarily fill missing MSA deletion calls for source retry admission.
-/// `include_isolated` is reserved for singleton graph flanks; the resulting
-/// retry must preserve clean-SNP gauges. Homopolymer calls require MAPQ30/Q30.
-/// Complementary co-located rows require a jointly missing pair and one verified
-/// ALT; the other row records ALT absence. Third alleles, compound events,
-/// ambiguous loci and existing observations are not projected.
-/// Callers restore profiles and the read index before validation or transfer:
-/// physical calls diagnose a missing/reversed source edge, never tag reads.
-int backfill_msa_retry_deletions(PhasingChunk& chunk, const Options& opts,
-                                 hts_pos_t beg, hts_pos_t end, bool include_isolated);
-
-/// Fill missing observations at admitted MSA sites from overlapping BAM reads.
-/// `beg` and `end` are inclusive VCF anchors; CIGAR calls retain internal keys.
-/// Missing ALT at a simple phased deletion can use Q30/MAPQ30 edit equivalence
-/// with a clean SNP confirming the source gauge, including when exact-position
-/// REF misses an equivalent shifted ALT. Missing SNP evidence retains the
-/// source ALT-absence contrast; contradictory SNP evidence leaves it unknown.
-/// Separate allele rows and existing MSA calls are preserved. For a missing insertion
-/// call, a Q30/MAPQ30 equivalent shifted edit takes precedence over an exact-
-/// coordinate REF call only with the same independent SNP gauge check; no
-/// candidate key, genotype or phase label is changed. For an unpaired binary
-/// insertion, a verified shifted ALT contradicted by an independent clean SNP
-/// stays unknown, never literal REF. Missing SNP evidence and complementary
-/// MSA contrasts retain their existing source projection. Site depth fields
-/// remain the discovery genotype census, not the enlarged recovery matrix.
-int backfill_msa_observations(PhasingChunk& chunk, const Options& opts,
-                              hts_pos_t beg, hts_pos_t end);
-
-/// Commit allele recalls after choosing the recovery source. Only sites
-/// missing in its original MSA projection are queued; original calls and source
-/// genotypes/phase labels remain authoritative. Supplementary CIGAR calls at
-/// those queued sites may be corrected or explicitly rejected by local evidence.
-bool apply_pending_msa_observations(PhasingChunk& chunk);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Step 4 top-level entry

@@ -76,36 +76,6 @@ void run_collect_bam_variation(const Options& opts);
  * addition to the standard BAM pipeline inputs.
  */
 
-/// Collect current adjacent oriented phase-set anchors in coordinate order.
-std::vector<RecoverySeam> collect_phase_set_seams(
-    const GraphChunkBuildResult& graph_chunk, bool exclude_repeat_indels = false);
-
-/// Recover bounded seams between neighboring phase sets inside a graph chunk.
-///
-/// The alignment caller supplies candidate rows, local candidate/read HP/PS,
-/// and per-read observations. The merge keeps the local gauge under a
-/// collision-free PS label and leaves established graph assignments unchanged.
-///
-/// Returns true when new candidates or refreshed graph-site evidence was merged.
-bool recover_phase_set_seams_in_place(GraphChunkBuildResult& graph_chunk,
-                                       const Options& opts,
-                                       WorkerContext& context,
-                                       const char* contig_name,
-                                       const std::vector<RecoverySeam>* completed_seams = nullptr);
-
-/// Phase graph-unassigned reads from an independent whole-chunk BAM solve.
-///
-/// The solve stages assignments for graph-unphased reads and output-only
-/// assignments for BAM reads absent from the graph profiles. A BAM block may
-/// contribute when graph links validate the whole block; otherwise only reads
-/// separated by one full clean-site score may contribute. Graph candidates,
-/// observations, primary assignments, and stitching inputs remain unchanged.
-size_t recover_independent_bam_read_blocks_in_place(
-    GraphChunkBuildResult& graph_chunk,
-    const Options& opts,
-    WorkerContext& context,
-    const char* contig_name);
-
 /// Union gap phasing: add the alignment's sample-specific heterozygotes.
 ///
 /// Runs one collect-bam-variation solve over the chunk (reads from MAPQ 1,
@@ -119,42 +89,6 @@ size_t inject_alignment_private_sites(
     WorkerContext& context,
     const char* contig_name,
     std::unique_ptr<PhasingChunk>* keep_alignment_chunk = nullptr);
-
-/// One candidate the recovery sub-solve found inside a recovery window, with
-/// every decision the merge made about it.
-///
-/// The merge translates keys, matches them against the parent, appends the new
-/// ones and synthesises per-site metadata -- and the writer skips any candidate
-/// whose metadata is missing, silently. Measured on chr20:55,336,460, where the
-/// sub-solve finds the two candidates carrying the window's only informative
-/// signal, both are merged into the chunk as NoisyCandHet, and both are dropped
-/// at emission because site_meta does not extend to their indices. This record
-/// makes each step observable, so completeness is checked rather than probed.
-struct RecoveredCandidate {
-    hts_pos_t pos = 0;
-    int type = 0;
-    int ref_len = 0;
-    std::string alt;
-    int category = 0;
-    hts_pos_t win_beg = 0;
-    hts_pos_t win_end = 0;
-    bool known_raw = false;          ///< parent holds this exact key
-    bool known_translated = false;   ///< parent holds it via its VCF form
-    bool inside_window = false;
-    bool category_admitted = false;
-    bool appended = false;           ///< reached the merged candidate table
-    bool meta_built = false;
-    /// The alignment path vouched for this candidate: clean, or noisy with the
-    /// MSA's verification. Recorded so a demoted locus that came back usable is
-    /// visible in the audit rather than only inferable from its new category.
-    bool alignment_verified = false;         ///< per-site metadata synthesised for it
-    size_t meta_alts = 0;
-    std::string meta_ref;
-};
-
-/// Append one TSV row per recovered candidate. Thread-safe.
-void write_recovery_audit(const std::string& path,
-                          const std::vector<RecoveredCandidate>& rows);
 
 } // namespace pgphase_collect
 

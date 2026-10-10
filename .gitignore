@@ -138,3 +138,11 @@ test_port_parity
 /test_allele_context
 
 /test_allele_genotype
+
+# Test binaries
+/test_union_phase
+/test_phase_predicates
+/test_allele_context
+/test_allele_genotype
+/test_port_parity
+/test_upstream_phase

@@ -65,13 +65,6 @@ constexpr int kDefaultNoisyRegMaxXgaps = 5;
 // supported boundaries to avoid over-merging discordant blocks.
 constexpr int kDefaultStitchMinMargin = 0;
 
-// Hybrid pipeline default stitch margin.  Graph-augmented chunks carry extra
-// overlap reads, so abstaining on weak seams reduces over-merging without
-// losing contiguity.  Matched-eval (HG002 chr20) shows margin 10 lowers
-// Hamming and raises genome covered / perfect phase sets versus margin 0, at
-// no switch/flip cost.  The BAM pipeline keeps kDefaultStitchMinMargin (0).
-constexpr int kHybridDefaultStitchMinMargin = 10;
-
 // Chunk-stitch decision rule (experimental).  Selects how flip_chunk_hap
 // decides whether to merge two adjacent chunks:
 //   0 = net-margin (default): merge when |flip_votes - noflip_votes| > margin.
@@ -89,20 +82,10 @@ constexpr int kStitchRuleLiteral = 2;
 constexpr int kStitchRuleBothStrandsMargin = 3;
 // BAM/graph pipelines default to the original net-margin rule.
 constexpr int kDefaultStitchRule = kStitchRuleNetMargin;
-// Hybrid pipeline defaults to both-strands-bridged: it improves contiguity at
-// no accuracy cost on HG002 chr20 (auN 11.91M -> 12.00M, +163 reads phased,
-// Hamming flat).  --stitch-rule overrides it.
-constexpr int kHybridDefaultStitchRule = kStitchRuleBothStrands;
 
 // scratch-buffer noisy k-means, so their phase sets occupy a disjoint namespace
 // well above any genomic-coordinate PS id and never collide with core blocks.
 constexpr hts_pos_t kGapFillPsOffset = 1000000000;
-
-// Whole-chunk BAM fallback blocks are read-only and must not share labels with
-// either graph blocks or excluded-site rescue blocks. BAM PS values are genomic
-// coordinates on the human references supported by the graph pipeline, so this
-// offset remains below the signed 32-bit limit used by the BAM PS tag.
-constexpr hts_pos_t kBamFallbackPsOffset = 1500000000;
 
 // Graph-only het-indel anchor gating (hybrid pipeline only).  Graph het indels
 // added to k-means as CleanHetIndel can mis-orient reads when the genotype is
@@ -213,9 +196,6 @@ struct Options {
     ReadTechnology read_technology = ReadTechnology::Hifi;
     double strand_bias_pval = kDefaultStrandBiasPvalOnt;
     int noisy_reg_max_xgaps = kDefaultNoisyRegMaxXgaps;
-    /// Path for the recovery audit TSV: one row per candidate the sub-solve
-    /// found inside a recovery window, with the merge's decisions about it.
-    std::string recovery_audit_out;
     /// Merge co-located MSA alleles into one multiallelic record.
     ///
     /// OFF by default, because longcallD does not do it: measured on its own
@@ -235,10 +215,10 @@ struct Options {
     /// comma in ALT and 2,401 positions carrying two biallelic rows. But its
     /// split is COHERENT -- counting positions where one haplotype claims two
     /// different ALT alleles, upstream scores 0. Ours does not: with the merge
-    /// off our alignment arm scores 412 such positions, and the gap-window
-    /// suite fails on them. So parity with upstream is not "stop merging"; it
-    /// is "make the split complementary the way upstream's is", and until that
-    /// is done the merged form is the correct one to ship.
+    /// off our alignment arm scores 412 such positions. So parity with upstream
+    /// is not "stop merging"; it is "make the split complementary the way
+    /// upstream's is", and until that is done the merged form is the correct
+    /// one to ship.
     bool merge_colocated_msa_alleles = true;
     /// Collapse two co-located haplotype-specific alleles into one record.
     ///
@@ -286,11 +266,10 @@ struct Options {
     /// variant the read covers, with no phase-set scoping anywhere.
     bool phase_set_scoped_clean_rounds = true;
     /// Let a two-cluster MSA candidate vote on which haplotype a read belongs
-    /// to even when no gap link has vouched for it.
+    /// to.
     ///
-    /// `read_to_cons_allele_score` returned 0 -- no vote -- for any candidate
-    /// with `msa_insertion_alts` unless `gap_link_supported`, which is the whole
-    /// NOISY_CAND_HET class. longcallD's counterpart (`assign_hap.c:127-147`)
+    /// `read_to_cons_allele_score` returns 0 -- no vote -- for any candidate
+    /// with `msa_insertion_alts`, which is the whole NOISY_CAND_HET class. longcallD's counterpart (`assign_hap.c:127-147`)
     /// has no such condition: every candidate in the mask votes. The effect is
     /// not a small one, because it is self-reinforcing -- in a region whose only
     /// candidates come from the noisy MSA, no read scores, `n_vars_used` stays
@@ -324,8 +303,7 @@ struct Options {
     /// project added to `init_assign_read_hap_based_on_cons_alle`,
     /// `read_to_cons_allele_score` and `update_read_phase_set`:
     ///
-    ///   - a homopolymer indel is skipped unconditionally (`assign_hap.c:166`),
-    ///     not spared when `hp_gap_scorable` is set;
+    ///   - a homopolymer indel is skipped unconditionally (`assign_hap.c:166`);
     ///   - the clean agree/conflict tallies count any clean SNP, heterozygous or
     ///     homozygous (`assign_hap.c:174`), where we counted only a clean het SNP
     ///     with at most two alleles;
@@ -337,9 +315,6 @@ struct Options {
     ///     match one of the two consensus alleles.
     bool upstream_read_scoring = false;
     bool link_earned_repeat_indels = false;
-    // Phase the catalog's sites jointly with the alignment's sample-specific
-    // clean and MSA-verified heterozygotes instead of running seam recovery.
-    bool union_gap_phasing = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;
     // Chunk-stitch abstain margin (see kDefaultStitchMinMargin).  Adjacent
@@ -391,124 +366,7 @@ struct Options {
     // specific to it, and governs the MSA consensus rescoring in align.cpp for
     // every noisy region.
     int msa_ambiguity_margin = 24;
-    // Internal last-resort trial: verified homopolymer links only inside this
-    // unresolved gap. Negative bounds disable the trial in ordinary rounds.
-    // Internal bounds for non-repeat MSA sites admitted for one gap retry.
-    // Minimum gap-only reads (no original flank/block assignment at all)
-    // sharing one locally-derived phase set before emitting it as a new,
-    // independent block. Purely additive: never overwrites an existing
-    // assignment. 0 disables independent-block emission entirely.
-    // Bound on how many times the bridge/independent-block recovery sequence
-    // repeats per batch. Each round can create new, smaller gaps (a fresh
-    // independent block now sits between an existing flank and a bridge that
-    // previously had nothing to reach); repeating lets the same validated
-    // logic reach those, terminating itself on the first round with no
-    // progress. 1 reproduces the original single-pass behavior.
-    //
-    // is keyed to the gap inventory, which every later round changes), so
-    // round >=1 rebuilds raw evidence uncached. On chr20 this was observed to
-    // grow resident memory past 47 GB within 10 minutes with no sign of
-    // bounding -- not yet safe to enable by default. Raise this only with
-    // memory monitored, on a pipeline that has evidence-building costs under
-    // control for repeated, partial re-invocation.
-    // Attempt to bridge each newly-independent block to its own two flanks,
-    // reusing its proposal (no re-extraction) against a read index rebuilt
-    // post-emission. Off by default: measured on chr20 it added only 6 reads
-    // chromosome-wide with 50% accuracy on that specific population -- these
-    // gaps already failed the identical vote test once (that is why they
-    // could not join originally), and routing through the new block does not
-    // change the flank-side vote count, so any success here rides on
-    // marginal evidence. Never corrupts an existing read (same guards as
-    // emit_independent_gap_block), but not worth enabling until the bridge
-    // criterion itself is strengthened for this specific, already-once-
-    // rejected evidence.
-    // Additively attach reads with no committed pre-recovery haplotype/phase-
-    // set at all (GapReadIndex::assignments misses them -- e.g. they sat
-    // right at a block boundary and the main pass left them unassigned) to a
-    // flank they individually agree with by allele
-    // (CandidateVariant::hap_to_cons_alle), same principle as
-    // --link-by-alleles / check_agree_haps for the main phasing pass.
-    //
-    // Two earlier versions fed this allele agreement directly into
-    // stitch_gap_proposal's `votes` (i.e. let it help decide which side a
-    // gap joins to, and whether it flips) and both measurably corrupted
-    // existing phase sets on chr20 -- the allele-derived signal is self-
-    // consistent per read (confirmed by requiring agreement across every one
-    // of a read's overlapping-tile-chunk locations, which changed nothing)
-    // but simply not reliable enough, concentrated in already-hard regions,
-    // to trust for the join/orientation decision itself. See CHECKPOINT.md,
-    // 2026-09-15, for both experiments' numbers.
-    //
-    // The current implementation instead computes `votes`/orientation
-    // selection (which side wins, whether it flips) from committed
-    // (first_assignment) reads only -- byte-identical to this flag being
-    // off -- and consults allele agreement only *after* a join is already
-    // accepted on committed evidence alone, purely to attach more reads to
-    // it (the same additive contract emit_independent_gap_block uses).
-    // Verified on chr20, whole chromosome, against
-    // ../pgphase-eval-data/truth/chr20/diplinator_merged.bam: gaps bridged
-    // (112) and their orientation are unchanged, byte-for-byte, from this
-    // flag being off. Zero of the 184,974 previously-evaluated reads
-    // regressed (no concordant -> DISCORDANT transition anywhere); 22,676
-    // additional reads got evaluated, 96.4% of them concordant (in line with
-    // emit_independent_gap_block's 96.2% on its own, much smaller,
-    // population); contiguity improved slightly (176 phase sets vs 179,
-    // fewer/larger blocks) because many reads that previously only qualified
-    // for a same-PS independent block now attach directly to the correct
-    // flank instead.
-    /// catalog is too sparse to phase, nothing is assigned and the region becomes
-    /// a gap for a later pass to recover. Admitting the BAM sites there and
-    /// solving again keeps the work in the normal pass, and confines the cost:
-    /// admitting them chromosome-wide doubled the read Hamming error on chr20,
-    /// 0.878% -> 1.837%, while spanning only 14 of the 196 gaps.
-    /// Give a biallelic candidate the joint two-haplotype orientation whenever
-    /// its own allele depths call it heterozygous, not only inside a retry
-    /// window. iter_update_var_hap_to_cons_alle otherwise recomputes each
-    /// haplotype's consensus independently by majority, so both haplotypes can
-    /// select the deeper allele and the site is emitted homozygous -- the case
-    /// the multi-allele branch beside it already guards, with the comment
-    /// "Independent haplotype majorities can select the same allele twice."
-    /// Measured on chr20:48,204,383 (DEL, DP 71, 30 ref / 41 alt, AF 0.577,
-    /// NoisyCandHet): emitted 1|1, where hiphase calls 0|1 and uses it to cross
-    /// a 41.8 kb interval that otherwise carries no phased heterozygote, so our
-    /// chain links across it with no spanning read and picks an arbitrary
-    /// orientation.
-    bool joint_het_orientation = false;
-    /// split_nested_msa_deletions, which then emitted both nested forms of one
-    /// tandem-repeat deletion as independent hets -- the exact false bridge that
-    /// function exists to prevent.
-    bool force_noisy_msa = false;
-    // Recovery can recall complementary insertion alleles against fixed
-    // consensuses without admitting reads into a whole-region cluster.
-    bool recall_unplaced_msa_insertions = false;
-    /// Closed VCF anchor intervals [beg, end] that the retry is re-solving. Carried so the
-    /// het-seeding repair in iter_update_var_hap_cons_phase_set can be confined
-    /// to them: outside a failed window the provisional-label collapse is not
-    /// this pass's business to repair.
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> retry_windows;
-    // When true (gap recovery only), an MSA-verified private het SNP inside a
-    // gap may act as a block-bridge anchor, on the same terms as a recovered
-    // MSA indel: it must pass the anchor allele-segregation test that sets
-    // gap_link_supported, and a read's observation of it must be confirmed
-    // directly in the BAM. The bridge anchor set otherwise admits only exactly
-    // clean het SNPs and non-homopolymer MSA indels, which is the evidence a
-    // graph gap interior is least likely to contain.
-    // When true (hybrid + skip_noisy_kmeans only), recover the reads that
-    // skip_noisy_kmeans leaves unphased: re-run the kCandGermlineVarCate k-means
-    // into a scratch buffer and adopt its haplotype for reads the clean core
-    // left unphased (hap==0), shifting their phase-set ids into a disjoint
-    // namespace (PS += kGapFillPsOffset) so no core phase set is renumbered,
-    // merged, or re-oriented. Additive: the clean core is never modified. This
-    // is the in-binary form of scripts/gapfill.py (1-source / BAM-pipeline gap).
 
-    // Trim graph-only catalog alleles to minimal VCF form before the hybrid
-    // indel noise filter, matching apply_graph_noise_filter. Graph catalog
-    // alleles are non-minimal (full repeat run on both flanks); trimming shrinks
-    // the derived indel length so max_xgaps-bounded repeat detection matches the
-    // standalone graph pipeline. Recovers ~342 over-demoted het indels as k-means
-    // anchors (hamming 0.819->0.768%, switch 319->291). Defaults true for hybrid
-    // (set in collect_hybrid_variation); --no-hybrid-trim disables it.
-    bool exp_hybrid_trim = false;
     // Step 4: noisy-region MSA options.
     int max_noisy_reg_len = 50000; // skip regions longer than this bp
     int max_noisy_reg_cov = 1000;  // skip regions with more overlapping reads
@@ -612,7 +470,6 @@ struct Options {
     /** Keep GAF as the sole evidence source at every graph-represented site. */
     /** BED intervals where clean BAM candidates replace graph/GAF evidence. */
     /** Suppress output assignments from phase sets with fewer phased reads. */
-    int min_phase_set_reads = 0;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer
@@ -729,11 +586,6 @@ struct CgrangesDeleter {
 
 
 /** @brief An output-only HP/PS assignment for a read absent from graph profiles. */
-struct ReadPhaseAssignment {
-    std::string qname;
-    int hap = 0;
-    hts_pos_t phase_set = kUnphasedReadPhaseSet;
-};
 
 /**
  * @brief One input read after parsing: coordinates, digars, qualities, noisy subregions.
@@ -773,12 +625,6 @@ struct ReadRecord {
     // not from ordinary noisy-region recall run without --private-msa.
     int n_bridge_agree_snps = 0;
     int n_bridge_conflict_snps = 0;
-    // Observations of a homopolymer indel the homopolymer tier admitted as a
-    // gap's last-resort evidence (CandidateVariant::hp_gap_scorable). Kept
-    // separate from the bridge-SNP counters so the margin filter can credit
-    // them only where that tier is what phased the read.
-    int n_hp_gap_agree = 0;
-    int n_hp_gap_conflict = 0;
     // |hap_scores[1] - hap_scores[2]| from the last init_assign_read_hap_based_on_cons_alle call,
     // and the number of informative variants behind the winning haplotype.
     // The clean-SNP agree/conflict counts above see only germline clean SNPs;
@@ -847,19 +693,6 @@ struct CandidateVariant {
     int hap_ref = 0;
     // True for indels in homopolymer context (set by MSA gap analysis, not by classification).
     bool is_homopolymer_indel = false;
-    // Focused diploid or compound-flank MSA retained this genotype for linking.
-    // One-locus read rescue still needs independent primary-site confidence.
-    bool read_rescue_requires_validation = false;
-    // Retained shared BAM genotype without an inherited source connection.
-    // Graph rescue uses its graph channel and independent block associations.
-    bool bam_independent_genotype = false;
-    // Recomputed from clean-site evidence for MSA indel bridges in recovery gaps.
-    bool gap_link_supported = false;
-    // Set only by select_gap_link_sites, only for an MSA-verified homopolymer
-    // indel inside the homopolymer tier's gap window. Lets that one site score
-    // reads in the gap it was admitted for without relaxing the global rule
-    // that homopolymer indels do not contribute read scores.
-    bool hp_gap_scorable = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
     /// Discovered by the recovery sub-solve from the alignment and injected
@@ -907,106 +740,6 @@ struct CandidateVariant {
 /** @brief Ordered list of candidates for one chunk or merged batch. */
 using CandidateTable = std::vector<CandidateVariant>;
 
-// Per-read allele observations across a contiguous range of candidates.
-// alleles[i] corresponds to candidate start_var_idx + i.
-// Values: 0=reference, 1=alternate, -1=non-informative, -2=low-quality alt.
-// alt_qi normally stores a nonnegative BAM query index.  This sentinel records
-// an allele independently confirmed by the same read's graph walk.
-constexpr int kGraphConfirmedAltQi = -2;
-/// One bounded gap between neighboring graph phase sets. Phase-set identities
-/// are captured when the canonical graph coordinates are computed so later
-/// stitching never has to rediscover flanks from differently normalized keys.
-struct RecoverySeam {
-    hts_pos_t beg = 0;
-    hts_pos_t end = 0;
-    hts_pos_t left_phase_set = 0;
-    hts_pos_t right_phase_set = 0;
-};
-
-/// One established phase set's numeric HP orientation relative to a targeted
-/// BAM sub-solve. `same` and `cross` count shared reads whose graph and BAM HP
-/// labels match or differ.
-struct PhaseSetGaugeVote {
-    hts_pos_t phase_set = 0;
-    int same = 0;
-    int cross = 0;
-};
-
-/// Direct orientation evidence between one graph block and one independently
-/// phased BAM block. Separate BAM phase sets have separate HP gauges, so these
-/// votes must never be pooled merely because they came from the same sub-solve.
-struct RecoveryBlockGaugeVote {
-    hts_pos_t graph_phase_set = 0;
-    hts_pos_t bam_phase_set = 0;
-    // [graph haplotype][BAM haplotype], both zero based.
-    std::array<std::array<int, 2>, 2> counts{};
-    // A sequence-identical clean heterozygote belongs to both blocks and maps
-    // their allele gauges directly. Keep this separate from read counts: it is
-    // a consensus anchor, not another independent molecule.
-    int shared_candidate_same = 0;
-    int shared_candidate_cross = 0;
-    // Two descriptions of one multiallelic locus are one anchor, not two.
-    bool has_distinct_shared_loci = false;
-};
-
-/// Physical clean-SNP molecule relation between two established graph blocks.
-/// The parity is expressed in their pre-stitch candidate gauges.
-struct RecoveryPhysicalSnpBridge {
-    hts_pos_t left_phase_set = 0;
-    hts_pos_t right_phase_set = 0;
-    bool flip = false;
-    // A validated MSA deletion can attach its independent BAM runs before
-    // this graph join; ordinary SNP bridges leave this unset.
-    hts_pos_t pre_attach_source_phase_set = 0;
-};
-
-/// Immutable BAM evidence uses its own site indices, independent of the live
-/// graph table. Context sites can support a stitch without owning output rows.
-struct RecoveryBamSite {
-    VariantKey key;
-    hts_pos_t phase_set = 0;
-    int hap1_allele = -1;
-    int hap2_allele = -1;
-    bool clean_snp = false;
-    // Local BAM identity survives even when this block owns no injected row.
-    // phase_set is zero for context-only blocks: their coordinate PS must not
-    // accidentally alias a live graph or another solve's imported label.
-    hts_pos_t source_phase_set = 0;
-};
-
-struct RecoveryBamRead {
-    std::string qname;
-    int mapq = 0;
-    std::vector<std::pair<size_t, int>> observations;
-    // Parallel physical BAM SNP certificates; zero means absent/contradictory.
-    std::vector<uint8_t> base_qualities;
-};
-
-/// Alternative recall retained for provenance, not another molecule vote.
-struct RecoveryBamRecall {
-    VariantKey key;
-    std::string qname;
-    int allele = -1;
-    bool fixed_consensus = false;
-};
-
-/// Phase gauge supplied by one targeted BAM solve. Imported phase sets already
-/// use this gauge; graph phase sets acquire it through shared-read votes.
-struct RecoveryPhaseGauge {
-    // This gauge came from an MSA retry bounded by both adjacent graph PSs.
-    bool focused_retry = false;
-    hts_pos_t beg = 0;
-    hts_pos_t end = 0;
-    std::vector<hts_pos_t> imported_phase_sets;
-    std::vector<PhaseSetGaugeVote> graph_votes;
-    std::vector<RecoveryBlockGaugeVote> block_votes;
-    std::vector<RecoveryPhysicalSnpBridge> physical_snp_bridges;
-    std::vector<RecoveryBamSite> bam_sites;
-    // Sorted by qname; repeated molecules are excluded by the snapshot builder.
-    std::vector<RecoveryBamRead> bam_reads;
-    std::vector<RecoveryBamRecall> conflicting_recalls;
-};
-
 struct ReadVariantProfile {
     int read_id = -1;
     int start_var_idx = -1;
@@ -1029,14 +762,6 @@ struct ReadVariantProfile {
 // Chunk data
 // ════════════════════════════════════════════════════════════════════════════
 
-/// An allele recall retained by exact key across candidate reordering.
-struct DeferredMsaObservation {
-    VariantKey key;
-    int read_id;
-    int allele;
-    bool update_counts = true;  // Supplementary CIGAR calls retain the discovery census.
-};
-
 /**
  * @brief Working state for one region chunk: reads, reference slice, noisy intervals, candidates.
  */
@@ -1055,15 +780,6 @@ struct PhasingChunk {
     std::vector<int> n_down_ovlp_skip_reads;
     std::vector<int> haps;
     std::vector<hts_pos_t> phase_sets;
-    // Local consensus calls and physical corrections are admitted only after
-    // recovery chooses its source solve; they cannot alter retries.
-    std::vector<DeferredMsaObservation> pending_msa_observations;
-    // Explicit abstentions must clear older CIGAR calls during transfer;
-    // an ordinary missing slot merely supplies no new observation.
-    std::vector<DeferredMsaObservation> rejected_msa_observations;
-    // Contradictory proposals remain available in the source snapshot. The
-    // working call abstains instead of choosing one by arrival order.
-    std::vector<DeferredMsaObservation> conflicting_msa_observations;
     // only for reads the clean core left unphased (haps[i]==0) and recovered by
     // the scratch-buffer noisy k-means; empty otherwise. Kept separate from
     // `haps` so they never influence cross-chunk stitching (which inspects
@@ -1075,13 +791,6 @@ struct PhasingChunk {
     // exact BAM observation missing in the graph profile. These are fill-only
     // when overlapping chunks already supplied any phased assignment.
     std::vector<bool> gap_from_bam_observation;
-    // Whole-chunk BAM solve assignments staged until graph stitching and
-    // excluded-site rescue finish. They never participate in graph stitching.
-    std::vector<int> bam_fallback_haps;
-    std::vector<hts_pos_t> bam_fallback_phase_sets;
-    // Independent BAM assignments for reads absent from this chunk's GAF rows.
-    // They are output-only and never enter graph phasing or chunk stitching.
-    std::vector<ReadPhaseAssignment> bam_output_fallback_reads;
     std::vector<ReadVariantProfile> read_var_profile;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;
@@ -1101,7 +810,6 @@ struct PhasingChunk {
      * that had a clean first-pass category, we stash `candvarcate_initial` here so step-4 MSA
      * merges can restore the initial category on the replacement row.
      */
-    std::vector<std::pair<VariantKey, VariantCategory>> erased_clean_signal_initial;
 };
 
 } // namespace pgphase_collect

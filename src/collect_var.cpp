@@ -190,20 +190,7 @@ static int var_site_alt_len(const VariantKey& v) {
     return static_cast<int>(v.alt.size());
 }
 
-/**
- * Total order for candidate keys.
- *
- * Compares tid, sort position, type, `ref_len`, and alternate sequence length / bytes.
- * Return \<0 if \a var1 \< \a var2, 0 if equal, \>0 if \a var1 \> \a var2.
- *
- * @param var1 First variant key.
- * @param var2 Second variant key.
- * @return \<0, 0, or \>0 according to total order.
- */
-// Moved here when the hybrid arm was removed: this conversion is used by the
-// graph arm's in-chunk recovery merge (collect_pipeline.cpp:1478, :1670) and
-// has nothing hybrid-specific about it.
-// Declared in hybrid_inject.hpp.
+// VCF POS/REF/ALT to the internal candidate key.
 VariantKey vcf_to_variant_key(int tid, hts_pos_t vcf_pos,
                               const std::string& vcf_ref,
                               const std::string& vcf_alt) {
@@ -256,6 +243,16 @@ VariantKey vcf_to_variant_key(int tid, hts_pos_t vcf_pos,
     return key;
 }
 
+/**
+ * Total order for candidate keys.
+ *
+ * Compares tid, sort position, type, `ref_len`, and alternate sequence length / bytes.
+ * Return \<0 if \a var1 \< \a var2, 0 if equal, \>0 if \a var1 \> \a var2.
+ *
+ * @param var1 First variant key.
+ * @param var2 Second variant key.
+ * @return \<0, 0, or \>0 according to total order.
+ */
 int exact_comp_var_site(const VariantKey* var1, const VariantKey* var2) {
     if (var1->tid != var2->tid) return var1->tid < var2->tid ? -1 : 1;
     const hts_pos_t p1 = var1->type == VariantType::Snp ? var1->pos : var1->pos - 1;

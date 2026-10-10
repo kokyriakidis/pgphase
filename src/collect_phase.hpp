@@ -16,9 +16,6 @@
 
 namespace pgphase_collect {
 
-/// Exact upper binomial tail P(X >= first), for 0 <= first <= n and 0 < p < 1.
-double binomial_upper_tail(int n, int first, double p);
-
 /// An oriented heterozygote with a positive PS can anchor recovery. Match the
 /// selected graph row's emitted biallelic genotype; unknown and homozygous
 /// candidates cannot define a boundary or an observation-path cut.
@@ -73,149 +70,18 @@ constexpr uint32_t kCandGermlineVarCate =
 // Maps a VariantCategory enum to its bitmask flag (0 for unmapped categories).
 uint32_t category_to_flag(VariantCategory c);
 
-// Stitch haplotype assignments across chunk boundaries.  For each adjacent
-// pair on the same contig, overlapping boundary reads vote on whether the
-// downstream chunk's hap labels should be flipped.  When the vote is decisive,
-// candidate and read-level hap/PS assignments are updated.
-//
-// When pgbam_sidecar is provided, annotated-BAM thread IDs are used to merge
-// phase blocks that lack decisive common-read overlap.
-/// Check the invariants a chunk must satisfy after candidates or reads have been
-/// inserted into it, and throw std::runtime_error naming the first violation.
-///
-/// Every one of these is depended on silently somewhere else, and each was found
-/// on 2026-09-19 by its symptom rather than by a diagnostic:
-///   - the per-site arrays are addressed BY CANDIDATE INDEX by the graph writer,
-///     so a short one shifts metadata onto the wrong site;
-///   - the solve finds a site's reads through an index keyed by candidate index,
-///     so candidates must stay position-sorted and the index rebuilt;
-///   - the cross-chunk stitch pairs reads with a merge-join, so reads must stay
-///     sorted by qname;
-///   - every read-indexed vector must keep the same length and ordering.
-///
-/// `region_lo`/`region_hi` are the targeted BAM span; pass 0/0 to skip the
-/// containment check.
-void verify_chunk_invariants(const PhasingChunk& chunk,
-                             size_t site_ids_size,
-                             size_t site_meta_size,
-                             size_t site_orig_size,
-                             hts_pos_t region_lo,
-                             hts_pos_t region_hi);
-
 void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
                        const Options* opts = nullptr,
                        const PgbamSidecarData* pgbam_sidecar = nullptr);
-
-/// Move one complete phase set into another, flipping its candidate and read
-/// haplotypes when the connecting allele evidence requires opposite polarity.
-bool merge_phase_sets_in_place(PhasingChunk& chunk,
-                               hts_pos_t upstream_phase_set,
-                               hts_pos_t downstream_phase_set,
-                               bool flip);
 
 /// Apply the normal overlap-read stitching rule to 11/12/21/22 haplotype votes.
 bool select_stitch_orientation(const std::array<int, 4>& votes,
                                const Options* opts, bool& do_flip);
 
-/// Do this site's own allele depths call it a clear heterozygote? Gates the
-/// widened link-list admission, and is the one place `retry_windows` is read.
-/// Exclusions, in order: off unless a retry window exists or
-/// joint_het_orientation is set; category must be noisy het or clean het;
-/// multiallelic records excluded (oriented jointly elsewhere); both haplotype
-/// profiles must hold >= 2 observations; ref and alt depth >= min_alt_depth;
-/// allele fraction within [min_af, max_af]; and unless joint_het_orientation,
-/// the position must fall inside a retry window.
-bool allele_depths_call_het(const CandidateVariant& var, const Options& opts);
-
-/// Request MSA retry when a verified indel boundary loses significant coverage
-/// both locally and on gap-crossing reads, with a verified opposite indel
-/// representation carrying diploid allele depths. Boundary indices must be valid and
-/// ordered, with one profile per read. This predicate supplies no phase
-/// orientation or stitch certificate. allow_complementary also admits distinct,
-/// already phased complementary alleles of the same indel type; callers use
-/// this for fallback requests without changing their established first choice.
-bool msa_boundary_dropout_is_supported(const PhasingChunk& chunk,
-                                       const std::array<size_t, 2>& boundaries,
-                                       const Options& opts,
-                                       bool allow_complementary = false);
-
-/// Admit a focused MSA retry for a weak internal source edge. Significant
-/// conflicting molecule pairs on an MSA indel can leave a nominal source PS
-/// disconnected. This requests new observations, never certifies a stitch.
-/// Boundary indices must be valid and ordered by physical anchor position.
-bool msa_source_conflict_is_supported(const PhasingChunk& chunk,
-                                      const std::array<size_t, 2>& boundaries,
-                                      const Options& opts);
-
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,
                                       const Options& opts);
-
-/// Join two adjacent phase sets using the strongest read-backed allele edge.
-/// The upstream set defines the gauge. A crossed edge flips every candidate
-/// and read in the downstream set before its PS label is replaced atomically.
-bool stitch_phase_sets_by_alleles(PhasingChunk& chunk,
-                                  hts_pos_t upstream_phase_set,
-                                  hts_pos_t downstream_phase_set,
-                                  const Options& opts);
-
-/// Orient complete BAM blocks from agreeing, quality-bearing SNP calls on
-/// both sides and an independent MSA indel on the same molecule. Abstain on
-/// conflicting calls. Returns whether the second block needs a haplotype flip.
-std::optional<bool> corroborated_bam_block_flip(
-    const PhasingChunk& chunk, const std::vector<int>& first,
-    const std::vector<int>& second);
-
-/// Snapshot every phased heterozygote and callable observation in the BAM
-/// solve, including flank-only blocks. Selected blocks use remapped labels;
-/// context-only blocks retain their source identity without a live PS label.
-/// Does not modify either chunk.
-void retain_recovery_bam_evidence(
-    const PhasingChunk& source,
-    const std::vector<std::pair<hts_pos_t, hts_pos_t>>& phase_set_remap,
-    RecoveryPhaseGauge& gauge);
-
-/// Orient two complete blocks from independent spanning molecules. A source
-/// block is scored in its saved BAM gauge; other blocks use the supplied live
-/// graph candidate indices. Reads are qname ordered. Clean SNPs take priority;
-/// new joins also require physical MAPQ30/Q30 SNP support on both haplotypes.
-std::optional<bool> complete_recovery_block_flip(
-    const PhasingChunk& chunk, const RecoveryPhaseGauge& gauge,
-    hts_pos_t upstream_phase_set, hts_pos_t downstream_phase_set,
-    const std::vector<int>& upstream_candidates,
-    const std::vector<int>& downstream_candidates, int min_mapq);
-
-/// Stitch imported BAM phase sets through each explicit graph seam from left
-/// to right. Each BAM block keeps its independent gauge. Incomplete graph/BAM
-/// edges use one bounded exact MEC decision over the complete atomic blocks;
-/// only a problem that exceeds the bound may use the boundary interval, and
-/// then only with an independently significant candidate gauge. Ties,
-/// contradictions, disconnected edges, and unsupported over-bound problems
-/// remain separate. Accepted blocks adopt the upstream gauge atomically.
-size_t stitch_recovery_phase_sets_left_to_right(
-    PhasingChunk& chunk,
-    const std::vector<RecoverySeam>& windows,
-    const std::vector<RecoveryPhaseGauge>& gauges,
-    const Options& opts,
-    const std::unordered_map<hts_pos_t, bool>* source_path_supported = nullptr,
-    const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_weak_cuts = nullptr,
-    const std::unordered_map<hts_pos_t, std::vector<hts_pos_t>>* source_quality_cuts = nullptr,
-    std::set<hts_pos_t>* locally_bridged_sources = nullptr,
-    const std::set<hts_pos_t>* complete_graph_source_paths = nullptr);
-
-/// Stitch finalized recovery blocks using their complete BAM evidence. Run
-/// after source attachment so no subsequent import can replay an older gauge.
-size_t stitch_complete_recovery_phase_blocks(
-    PhasingChunk& chunk, const std::vector<RecoverySeam>& windows,
-    const std::vector<RecoveryPhaseGauge>& gauges, const Options& opts,
-    const std::unordered_map<hts_pos_t, bool>& source_paths,
-    const std::set<hts_pos_t>& graph_paths);
-
-/// Dump the complete post-injection, pre-solve recovery state when diagnostics
-/// are enabled. The snapshot is sufficient for a local boundary replay.
-void dump_recovery_phase_state(const PhasingChunk& chunk, const Options& opts,
-                               const char* label);
 
 // Assign haplotypes and phase sets to reads via iterative k-means clustering.
 //

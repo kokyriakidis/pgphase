@@ -64,42 +64,24 @@ LDFLAGS ?= -lhts -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests window-tests gap-benchmark upstream-parity-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs gbz-base hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
 check: pgphase
 	bash scripts/validate_collect_gates.sh
 
-# The window tests are integration tests: they need test_data/ and the derived
-# truth map. Cold runs replay real windows; completed replays are shared across
-# processes and subsequent invocations while all assertions run every time.
-window-tests: test_gap_windows
-	python3 scripts/test_cache_gap_replay.py
-	./test_gap_windows
-
-# Use a Python with pysam installed and the already evaluated HiPhase BAM.
-# Measurements are cached against input, truth, panel and competitor identities.
-gap-benchmark:
-	@test -n "$(HIPHASE_BAM)" || { echo 'Set HIPHASE_BAM and optionally BENCH_PYTHON (with pysam)'; exit 1; }
-	$(if $(BENCH_PYTHON),$(BENCH_PYTHON),python3) scripts/test_prepare_gap_hiphase.py
-	$(if $(BENCH_PYTHON),$(BENCH_PYTHON),python3) scripts/prepare_gap_hiphase.py --bam test_data/HG002_chr20_hifi_mapped_to_CHM13_chr20_annotated.bam --hiphase "$(HIPHASE_BAM)" --truth test_data/derived/chr20_truth_hap.tsv --panel evaluations/2026-09-16-test-panel/panel.tsv
-
 predicate-tests: test_phase_predicates
 	./test_phase_predicates
 
 # In-memory fixtures are the edit loop; owning replays are an explicit check.
-.PHONY: gap-dev-check gap-owner-check
+.PHONY: gap-dev-check
 gap-dev-check: test_phase_predicates test_graph_bam_adapter test_allele_identity test_allele_context test_allele_genotype
 	./test_allele_identity
 	./test_allele_context
 	./test_allele_genotype
 	./test_phase_predicates $(if $(PREDICATE),"$(PREDICATE)",)
 	./test_graph_bam_adapter
-
-gap-owner-check: pgphase test_gap_windows
-	@test -n "$(GAP)" || { echo 'Usage: make gap-owner-check GAP="61.738"'; exit 1; }
-	PGPHASE_GAP_FILTER="$(GAP)" ./test_gap_windows "all gaps"
 
 parity-tests: test_port_parity
 	./test_port_parity
@@ -246,16 +228,12 @@ test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
 # Catch2 v2 is a single vendored header; -O1 keeps its compile time tolerable.
-
-test_gap_windows: src/test_gap_windows.cpp third_party/catch2/catch.hpp
-	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(LDFLAGS)
-
 test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 
 clean:
-	rm -f pgphase test_gap_windows test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype src/*.o src/*.d
+	rm -f pgphase test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype src/*.o src/*.d
 	rm -rf $(UPSTREAM_PHASE_DIR)
 
 test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)

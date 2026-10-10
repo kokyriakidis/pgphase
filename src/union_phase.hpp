@@ -1,6 +1,6 @@
 #pragma once
 
-// Union gap phasing (--union-gap-phasing).
+// Union gap phasing: what collect-graph-variation does with --bam.
 //
 // The catalog's sites are phased together with the alignment's sample-specific
 // heterozygotes: inject_alignment_sites adds them to a graph chunk, the clean
@@ -100,10 +100,9 @@ size_t label_reads_from_verified_indels(GraphChunkBuildResult& graph_chunk, cons
 /// phase set and the same or the other haplotype. Returns labels applied.
 size_t apply_deferred_read_labels(GraphChunkBuildResult& graph_chunk);
 
-/// Sites that may be phased but must not carry a join between blocks: fewer
-/// than half the reads covering them give a call, or their two alleles differ
-/// by a single homopolymer base (the dominant HiFi error). Indexed by
-/// candidate.
+/// Sites that may be phased but must not carry a join between blocks alone:
+/// their two alleles differ by one base of length (for injected 1 bp indels,
+/// one homopolymer base), the dominant HiFi error. Indexed by candidate.
 std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam);
 
 /// Phase a chunk by EM over its whole read x site matrix.

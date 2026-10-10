@@ -22,33 +22,12 @@ pgphase is a C++17/Rust tool for variant calling and haplotype phasing from long
 
 - `make check` — validation gates (requires `test_data/`).
 - `make unit-tests` — builds and runs unit test binaries.
-- `make gap-dev-check` — fast development loop over in-memory phasing fixtures;
-  no production binary build or pipeline replay. `PREDICATE="[deletion]"`
-  optionally selects Catch2 predicates. After the logic passes, use
-  `make gap-owner-check GAP="61.738"` for the real owning regression, then the
-  full suite once the patch is stable. Warm owner replays reuse saved output
-  while rerunning assertions.
-- `make window-tests` — the unified Catch2 `all gaps` integration suite plus
-  focused gap unit tests. All 87 named panel/mechanism checks share one fixture;
-  use `PGPHASE_GAP_FILTER` to select a name substring or legacy tag.
-  Owning replay regions live in `src/test_gap_replays.tsv`, migrated read bounds
-  in `src/test_gap_read_floors.tsv`, and identical-alignment HiPhase measurements
-  in `src/test_gap_hiphase.tsv`. `src/test_gap_certified.tsv` declares reviewed
-  closures that enforce >=80% primary correctness (abstentions included), total
-  correct >= HiPhase, and dominant core correct >= HiPhase (rescue PS excluded).
-  Every new closure must enter this manifest. Historical gaps retain their
-  existing floors and appear in the per-window `gap-contract.tsv` report.
-  Regenerate competitor measurements with `make gap-benchmark HIPHASE_BAM=...`
-  and `BENCH_PYTHON=...` pointing to a Python with pysam installed; its state
-  invalidates on input, truth, panel, helper or HiPhase-output changes.
-  Integration tests: cold runs replay real windows and owning chunks; completed
-  outputs persist in `test_data/.gap-replay-cache/` and are shared across shards.
-  Every assertion still runs. Binary content, input/index metadata and runtime
-  changes invalidate the replay state. `PGPHASE_TEST_CACHE` overrides its path;
-  use a new empty cache directory for a cold verification. Tests need
-  `test_data/` and the derived truth map:
-  `./scripts/make_truth_hap_map.sh` (once, ~12 s). Without those inputs they
-  report a skip naming what is missing rather than failing.
+- `make gap-dev-check` — fast development loop over in-memory phasing fixtures
+  (allele, adapter and Catch2 predicate tests); no production binary build.
+  `PREDICATE="[deletion]"` optionally selects Catch2 predicates.
+- `make predicate-tests`, `make parity-tests`, `make upstream-parity-tests` —
+  Catch2 phasing predicates, port parity, and parity against a local longcallD
+  checkout (`LONGCALLD_ROOT`).
 
 ## Key Files
 
@@ -199,50 +178,28 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 
 ### Testing
 
-- Unit test binaries: `test_graph_sites`, `test_graph_bam_adapter`,
-  `test_hybrid_inject`, `test_noise_filter`, `test_union_phase`. Standalone
-  `.cpp` files in `src/`, hand-rolled `check()` assertions, no framework.
-  Run all: `make unit-tests`.
-- Injection tests: `src/test_bam_site_injection.cpp`, three Catch2 cases over
-  the same panel -- completeness (every alignment-channel site reaches the
-  hybrid), representation (shared sites keep their alleles, no second
-  description added) and counts (internally consistent, and within the reads
-  overlapping the site). Known unfixed defects are listed in
-  `src/test_bam_site_injection_allow.tsv` and the tests gate on "no new ones";
-  the mechanism of each is in `evaluations/2026-09-17-injection-tests/`.
-- Unified window regression suite: `src/test_gap_windows.cpp`, built against the
-  vendored Catch2 single header in `third_party/catch2/`. Named sections per arm
-  and window over the committed panel
-  (`evaluations/2026-09-16-test-panel/panel.tsv`), asserting spanning, in-gap
-  phased heterozygotes, tagged reads, read concordance and the absolute
-  discordant count against `src/test_gap_windows_expect.tsv`.
-  Run: `make window-tests`.
-- The expectations are floors and ceilings, except `spans`, which is asserted
-  exactly in both directions: a span appearing where none is expected is a join
-  across an interval no read crosses, not an improvement. Regenerate with
-  `./scripts/refresh_gap_window_expectations.sh` only when an improvement is
-  intended, and say in the commit which arm moved — refreshing the file to turn
-  a red test green is how a regression gets committed.
-- Every newly closed gap must be added to the committed window panel with a
-  measured `spans=1` expectation and parental-orientation check. Keep any
-  owning-chunk regression when a short replay lacks the needed phase-set context.
-- Every gap closure must match or beat HiPhase on the same truth-scorable
-  overlapping reads and input alignments, and correctly phase at least 80%
+- Unit test binaries: `test_allele_identity`, `test_allele_context`,
+  `test_allele_genotype`, `test_graph_sites`, `test_graph_bam_adapter`,
+  `test_noise_filter`, `test_union_phase`. Standalone `.cpp` files in `src/`,
+  hand-rolled `check()` assertions, no framework. Run all: `make unit-tests`.
+- Catch2 predicates: `src/test_phase_predicates.cpp`, built against the vendored
+  single header in `third_party/catch2/`. Run: `make predicate-tests`.
+- Every change to the hybrid (`--bam`) must match or beat HiPhase on the same
+  truth-scorable overlapping reads and input alignments, and correctly phase at least 80%
   of those reads. Require both total correctly phased reads and correctly
   phased reads in the dominant connected phase set to be at least HiPhase
   counts. Output-only rescue phase sets do not count as connected core
   coverage. Count unphased reads in the denominator and report correct,
   discordant, unphased and dominant connected correct counts. Perfect
   accuracy or zero newly discordant reads is not required; measure and report
-  changes outside the gap and preserve unrelated regression checks. Keep
-  stronger measured floors for already accepted gaps.
+  changes outside the targeted region and preserve unrelated regression checks.
 - Compare HiPhase on the same overlapping reads and input alignments. When
   HiPhase phases reads better, investigate the differing variant calls,
   observations, filtering and phasing decisions, record the cause, and fix
-  the deficit before accepting the closure. A diagnosis alone does not meet
+  the deficit before accepting the change. A diagnosis alone does not meet
   the acceptance rule. Do not assume pgphase lacks the required information.
-  Parental truth is
-  evaluation evidence only and must not enter production phasing decisions.
+  Parental truth is evaluation evidence only and must not enter production
+  phasing decisions.
 - When adding a new `.o` dependency, update both the main `pgphase` target and any test targets that link the dependent object.
 
 ---

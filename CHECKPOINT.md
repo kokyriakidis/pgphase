@@ -18523,3 +18523,21 @@ separates them: wrong median 6.3 (p75 8.8), right median 18.6 (p25 8.8).
 
 af49 has 2 arm switches and phases 64,173 truth hets (+471). On the 2,604
 hard reads: af49 1,229 correct / 136 wrong; HiPhase 1,498 / 229.
+
+## 2026-10-10: hybrid cleanup
+
+`--bam` is union gap phasing and nothing else. The legacy seam-recovery
+machinery and everything only it used are deleted: targeted sub-solves and
+recovery windows, independent BAM read blocks, boundary replay, deferred
+physical bridges, equivalent-insertion joins, the BAM output fallback, the MSA
+retry options (retry windows, joint orientation, forced MSA, unplaced
+insertion recall) with deferred MSA observations, never-set candidate flags
+(gap_link_supported, hp_gap_scorable, read_rescue_requires_validation,
+bam_independent_genotype), --recovery-audit-out, the --union-gap-phasing flag,
+the gap-window Catch2 suite and its scripts, and the union experiment toggles.
+About 37,000 lines of src/ and 2,850 of docs/IMPLEMENTATION.md. Dead code was
+found by the compiler (unused statics), by linking with --gc-sections
+(unreachable externals), and by fields that are read but never written.
+
+Output is byte-identical to af49 on full chr20: candidates.tsv, phased.vcf
+body and HP/PS of all 261,122 reads with --bam, and all 239,708 graph-only.
