@@ -200,8 +200,9 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 ### Testing
 
 - Unit test binaries: `test_graph_sites`, `test_graph_bam_adapter`,
-  `test_hybrid_inject`, `test_noise_filter`. Standalone `.cpp` files in `src/`,
-  hand-rolled `check()` assertions, no framework. Run all: `make unit-tests`.
+  `test_hybrid_inject`, `test_noise_filter`, `test_union_phase`. Standalone
+  `.cpp` files in `src/`, hand-rolled `check()` assertions, no framework.
+  Run all: `make unit-tests`.
 - Injection tests: `src/test_bam_site_injection.cpp`, three Catch2 cases over
   the same panel -- completeness (every alignment-channel site reaches the
   hybrid), representation (shared sites keep their alleles, no second

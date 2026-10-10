@@ -50,8 +50,9 @@ describes machinery the graph arm depends on.
 
 ---
 
-One mode: **the catalog's sites phase, the alignment recovers the gaps.** There
-is no configuration that selects a different architecture.
+One default mode: **the catalog's sites phase, the alignment recovers the gaps.**
+The opt-in  instead phases the catalog's sites jointly with
+the alignment's private sites ("Union gap phasing" below).
 
 ```
 pgphase collect-graph-variation \
@@ -3008,6 +3009,165 @@ metadata is synthesized in the candidate-parallel graph arrays. The output
 writer still applies its normal depth classification, so homozygous, low-depth,
 or low-allele-fraction recovery rows are not promoted into graph calls merely
 because they were observed inside a recovery window.
+
+### Union gap phasing (`--union-gap-phasing`, opt-in with `--bam`)
+
+An alternative to the seam recovery above. Instead of solving gaps after the
+graph solve and certifying each join, the alignment's sample-specific sites join
+the catalog's sites **before** phasing, and one solve phases them all.
+`src/union_phase.cpp` holds the model; `collect_pipeline.cpp` runs the
+alignment solve; `graph_collect.cpp` wires it per chunk. With the flag, the
+recovery passes (`run_in_chunk_recovery`, independent BAM blocks, deferred
+boundary bridges, seam joins) do not run. Chunk stitching and read rescue do.
+`--min-mapq` defaults to 1 in this mode.
+
+Per chunk, in order:
+
+1. **Alignment solve.** `process_chunk` over the chunk's span (reads from
+   MAPQ 1, noisy-region MSA only for regions up to 2 kb), unchanged otherwise.
+2. **Injection** (`inject_alignment_sites`).
+   - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
+     heterozygotes, each needing both of its two most observed alleles (REF
+     need not be one) seen by at least two reads with MAPQ ≥ 30.
+   - *Dedup.* Placements of one indel at different repeat copies collapse to
+     one row by left-aligned identity; alias rows' read calls fold into it.
+   - *Injected rows* keep the alignment's category bits and per-read alleles,
+     get synthesized VCF metadata and no phase. Reads only the alignment holds
+     are added to the chunk.
+   - *Calls inside a voting row's span.* A call overlapping a voting graph row
+     becomes a **hidden complement site**: empty metadata, so it writes no VCF
+     record. It takes calls only from reads the graph left without an allele
+     at that row, so no read counts twice. The graph often gives no allele to
+     reads at such complex loci; dropping the call left those reads with no
+     evidence there.
+3. **Clean solve.** `phase_joint_graph_candidates`, physical SNP
+   reclassification and SNP-branch supplementation run unchanged. Their read
+   labels initialize the EM.
+4. **Alignment-only reads** (`add_alignment_only_reads`). Primary alignment
+   reads with MAPQ ≥ 20 that the graph chunk lacks are added with no calls.
+   The graph keeps only reads with an informative catalog allele, so a read
+   whose only variant is one the catalog filtered would otherwise be lost.
+   These reads get calls at the voting sites they span by realignment to the
+   two candidate alleles (`fill_missing_observations`; one edit decides a SNP,
+   an indel needs two). Graph reads are never filled: where a read's graph
+   alignment does not reach a site, its linear placement there may be a
+   paralog's.
+5. **Realigned indel calls** (`realign_indel_observations`). This step only
+   adds calls; it never overwrites the MSA's own per-read call (that MSA call
+   is the better one).
+   - *Which reads.* At every injected indel site, each read that covers the
+     site's window but has no MSA call there: reads the MSA left out, reads
+     not spanning its noisy region, and reads added from the alignment.
+   - *How.* The read is aligned against the site's alleles in reference
+     context. Allele 1 is this indel. Allele 0 is the closest of REF and
+     every other allele called inside the same repeat, so at a two-allele
+     (1/2) locus the other haplotype's allele competes, not just REF.
+   - *Multi-allelic MSA rows.* Insertion rows with several alleles
+     (`msa_insertion_alts`) are called against REF and every insertion. The window is the indel extended through tandem repeats on both
+   sides, plus 20 bp. The read's segment is aligned to the reference context
+   with REF and with ALT, and the read takes the closer allele; on a tie it
+   has no call. Pileup and MSA calls at repeat indels are too noisy for the EM
+   (learned error ≥ 0.3), while exact-allele realignment is not.
+6. **Global EM, pass 1** (`phase_chunk_by_global_em`).
+   - *Model.* Every voting site with two observed alleles gets a phase and its
+     own error rate, starting at 0.05 for clean sites and 0.2 for others. Every
+     read gets a haplotype posterior. A site whose less observed allele has
+     under 25% of its reads is left out. A skewed split is the signature of a
+     paralog or an error call, and in a homozygous stretch such a site labels
+     reads at random.
+   - *Learning.* Only reads with MAPQ 20 or more update the model and decide
+     switch moves. Lower reads are scored against it and labelled.
+   - *Switch moves.* After 15 EM iterations, all sites right of the most
+     negative boundary are flipped while any boundary's log-likelihood delta is
+     negative, up to 30 rounds.
+   - *Weak bridges* (`bridge_weak_sites`). A site whose two alleles differ by
+     one homopolymer base is phased and labels reads, but cannot carry a join
+     alone. Where the block cut would hold without such sites, the join needs
+     a log-likelihood margin of 10 instead of 4.
+     - *Why.* Homopolymer length noise in a homozygous stretch looks like a
+       het. Reads reaching it from real hets then glue two blocks with a
+       random orientation, as at 17.83 Mb.
+     - *Calibration.* On chr20, wrong joins of this kind sat just above the
+       ordinary cut (median 6) and right ones well above it (median 19).
+   - *Blocks.* A block is cut wherever flipping the rest would cost less than
+     4 log units, judged over every read: a read too ambiguously mapped to
+     shape the model still shows that its molecule continues across the
+     boundary. Without this, blocks that only low-MAPQ reads hold together
+     (graph-mapped through near-duplicates) were cut.
+   - *Output.* A site whose learned error is 0.3 or more is reported unphased
+     and labels no read. A read is labelled in the block where its own
+     evidence is strongest, if its posterior there is at least 0.8.
+7. **Local haplotype windows** (`build_locus_window_sites`).
+   - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
+     100 bp, padded by 40 bp and extended through tandem repeats (period ≤ 50,
+     scan ≤ 500 bp). Loci longer than 2 kb are dropped.
+   - *Reads.* Up to 60 primary reads with MAPQ 5 or more that span the whole
+     locus and are in the chunk are cut to it.
+   - *Haplotype sequences.* Seed labels come from the pass-1 phased sites: a
+     read is labelled in a phase set when its votes there differ by at least 2
+     and agree at least 90%. The two haplotype sequences are edit-distance
+     medoids of up to 10 seeded reads per side, from the dominant phase set.
+     When fewer than two seeds exist on either side, or the two seeded medoids
+     are identical (the seeds all came from one haplotype), the spanning reads
+     are split without seeds instead. The split starts from the pool medoid and
+     the read farthest from it, then reassigns and re-takes medoids three
+     times. The EM orients the window through the reads it shares with other
+     sites.
+   - *Assignment.* A read joins the closer haplotype when it is at least 2
+     edits closer, with error 0.5·e^(−margin).
+   - *Kept loci.* A locus is kept only when the two sequences differ and the
+     minor side has at least 3 reads and 20% of those assigned.
+8. **Allele windows** (`build_allele_window_sites`). These cover
+   heterozygous indels the EM does not otherwise observe: the alignment's
+   uninjected noisy-region and repeat calls, and the catalog's non-voting
+   repeat indels (alleles from their VCF-form metadata).
+   - *Assignment.* Each spanning read is realigned to the two exact allele
+     sequences in reference context. It is assigned when it is at least 2
+     edits closer to one of them, so 1 bp homopolymer indels, where one edit
+     is often a read error, are left out.
+   - *Two-allele hets (1/2).* At a repeat, the two haplotypes can carry two
+     different indels and no reference allele. Called against REF one at a
+     time, each looks homozygous, and both the graph's per-allele
+     decomposition (`high_af`) and the alignment solve (`CLEAN_HOM`) miss the
+     het. Indels with at most 20% REF reads whose repeat spans overlap are
+     grouped; the two best-supported become one window contrasting the
+     reference with each allele.
+   - *Overlaps.* Windows that overlap a haplotype window or a voting indel row
+     are skipped.
+9. **Global EM, pass 2.** The same solve with both kinds of windows added as
+   locus-level sites carrying per-read errors.
+10. **Last-resort labels** for reads still unlabelled after pass 2. Two
+    sources, in order. Nothing feeds back into sites or blocks.
+    1. *Verified indels* (`label_reads_from_verified_indels`).
+       - At each MSA-verified indel of the alignment solve, including 1 bp
+         homopolymers, every spanning read is called by realignment. Allele 1
+         is this indel; allele 0 is the closest of the reference and every
+         other allele called in the same repeat. At a two-allele (1/2) locus
+         the other haplotype carries the second allele, not REF, so a
+         REF-versus-ALT contrast would call its reads ALT. The fill step uses
+         the same rule. The EM's own re-calls stay REF-versus-ALT: with
+         competitors there, reads linked strongly through complex loci with
+         inconsistent calls, and a false join followed.
+       - A site counts when at least 4 labelled reads of one phase set agree
+         with it at 90% or more. An unlabelled read then takes the haplotype
+         its allele implies.
+    2. *Haplotype markers* (`label_reads_from_haplotype_consensus`).
+       - Inside each phase set, the labelled reads' alignment events (base,
+         insertion, deletion; indels left-normalized) are compared by
+         haplotype.
+       - An event is a marker when each haplotype has at least 3 reads
+         covering it (10 bp flank), and it is on at least 80% of one side and
+         at most 20% of the other. Such a het counts whether or not any
+         caller reported it.
+       - An unlabelled read votes at every marker it covers and is labelled
+         when 90% of its votes agree.
+       - In stretches without a het the haplotypes do not differ, so no-het
+         reads get no votes.
+
+    Each decision is stored against an anchor read of the same phase set
+    (same or opposite haplotype). It is applied after chunk stitching and
+    read rescue (`apply_deferred_read_labels`): applied earlier, the labels
+    voted in stitching and added switches.
 
 ### Test gates
 

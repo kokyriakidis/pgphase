@@ -1,0 +1,7 @@
+name	region	correct	discordant	unphased	denominator
+u	arms	219128	4463	22781	246372
+u	cen	13552	1601	10491	25644
+u	arms_phaseable	215608	1571	2567	219746
+u	arms_nohet	3520	2892	20214	26626
+u	cen_phaseable	12333	1078	9792	23203
+u	cen_nohet	1219	523	699	2441

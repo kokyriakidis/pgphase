@@ -52,7 +52,8 @@ SOURCES_CXX = src/main.cpp \
 	src/collect_output.cpp \
 	src/graph_bam_adapter.cpp \
 	src/graph_sites.cpp \
-	src/graph_query.cpp
+	src/graph_query.cpp \
+	src/union_phase.cpp
 SOURCES_C = src/sdust.c src/cgranges.c src/kalloc.c
 
 OBJS = $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o)
@@ -125,13 +126,14 @@ $(UPSTREAM_PHASE_DIR)/collect_var.o: $(LONGCALLD_ROOT)/src/collect_var.c | $(UPS
 $(UPSTREAM_PHASE_DIR)/bridge.o: src/test_upstream_phase_bridge.c src/test_upstream_phase_bridge.h | $(UPSTREAM_PHASE_DIR)
 	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-function $(UPSTREAM_PHASE_INCLUDES) -Isrc -c $< -o $@
 
-unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype
+unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype test_union_phase
 	./test_allele_identity
 	./test_allele_context
 	./test_allele_genotype
 	./test_graph_sites
 	./test_graph_bam_adapter
 	./test_noise_filter
+	./test_union_phase
 
 benchmark-tests:
 	python3 scripts/test_replay_gap_decisions.py
@@ -160,6 +162,9 @@ src/align.o: src/align.cpp
 	$(CXX) $(CXXFLAGS) $(ALIGN_CPPFLAGS) -c $< -o $@
 
 src/graph_collect.o: src/graph_collect.cpp
+	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
+
+src/union_phase.o: src/union_phase.cpp
 	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
 
 %.o: %.cpp
@@ -232,6 +237,9 @@ test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
+
+test_union_phase: src/test_union_phase.cpp src/union_phase.o src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(GBZ_FFI_SYSLIBS)
 
 test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)

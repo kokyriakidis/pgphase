@@ -9,6 +9,7 @@
 #include "collect_types.hpp"
 #include "graph_bam_adapter.hpp"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -104,6 +105,20 @@ size_t recover_independent_bam_read_blocks_in_place(
     const Options& opts,
     WorkerContext& context,
     const char* contig_name);
+
+/// Union gap phasing: add the alignment's sample-specific heterozygotes.
+///
+/// Runs one collect-bam-variation solve over the chunk (reads from MAPQ 1,
+/// MSA over noisy regions up to 2 kb) and merges its private heterozygotes
+/// into the chunk with inject_alignment_sites. The alignment chunk is handed
+/// back through `keep_alignment_chunk` for the local haplotype windows.
+/// Returns the number of injected sites.
+size_t inject_alignment_private_sites(
+    GraphChunkBuildResult& graph_chunk,
+    const Options& opts,
+    WorkerContext& context,
+    const char* contig_name,
+    std::unique_ptr<PhasingChunk>* keep_alignment_chunk = nullptr);
 
 /// One candidate the recovery sub-solve found inside a recovery window, with
 /// every decision the merge made about it.

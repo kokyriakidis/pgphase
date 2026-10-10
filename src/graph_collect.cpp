@@ -13,6 +13,7 @@
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
 #include "noise_filter.hpp"
+#include "union_phase.hpp"
 
 #include "edlib.h"
 
@@ -10691,6 +10692,15 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     // A repeat-context indel may earn its way back in before the solve.
                     promote_link_supported_repeat_indels(graph_chunks[offset], opts);
 
+                    // Union gap phasing: the alignment's sample-specific hets
+                    // join the catalog's before the clean solve.
+                    const bool union_phasing =
+                        thread_recovery_ctx != nullptr && opts.union_gap_phasing;
+                    std::unique_ptr<PhasingChunk> union_bam;
+                    if (union_phasing)
+                        inject_alignment_private_sites(graph_chunks[offset], opts,
+                            *thread_recovery_ctx, batch_contig.c_str(), &union_bam);
+
                     phase_joint_graph_candidates(graph_chunks[offset], opts,
                         [&](hts_pos_t pos) {
                             const hts_pos_t index = pos - region.beg;
@@ -10702,14 +10712,16 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
                     if (thread_recovery_ctx != nullptr)
                         supplement_phased_snp_branches(
                             chunk_view, chunk_rows, graph_chunks[offset], opts);
+                    if (union_phasing)
+                        phase_chunk_with_alignment_sites(graph_chunks[offset], union_bam.get());
 
                     // Recover and stitch local BAM blocks before cross-chunk
                     // overlaps are computed. Each worker owns one chunk, so the
                     // merge and its index rebuild require no synchronization.
-                    if (thread_recovery_ctx != nullptr)
+                    if (thread_recovery_ctx != nullptr && !union_phasing)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig.c_str());
-                    if (thread_recovery_ctx != nullptr) {
+                    if (thread_recovery_ctx != nullptr && !union_phasing) {
                         recover_independent_bam_read_blocks_in_place(
                             graph_chunks[offset], opts, *thread_recovery_ctx,
                             batch_contig.c_str());
@@ -10732,7 +10744,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
         phasing_chunks.push_back(std::move(gc.chunk));
     stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
     std::vector<std::pair<size_t, DeferredPhysicalBridge>> deferred_boundary_bridges;
-    if (batch_size > 1 && !opts.bam_files.empty() &&
+    if (batch_size > 1 && !opts.bam_files.empty() && !opts.union_gap_phasing &&
         pgbam_sidecar == nullptr) {
         Options replay_opts = opts;
         replay_opts.threads = 1;
@@ -10749,14 +10761,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     }
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
-        if (!graph_chunks[i].recovery_windows.empty())
+        if (!graph_chunks[i].recovery_windows.empty() && !opts.union_gap_phasing)
             refresh_recovered_read_haps_from_bam_snps(graph_chunks[i].chunk);
         rescue_unphased_graph_reads(
             graph_chunks[i].chunk, graph_chunks[i].recovery_windows);
-        apply_independent_bam_read_blocks(graph_chunks[i].chunk);
+        if (!opts.union_gap_phasing)
+            apply_independent_bam_read_blocks(graph_chunks[i].chunk);
     }
     for (auto& entry : deferred_boundary_bridges)
         graph_chunks[entry.first].deferred_physical_bridges.push_back(std::move(entry.second));
+    // Union gap phasing has phased the gaps itself; the seam passes below
+    // read recovery state it never builds.
+    if (opts.union_gap_phasing) {
+        for (GraphChunkBuildResult& gc : graph_chunks) apply_deferred_read_labels(gc);
+        return graph_chunks;
+    }
     apply_equivalent_insertion_joins(graph_chunks);
     apply_deferred_physical_bridges(graph_chunks);
     promote_calibrated_insertion_reads(graph_chunks, opts);
@@ -10896,6 +10915,15 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     // A repeat-context indel may earn its way back in before the solve.
                     promote_link_supported_repeat_indels(graph_chunks[offset], opts);
 
+                    // Union gap phasing: the alignment's sample-specific hets
+                    // join the catalog's before the clean solve.
+                    const bool union_phasing =
+                        thread_recovery_ctx != nullptr && opts.union_gap_phasing;
+                    std::unique_ptr<PhasingChunk> union_bam;
+                    if (union_phasing)
+                        inject_alignment_private_sites(graph_chunks[offset], opts,
+                            *thread_recovery_ctx, batch_contig_gaf.c_str(), &union_bam);
+
                     phase_joint_graph_candidates(graph_chunks[offset], opts,
                         [&](hts_pos_t pos) {
                             const hts_pos_t index = pos - region.beg;
@@ -10907,14 +10935,16 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     if (thread_recovery_ctx != nullptr)
                         supplement_phased_snp_branches(
                             chunk_view, chunk_rows, graph_chunks[offset], opts);
+                    if (union_phasing)
+                        phase_chunk_with_alignment_sites(graph_chunks[offset], union_bam.get());
 
                     // Recover and stitch local BAM blocks before cross-chunk
                     // overlaps are computed. Each worker owns one chunk, so the
                     // merge and its index rebuild require no synchronization.
-                    if (thread_recovery_ctx != nullptr)
+                    if (thread_recovery_ctx != nullptr && !union_phasing)
                         run_in_chunk_recovery(graph_chunks[offset], opts, *thread_recovery_ctx,
                                               batch_contig_gaf.c_str());
-                    if (thread_recovery_ctx != nullptr) {
+                    if (thread_recovery_ctx != nullptr && !union_phasing) {
                         recover_independent_bam_read_blocks_in_place(
                             graph_chunks[offset], opts, *thread_recovery_ctx,
                             batch_contig_gaf.c_str());
@@ -10938,7 +10968,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
         phasing_chunks.push_back(std::move(gc.chunk));
     stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
     std::vector<std::pair<size_t, DeferredPhysicalBridge>> deferred_boundary_bridges;
-    if (batch_size > 1 && !opts.bam_files.empty() &&
+    if (batch_size > 1 && !opts.bam_files.empty() && !opts.union_gap_phasing &&
         pgbam_sidecar == nullptr) {
         Options replay_opts = opts;
         replay_opts.threads = 1;
@@ -10955,14 +10985,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     }
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
-        if (!graph_chunks[i].recovery_windows.empty())
+        if (!graph_chunks[i].recovery_windows.empty() && !opts.union_gap_phasing)
             refresh_recovered_read_haps_from_bam_snps(graph_chunks[i].chunk);
         rescue_unphased_graph_reads(
             graph_chunks[i].chunk, graph_chunks[i].recovery_windows);
-        apply_independent_bam_read_blocks(graph_chunks[i].chunk);
+        if (!opts.union_gap_phasing)
+            apply_independent_bam_read_blocks(graph_chunks[i].chunk);
     }
     for (auto& entry : deferred_boundary_bridges)
         graph_chunks[entry.first].deferred_physical_bridges.push_back(std::move(entry.second));
+    // Union gap phasing has phased the gaps itself; the seam passes below
+    // read recovery state it never builds.
+    if (opts.union_gap_phasing) {
+        for (GraphChunkBuildResult& gc : graph_chunks) apply_deferred_read_labels(gc);
+        return graph_chunks;
+    }
     apply_equivalent_insertion_joins(graph_chunks);
     apply_deferred_physical_bridges(graph_chunks);
     promote_calibrated_insertion_reads(graph_chunks, opts);
@@ -11370,6 +11407,10 @@ static void print_graph_collect_help() {
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "      --recovery-audit-out FILE One row per candidate the recovery sub-solve\n"
         << "                                found, and what the merge did with it\n"
+        << "      --union-gap-phasing       With --bam: phase the catalog's sites jointly with\n"
+        << "                                the alignment's clean and MSA-verified private\n"
+        << "                                hets (EM + local haplotype windows) instead of\n"
+        << "                                seam recovery; --min-mapq defaults to 1\n"
         << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
         << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
         << "      --bam FILE                Indexed BAM used to recover seams between\n"
@@ -11465,6 +11506,7 @@ enum GraphCollectOption {
     kGcStrandBiasPval,
     kGcPhasedBam,
     kGcLinkEarnedRepeatIndels,
+    kGcUnionGapPhasing,
     kGcRecoveryAuditOut,
     kGcRef,
     kGcSites,
@@ -11507,6 +11549,7 @@ int collect_graph_variation(int argc, char* argv[]) {
     Options opts;
     opts.min_mapq = kDefaultGraphMinMapq;
     bool chunk_size_explicit = false;
+    bool min_mapq_explicit = false;
 
     {
         std::ostringstream cmd;
@@ -11522,6 +11565,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
         {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
+        {"union-gap-phasing", no_argument, nullptr, kGcUnionGapPhasing},
         {"recovery-audit-out", required_argument, nullptr, kGcRecoveryAuditOut},
         {"bam",              required_argument, nullptr, kGcRecoveryBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
@@ -11587,6 +11631,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
             case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
+            case kGcUnionGapPhasing: opts.union_gap_phasing = true; break;
             case kGcRecoveryAuditOut: opts.recovery_audit_out = optarg; break;
             // Recovery only. Targeted BAM solves supply private sites and
             // local phase blocks for seams the graph catalog could not join.
@@ -11628,7 +11673,10 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcSnarlKeepWhole: opts.snarl_keep_whole = true; opts.snarl_allele_phasing = true; break;
             case kGcSnarlTop2Frac: opts.snarl_top2_frac = parse_double_arg(optarg, "--snarl-top2-frac"); break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
-            case 'q': opts.min_mapq = parse_int_arg(optarg, "--min-mapq"); break;
+            case 'q':
+                opts.min_mapq = parse_int_arg(optarg, "--min-mapq");
+                min_mapq_explicit = true;
+                break;
             case 'D': opts.min_depth = parse_int_arg(optarg, "--min-depth"); break;
             case kGcMinAltDepth:  opts.min_alt_depth = parse_int_arg(optarg, "--min-alt-depth"); break;
             case kGcMinAf:        opts.min_af = parse_double_arg(optarg, "--min-af"); break;
@@ -11682,6 +11730,13 @@ int collect_graph_variation(int argc, char* argv[]) {
         return 1;
     }
 
+    if (opts.union_gap_phasing && opts.bam_files.empty()) {
+        std::cerr << "Error: --union-gap-phasing requires --bam\n";
+        return 1;
+    }
+    // Union gap phasing labels every read the EM can place; low-MAPQ reads
+    // are labelled but do not shape the model.
+    if (opts.union_gap_phasing && !min_mapq_explicit) opts.min_mapq = 1;
     if (opts.threads < 1 || opts.min_mapq < 0 || opts.min_depth < 0 ||
         opts.min_alt_depth < 0 || opts.min_af < 0.0 || opts.max_af < opts.min_af ||
         opts.min_sv_len < 0 || opts.chunk_size < 1 || opts.verbose < 0 ||

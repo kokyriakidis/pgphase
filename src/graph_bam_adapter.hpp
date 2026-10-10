@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
 #include <vector>
 
 namespace pgphase_collect {
@@ -150,6 +151,9 @@ struct GraphChunkBuildResult {
     /// indices stay stable through chunk stitching; apply after read rescue so
     /// output-only groups retain their independently assigned HP/PS gauges.
     std::vector<std::pair<size_t, size_t>> equivalent_insertion_joins;
+    /// Union gap phasing: last-resort read labels applied after chunk stitching,
+    /// as (read, anchor read of the same phase set, same haplotype as the anchor).
+    std::vector<std::tuple<size_t, size_t, bool>> deferred_read_labels;
     /// Whole-block physical certificates applied after output-only read rescue.
     std::vector<DeferredPhysicalBridge> deferred_physical_bridges;
     PhasingChunk chunk;

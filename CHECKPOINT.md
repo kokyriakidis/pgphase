@@ -18034,3 +18034,492 @@ No floors, panel, expectations or certificates are refreshed. Final production
 source/binary remain unchanged during acceptance. `manifest.json` freezes the
 final code, baseline, inputs, raw state, accepted outputs, mutation and timing
 checks; its hashes are verified independently.
+
+## 2026-10-09: union gap phasing (`--union-gap-phasing`)
+
+**Why the seam recovery was replaced.** The default `--bam` recovery closes
+graph gaps after the graph solve, through about 25 narrow passes. Each pass is
+a certificate for one kind of seam: SNP paths, insertion joins, rescue and
+fallback phase sets. Every new gap type needed a new rule.
+
+**What union gap phasing does instead.** It moves the alignment's evidence
+before phasing:
+
+1. One alignment solve per chunk. Reads come from MAPQ 1, and the MSA runs
+   only on noisy regions up to 2 kb.
+2. Its sample-specific heterozygotes (clean calls, and MSA-verified noisy
+   calls the catalog lacks) join the chunk's sites.
+3. The clean stage runs unchanged.
+4. EM solves the whole read × site matrix, with per-site error, switch moves
+   and likelihood block cuts.
+5. Local haplotype windows over noisy loci add whole-locus read assignments.
+6. A second EM solve includes the windows.
+
+There are no per-gap rules. Design and parameters are in
+docs/IMPLEMENTATION.md, "Union gap phasing". The code is in
+`src/union_phase.cpp`, tested by `test_union_phase`.
+
+**Findings that shaped it:**
+
+- **Admission gate.** Low-MAPQ reads help to phase but must not create sites.
+  The gate first required REF among the confidently supported alleles, which
+  wrongly rejected 1/2 sites. Judging the site's own top two alleles instead
+  gained 1,358 correct reads.
+- **Left-aligned dedup.** Placements of one indel at different repeat copies
+  split read evidence until they were merged by left-aligned identity.
+- **Two EM passes.** Windows seeded only from the clean stage were empty in
+  dense noisy regions: the clean stage labelled 67 of 1,840 reads in one
+  failing chunk. A first EM pass supplies the seed labels.
+- **MSA region cap.** About 92% of runtime was MSA over satellite regions.
+  Capping MSA regions at 2 kb gave a 2.5× speedup with no read loss.
+- **Graph contiguity.**
+  - Letting only reads with MAPQ ≥ 20 teach the model lowered discordance.
+    But those reads then decided block cuts alone, which broke 29 graph-only
+    links on the arms, 9 of them verified correct by truth.
+  - Locking the graph's blocks in the EM was tried and rejected: it
+    nearly doubled discordant reads (11,668), because it turned the EM's
+    repairs into switch errors.
+  - Judging block cuts over every read, while learning only from MAPQ ≥ 20,
+    leaves 1 broken arm link, and the truth cannot judge it.
+
+**Tried and not kept** (all measured on full chr20 reads):
+
+- Priors on EM site errors: more discordant reads.
+- Injecting only alignment sites far from graph sites: fewer correct reads.
+- Graph-driven MSA haplotype splits: no gain.
+- Filling graph sites with alignment calls: no gain.
+- Lowering the read posterior: roughly two discordant reads per correct read
+  gained.
+- Haplotagging reads the EM left unlabelled: close to random.
+- Windows without the MSA: 47 s runtime but 9k fewer correct reads.
+- Locking catalog blocks in the EM: see above.
+- Two dev-only pieces were left out of the final code with no loss: demotion
+  of non-voting graph repeat rows, and union-only linker changes in
+  collect_phase.cpp.
+
+**Results, full chr20.**
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| union | 232,591 | 6,231 | 33,194 |
+| legacy | 230,965 | 6,620 | 34,431 |
+| HiPhase | 223,800 | 9,553 | 38,663 |
+
+- Union: 38 variant switches (7 on the arms), 90 s on 10 threads.
+- Legacy: 39 switches (11 on the arms).
+- HiPhase: 106 switches (16 on the arms).
+
+**Arms only (outside 26–32 Mb).**
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| union | 218,973 | 4,703 | 22,696 |
+| legacy | 217,496 | 5,176 | 23,700 |
+| longphase | 204,666 | 1,527 | 40,179 |
+
+**Where the arm errors come from.**
+
+- **Reads that cannot be phased.** 25,491 arm reads span no truth
+  heterozygote (16.3 Mb of identical-haplotype sequence). Read phasing
+  cannot place these reads, whether from the graph or the alignment.
+- **Union labels some anyway.** It labels 6,163 of them at 55% accuracy,
+  which is 2,760 of its 4,703 arm discordant reads. They are labelled through
+  false het sites: injected clean SNPs and MSA noisy indels the truth does not
+  hold.
+- **Reads that can be phased.** Union labels 98.5% of the arm reads that span
+  a truth het. 2,604 phaseable arm reads remain unphased.
+
+**Next.** Keep isolated false hets from labelling reads; label the remaining
+phaseable reads.
+
+Evidence and scripts are in evaluations/2026-10-09-union-gap-phasing/.
+
+**Status.** The flag is opt-in, and the default `--bam` path is unchanged. The
+certified gap-window tests still exercise the legacy path.
+
+## 2026-10-09: union gap phasing — phaseable-read metric, AF gate, unseeded windows
+
+**New headline metric.** Reads whose aligned span holds at least one truth
+heterozygote ("phaseable"). On the arms that is 219,746 of 246,372 reads.
+The other 26,626 cross no het: their two haplotypes are identical over the
+read, so any label they get is noise. `iterate.sh` now reports both groups.
+Their pinned competitor rows are in `pinned_chr20_regions.tsv`.
+
+**Why phaseable arm reads stayed unphased.** Diagnosis on the 2,604 such
+reads with MAPQ ≥ 20 outside segdups, from a dump of the final EM state:
+
+| reads | cause |
+|---:|---|
+| 1,164 | they observe only sites the EM learned as unreliable (error ≥ 0.3): MSA repeat indels with noisy pileup calls |
+| 631 | posterior below 0.9 |
+| 411 | in a chunk, but no observations |
+| 398 | in no chunk |
+
+HiPhase phases 1,498 of these reads correctly and 229 wrongly. Most of its
+gain is in the unreliable-indel class, which it handles by realigning reads
+to haplotype sequences.
+
+**Changes kept:**
+
+1. **Allele-fraction gate.** EM sites whose minor allele has under 25% of the
+   reads are dropped. Skewed sites are mostly false hets (67% non-truth at
+   AF 0.7) and label reads in homozygous stretches at random.
+2. **Read posterior 0.8 (was 0.9).** With the gate in place, the extra labels
+   on phaseable reads are about 90% correct.
+3. **Unseeded windows.** Window loci without usable seed labels split their
+   spanning reads unsupervised. "No seed labels" was the largest rejection
+   behind the unreliable-indel reads.
+
+**Changes measured and rejected:**
+
+- **Window margin 1 edit.** It made the 1 bp homopolymer windows usable, but
+  discordant phaseable arm reads rose from 1,610 to 3,970.
+
+**Arm phaseable reads** (correct / discordant / unphased):
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| clean5 | 215,107 | 1,679 | 2,960 |
+| + AF gate + 0.8 | 215,286 | 1,610 | 2,850 |
+| **+ unseeded windows** | **215,608** | **1,571** | **2,567** |
+| legacy | 213,666 | 2,316 | 3,764 |
+| HiPhase | 209,446 | 6,348 | 3,952 |
+
+**Labels on no-het arm reads** (noise; lower is better):
+
+| run | labelled |
+|---|---:|
+| clean5 | 6,890 |
+| final | 6,412 |
+| legacy | 6,690 |
+| longphase | 891 |
+
+**Full chr20, final.** 232,680 correct, 6,064 discordant and 33,272 unphased.
+39 switches (5 on the arms), 91 s.
+
+## 2026-10-09: union gap phasing — reads HiPhase phases and we did not
+
+**The gap.** Of 2,604 phaseable arm reads union left unphased (MAPQ ≥ 20,
+outside segdups), HiPhase phases 1,727, at 87% accuracy. The largest class is
+reads whose only sites are repeat or homopolymer indels with noisy
+pileup/MSA calls (EM error ≥ 0.3): HiPhase gets 694 of them right.
+
+**Kept (af9):**
+
+- **Realigned re-calls at injected indel sites.** Each read covering the
+  site's window is re-called against the two exact allele sequences (repeat
+  extension + 20 bp flank).
+- **Allele windows** for indels the EM does not observe. They cover the
+  alignment's uninjected noisy and repeat calls, and the catalog's non-voting
+  repeat indels with alleles from site metadata. A read needs a 2-edit margin.
+- **Unit test:** `test_realign_recalls_indel`.
+
+**Rejected:**
+
+- **Allele windows at a 1-edit margin.** Phaseable discordant rose by 933
+  and arm switches went from 7 to 11. A one-edit difference at a homopolymer
+  is as often a HiFi length error.
+- **Filling missing calls at voting sites from the alignment** (af10–af12).
+  - With range widening, it added about 600 discordant reads: reads whose
+    graph alignment does not reach a site can be paralogs the linear
+    alignment misplaced.
+  - Restricted to the graph span, it was still slightly worse than without.
+
+**Arm phaseable reads** (correct / discordant / unphased):
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| af4 | 215,608 | 1,571 | 2,567 |
+| **af9** | **215,755** | **1,523** | **2,468** |
+
+af9 on the full chromosome: 232,791 correct, 6,007 discordant, 33,218
+unphased. 41 switches (7 on the arms), 92 s.
+
+**Where HiPhase still wins.** It phases 1,013 reads correctly that af9 leaves
+unphased. 736 of them carry a single HiPhase-phased variant, and these are
+the variants involved:
+
+| HiPhase variants in those reads | count |
+|---|---:|
+| truth indels our alignment solve never calls (within ±25 bp) | 515 |
+| truth indels we phase, but the read gets no call | 391 |
+| catalog non-voting repeat indels | 274 |
+| SNPs not in the truth | 340 |
+
+The first group points at indel calling in the alignment arm, not at phasing.
+
+## 2026-10-09: union gap phasing — why we missed indels HiPhase phases
+
+**Setup.** Reads HiPhase phases correctly but af9 left unphased: 1,013 arm
+reads. 736 of them carry a single HiPhase-phased variant. Root causes found:
+
+1. **Two-allele (1/2) heterozygotes are invisible.** At a repeat, the
+   haplotypes carry two different indels and no REF allele (for example,
+   −12 bp and −10 bp at 11,563,166). The graph decomposes a multi-allelic
+   site into REF-vs-ALT_k rows whose AF ignores the other ALT's reads. Every
+   row then reads about 0.95 and is dropped as `high_af`: 1,835 such catalog
+   sites on the arms at a truth het. The alignment solve likewise calls each
+   indel `CLEAN_HOM`. The existing `--snarl-allele-phasing` and
+   `--snarl-keep-whole` recover these rows but add noise:
+   - `--snarl-allele-phasing`: +1,238 discordant phaseable reads and 16 arm
+     switches.
+   - `--snarl-keep-whole`: +235 discordant phaseable reads and 12 arm
+     switches.
+   They stay off.
+2. **Reads whose only variant is such a site leave the graph chunk.** The
+   graph keeps reads with an informative catalog allele, and injection adds
+   only reads with a call at an injected site. So windows at these loci could
+   not see the reads that needed them: 124 target reads spanned a kept window
+   but were not in the chunk.
+3. **Realigned re-calls skipped reads whose call range stopped short of the
+   site**, even though the read spanned it (175 target reads).
+4. **1 bp homopolymer indels** (catalog non-voting rows) cannot be separated
+   safely at a one-edit margin. With one-edit windows on catalog rows (af17),
+   discordant phaseable reads rose by 930 and arm switches went from 6 to 10.
+   Requiring agreement with existing read labels (af18) left too few windows
+   to matter.
+5. **Pericentromeric 32.2–32.8 Mb.** Too few reads have MAPQ ≥ 30 for the
+   injection gate.
+
+**Kept (af16):**
+
+- 1/2 pair windows (two REF-less indels in one repeat contrasted).
+- Alignment-only reads (MAPQ ≥ 20) added to the chunk.
+- Fills by realignment for those added reads only.
+- Realigned re-calls widen the read's call range to the site.
+
+**Arm phaseable reads** (correct / discordant / unphased):
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| af9 | 215,755 | 1,523 | 2,468 |
+| **af16** | **215,938** | **1,561** | **2,247** |
+
+af16 phases 99.0% of phaseable arm reads and has 6 arm switches. Of
+HiPhase's 1,013 reads it gets 211 correct and 8 wrong, against 0 for af9.
+Full chr20: 232,986 correct, 6,064 discordant, 32,966 unphased, 96 s.
+
+**Open.** One unexplained segfault in a diagnostic build (read-dump
+variant), not reproduced in 5 reruns of that build or 3 of af16.
+
+## 2026-10-09: union gap phasing — last-resort labels from MSA-verified indels
+
+**Idea.** For reads with no other usable evidence (mostly 1 bp homopolymer
+indels), use the alignment's MSA-verified indels only as a last resort.
+After the EM, each spanning read is called by realignment, with one edit
+enough. A site counts only if at least 4 labelled reads of one phase set
+agree with it at 90% or more. Only unlabelled reads take a label from it,
+and nothing feeds back into sites or blocks.
+
+**Stitching leak (af19).** Applied in the worker, the labels voted in
+cross-chunk stitching. Phaseable correct fell by 60, discordant rose by 205,
+and the variant switches changed. The fix (af20): decisions are stored
+against an anchor read of the same phase set and applied after stitching and
+rescue (`apply_deferred_read_labels`). Switches are then identical to af16.
+
+**Arm phaseable reads** (correct / discordant / unphased):
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| af16 | 215,938 | 1,561 | 2,247 |
+| **af20** | **216,044** | **1,606** | **2,096** |
+
+- **New labels.** The 151 newly labelled phaseable reads are about 70%
+  correct overall. On the reads HiPhase phases that af9 missed, they are 95%
+  correct: 281 correct and 14 wrong, against 211 and 8 for af16.
+- **No-het labels.** These rose by 129.
+- **Stricter check rejected.** Requiring 6 labelled reads at 95% (af21)
+  labelled fewer reads and was not more accurate.
+
+**Full chr20, af20.** 233,155 correct, 6,178 discordant, 32,683 unphased.
+40 switches (6 on the arms), 97–110 s.
+
+## 2026-10-09: union gap phasing — closing on HiPhase's hard reads
+
+**Yardstick.** The 2,604 phaseable arm reads clean5 left unphased (MAPQ ≥ 20,
+outside segdups). Both tools are scored there, so lucky calls and misses
+count on both sides.
+
+| run | correct | wrong | unphased | accuracy |
+|---|---:|---:|---:|---:|
+| HiPhase | 1,498 | 229 | 877 | 86.7% |
+| af16 | 907 | 96 | 1,601 | 90.4% |
+| af20 | 1,008 | 118 | 1,478 | 89.5% |
+| **af24 / af26** | **1,127** | **176** | **1,301** | **86.5%** |
+
+**Kept (af26):**
+
+- **Haplotype-marker last resort.** Labelled reads' own alignment events
+  that separate the two haplotypes of a block (≥ 3 covering reads per side,
+  80/20) label unlabelled reads. This needs no caller, so it covers uncalled
+  SNPs, 1 bp indels, 1/2 sites and indels miscalled as homozygous. It runs
+  after the verified-indel last resort and is deferred past stitching.
+- **Unseeded split on identical seeded medoids.** The seeds can all come from
+  one haplotype when the other's reads are unlabelled at a locus, as at
+  57,606,943: +AT on both haplotypes versus a +ATATAT het.
+
+**Rejected:**
+
+| variant | what it did | why rejected |
+|---|---|---|
+| af23 | markers at 70/30 | +82 discordant for +27 correct; homopolymer length noise |
+| af25 | allele windows for indels called homozygous | no effect: the het is between two non-reference repeat alleles, and the second allele was never called |
+| af27 | iterative markers | no change |
+
+**Remaining gap.** Inspecting loci, many are near-random homopolymer runs.
+At 61,802,959 (poly-T, 17–21 bases) and 11,255,370 the haplotypes' read-length
+distributions overlap, so neither tool can assign single reads reliably.
+HiPhase's accuracy on this set (86.7%) equals ours.
+
+**Final af26.**
+
+| arm reads | correct | discordant | unphased |
+|---|---:|---:|---:|
+| phaseable | 216,143 | 1,659 | 1,944 (99.1% phased) |
+| HiPhase, phaseable | 209,446 | 6,348 | 3,952 |
+
+Arm switches: 5. Full chr20: 233,507 correct, 6,504 discordant, 32,005
+unphased.
+
+**Crash.** An AddressSanitizer build ran full chr20 with no error. The two
+earlier segfaults, both in freshly built diagnostic binaries, remain
+unexplained; 10+ later runs were clean.
+
+## 2026-10-10: union gap phasing — bugs behind reads HiPhase phases
+
+**Method.** A read that spans hets we ourselves phase but gets no label points
+at a bug, not at missing evidence. Per-read traces through the alignment
+solve, injection and the final EM (dump builds) found:
+
+1. **Alignment calls inside a voting graph row's span were dropped.**
+   - At 3,542,977 the only het in a 10.7 kb read is an MSA-verified SNP.
+     It lies under a multi-allelic catalog row that votes, so injection
+     skipped it, while the graph gave the read no allele at that row.
+   - Fix (af28a): inject such calls as hidden complement sites. They write no
+     VCF record and take calls only from reads the graph left silent there.
+   - Counting every read at both sites (af28b) was worse.
+2. **Realignment of two-allele (1/2) loci called the wrong allele.**
+   - The alignment solve calls a 1/2 site as two REF-vs-ALT rows, for
+     example +15 bp and +18 bp at 1,237,287. Contrasting REF with one ALT
+     calls the other ALT's carriers "ALT", so their two calls cancel.
+   - Fix: allele 0 is the closest of REF and every other allele in the same
+     repeat (only edits inside the repeat; window-wide competitors miscalled
+     reads carrying a different nearby het).
+   - Applied in the EM re-calls as well (af33), the hard reads improved
+     (1,215 correct / 196 wrong) and truth-matched phased hets rose by 137.
+     But at 41.88 Mb the newly consistent calls linked through a complex
+     site (41,885,033) into a false join, putting 650 reads in a flipped
+     block segment.
+   - Kept (af34): competitor-aware calls only in the labelling paths (last
+     resort, fills).
+3. **EM error drift (diagnosed, not changed).**
+   - Reads whose only evidence is one site return the current error in the
+     M-step, so the learned error is set by the few reads that also see other
+     sites.
+   - At 7,047,080: 69 such reads, and 16 anchored reads agree 11 vs 5. Error
+     0.31 makes the site unreliable, although its calls agree with the
+     parents 96% of the time.
+   - Re-estimating errors from anchored reads (af29) and lowering-only
+     (af30) were both worse overall.
+   - The anchored evidence there is statistically inconclusive; HiPhase
+     takes the gamble.
+4. **Segfaults.** These were my diagnostic harness: `PGPHASE_DIAG_READS` was
+   set to `$PWD/$I` with an absolute `I`, so `fopen` failed and the dump wrote
+   to a null `FILE*`. Production code never sets that variable.
+   AddressSanitizer on full chr20 was clean; ThreadSanitizer on 2–12 Mb has
+   reported no race.
+
+**Arm phaseable reads, af34.** 216,297 correct, 1,642 discordant, 1,807
+unphased (99.2% phased); 4 arm switches. Full chr20: 233,645 correct, 6,346
+discordant, 32,025 unphased.
+
+**The 2,604 hard reads** (both tools scored):
+
+| run | correct | wrong |
+|---|---:|---:|
+| af34 | 1,164 | 210 |
+| HiPhase | 1,498 | 229 |
+
+## 2026-10-10: union gap phasing — multi-allelic MSA rows; realign vs MSA calls
+
+**Accounting.** 600 reads that HiPhase phases correctly and af34 leaves
+unphased (out of the 2,604 hard reads):
+
+| class | reads | cause |
+|---|---:|---|
+| A | 113 | reliable site observed, label withheld |
+| B | 135 | EM error drift |
+| C | 100 | our calls do not separate the parents (49 of them: HiPhase's variant not in the truth) |
+| D | 65 | site exists, read has no call |
+| E | 187 | no site: 80 catalog `high_af`, 50 `NOISY_CAND_HOM`, 50 HiPhase variant not in the truth, 5 uncalled |
+
+**Found: multi-allelic MSA insertion rows were skipped by every realignment
+path.** The MSA merges two insertion alleles at one position into one row
+(`msa_insertion_alts`, alleles 1 and 2). Re-call, fill and last resort all
+skipped such rows, so reads without an MSA call there never got one; at
+1,237,288 the decomposed catalog rows had the same gap. Fix (af39):
+- realign against REF and every insertion allele;
+- fill decomposed catalog rows against all other site alleles.
+
+**Rejected: merged two-allele EM sites (af36).** +218 phased truth hets, but
++29 variant flips and −90 correct reads (off).
+
+**af39 vs af34, arm phaseable reads:**
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| af34 | 216,297 | 1,642 | 1,807 |
+| af39 | 216,327 | 1,625 | 1,794 |
+
+On the 2,604 hard reads af39 has 1,184 correct and 197 wrong.
+
+**Realign vs MSA calls (af40).** Keeping the MSA's own per-read calls at
+injected sites, and realigning only reads it did not call, is better per
+variant: +461 truth-phased hets, 59 flips, 3 arm switches; on the hard reads,
+160 wrong instead of 197. But it produced a false join at 17.7 Mb (597 reads)
+and smaller ones near 44–45 Mb. The phaseable correct count fell by 610.
+
+**Pattern.** Both af33 and af40 add sound indel evidence and then lose
+hundreds of reads to one or two confident wrong joins through complex loci.
+A guard against such joins would unlock both.
+
+## 2026-10-10: union gap phasing — false-join guard; MSA calls kept
+
+**The problem.** Keeping the MSA's per-read calls (af40), or using two-allele
+calls inside the EM (af33), improves variant phasing but brought a few large
+false joins.
+
+**The 17.83 Mb case.**
+- The real hets end at 17,824,022 and are followed by a homozygous stretch.
+- Inside it, homopolymer length noise looks like hets: +TTT vs +TTTT at
+  17,836,440 (truth: 1|1), and low-depth sites at 17,839,393–399.
+- Reads reaching them from the real hets glued the next block on with a
+  random orientation; 597 reads ended up in a flipped segment.
+
+**Failed guards:**
+- *Cutting every join a weak site carries* (af41/43–45). 133 of the 152
+  joins it cut were right; the homopolymer rule did all the work and run
+  length did not help.
+- *Read concordance across the boundary* (af46). It does not separate the
+  two groups and cut 1,431 joins.
+
+**The discriminator.** At the 152 calibrated joins, the log-likelihood margin
+separates them: wrong median 6.3 (p75 8.8), right median 18.6 (p25 8.8).
+
+**Kept (af47 → af49):**
+- *Weak bridges.* Sites whose alleles differ by one homopolymer base cannot
+  carry a join alone. Where the cut would hold without them, the join needs
+  a margin of 10, not 4. A bar of 8 (af48) let a large false join back in.
+- *MSA calls kept.* Realignment fills only reads the MSA left uncalled.
+- *Two-allele calls inside the EM* (af49).
+
+**Arm phaseable reads** (correct / discordant / unphased):
+
+| run | correct | discordant | unphased |
+|---|---:|---:|---:|
+| af39 | 216,327 | 1,625 | 1,794 |
+| **af49** | **216,378** | **1,535** | **1,833** |
+| HiPhase | 209,446 | 6,348 | 3,952 |
+
+af49 has 2 arm switches and phases 64,173 truth hets (+471). On the 2,604
+hard reads: af49 1,229 correct / 136 wrong; HiPhase 1,498 / 229.

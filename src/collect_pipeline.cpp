@@ -21,6 +21,7 @@
 #include "collect_phase_pgbam.hpp"
 #include "collect_var.hpp"
 #include "fisher_exact.hpp"
+#include "union_phase.hpp"
 
 #include <algorithm>
 #include <array>
@@ -5800,6 +5801,47 @@ size_t recover_independent_bam_read_blocks_in_place(
         ++recovered;
     }
     return recovered;
+}
+
+
+// ── Union gap phasing: the alignment solve ─────────────────────────────────
+
+// Alignment solve: reads from MAPQ 1 contribute evidence; MSA runs only on noisy
+// regions up to this length (longer ones -- satellites -- cost most of the time
+// and phased no reads in the chr20 evaluation).
+constexpr int kUnionAlignmentMinMapq = 1;
+constexpr int kUnionMsaMaxRegionLength = 2000;
+
+static Options union_alignment_options(const Options& opts) {
+    Options sub = opts;
+    sub.min_mapq = kUnionAlignmentMinMapq;
+    sub.max_noisy_reg_len = kUnionMsaMaxRegionLength;
+    sub.skip_noisy_kmeans = false;
+    sub.threads = 1;
+    sub.verbose = 0;
+    sub.retry_windows.clear();
+    sub.phase_matrix_dump_prefix.clear();
+    return sub;
+}
+
+size_t inject_alignment_private_sites(GraphChunkBuildResult& graph_chunk,
+                                      const Options& opts,
+                                      WorkerContext& context,
+                                      const char* contig_name,
+                                      std::unique_ptr<PhasingChunk>* keep_alignment_chunk) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    const int solve_tid = contig_name != nullptr
+                              ? sam_hdr_name2tid(context.primary_header(), contig_name)
+                              : graph.region.tid;
+    if (solve_tid < 0) return 0;
+    RegionChunk region = graph.region;
+    region.tid = solve_tid;
+    region.beg = graph.ref_beg;
+    region.end = graph.ref_end;
+    auto bam = std::make_unique<PhasingChunk>(process_chunk(region, union_alignment_options(opts), context));
+    const size_t added = inject_alignment_sites(graph_chunk, *bam, contig_name);
+    if (keep_alignment_chunk != nullptr) *keep_alignment_chunk = std::move(bam);
+    return added;
 }
 
 } // namespace pgphase_collect

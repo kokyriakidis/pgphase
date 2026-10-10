@@ -337,6 +337,9 @@ struct Options {
     ///     match one of the two consensus alleles.
     bool upstream_read_scoring = false;
     bool link_earned_repeat_indels = false;
+    // Phase the catalog's sites jointly with the alignment's sample-specific
+    // clean and MSA-verified heterozygotes instead of running seam recovery.
+    bool union_gap_phasing = false;
     int link_earned_min_reads = 15;
     double link_earned_min_purity = 0.90;
     // Chunk-stitch abstain margin (see kDefaultStitchMinMargin).  Adjacent
