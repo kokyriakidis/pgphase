@@ -46,8 +46,8 @@ constexpr double kLocusMinMinorFraction = 0.2;
 constexpr int kLocusMinMargin = 2;
 constexpr int kLocusSplitRounds = 3;  // refinements of an unseeded two-way split
 // Allele windows: flank around the repeat, and reads per window. A read is
-// assigned at any edit margin: both sequences are exact alleles, so a one-edit
-// difference is the allele itself, not a read's sequencing error.
+// assigned at the locus windows' two-edit margin (see build_allele_window_sites
+// for why a one-edit margin is not used).
 constexpr hts_pos_t kAlleleWindowFlank = 20;
 constexpr size_t kAlleleWindowMaxReads = 400;
 // An indel is a candidate for a two-allele pair when at most this fraction of

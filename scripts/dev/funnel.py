@@ -187,6 +187,9 @@ def main():
             hets = by_stage[st][:: max(1, len(by_stage[st]) // a.support)][: a.support]
             tab = collections.Counter()
             for p in hets:
+                if p not in truth:  # a rival's site that is not a truth het
+                    tab["not_truth"] += 1
+                    continue
                 ref, alt, gt = truth[p]
                 alt = alt.split(",")[0]
                 snp = len(ref) == 1 and len(alt) == 1

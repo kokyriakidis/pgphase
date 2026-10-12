@@ -33,6 +33,11 @@ constexpr int kEmLearnMinMapq = 20;
 // Pseudo-reads with which each site's learned error is shrunk toward the
 // pooled error of its class in the chunk (empirical Bayes; see m_step).
 constexpr double kEmClassPriorReads = 5.0;
+// The class pool is the median measured error of the class's sites that have
+// at least kEmPoolMinWeight reads' worth of teaching weight, when there are
+// at least kEmPoolMinSites of them (otherwise the weighted mean).
+constexpr double kEmPoolMinWeight = 10.0;
+constexpr size_t kEmPoolMinSites = 5;
 // Reads that must span a block boundary, with evidence on both sides, for the
 // blocks to join: one molecule can be chimeric, mis-placed or mis-called, and
 // its likelihood alone can clear the cut (measured on chr18 at 38.34 Mb: one
@@ -255,17 +260,41 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             }
         }
         std::array<double, 10> class_minor{}, class_total{};
+        // A class's pool is the median error of its sites whose error is
+        // measured (>= kEmPoolMinWeight reads' worth of teaching weight), not
+        // the weighted mean: noise sites at ~0.4 dragged the mean up for the
+        // class's real hets, typically at 0.02-0.05, and a real het whose own
+        // error is not pinned by its reads was shrunk there (chr12:79,657,521,
+        // purity 0.99 against the parents, error 0.20, 41 reads just under
+        // the label posterior). A site with no teaching weight at all takes
+        // the pool instead of keeping its start error.
+        std::array<std::vector<double>, 10> class_rates;
         for (size_t k = 0; k < n; ++k) {
             class_minor[static_cast<size_t>(site_class[k])] += std::min(w[k][0], w[k][1]);
             class_total[static_cast<size_t>(site_class[k])] += w[k][0] + w[k][1];
+            if (w[k][0] + w[k][1] >= kEmPoolMinWeight)
+                class_rates[static_cast<size_t>(site_class[k])].push_back(std::min(w[k][0], w[k][1]) / (w[k][0] + w[k][1]));
+        }
+        std::array<double, 10> class_pool{};
+        for (size_t c = 0; c < 10; ++c) {
+            class_pool[c] = class_total[c] > 0.0 ? class_minor[c] / class_total[c] : kEmOtherStartError;
+            if (class_rates[c].size() >= kEmPoolMinSites) {
+                std::vector<double>& r = class_rates[c];
+                std::nth_element(r.begin(), r.begin() + static_cast<long>(r.size() / 2), r.end());
+                class_pool[c] = r[r.size() / 2];
+            }
         }
         const double shrink = m_started ? kEmClassPriorReads : 0.0;
         for (size_t k = 0; k < n; ++k) {
             const double total = w[k][0] + w[k][1];
-            if (total < 1e-6) continue;
+            if (total < 1e-6) {
+                if (m_started)
+                    err[k] = std::min(kEmMaxError, std::max(kEmMinError, class_pool[static_cast<size_t>(site_class[k])]));
+                continue;
+            }
             phase[k] = w[k][0] >= w[k][1] ? 0 : 1;
             const size_t c = static_cast<size_t>(site_class[k]);
-            const double pooled = class_total[c] > 0.0 ? class_minor[c] / class_total[c] : kEmOtherStartError;
+            const double pooled = class_pool[c];
             const double e = (std::min(w[k][0], w[k][1]) + shrink * pooled) / (total + shrink);
             err[k] = std::min(kEmMaxError, std::max(kEmMinError, e));
         }

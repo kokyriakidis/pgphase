@@ -18879,3 +18879,36 @@ Arms correct / discordant / unphased, f800f19 -> now:
 chr12 521,736 / 2,178 / 2,303 -> 522,164 / 2,228 / 1,825;
 chr18 292,760 / 2,083 / 1,959 -> 293,614 / 1,570 / 1,618;
 chr20 216,088 / 974 / 2,224 -> 216,401 / 1,021 / 1,864.
+
+## 2026-10-13: gaps rivals close; median class pool
+
+Biggest rival-closed gaps examined with pg gaps / inspect / funnel --rival:
+- chr20 35.28-35.33 Mb (86 reads, one HiPhase phase set): HiPhase phases it
+  with exactly two +1 insertions in long T runs, which we also have; our
+  per-read calls there are wrong for ~20% of block-labelled reads (4 of 19
+  at 35,319,921), base quality does not flag them (Q3 on correct calls too),
+  and a noise call (purity 0.56) shares 30 reads with the real het
+  35,305,645, so the EM cannot tell which is wrong. Inward extension needs a
+  15/21 link (p ~ 0.04).
+- chr12 103.4 Mb: a +13 T / +14 T het in a T run over 40 bases; the reads'
+  insertion lengths spread +10..+17, not separable per read.
+- chr12 79.64 Mb: one real het (79,657,521) at learned error 0.20 under the
+  mean class pool; fixed by the median pool.
+
+Median class pool (union_em.cpp): chr12 +32 correct / -22 discordant / -10
+unphased, chr18 +129 / -36 / -93, chr20 -5 / +13 / -8 (vs f6c8510).
+
+Measured and rejected:
+- Gating MSA calls on agreement with the alignment solve's labels. As a
+  feature it separates real from noise homopolymer EM sites well (median
+  consistency 0.95 vs 0.58), but gating all MSA calls lost 2,095 (G1, keep
+  unjudged) and 3,574 (G2) correct reads on chr12.
+- A dense-cluster class for weak injected sites: no change at all (the
+  5-read prior is irrelevant for sites with 50-70 reads).
+- One-edit margin in allele windows: -445 correct / +453 unphased.
+- Blind window split from the two most frequent read sequences, and
+  removing every window read cap: no net gain; uncapped medoids +40% time.
+
+Diagnostics: inj.* now carries the alignment solve's labelled reads and how
+many carry their haplotype's consensus allele; funnel --support handles
+rival sites that are not truth hets.

@@ -327,6 +327,12 @@ Per chunk, in order:
      those reads: its start error is the better prior, and a lone clean SNP
      taught only by reads crossing noisy neighbours was rejected
      (chr18:71,515,222).
+   - *Class pool.* The pool a site's error is shrunk toward is the median
+     measured error of its class's sites with at least 10 reads' worth of
+     teaching weight (when there are 5 or more; otherwise the weighted mean).
+     The weighted mean was dragged up by noise sites at ~0.4 for real hets at
+     0.02-0.05 (chr12:79,657,521, purity 0.99, error 0.20). A site with no
+     teaching weight takes the pool rather than keeping its start error.
    - *Class prior* (`kEmClassPriorReads`). A site's learned error is its
      reads' disagreement rate shrunk toward the pooled rate of its class in the
      chunk by 5 pseudo-reads (empirical Bayes). Classes are clean catalog het,

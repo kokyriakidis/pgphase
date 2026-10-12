@@ -341,6 +341,11 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         site.pos = w0 + 1;
         site.end = w1;
         int n0 = 0, n1 = 0;
+        // The two-edit margin is kept although the alleles are exact: for a
+        // one-base indel it assigns no read, so no window is built there, and
+        // that is the better outcome measured -- a one-edit margin (HiFi length
+        // errors put many reads one edit from the wrong allele) cost 445
+        // correct reads and left 453 more unphased on chr12, chr18 and chr20.
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
             const int d0 = locus_edit_distance(seq, hap_ref), d1 = locus_edit_distance(seq, hap_alt);
             if (std::abs(d0 - d1) < kLocusMinMargin) continue;

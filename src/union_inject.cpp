@@ -158,16 +158,25 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     // carries no REF reads) needs confidently mapped support.
     std::vector<std::map<int, int>> confident(bam.candidates.size());
     std::vector<std::map<int, int>> observed(bam.candidates.size());
+    // Diagnostic counts: reads the alignment solve labelled, and of those, the
+    // ones carrying the allele the solve assigned to their haplotype.
+    std::vector<std::array<int, 2>> labelled(bam.candidates.size(), {0, 0});
     for (const ReadVariantProfile& prof : bam.read_var_profile) {
         if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
         const ReadRecord& read = bam.reads[static_cast<size_t>(prof.read_id)];
         if (read.is_skipped) continue;
+        const int hap = static_cast<size_t>(prof.read_id) < bam.haps.size() ? bam.haps[static_cast<size_t>(prof.read_id)] : 0;
         for (size_t k = 0; k < prof.alleles.size(); ++k) {
             const int a = prof.alleles[k];
             if (a < 0) continue;
             const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
             ++observed[ci][a];
             if (read.mapq >= kDefaultMinMapq) ++confident[ci][a];
+            if (hap == 1 || hap == 2) {
+                ++labelled[ci][0];
+                const auto& cons = bam.candidates[ci].hap_to_cons_alle;
+                if (cons.size() > 2 && cons[static_cast<size_t>(hap)] == a) ++labelled[ci][1];
+            }
         }
     }
     std::vector<int> depth(bam.candidates.size(), 0);
@@ -228,7 +237,9 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (FILE* fh = std::fopen((std::string(diag_dir) + "/inj." + tag).c_str(), "w")) {
             // VCF-convention position, key position, type, REF length, ALT,
             // category code, MSA-verified, unresolved_noisy, depth, chunk
-            // median depth, confident reads on the two leading alleles, decision.
+            // median depth, confident reads on the two leading alleles, decision,
+            // reads the alignment solve labelled, and of those the ones carrying
+            // their haplotype's consensus allele.
             for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
                 const CandidateVariant& c = bam.candidates[bi];
                 std::vector<std::pair<int, int>> top;
@@ -240,11 +251,11 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
                     if (it != confident[bi].end()) conf[i] = it->second;
                 }
                 const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
-                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d,%d\t%s\n",
+                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d,%d\t%s\t%d\t%d\n",
                              static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
                              c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
                              c.msa_verified ? 1 : 0, c.unresolved_noisy ? 1 : 0, depth[bi], median_depth,
-                             conf[0], conf[1], decision[bi]);
+                             conf[0], conf[1], decision[bi], labelled[bi][0], labelled[bi][1]);
             }
             std::fclose(fh);
         }
