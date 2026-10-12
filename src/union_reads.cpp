@@ -132,7 +132,12 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
     std::sort(locus_alleles.begin(), locus_alleles.end(), [](const LocusAllele& a, const LocusAllele& b) { return a.p0 < b.p0; });
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
         const CandidateVariant& c = chunk.candidates[ci];
-        if (!c.bam_injected || c.key.type == VariantType::Snp) continue;
+        // MSA SNP calls too: they carry only the reads inside the MSA's
+        // clusters (chr20:35,211,758: 4 of 55 crossing reads), and realigning
+        // a read to REF and to the SNP's haplotype fills the rest the same way.
+        // A pileup SNP is not filled: its reads without a call are mostly the
+        // ones whose base there failed the base-quality filter.
+        if (!c.bam_injected || (c.key.type == VariantType::Snp && !c.msa_verified)) continue;
         if (!c.msa_insertion_alts.empty()) {
             // One row, several insertion alleles: the closest allele by index.
             if (c.key.type != VariantType::Insertion || (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
@@ -194,6 +199,10 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
             // The MSA already called this read here; realignment only fills reads
             // it did not call, and grades the calls it did.
             if (slot >= 0) {
+                // A SNP's existing call is a base call; realignment over a
+                // window that also spans repeat indels is often undecided
+                // there, and grading the call by it down-weighted good SNPs.
+                if (chunk.candidates[ci].key.type == VariantType::Snp) continue;
                 if (errors != nullptr && mg != margins.end())
                     (*errors)[observation_key(ri, ci)] =
                         a < 0 ? kMsaUndecidedError : a != slot ? kMsaContradictedError : margin_error(mg->second);

@@ -18769,3 +18769,49 @@ Open: chr18 20.78-20.93 Mb joins recovered real hets to the hets past a
 counted discordant against a block majority set by centromeric reads);
 chr12 34.59 Mb maternal duplication; HiPhase-only gaps of unreliable-only
 reads (chr12 86.70, 105.12, 97.31 Mb; chr18 21.80, 28.67, 65.79 Mb).
+
+## 2026-10-12 (later): diagnostic harness; MSA SNP realignment
+
+**Harness.** `PGPHASE_DIAG=DIR` dumps the alignment solve's candidates before
+pruning (initial and final category), its noisy regions, each injection
+decision with its reason, the graph rows, and the final EM's voting
+candidates (allele counts, undecided reads, contrast, error, phase, block).
+`pg diag` caches a full-contig run with every dump; `pg inspect REGION`
+merges all sources by position with our, HiPhase's and LongPhase's VCFs and
+reads; `pg funnel` traces each read a rival phases correctly and we do not to
+the furthest stage its truth hets (or, with --rival, the rival's own phased
+sites) reached, and --support checks those hets in the reads. Every tool now
+takes read classes from `score.read_classes`, the score table's own
+definition (phase sets oriented by all scored reads); `score.py diff`,
+gaps.py and why.py had oriented over arm reads only and disagreed with the
+table wherever a block crosses the centromere.
+
+**Findings** (rival-correct reads we leave unphased, truth-het stage):
+- "absent" hets (no catalog row, no alignment call; 1,297 on chr12, 3,458 on
+  chr20) are unsupported by the reads in 146/150 and 148/150 checked: not
+  ours to find. Likewise most low-coverage / low-AF alignment calls.
+- MSA calls carry only the reads inside the MSA's clusters; injected MSA SNPs
+  were never realigned, so most crossing reads had no call (chr20
+  35,211,758: 4 of 55). Fixed (realignment fills them).
+- An isolated MSA SNP fails the confident-read gate for the same reason
+  (chr12 45,311,490: 5 reads against the pileup's 75). Exempting isolated MSA
+  SNPs from the gate fixed it but flipped a fragile centromere-edge block on
+  chr18; net negative, not adopted. Keeping every clean pileup SNP inside
+  noisy regions: -550 / -430 / -215 correct, rejected.
+- Hom-genotyped calls with a confident two-allele read split are truth hets
+  only ~10% of the time (homopolymer noise), so read splits cannot override
+  the MSA genotype wholesale.
+- Isolated EM sites (>= 80% of their reads see nothing else): the rejected
+  ones are mostly impure against the parents (chr12 20 of 25), so the EM's
+  rejection is mostly right; HiPhase phases such singletons and pays for it
+  in discordance.
+- With --rival hiphase on chr12, the sites HiPhase phases our unphased reads
+  with are: catalog repeat indels demoted to REP_HET_INDEL (345 reads,
+  mostly isolated homopolymer indels the EM rejects), EM-rejected sites
+  (295), reliable sites (363), injection gate (185), suppressed alignment
+  repeat indels (168).
+
+Arms correct / discordant / unphased, 0c7c019 -> now:
+chr12 521,532 / 2,214 / 2,471 -> 521,559 / 2,194 / 2,464;
+chr18 292,732 / 2,111 / 1,959 -> 292,723 / 2,104 / 1,975;
+chr20 215,964 / 1,021 / 2,301 -> 216,023 / 986 / 2,277.

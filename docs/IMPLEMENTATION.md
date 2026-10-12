@@ -273,9 +273,14 @@ Per chunk, in order:
 5. **Realigned indel calls** (`realign_indel_observations`). This step only
    adds calls; it never overwrites the MSA's own per-read call (that MSA call
    is the better one).
-   - *Which reads.* At every injected indel site, each read that covers the
-     site's window but has no MSA call there: reads the MSA left out, reads
-     not spanning its noisy region, and reads added from the alignment.
+   - *Which reads.* At every injected indel site and every injected
+     MSA-verified SNP, each read that covers the site's window but has no MSA
+     call there: reads the MSA left out, reads not spanning its noisy region,
+     and reads added from the alignment. An MSA SNP otherwise carries only
+     the reads inside the MSA's clusters (chr20:35,211,758: 4 of 55 crossing
+     reads). A pileup SNP is neither filled nor graded: its reads without a
+     call failed the base-quality filter, and realignment over a window that
+     also spans repeat indels is often undecided at a good base call.
    - *Window.* The indel extended through tandem repeats on both sides, plus
      20 bp.
    - *How.* The read's segment is aligned against the site's alleles in

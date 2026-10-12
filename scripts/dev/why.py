@@ -174,8 +174,8 @@ def main():
     a = ap.parse_args()
     regions = score.load_regions(a.regions)
     scope = {q: v for q, v in score.read_scope(regions).items() if v[1] == "arms_phaseable"}
-    ours = score.classify_reads(a.run, scope)
-    theirs = score.classify_reads(a.competitor, scope)
+    ours = score.read_classes(a.run, regions)
+    theirs = score.read_classes(a.competitor, regions)
     t = score.truth_tables()
     dump = load_dump(a.dump)
     site_pos = {o[0] for d in dump.values() for o in d["obs"]}

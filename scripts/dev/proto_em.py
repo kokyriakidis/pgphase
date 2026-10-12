@@ -179,6 +179,34 @@ def solve(path):
             num = np.bincount(ss, weights=w * (dis - (1 - np.abs(2 * q - 1)) / 2), minlength=n)
             err = np.clip((num + A.prior_weight * A.prior) / (den + A.prior_weight), EMIN, EMAX)
             return
+        if A.variant == "ebloo2" and m_step.started:
+            # Each observation judged against the read's other evidence (q),
+            # weighted by that evidence's confidence c = |2q - 1|: a read with
+            # nothing else contributes nothing, instead of echoing the site's
+            # own error. Unbiased: E[dis - (1 - c) / 2] = e * c. Shrunk toward
+            # the class's pooled rate by prior_weight pseudo-reads.
+            l1, l2 = lls()
+            t1 = np.bincount(rr, weights=l1, minlength=nr)
+            t2 = np.bincount(rr, weights=l2, minlength=nr)
+            d = np.clip((t2[rr] - l2) - (t1[rr] - l1), -700, 700)
+            q = 1 / (1 + np.exp(d))
+            conf = np.abs(2 * q - 1)
+            c = conf * w
+            side_h1 = np.where(q >= 0.5, bb, 1 - bb)
+            v0 = np.bincount(ss, weights=c * (side_h1 == 0), minlength=n)
+            v1 = np.bincount(ss, weights=c * (side_h1 == 1), minlength=n)
+            den = v0 + v1
+            upd = den >= 1e-6
+            phase = np.where(upd, np.where(v0 >= v1, 0, 1), phase)
+            dis = (side_h1 != phase[ss]).astype(float)
+            num = np.bincount(ss, weights=w * (dis - (1 - conf) / 2), minlength=n)
+            pooled = np.zeros(n)
+            for cl in np.unique(cls):
+                sel = cls == cl
+                dn = den[sel].sum()
+                pooled[sel] = min(EMAX, max(EMIN, num[sel].sum() / dn)) if dn > 1e-6 else OTHER0
+            err = np.clip((num + A.prior_weight * pooled) / (den + A.prior_weight), EMIN, EMAX)
+            return
         if A.variant in ("ebloo",) and m_step.started:
             l1, l2 = lls()
             t1 = np.bincount(rr, weights=l1, minlength=nr)

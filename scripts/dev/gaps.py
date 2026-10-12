@@ -45,11 +45,11 @@ def main():
     ap.add_argument("--out")
     a = ap.parse_args()
     scope = {q: v for q, v in score.read_scope().items() if v[1] == "arms_phaseable"}
-    ours = score.classify_reads(a.run, scope)
+    ours = score.read_classes(a.run)
     comps = {}
     for pair in os.environ.get("PGDEV_COMPETITORS", "").split():
         name, d = pair.split("=", 1)
-        comps[name] = score.classify_reads(d, scope)
+        comps[name] = score.read_classes(d)
     dump = why.load_dump(a.dump)
     unph = [q for q in scope if ours[q] == "unphased"]
     tab, sub = collections.Counter(), collections.Counter()

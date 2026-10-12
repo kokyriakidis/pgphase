@@ -27,6 +27,20 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
   pin-dir TIER DIR [--graph-only]
                        make an existing run directory the baseline for TIER
   path  [TIER]         print the run directory of ./pgphase for TIER
+  diag                 full-tier run of ./pgphase with every diagnostic dump
+                       (EM evidence, alignment candidates, noisy regions,
+                       injection decisions, graph rows), cached per binary;
+                       prints its directory
+  inspect REGION [--all] [--reads N]
+                       everything at REGION (chrN:A-B, A-B or a position):
+                       reads of us and the competitors, noisy regions, and per
+                       position truth, catalog, graph, alignment, injection,
+                       EM and every tool's VCF (scripts/dev/inspect_region.py)
+  funnel [--rival NAME] [--support N] [--out TSV]
+                       where the pipeline loses the reads a competitor phases
+                       correctly and we do not: by truth het, or by the
+                       competitor's own phased sites; --support checks the
+                       hets in the reads (scripts/dev/funnel.py)
 
 TIER is quick (default) or full. quick runs the windows in
 scripts/dev/quick_regions.bed (about 30 s); full runs the whole contig (about
@@ -90,7 +104,7 @@ regions_bed() { [[ "${tier}" == quick ]] && echo "--regions ${here}/quick_region
 
 run_dir() {
     local bin="${PGDEV_BIN:-${root}/pgphase}" key
-    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; env | grep "^PGPHASE_" | grep -v "^PGPHASE_\(TIMING\|EM_DUMP\)=" | sort; } | sha256sum | cut -c1-12)"
+    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; env | grep "^PGPHASE_" | grep -v "^PGPHASE_\(TIMING\|EM_DUMP\|DIAG\)=" | sort; } | sha256sum | cut -c1-12)"
     echo "${runs}/${tier}-${key}"
 }
 
@@ -136,6 +150,26 @@ ensure_run() {
     py "${here}/score.py" run "${tmp}" $(regions_bed) --json "${tmp}/score.json"
     rm -rf "${dir}"; mv "${tmp}" "${dir}"
     echo "${dir}"
+}
+
+# Full-tier run with every diagnostic dump, next to the run's cache entry.
+diag_dir() {
+    tier=full
+    local dir diag bin="${PGDEV_BIN:-${root}/pgphase}"
+    [[ -n "${PGDEV_BIN:-}" ]] || build
+    dir="$(run_dir)"; diag="${dir}.diag"
+    if [[ ! -f "${diag}/done" ]]; then
+        rm -rf "${diag}"; mkdir -p "${diag}/em" "${diag}/aln"
+        echo "pg: diagnostic run of ${PGDEV_CONTIG} (about the time of a full run) -> ${diag}" >&2
+        PGPHASE_EM_DUMP="${diag}/em" PGPHASE_DIAG="${diag}/aln" \
+        "${bin}" collect-graph-variation --ref "${PGDEV_REF}" --bam "${PGDEV_BAM}" \
+            --sites "${PGDEV_SITES}" --gaf "${PGDEV_GAF}" -r "${PGDEV_CONTIG}" --threads "${PGDEV_THREADS}" \
+            -o "${diag}/candidates.tsv" --phased-vcf-out "${diag}/phased.vcf" \
+            --phased-bam-out "${diag}/phased.bam" > /dev/null 2> "${diag}/stderr.log" \
+            || { tail -20 "${diag}/stderr.log" >&2; die "diagnostic run failed"; }
+        touch "${diag}/done"
+    fi
+    echo "${diag}"
 }
 
 baseline_link() { echo "${PGDEV_STATE}/baseline-${tier}$([[ "${graph_only}" == 1 ]] && echo -graph)"; }
@@ -231,6 +265,10 @@ main() {
         pin) cmd_pin "$@" ;;
         pin-dir) [[ $# -ge 2 ]] || die "usage: pg pin-dir TIER DIR [--graph-only]"; cmd_pin_dir "$@" ;;
         path) parse_tier "$@"; run_dir ;;
+        diag) diag_dir ;;
+        inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"
+                 local d; d="$(diag_dir)"; py "${here}/inspect_region.py" "${d}" "$@" ;;
+        funnel) local d; d="$(diag_dir)"; py "${here}/funnel.py" "${d}" "$@" ;;
         help|-h|--help) usage ;;
         *) usage >&2; exit 1 ;;
     esac

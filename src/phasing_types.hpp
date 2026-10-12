@@ -480,6 +480,10 @@ struct Options {
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer
     // experiments (MEC/EM vs the production greedy k-means). Debug-only.
     std::string phase_matrix_dump_prefix;
+    /// Diagnostic, off by default: when set (PGPHASE_DIAG, union alignment
+    /// solve), collect_var_classify writes every candidate before pruning and
+    /// the noisy regions to this directory (aln.TID.BEG.tsv, noisy.TID.BEG.tsv).
+    std::string diag_dir;
     /** CLI command string used for PG:CL header field in phased SAM/BAM/CRAM output. */
     std::string command_line;
 

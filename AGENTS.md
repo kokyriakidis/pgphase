@@ -50,8 +50,16 @@ unphased counts and arm switches alongside. Diagnostics, off by default:
 `PGPHASE_TIMING=1` prints each chunk's seconds per stage (and the alignment
 solve's load / classify / phase split) to stderr; `PGPHASE_EM_DUMP=DIR` writes
 each chunk's final EM evidence for scripts/dev/why.py, locus.py and
-proto_em.py. `PGDEV_PROFILE=chr12|chr18` evaluates another chromosome (full
-tier). `scripts/dev/score.py` is the one
+proto_em.py; `PGPHASE_DIAG=DIR` writes the alignment solve's candidates
+before pruning, its noisy regions, every injection decision, the graph rows
+and the final EM's voting candidates. `scripts/dev/pg diag` makes a cached
+full-contig run with all of these; `scripts/dev/pg inspect REGION` prints
+everything at a region by position (truth, catalog, graph, alignment,
+injection, EM, our and every competitor's VCF, and the reads of each tool);
+`scripts/dev/pg funnel [--rival NAME] [--support N]` traces where the reads a
+competitor phases correctly and we do not are lost (by truth het, or by the
+competitor's own phased sites). `PGDEV_PROFILE=chr12|chr18` evaluates another
+chromosome (full tier). `scripts/dev/score.py` is the one
 scorer (`run`, `table`, `diff`, `bins`); parental truth is evaluation-only.
 
 ## Testing

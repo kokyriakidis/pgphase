@@ -200,19 +200,71 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
     // alignment's own category bits.
     std::vector<size_t> selected;
+    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
+    // candidate's injection decision (inj.TID.BEG.tsv) and the graph chunk's
+    // rows before the merge (graph.TID.BEG.tsv).
+    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+    std::vector<const char*> decision(diag_dir != nullptr ? bam.candidates.size() : 0, "");
+    const auto decide = [&](size_t bi, const char* why) {
+        if (diag_dir != nullptr) decision[bi] = why;
+    };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
         const VariantCategory cat = c.counts.category;
         const bool clean = cat == VariantCategory::CleanHetSnp || cat == VariantCategory::CleanHetIndel;
         const bool msa = cat == VariantCategory::NoisyCandHet && c.msa_verified;
-        if (!clean && !msa) continue;
-        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) continue;
-        if (!confidently_supported(bi)) continue;
-        if (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) continue;
+        if (!clean && !msa) { decide(bi, "category"); continue; }
+        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) { decide(bi, "not_germline"); continue; }
+        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) { decide(bi, "outside_chunk"); continue; }
+        if (!confidently_supported(bi)) { decide(bi, "few_confident_reads"); continue; }
+        if (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) { decide(bi, "depth_gate"); continue; }
         std::vector<size_t> rows = voting_rows_over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
+        decide(bi, rows.empty() ? "injected" : "complement");
         if (!rows.empty()) complement_rows.emplace(bi, std::move(rows));
         selected.push_back(bi);
+    }
+    if (diag_dir != nullptr) {
+        const std::string tag = std::to_string(graph.region.tid) + "." + std::to_string(graph.region.beg) + ".tsv";
+        if (FILE* fh = std::fopen((std::string(diag_dir) + "/inj." + tag).c_str(), "w")) {
+            // VCF-convention position, key position, type, REF length, ALT,
+            // category code, MSA-verified, unresolved_noisy, depth, chunk
+            // median depth, confident reads on the two leading alleles, decision.
+            for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+                const CandidateVariant& c = bam.candidates[bi];
+                std::vector<std::pair<int, int>> top;
+                for (const auto& [a, n] : observed[bi]) top.emplace_back(n, a);
+                std::sort(top.rbegin(), top.rend());
+                int conf[2] = {0, 0};
+                for (size_t i = 0; i < 2 && i < top.size(); ++i) {
+                    const auto it = confident[bi].find(top[i].second);
+                    if (it != confident[bi].end()) conf[i] = it->second;
+                }
+                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d,%d\t%s\n",
+                             static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
+                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
+                             c.msa_verified ? 1 : 0, c.unresolved_noisy ? 1 : 0, depth[bi], median_depth,
+                             conf[0], conf[1], decision[bi]);
+            }
+            std::fclose(fh);
+        }
+        if (FILE* fh = std::fopen((std::string(diag_dir) + "/graph." + tag).c_str(), "w")) {
+            // VCF-convention position, key position, type, REF length, ALT,
+            // category code, voting (germline), catalog id, allele coverages.
+            for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+                const CandidateVariant& c = graph.candidates[ci];
+                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+                std::string covs;
+                for (const int n : c.counts.alle_covs) covs += (covs.empty() ? "" : ",") + std::to_string(n);
+                const std::string id = ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string();
+                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%s\t%s\n",
+                             static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
+                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
+                             (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 ? 1 : 0,
+                             id.empty() ? "." : id.c_str(), covs.empty() ? "." : covs.c_str());
+            }
+            std::fclose(fh);
+        }
     }
     if (selected.empty()) return 0;
 

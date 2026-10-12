@@ -179,10 +179,33 @@ def classify_reads(run_dir, scope):
     return out
 
 
+def read_classes(run_dir, regions=None):
+    """name -> correct / discordant / unphased exactly as score_run counts them
+    (each phase set oriented by every scored read, centromeric ones included),
+    cached under PGDEV_CACHE by the run's BAM and the truth inputs. Every tool
+    that reports read classes should use this: orienting phase sets over a
+    subset (arms_phaseable only) disagrees with the score table wherever a
+    block spans the arm and the centromere."""
+    bam = os.path.join(run_dir, "phased.bam")
+    parts = [file_id(bam)] + [file_id(ENV[k]) for k in ("PGDEV_BAM", "PGDEV_TRUTH_READS", "PGDEV_TRUTH_VCF")]
+    parts += [file_id(EXCLUDE) if EXCLUDE and os.path.exists(EXCLUDE) else "", CEN, regions]
+    key = hashlib.sha256(repr(parts).encode()).hexdigest()[:16]
+    path = os.path.join(CACHE, "classes", f"{key}.pkl")
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
+            return pickle.load(fh)
+    out = classify_reads(run_dir, read_scope(regions))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".tmp", "wb") as fh:
+        pickle.dump(out, fh, protocol=pickle.HIGHEST_PROTOCOL)
+    os.replace(path + ".tmp", path)
+    return out
+
+
 def score_run(run_dir, regions=None):
     t = truth_tables()
     scope = read_scope(regions)
-    classes = classify_reads(run_dir, scope)
+    classes = read_classes(run_dir, regions)
     groups = ("all", "arms", "cen", "arms_phaseable", "arms_nohet", "cen_phaseable", "cen_nohet")
     reads_out = {g: {"correct": 0, "discordant": 0, "unphased": 0} for g in groups}
     for q, (arm, sub, *_) in scope.items():
@@ -280,7 +303,7 @@ def table(scores, names):
 def diff(base_dir, run_dir, regions, out_path, bin_size=1_000_000):
     """Per-read class changes from base_dir to run_dir on arms_phaseable reads."""
     scope = {q: v for q, v in read_scope(regions).items() if v[1] == "arms_phaseable"}
-    a, b = classify_reads(base_dir, scope), classify_reads(run_dir, scope)
+    a, b = read_classes(base_dir, regions), read_classes(run_dir, regions)
     moves = collections.Counter((a[q], b[q]) for q in scope if a[q] != b[q])
     print("arms_phaseable reads that changed class (base -> run):")
     for (x, y), n in sorted(moves.items(), key=lambda kv: -kv[1]):

@@ -65,12 +65,16 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // Sites in position order with their two-allele contrast; a locus window
     // contrasts its two local haplotype sequences (0 and 1).
     std::vector<std::map<int, int>> allele_counts(chunk.candidates.size());
+    std::vector<int> undecided(chunk.candidates.size(), 0);  // reads in range without an allele (diagnostic)
     for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
         const ReadVariantProfile& prof = chunk.read_var_profile[ri];
         if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
-        for (size_t k = 0; k < prof.alleles.size(); ++k)
+        for (size_t k = 0; k < prof.alleles.size(); ++k) {
             if (prof.alleles[k] >= 0)
                 ++allele_counts[static_cast<size_t>(prof.start_var_idx) + k][prof.alleles[k]];
+            else
+                ++undecided[static_cast<size_t>(prof.start_var_idx) + k];
+        }
     }
     std::vector<EmSite> sites;
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
@@ -451,6 +455,43 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // POS:KIND:SIDE:SITE_ERROR:BLOCK:WEAK:READ_ERROR, with KIND C clean het,
     // O other, I injected from the alignment, U injected from a noisy region
     // too long for MSA, L window.
+    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes the final solve's
+    // voting candidates (emsites.TID.BEG.tsv): VCF-convention position, type,
+    // REF length, ALT, origin (C catalog clean, O catalog other, I injected, U
+    // unverified), allele read counts (allele:reads;...), reads in range
+    // without an allele, EM site or "-" (left out: skewed alleles), the two
+    // alleles contrasted, learned error, phase (which allele haplotype 1
+    // carries), block.
+    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+    if (diag_dir != nullptr && loci != nullptr) {
+        const std::string path = std::string(diag_dir) + "/emsites." + std::to_string(chunk.region.tid) + "." +
+                                 std::to_string(chunk.region.beg) + ".tsv";
+        if (FILE* fh = std::fopen(path.c_str(), "w")) {
+            for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+                const CandidateVariant& c = chunk.candidates[ci];
+                if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+                const char origin = c.unresolved_noisy ? 'U' : c.bam_injected ? 'I'
+                                  : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
+                std::string counts;
+                for (const auto& [a, n] : allele_counts[ci])
+                    counts += (counts.empty() ? "" : ";") + std::to_string(a) + ":" + std::to_string(n);
+                std::fprintf(fh, "%lld\t%c\t%d\t%s\t%c\t%s\t%d", static_cast<long long>(c.key.sort_pos()), type,
+                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), origin,
+                             counts.empty() ? "." : counts.c_str(), undecided[ci]);
+                const int k = site_of[ci];
+                if (k < 0) {
+                    std::fprintf(fh, "\t-\t.\t.\t.\t.\t.\n");
+                } else {
+                    const EmSite& site = sites[static_cast<size_t>(k)];
+                    std::fprintf(fh, "\tem\t%d\t%d\t%.3f\t%d\t%lld\n", site.x, site.y, err[static_cast<size_t>(k)],
+                                 phase[static_cast<size_t>(k)] == 0 ? site.x : site.y,
+                                 static_cast<long long>(block[static_cast<size_t>(k)]));
+                }
+            }
+            std::fclose(fh);
+        }
+    }
     static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
     if (dump_dir != nullptr && loci != nullptr) {
         const std::string path = std::string(dump_dir) + "/em." + std::to_string(chunk.region.tid) + "." +

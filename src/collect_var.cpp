@@ -2156,6 +2156,31 @@ static void drop_superseded_colocated_records(PhasingChunk& chunk) {
 /// Discover candidates from read alignments, count their alleles, and classify
 /// them. Read-level noisy regions are built first; classification adds candidate
 /// spans, then containment and pruning remove calls inside noisy intervals.
+// Diagnostic (Options::diag_dir): every candidate as classified, before
+// pruning, and the noisy regions. Columns: VCF-convention position (indels at
+// their anchor), key position, type S/I/D, REF length, ALT (first 40 bases),
+// initial and final category codes (VariantCategory order), REF / ALT / total
+// coverage, and 1 when kept from a noisy region too long for MSA.
+static void write_classify_diag(const PhasingChunk& chunk, const std::string& dir) {
+    const std::string tag = std::to_string(chunk.region.tid) + "." + std::to_string(chunk.region.beg) + ".tsv";
+    if (FILE* fh = std::fopen((dir + "/aln." + tag).c_str(), "w")) {
+        for (const CandidateVariant& c : chunk.candidates) {
+            const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+            std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                         static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
+                         c.key.ref_len, c.key.alt.substr(0, 40).c_str(),
+                         static_cast<int>(c.counts.candvarcate_initial), static_cast<int>(c.counts.category),
+                         c.counts.ref_cov, c.counts.alt_cov, c.counts.total_cov, c.unresolved_noisy ? 1 : 0);
+        }
+        std::fclose(fh);
+    }
+    if (FILE* fh = std::fopen((dir + "/noisy." + tag).c_str(), "w")) {
+        for (const Interval& r : chunk.noisy_regions)
+            std::fprintf(fh, "%lld\t%lld\n", static_cast<long long>(r.beg), static_cast<long long>(r.end));
+        std::fclose(fh);
+    }
+}
+
 void collect_var_classify(PhasingChunk& chunk,
                           const Options& opts,
                           const bam_hdr_t* header) {
@@ -2191,6 +2216,7 @@ void collect_var_classify(PhasingChunk& chunk,
 
     // A contained candidate is suppressed before profiles and phasing are built.
     apply_noisy_containment_filter(chunk, opts.keep_calls_in_unresolved_noisy ? opts.max_noisy_reg_len : 0);
+    if (!opts.diag_dir.empty()) write_classify_diag(chunk, opts.diag_dir);
     prune_not_candidate_variants(chunk);
 
     dump_all_noisy_regions(chunk, opts, header);

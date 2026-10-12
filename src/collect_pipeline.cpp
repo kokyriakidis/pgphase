@@ -764,6 +764,7 @@ static Options union_alignment_options(const Options& opts) {
     sub.max_noisy_reg_len = kUnionMsaMaxRegionLength;
     sub.skip_noisy_kmeans = false;
     sub.keep_calls_in_unresolved_noisy = true;
+    if (const char* diag = std::getenv("PGPHASE_DIAG")) sub.diag_dir = diag;
     sub.threads = 1;
     sub.verbose = 0;
     sub.phase_matrix_dump_prefix.clear();
