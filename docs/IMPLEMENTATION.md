@@ -217,6 +217,13 @@ Per chunk, in order:
    each read segment that is aligned end-to-end against the MSA consensuses
    to give reads outside the clusters a call: a segment carrying a multi-kb
    insertion is skipped there (one such region on chr12 cost 35 s).
+   - *Repeat het indels in noisy regions.* For union phasing a pileup
+     repeat het indel inside any noisy region keeps its category instead of
+     being pruned. It is never injected; build_allele_window_sites realigns
+     reads to its two exact alleles where nothing else covers the locus. A
+     short region's MSA separates haplotypes by reads already labelled, so in
+     a gap it calls nothing (chr12:108,955,590: 52 REF / 23 ALT, the het
+     HiPhase bridges two of our blocks with).
    - *Calls in unresolvable noisy regions*
      (`keep_calls_in_unresolved_noisy`). Noisy windows widened to nearby
      candidates and merged can chain across a whole SV-rich stretch (chr18
@@ -311,7 +318,15 @@ Per chunk, in order:
      paralog or an error call, and in a homozygous stretch such a site labels
      reads at random.
    - *Learning.* Only reads with MAPQ 20 or more update the model and decide
-     switch moves. Lower reads are scored against it and labelled.
+     switch moves. Lower reads are scored against it and labelled. A read
+     whose observations all sit at one site does not teach that site's error,
+     unless the site is a clean catalog het: its posterior is made from the
+     site alone, so it only returns the site's current error and pins it
+     where it started. Weakly connected injected hets stayed rejected so
+     (chr12:105,144,892, purity 0.98, error 0.38). A clean catalog het keeps
+     those reads: its start error is the better prior, and a lone clean SNP
+     taught only by reads crossing noisy neighbours was rejected
+     (chr18:71,515,222).
    - *Class prior* (`kEmClassPriorReads`). A site's learned error is its
      reads' disagreement rate shrunk toward the pooled rate of its class in the
      chunk by 5 pseudo-reads (empirical Bayes). Classes are clean catalog het,

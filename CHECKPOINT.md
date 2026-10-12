@@ -18852,3 +18852,30 @@ Arms correct / discordant / unphased, a6aba7d -> now:
 chr12 521,559 / 2,194 / 2,464 -> 521,736 / 2,178 / 2,303;
 chr18 292,723 / 2,104 / 1,975 -> 292,760 / 2,083 / 1,959;
 chr20 216,023 / 986 / 2,277 -> 216,088 / 974 / 2,224.
+
+## 2026-10-12 (later): single-site reads do not teach; repeat indels in gaps
+
+`pg gaps` (gapclose.py): the gaps we leave that a rival closes, by locus,
+with our flanking blocks (break between two blocks / hole in one), the
+rival's phase set and span, and our reason per read.
+
+- **Single-site reads do not teach.** EM-rejected sites behind unphased
+  rival-correct reads were mostly pure against the parents (chr12: 299 of
+  507 reads behind pure sites; chr18: 484 of 582), weakly connected injected
+  indels whose error the single-site reads' echo held at the class prior.
+  Excluding those reads from the M-step except at clean catalog hets: chr12
+  +498 correct / +51 discordant / -549 unphased, chr18 +407 / +35 / -442,
+  chr20 +256 / +23 / -279 (vs f800f19). Excluding them everywhere: +1,030 /
+  +141 (a lone clean SNP at chr18 71,515,222 was then rejected).
+- **Repeat het indels kept in noisy regions** for allele windows (never
+  injected): chr12 -70 / -1 / +71, chr18 +447 / -548 / +101 (a wrong join at
+  73 Mb fixed, 545 reads; 79 reads at 59.8 Mb lost, which neither rival
+  phases), chr20 +57 / +24 / -81.
+
+Measured and rejected: label posterior 0.75 (+430 correct / +96 discordant
+on top of f800f19, chr18 near 1:1).
+
+Arms correct / discordant / unphased, f800f19 -> now:
+chr12 521,736 / 2,178 / 2,303 -> 522,164 / 2,228 / 1,825;
+chr18 292,760 / 2,083 / 1,959 -> 293,614 / 1,570 / 1,618;
+chr20 216,088 / 974 / 2,224 -> 216,401 / 1,021 / 1,864.

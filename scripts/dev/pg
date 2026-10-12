@@ -36,6 +36,10 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        reads of us and the competitors, noisy regions, and per
                        position truth, catalog, graph, alignment, injection,
                        EM and every tool's VCF (scripts/dev/inspect_region.py)
+  gaps [--top N] [--out TSV]
+                       gaps we leave that a competitor closes: unphased reads
+                       it phases correctly, by locus, with our flanking blocks
+                       and its phase set (scripts/dev/gapclose.py)
   funnel [--rival NAME] [--support N] [--out TSV]
                        where the pipeline loses the reads a competitor phases
                        correctly and we do not: by truth het, or by the
@@ -269,6 +273,7 @@ main() {
         inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"
                  local d; d="$(diag_dir)"; py "${here}/inspect_region.py" "${d}" "$@" ;;
         funnel) local d; d="$(diag_dir)"; py "${here}/funnel.py" "${d}" "$@" ;;
+        gaps) local d; d="$(diag_dir)"; py "${here}/gapclose.py" "${d}" "$@" ;;
         help|-h|--help) usage ;;
         *) usage >&2; exit 1 ;;
     esac

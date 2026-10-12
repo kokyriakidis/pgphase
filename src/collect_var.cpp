@@ -1109,6 +1109,34 @@ void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len
             std::free(kb);
         }
     }
+    if (max_suppressing_len > 0) {
+        // A repeat het indel is kept in any noisy region, short ones included.
+        // It is never injected, but union phasing realigns reads to its two
+        // exact alleles (build_allele_window_sites) where nothing else covers
+        // the locus. A short region's MSA separates haplotypes by reads already
+        // labelled, so inside a gap it calls nothing and the indel vanished:
+        // chr12:108,955,590, 52 REF / 23 ALT, the het HiPhase bridges two of
+        // our blocks with.
+        CrangesOwner all_spans;
+        all_spans.adopt(intervals_to_cr_noisy_post_merge(chunk.noisy_regions));
+        if (all_spans.cr != nullptr && all_spans.cr->n_r > 0) {
+            cr_index(all_spans.cr);
+            int64_t* kb = nullptr;
+            int64_t km = 0;
+            for (auto& cv : chunk.candidates) {
+                if (cv.counts.category != VariantCategory::NonVariant ||
+                    cv.counts.candvarcate_initial != VariantCategory::RepeatHetIndel) continue;
+                const VariantKey& k = cv.key;
+                const int32_t beg = static_cast<int32_t>(k.pos - 1);
+                const int32_t end = static_cast<int32_t>(k.type == VariantType::Insertion ? k.pos : k.pos + k.ref_len);
+                if (cr_is_contained(all_spans.cr, "cr", beg, end, &kb, &km) > 0) {
+                    cv.counts.category = VariantCategory::RepeatHetIndel;
+                    cv.lcd_var_i_to_cate = category_to_flag(VariantCategory::RepeatHetIndel);
+                }
+            }
+            std::free(kb);
+        }
+    }
     if (suppressing.empty()) return;
     CrangesOwner own;
     own.adopt(intervals_to_cr_noisy_post_merge(suppressing));
@@ -1118,6 +1146,7 @@ void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len
     int64_t m = 0;
     for (auto& cv : chunk.candidates) {
         if ((cv.lcd_var_i_to_cate & kLongcalldNotCandVarCate) != 0) continue;
+        if (max_suppressing_len > 0 && cv.counts.category == VariantCategory::RepeatHetIndel) continue;
         const VariantKey& k = cv.key;
         int64_t n = 0;
         if (k.type == VariantType::Insertion) {

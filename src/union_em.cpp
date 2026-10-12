@@ -237,6 +237,18 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         std::vector<std::array<double, 2>> w(n, {0.0, 0.0});  // hap1 weight per side
         for (size_t ri = 0; ri < robs.size(); ++ri) {
             if (!learns[ri]) continue;
+            // A read whose observations all sit at one site has a posterior
+            // made from that site alone: counted, it returns the site's own
+            // current error and pins it wherever it started. Weakly connected
+            // injected hets stayed rejected so -- chr12:105,144,892, 82 reads
+            // at purity 0.98 against the parents, error 0.38 -- and their
+            // reads unphased. Such a read is still labelled and still teaches
+            // a clean catalog het, whose start (kEmCleanStartError) is the
+            // better prior: a lone clean SNP taught only by reads crossing
+            // noisy neighbours was rejected (chr18:71,515,222, 74 reads at
+            // purity 0.99, 21 reads went discordant).
+            const bool single_site = robs[ri].empty() || robs[ri].front().s == robs[ri].back().s;
+            if (single_site && site_class[static_cast<size_t>(robs[ri].front().s)] / 2 != 0) continue;
             for (const EmObs& o : robs[ri]) {
                 w[static_cast<size_t>(o.s)][static_cast<size_t>(o.b)] += post[ri];
                 w[static_cast<size_t>(o.s)][static_cast<size_t>(1 - o.b)] += 1.0 - post[ri];

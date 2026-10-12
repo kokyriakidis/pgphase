@@ -57,6 +57,8 @@ every read's profile as the final EM saw it (emreads.*). `scripts/dev/pg diag` m
 full-contig run with all of these; `scripts/dev/pg inspect REGION` prints
 everything at a region by position (truth, catalog, graph, alignment,
 injection, EM, our and every competitor's VCF, and the reads of each tool);
+`scripts/dev/pg gaps` lists the gaps we leave that a competitor closes (by
+locus: our flanking blocks, the competitor's phase set, our reason per read);
 `scripts/dev/pg funnel [--rival NAME] [--support N]` traces where the reads a
 competitor phases correctly and we do not are lost (by truth het, or by the
 competitor's own phased sites). `PGDEV_PROFILE=chr12|chr18` evaluates another

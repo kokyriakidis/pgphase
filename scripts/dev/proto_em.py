@@ -151,9 +151,22 @@ def solve(path):
         m1 = bb == phase[ss]
         return np.where(m1, np.log1p(-e), np.log(e)), np.where(m1, np.log(e), np.log1p(-e))
 
+    # reads whose observations all sit at one site (no outside evidence)
+    first_site = np.full(nr, -1)
+    multi = np.zeros(nr, dtype=bool)
+    for i in range(len(rr)):
+        r = rr[i]
+        if first_site[r] < 0:
+            first_site[r] = ss[i]
+        elif first_site[r] != ss[i]:
+            multi[r] = True
+
     def m_step():
         nonlocal phase, err
         w = learns[rr].astype(float)
+        if A.no_single:
+            # a read with nothing but this site echoes the site's own error
+            w = w * multi[rr]
         if A.variant == "loo" and m_step.started:
             l1, l2 = lls()
             t1 = np.bincount(rr, weights=l1, minlength=nr)
@@ -379,6 +392,7 @@ def main():
     ap.add_argument("--min-join-reads", type=int, default=0)
     ap.add_argument("--dedup-window", type=int, default=0)
     ap.add_argument("--loo-cut", action="store_true")
+    ap.add_argument("--no-single", action="store_true", help="single-site reads do not teach that site's error")
     ap.add_argument("--u-nolabel", action="store_true", help="U sites are phased but do not label reads")
     ap.add_argument("--depth-gate", type=float, default=0.0)
     ap.add_argument("--depth-mode", default="drop", choices=["drop", "weak"])
