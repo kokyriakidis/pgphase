@@ -38,6 +38,9 @@ import pysam
 ENV = os.environ
 CEN = tuple(int(x) for x in ENV.get("PGDEV_CEN", "26000000-32000000").split("-"))
 CACHE = ENV.get("PGDEV_CACHE", ".dev-cache")
+# Regions where the truth contradicts itself (BED); reads and records there
+# are not scored. See scripts/dev/truth_exclude.bed.
+EXCLUDE = ENV.get("PGDEV_EXCLUDE", "")
 
 
 def file_id(path):
@@ -139,14 +142,21 @@ def n50(lengths):
     return 0
 
 
+def excluded():
+    if not hasattr(excluded, "cache"):
+        excluded.cache = load_regions(EXCLUDE) if EXCLUDE and os.path.exists(EXCLUDE) else []
+    return excluded.cache
+
+
 def read_scope(regions=None):
     """Scored reads: name -> (arm, arm_sub, maternal, start, end)."""
     t = truth_tables()
     het_pos = t["het_pos"]
+    skip = excluded()
     scope = {}
     for q, (s, e, mat) in t["reads"].items():
         mid = (s + e) // 2
-        if not in_regions(regions, mid):
+        if not in_regions(regions, mid) or (skip and in_regions(skip, mid)):
             continue
         arm = "cen" if CEN[0] <= mid < CEN[1] else "arms"
         crosses = bisect.bisect_left(het_pos, e) > bisect.bisect_left(het_pos, s)
@@ -186,6 +196,8 @@ def score_run(run_dir, regions=None):
     blocks, by_ps = {}, collections.defaultdict(list)
     for pos, ref, alts, gt, ps, cat in vcf_records(vcf):
         if ps is None or len(gt) != 2 or gt[0] == gt[1] or None in gt or not in_regions(regions, pos - 1):
+            continue
+        if excluded() and in_regions(excluded(), pos - 1):
             continue
         lo, hi = blocks.get(ps, (pos, pos))
         blocks[ps] = (min(lo, pos), max(hi, pos))

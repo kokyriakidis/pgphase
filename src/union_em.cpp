@@ -116,12 +116,14 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         for (const auto& [ri, side, e] : (*loci)[li].observations)
             if (ri < robs.size()) robs[ri].push_back(EmObs{locus_site[li], side, static_cast<double>(e)});
     std::vector<double> post(chunk.reads.size(), 0.5);
+    std::vector<int> start_label(chunk.reads.size(), 0);  // for the diagnostic dump
     std::vector<char> learns(chunk.reads.size(), 0);
     for (size_t ri = 0; ri < robs.size(); ++ri) {
         std::sort(robs[ri].begin(), robs[ri].end(),
                   [](const EmObs& a, const EmObs& b) { return a.s < b.s; });
         const int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
         post[ri] = hap == 1 ? 0.95 : hap == 2 ? 0.05 : 0.5;
+        if (ri < start_label.size()) start_label[ri] = hap;
         learns[ri] = chunk.reads[ri].mapq >= kEmLearnMinMapq;
     }
     const auto obs_error = [&](const EmObs& o) {
@@ -294,8 +296,9 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     }
     // Diagnostic, off by default: PGPHASE_EM_DUMP=DIR writes the final solve's
     // evidence per read, one file per chunk. A line is the read, MAPQ, label
-    // (HP, PS), per-block log-likelihood margins (PS=margin), then each
-    // observation as POS:KIND:SIDE:SITE_ERROR:BLOCK, with KIND C clean het,
+    // (HP, PS), per-block log-likelihood margins (PS=margin), the label the
+    // read started the solve with, then each observation as
+    // POS:KIND:SIDE:SITE_ERROR:BLOCK:WEAK:READ_ERROR, with KIND C clean het,
     // O other, I injected from the alignment, L window.
     static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
     if (dump_dir != nullptr && loci != nullptr) {
@@ -317,6 +320,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                     std::fprintf(fh, "%s%lld=%.2f", sep, static_cast<long long>(ps), m);
                     sep = ",";
                 }
+                std::fprintf(fh, "\t%d", start_label[ri]);
                 for (const EmObs& o : robs[ri]) {
                     const EmSite& site = sites[static_cast<size_t>(o.s)];
                     char kind = 'L';
@@ -325,8 +329,9 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                         kind = c.bam_injected ? 'I'
                              : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
                     }
-                    std::fprintf(fh, "\t%lld:%c:%d:%.3f:%lld", static_cast<long long>(site.pos), kind, o.b,
-                                 err[static_cast<size_t>(o.s)], static_cast<long long>(block[static_cast<size_t>(o.s)]));
+                    std::fprintf(fh, "\t%lld:%c:%d:%.3f:%lld:%d:%.4f", static_cast<long long>(site.pos), kind, o.b,
+                                 err[static_cast<size_t>(o.s)], static_cast<long long>(block[static_cast<size_t>(o.s)]),
+                                 static_cast<int>(site_weak[static_cast<size_t>(o.s)]), o.e);
                 }
                 std::fputc('\n', fh);
             }

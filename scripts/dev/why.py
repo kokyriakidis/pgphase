@@ -46,8 +46,9 @@ def load_dump(path):
             for line in fh:
                 p = line.rstrip("\n").split("\t")
                 obs = []
-                for tok in p[5:]:
-                    pos, kind, side, err, block = tok.split(":")
+                first = 6 if len(p) > 5 and ":" not in p[5] else 5  # v2 dumps carry a start label
+                for tok in p[first:]:
+                    pos, kind, side, err, block = tok.split(":")[:5]
                     obs.append((int(pos), kind, int(side), float(err), int(block)))
                 margins = {}
                 if p[4]:

@@ -6,7 +6,7 @@ readonly here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=env.sh
 source "${here}/env.sh"
 readonly root="${PGDEV_ROOT}"
-readonly runs="${PGDEV_CACHE}/runs"
+readonly runs="${PGDEV_STATE}/runs"
 readonly unit_tests=(test_allele_identity test_allele_context test_allele_genotype test_graph_sites
                      test_graph_bam_adapter test_noise_filter test_union_phase test_phase_predicates)
 
@@ -78,6 +78,7 @@ parse_tier() {
 }
 
 region_args() {
+    [[ "${tier}" == full || -z "${PGDEV_PROFILE:-}" ]] || die "profile ${PGDEV_PROFILE} has no quick tier; use full"
     if [[ "${tier}" == full ]]; then
         echo "-r ${PGDEV_CONTIG}"
     else
@@ -93,11 +94,22 @@ run_dir() {
     echo "${runs}/${tier}-${key}"
 }
 
+# (Re)score DIR when it has no score, or the scorer or exclusions changed since.
+ensure_score() {
+    local dir="$1"
+    if [[ ! -f "${dir}/score.json" || "${here}/score.py" -nt "${dir}/score.json" ||
+          ( -n "${PGDEV_EXCLUDE}" && -f "${PGDEV_EXCLUDE}" && "${PGDEV_EXCLUDE}" -nt "${dir}/score.json" ) ]]; then
+        # shellcheck disable=SC2046
+        py "${here}/score.py" run "${dir}" $(regions_bed) --json "${dir}/score.json.tmp" >&2
+        mv "${dir}/score.json.tmp" "${dir}/score.json"
+    fi
+}
+
 # Run (or reuse) the tier for the binary; prints the run directory.
 ensure_run() {
     local bin="${PGDEV_BIN:-${root}/pgphase}" dir tmp start bam_args=()
     dir="$(run_dir)"
-    [[ -f "${dir}/score.json" ]] && { echo "${dir}"; return; }
+    [[ -f "${dir}/meta.tsv" ]] && { ensure_score "${dir}"; echo "${dir}"; return; }
     [[ -n "${PGDEV_TRUTH_VCF}" ]] || die "set PGDEV_TRUTH_VCF (scripts/dev/local.env)"
     tmp="${dir}.tmp.$$"
     rm -rf "${tmp}"; mkdir -p "${tmp}"
@@ -126,7 +138,7 @@ ensure_run() {
     echo "${dir}"
 }
 
-baseline_link() { echo "${PGDEV_CACHE}/baseline-${tier}$([[ "${graph_only}" == 1 ]] && echo -graph)"; }
+baseline_link() { echo "${PGDEV_STATE}/baseline-${tier}$([[ "${graph_only}" == 1 ]] && echo -graph)"; }
 
 baseline_dir() {
     local link; link="$(baseline_link)"
@@ -140,6 +152,7 @@ competitor_scores() {
     for pair in ${PGDEV_COMPETITORS}; do
         name="${pair%%=*}"; dir="${pair#*=}"
         key="$( { stat -c '%s %Y' "${dir}/phased.bam" "${dir}"/phased.vcf*; cat "${here}/score.py"; \
+                  [[ -f "${PGDEV_EXCLUDE}" ]] && cat "${PGDEV_EXCLUDE}"; \
                   [[ "${tier}" == quick ]] && cat "${here}/quick_regions.bed"; } | sha256sum | cut -c1-12)"
         out="${PGDEV_CACHE}/competitors/${name}-${tier}-${key}.json"
         if [[ ! -f "${out}" ]]; then
@@ -159,6 +172,7 @@ cmd_eval() {
     echo "run      ${dir}  ($(awk -F'\t' '$1=="seconds" {print $2}' "${dir}/meta.tsv") s pgphase, $((SECONDS - start)) s total)"
     names="baseline,run"; files=()
     if base="$(baseline_dir 2>/dev/null)"; then
+        ensure_score "${base}"
         files+=("${base}/score.json")
     else
         echo "(no baseline for ${tier}: 'scripts/dev/pg pin ${tier}' makes this run the baseline)"
@@ -200,11 +214,8 @@ cmd_pin_dir() {
     tier="$1"; local src; src="$(readlink -f "$2")"
     [[ "${3:-}" == --graph-only ]] && graph_only=1
     [[ -f "${src}/phased.bam" && -f "${src}/phased.vcf" ]] || die "${src} lacks phased.bam/phased.vcf"
-    if [[ ! -f "${src}/score.json" ]]; then
-        # shellcheck disable=SC2046
-        py "${here}/score.py" run "${src}" $(regions_bed) --json "${src}/score.json"
-    fi
-    mkdir -p "${PGDEV_CACHE}"
+    ensure_score "${src}"
+    mkdir -p "${PGDEV_STATE}"
     ln -sfn "${src}" "$(baseline_link)"
     echo "$(basename "$(baseline_link)") -> ${src}"
 }
