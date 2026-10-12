@@ -25,6 +25,12 @@ constexpr int kUnionMinConfidentAlleleReads = 2;
 // depth agreed with each other perfectly, separated the parents at 0.52-0.66,
 // and joined the flanking blocks in the wrong orientation.
 constexpr double kUnionMaxDepthRatio = 1.6;
+// The longest voting row an alignment call can be another description of:
+// the alignment's own noisy-region MSA covers up to 2 kb (max_noisy_reg_len).
+// A call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on
+// chr20 -- is a variant the graph does not describe at that scale, i.e.
+// sample-specific signal, and is injected as a site of its own.
+constexpr hts_pos_t kUnionMaxComplementRowSpan = 2000;
 
 /// VCF-form metadata for an alignment candidate the catalog never held, in the
 /// convention the graph writer emits and vcf_to_variant_key reads back. An
@@ -123,11 +129,15 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     // Rows that already vote describe this locus. An alignment call overlapping
     // one is another description of it: it joins as a hidden complement site
     // (no VCF record) carrying the alignment's calls, because the graph often
-    // leaves reads at such a locus without any allele.
+    // leaves reads at such a locus without any allele. Only rows of local span
+    // (kUnionMaxComplementRowSpan) qualify: a 373 kb snarl at chr18:20,440,896
+    // swallowed every alignment het for 35 kb (dozens of truth hets LongPhase
+    // phases), and a paralog cluster then joined across the gap the wrong way.
     std::vector<std::tuple<hts_pos_t, hts_pos_t, size_t>> voting_spans;
     for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
         const CandidateVariant& row = graph.candidates[ci];
         if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+        if (std::max(1, row.key.ref_len) > kUnionMaxComplementRowSpan) continue;
         voting_spans.emplace_back(row.key.pos - 1, row.key.pos + std::max(1, row.key.ref_len), ci);
     }
     std::sort(voting_spans.begin(), voting_spans.end());
@@ -164,7 +174,11 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     std::vector<int> depths;
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         for (const auto& [a, n] : observed[bi]) depth[bi] += n;
-        if (depth[bi] > 0) depths.push_back(depth[bi]);
+        // Calls kept from noisy regions too long for MSA sit largely in
+        // repeats of unusual depth (a VNTR at depth 13 on chr18); counted
+        // here they pulled the median down and gated out ordinary sites
+        // (chr12:133,056,148 at depth 81).
+        if (depth[bi] > 0 && !bam.candidates[bi].unresolved_noisy) depths.push_back(depth[bi]);
     }
     double median_depth = 0.0;
     if (!depths.empty()) {

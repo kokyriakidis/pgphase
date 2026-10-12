@@ -1069,10 +1069,49 @@ void post_process_noisy_regs_pgphase(PhasingChunk& chunk, const CandidateTable& 
  * @param chunk Chunk tracking the current region's evaluated candidates.
  * @note No-op when `chunk.noisy_regions` is empty.
  */
-void apply_noisy_containment_filter(PhasingChunk& chunk) {
+void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len) {
     if (chunk.noisy_regions.empty()) return;
+    // A span longer than the MSA's limit is never resolved, so suppressing its
+    // candidates would leave the locus with no calls at all. Union phasing
+    // keeps them: windows widened to nearby candidates and merged can chain
+    // across a whole SV-rich stretch -- chr18:20,779,364-20,877,543, 98 kb,
+    // held dozens of clean heterozygous SNPs that separate the parents and
+    // that LongPhase phases, and the alignment solve called none of them.
+    // Classification already masked candidates overlapping the per-read
+    // noisy windows (classify_cand_vars_pgphase, pass 2), before those were
+    // merged into the spans measured here; a clean call masked only for that
+    // keeps its classification in candvarcate_initial and is restored.
+    std::vector<Interval> suppressing, unresolved;
+    for (const Interval& r : chunk.noisy_regions) {
+        if (max_suppressing_len <= 0 || r.end - r.beg + 1 <= max_suppressing_len) suppressing.push_back(r);
+        else unresolved.push_back(r);
+    }
+    if (!unresolved.empty()) {
+        CrangesOwner keep;
+        keep.adopt(intervals_to_cr_noisy_post_merge(unresolved));
+        if (keep.cr != nullptr && keep.cr->n_r > 0) {
+            cr_index(keep.cr);
+            int64_t* kb = nullptr;
+            int64_t km = 0;
+            for (auto& cv : chunk.candidates) {
+                const VariantCategory init = cv.counts.candvarcate_initial;
+                if (cv.counts.category != VariantCategory::NonVariant) continue;
+                if (init != VariantCategory::CleanHetSnp) continue;
+                const VariantKey& k = cv.key;
+                const int32_t beg = static_cast<int32_t>(k.pos - 1);
+                const int32_t end = static_cast<int32_t>(k.type == VariantType::Insertion ? k.pos : k.pos + k.ref_len);
+                if (cr_is_contained(keep.cr, "cr", beg, end, &kb, &km) > 0) {
+                    cv.counts.category = init;
+                    cv.lcd_var_i_to_cate = category_to_flag(init);
+                    cv.unresolved_noisy = true;
+                }
+            }
+            std::free(kb);
+        }
+    }
+    if (suppressing.empty()) return;
     CrangesOwner own;
-    own.adopt(intervals_to_cr_noisy_post_merge(chunk.noisy_regions));
+    own.adopt(intervals_to_cr_noisy_post_merge(suppressing));
     if (own.cr == nullptr || own.cr->n_r == 0) return;
     cr_index(own.cr);
     int64_t* b = nullptr;
@@ -2151,7 +2190,7 @@ void collect_var_classify(PhasingChunk& chunk,
     post_process_noisy_regs_pgphase(chunk, chunk.candidates);
 
     // A contained candidate is suppressed before profiles and phasing are built.
-    apply_noisy_containment_filter(chunk);
+    apply_noisy_containment_filter(chunk, opts.keep_calls_in_unresolved_noisy ? opts.max_noisy_reg_len : 0);
     prune_not_candidate_variants(chunk);
 
     dump_all_noisy_regions(chunk, opts, header);

@@ -18,6 +18,11 @@ constexpr double kEmMaxError = 0.45;
 constexpr double kEmCleanStartError = 0.05;
 constexpr double kEmOtherStartError = 0.2;
 constexpr double kEmUnreliableError = 0.3;
+// The learned error up to which an unverified call (unresolved_noisy) is
+// written phased. Such calls label no reads, so this decides only the VCF:
+// 0.1 against 0.3 cut arm switches 12 / 24 / 10 -> 10 / 20 / 6 on chr12,
+// chr18 and chr20 and kept 60-75% of the truth heterozygotes they add.
+constexpr double kEmUnverifiedReportError = 0.1;
 constexpr int kEmIterations = 15;
 constexpr int kEmSwitchRounds = 30;
 constexpr double kEmReadLabelPosterior = 0.8;
@@ -149,14 +154,68 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     if (bridge_weak != nullptr)
         for (size_t k = 0; k < n; ++k)
             if (sites[k].locus < 0 && sites[k].ci < bridge_weak->size()) site_weak[k] = (*bridge_weak)[sites[k].ci];
+    // The join test counts a locus once. A locus window and a candidate
+    // inside it are read from the same bases, so a read's two calls there
+    // agree by construction; counted twice they outvote a real heterozygote
+    // read once. And a window over a homopolymer length call is that call
+    // re-read, so it is weak too. At chr12:122,284,562 a window and the +1
+    // indel inside it (one locus, purity 0.53 against the parents) carried a
+    // 30 kb join past a true het (122,290,121, purity 0.95) with a margin of
+    // 5.65 from "strong" sites, and 165 reads went discordant. Labels and
+    // learning keep every observation: only the decision to join uses this.
+    std::vector<char> join_weak = site_weak;
+    std::vector<std::vector<char>> join_skip(robs.size());
+    // Calls kept from noisy regions too long for MSA (unresolved_noisy) are
+    // left out of the join test altogether: a divergent copy's mismatches
+    // (695 such calls in 24 kb at chr20:49.65 Mb) clear even the weak-bridge
+    // margin by sheer number, and flipped a block of 110 reads.
+    std::vector<char> join_excluded(n, 0);
+    for (size_t k = 0; k < n; ++k)
+        if (sites[k].locus < 0 && chunk.candidates[sites[k].ci].unresolved_noisy) join_excluded[k] = 1;
+    {
+        std::vector<hts_pos_t> site_pos(n);
+        for (size_t k = 0; k < n; ++k) site_pos[k] = sites[k].pos;
+        for (size_t k = 0; k < n; ++k) {
+            if (sites[k].locus < 0) continue;
+            const LocusWindowSite& w = (*loci)[static_cast<size_t>(sites[k].locus)];
+            const auto lo = std::lower_bound(site_pos.begin(), site_pos.end(), w.pos);
+            const auto hi = std::upper_bound(lo, site_pos.end(), std::max(w.pos, w.end));
+            for (auto it = lo; it != hi; ++it) {
+                const size_t j = static_cast<size_t>(it - site_pos.begin());
+                if (sites[j].locus < 0 && site_weak[j]) join_weak[k] = 1;
+            }
+        }
+        std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
+        for (size_t ri = 0; ri < robs.size(); ++ri) {
+            spans.clear();
+            for (const EmObs& o : robs[ri]) {
+                const EmSite& site = sites[static_cast<size_t>(o.s)];
+                if (site.locus < 0) continue;
+                const LocusWindowSite& w = (*loci)[static_cast<size_t>(site.locus)];
+                spans.emplace_back(w.pos, std::max(w.pos, w.end));
+            }
+            if (spans.empty()) continue;
+            join_skip[ri].assign(robs[ri].size(), 0);
+            for (size_t i = 0; i < robs[ri].size(); ++i) {
+                const EmSite& site = sites[static_cast<size_t>(robs[ri][i].s)];
+                if (site.locus >= 0) continue;
+                for (const auto& [beg, end] : spans)
+                    if (beg <= site.pos && site.pos <= end) join_skip[ri][i] = 1;
+            }
+        }
+    }
     // Site classes for the error prior: clean catalog het, other catalog
-    // site, alignment-injected site, locus window -- each split by weak.
+    // site, alignment-injected site, locus window -- each split by weak --
+    // and calls from noisy regions too long for MSA, pooled apart: they are
+    // flagged weak, and sharing the homopolymer calls' pool raised those
+    // calls' errors with their own (chr12 lost 232 labels at 37 and 133 Mb).
     std::vector<int> site_class(n);
     for (size_t k = 0; k < n; ++k) {
         int kind = 3;
         if (sites[k].locus < 0) {
             const CandidateVariant& c = chunk.candidates[sites[k].ci];
-            kind = c.bam_injected ? 2
+            kind = c.unresolved_noisy ? 4
+                 : c.bam_injected ? 2
                  : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 0 : 1;
         }
         site_class[k] = 2 * kind + (site_weak[k] ? 1 : 0);
@@ -179,7 +238,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 w[static_cast<size_t>(o.s)][static_cast<size_t>(1 - o.b)] += 1.0 - post[ri];
             }
         }
-        std::array<double, 8> class_minor{}, class_total{};
+        std::array<double, 10> class_minor{}, class_total{};
         for (size_t k = 0; k < n; ++k) {
             class_minor[static_cast<size_t>(site_class[k])] += std::min(w[k][0], w[k][1]);
             class_total[static_cast<size_t>(site_class[k])] += w[k][0] + w[k][1];
@@ -218,15 +277,24 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // the reads that teach the model or, for block cuts, over every read: a
     // read too ambiguously mapped to shape the model still shows the molecule
     // continues across the boundary.
-    const auto boundary_delta = [&](bool every_read, bool strong_only = false) {
+    // joining: the block-cut test, with each locus counted once (join_skip,
+    // join_weak) rather than the switch moves' every observation.
+    const auto boundary_delta = [&](bool every_read, bool strong_only = false, bool joining = false) {
+        static const std::vector<char> no_skip;
         std::vector<double> diff(n + 1, 0.0);
         std::vector<EmObs> strong;
         for (size_t ri = 0; ri < robs.size(); ++ri) {
             const std::vector<EmObs>* items_ptr = &robs[ri];
-            if (strong_only) {
+            const std::vector<char>& skip = joining ? join_skip[ri] : no_skip;
+            const std::vector<char>& weak_of = joining ? join_weak : site_weak;
+            if (strong_only || joining) {
                 strong.clear();
-                for (const EmObs& o : robs[ri])
-                    if (!site_weak[static_cast<size_t>(o.s)]) strong.push_back(o);
+                for (size_t i = 0; i < robs[ri].size(); ++i) {
+                    const EmObs& o = robs[ri][i];
+                    if (joining && ((!skip.empty() && skip[i]) || join_excluded[static_cast<size_t>(o.s)])) continue;
+                    if (strong_only && weak_of[static_cast<size_t>(o.s)]) continue;
+                    strong.push_back(o);
+                }
                 items_ptr = &strong;
             }
             const auto& items = *items_ptr;
@@ -296,13 +364,13 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             if (!robs[ri].empty() && static_cast<size_t>(robs[ri].front().s) > worst)
                 post[ri] = 1.0 - post[ri];
     }
-    delta = boundary_delta(true);
+    delta = boundary_delta(true, false, true);
     // A join that the non-weak sites alone do not carry (its margin comes from
     // weak sites: homopolymer length calls) needs a larger margin. Measured on
     // chr20: wrong joins of this kind sit just above the ordinary cut
     // (median 6), right ones well above it (median 19).
     const std::vector<double> delta_strong =
-        bridge_weak != nullptr ? boundary_delta(true, true) : delta;
+        bridge_weak != nullptr ? boundary_delta(true, true, true) : delta;
     // Reads whose observations lie on both sides of each boundary.
     std::vector<int> spanning(n, 0);
     {
@@ -340,7 +408,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             continue;
         }
         CandidateVariant& c = chunk.candidates[sites[k].ci];
-        if (err[k] >= kEmUnreliableError) {
+        if (err[k] >= (join_excluded[k] ? kEmUnverifiedReportError : kEmUnreliableError)) {
             c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
             c.hap_alt = c.hap_ref = 0;
             continue;
@@ -356,6 +424,11 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         std::map<hts_pos_t, std::array<double, 2>> per_block;
         for (const EmObs& o : robs[ri]) {
             if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
+            // Unverified calls (join_excluded) are phased for the VCF but do
+            // not label reads: on chr12, chr18 and chr20 leaving them out took
+            // 90, 125 and 12 reads off the discordant count and added correct
+            // ones on chr12 and chr18.
+            if (join_excluded[static_cast<size_t>(o.s)]) continue;
             const auto ll = read_log_likelihoods(o);
             auto& l = per_block[block[static_cast<size_t>(o.s)]];
             l[0] += ll[0];
@@ -376,7 +449,8 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // (HP, PS), per-block log-likelihood margins (PS=margin), the label the
     // read started the solve with, then each observation as
     // POS:KIND:SIDE:SITE_ERROR:BLOCK:WEAK:READ_ERROR, with KIND C clean het,
-    // O other, I injected from the alignment, L window.
+    // O other, I injected from the alignment, U injected from a noisy region
+    // too long for MSA, L window.
     static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
     if (dump_dir != nullptr && loci != nullptr) {
         const std::string path = std::string(dump_dir) + "/em." + std::to_string(chunk.region.tid) + "." +
@@ -389,6 +463,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 std::map<hts_pos_t, double> margin;
                 for (const EmObs& o : robs[ri]) {
                     if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
+                    if (join_excluded[static_cast<size_t>(o.s)]) continue;
                     const auto ll = read_log_likelihoods(o);
                     margin[block[static_cast<size_t>(o.s)]] += ll[0] - ll[1];
                 }
@@ -403,7 +478,8 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                     char kind = 'L';
                     if (site.locus < 0) {
                         const CandidateVariant& c = chunk.candidates[site.ci];
-                        kind = c.bam_injected ? 'I'
+                        kind = c.unresolved_noisy ? 'U'
+                             : c.bam_injected ? 'I'
                              : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
                     }
                     std::fprintf(fh, "\t%lld:%c:%d:%.3f:%lld:%d:%.4f", static_cast<long long>(site.pos), kind, o.b,

@@ -343,6 +343,11 @@ struct Options {
     // BAM pipeline. See CHECKPOINT.md "Hybrid step-4 re-orientation".
     bool skip_noisy_kmeans = false;
 
+    /// A noisy region longer than max_noisy_reg_len is never resolved by MSA;
+    /// when set, it does not suppress the candidates inside it either (see
+    /// apply_noisy_containment_filter). Union gap phasing's alignment solve.
+    bool keep_calls_in_unresolved_noisy = false;
+
     /// Anchored stage 2: the second k-means KEEPS stage 1's read labels and the
     /// consensus alleles stage 1 decided, and refines within that gauge instead
     /// of resetting and re-solving over the wider site set.
@@ -719,6 +724,10 @@ struct CandidateVariant {
     /// alignment's own verification and is not screened out again on reference
     /// context alone.
     bool alignment_verified = false;
+    /// A pileup call kept inside a noisy region too long for MSA (see
+    /// apply_noisy_containment_filter): never verified, so union phasing
+    /// treats it as weak -- it phases and labels, but cannot carry a join.
+    bool unresolved_noisy = false;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
     // True when the variant's VCF POS falls inside the chunk's active region.

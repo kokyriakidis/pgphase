@@ -18726,3 +18726,46 @@ construction, so a noisy locus can earn a low error and make a wrong join
 (chr12:122,284,562, 165 reads discordant, both rivals right); two-site
 islands anchor on the worse site (chr18:60,372,121: 87% SNP over 97% indel)
 without per-call quality; a maternal duplication collapsed at chr12 34.59 Mb.
+
+## 2026-10-12 (later): rival-correct reads; locus counted once; recovered calls
+
+Target: reads HiPhase or LongPhase phases correctly and we do not
+(`.union_patch/rivalgap.py`-style clustering; top 25 loci hold 60-70%).
+
+- **One locus, one vote in the join test** (union_em.cpp). A locus window and
+  the candidate inside it agree by construction; in the join test they now
+  count once, and a window over a weak site is weak. Fixed chr12 122.28 Mb
+  (165 discordant reads, both rivals right).
+- **Calls inside long catalog rows are injected** (union_inject.cpp,
+  `kUnionMaxComplementRowSpan` = 2 kb): a 373 kb snarl at chr18:20,440,896
+  had absorbed every alignment het inside it as a hidden complement site.
+- **Calls in unresolvable noisy regions are recovered** (collect_var.cpp,
+  `keep_calls_in_unresolved_noisy`, set for the union alignment solve only):
+  a 98 kb merged noisy region at chr18 20.78-20.88 Mb suppressed dozens of
+  clean hets. Recovered calls are unverified: own class prior, excluded from
+  the join test and from read labels, written phased only below error 0.1,
+  excluded from the depth gate's median (their low-depth repeats had pulled
+  it down and gated real sites at chr12 133.05 Mb).
+
+Arms correct / discordant / unphased, d3fe3a1 -> now:
+chr12 521,409 / 2,364 / 2,444 -> 521,532 / 2,214 / 2,471;
+chr18 292,640 / 2,140 / 2,022 -> 292,732 / 2,111 / 1,959;
+chr20 215,980 / 1,051 / 2,255 -> 215,964 / 1,021 / 2,301.
+Truth hets phased +149 / +466 / +426; arm switches 12 / 14 / 6 -> 10 / 20 / 6.
+Rival-correct reads we miss: chr12 2,435 -> 2,243, chr18 ~1,977 -> 1,830,
+chr20 1,239 -> 1,268.
+
+EM re-swept on the new site population (prototype, dumps with KIND U):
+prior weight 5 stays (3 and 8 worse); label posterior 0.75 gains 7-10
+correct per added discordant (left at 0.8); unreliable cut 0.38 negligible;
+recovered calls labelling reads cost 12-125 discordant -> they do not.
+
+Rejected: depth gate on all EM sites (drop: lost correct reads; weak: no
+change); recovering indels as well as SNPs, and recovered calls as merely
+weak (the weak-bridge margin is cleared by hundreds of calls).
+
+Open: chr18 20.78-20.93 Mb joins recovered real hets to the hets past a
+93 kb SV/paralog stretch in the wrong orientation (centromere edge; arm reads
+counted discordant against a block majority set by centromeric reads);
+chr12 34.59 Mb maternal duplication; HiPhase-only gaps of unreliable-only
+reads (chr12 86.70, 105.12, 97.31 Mb; chr18 21.80, 28.67, 65.79 Mb).

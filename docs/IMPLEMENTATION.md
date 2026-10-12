@@ -217,6 +217,21 @@ Per chunk, in order:
    each read segment that is aligned end-to-end against the MSA consensuses
    to give reads outside the clusters a call: a segment carrying a multi-kb
    insertion is skipped there (one such region on chr12 cost 35 s).
+   - *Calls in unresolvable noisy regions*
+     (`keep_calls_in_unresolved_noisy`). Noisy windows widened to nearby
+     candidates and merged can chain across a whole SV-rich stretch (chr18
+     20,779,364-20,877,543: 98 kb). Its MSA never runs, and in longcallD's
+     scheme every candidate inside is suppressed, so the stretch had no calls
+     at all, though it holds dozens of clean hets that separate the parents
+     and that LongPhase phases. For union phasing, a clean call masked only
+     because it overlapped a per-read noisy window is restored when its final
+     region is longer than the MSA limit, and tagged `unresolved_noisy`.
+     Such a call is unverified: a divergent copy's mismatches look the same
+     (chr20 49.65 Mb, 695 calls in 24 kb, none a truth het). In the EM it has
+     its own error class, is left out of the join test and of read labels,
+     and is written phased only below learned error 0.1
+     (`kEmUnverifiedReportError`). It is also left out of the depth gate's
+     median.
 2. **Injection** (`inject_alignment_sites`).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk, each needing both of its two most observed
@@ -233,11 +248,14 @@ Per chunk, in order:
      get synthesized VCF metadata and no phase. Reads only the alignment holds
      are added to the chunk.
    - *Calls inside a voting row's span.* A call overlapping a voting graph row
+     of span up to 2 kb (`kUnionMaxComplementRowSpan`, the MSA's own limit)
      becomes a **hidden complement site**: empty metadata, so it writes no VCF
      record. It takes calls only from reads the graph left without an allele
      at that row, so no read counts twice. The graph often gives no allele to
      reads at such complex loci; dropping the call left those reads with no
-     evidence there.
+     evidence there. A call inside a longer row (a snarl spanning a large SV:
+     373 kb at chr18:20,440,896) is sample-specific signal the graph does not
+     describe at that scale, and is injected as a site of its own.
 3. **Clean solve.** `phase_joint_graph_candidates`, physical SNP
    reclassification and SNP-branch supplementation run unchanged. Their read
    labels initialize the EM.
@@ -319,6 +337,13 @@ Per chunk, in order:
        random orientation, as at 17.83 Mb.
      - *Calibration.* On chr20, wrong joins of this kind sat just above the
        ordinary cut (median 6) and right ones well above it (median 19).
+   - *One locus, one vote in the join test.* A locus window and a candidate
+     inside it are read from the same bases, so their calls agree by
+     construction; counted twice they outvoted a real het read once
+     (chr12:122,284,562, a noisy window and the +1 indel inside it joined
+     30 kb past a true het; 165 reads discordant). In the join test the
+     candidate's call is dropped for reads that also carry the window's, and
+     a window covering a weak site is weak. Labels and learning keep both.
    - *Blocks.* A block is cut wherever flipping the rest would cost less than
      4 log units, judged over every read: a read too ambiguously mapped to
      shape the model still shows that its molecule continues across the

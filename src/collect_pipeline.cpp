@@ -763,6 +763,7 @@ static Options union_alignment_options(const Options& opts) {
     sub.min_mapq = kUnionAlignmentMinMapq;
     sub.max_noisy_reg_len = kUnionMsaMaxRegionLength;
     sub.skip_noisy_kmeans = false;
+    sub.keep_calls_in_unresolved_noisy = true;
     sub.threads = 1;
     sub.verbose = 0;
     sub.phase_matrix_dump_prefix.clear();

@@ -132,7 +132,8 @@ void pre_process_noisy_regs_pgphase(PhasingChunk& chunk, const Options& opts);
 void post_process_noisy_regs_pgphase(PhasingChunk& chunk, const CandidateTable& cand);
 
 // Set category to NonVariant for sites fully contained in noisy spans (non-ONT).
-void apply_noisy_containment_filter(PhasingChunk& chunk);
+// With max_suppressing_len > 0, only spans up to that length suppress.
+void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len = 0);
 
 // Run sdust on chunk.ref_seq to fill low_complexity_regions.
 void populate_low_complexity_intervals(PhasingChunk& chunk);

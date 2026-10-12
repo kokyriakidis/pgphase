@@ -97,12 +97,46 @@ def solve(path):
                     break
         dedup.append(int((~keep).sum()))
         rr, ss, bb, ee = rr[keep], ss[keep], bb[keep], ee[keep]
+    if A.depth_gate > 0:
+        # sites at > depth_gate x the chunk's median site depth (collapsed
+        # duplications): dropped, or barred from joins (weak)
+        dep = np.bincount(ss, minlength=n)
+        cand = (kind != "L") & (dep > 0)
+        med = np.median(dep[cand]) if cand.any() else 0
+        deep = cand & (dep > A.depth_gate * med)
+        if A.depth_mode == "drop":
+            keep = ~deep[ss]
+            rr, ss, bb, ee = rr[keep], ss[keep], bb[keep], ee[keep]
+        else:
+            weak |= deep
     order = np.lexsort((ss, rr))
     rr, ss, bb, ee = rr[order], ss[order], bb[order], ee[order]
+    # join-only locus grouping: a window and the sites it covers are one piece
+    # of evidence for a join, and the window is weak if a covered site is
+    cut_keep = np.ones(len(rr), dtype=bool)
+    weak_cut = weak.copy()
+    if A.cut_group > 0:
+        # unverified calls from noisy regions too long for MSA never vote on joins
+        cut_keep &= kind[ss] != "U"
+    if A.cut_group > 0:
+        posk = np.array([k[0] for k in keys])
+        is_l = kind == "L"
+        wins = collections.defaultdict(list)
+        for i in np.flatnonzero(is_l[ss]):
+            wins[rr[i]].append(ss[i])
+        for i in range(len(rr)):
+            if is_l[ss[i]]:
+                continue
+            for w in wins.get(rr[i], ()):
+                if posk[w] <= posk[ss[i]] < posk[w] + A.cut_group:
+                    cut_keep[i] = False
+                    if A.cut_weak and weak[ss[i]]:
+                        weak_cut[w] = True
+                    break
     nr = len(names)
     learns = mapq >= LEARN_MAPQ
     phase = np.zeros(n, dtype=int)
-    err = np.where(kind == "C", CLEAN0, OTHER0).astype(float)
+    err = np.where(kind == "C", CLEAN0, OTHER0).astype(float)  # U starts as other
     post = np.where(start == 1, 0.95, np.where(start == 2, 0.05, 0.5))
     has_obs = np.bincount(rr, minlength=nr) > 0
     first_s = np.full(nr, n)
@@ -178,11 +212,11 @@ def solve(path):
         d = np.clip(beta * (t2 - t1), -700, 700)
         post = np.where(has_obs, 1 / (1 + np.exp(d)), post)
 
-    def boundary_delta(every_read, strong_only=False):
+    def boundary_delta(every_read, strong_only=False, grouped=False):
         l1, l2 = lls()
-        keep = np.ones(len(rr), dtype=bool)
+        keep = cut_keep.copy() if grouped else np.ones(len(rr), dtype=bool)
         if strong_only:
-            keep = ~weak[ss]
+            keep &= ~(weak_cut if grouped else weak)[ss]
         if not every_read:
             keep &= learns[rr]
         r_, s_, a1, a2 = rr[keep], ss[keep], l1[keep], l2[keep]
@@ -243,8 +277,9 @@ def solve(path):
         strong = boundary_delta(True, True)
         err = saved
     else:
-        delta = boundary_delta(True)
-        strong = boundary_delta(True, True)
+        g = A.cut_group > 0
+        delta = boundary_delta(True, False, g)
+        strong = boundary_delta(True, True, g)
     # reads with observations on both sides of each boundary
     span = np.zeros(n + 1)
     starts = np.r_[0, np.flatnonzero(np.diff(rr)) + 1]
@@ -258,8 +293,35 @@ def solve(path):
         block[k] = cur
         if k + 1 < n and (delta[k] < CUT or (strong[k] < CUT and delta[k] < WEAK_CUT) or span[k] < A.min_join_reads):
             cur = k + 1
+    if A.debug:
+        lo, hi = map(int, A.debug.split("-"))
+        pos_arr = np.array([k[0] for k in keys])
+        l1d, l2d = lls()
+        for k in range(n):
+            if not (lo <= pos_arr[k] <= hi):
+                continue
+            # reads with evidence on both sides of boundary k (k | k+1)
+            sel = []
+            for ri in np.unique(rr):
+                pass
+            print(f"DBG {pos_arr[k]:>11} {kind[k]} weak{int(weak[k])} err {err[k]:.3f} phase {phase[k]} "
+                  f"delta {delta[k]:8.2f} strong {strong[k]:8.2f} span {int(span[k]):3d} block {block[k]}")
+        if A.debug_boundary:
+            b = A.debug_boundary
+            kb = int(np.searchsorted(pos_arr, b))  # boundary between kb-1 and kb
+            print(f"DBG boundary before {pos_arr[kb]} (after {pos_arr[kb-1]}):")
+            starts = np.r_[0, np.flatnonzero(np.diff(rr)) + 1]
+            ends = np.r_[starts[1:], len(rr)]
+            for a, z in zip(starts, ends):
+                if ss[a] >= kb or ss[z - 1] < kb:
+                    continue
+                left = [(int(pos_arr[ss[i]]), kind[ss[i]], round(float(l1d[i] - l2d[i]), 2)) for i in range(a, z) if ss[i] < kb]
+                right = [(int(pos_arr[ss[i]]), kind[ss[i]], round(float(l1d[i] - l2d[i]), 2)) for i in range(a, z) if ss[i] >= kb]
+                print(f"  read {names[rr[a]].split('/')[1]} L {left[-3:]} R {right[:3]}")
     l1, l2 = lls()
     ok = err[ss] < A.unrel
+    if A.u_nolabel:
+        ok &= kind[ss] != "U"
     m = collections.defaultdict(float)
     for ri, s, x1, x2 in zip(rr[ok], ss[ok], l1[ok], l2[ok]):
         m[(ri, block[s])] += x1 - x2
@@ -289,6 +351,13 @@ def main():
     ap.add_argument("--min-join-reads", type=int, default=0)
     ap.add_argument("--dedup-window", type=int, default=0)
     ap.add_argument("--loo-cut", action="store_true")
+    ap.add_argument("--u-nolabel", action="store_true", help="U sites are phased but do not label reads")
+    ap.add_argument("--depth-gate", type=float, default=0.0)
+    ap.add_argument("--depth-mode", default="drop", choices=["drop", "weak"])
+    ap.add_argument("--cut-group", type=int, default=0, help="join test: window + covered sites (within N bp) count once")
+    ap.add_argument("--cut-weak", action="store_true", help="with --cut-group: a window covering a weak site is weak")
+    ap.add_argument("--debug", default="", help="BEG-END: print sites, deltas and blocks")
+    ap.add_argument("--debug-boundary", type=int, default=0, help="position: list reads spanning the boundary before it")
     ap.add_argument("--dedup-keep", default="window", choices=["window", "site"])
     ap.add_argument("--prior", type=float, default=0.2)
     ap.add_argument("--prior-weight", type=float, default=2.0)
