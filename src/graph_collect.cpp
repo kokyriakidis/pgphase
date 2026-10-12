@@ -788,9 +788,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
-        // Last-resort labels are applied only now, after stitching, so they
-        // never vote in it and follow any flip it applied to their block.
-        apply_deferred_read_labels(graph_chunks[i]);
     }
     return graph_chunks;
 }
@@ -954,9 +951,6 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
-        // Last-resort labels are applied only now, after stitching, so they
-        // never vote in it and follow any flip it applied to their block.
-        apply_deferred_read_labels(graph_chunks[i]);
     }
     return graph_chunks;
 }

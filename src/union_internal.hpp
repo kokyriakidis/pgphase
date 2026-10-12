@@ -53,19 +53,6 @@ constexpr double kPairMaxRefFraction = 0.2;
 // Alignment reads missing from the graph chunk are added from this MAPQ:
 // confidently placed, so not a paralog the graph put elsewhere.
 constexpr int kAddedReadMinMapq = 20;
-// Last-resort labels: an MSA-verified indel orients itself from at least this
-// many labelled reads of one phase set, at this concordance.
-constexpr int kLastResortMinLabelled = 4;
-constexpr double kLastResortMinAgreement = 0.9;
-// Haplotype-consensus labels: an event marks a haplotype when each side has at
-// least this many reads covering it (with this flank) and it is on at least
-// this fraction of one side's reads and at most the complement of the other's.
-// A read is labelled when this share of its votes agrees.
-constexpr int kConsensusMinReads = 3;
-constexpr hts_pos_t kConsensusFlank = 10;
-constexpr double kConsensusCarrierFraction = 0.8;
-constexpr double kConsensusMinAgreement = 0.9;
-constexpr int kEventMinBaseQuality = 10;
 constexpr int kLocusMaxRepeatScan = 500;
 constexpr int kLocusMaxPeriod = 50;
 constexpr double kLocusMaxObsError = 0.45;
@@ -119,7 +106,9 @@ struct ReferenceView {
 struct SpanningReadIndex {
     std::vector<const ReadRecord*> reads;
     std::vector<hts_pos_t> starts;
+    std::vector<hts_pos_t> ends;     // bam_endpos, computed once
     std::vector<size_t> graph_index;
+    hts_pos_t max_span = 0;          // longest reference span of any read
 
     SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk& graph) {
         std::unordered_map<std::string_view, size_t> graph_read;
@@ -141,7 +130,9 @@ struct SpanningReadIndex {
         for (const auto& [r, gi] : kept) {
             reads.push_back(r);
             starts.push_back(r->alignment->core.pos);
+            ends.push_back(bam_endpos(r->alignment.get()));
             graph_index.push_back(gi);
+            max_span = std::max(max_span, ends.back() - starts.back());
         }
     }
 
@@ -149,9 +140,12 @@ struct SpanningReadIndex {
     std::vector<std::pair<size_t, std::string>> segments(hts_pos_t l0, hts_pos_t l1, size_t max_reads) const {
         std::vector<std::pair<size_t, std::string>> segs;
         const size_t last = static_cast<size_t>(std::upper_bound(starts.begin(), starts.end(), l0) - starts.begin());
-        for (size_t i = 0; i < last && segs.size() < max_reads; ++i) {
+        // A read starting before l1 - max_span ends before l1.
+        const size_t first = static_cast<size_t>(
+            std::lower_bound(starts.begin(), starts.end(), l1 - max_span) - starts.begin());
+        for (size_t i = first; i < last && segs.size() < max_reads; ++i) {
             const bam1_t* aln = reads[i]->alignment.get();
-            if (bam_endpos(aln) < l1) continue;
+            if (ends[i] < l1) continue;
             const hts_pos_t q0 = locus_query_index(aln, l0), q1 = locus_query_index(aln, l1 - 1);
             if (q0 < 0 || q1 < q0) continue;
             std::string seq(static_cast<size_t>(q1 - q0 + 1), 'N');

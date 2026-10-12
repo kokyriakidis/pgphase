@@ -18548,3 +18548,115 @@ phase}.cpp with union_internal.hpp; a stage edit rebuilds and retests in ~7 s
 ~30 s), full (~2 min), same (identity), diff (per-read class changes), pin.
 Baseline: af49, arms_phaseable 216,378 correct / 1,535 discordant / 1,833
 unphased, 2 arm switches, 64,173 truth hets phased.
+
+## 2026-10-10: remaining misses vs HiPhase; EM fixes tried; EM vs k-means
+
+Diagnosis (scripts/dev/why.py, hipvars.py, locus.py on a PGPHASE_EM_DUMP
+of af49), arm reads HiPhase phases correctly and we do not (1,275):
+- ~260 are a truth artifact: from 66.10 Mb to the end every read is labelled
+  PATERNAL although the reads carry both truth-VCF haplotypes (102 / 66).
+- ~430 rely on two-allele homopolymer/STR indels (e.g. CTT>C,CT; T7 vs T8),
+  where HiFi length errors make reads nearly uninformative (57.6 Mb: paternal
+  reads 17 vs 15 between the two lengths). On all 2,375 such reads we have
+  2,002 / 82 / 291 (correct / discordant / unphased), HiPhase 1,977 / 203 / 195.
+- ~420 observe a site whose calls separate the parents (>= 0.9) but whose EM
+  error is >= 0.2. Cause: the EM is winner-take-all between disagreeing sites
+  on shared reads, and the clean stage labels pick the winner, e.g. 7,183,130
+  (purity 0.53, error 0.023) beats three sites that agree with each other.
+
+Tried and reverted (full chr20, arms_phaseable vs af49 216,378 / 1,535 / 1,833):
+- 1000 switch rounds instead of 30: identical.
+- Starting site errors from agreement with independent neighbours:
+  214,539 / 3,107 / 2,100; a new switch at 65 Mb.
+- Dropping trusted sites no neighbour corroborates when they conflict with a
+  corroborated site, then re-solving: 216,316 / 1,568 / 1,862 (58 sites
+  flagged, 53 truly bad, but they labelled reads mostly right).
+- Injecting the alignment's repeat het indels: no change (the MSA calls the
+  12.74 Mb site NOISY_CAND_HOM on 8 reads, so nothing qualifies).
+- Catalog repeat het indels as EM sites: 215,023 / 3,218 / 1,505; 8 arm
+  switches, 120 flips.
+
+EM vs pgphase k-means pipelines, same scorer (arms_phaseable correct /
+discordant / unphased, arm switches): union EM 216,378 / 1,535 / 1,833, 2;
+legacy hybrid (k-means + recovery) 213,666 / 2,316 / 3,764, 11; BAM-only
+201,142 / 2,654 / 15,950, 15; graph-only 197,772 / 1,748 / 20,226, 8; HiPhase
+209,446 / 6,348 / 3,952, 16. The k-means pipelines still lead in the
+centromere (legacy hybrid 12,633 / 956 vs 12,366 / 1,086), and BAM-only
+phases more truth hets (66,206 vs 64,173).
+
+## 2026-10-10: solver alternatives against the EM (replica bench)
+
+scripts/dev/proto_em.py replays a v2 EM dump (PGPHASE_EM_DUMP now records
+each read's starting label, each site's weak flag and window read errors)
+through a numpy copy of the production EM: 261,068 of 261,122 reads match the
+dump's labelled/unlabelled state, a full chr20 replay takes 7 s. In-chunk
+arms_phaseable (correct / discordant), EM threshold curve (read posterior,
+unreliable error): 0.99/0.15 209,738 / 889; 0.95/0.2 212,568 / 1,052;
+0.9/0.25 213,877 / 1,144; 0.8/0.3 215,241 / 1,256; 0.7/0.35 216,249 / 1,381;
+0.6/0.4 216,884 / 1,596. Every alternative lies on or below that curve:
+- HiPhase-style weighted-MEC beam search (proto_mec.py, genotype per site
+  het/hom, no learned error): uniform weights 215,357 / 1,719; log-odds
+  weights from the EM errors match the EM on the arms (215,247 / 1,269) and
+  are better in the centromere (12,529 / 871 vs 12,341 / 1,059).
+- Leave-one-out site errors: 208,546 / 1,012 and 200,872 / 679 (the EM gives
+  ~211,900 and ~206,000 at the same discordance); with confidence-weighted
+  estimation 215,278 / 1,554 at 0.7/0.35.
+- Deterministic annealing in the first round: 212,606 / 1,105.
+So the solver is not the limit; the evidence (allele calls) is.
+
+Full pipeline: the last-resort labels now cost as much as they give
+(off: -105 correct, -130 discordant, +235 unphased). Stricter EM thresholds
+alone do not lower discordance (0.9/0.25: 216,004 / 1,559 / 2,183) because
+the last resort refills what the EM drops.
+
+Scoring: scripts/dev/truth_exclude.bed (PGDEV_EXCLUDE) drops 66.10 Mb-end,
+where the truth contradicts itself. Excluded, arms_phaseable: af49
+216,239 / 1,214 / 1,833; last resort off 216,134 / 1,084 / 2,068; HiPhase
+209,183 / 6,240 / 3,863; LongPhase 203,827 / 1,018 / 14,441.
+
+## 2026-10-11: cross-chromosome validation; three fixes; speed
+
+**Evaluation on chr12 and chr18.** `PGDEV_PROFILE=chr12|chr18 scripts/dev/pg
+full` (scripts/dev/profiles/). Read truth is the union of the per-read truth
+tables of every evaluated tool (parental truth BAMs are gone; 0 conflicts;
+on chr20 it covers 91% of the parental map). The catalogs name contigs
+CHM13#0#chrN while reference and BAM say chrN, so the profiles use renamed
+copies (test_data/derived/chrN.sites.plain.vcf.gz). Nothing was tuned on
+chr12 or chr18.
+
+**Fixes, each measured on all three chromosomes** (arms_phaseable correct /
+discordant):
+- *Two reads per block join* (`kEmMinJoinReads`). A boundary joins only when
+  at least 2 reads have evidence on both sides. chr18 38.34 Mb: one 26 kb
+  read with one call per side joined 428 hets in the wrong orientation.
+  chr18 +371 / -373; chr12 and chr20 unchanged.
+- *Last-resort labels removed* (union_labels.cpp, deferred read labels).
+  Their labels were 54% correct over the three chromosomes (chr12 +361 /
+  +184, chr18 +37 / +114, chr20 +105 / +131).
+- *Depth gate on injected sites* (`kUnionMaxDepthRatio` 1.6 x the chunk's
+  median depth). chr12 10.31 Mb: ~150 paralog "hets" at twice the local
+  depth agreed perfectly with each other, separated the parents at
+  0.52-0.66 and flipped the flanking block (1,294 reads). chr12 +1,283 /
+  -1,284; chr18 +176 / -177 (all reads -748 / -719, at the centromere
+  edge); chr20 unchanged.
+
+Result (truth artifact 66.10 Mb-end excluded on chr20), arms_phaseable
+correct / discordant / unphased, arm switches:
+
+| | ours | HiPhase | LongPhase |
+|---|---|---|---|
+| chr12 | 521,470 / 2,507 / 2,240, 13 | 503,601 / 17,847 / 4,769, 23 | 493,458 / 4,086 / 28,673, 10 |
+| chr18 | 292,279 / 2,348 / 2,175, 13 | 281,144 / 11,124 / 4,534, 23 | 273,676 / 2,367 / 20,759, 14 |
+| chr20 | 216,134 / 1,084 / 2,068, 2 | 209,183 / 6,240 / 3,863, 16 | 203,827 / 1,018 / 14,441, 8 |
+
+Rejected: keeping only a window's call where it overlaps a site (in the
+replica: -1,700 correct, +600 discordant); the window and the site carry
+different evidence.
+
+**Speed.** merge_var_profile copied the whole candidate table and every
+read profile for each noisy region and then searched each old call's key;
+it now moves the tables and maps old rows to merged rows during the merge.
+SpanningReadIndex caches read ends and starts its scan at the first read
+that can reach a window. Output identical; full chr20 105 s -> 74 s. Remaining
+profile: MSA/alignment ~25%, read loading and digars ~12%, GAF parsing ~7%,
+per-region profile rebuild ~7%.

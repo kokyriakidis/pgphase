@@ -19,6 +19,12 @@ CandKey cand_key_of(const CandidateVariant& cand) {
 // A site is admitted only if each of its two alleles is seen by at least this
 // many reads mapped at kDefaultMinMapq or better.
 constexpr int kUnionMinConfidentAlleleReads = 2;
+// A site read by more than this multiple of its chunk's median depth is a
+// collapsed duplication: its two "alleles" separate paralogous copies, not
+// haplotypes. Measured on chr12 at 10.31 Mb: ~150 such sites at twice the local
+// depth agreed with each other perfectly, separated the parents at 0.52-0.66,
+// and joined the flanking blocks in the wrong orientation.
+constexpr double kUnionMaxDepthRatio = 1.6;
 
 /// VCF-form metadata for an alignment candidate the catalog never held, in the
 /// convention the graph writer emits and vcf_to_variant_key reads back. An
@@ -154,6 +160,17 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             if (read.mapq >= kDefaultMinMapq) ++confident[ci][a];
         }
     }
+    std::vector<int> depth(bam.candidates.size(), 0);
+    std::vector<int> depths;
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        for (const auto& [a, n] : observed[bi]) depth[bi] += n;
+        if (depth[bi] > 0) depths.push_back(depth[bi]);
+    }
+    double median_depth = 0.0;
+    if (!depths.empty()) {
+        std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
+        median_depth = depths[depths.size() / 2];
+    }
     const auto confidently_supported = [&](size_t bi) {
         std::vector<std::pair<int, int>> top;
         for (const auto& [a, n] : observed[bi]) top.emplace_back(n, a);
@@ -178,6 +195,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
         if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) continue;
         if (!confidently_supported(bi)) continue;
+        if (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) continue;
         std::vector<size_t> rows = voting_rows_over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
         if (!rows.empty()) complement_rows.emplace(bi, std::move(rows));
         selected.push_back(bi);

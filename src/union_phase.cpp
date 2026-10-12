@@ -77,14 +77,6 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
         loci.insert(loci.end(), std::make_move_iterator(alleles.begin()), std::make_move_iterator(alleles.end()));
     }
     phase_chunk_by_global_em(chunk, &loci, weak_ptr);
-    // Last resort: reads still unlabelled take their haplotype from MSA-verified
-    // indels whose phase the labelled reads already establish.
-    if (bam != nullptr) {
-        // Verified indels first (exact alleles), then the labelled reads' own
-        // haplotype markers for reads still undecided.
-        label_reads_from_verified_indels(graph_chunk, *bam);
-        label_reads_from_haplotype_consensus(graph_chunk, *bam);
-    }
 }
 
 } // namespace pgphase_collect

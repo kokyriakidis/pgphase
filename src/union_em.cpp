@@ -25,6 +25,11 @@ constexpr double kEmBlockCutLogLikelihood = 4.0;
 // The cut for joins carried only by weak sites (see bridge_weak_sites).
 constexpr double kEmWeakBridgeCutLogLikelihood = 10.0;
 constexpr int kEmLearnMinMapq = 20;
+// Reads that must span a block boundary, with evidence on both sides, for the
+// blocks to join: one molecule can be chimeric, mis-placed or mis-called, and
+// its likelihood alone can clear the cut (measured on chr18 at 38.34 Mb: one
+// 26 kb read, one call per side, joined 428 hets in the wrong orientation).
+constexpr int kEmMinJoinReads = 2;
 // A site whose less observed allele carries under this fraction of its reads
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
@@ -239,14 +244,27 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // (median 6), right ones well above it (median 19).
     const std::vector<double> delta_strong =
         bridge_weak != nullptr ? boundary_delta(true, true) : delta;
-    // Blocks: cut where flipping the rest would cost less than the threshold.
+    // Reads whose observations lie on both sides of each boundary.
+    std::vector<int> spanning(n, 0);
+    {
+        std::vector<int> diff(n + 1, 0);
+        for (const std::vector<EmObs>& obs : robs) {
+            if (obs.size() < 2 || obs.front().s == obs.back().s) continue;
+            ++diff[static_cast<size_t>(obs.front().s)];
+            --diff[static_cast<size_t>(obs.back().s)];
+        }
+        int run = 0;
+        for (size_t k = 0; k < n; ++k) spanning[k] = run += diff[k];
+    }
+    // Blocks: cut where flipping the rest would cost less than the threshold,
+    // or where too few reads cross.
     std::vector<hts_pos_t> block(n);
     hts_pos_t current = sites[0].pos;
     size_t blocks = 1;
     for (size_t k = 0; k < n; ++k) {
         block[k] = current;
         const bool weak_bridge = delta_strong[k] < kEmBlockCutLogLikelihood;
-        if (k + 1 < n && (delta[k] < kEmBlockCutLogLikelihood ||
+        if (k + 1 < n && (delta[k] < kEmBlockCutLogLikelihood || spanning[k] < kEmMinJoinReads ||
                           (weak_bridge && delta[k] < kEmWeakBridgeCutLogLikelihood))) {
             current = sites[k + 1].pos;
             ++blocks;

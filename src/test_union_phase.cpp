@@ -418,65 +418,6 @@ static void test_realign_recalls_indel() {
 }
 
 
-static void test_deferred_labels_follow_anchor() {
-    // A last-resort label is stored against an anchor read and applied after
-    // stitching: it follows the anchor's final phase set and any flip.
-    GraphChunkBuildResult gc;
-    PhasingChunk& chunk = gc.chunk;
-    for (int r = 0; r < 3; ++r) chunk.reads.push_back(read_named("d" + std::to_string(r), 60));
-    finish_chunk(chunk);
-    chunk.haps[0] = 1;
-    chunk.phase_sets[0] = 100;
-    gc.deferred_read_labels.emplace_back(1, 0, true);   // same haplotype as read 0
-    gc.deferred_read_labels.emplace_back(2, 0, false);  // the other haplotype
-    // Stitching flips the block and renames it.
-    chunk.haps[0] = 2;
-    chunk.phase_sets[0] = 50;
-    check(apply_deferred_read_labels(gc) == 2, "deferred: both labels applied");
-    check(chunk.haps[1] == 2 && chunk.phase_sets[1] == 50, "deferred: same-haplotype read follows the flip");
-    check(chunk.haps[2] == 1 && chunk.phase_sets[2] == 50, "deferred: other-haplotype read follows the flip");
-    check(gc.deferred_read_labels.empty(), "deferred: list consumed");
-}
-
-
-static void test_consensus_marker_labels() {
-    // Four labelled reads per haplotype; haplotype 1 carries a SNP the callers
-    // never reported. An unlabelled read carrying it is labelled haplotype 1,
-    // one without it haplotype 2.
-    std::string ref;
-    uint32_t state = 4242;
-    for (int i = 0; i < 600; ++i) {
-        state = state * 1103515245u + 12345u;
-        ref += "ACGT"[(state >> 16) % 4];
-    }
-    std::string alt_seq = ref;
-    alt_seq[300] = ref[300] == 'A' ? 'C' : 'A';
-    PhasingChunk bam;
-    bam.ref_beg = 1;
-    bam.ref_end = 600;
-    bam.ref_seq = ref;
-    GraphChunkBuildResult gc;
-    PhasingChunk& chunk = gc.chunk;
-    for (int r = 0; r < 10; ++r) {
-        const std::string name = "m" + std::to_string(r);
-        chunk.reads.push_back(read_named(name, 60));
-        chunk.read_var_profile.push_back(profile(r, 0, {}));
-        ReadRecord rec = read_named(name, 60);
-        const bool carrier = r < 4 || r == 8;
-        rec.alignment = make_alignment(name, carrier ? alt_seq : ref, {bam_cigar_gen(600, BAM_CMATCH)});
-        bam.reads.push_back(std::move(rec));
-    }
-    finish_chunk(chunk);
-    for (int r = 0; r < 8; ++r) {
-        chunk.haps[static_cast<size_t>(r)] = r < 4 ? 1 : 2;
-        chunk.phase_sets[static_cast<size_t>(r)] = 7;
-    }
-    const size_t decided = label_reads_from_haplotype_consensus(gc, bam);
-    check(decided == 2, "markers: both unlabelled reads decided, got " + std::to_string(decided));
-    check(apply_deferred_read_labels(gc) == 2, "markers: labels applied");
-    check(chunk.haps[8] == 1 && chunk.haps[9] == 2 && chunk.phase_sets[8] == 7,
-          "markers: carrier joins haplotype 1, non-carrier haplotype 2");
-}
 
 
 static void test_bridge_weak_sites() {
@@ -528,8 +469,6 @@ int main() {
     window_case(false);
     window_case(true, false);
     test_realign_recalls_indel();
-    test_deferred_labels_follow_anchor();
-    test_consensus_marker_labels();
     test_bridge_weak_sites();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";

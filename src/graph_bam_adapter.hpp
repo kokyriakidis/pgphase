@@ -75,9 +75,6 @@ struct GraphChunkBuildResult {
     std::vector<std::pair<CandidateIdentityKey, std::vector<size_t>>> joint_candidate_loci;
     std::vector<std::optional<CandidateAlleleContrast>> candidate_allele_contrasts;
     std::vector<std::pair<AlleleContrastKey, std::vector<size_t>>> joint_allele_contrasts;
-    /// Union gap phasing: last-resort read labels applied after chunk stitching,
-    /// as (read, anchor read of the same phase set, same haplotype as the anchor).
-    std::vector<std::tuple<size_t, size_t, bool>> deferred_read_labels;
     PhasingChunk chunk;
     // Snarl site ID per candidate (parallel to chunk.candidates).
     std::vector<std::string> site_ids;

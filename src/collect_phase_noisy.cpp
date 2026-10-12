@@ -1269,15 +1269,19 @@ int merge_var_profile(PhasingChunk& chunk,
     new_vars = std::move(sorted_new);
     new_cats = std::move(sorted_cats);
 
-    const CandidateTable old_vars = chunk.candidates;
+    // The chunk's tables are rebuilt below: take them rather than copy them.
+    CandidateTable old_vars = std::move(chunk.candidates);
     const std::vector<ReadVariantProfile> old_profiles = chunk.read_var_profile.empty()
                                                              ? init_read_profiles(chunk.reads.size())
-                                                             : chunk.read_var_profile;
+                                                             : std::move(chunk.read_var_profile);
 
     CandidateTable merged_vars;
     merged_vars.reserve(old_vars.size() + new_vars.size());
     std::vector<int> old_to_merged(old_vars.size(), -1);
     std::vector<int> new_to_merged(new_vars.size(), -1);
+    // Merged row carrying each old row's key: the row itself, or the new row
+    // that replaced it at the same key.
+    std::vector<int> old_key_to_merged(old_vars.size(), -1);
 
     size_t old_i = 0;
     size_t new_i = 0;
@@ -1285,8 +1289,8 @@ int merge_var_profile(PhasingChunk& chunk,
     while (old_i < old_vars.size() && new_i < new_vars.size()) {
         const int ret = exact_comp_var_site(&old_vars[old_i].key, &new_vars[new_i].key);
         if (ret < 0) {
-            old_to_merged[old_i] = static_cast<int>(merged_vars.size());
-            merged_vars.push_back(old_vars[old_i++]);
+            old_to_merged[old_i] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
+            merged_vars.push_back(std::move(old_vars[old_i++]));
         } else if (ret > 0) {
             if ((site_whitelist != nullptr &&
                  site_whitelist->find(new_vars[new_i].key) == site_whitelist->end())) {
@@ -1295,7 +1299,7 @@ int merge_var_profile(PhasingChunk& chunk,
             }
             set_noisy_category(new_vars[new_i], new_cats[new_i]);
             new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
-            merged_vars.push_back(new_vars[new_i++]);
+            merged_vars.push_back(std::move(new_vars[new_i++]));
             ++admitted;
         } else {
             // A RepeatHetIndel is screened out of k-means by construction, so it
@@ -1350,20 +1354,20 @@ int merge_var_profile(PhasingChunk& chunk,
                 new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =
                     old_vars[old_i].counts.candvarcate_initial;
-                new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
-                merged_vars.push_back(new_vars[new_i]);
+                new_to_merged[order[new_i]] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
+                merged_vars.push_back(std::move(new_vars[new_i]));
                 ++admitted;
             } else {
-                old_to_merged[old_i] = static_cast<int>(merged_vars.size());
-                merged_vars.push_back(old_vars[old_i]);
+                old_to_merged[old_i] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
+                merged_vars.push_back(std::move(old_vars[old_i]));
             }
             ++old_i;
             ++new_i;
         }
     }
     while (old_i < old_vars.size()) {
-        old_to_merged[old_i] = static_cast<int>(merged_vars.size());
-        merged_vars.push_back(old_vars[old_i++]);
+        old_to_merged[old_i] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
+        merged_vars.push_back(std::move(old_vars[old_i++]));
     }
     while (new_i < new_vars.size()) {
         if ((site_whitelist != nullptr &&
@@ -1373,7 +1377,7 @@ int merge_var_profile(PhasingChunk& chunk,
         }
         set_noisy_category(new_vars[new_i], new_cats[new_i]);
         new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
-        merged_vars.push_back(new_vars[new_i++]);
+        merged_vars.push_back(std::move(new_vars[new_i++]));
         ++admitted;
     }
 
@@ -1410,12 +1414,9 @@ int merge_var_profile(PhasingChunk& chunk,
         for (size_t pi = 0; pi < source.alleles.size(); ++pi) {
             const int vi = source.start_var_idx + static_cast<int>(pi);
             if (vi < 0 || static_cast<size_t>(vi) >= old_vars.size()) continue;
-            const auto found = std::lower_bound(merged_vars.begin(), merged_vars.end(), old_vars[vi].key,
-                [](const CandidateVariant& v, const VariantKey& key) {
-                    return exact_comp_var_site(&v.key, &key) < 0;
-                });
-            if (found == merged_vars.end() || exact_comp_var_site(&found->key, &old_vars[vi].key)) continue;
-            const int di = static_cast<int>(found - merged_vars.begin()) - dest.start_var_idx;
+            const int mi = old_key_to_merged[static_cast<size_t>(vi)];
+            if (mi < 0) continue;
+            const int di = mi - dest.start_var_idx;
             if (di < 0 || static_cast<size_t>(di) >= dest.alleles.size()) continue;
             if (pi < source.bam_alleles.size()) dest.bam_alleles[di] = source.bam_alleles[pi];
             if (pi < source.bam_qi.size()) dest.bam_qi[di] = source.bam_qi[pi];

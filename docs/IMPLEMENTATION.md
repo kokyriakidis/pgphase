@@ -75,7 +75,7 @@ handle and, with `--bam`, its own BAM handles (`WorkerContext`):
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | with `--bam`, `inject_alignment_private_sites` | the alignment solve over the chunk's span; its clean and MSA-verified heterozygotes, and the reads only it holds, join the graph chunk unphased ("Union gap phasing" below) |
 | 5 | `phase_joint_graph_candidates`; `reclassify_physically_validated_graph_snps`; with `--bam`, `supplement_phased_snp_branches` | stage 1: the clean k-means over catalog sites, projecting compatible reference-equivalent descriptions to one molecule vote; then retire physically validated homozygous, REF-absent padded and physically under-supported repeat SNP anchors, preserving surviving gauges and clearing reads in phase sets without a heterozygote; then restore missing calls at already phased SNPs when another catalog allele carries the identical unique oriented SNP branch |
-| 6 | with `--bam`, `phase_chunk_with_alignment_sites` | alignment-only reads, realigned indel calls, the global EM with haplotype and allele windows, and last-resort read labels ("Union gap phasing" below) |
+| 6 | with `--bam`, `phase_chunk_with_alignment_sites` | alignment-only reads, realigned indel calls, and the global EM with haplotype and allele windows ("Union gap phasing" below) |
 
 The graph command admits GAF alignments at MAPQ 5 by default. These reads
 participate in graph-site depth, clustering, block construction, and read
@@ -162,8 +162,7 @@ The resulting read-only assignment
 is stored under `PS + kGapFillPsOffset`, so it cannot change candidate GT/PS,
 take part in chunk stitching, or join two blocks. BAM-channel assignments
 fill only empty output rows and cannot replace an assignment from another
-chunk. With `--bam`, `apply_deferred_read_labels` then applies the last-resort
-labels ("Union gap phasing" below).
+chunk.
 
 `graph_chunks_to_candidate_table` turns the candidate chunks into the output
 table. A graph substitution can
@@ -205,11 +204,9 @@ cross-chunk coordination -- the worker pool already provides the parallelism.
 With `--bam`, the alignment's sample-specific sites join the catalog's sites
 **before** phasing, and one solve phases them all.
 The model is in `src/union_*.cpp`, one file per stage (`union_inject`,
-`union_reads`, `union_em`, `union_windows`, `union_labels`; `union_phase` is
-the driver); `collect_pipeline.cpp` runs the
+`union_reads`, `union_em`, `union_windows`; `union_phase` is the driver); `collect_pipeline.cpp` runs the
 alignment solve (`inject_alignment_private_sites`); `graph_collect.cpp` wires it
-per chunk. Chunk stitching, read rescue and the deferred last-resort labels run
-after the batch. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with
+per chunk. Chunk stitching and read rescue run after the batch. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with
 `--bam`.
 
 Per chunk, in order:
@@ -221,6 +218,12 @@ Per chunk, in order:
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk, each needing both of its two most observed
      alleles (REF need not be one) seen by at least two reads with MAPQ ≥ 30.
+   - *Depth gate.* A site read by more than 1.6 times the chunk's median
+     depth is not injected (`kUnionMaxDepthRatio`): at a collapsed
+     duplication its two "alleles" separate paralogous copies, not
+     haplotypes, and a run of such sites agrees with itself perfectly (chr12
+     10.31 Mb: about 150 sites at twice the local depth joined the flanking
+     blocks in the wrong orientation, 1,294 reads).
    - *Dedup.* Placements of one indel at different repeat copies collapse to
      one row by left-aligned identity; alias rows' read calls fold into it.
    - *Injected rows* keep the alignment's category bits and per-read alleles,
@@ -293,7 +296,11 @@ Per chunk, in order:
      4 log units, judged over every read: a read too ambiguously mapped to
      shape the model still shows that its molecule continues across the
      boundary. Without this, blocks that only low-MAPQ reads hold together
-     (graph-mapped through near-duplicates) were cut.
+     (graph-mapped through near-duplicates) were cut. A boundary is also cut
+     when fewer than 2 reads have evidence on both sides
+     (`kEmMinJoinReads`): one molecule can be chimeric, mis-placed or
+     mis-called, and its likelihood alone can clear the cut (chr18 38.34 Mb:
+     one 26 kb read joined 428 hets in the wrong orientation).
    - *Output.* A site whose learned error is 0.3 or more is reported unphased
      and labels no read. A read is labelled in the block where its own
      evidence is strongest, if its posterior there is at least 0.8.
@@ -336,37 +343,6 @@ Per chunk, in order:
      are skipped.
 9. **Global EM, pass 2.** The same solve with both kinds of windows added as
    locus-level sites carrying per-read errors.
-10. **Last-resort labels** for reads still unlabelled after pass 2. Two
-    sources, in order. Nothing feeds back into sites or blocks.
-    1. *Verified indels* (`label_reads_from_verified_indels`).
-       - At each MSA-verified indel of the alignment solve, including 1 bp
-         homopolymers, every spanning read is called by realignment. Allele 1
-         is this indel; allele 0 is the closest of the reference and every
-         other allele called in the same repeat. At a two-allele (1/2) locus
-         the other haplotype carries the second allele, not REF, so a
-         REF-versus-ALT contrast would call its reads ALT. The fill and
-         realignment steps use the same rule.
-       - A site counts when at least 4 labelled reads of one phase set agree
-         with it at 90% or more. An unlabelled read then takes the haplotype
-         its allele implies.
-    2. *Haplotype markers* (`label_reads_from_haplotype_consensus`).
-       - Inside each phase set, the labelled reads' alignment events (base,
-         insertion, deletion; indels left-normalized) are compared by
-         haplotype.
-       - An event is a marker when each haplotype has at least 3 reads
-         covering it (10 bp flank), and it is on at least 80% of one side and
-         at most 20% of the other. Such a het counts whether or not any
-         caller reported it.
-       - An unlabelled read votes at every marker it covers and is labelled
-         when 90% of its votes agree.
-       - In stretches without a het the haplotypes do not differ, so no-het
-         reads get no votes.
-
-    Each decision is stored against an anchor read of the same phase set
-    (same or opposite haplotype) in `deferred_read_labels`. It is applied after
-    chunk stitching and read rescue (`apply_deferred_read_labels`): applied
-    earlier, the labels voted in stitching and added switches.
-
 ### Test gates
 
 - `make unit-tests` builds and runs seven binaries: `test_allele_identity`,

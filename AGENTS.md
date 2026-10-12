@@ -68,7 +68,7 @@ scorer (`run`, `table`, `diff`, `bins`); parental truth is evaluation-only.
 | `src/noise_filter.hpp/cpp` | Shared noise detection (BAM + graph pipelines) |
 | `src/graph_bam_adapter.hpp/cpp` | Graph-to-phasing bridge, noise filter wiring |
 | `src/graph_collect.cpp` | Graph pipeline worker loops |
-| `src/union_*.cpp` | `--bam` union gap phasing, one file per stage: `union_inject` (alignment sites into the chunk), `union_reads` (alignment-only reads, fills, realignment), `union_em` (global EM, block cuts), `union_windows` (haplotype and allele windows), `union_labels` (last-resort labels), `union_phase` (driver, weak-bridge sites); shared helpers in `union_internal.hpp` |
+| `src/union_*.cpp` | `--bam` union gap phasing, one file per stage: `union_inject` (alignment sites into the chunk), `union_reads` (alignment-only reads, fills, realignment), `union_em` (global EM, block cuts), `union_windows` (haplotype and allele windows), `union_phase` (driver, weak-bridge sites); shared helpers in `union_internal.hpp` |
 | `scripts/dev/` | Development loop: `pg`, `score.py`, `identity.py`, quick-tier regions |
 | `src/collect_var.cpp` | BAM pipeline candidate classification |
 | `src/collect_phase.cpp` | K-means phasing, category bitmasks |

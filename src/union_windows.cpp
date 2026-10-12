@@ -7,9 +7,10 @@
 
 namespace pgphase_collect {
 
-// Query index aligned at (or, inside a deletion, after) a 0-based reference position.
+// Query index aligned at (or, inside a deletion, after) a 0-based reference
+// position; -1 outside the alignment (the walk itself ends at the read's end).
 hts_pos_t locus_query_index(const bam1_t* b, hts_pos_t ref_pos) {
-    if (ref_pos < b->core.pos || ref_pos >= bam_endpos(b)) return -1;
+    if (ref_pos < b->core.pos) return -1;
     hts_pos_t r = b->core.pos, q = 0;
     const uint32_t* cigar = bam_get_cigar(b);
     for (uint32_t i = 0; i < b->core.n_cigar; ++i) {

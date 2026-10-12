@@ -77,29 +77,6 @@ std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChu
 size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
                                  const std::vector<char>& only_reads);
 
-/// Last resort for reads the EM left unlabelled, from the labelled reads
-/// themselves: inside each phase set, an alignment event (base, insertion or
-/// deletion, left-normalized) that one haplotype's covering reads carry and the
-/// other's lack marks a phased heterozygote, whether or not any caller found
-/// it. An unlabelled read votes at every marker it covers and is labelled when
-/// its votes agree. Decisions go to `deferred_read_labels`. Returns reads decided.
-size_t label_reads_from_haplotype_consensus(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam);
-
-/// Last resort for reads the EM left unlabelled: at each MSA-verified indel of
-/// the alignment solve, every spanning read is called by realignment to the two
-/// exact alleles. Where at least four already labelled reads of one phase set
-/// agree with the calls at 90% or more, the site's orientation is taken from
-/// them, and an unlabelled read takes the haplotype its allele implies. A read
-/// whose verified indels disagree stays unlabelled. Decisions are recorded in
-/// `deferred_read_labels` relative to an anchor read of the same phase set and
-/// applied by apply_deferred_read_labels after chunk stitching, so they feed
-/// back into nothing. Returns reads decided.
-size_t label_reads_from_verified_indels(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam);
-
-/// Apply the deferred last-resort labels: each read takes its anchor's final
-/// phase set and the same or the other haplotype. Returns labels applied.
-size_t apply_deferred_read_labels(GraphChunkBuildResult& graph_chunk);
-
 /// Sites that may be phased but must not carry a join between blocks alone:
 /// their two alleles differ by one base of length (for injected 1 bp indels,
 /// one homopolymer base), the dominant HiFi error. Indexed by candidate.
