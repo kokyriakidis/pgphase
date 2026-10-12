@@ -228,27 +228,31 @@ def score_run(run_dir, regions=None):
 
 
 ROWS = [  # (label, getter, higher is better)
+    # Headline: reads on the arms whose span crosses a truth heterozygote.
     ("arms_phaseable correct", lambda s: s["reads"]["arms_phaseable"]["correct"], True),
     ("arms_phaseable discordant", lambda s: s["reads"]["arms_phaseable"]["discordant"], False),
     ("arms_phaseable unphased", lambda s: s["reads"]["arms_phaseable"]["unphased"], False),
-    ("arms_phaseable correct %", lambda s: pct(s["reads"]["arms_phaseable"]), True),
+    ("arms_phaseable correct %", lambda s: pct(s["reads"]["arms_phaseable"], "correct"), True),
+    ("arms_phaseable discordant %", lambda s: pct(s["reads"]["arms_phaseable"], "discordant"), False),
+    ("arms_phaseable unphased %", lambda s: pct(s["reads"]["arms_phaseable"], "unphased"), False),
+    ("switches arms", lambda s: s["variants"]["switches_arms"], False),
+    ("flips arms", lambda s: s["variants"]["flips_arms"], False),
     ("arms_nohet discordant", lambda s: s["reads"]["arms_nohet"]["discordant"], False),
     ("cen_phaseable correct", lambda s: s["reads"]["cen_phaseable"]["correct"], True),
     ("cen_phaseable discordant", lambda s: s["reads"]["cen_phaseable"]["discordant"], False),
+    ("cen_phaseable unphased", lambda s: s["reads"]["cen_phaseable"]["unphased"], False),
+    ("switches cen", lambda s: s["variants"]["switches_cen"], False),
     ("all correct", lambda s: s["reads"]["all"]["correct"], True),
     ("all discordant", lambda s: s["reads"]["all"]["discordant"], False),
-    ("switches arms", lambda s: s["variants"]["switches_arms"], False),
-    ("switches cen", lambda s: s["variants"]["switches_cen"], False),
-    ("flips arms", lambda s: s["variants"]["flips_arms"], False),
     ("truth hets phased", lambda s: s["variants"]["truth_matched_phased_hets"], True),
     ("phase sets", lambda s: s["blocks"]["phase_sets"], False),
     ("block N50", lambda s: s["blocks"]["n50"], True),
 ]
 
 
-def pct(r):
+def pct(r, cls="correct"):
     n = r["correct"] + r["discordant"] + r["unphased"]
-    return round(100.0 * r["correct"] / n, 3) if n else 0.0
+    return round(100.0 * r[cls] / n, 3) if n else 0.0
 
 
 def table(scores, names):

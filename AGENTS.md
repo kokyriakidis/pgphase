@@ -46,7 +46,12 @@ re-scoring an unchanged binary is instant. The headline metric, checked every
 iteration, is **arms_phaseable correct**: reads on the chromosome arms (outside
 26-32 Mb) whose span crosses a truth heterozygote, phased and consistent with
 their phase set's majority parental orientation. Watch its discordant and
-unphased counts and arm switches alongside. `scripts/dev/score.py` is the one
+unphased counts and arm switches alongside. Diagnostics, off by default:
+`PGPHASE_TIMING=1` prints each chunk's seconds per stage (and the alignment
+solve's load / classify / phase split) to stderr; `PGPHASE_EM_DUMP=DIR` writes
+each chunk's final EM evidence for scripts/dev/why.py, locus.py and
+proto_em.py. `PGDEV_PROFILE=chr12|chr18` evaluates another chromosome (full
+tier). `scripts/dev/score.py` is the one
 scorer (`run`, `table`, `diff`, `bins`); parental truth is evaluation-only.
 
 ## Testing

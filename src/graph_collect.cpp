@@ -22,6 +22,9 @@
 #include <cmath>
 #include <cctype>
 #include <atomic>
+#include <cstdlib>
+#include <iomanip>
+#include <chrono>
 #include <cstdio>
 #include <cstdint>
 #include <fstream>
@@ -845,9 +848,22 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     const size_t offset = next_offset.fetch_add(1);
                     if (offset >= batch_size) break;
                     const RegionChunk& region = chunks[batch_begin + offset];
+                    // Diagnostic, off by default: PGPHASE_TIMING=1 prints each
+                    // chunk's seconds per stage to stderr.
+                    static const bool timing = std::getenv("PGPHASE_TIMING") != nullptr;
+                    using Clock = std::chrono::steady_clock;
+                    std::vector<double> stage_s;
+                    Clock::time_point stage_t = Clock::now();
+                    const auto lap = [&]() {
+                        if (!timing) return;
+                        const Clock::time_point now = Clock::now();
+                        stage_s.push_back(std::chrono::duration<double>(now - stage_t).count());
+                        stage_t = now;
+                    };
 
                     GraphSiteCatalog chunk_catalog = load_sites_for_region(
                         sites_handle, batch_contig_gaf, region.beg, region.end);
+                    lap();
                     for (GraphSite& s : chunk_catalog.sites) {
                         auto it = chrom_remap.find(s.chrom);
                         if (it != chrom_remap.end()) s.chrom = it->second;
@@ -867,6 +883,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                             std::max<hts_pos_t>(0, region.beg - 1 - pad), region.end + pad,
                             chunk_view, min_mapq);
                     }
+                    lap();
 
                     graph_chunks[offset] = build_graph_chunk(
                         chunk_view,
@@ -907,6 +924,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 
                     // A repeat-context indel may earn its way back in before the solve.
                     promote_link_supported_repeat_indels(graph_chunks[offset], opts);
+                    lap();
 
                     // With --bam, the alignment's sample-specific hets join the
                     // catalog's before the clean solve (union gap phasing).
@@ -915,6 +933,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     if (union_phasing)
                         inject_alignment_private_sites(graph_chunks[offset], opts,
                             *thread_bam_ctx, batch_contig_gaf.c_str(), &union_bam);
+                    lap();
 
                     phase_joint_graph_candidates(graph_chunks[offset], opts,
                         [&](hts_pos_t pos) {
@@ -927,8 +946,23 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                     if (thread_bam_ctx != nullptr)
                         supplement_phased_snp_branches(
                             chunk_view, chunk_rows, graph_chunks[offset], opts);
+                    lap();
                     if (union_phasing)
                         phase_chunk_with_alignment_sites(graph_chunks[offset], union_bam.get());
+                    lap();
+                    if (timing) {
+                        std::ostringstream line;
+                        line << "[timing] chunk " << region.beg << " sites " << chunk_catalog.sites.size()
+                             << " gaf_rows " << chunk_rows.size() << " seconds";
+                        static const char* const names[] = {"catalog", "gaf", "build", "inject", "clean", "union"};
+                        double total = 0.0;
+                        for (size_t i = 0; i < stage_s.size() && i < 6; ++i) {
+                            line << ' ' << names[i] << ' ' << std::fixed << std::setprecision(2) << stage_s[i];
+                            total += stage_s[i];
+                        }
+                        line << " total " << total << '\n';
+                        std::cerr << line.str();
+                    }
 
                 }
             } catch (...) {

@@ -24,6 +24,8 @@
 #include "union_phase.hpp"
 
 #include <algorithm>
+#include <cstdlib>
+#include <iomanip>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -458,8 +460,28 @@ static PhasingChunk process_chunk(const RegionChunk& region,
                               WorkerContext& context) {
     PhasingChunk chunk;
     chunk.region = region;
+    // Diagnostic, off by default: PGPHASE_TIMING=1 prints the stages' seconds.
+    static const bool timing = std::getenv("PGPHASE_TIMING") != nullptr;
+    using Clock = std::chrono::steady_clock;
+    const Clock::time_point t0 = Clock::now();
     load_and_prepare_chunk(chunk, opts, context);
-    collect_var_main(chunk, opts, context.primary_header());
+    const Clock::time_point t1 = Clock::now();
+    collect_var_classify(chunk, opts, context.primary_header());
+    const Clock::time_point t2 = Clock::now();
+    const size_t noisy_regions = chunk.noisy_regions.size();
+    collect_var_phase(chunk, opts);
+    const Clock::time_point t3 = Clock::now();
+    if (timing) {
+        const auto sec = [](Clock::time_point a, Clock::time_point b) {
+            return std::chrono::duration<double>(b - a).count();
+        };
+        std::ostringstream line;
+        line << std::fixed << std::setprecision(2) << "[timing-solve] chunk " << region.beg
+             << " reads " << chunk.reads.size() << " noisy_regions " << noisy_regions
+             << " seconds load " << sec(t0, t1) << " classify " << sec(t1, t2)
+             << " phase " << sec(t2, t3) << '\n';
+        std::cerr << line.str();
+    }
     mid_free_chunk(chunk, opts);
     return chunk;
 }

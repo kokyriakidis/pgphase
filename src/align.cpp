@@ -1851,6 +1851,11 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             if (placed[static_cast<size_t>(i)]) continue;
             const int cover = info.fully_covers[static_cast<size_t>(i)];
             if (noisyIsNotCover(cover)) continue;
+            // The clusters cap read segments at max_noisy_reg_len; so do these
+            // end-to-end alignments. A read carrying a multi-kb insertion
+            // aligned to a 100 bp consensus without a heuristic cost seconds
+            // each (chr12 55.30 Mb: 35 s for one 123 bp region).
+            if (info.lens[static_cast<size_t>(i)] >= opts.max_noisy_reg_len) continue;
 
             std::array<AlnStr, 2> cons_read_alns;
             std::array<int, 2> scores{};

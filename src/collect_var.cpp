@@ -1171,13 +1171,16 @@ void populate_chunk_read_indexes(PhasingChunk& chunk) {
  * @brief Maps ASCII base to 0–3 (ACGT) or 4 for other.
  */
 static int nt4_from_ref_char(char ch) {
-    switch (std::toupper(static_cast<unsigned char>(ch))) {
-        case 'A': return 0;
-        case 'C': return 1;
-        case 'G': return 2;
-        case 'T': return 3;
-        default:  return 4;
-    }
+    static const std::array<int8_t, 256> table = [] {
+        std::array<int8_t, 256> t{};
+        t.fill(4);
+        t['A'] = t['a'] = 0;
+        t['C'] = t['c'] = 1;
+        t['G'] = t['g'] = 2;
+        t['T'] = t['t'] = 3;
+        return t;
+    }();
+    return table[static_cast<unsigned char>(ch)];
 }
 
 /**
@@ -2252,6 +2255,31 @@ void collect_var_main(PhasingChunk& chunk,
 /// alleles carry alternate support, move the less supported one to the other
 /// haplotype. Returns the number of records re-oriented. Anything without
 /// support on both sides is left to drop_conflicting_haplotype_alleles.
+// Two equal-length replacements starting at one position, the shorter a
+// prefix of the longer: the longer allele makes the shorter one's change too,
+// so the two are one haplotype's event described twice, not two alleles. A
+// catalog snarl spanning several SNPs gives exactly this -- at chr12:1,069,108
+// the 280 bp record (three SNPs) and the SNP T>C at its first base, both on
+// the C-carrying haplotype, which the rule below then split across the two
+// haplotypes: the SNP was written opposite to its own reads' tags. 38 of the
+// 64 single-site orientation flips on chr12's arms were this. Both records
+// stay: the SNP is the minimal form (the one the alignment arm and truth sets
+// use), and the long record carries the rest of the snarl. Dropping the SNP
+// instead cost 101 truth heterozygotes on chr12, 49 on chr18 and 74 on chr20;
+// the same pair already sits side by side wherever the SNP is not the snarl's
+// first base (1,069,183 in the record above).
+static bool nested_substitutions(const CandidateVariant& a, const CandidateVariant& b) {
+    const auto substitution = [](const CandidateVariant& c) {
+        return c.key.type == VariantType::Snp &&
+               c.key.ref_len == static_cast<int>(c.key.alt.size());
+    };
+    if (!substitution(a) || !substitution(b) || a.key.pos != b.key.pos) return false;
+    const bool a_short = a.key.alt.size() <= b.key.alt.size();
+    const std::string& shorter = a_short ? a.key.alt : b.key.alt;
+    const std::string& longer = a_short ? b.key.alt : a.key.alt;
+    return longer.compare(0, shorter.size(), shorter) == 0;
+}
+
 size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
     std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
     for (size_t i = 0; i < result.size(); ++i)
@@ -2271,6 +2299,7 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
         CandidateVariant& b = result[group.second[1]];
         if (a.hap_to_cons_alle.size() < 3 || b.hap_to_cons_alle.size() < 3) continue;
         if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
+        if (nested_substitutions(a, b)) continue;     // one event described twice
         if (alt_depth(a) < min_alt_support || alt_depth(b) < min_alt_support) continue;
         int hap = 0;
         for (int h = 1; h <= 2; ++h)
@@ -2342,6 +2371,15 @@ void drop_conflicting_haplotype_alleles(CandidateTable& result) {
                 const auto& h = result[i].hap_to_cons_alle;
                 if (h.size() > static_cast<size_t>(hap) && h[hap] == 1) carriers.push_back(i);
             }
+            // A substitution nested in a longer carrier is the same event
+            // (nested_substitutions) and is no conflict: it stays.
+            const std::vector<size_t> all_carriers = carriers;
+            carriers.erase(std::remove_if(carriers.begin(), carriers.end(), [&](size_t i) {
+                return std::any_of(all_carriers.begin(), all_carriers.end(), [&](size_t j) {
+                    return result[i].key.alt.size() < result[j].key.alt.size() &&
+                           nested_substitutions(result[i], result[j]);
+                });
+            }), carriers.end());
             if (carriers.size() < 2) continue;
             std::sort(carriers.begin(), carriers.end(), [&](size_t a, size_t b) {
                 return result[a].key.alt.size() < result[b].key.alt.size();

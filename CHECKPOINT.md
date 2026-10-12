@@ -18660,3 +18660,69 @@ SpanningReadIndex caches read ends and starts its scan at the first read
 that can reach a window. Output identical; full chr20 105 s -> 74 s. Remaining
 profile: MSA/alignment ~25%, read loading and digars ~12%, GAF parsing ~7%,
 per-region profile rebuild ~7%.
+
+## 2026-10-11: per-read allele confidence; speed
+
+**Per-read confidence at injected indels** (`ObservationErrors`). Realignment
+grades every read's call at an injected indel by its edit margin m between
+the called allele and the nearest competitor: error 1 / (1 + exp(3 m)), 0.047
+at one edit. MSA calls are kept, at 0.25 when realignment is undecided and
+0.35 when it disagrees. The EM combines this with the site's learned error.
+lambda 3 dominated lambda 2 on all three chromosomes. Arms correct /
+discordant / unphased, before -> after:
+chr12 521,470 / 2,507 / 2,240 -> 520,803 / 2,347 / 3,067;
+chr18 292,279 / 2,348 / 2,175 -> 291,758 / 2,037 / 3,007;
+chr20 216,134 / 1,084 / 2,068 -> 215,626 / 954 / 2,706.
+With it we have fewer discordant and fewer unphased arm reads than both
+HiPhase and LongPhase on all three chromosomes (LongPhase discordant 4,086,
+2,367 and 1,018; HiPhase unphased 4,769, 4,534 and 3,863), and 290-1,140
+fewer labels on reads that cross no heterozygote.
+
+**Speed** (output identical unless noted), full chromosome wall time on 10
+threads: chr12 133 -> 111 s, chr18 65 -> 62 s, chr20 72 -> 59 s.
+- `PGPHASE_TIMING=1` per-chunk stage timing. chr20 CPU: alignment solve 56%,
+  GAF scan 12%, union phasing 12%, catalog loading 11%, graph build 7%.
+- Catalog lines over 64 MB are skipped before parsing (giant snarls no read
+  observes; chunks 31 and 64-65 Mb spent ~10 s each parsing them).
+- Reads outside the MSA clusters are no longer aligned end-to-end to the
+  consensuses when their segment reaches max_noisy_reg_len (2 kb): one
+  123 bp region at chr12 55.30 Mb spent 35 s aligning 124 bp against 4-10 kb
+  segments. chr12 +2 / -2 reads, chr18 and chr20 identical.
+- The reference contig is normalized once at load instead of per lookup;
+  base-to-code switches are tables; read_base drops a no-op toupper.
+
+## 2026-10-12: rival-correct reads; nested substitutions; class prior
+
+Metrics now include correct / discordant / unphased percentages, arm switches
+and flips (`scripts/dev/score.py`). `scripts/dev/gaps.py` classifies our
+unphased phaseable reads and lists flips.
+
+**Nested substitutions** (`nested_substitutions`, collect_var.cpp). A SNP at
+the first base of a longer equal-length catalog record (a snarl spanning
+several SNPs) was treated as a competing allele and moved to the other
+haplotype, so it was written opposite to its own reads' tags. Both records
+are now kept, on the same haplotype. Arm flips 62 / 23 / 31 -> 32 / 9 / 16
+(chr12 / chr18 / chr20); read labels unchanged.
+
+**EM class prior and start** (union_em.cpp; see IMPLEMENTATION.md, Global
+EM). Arms correct / discordant / unphased, before -> after:
+chr12 520,805 / 2,345 / 3,067 -> 521,409 / 2,364 / 2,444;
+chr18 291,758 / 2,037 / 3,007 -> 292,640 / 2,140 / 2,022;
+chr20 215,626 / 954 / 2,706 -> 215,980 / 1,051 / 2,255.
+Arm switches 13 / 13 / 2 -> 12 / 14 / 6; flips 38 / 9 / 17.
+The prior alone held unlabelled islands at the 0.5 saddle (the noise-site
+unit test now uses 32 reads, a realistic depth for its claim); the start
+fixes that. Prior weight 3 gained less, 8 flipped a chr12 block.
+
+Measured and rejected: an error floor for homopolymer observations (0.05 to
+0.2: 3.6 to 8 correct reads lost per discordant removed on chr12); weak sites
+not teaching non-weak ones; dropping the 0.3 unreliable cut (+55 / +22 on
+chr12); leave-one-out errors in the block-cut test (chr12 -96 discordant,
+chr18 and chr20 -199 to -319 correct); keeping only the window's or only the
+site's call where a window covers a candidate (unstable across chromosomes).
+
+Open, traced: a locus window and the candidate inside it agree by
+construction, so a noisy locus can earn a low error and make a wrong join
+(chr12:122,284,562, 165 reads discordant, both rivals right); two-site
+islands anchor on the worse site (chr18:60,372,121: 87% SNP over 97% indel)
+without per-call quality; a maternal duplication collapsed at chr12 34.59 Mb.

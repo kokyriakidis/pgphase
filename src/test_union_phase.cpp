@@ -141,7 +141,10 @@ static void test_em_leaves_noise_unphased() {
     for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
     chunk.candidates.push_back(clean_snp(850));  // index 8: alleles unrelated to haplotype
     std::vector<int> truth;
-    add_tiled_reads(chunk, truth, 0, 7, 8);
+    // 32 reads: a sites learned error leans on its classs pooled error until
+    // its own reads outweigh the prior (kEmClassPriorReads), so the property
+    // under test -- a noise site at ordinary depth is rejected -- needs depth.
+    for (int rep = 0; rep < 8; ++rep) add_tiled_reads(chunk, truth, 0, 7, 8);
     for (size_t r = 0; r < chunk.read_var_profile.size(); ++r) {
         ReadVariantProfile& p = chunk.read_var_profile[r];
         p.alleles.push_back(static_cast<int>((r / 2) % 2) ^ static_cast<int>(r % 2) ^ truth[r]);
@@ -410,15 +413,17 @@ static void test_realign_recalls_indel() {
         bam.reads.push_back(std::move(rec));
     }
     finish_chunk(chunk);
-    const size_t changed = realign_indel_observations(chunk, bam);
+    ObservationErrors errors;
+    const size_t changed = realign_indel_observations(chunk, bam, &errors);
     check(changed == 4, "realign: the four missing calls filled, got " + std::to_string(changed));
     bool ok = true;
     for (int r = 0; r < 8; ++r) ok = ok && chunk.read_var_profile[static_cast<size_t>(r)].alleles[0] == (r % 2 == 0 ? 1 : 0);
     check(ok, "realign: each read takes the allele its sequence carries");
+    // Every graded call carries an error below one half; exact segments are confident.
+    bool graded = !errors.empty();
+    for (const auto& [key, e] : errors) graded = graded && e > 0.0 && e < 0.5;
+    check(graded, "realign: calls carry a per-read error in (0, 0.5)");
 }
-
-
-
 
 static void test_bridge_weak_sites() {
     // A one-base insertion into a long homopolymer is a weak bridge; a SNP and

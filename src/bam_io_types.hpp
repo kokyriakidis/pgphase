@@ -92,7 +92,7 @@ public:
         if (tid < 0 || tid >= header->n_targets || one_based_pos < 1) return 'N';
         load_contig(tid, header);
         if (one_based_pos > static_cast<hts_pos_t>(seq_.size())) return 'N';
-        return normalize_base(seq_[static_cast<size_t>(one_based_pos - 1)]);
+        return seq_[static_cast<size_t>(one_based_pos - 1)];  // normalized at load
     }
 
     /**
@@ -136,6 +136,8 @@ private:
         }
         seq_.assign(raw, raw + len);
         free(raw);
+        // Normalize once per contig rather than on every lookup.
+        for (char& c : seq_) c = normalize_base(c);
         loaded_tid_ = tid;
     }
 

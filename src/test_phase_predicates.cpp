@@ -719,13 +719,14 @@ std::vector<std::string> alts_of(const pgphase_collect::CandidateTable& t) {
 
 }  // namespace
 
-TEST_CASE("a contained allele loses to the complete one on the same haplotype",
+TEST_CASE("a SNP nested in a longer substitution on its haplotype is kept",
           "[conflict]") {
+    // Equal-length replacements, the SNP's change being the longer one's first
+    // base: one event described twice, not two alleles on one haplotype.
     pgphase_collect::CandidateTable t{conflict_record(288018, 1, "G", 1, 21),
                                       conflict_record(288018, 3, "GAG", 1, 18)};
     pgphase_collect::drop_conflicting_haplotype_alleles(t);
-    REQUIRE(t.size() == 1);
-    CHECK(alts_of(t) == std::vector<std::string>{"GAG"});
+    CHECK(t.size() == 2);
 }
 
 TEST_CASE("the same two alleles on OPPOSITE haplotypes are both kept",
@@ -755,6 +756,38 @@ TEST_CASE("equal depth breaks towards the shorter allele, deterministically",
     pgphase_collect::drop_conflicting_haplotype_alleles(t);
     REQUIRE(t.size() == 1);
     CHECK(alts_of(t) == std::vector<std::string>{"G"});
+}
+
+TEST_CASE("a SNP nested in a longer substitution is not moved to the other haplotype",
+          "[conflict]") {
+    // chr12:1,069,108: a 280 bp catalog record whose first base is the SNP's
+    // change, both on haplotype 2 with 29 alternate reads each. They are one
+    // event, so neither may be re-oriented, and both are written.
+    pgphase_collect::CandidateTable t{conflict_record(1069108, 1, "C", 2, 29),
+                                      conflict_record(1069108, 4, "CGAT", 2, 29)};
+    CHECK(pgphase_collect::make_colocated_alleles_complementary(t, 2) == 0);
+    CHECK(t[0].hap_to_cons_alle[2] == 1);
+    CHECK(t[1].hap_to_cons_alle[2] == 1);
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    CHECK(t.size() == 2);
+}
+
+TEST_CASE("a SNP that differs from the longer substitution's first base still conflicts",
+          "[conflict]") {
+    pgphase_collect::CandidateTable t{conflict_record(1069108, 1, "C", 2, 5),
+                                      conflict_record(1069108, 4, "GGAT", 2, 29)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"GGAT"});
+}
+
+TEST_CASE("two different substitutions at one position are still made complementary",
+          "[conflict]") {
+    pgphase_collect::CandidateTable t{conflict_record(1069108, 1, "C", 2, 20),
+                                      conflict_record(1069108, 4, "GGAT", 2, 29)};
+    CHECK(pgphase_collect::make_colocated_alleles_complementary(t, 2) == 1);
+    CHECK(t[0].hap_to_cons_alle[1] == 1);
+    CHECK(t[0].hap_to_cons_alle[2] == 0);
 }
 
 TEST_CASE("records at different positions are never compared", "[conflict]") {

@@ -9,6 +9,9 @@ Variants:
   em        the production algorithm (validation: should match the dump)
   loo       site phase and error learned leave-one-out (a site cannot
             confirm itself)
+  eb        empirical Bayes: each site's error shrunk toward its class's
+            pooled error (class = kind x weak), --prior-weight pseudo-reads
+  ebloo     eb, with each observation judged against the read's other evidence
   daem      deterministic annealing: posteriors tempered (beta 0.2 -> 1)
             during the first round, so starting labels cannot lock a site in
 Reports, for the dump's own labels and the variant's: arms_phaseable,
@@ -66,6 +69,7 @@ def solve(path):
             weak[s] |= bool(w)
             rr.append(ri); ss.append(s); bb.append(side); ee.append(e)
     rr, ss, bb, ee = map(np.array, (rr, ss, bb, ee))
+    cls = np.array([f"{kind[i]}{int(weak[i])}" for i in range(n)])
     if A.dedup_window > 0:
         # a window and the sites inside it are one locus: keep the window's call
         pos = np.array([k[0] for k in keys])
@@ -74,7 +78,17 @@ def solve(path):
         for i in np.flatnonzero(is_l[ss]):
             win_reads[rr[i]].append(pos[ss[i]])
         keep = np.ones(len(rr), dtype=bool)
+        site_reads = collections.defaultdict(list)
+        for i in np.flatnonzero(~is_l[ss]):
+            site_reads[rr[i]].append(pos[ss[i]])
         for i in range(len(rr)):
+            if A.dedup_keep == "site":
+                if not is_l[ss[i]]:
+                    continue
+                wp = pos[ss[i]]
+                if any(wp <= sp < wp + A.dedup_window for sp in site_reads.get(rr[i], ())):
+                    keep[i] = False
+                continue
             if is_l[ss[i]]:
                 continue
             for wp in win_reads.get(rr[i], ()):
@@ -131,12 +145,28 @@ def solve(path):
             num = np.bincount(ss, weights=w * (dis - (1 - np.abs(2 * q - 1)) / 2), minlength=n)
             err = np.clip((num + A.prior_weight * A.prior) / (den + A.prior_weight), EMIN, EMAX)
             return
+        if A.variant in ("ebloo",) and m_step.started:
+            l1, l2 = lls()
+            t1 = np.bincount(rr, weights=l1, minlength=nr)
+            t2 = np.bincount(rr, weights=l2, minlength=nr)
+            d = np.clip((t2[rr] - l2) - (t1[rr] - l1), -700, 700)
+            q = 1 / (1 + np.exp(d))
         w0 = np.bincount(ss, weights=w * np.where(bb == 0, q, 1 - q), minlength=n)
         w1 = np.bincount(ss, weights=w * np.where(bb == 1, q, 1 - q), minlength=n)
         tot = w0 + w1
         upd = tot >= 1e-6
         phase = np.where(upd, np.where(w0 >= w1, 0, 1), phase)
-        err = np.where(upd, np.clip(np.minimum(w0, w1) / np.where(upd, tot, 1), EMIN, EMAX), err)
+        if A.variant in ("eb", "ebloo") and m_step.started:
+            # empirical Bayes: shrink each site's error toward its class's pooled error
+            mn = np.minimum(w0, w1)
+            mu = np.zeros(n)
+            for c in np.unique(cls):
+                sel = cls == c
+                den = tot[sel].sum()
+                mu[sel] = mn[sel].sum() / den if den > 0 else OTHER0
+            err = np.where(upd, np.clip((mn + A.prior_weight * mu) / (tot + A.prior_weight), EMIN, EMAX), err)
+        else:
+            err = np.where(upd, np.clip(np.minimum(w0, w1) / np.where(upd, tot, 1), EMIN, EMAX), err)
         m_step.started = True
     m_step.started = False
 
@@ -194,8 +224,27 @@ def solve(path):
         phase[worst + 1:] ^= 1
         flip = has_obs & (first_s > worst)
         post = np.where(flip, 1 - post, post)
-    delta = boundary_delta(True)
-    strong = boundary_delta(True, True)
+    if A.loo_cut:
+        # join test with leave-one-out site errors: a site cannot vouch for itself
+        l1, l2 = lls()
+        t1 = np.bincount(rr, weights=l1, minlength=nr)
+        t2 = np.bincount(rr, weights=l2, minlength=nr)
+        d = np.clip((t2[rr] - l2) - (t1[rr] - l1), -700, 700)
+        q = 1 / (1 + np.exp(d))
+        w = learns[rr].astype(float)
+        w0 = np.bincount(ss, weights=w * np.where(bb == 0, q, 1 - q), minlength=n)
+        w1 = np.bincount(ss, weights=w * np.where(bb == 1, q, 1 - q), minlength=n)
+        tot = w0 + w1
+        e_loo = np.where(tot >= 1e-6, np.minimum(w0, w1) / np.where(tot >= 1e-6, tot, 1), EMAX)
+        e_loo = (e_loo * tot + A.prior_weight * err) / (tot + A.prior_weight)
+        saved = err.copy()
+        err = np.clip(np.maximum(err, e_loo), EMIN, EMAX)
+        delta = boundary_delta(True)
+        strong = boundary_delta(True, True)
+        err = saved
+    else:
+        delta = boundary_delta(True)
+        strong = boundary_delta(True, True)
     # reads with observations on both sides of each boundary
     span = np.zeros(n + 1)
     starts = np.r_[0, np.flatnonzero(np.diff(rr)) + 1]
@@ -239,6 +288,8 @@ def main():
     ap.add_argument("--unrel", type=float, default=UNREL, help="site error at which a site stops labelling")
     ap.add_argument("--min-join-reads", type=int, default=0)
     ap.add_argument("--dedup-window", type=int, default=0)
+    ap.add_argument("--loo-cut", action="store_true")
+    ap.add_argument("--dedup-keep", default="window", choices=["window", "site"])
     ap.add_argument("--prior", type=float, default=0.2)
     ap.add_argument("--prior-weight", type=float, default=2.0)
     args = ap.parse_args()

@@ -90,7 +90,7 @@ regions_bed() { [[ "${tier}" == quick ]] && echo "--regions ${here}/quick_region
 
 run_dir() {
     local bin="${PGDEV_BIN:-${root}/pgphase}" key
-    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; } | sha256sum | cut -c1-12)"
+    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; env | grep "^PGPHASE_" | grep -v "^PGPHASE_\(TIMING\|EM_DUMP\)=" | sort; } | sha256sum | cut -c1-12)"
     echo "${runs}/${tier}-${key}"
 }
 

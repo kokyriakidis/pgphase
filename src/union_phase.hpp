@@ -12,9 +12,18 @@
 
 #include <cstddef>
 #include <tuple>
+#include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 namespace pgphase_collect {
+
+/// Error of one read's call at one candidate, from how decisively its own
+/// sequence realigns to the called allele: (read << 32 | candidate) -> error.
+using ObservationErrors = std::unordered_map<uint64_t, double>;
+inline uint64_t observation_key(size_t read, size_t candidate) {
+    return (static_cast<uint64_t>(read) << 32) | static_cast<uint64_t>(candidate);
+}
 
 /// Merge an alignment chunk's sample-specific heterozygotes into a graph chunk.
 ///
@@ -64,7 +73,8 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
 /// flank) is aligned to the reference context with REF and with ALT and takes
 /// the closer allele, or no call on a tie. Only reads covering the whole window
 /// with a call slot at the site are re-called. Returns calls changed.
-size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam);
+size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam,
+                                  ObservationErrors* errors = nullptr);
 
 /// Add the alignment's primary reads (MAPQ >= 20) that the graph chunk lacks,
 /// with no observations. Returns a per-read flag marking the added reads.
@@ -93,7 +103,8 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
 /// strongest. Returns the number of phase blocks.
 size_t phase_chunk_by_global_em(PhasingChunk& chunk,
                                 const std::vector<LocusWindowSite>* loci = nullptr,
-                                const std::vector<char>* bridge_weak = nullptr);
+                                const std::vector<char>* bridge_weak = nullptr,
+                                const ObservationErrors* errors = nullptr);
 
 /// After the clean stage: EM, local haplotype windows seeded by its read
 /// labels, then EM over sites and windows together.

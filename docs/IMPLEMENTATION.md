@@ -213,7 +213,10 @@ Per chunk, in order:
 
 1. **Alignment solve.** `process_chunk` over the chunk's span
    (`union_alignment_options`: reads from MAPQ 1, noisy-region MSA only for
-   regions up to 2 kb), unchanged otherwise.
+   regions up to 2 kb), unchanged otherwise. The same 2 kb bound applies to
+   each read segment that is aligned end-to-end against the MSA consensuses
+   to give reads outside the clusters a call: a segment carrying a multi-kb
+   insertion is skipped there (one such region on chr12 cost 35 s).
 2. **Injection** (`inject_alignment_sites`).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk, each needing both of its two most observed
@@ -266,6 +269,17 @@ Per chunk, in order:
      (`msa_insertion_alts`) are called against REF and every insertion.
    - *Why.* Pileup and MSA calls at repeat indels are too noisy for the EM
      (learned error ≥ 0.3), while exact-allele realignment is not.
+   - *Per-read confidence* (`ObservationErrors`). Every call at an injected
+     indel carries its own error, which the EM combines with the site's
+     learned error. A read whose segment is m edits closer to the called
+     allele than to its nearest competitor gets 1 / (1 + exp(3 m)): 0.047 at
+     one edit, 0.0025 at two. Where the MSA called the read, its call is kept
+     at error 0.25 if realignment cannot decide and 0.35 if realignment
+     calls the other allele. A homopolymer-length call decided by one edit
+     therefore weighs less than a clean SNP. Measured on chr12, chr18 and
+     chr20 (arms_phaseable): -667 / -160, -521 / -311 and -508 / -130
+     correct / discordant, and 290-1,140 fewer labels on reads that cross no
+     heterozygote.
 6. **Global EM, pass 1** (`phase_chunk_by_global_em`).
    - *Model.* Every voting site with two observed alleles gets a phase and its
      own error rate, starting at 0.05 for clean sites and 0.2 for others. Every
@@ -275,6 +289,19 @@ Per chunk, in order:
      reads at random.
    - *Learning.* Only reads with MAPQ 20 or more update the model and decide
      switch moves. Lower reads are scored against it and labelled.
+   - *Class prior* (`kEmClassPriorReads`). A site's learned error is its
+     reads' disagreement rate shrunk toward the pooled rate of its class in the
+     chunk by 5 pseudo-reads (empirical Bayes). Classes are clean catalog het,
+     other catalog site, injected site and locus window, each split by weak
+     (below). Two sites that share their reads and disagree are otherwise
+     symmetric, and whichever the starting labels follow is believed: a
+     homopolymer length call rejected a clean SNP at chr12:6,134,662 that
+     split 59 reads exactly by parent.
+   - *Start.* Reads with a clean-stage label start at posterior 0.95 / 0.05.
+     The others start from an E-step under the sites' initial orientation and
+     starting errors, not from 0.5: at 0.5 every site's first error estimate
+     is 0.5, a saddle the class prior holds an island of sites in
+     (chr18:60,372,121, 75 reads, no read labelled).
    - *Switch moves.* After 15 EM iterations, all sites right of the most
      negative boundary are flipped while any boundary's log-likelihood delta is
      negative, up to 30 rounds.
@@ -343,6 +370,14 @@ Per chunk, in order:
      are skipped.
 9. **Global EM, pass 2.** The same solve with both kinds of windows added as
    locus-level sites carrying per-read errors.
+### Catalog records
+
+`load_sites_for_region` skips a catalog line longer than 64 MB
+(`kMaxSiteRecordBytes`) before parsing it. Such records are snarls with
+hundreds of megabase-scale alleles (chr20: 130-700 MB lines, up to 436
+alleles of about 1 Mb); no read on HG002 chr12, chr18 or chr20 observes one,
+and parsing them, once per overlapping chunk, was 11% of a chr20 run.
+
 ### Test gates
 
 - `make unit-tests` builds and runs seven binaries: `test_allele_identity`,

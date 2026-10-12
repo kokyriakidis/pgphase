@@ -64,19 +64,20 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
     }
     // Pileup calls at repeat indels are unreliable; the alignment's indel sites
     // are re-called per read by realignment to their two exact alleles.
-    if (bam != nullptr) realign_indel_observations(chunk, *bam);
+    ObservationErrors errors;
+    if (bam != nullptr) realign_indel_observations(chunk, *bam, &errors);
     // The first solve labels reads where the clean stage could not (dense
     // noisy regions); those labels seed the windows the second solve adds.
     const std::vector<char> weak = bam != nullptr ? bridge_weak_sites(graph_chunk, *bam) : std::vector<char>{};
     const std::vector<char>* weak_ptr = bam != nullptr ? &weak : nullptr;
-    phase_chunk_by_global_em(chunk, nullptr, weak_ptr);
+    phase_chunk_by_global_em(chunk, nullptr, weak_ptr, &errors);
     std::vector<LocusWindowSite> loci;
     if (bam != nullptr) {
         loci = build_locus_window_sites(*bam, chunk);
         std::vector<LocusWindowSite> alleles = build_allele_window_sites(*bam, graph_chunk, loci);
         loci.insert(loci.end(), std::make_move_iterator(alleles.begin()), std::make_move_iterator(alleles.end()));
     }
-    phase_chunk_by_global_em(chunk, &loci, weak_ptr);
+    phase_chunk_by_global_em(chunk, &loci, weak_ptr, &errors);
 }
 
 } // namespace pgphase_collect

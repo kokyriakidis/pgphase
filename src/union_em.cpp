@@ -25,6 +25,9 @@ constexpr double kEmBlockCutLogLikelihood = 4.0;
 // The cut for joins carried only by weak sites (see bridge_weak_sites).
 constexpr double kEmWeakBridgeCutLogLikelihood = 10.0;
 constexpr int kEmLearnMinMapq = 20;
+// Pseudo-reads with which each site's learned error is shrunk toward the
+// pooled error of its class in the chunk (empirical Bayes; see m_step).
+constexpr double kEmClassPriorReads = 5.0;
 // Reads that must span a block boundary, with evidence on both sides, for the
 // blocks to join: one molecule can be chimeric, mis-placed or mis-called, and
 // its likelihood alone can clear the cut (measured on chr18 at 38.34 Mb: one
@@ -50,7 +53,8 @@ static void set_site_phase(CandidateVariant& c, hts_pos_t ps, int hap1_allele, i
 }
 
 size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
-                                const std::vector<char>* bridge_weak) {
+                                const std::vector<char>* bridge_weak,
+                                const ObservationErrors* errors) {
     struct EmSite { long locus; size_t ci; int x; int y; hts_pos_t pos; };  // locus < 0: candidate
     struct EmObs { int s; int b; double e; };
     // Sites in position order with their two-allele contrast; a locus window
@@ -113,8 +117,13 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             const int s = site_of[static_cast<size_t>(prof.start_var_idx) + k];
             if (s < 0 || prof.alleles[k] < 0) continue;
             const EmSite& site = sites[static_cast<size_t>(s)];
-            if (prof.alleles[k] == site.x) robs[ri].push_back(EmObs{s, 0, 0.0});
-            else if (prof.alleles[k] == site.y) robs[ri].push_back(EmObs{s, 1, 0.0});
+            double e = 0.0;
+            if (errors != nullptr) {
+                const auto it = errors->find(observation_key(ri, static_cast<size_t>(prof.start_var_idx) + k));
+                if (it != errors->end()) e = it->second;
+            }
+            if (prof.alleles[k] == site.x) robs[ri].push_back(EmObs{s, 0, e});
+            else if (prof.alleles[k] == site.y) robs[ri].push_back(EmObs{s, 1, e});
         }
     }
     for (size_t li = 0; li < n_locus; ++li)
@@ -134,6 +143,33 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     const auto obs_error = [&](const EmObs& o) {
         return std::min(kEmMaxError, 1.0 - (1.0 - err[static_cast<size_t>(o.s)]) * (1.0 - o.e));
     };
+    // Weak sites (see bridge_weak_sites) are phased but cannot hold blocks
+    // together: the final cuts are judged on the other sites' evidence.
+    std::vector<char> site_weak(n, 0);
+    if (bridge_weak != nullptr)
+        for (size_t k = 0; k < n; ++k)
+            if (sites[k].locus < 0 && sites[k].ci < bridge_weak->size()) site_weak[k] = (*bridge_weak)[sites[k].ci];
+    // Site classes for the error prior: clean catalog het, other catalog
+    // site, alignment-injected site, locus window -- each split by weak.
+    std::vector<int> site_class(n);
+    for (size_t k = 0; k < n; ++k) {
+        int kind = 3;
+        if (sites[k].locus < 0) {
+            const CandidateVariant& c = chunk.candidates[sites[k].ci];
+            kind = c.bam_injected ? 2
+                 : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 0 : 1;
+        }
+        site_class[k] = 2 * kind + (site_weak[k] ? 1 : 0);
+    }
+    bool m_started = false;
+    // A site's error is its reads' disagreement rate, shrunk toward the pooled
+    // rate of its class by kEmClassPriorReads pseudo-reads. Two sites that
+    // share their reads and disagree are otherwise symmetric: whichever the
+    // starting labels follow reads error 0.01 and the other ~0.3, so a
+    // homopolymer length call could reject a clean SNP (chr12:6,134,662, 35
+    // paternal and 24 maternal reads all split by the SNP, rejected at 0.316
+    // against a +T/+TT call that does not separate the parents). The class
+    // pools say how often each kind of site is wrong in this chunk.
     const auto m_step = [&]() {
         std::vector<std::array<double, 2>> w(n, {0.0, 0.0});  // hap1 weight per side
         for (size_t ri = 0; ri < robs.size(); ++ri) {
@@ -143,12 +179,22 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 w[static_cast<size_t>(o.s)][static_cast<size_t>(1 - o.b)] += 1.0 - post[ri];
             }
         }
+        std::array<double, 8> class_minor{}, class_total{};
+        for (size_t k = 0; k < n; ++k) {
+            class_minor[static_cast<size_t>(site_class[k])] += std::min(w[k][0], w[k][1]);
+            class_total[static_cast<size_t>(site_class[k])] += w[k][0] + w[k][1];
+        }
+        const double shrink = m_started ? kEmClassPriorReads : 0.0;
         for (size_t k = 0; k < n; ++k) {
             const double total = w[k][0] + w[k][1];
             if (total < 1e-6) continue;
             phase[k] = w[k][0] >= w[k][1] ? 0 : 1;
-            err[k] = std::min(kEmMaxError, std::max(kEmMinError, std::min(w[k][0], w[k][1]) / total));
+            const size_t c = static_cast<size_t>(site_class[k]);
+            const double pooled = class_total[c] > 0.0 ? class_minor[c] / class_total[c] : kEmOtherStartError;
+            const double e = (std::min(w[k][0], w[k][1]) + shrink * pooled) / (total + shrink);
+            err[k] = std::min(kEmMaxError, std::max(kEmMinError, e));
         }
+        m_started = true;
     };
     const auto read_log_likelihoods = [&](const EmObs& o) -> std::array<double, 2> {
         const double e = obs_error(o);
@@ -172,12 +218,6 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // the reads that teach the model or, for block cuts, over every read: a
     // read too ambiguously mapped to shape the model still shows the molecule
     // continues across the boundary.
-    // Weak sites (see bridge_weak_sites) are phased but cannot hold blocks
-    // together: the final cuts are judged on the other sites' evidence.
-    std::vector<char> site_weak(n, 0);
-    if (bridge_weak != nullptr)
-        for (size_t k = 0; k < n; ++k)
-            if (sites[k].locus < 0 && sites[k].ci < bridge_weak->size()) site_weak[k] = (*bridge_weak)[sites[k].ci];
     const auto boundary_delta = [&](bool every_read, bool strong_only = false) {
         std::vector<double> diff(n + 1, 0.0);
         std::vector<EmObs> strong;
@@ -222,6 +262,25 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // EM, then switch moves: flip everything right of the worst boundary while
     // that raises the likelihood.
     std::vector<double> delta;
+    // Reads the clean stage left unlabelled start from an E-step under the
+    // sites' initial orientation and starting errors, not from 0.5. At 0.5
+    // every site's first M-step error is 0.5 -- a saddle -- and the class
+    // prior holds an island there: two sites shared by 75 reads at
+    // chr18:60,372,121, 97% pure against the parents, stayed at error 0.45
+    // with no read labelled.
+    {
+        for (size_t ri = 0; ri < robs.size(); ++ri) {
+            if (robs[ri].empty() || start_label[ri] != 0) continue;
+            double l1 = 0.0, l2 = 0.0;
+            for (const EmObs& o : robs[ri]) {
+                const auto ll = read_log_likelihoods(o);
+                l1 += ll[0];
+                l2 += ll[1];
+            }
+            const double d = l2 - l1;
+            post[ri] = d > 700 ? 0.0 : d < -700 ? 1.0 : 1.0 / (1.0 + std::exp(d));
+        }
+    }
     for (int round = 0; round < kEmSwitchRounds; ++round) {
         for (int it = 0; it < kEmIterations; ++it) {
             m_step();

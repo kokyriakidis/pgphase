@@ -3,6 +3,7 @@
 #include "collect_var.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
@@ -307,8 +308,7 @@ inline void maybe_dump_debug_site(const Options& opts, const bam_hdr_t* header, 
 char read_base(const bam1_t* aln, int qi) {
     if (qi < 0 || qi >= aln->core.l_qseq) return 'N';
     const uint8_t* seq = bam_get_seq(aln);
-    char base = seq_nt16_str[bam_seqi(seq, qi)];
-    base = static_cast<char>(std::toupper(static_cast<unsigned char>(base)));
+    const char base = seq_nt16_str[bam_seqi(seq, qi)];  // already uppercase
     return base == '=' ? 'N' : base;
 }
 
@@ -831,18 +831,16 @@ static bool build_digars_md_cigar(const bam1_t* aln,
 }
 
 static int cs_char_to_nt4(char c) {
-    switch (std::toupper(static_cast<unsigned char>(c))) {
-        case 'A':
-            return 0;
-        case 'C':
-            return 1;
-        case 'G':
-            return 2;
-        case 'T':
-            return 3;
-        default:
-            return 4;
-    }
+    static const std::array<int8_t, 256> table = [] {
+        std::array<int8_t, 256> t{};
+        t.fill(4);
+        t['A'] = t['a'] = 0;
+        t['C'] = t['c'] = 1;
+        t['G'] = t['g'] = 2;
+        t['T'] = t['t'] = 3;
+        return t;
+    }();
+    return table[static_cast<unsigned char>(c)];
 }
 
 /**

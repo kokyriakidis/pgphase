@@ -246,6 +246,8 @@ void append_graph_site_from_vcf_data_line(const char* buf,
 // Load sites from a tabix-indexed VCF, restricted to the given regions.
 // Handles pangenome path name mismatches (e.g. filter asks for "chr20" but
 // VCF uses "CHM13#0#chr20") via suffix matching.
+constexpr size_t kMaxSiteRecordBytes = size_t{64} << 20;
+
 void append_graph_sites_tabix_filtered(htsFile* fp,
                                        tbx_t* tbx,
                                        const std::vector<RegionFilter>& filters,
@@ -301,6 +303,11 @@ void append_graph_sites_tabix_filtered(htsFile* fp,
                            make_rstr(it->second, filter.beg, filter.end).c_str()));
         if (!itr) continue;
         while (tbx_itr_next(fp, tbx, itr.get(), &str) >= 0) {
+            // A record this large is a snarl with hundreds of megabase-scale
+            // alleles (chr20: 130-700 MB lines, up to 436 alleles of ~1 Mb).
+            // No read on HG002 chr12/18/20 observes one, and parsing them was
+            // 11% of the run, concentrated in a few chunks.
+            if (str.l > kMaxSiteRecordBytes) continue;
             if (str.l > 0)
                 append_graph_site_from_vcf_data_line(str.s, str.l, catalog,
                                                      keep_allele_traversal_strings);

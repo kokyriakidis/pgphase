@@ -98,7 +98,19 @@ static void widen_profile(ReadVariantProfile& p, int lo, int hi) {
     p.end_var_idx = hi;
 }
 
-size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam) {
+// A read's realignment margin m (edits between the called allele and the
+// closest competitor) sets its error 1 / (1 + exp(lambda * m)); where the MSA
+// called the read and realignment cannot decide, or decides the other way,
+// the MSA call is kept at these errors.
+constexpr double kMarginErrorLambda = 3.0;
+constexpr double kMsaUndecidedError = 0.25;
+constexpr double kMsaContradictedError = 0.35;
+
+static double margin_error(int margin) {
+    return 1.0 / (1.0 + std::exp(kMarginErrorLambda * margin));
+}
+
+size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, ObservationErrors* errors) {
     if (bam.ref_seq.empty()) return 0;
     const ReferenceView ref{bam};
     const SpanningReadIndex index(bam, chunk);
@@ -110,6 +122,7 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam) 
     for (ReadVariantProfile& p : chunk.read_var_profile)
         if (p.read_id >= 0 && static_cast<size_t>(p.read_id) < profile_of.size()) profile_of[p.read_id] = &p;
     std::map<size_t, std::vector<std::pair<size_t, int>>> calls;  // read -> (candidate, allele or -1)
+    std::map<std::pair<size_t, size_t>, int> margins;               // (read, candidate) -> edit margin
     std::vector<LocusAllele> locus_alleles;
     for (const CandidateVariant& c : chunk.candidates) {
         if (!c.bam_injected || c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
@@ -149,6 +162,16 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam) 
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
             if (profile_of[ri] == nullptr) continue;
             calls[ri].emplace_back(ci, closest_allele_call(seq, hap_alt, competitors, 1));
+            if (errors != nullptr) {
+                const int d1 = locus_edit_distance(seq, hap_alt);
+                int d0 = -1;
+                for (const std::string& h : competitors) {
+                    if (h == hap_alt) continue;
+                    const int d = locus_edit_distance(seq, h);
+                    if (d0 < 0 || d < d0) d0 = d;
+                }
+                if (d0 >= 0) margins[{ri, ci}] = std::abs(d0 - d1);
+            }
         }
     }
     // Every read spanning the site's window is re-called there, its range
@@ -167,10 +190,18 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam) 
         for (const auto& [ci, a] : list) {
             if (static_cast<int>(ci) < lo || static_cast<int>(ci) > hi) continue;
             int& slot = prof->alleles[ci - static_cast<size_t>(lo)];
+            const auto mg = margins.find({ri, ci});
             // The MSA already called this read here; realignment only fills reads
-            // it did not call.
-            if (slot >= 0) continue;
+            // it did not call, and grades the calls it did.
+            if (slot >= 0) {
+                if (errors != nullptr && mg != margins.end())
+                    (*errors)[observation_key(ri, ci)] =
+                        a < 0 ? kMsaUndecidedError : a != slot ? kMsaContradictedError : margin_error(mg->second);
+                continue;
+            }
             if (slot != a) { slot = a; ++changed; }
+            if (errors != nullptr && a >= 0 && mg != margins.end())
+                (*errors)[observation_key(ri, ci)] = margin_error(mg->second);
         }
     }
     if (changed > 0) rebuild_read_var_cr(chunk);
