@@ -1141,6 +1141,70 @@ static void refresh_assigned_msa_observations(const Options& opts,
     const std::array<std::vector<AlnStr>, 2>& alignments, hts_pos_t ref_beg,
     std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles);
 
+// Diagnostic (Options::diag_dir): every variant a noisy-region MSA calls
+// (msa.TID.BEG.tsv, appended per region). A line is the region's first
+// reference position and length; reads in the two clusters; per cluster
+// consensus, its reference bases aligned and its longest reference stretch
+// with no consensus base (a large deletion on that haplotype); then the
+// variant's VCF-convention position, type, REF length, ALT, category, whether
+// the first and second consensus carry it, and its read calls REF / ALT /
+// missing before and after the refresh of assigned reads.
+static void write_msa_diag(const Options& opts, const PhasingChunk& chunk, hts_pos_t reg_beg,
+                           const std::array<int, 2>& clu_n_seqs,
+                           const std::array<std::vector<AlnStr>, 2>& aln_strs,
+                           const std::vector<CandidateVariant>& vars,
+                           const std::vector<CandidateVariant>& hap1_vars,
+                           const std::vector<CandidateVariant>& hap2_vars,
+                           const std::vector<ReadVariantProfile>& before,
+                           const std::vector<ReadVariantProfile>& after) {
+    if (opts.diag_dir.empty() || vars.empty()) return;
+    const std::string path = opts.diag_dir + "/msa." + std::to_string(chunk.region.tid) + "." +
+                             std::to_string(chunk.region.beg) + ".tsv";
+    FILE* fh = std::fopen(path.c_str(), "a");
+    if (fh == nullptr) return;
+    int ref_len = 0;
+    std::array<int, 2> aligned{0, 0}, longest_gap{0, 0};
+    for (int ci = 0; ci < 2; ++ci) {
+        if (aln_strs[static_cast<size_t>(ci)].empty()) continue;
+        const AlnStr& a = aln_strs[static_cast<size_t>(ci)][0];
+        int refs = 0, run = 0;
+        for (int i = 0; i < a.aln_len; ++i) {
+            if (a.target_aln[i] == kGapBase) continue;
+            ++refs;
+            if (a.query_aln[i] != kGapBase) { ++aligned[static_cast<size_t>(ci)]; run = 0; }
+            else longest_gap[static_cast<size_t>(ci)] = std::max(longest_gap[static_cast<size_t>(ci)], ++run);
+        }
+        ref_len = std::max(ref_len, refs);
+    }
+    const auto has = [](const std::vector<CandidateVariant>& list, const CandidateVariant& v) {
+        for (const CandidateVariant& h : list)
+            if (h.key.pos == v.key.pos && h.key.type == v.key.type && h.key.ref_len == v.key.ref_len &&
+                h.key.alt == v.key.alt) return 1;
+        return 0;
+    };
+    const auto tally = [](const std::vector<ReadVariantProfile>& profiles, size_t vi) {
+        std::array<int, 3> t{0, 0, 0};
+        for (const ReadVariantProfile& pr : profiles) {
+            if (static_cast<int>(vi) < pr.start_var_idx || static_cast<int>(vi) > pr.end_var_idx) continue;
+            const int al = pr.alleles[vi - static_cast<size_t>(pr.start_var_idx)];
+            ++t[al < 0 ? 2 : al > 0 ? 1 : 0];
+        }
+        return t;
+    };
+    for (size_t vi = 0; vi < vars.size(); ++vi) {
+        const CandidateVariant& v = vars[vi];
+        const char type = v.key.type == VariantType::Snp ? 'S' : v.key.type == VariantType::Insertion ? 'I' : 'D';
+        const auto b = tally(before, vi), a = tally(after, vi);
+        std::fprintf(fh, "%lld\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d,%d,%d\t%d,%d,%d\n",
+                     static_cast<long long>(reg_beg), ref_len, clu_n_seqs[0], clu_n_seqs[1], aligned[0],
+                     longest_gap[0], aligned[1], longest_gap[1], static_cast<long long>(v.key.sort_pos()), type,
+                     v.key.ref_len, v.key.alt.empty() ? "." : v.key.alt.substr(0, 40).c_str(),
+                     static_cast<int>(v.counts.category), has(hap1_vars, v), has(hap2_vars, v),
+                     b[0], b[1], b[2], a[0], a[1], a[2]);
+    }
+    std::fclose(fh);
+}
+
 int make_vars_from_msa_cons_aln(
     const Options& opts, PhasingChunk& chunk,
     int /*n_noisy_reads*/, const std::vector<int>& /*read_ids*/,
@@ -1178,6 +1242,8 @@ int make_vars_from_msa_cons_aln(
             clu_n_seqs[0], clu_read_ids[0], clu_aln_strs,
             noisy_reg_beg, noisy_vars, noisy_rvp);
         for (CandidateVariant& var : noisy_vars) update_variant_depth_fields(var);
+        write_msa_diag(opts, chunk, noisy_reg_beg, clu_n_seqs, aln_strs, noisy_vars, noisy_vars, noisy_vars,
+                       noisy_rvp, noisy_rvp);
         return static_cast<int>(noisy_vars.size());
     }
 
@@ -1219,9 +1285,13 @@ int make_vars_from_msa_cons_aln(
     // without the refresh it was counted 3 ref / 1 alt. It is also why eight of
     // the seventy-six candidates shared with the hybrid arm on
     // chr20:48,176,830-48,229,446 carried different counts.
+    std::vector<ReadVariantProfile> before_refresh;
+    if (!opts.diag_dir.empty()) before_refresh = noisy_rvp;
     if (opts.refresh_msa_observations && !aln_strs[0].empty() && !aln_strs[1].empty())
         refresh_assigned_msa_observations(opts, clu_n_seqs, clu_read_ids, aln_strs,
                                            noisy_reg_beg, noisy_vars, noisy_rvp);
+    write_msa_diag(opts, chunk, noisy_reg_beg, clu_n_seqs, aln_strs, noisy_vars, hap1_vars, hap2_vars,
+                   before_refresh, noisy_rvp);
     return static_cast<int>(noisy_vars.size());
 }
 
@@ -1536,7 +1606,36 @@ static int msa_site_event_allele(const MsaSiteSlice& site, const VariantKey& key
         if (other.query.size() > site.ref.size() && site.query == other.query)
             return 0;
     }
+    // The same contrast for any event: the haplotype without this ALT may
+    // carry something else here -- a deletion or insertion of another length
+    // (a 1/2 site written as two records), or an insertion just before a
+    // substitution. A read matching that haplotype's complete consensus
+    // exactly carries its allele, which is absence of this ALT. Without this,
+    // the refresh erased those reads' calls and left a true heterozygote with
+    // one allele: chr20:34,193,792 (12 bp and 3 bp deletions of one repeat)
+    // kept 0 of 28 such reads, and the site was dropped from the union.
+    if (context[0].covered && context[1].covered &&
+        context[0].ref == site.ref && context[1].ref == site.ref &&
+        (context[0].query == alt) != (context[1].query == alt)) {
+        const auto& other = context[context[0].query == alt ? 1 : 0];
+        if (site.query == other.query) return 0;
+    }
     return -1;
+}
+
+int msa_site_allele_from_sequences(const VariantKey& key, const std::string& ref,
+                                   const std::array<std::string, 2>& consensus, const std::string& read) {
+    const auto slice = [&ref](const std::string& query) {
+        MsaSiteSlice site;
+        site.ref = ref;
+        site.query = query;
+        site.flank_ref = {"ACG", "TCA"};
+        site.flank_query = site.flank_ref;
+        site.covered = true;
+        return site;
+    };
+    const std::array<MsaSiteSlice, 2> context = {slice(consensus[0]), slice(consensus[1])};
+    return msa_site_event_allele(slice(read), key, context);
 }
 
 static int call_msa_site_with_context(const std::array<AlnStr, 2>& alignments,

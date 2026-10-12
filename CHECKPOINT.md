@@ -18912,3 +18912,57 @@ Measured and rejected:
 Diagnostics: inj.* now carries the alignment solve's labelled reads and how
 many carry their haplotype's consensus allele; funnel --support handles
 rival sites that are not truth hets.
+
+## 2026-10-13 (later): absence of an ALT in the MSA refresh; strong joins need reads
+
+Harness for gaps a rival closes with a clean site (scripts/dev):
+- `pg gapsites`: per gap, the rival's sites there (snp / indel / str /
+  homopolymer, truth), our furthest stage with its reason, the MSA record
+  for sites short of a reliable EM site, and our calls on the gap reads.
+- `pg reads REGION`: every read against every truth het, rival site and EM
+  site, its allele in the alignment solve and in the EM against its truth
+  haplotype.
+- New PGPHASE_DIAG dumps: joins.* (every EM cut decision: margin, margin
+  without weak sites, reads crossing, reads with strong evidence crossing),
+  msa.* (every noisy-region MSA call: cluster sizes, consensus coverage,
+  read calls before / after the refresh), alnreads.* (each read's calls in
+  the alignment solve). `pg inspect` shows the MSA calls and the joins.
+  Read tags are cached per run (score.read_tags), 1m45s -> 4s per locus.
+
+MSA refresh (collect_phase_noisy.cpp): a read matching the complete
+consensus of the haplotype without the ALT is absence of the ALT (0). The
+refresh had erased those calls whenever that haplotype carries another
+event at the site, leaving one-sided true hets the injection gate dropped
+(chr12:71,347,041, a SNP beside the other haplotype's +1 insertion, lost
+20 of 33 calls; chr20:34,193,792, 12 bp and 3 bp deletions, 28 of 52).
+
+Joins (union_em.cpp, kEmMinStrongJoinReads = 3): the fix exposed a wrong
+join at chr12:118.48-118.50 Mb (1,114 reads) that joins.* and `pg reads`
+traced to a strong margin of 5.2 from two reads plus a homopolymer call at
+error 0.27. A join's strong margin now needs 3 reads with strong evidence
+across the boundary, else it is a weak bridge (margin 10).
+
+Both, against 0eec1f8 (arms_phaseable correct / discordant / unphased):
+chr12 522,341 / 2,164 / 1,712 (+145 / -42 / -103), chr18 293,860 / 1,564 /
+1,378 (+117 / +30 / -147), chr20 216,467 / 1,083 / 1,736 (+71 / +49 /
+-120); arm switches 11 / 17 / 6. Unit tests: test_em_join_needs_strong_reads,
+test_msa_absence_of_alt (both fail without their change).
+
+Measured and rejected:
+- Homopolymer length genotyper as a gate (blocking calls it scores as one
+  length): two wrong joins on chr20 (-466 correct / +993 discordant). As a
+  score it separates real from noise in runs >= 13 bp (AUC 0.94-0.96); the
+  shasta2 ONT table and strand / flank conditioning add nothing on HiFi.
+- Admitting repeat het indels the genotyper scores as two lengths: all
+  isolated ones -10 / +73 (chr12), -47 / +84 (chr18); only those 2 kb from
+  any EM site: chr18 -52 / +23.
+- Injection confident-read MAPQ 30 -> 5 (and alignment-only reads from MAPQ
+  5): +183 / +4 alone, but with the fixes above chr18 -66 / +117.
+  MAPQ 0 reads in the solve: chr18 -104 / +110.
+- EM depth gate at 2x (and 1.6x) the chunk's median site depth: chr12 -600.
+- Pairwise site compatibility as a pre-filter: real homopolymer hets at
+  chr20 35.30 Mb agree with neighbours only at 0.70, like the noise.
+- Unreliable sites out of the join test; reads crossing counted only at
+  reliable sites; 3 reads crossing at any site: no effect on the switch.
+- Label posterior 0.75: +403 / +123; 0.70: +782 / +288 (left at 0.8).
+

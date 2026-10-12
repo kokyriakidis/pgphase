@@ -259,6 +259,32 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             }
             std::fclose(fh);
         }
+        if (FILE* fh = std::fopen((std::string(diag_dir) + "/alnreads." + tag).c_str(), "w")) {
+            // Each read's calls in the alignment solve (alnreads.TID.BEG.tsv):
+            // name, MAPQ, skipped flag, the solve's haplotype and phase set,
+            // then VCF-convention position:type:allele for every het, hom or
+            // repeat-indel candidate the read has an allele at.
+            constexpr uint32_t kListed = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom |
+                                         kCandNoisyCandHet | kCandNoisyCandHom | kCandNonAnchorHet;
+            for (const ReadVariantProfile& prof : bam.read_var_profile) {
+                if (prof.read_id < 0) continue;
+                const size_t ri = static_cast<size_t>(prof.read_id);
+                const ReadRecord& read = bam.reads[ri];
+                std::fprintf(fh, "%s\t%d\t%d\t%d\t%lld", read.qname.c_str(), read.mapq, read.is_skipped ? 1 : 0,
+                             ri < bam.haps.size() ? bam.haps[ri] : 0,
+                             static_cast<long long>(ri < bam.phase_sets.size() ? bam.phase_sets[ri] : 0));
+                for (size_t k = 0; prof.start_var_idx >= 0 && k < prof.alleles.size(); ++k) {
+                    if (prof.alleles[k] < 0) continue;
+                    const CandidateVariant& c = bam.candidates[static_cast<size_t>(prof.start_var_idx) + k];
+                    const bool repeat = c.counts.category == VariantCategory::RepeatHetIndel;
+                    if ((c.lcd_var_i_to_cate & kListed) == 0 && !repeat) continue;
+                    const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+                    std::fprintf(fh, "\t%lld:%c:%d", static_cast<long long>(c.key.sort_pos()), type, prof.alleles[k]);
+                }
+                std::fputc('\n', fh);
+            }
+            std::fclose(fh);
+        }
         if (FILE* fh = std::fopen((std::string(diag_dir) + "/graph." + tag).c_str(), "w")) {
             // VCF-convention position, key position, type, REF length, ALT,
             // category code, voting (germline), catalog id, allele coverages.

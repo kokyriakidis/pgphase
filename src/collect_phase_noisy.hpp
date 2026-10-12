@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -72,6 +73,14 @@ bool var_is_homopolymer_indel(const PhasingChunk& chunk,
                               int ref_len,
                               const std::string& alt,
                               bool upstream_reference_bytes = false);
+
+/// The allele a read carries at a noisy-region MSA site, from sequences
+/// alone: the reference and each haplotype consensus at the site, and the
+/// read's sequence there (common flanks). 1 is the site's ALT, 0 absence of
+/// it, -1 neither. The refresh of assigned reads calls the same rule; this
+/// entry point lets the tests exercise it without alignments.
+int msa_site_allele_from_sequences(const VariantKey& key, const std::string& ref,
+                                   const std::array<std::string, 2>& consensus, const std::string& read);
 
 /// Update the primary allele, growing the sparse range and retaining the site
 /// offsets of populated provenance channels. New sites have no BAM base quality.

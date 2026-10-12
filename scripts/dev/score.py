@@ -122,15 +122,27 @@ def in_regions(regions, pos):
 
 
 def read_tags(run_dir, names):
-    """qname -> (HP, PS) for scored names. Aligned BAMs are fetched whole."""
-    tags = {}
-    with pysam.AlignmentFile(os.path.join(run_dir, "phased.bam"), check_sq=False) as fh:
-        for r in fh.fetch(until_eof=True):
-            if r.is_secondary or r.is_supplementary or r.query_name not in names:
-                continue
-            if r.has_tag("HP") and r.has_tag("PS"):
-                tags[r.query_name] = (r.get_tag("HP"), r.get_tag("PS"))
-    return tags
+    """qname -> (HP, PS) for scored names. Aligned BAMs are fetched whole once; the
+    tags of every scored read are cached by the BAM's identity."""
+    bam = os.path.join(run_dir, "phased.bam")
+    path = os.path.join(CACHE, "tags", hashlib.sha256(file_id(bam).encode()).hexdigest()[:16] + ".pkl")
+    if os.path.exists(path):
+        with open(path, "rb") as fh:
+            tags = pickle.load(fh)
+    else:
+        scored = truth_tables()["reads"]
+        tags = {}
+        with pysam.AlignmentFile(bam, check_sq=False) as fh:
+            for r in fh.fetch(until_eof=True):
+                if r.is_secondary or r.is_supplementary or r.query_name not in scored:
+                    continue
+                if r.has_tag("HP") and r.has_tag("PS"):
+                    tags[r.query_name] = (r.get_tag("HP"), r.get_tag("PS"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".tmp", "wb") as fh:
+            pickle.dump(tags, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(path + ".tmp", path)
+    return {q: t for q, t in tags.items() if q in names}
 
 
 def n50(lengths):

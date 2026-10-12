@@ -31,6 +31,13 @@ Prints
             two alleles contrasted (x/y) or "out" (left out of the EM)
     ours / rivals  GT, phase-set letter, and = / x for agreement with the
             truth orientation (blocks are compared by letter)
+  msa      every noisy-region MSA variant in the region: cluster sizes,
+           consensus coverage (a large deletion on one haplotype shows as a
+           long stretch without consensus bases), which consensus carries
+           it, and read calls before and after the refresh (LOST CALLS when
+           the refresh dropped some)
+  joins    EM block-cut decisions in and around the region: every cut, and
+           joins carried only by weak sites (--all: every join)
 """
 import argparse
 import collections
@@ -162,6 +169,36 @@ def main():
     for n in names:
         if letters[n]:
             print(f"  {n} blocks: " + ", ".join(f"{v}={k}" for k, v in letters[n].items()))
+
+    # noisy-region MSA calls
+    msa = D.load_msa(a.diag, beg, end)
+    if msa:
+        print("\nMSA variants (cluster reads; per consensus: reference bases aligned / longest stretch without "
+              "a consensus base; which consensus carries the variant; read calls ref,alt,missing before > after "
+              "the refresh):")
+        for pos in sorted(msa):
+            for r in msa[pos]:
+                lost = r["after"][0] + r["after"][1] < r["before"][0] + r["before"][1]
+                print(f"  {pos:>11,} {r['type']}{r['ref_len']} {r['alt'][:12]:12} {D.SHORT.get(r['cat'], r['cat']):5} "
+                      f"region {r['reg_beg']:,}+{r['reg_len']} clusters {r['clusters'][0]}/{r['clusters'][1]} "
+                      f"cons {r['aligned'][0]}/{r['longest_gap'][0]} {r['aligned'][1]}/{r['longest_gap'][1]} "
+                      f"in {'1' if r['in_cons'][0] else '-'}{'2' if r['in_cons'][1] else '-'} "
+                      f"calls {','.join(map(str, r['before']))} > {','.join(map(str, r['after']))}"
+                      + ("  LOST CALLS" if lost else ""))
+
+    # EM block-cut decisions
+    joins = [j for j in D.load_joins(a.diag, beg - 50_000, end + 50_000) if j["right"] >= beg and j["left"] <= end]
+    if joins:
+        print("\nEM joins between adjacent sites (margin, margin without weak sites, reads crossing, reads with "
+              "strong evidence crossing, decision: J join, C cut, S too few reads, W weak-bridge cut; "
+              "* = joined as a weak bridge):")
+        for j in joins:
+            weak = j["strong"] < 4.0 or (j["strong_reads"] is not None and j["strong_reads"] < 3)
+            flag = "*" if j["decision"] == "J" and weak else " "
+            if j["decision"] != "J" or flag == "*" or a.all:
+                sr = j["strong_reads"] if j["strong_reads"] is not None else "-"
+                print(f"  {j['left']:>11,} - {j['right']:<11,} margin {j['delta']:8.1f}  strong {j['strong']:8.1f}  "
+                      f"reads {j['spanning']:4}  strong reads {sr:>4}  {j['decision']}{flag}")
 
 
 if __name__ == "__main__":

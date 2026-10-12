@@ -3,6 +3,7 @@
 #include "union_phase.hpp"
 
 #include "collect_phase.hpp"
+#include "collect_phase_noisy.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -462,6 +463,61 @@ static void test_bridge_weak_sites() {
     check(weak.size() == 3 && weak[2] == 0, "weak: SNP is not weak");
 }
 
+static void test_em_join_needs_strong_reads() {
+    // Sites 0-3 and 4-7, each side tiled; only `crossers` reads span sites 3
+    // and 4, one call per side. Two such reads clear the ordinary cut but are
+    // too few to make the join strong: it needs the weak-bridge margin.
+    const auto blocks_with = [](int crossers) {
+        PhasingChunk chunk;
+        std::vector<int> truth;
+        for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+        for (int rep = 0; rep < 2; ++rep) {
+            add_tiled_reads(chunk, truth, 0, 3, 4);
+            add_tiled_reads(chunk, truth, 4, 7, 4);
+        }
+        for (int c = 0; c < crossers; ++c) {
+            const int hap = c % 2;
+            const int id = static_cast<int>(chunk.reads.size());
+            chunk.reads.push_back(read_named("x" + std::to_string(c), 60));
+            chunk.read_var_profile.push_back(profile(id, 3, {hap_allele(hap, 3), hap_allele(hap, 4)}));
+            truth.push_back(hap);
+        }
+        finish_chunk(chunk);
+        const std::vector<char> no_weak(chunk.candidates.size(), 0);
+        return phase_chunk_by_global_em(chunk, nullptr, &no_weak);
+    };
+    check(blocks_with(2) == 2, "EM: two crossing reads do not make a strong join");
+    check(blocks_with(4) == 1, "EM: four crossing reads join the blocks");
+}
+
+static void test_msa_absence_of_alt() {
+    // The haplotype without this ALT may carry another event at the site; a
+    // read matching its consensus exactly carries absence of the ALT (0).
+    VariantKey del;
+    del.tid = 0;
+    del.pos = 100;
+    del.type = VariantType::Deletion;
+    del.ref_len = 12;
+    const std::string repeat = "AAAGAAAGAAAG";
+    const std::array<std::string, 2> two_deletions = {"AAAAGAAAG", ""};  // 3 bp and 12 bp
+    check(msa_site_allele_from_sequences(del, repeat, two_deletions, "") == 1, "msa: 12 bp deletion read is ALT");
+    check(msa_site_allele_from_sequences(del, repeat, two_deletions, "AAAAGAAAG") == 0,
+          "msa: 3 bp deletion read is absence of the 12 bp ALT");
+    check(msa_site_allele_from_sequences(del, repeat, two_deletions, "AAAGAAAG") == -1,
+          "msa: a third sequence stays uncalled");
+    VariantKey snv;
+    snv.tid = 0;
+    snv.pos = 200;
+    snv.type = VariantType::Snp;
+    snv.ref_len = 1;
+    snv.alt = "A";
+    const std::array<std::string, 2> insertion_before = {"AC", "A"};  // other haplotype: +A before the base
+    check(msa_site_allele_from_sequences(snv, "C", insertion_before, "A") == 1, "msa: SNP read is ALT");
+    check(msa_site_allele_from_sequences(snv, "C", insertion_before, "AC") == 0,
+          "msa: read with the other haplotype's insertion is absence of the SNP");
+    check(msa_site_allele_from_sequences(snv, "C", insertion_before, "GC") == -1, "msa: unrelated read uncalled");
+}
+
 int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
@@ -475,6 +531,8 @@ int main() {
     window_case(true, false);
     test_realign_recalls_indel();
     test_bridge_weak_sites();
+    test_em_join_needs_strong_reads();
+    test_msa_absence_of_alt();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";
         return 1;

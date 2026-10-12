@@ -43,6 +43,13 @@ constexpr size_t kEmPoolMinSites = 5;
 // its likelihood alone can clear the cut (measured on chr18 at 38.34 Mb: one
 // 26 kb read, one call per side, joined 428 hets in the wrong orientation).
 constexpr int kEmMinJoinReads = 2;
+// Reads that must carry a join's strong margin (its evidence at reliable,
+// non-weak sites on both sides) for the join to count as strong; with fewer
+// it is a weak bridge and needs kEmWeakBridgeCutLogLikelihood. Measured at
+// chr12:118.48-118.50 Mb: a margin of 5.2 without weak sites, carried by two
+// reads with a wrong call each, joined 1,114 reads in the wrong orientation
+// through a homopolymer call of learned error 0.27.
+constexpr int kEmMinStrongJoinReads = 3;
 // A site whose less observed allele carries under this fraction of its reads
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
@@ -428,16 +435,39 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         int run = 0;
         for (size_t k = 0; k < n; ++k) spanning[k] = run += diff[k];
     }
+    // Reads whose strong evidence -- reliable, join-eligible, non-weak sites --
+    // lies on both sides of each boundary. The strong margin is only as
+    // independent as the reads behind it (see kEmMinStrongJoinReads).
+    std::vector<int> spanning_strong(n, 0);
+    if (bridge_weak != nullptr) {
+        std::vector<int> diff(n + 1, 0);
+        for (const std::vector<EmObs>& obs : robs) {
+            int first = -1, last = -1;
+            for (const EmObs& o : obs) {
+                const size_t k = static_cast<size_t>(o.s);
+                if (err[k] >= kEmUnreliableError || join_excluded[k] || join_weak[k]) continue;
+                if (first < 0) first = o.s;
+                last = o.s;
+            }
+            if (first < 0 || first == last) continue;
+            ++diff[static_cast<size_t>(first)];
+            --diff[static_cast<size_t>(last)];
+        }
+        int run = 0;
+        for (size_t k = 0; k < n; ++k) spanning_strong[k] = run += diff[k];
+    }
     // Blocks: cut where flipping the rest would cost less than the threshold,
     // or where too few reads cross.
     std::vector<hts_pos_t> block(n);
+    std::vector<char> weak_bridge(n, 0);
     hts_pos_t current = sites[0].pos;
     size_t blocks = 1;
     for (size_t k = 0; k < n; ++k) {
         block[k] = current;
-        const bool weak_bridge = delta_strong[k] < kEmBlockCutLogLikelihood;
+        weak_bridge[k] = delta_strong[k] < kEmBlockCutLogLikelihood ||
+                         (bridge_weak != nullptr && spanning_strong[k] < kEmMinStrongJoinReads);
         if (k + 1 < n && (delta[k] < kEmBlockCutLogLikelihood || spanning[k] < kEmMinJoinReads ||
-                          (weak_bridge && delta[k] < kEmWeakBridgeCutLogLikelihood))) {
+                          (weak_bridge[k] && delta[k] < kEmWeakBridgeCutLogLikelihood))) {
             current = sites[k + 1].pos;
             ++blocks;
         }
@@ -559,6 +589,28 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                                  prof->alleles[k]);
                 }
                 std::fputc('\n', fh);
+            }
+            std::fclose(fh);
+        }
+    }
+    // Every block-cut decision (joins.TID.BEG.tsv): between each EM site and
+    // the next, their VCF-convention positions, the join margin (log L of the
+    // solve minus log L with every site to the right flipped, each locus
+    // counted once), the margin without weak sites, reads with observations on
+    // both sides, the decision -- J joined, C cut (margin below the cut), S cut
+    // (too few reads cross), W cut (a weak bridge below its larger cut) -- and
+    // reads with strong evidence on both sides.
+    if (diag_dir != nullptr && loci != nullptr) {
+        const std::string path = std::string(diag_dir) + "/joins." + std::to_string(chunk.region.tid) + "." +
+                                 std::to_string(chunk.region.beg) + ".tsv";
+        if (FILE* fh = std::fopen(path.c_str(), "w")) {
+            for (size_t k = 0; k + 1 < n; ++k) {
+                const char decision = delta[k] < kEmBlockCutLogLikelihood ? 'C'
+                                    : spanning[k] < kEmMinJoinReads ? 'S'
+                                    : weak_bridge[k] && delta[k] < kEmWeakBridgeCutLogLikelihood ? 'W' : 'J';
+                std::fprintf(fh, "%lld\t%lld\t%.2f\t%.2f\t%d\t%c\t%d\n", static_cast<long long>(sites[k].pos),
+                             static_cast<long long>(sites[k + 1].pos), delta[k], delta_strong[k], spanning[k], decision,
+                             spanning_strong[k]);
             }
             std::fclose(fh);
         }

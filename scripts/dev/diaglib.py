@@ -10,6 +10,11 @@ A diagnostic directory (`scripts/dev/pg diag`) holds a full-contig run of
   aln/graph.TID.BEG.tsv       the graph chunk's rows before the merge
   aln/emsites.TID.BEG.tsv     the final EM's voting candidates: allele counts,
                               undecided reads, contrast, error, phase, block
+  aln/joins.TID.BEG.tsv       every EM block-cut decision between adjacent sites
+  aln/msa.TID.BEG.tsv         every noisy-region MSA variant: cluster sizes,
+                              consensus coverage, read calls before / after
+                              the refresh of assigned reads
+  aln/alnreads.TID.BEG.tsv    each read's calls in the alignment solve
 Positions are VCF-convention (indels at their anchor base) throughout, so
 every source lines up with the VCFs; a catalog or EM SNP may sit one base
 off, which matching tolerates.
@@ -280,3 +285,63 @@ def near(index, pos, tol=1):
             if p in index:
                 hits.append((p, index[p]))
     return hits
+
+
+def load_joins(diag, beg=None, end=None):
+    """Block-cut decisions: list of dict(left, right, delta, strong, spanning, decision, strong_reads)
+    sorted by left; strong_reads = reads with strong evidence on both sides."""
+    out, seen = [], set()
+    for p in load_rows(os.path.join(diag, "aln"), "joins", beg, end):
+        key = (p[0], p[1])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(dict(left=int(p[0]), right=int(p[1]), delta=float(p[2]), strong=float(p[3]),
+                        spanning=int(p[4]), decision=p[5], strong_reads=int(p[6]) if len(p) > 6 else None))
+    return sorted(out, key=lambda r: r["left"])
+
+
+def load_msa(diag, beg=None, end=None):
+    """pos -> list of MSA variants: dict(reg_beg, reg_len, clusters (n0, n1), aligned, longest_gap, type,
+    ref_len, alt, cat, in_cons (first, second), before (ref, alt, missing), after (ref, alt, missing))."""
+    out, seen = collections.defaultdict(list), set()
+    for f in chunk_files(os.path.join(diag, "aln"), "msa", beg, end):
+        with open(f) as fh:
+            for line in fh:
+                p = line.rstrip("\n").split("\t")
+                pos = int(p[8])
+                if beg is not None and not (beg <= pos <= end):
+                    continue
+                key = tuple(p[8:12])
+                if key in seen:
+                    continue
+                seen.add(key)
+                out[pos].append(dict(reg_beg=int(p[0]), reg_len=int(p[1]), clusters=(int(p[2]), int(p[3])),
+                                     aligned=(int(p[4]), int(p[6])), longest_gap=(int(p[5]), int(p[7])),
+                                     type=p[9], ref_len=int(p[10]), alt=p[11], cat=cat(p[12]),
+                                     in_cons=(p[13] == "1", p[14] == "1"),
+                                     before=tuple(int(x) for x in p[15].split(",")),
+                                     after=tuple(int(x) for x in p[16].split(","))))
+    return out
+
+
+def load_alnreads(diag, beg, end, names=None):
+    """name -> dict(mapq, skipped, hap, ps, calls {pos: (type, allele)}) from the alignment solve,
+    calls restricted to [beg, end]; reads from every chunk file near the region."""
+    out = {}
+    for f in chunk_files(os.path.join(diag, "aln"), "alnreads", beg, end):
+        with open(f) as fh:
+            for line in fh:
+                p = line.rstrip("\n").split("\t")
+                if names is not None and p[0] not in names:
+                    continue
+                calls = {}
+                for tok in p[5:]:
+                    pos, typ, al = tok.split(":")
+                    pos = int(pos)
+                    if beg <= pos <= end:
+                        calls[pos] = (typ, int(al))
+                old = out.get(p[0])
+                if old is None or len(calls) > len(old["calls"]):
+                    out[p[0]] = dict(mapq=int(p[1]), skipped=p[2] == "1", hap=int(p[3]), ps=int(p[4]), calls=calls)
+    return out

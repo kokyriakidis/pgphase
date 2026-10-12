@@ -45,6 +45,15 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        correctly and we do not: by truth het, or by the
                        competitor's own phased sites; --support checks the
                        hets in the reads (scripts/dev/funnel.py)
+  gapsites [--rival NAME] [--kind clean|all] [--top N] [--out TSV]
+                       gaps a rival closes, each with the sites it uses there:
+                       kind (snp / indel / str / hp), truth, our furthest
+                       stage and why, and our calls on the gap reads
+                       (scripts/dev/gapsites.py)
+  reads REGION [--rival NAME] [--missed]
+                       every read at REGION against every truth het and rival
+                       site: its allele in the alignment solve and in the EM
+                       versus its truth haplotype (scripts/dev/locusreads.py)
 
 TIER is quick (default) or full. quick runs the windows in
 scripts/dev/quick_regions.bed (about 30 s); full runs the whole contig (about
@@ -274,6 +283,9 @@ main() {
                  local d; d="$(diag_dir)"; py "${here}/inspect_region.py" "${d}" "$@" ;;
         funnel) local d; d="$(diag_dir)"; py "${here}/funnel.py" "${d}" "$@" ;;
         gaps) local d; d="$(diag_dir)"; py "${here}/gapclose.py" "${d}" "$@" ;;
+        gapsites) local d; d="$(diag_dir)"; py "${here}/gapsites.py" "${d}" "$@" ;;
+        reads) [[ $# -ge 1 ]] || die "usage: pg reads REGION [--rival NAME] [--missed]"
+               local d; d="$(diag_dir)"; py "${here}/locusreads.py" "${d}" "$@" ;;
         help|-h|--help) usage ;;
         *) usage >&2; exit 1 ;;
     esac

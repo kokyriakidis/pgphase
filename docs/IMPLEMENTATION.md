@@ -239,6 +239,18 @@ Per chunk, in order:
      and is written phased only below learned error 0.1
      (`kEmUnverifiedReportError`). It is also left out of the depth gate's
      median.
+   - *Absence of an ALT in the MSA refresh.* After a two-haplotype MSA,
+     every assigned read's allele is re-read from its own sequence at the
+     site (`refresh_assigned_msa_observations`); a read the rule cannot
+     classify loses its call. The haplotype without a site's ALT may carry
+     something else there: a deletion or insertion of another length (a 1/2
+     site written as two records) or an insertion just before a
+     substitution. A read matching that haplotype's complete consensus
+     exactly is absence of the ALT (allele 0). Before, every such read lost
+     its call and a true heterozygote kept one allele: chr20:34,193,792
+     (12 bp and 3 bp deletions of one repeat) kept 0 of 28 reads, and the
+     site failed injection's two-allele test. On chr12 the truth-het SNPs a
+     rival used in our gaps and we dropped this way fell from 12 to 3.
 2. **Injection** (`inject_alignment_sites`).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk, each needing both of its two most observed
@@ -363,6 +375,13 @@ Per chunk, in order:
        random orientation, as at 17.83 Mb.
      - *Calibration.* On chr20, wrong joins of this kind sat just above the
        ordinary cut (median 6) and right ones well above it (median 19).
+     - *Strong joins need reads* (`kEmMinStrongJoinReads`). The margin over
+       the other sites counts as strong only when at least 3 reads carry
+       evidence at reliable, non-weak sites on both sides of the boundary;
+       otherwise the join is a weak bridge. At chr12:118.48-118.50 Mb a
+       strong margin of 5.2 came from two reads with a wrong call each, the
+       rest of the margin from a homopolymer call at learned error 0.27, and
+       1,114 reads joined in the wrong orientation.
    - *One locus, one vote in the join test.* A locus window and a candidate
      inside it are read from the same bases, so their calls agree by
      construction; counted twice they outvoted a real het read once
