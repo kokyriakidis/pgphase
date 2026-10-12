@@ -36,7 +36,10 @@ constexpr hts_pos_t kLocusMergeGap = 100;
 constexpr hts_pos_t kLocusPad = 40;
 constexpr hts_pos_t kLocusMaxLength = 2000;
 constexpr int kLocusMinMapq = 5;
-constexpr size_t kLocusMaxReads = 60;
+// Reads per window bound only pathological depth: every spanning read is
+// called. At 60 (and 100 for allele windows), reads were taken in start order,
+// so at ordinary 55-65x depth the later-starting ones silently had no call.
+constexpr size_t kLocusMaxReads = 400;
 constexpr size_t kLocusSeedSample = 10;
 constexpr int kLocusMinSide = 3;
 constexpr double kLocusMinMinorFraction = 0.2;
@@ -46,7 +49,7 @@ constexpr int kLocusSplitRounds = 3;  // refinements of an unseeded two-way spli
 // assigned at any edit margin: both sequences are exact alleles, so a one-edit
 // difference is the allele itself, not a read's sequencing error.
 constexpr hts_pos_t kAlleleWindowFlank = 20;
-constexpr size_t kAlleleWindowMaxReads = 100;
+constexpr size_t kAlleleWindowMaxReads = 400;
 // An indel is a candidate for a two-allele pair when at most this fraction of
 // the reads at it carry the reference.
 constexpr double kPairMaxRefFraction = 0.2;

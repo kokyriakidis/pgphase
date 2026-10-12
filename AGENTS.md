@@ -51,8 +51,9 @@ unphased counts and arm switches alongside. Diagnostics, off by default:
 solve's load / classify / phase split) to stderr; `PGPHASE_EM_DUMP=DIR` writes
 each chunk's final EM evidence for scripts/dev/why.py, locus.py and
 proto_em.py; `PGPHASE_DIAG=DIR` writes the alignment solve's candidates
-before pruning, its noisy regions, every injection decision, the graph rows
-and the final EM's voting candidates. `scripts/dev/pg diag` makes a cached
+before pruning, its noisy regions, every injection decision, the graph rows,
+the final EM's voting candidates, every locus window's fate (windows.*), and
+every read's profile as the final EM saw it (emreads.*). `scripts/dev/pg diag` makes a cached
 full-contig run with all of these; `scripts/dev/pg inspect REGION` prints
 everything at a region by position (truth, catalog, graph, alignment,
 injection, EM, our and every competitor's VCF, and the reads of each tool);

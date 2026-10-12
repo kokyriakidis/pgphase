@@ -491,6 +491,36 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             }
             std::fclose(fh);
         }
+        // Every read's profile as the final solve saw it (emreads.TID.BEG.tsv):
+        // name, MAPQ, skipped flag, then each call as VCF-convention position
+        // of the candidate : allele, including candidates the EM left out.
+        const std::string rpath = std::string(diag_dir) + "/emreads." + std::to_string(chunk.region.tid) + "." +
+                                  std::to_string(chunk.region.beg) + ".tsv";
+        if (FILE* fh = std::fopen(rpath.c_str(), "w")) {
+            for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
+                const ReadRecord& r = chunk.reads[ri];
+                std::fprintf(fh, "%s\t%d\t%d", r.qname.c_str(), r.mapq, r.is_skipped ? 1 : 0);
+                const ReadVariantProfile* prof = nullptr;
+                for (const ReadVariantProfile& p2 : chunk.read_var_profile)
+                    if (p2.read_id == static_cast<int>(ri)) { prof = &p2; break; }
+                if (prof == nullptr) {
+                    std::fputs("\tno_profile\n", fh);
+                    continue;
+                }
+                if (prof->start_var_idx < 0) {
+                    std::fputs("\tempty\n", fh);
+                    continue;
+                }
+                for (size_t k = 0; k < prof->alleles.size(); ++k) {
+                    const size_t ci = static_cast<size_t>(prof->start_var_idx) + k;
+                    if (ci >= chunk.candidates.size()) break;
+                    std::fprintf(fh, "\t%lld:%d", static_cast<long long>(chunk.candidates[ci].key.sort_pos()),
+                                 prof->alleles[k]);
+                }
+                std::fputc('\n', fh);
+            }
+            std::fclose(fh);
+        }
     }
     static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
     if (dump_dir != nullptr && loci != nullptr) {

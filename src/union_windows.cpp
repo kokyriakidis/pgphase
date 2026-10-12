@@ -105,12 +105,27 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
             merged.emplace_back(a, b);
     }
     const SpanningReadIndex index(bam, graph);
+    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each locus and what
+    // became of it (windows.TID.BEG.tsv): window start, end, spanning reads,
+    // seeded reads per side, haplotype edit distance, reads assigned per side,
+    // decision.
+    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+    FILE* diag = nullptr;
+    if (diag_dir != nullptr)
+        diag = std::fopen((std::string(diag_dir) + "/windows." + std::to_string(graph.region.tid) + "." +
+                           std::to_string(graph.region.beg) + ".tsv").c_str(), "w");
+    const auto note = [&](hts_pos_t l0, hts_pos_t l1, size_t nseg, size_t s1, size_t s2, int dh, int n0, int n1,
+                          const char* why) {
+        if (diag != nullptr)
+            std::fprintf(diag, "%lld\t%lld\t%zu\t%zu\t%zu\t%d\t%d\t%d\t%s\n", static_cast<long long>(l0 + 1),
+                         static_cast<long long>(l1), nseg, s1, s2, dh, n0, n1, why);
+    };
     for (const auto& [a, b] : merged) {
         const hts_pos_t l0 = std::max<hts_pos_t>(0, a - kLocusPad);
         const hts_pos_t l1 = b + ref.repeat_right(b) + kLocusPad;
-        if (l1 - l0 > kLocusMaxLength) continue;
+        if (l1 - l0 > kLocusMaxLength) { note(l0, l1, 0, 0, 0, -1, 0, 0, "too_long"); continue; }
         const std::vector<std::pair<size_t, std::string>> segs = index.segments(l0, l1, kLocusMaxReads);
-        if (segs.size() < static_cast<size_t>(2 * kLocusMinSide)) continue;
+        if (segs.size() < static_cast<size_t>(2 * kLocusMinSide)) { note(l0, l1, segs.size(), 0, 0, -1, 0, 0, "few_reads"); continue; }
         // Seeds: reads already labelled in the dominant phase set here.
         std::map<hts_pos_t, int> ps_count;
         for (const auto& [ri, seq] : segs)
@@ -157,26 +172,41 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
                 hap1 = locus_medoid(a);
                 hap2 = locus_medoid(b);
             }
-            if (hap2 == nullptr) continue;
+            if (hap2 == nullptr) { note(l0, l1, segs.size(), side1.size(), side2.size(), -1, 0, 0, "no_split"); continue; }
         }
-        if (*hap1 == *hap2) continue;  // homozygous here
+        if (*hap1 == *hap2) { note(l0, l1, segs.size(), side1.size(), side2.size(), 0, 0, 0, "homozygous"); continue; }  // homozygous here
         LocusWindowSite site;
         site.pos = l0 + 1;
         site.end = l1;
         int n0 = 0, n1 = 0;
+        // A read is assigned at kLocusMinMargin edits, or at one edit when the
+        // two haplotypes differ by a single substitution: they can give no read
+        // a two-edit margin, and the window was dropped with every read
+        // unassigned. A one-base length difference (a homopolymer call) keeps
+        // the two-edit margin: allowing it too gained 622 correct reads for 260
+        // discordant on chr12, chr18 and chr20.
+        const bool one_substitution =
+            hap1->size() == hap2->size() && locus_edit_distance(*hap1, *hap2) == 1;
+        const int min_margin = one_substitution ? 1 : kLocusMinMargin;
         for (const auto& [ri, seq] : segs) {
             const int d1 = locus_edit_distance(seq, *hap1), d2 = locus_edit_distance(seq, *hap2);
             const int margin = std::abs(d1 - d2);
-            if (margin < kLocusMinMargin) continue;
+            if (margin < min_margin) continue;
             const int side = d1 < d2 ? 0 : 1;
             (side == 0 ? n0 : n1)++;
             site.observations.emplace_back(
                 ri, side, static_cast<float>(std::min(kLocusMaxObsError, 0.5 * std::exp(-margin))));
         }
         const int called = n0 + n1;
-        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) continue;
+        const int dh = locus_edit_distance(*hap1, *hap2);
+        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) {
+            note(l0, l1, segs.size(), side1.size(), side2.size(), dh, n0, n1, "one_sided");
+            continue;
+        }
+        note(l0, l1, segs.size(), side1.size(), side2.size(), dh, n0, n1, "window");
         out.push_back(std::move(site));
     }
+    if (diag != nullptr) std::fclose(diag);
     return out;
 }
 

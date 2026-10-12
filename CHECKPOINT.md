@@ -18815,3 +18815,40 @@ Arms correct / discordant / unphased, 0c7c019 -> now:
 chr12 521,532 / 2,214 / 2,471 -> 521,559 / 2,194 / 2,464;
 chr18 292,732 / 2,111 / 1,959 -> 292,723 / 2,104 / 1,975;
 chr20 215,964 / 1,021 / 2,301 -> 216,023 / 986 / 2,277.
+
+## 2026-10-12 (later): read caps; substitution windows; window and read diagnostics
+
+- **Read caps** (`kLocusMaxReads` 60 -> 400, `kAlleleWindowMaxReads` 100 ->
+  400). Windows and realignment took spanning reads in start order up to the
+  cap, so at ordinary 55-65x depth the later-starting reads silently had no
+  call. chr12 +174 correct / -13 discordant / -161 unphased, chr18 +25 / -19
+  / -6, chr20 +53 / -11 / -42. Run time unchanged.
+- **One-substitution windows.** A locus window whose two haplotypes differ by
+  one substitution assigns reads at a one-edit margin (it could assign none
+  at two): +3 / -3, +12 / -2, +12 / -1.
+- **Diagnostics.** PGPHASE_DIAG also writes windows.* (each locus window's
+  span, reads, seeds per side, haplotype distance, reads per side, decision)
+  and emreads.* (every read's profile in the final EM).
+
+Measured and rejected:
+- One-edit margin for every window: +622 correct / +260 discordant.
+- One-edit margin for seeded windows (haplotypes from labelled reads): +598 /
+  +118, churn spread over many loci. Window purity against the parents, by
+  haplotype distance: 1 edit 60% of 11,608 kept windows >= 0.9 pure, 2 edits
+  91%, 3+ 99%; one-edit windows split reads poorly even when seeded.
+- The same with per-read error 0.3 for one-edit length calls: worse than
+  neither (a weak window displaces the site evidence under it).
+
+Findings: the "reliable site, read unphased" reads on chr12 are mostly (229
+of 342) reads with a single reliable observation at an injected site of
+error 0.17-0.25, i.e. just under the 0.8 label posterior; the rest have
+conflicting evidence. Reads with a reliable site but no call include
+complex loci where neither haplotype is the reference (chr12:71,347,040: an
+insertion on one haplotype, a SNP beside it on the other; realignment
+against REF ties for the SNP haplotype's reads, and the window's two
+haplotypes are one edit apart).
+
+Arms correct / discordant / unphased, a6aba7d -> now:
+chr12 521,559 / 2,194 / 2,464 -> 521,736 / 2,178 / 2,303;
+chr18 292,723 / 2,104 / 1,975 -> 292,760 / 2,083 / 1,959;
+chr20 216,023 / 986 / 2,277 -> 216,088 / 974 / 2,224.
