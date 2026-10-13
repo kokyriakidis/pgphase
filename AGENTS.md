@@ -67,6 +67,12 @@ alignment solve and in the EM against its truth haplotype;
 `scripts/dev/pg gapsites` lists, per gap a competitor closes, the sites it
 uses there (snp / indel / str / homopolymer, truth) and how far each gets
 with us and why;
+`scripts/dev/pg audit [RIVAL]` puts every read a competitor phases correctly
+and we do not -- unphased or discordant -- in one primary cause, and splits
+the discordant ones by their own calls judged by each parent's side at the
+site (no allele representation compared); scripts/dev/gaptriage.py classes
+gaps, scripts/dev/chancheck.py compares the EM's calls with the alignment
+solve's against truth;
 `scripts/dev/pg gaps` lists the gaps we leave that a competitor closes (by
 locus: our flanking blocks, the competitor's phase set, our reason per read);
 `scripts/dev/pg funnel [--rival NAME] [--support N]` traces where the reads a

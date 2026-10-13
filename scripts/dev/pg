@@ -50,6 +50,12 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        kind (snp / indel / str / hp), truth, our furthest
                        stage and why, and our calls on the gap reads
                        (scripts/dev/gapsites.py)
+  audit [RIVAL] [--list CLASS]
+                       every read RIVAL (default hiphase) phases correctly and
+                       we do not, unphased or discordant, in one primary cause
+                       (repeat sites, low MAPQ, good site called / not called /
+                       lost, rival without truth sites), discordant ones split
+                       by their own calls (scripts/dev/readaudit.py)
   reads REGION [--rival NAME] [--missed]
                        every read at REGION against every truth het and rival
                        site: its allele in the alignment solve and in the EM
@@ -284,6 +290,7 @@ main() {
         funnel) local d; d="$(diag_dir)"; py "${here}/funnel.py" "${d}" "$@" ;;
         gaps) local d; d="$(diag_dir)"; py "${here}/gapclose.py" "${d}" "$@" ;;
         gapsites) local d; d="$(diag_dir)"; py "${here}/gapsites.py" "${d}" "$@" ;;
+        audit) local d; d="$(diag_dir)"; py "${here}/readaudit.py" "${d}" "${@:-hiphase}" ;;
         reads) [[ $# -ge 1 ]] || die "usage: pg reads REGION [--rival NAME] [--missed]"
                local d; d="$(diag_dir)"; py "${here}/locusreads.py" "${d}" "$@" ;;
         help|-h|--help) usage ;;
