@@ -206,7 +206,8 @@ With `--bam`, the alignment's sample-specific sites join the catalog's sites
 The model is in `src/union_*.cpp`, one file per stage (`union_inject`,
 `union_reads`, `union_em`, `union_windows`; `union_phase` is the driver); `collect_pipeline.cpp` runs the
 alignment solve (`inject_alignment_private_sites`); `graph_collect.cpp` wires it
-per chunk. Chunk stitching and read rescue run after the batch. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with
+per chunk. Chunk stitching and read rescue run after the batch, then the EM's
+island labels (step 10) for reads still unphased. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with
 `--bam`.
 
 Per chunk, in order:
@@ -273,8 +274,20 @@ Per chunk, in order:
      blocks in the wrong orientation, 1,294 reads; chr18 73.19 Mb: a run at
      1.45-1.52 times, 546 reads, once catalog calls were confirmed; 1.4 cost
      125 correct reads on chr12).
+   - *Island-only MSA hets.* An MSA-verified het that fails only the
+     confident-read rule or the depth gate, and overlaps no voting row, still
+     enters, marked `island_only`: no germline bits (the EM never makes it a
+     site), no VCF record, but its reads' calls are kept and reads only the
+     alignment holds are added. It can then hold an island block (step 10).
+     Admitted as ordinary sites the same calls joined blocks the wrong way:
+     without the depth gate -1,258 correct / +1,269 discordant reads (chr12,
+     a paralog split), without the confident-read rule chr20's arm switches
+     went from 6 to 13. A paralog split co-segregates like a real het, so its
+     learned error is low; only a site that cannot join is safe.
    - *Dedup.* Placements of one indel at different repeat copies collapse to
-     one row by left-aligned identity; alias rows' read calls fold into it.
+     one row by left-aligned identity; alias rows' read calls fold into it. Regular
+     sites come first: an island-only call never absorbs one, and one at an
+     allele a regular site carries is dropped.
    - *Injected rows* keep the alignment's category bits and per-read alleles,
      get synthesized VCF metadata and no phase. Reads only the alignment holds
      are added to the chunk.
@@ -452,6 +465,36 @@ Per chunk, in order:
      are skipped.
 9. **Global EM, pass 2.** The same solve with both kinds of windows added as
    locus-level sites carrying per-read errors.
+10. **Island blocks** (end of the final EM; applied by `apply_island_labels`
+    after stitching and the rescue).
+    - *What.* A read the solve leaves unlabelled is phased by its own call at
+      one site that cannot vote, in a block of that site alone (phase set at
+      the site's position, bumped past the chunk's block phase sets). An
+      island never joins anything: a wrong island costs its own reads and
+      never flips a neighbouring block.
+    - *Candidates.* Sites the EM rejects with learned error below 0.40
+      (`kIslandMaxError`); repeat het indels (REP_HET_INDEL) the EM never
+      sees; island-only MSA hets (step 2). The last two are judged by their raw
+      disagreement with the labelled reads, block by block, and offer islands
+      below 0.30 (`kIslandOutsideMaxError`; fewer than 3 labelled reads counts
+      as 0.30). A candidate needs 2 unlabelled callers (`kIslandMinReads`), and
+      both alleles at 25% or more of its reads, as an EM site.
+    - *Choice.* Each read takes its lowest-error candidate (ties: more
+      unlabelled callers). Choosing by callers instead let a read with a right
+      call at a real repeat het land on a noise site beside it.
+    - *Applied last.* Island labels go through the gap channel only for reads
+      still unphased after the rescue, marked fill-only, so a rescue label
+      from this chunk or another always wins. Applied before the rescue, they
+      took 115 reads on chr12 from a better rescue block.
+    - *Measured* (chr12/18/20 against c8391f1, arms_phaseable): +2,349
+      correct, +457 discordant, -2,806 unphased; arm switches +1 (chr20).
+      Islands at truth hets run 18-20 : 1; islands at repeat-length noise
+      (13-30 bp runs, no truth het) about 1.5 : 1, and no feature visible in
+      production separates the two (learned error, minor allele fraction,
+      repeat length, callers, links, agreement with labelled reads,
+      co-segregation, the MSA's own verdict, base qualities; HiPhase's
+      graph realignment calls these reads as badly as ours).
+
 ### Catalog records
 
 `load_sites_for_region` skips a catalog line longer than 64 MB

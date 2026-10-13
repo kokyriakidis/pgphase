@@ -50,12 +50,42 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        kind (snp / indel / str / hp), truth, our furthest
                        stage and why, and our calls on the gap reads
                        (scripts/dev/gapsites.py)
-  audit [RIVAL] [--list CLASS]
+  each [-j N] CMD [ARGS]
+                       run `pg CMD ARGS` for every profile in PGDEV_EACH
+                       (default chr20 chr12 chr18), N at a time (default all),
+                       each in its own environment; outputs in profile order
+  sweep [-j N] CONFIG ...
+                       CONFIG is LABEL or LABEL:VAR=VAL[,VAR=VAL...] (PGPHASE_*
+                       variables); full tier of ./pgphase on every profile, then
+                       per configuration each profile's change from its pinned
+                       baseline (correct, discordant, unphased, switches) and
+                       the total with its correct : discordant ratio
+  islands [--worst N]  the union EM's island blocks in the diag run (run with
+                       PGPHASE_ISLAND_MAX_ERR): per island its reads' classes,
+                       truth at the site, parental purity of every read's call
+                       there, and production-visible features, tallied against
+                       truth (scripts/dev/islands.py)
+  calls [--sites rejected|all]
+                       accuracy of the EM's per-read calls (rejected sites by
+                       default) by distance to the read end, labelled or not,
+                       and repeat run: wrong % at truth hets, minority % where
+                       there is none (scripts/dev/calls.py)
+  realign [--max-sites N] [--min-run BP]
+                       per-read calling at truth het indels in repeats, with
+                       the truth alleles (exact representation): edit-distance
+                       and affine realignment by margin threshold against our
+                       EM's calls, by our EM state at the site
+                       (scripts/dev/realign.py)
+  audit [RIVAL] [--reads islands|FILE] [--list CLASS]
                        every read RIVAL (default hiphase) phases correctly and
                        we do not, unphased or discordant, in one primary cause
                        (repeat sites, low MAPQ, good site called / not called /
                        lost, rival without truth sites), discordant ones split
-                       by their own calls (scripts/dev/readaudit.py)
+                       by their own calls; then every rival truth-het site in
+                       those reads by kind, our stage and the read's call;
+                       --reads restricts to island reads or a list of names
+                       and crosses our classes with the rival's
+                       (scripts/dev/readaudit.py)
   reads REGION [--rival NAME] [--missed]
                        every read at REGION against every truth het and rival
                        site: its allele in the alignment solve and in the EM
@@ -123,7 +153,7 @@ regions_bed() { [[ "${tier}" == quick ]] && echo "--regions ${here}/quick_region
 
 run_dir() {
     local bin="${PGDEV_BIN:-${root}/pgphase}" key
-    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; env | grep "^PGPHASE_" | grep -v "^PGPHASE_\(TIMING\|EM_DUMP\|DIAG\)=" | sort; } | sha256sum | cut -c1-12)"
+    key="$( { sha256sum "${bin}" | cut -c1-16; echo "${tier} ${graph_only} ${extra[*]:-}"; { env | grep "^PGPHASE_" | grep -v "^PGPHASE_\(TIMING\|EM_DUMP\|DIAG\)=" || true; } | sort; } | sha256sum | cut -c1-12)"
     echo "${runs}/${tier}-${key}"
 }
 
@@ -143,6 +173,9 @@ ensure_run() {
     local bin="${PGDEV_BIN:-${root}/pgphase}" dir tmp start bam_args=()
     dir="$(run_dir)"
     [[ -f "${dir}/meta.tsv" ]] && { ensure_score "${dir}"; echo "${dir}"; return; }
+    if [[ "${tier}" == full && "${graph_only}" == 0 && ${#extra[@]} -eq 0 && -f "${dir}.diag/done" ]]; then
+        adopt_diag "${dir}" "${dir}.diag" > /dev/null; echo "${dir}"; return
+    fi
     [[ -n "${PGDEV_TRUTH_VCF}" ]] || die "set PGDEV_TRUTH_VCF (scripts/dev/local.env)"
     tmp="${dir}.tmp.$$"
     rm -rf "${tmp}"; mkdir -p "${tmp}"
@@ -180,15 +213,109 @@ diag_dir() {
     if [[ ! -f "${diag}/done" ]]; then
         rm -rf "${diag}"; mkdir -p "${diag}/em" "${diag}/aln"
         echo "pg: diagnostic run of ${PGDEV_CONTIG} (about the time of a full run) -> ${diag}" >&2
+        local start=$SECONDS
         PGPHASE_EM_DUMP="${diag}/em" PGPHASE_DIAG="${diag}/aln" \
         "${bin}" collect-graph-variation --ref "${PGDEV_REF}" --bam "${PGDEV_BAM}" \
             --sites "${PGDEV_SITES}" --gaf "${PGDEV_GAF}" -r "${PGDEV_CONTIG}" --threads "${PGDEV_THREADS}" \
             -o "${diag}/candidates.tsv" --phased-vcf-out "${diag}/phased.vcf" \
             --phased-bam-out "${diag}/phased.bam" > /dev/null 2> "${diag}/stderr.log" \
             || { tail -20 "${diag}/stderr.log" >&2; die "diagnostic run failed"; }
+        echo "seconds	$((SECONDS - start))" > "${diag}/seconds"
         touch "${diag}/done"
     fi
+    [[ -f "${dir}/meta.tsv" ]] || adopt_diag "${dir}" "${diag}" > /dev/null
     echo "${diag}"
+}
+
+# A diagnostic run is also the full run of its binary and environment (the
+# dumps do not change the output): make DIR (the full run's cache entry) point
+# at DIAG's outputs and score it, so neither is run twice.
+adopt_diag() {
+    local dir="$1" diag="$2" bin="${PGDEV_BIN:-${root}/pgphase}" tmp="$1.tmp.$$"
+    rm -rf "${tmp}"; mkdir -p "${tmp}"
+    ln -s "${diag}/phased.bam" "${tmp}/phased.bam"
+    ln -s "${diag}/phased.vcf" "${tmp}/phased.vcf"
+    {
+        echo "binary	$(readlink -f "${bin}")"
+        echo "sha256	$(sha256sum "${bin}" | cut -d' ' -f1)"
+        echo "git	$(git -C "${root}" rev-parse --short HEAD 2>/dev/null)$(git -C "${root}" diff --quiet 2>/dev/null || echo "-dirty")"
+        echo "tier	full"
+        echo "graph_only	0"
+        echo "args	"
+        echo "seconds	$(awk -F'\t' '{print $2}' "${diag}/seconds" 2>/dev/null || echo 0)"
+        echo "date	$(date -Is)"
+        echo "from_diag	${diag}"
+    } > "${tmp}/meta.tsv"
+    py "${here}/score.py" run "${tmp}" --json "${tmp}/score.json"
+    rm -rf "${dir}"; mv "${tmp}" "${dir}"
+    echo "${dir}"
+}
+
+# Profiles `each` and `sweep` cover: names of scripts/dev/profiles/*.env, or
+# the default contig's chromosome for the default profile.
+: "${PGDEV_EACH:=chr20 chr12 chr18}"
+profile_of() { [[ -f "${here}/profiles/$1.env" ]] && echo "$1" || echo ""; }
+# Values env.sh derives per profile; a child for another profile must not inherit them.
+readonly per_profile=(PGDEV_PROFILE PGDEV_CHROM PGDEV_STATE PGDEV_REF PGDEV_BAM PGDEV_SITES PGDEV_GAF
+                      PGDEV_CONTIG PGDEV_TRUTH_READS PGDEV_TRUTH_VCF PGDEV_COMPETITORS PGDEV_EXCLUDE PGDEV_CEN)
+
+# pg each [-j N] CMD ARGS: run `pg CMD ARGS` for every profile in PGDEV_EACH,
+# N at a time (default all), each in its own environment; print the outputs in
+# profile order. Builds once first so the children never build concurrently.
+cmd_each() {
+    local jobs=0 name i unset_args=() outs=() names=() failed=0
+    if [[ "${1:-}" == -j ]]; then jobs="$2"; shift 2; fi
+    [[ $# -ge 1 ]] || die "usage: pg each [-j N] CMD [ARGS]"
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    for v in "${per_profile[@]}"; do unset_args+=(-u "${v}"); done
+    read -r -a names <<< "${PGDEV_EACH}"
+    (( jobs > 0 )) || jobs=${#names[@]}
+    for name in "${names[@]}"; do
+        while (( $(jobs -rp | wc -l) >= jobs )); do wait -n || true; done
+        outs+=("$(mktemp)")
+        ( env "${unset_args[@]}" PGDEV_PROFILE="$(profile_of "${name}")" PGDEV_BIN="${PGDEV_BIN:-${root}/pgphase}" \
+              "${here}/pg" "$@" > "${outs[-1]}" 2>&1 || echo "pg each: ${name} failed" >> "${outs[-1]}" ) &
+    done
+    wait
+    for i in "${!names[@]}"; do
+        echo "=== ${names[i]}"
+        cat "${outs[i]}"
+        grep -q "^pg each: .* failed$" "${outs[i]}" && failed=1
+        rm -f "${outs[i]}"
+    done
+    return "${failed}"
+}
+
+# Internal: run (or reuse) the full tier and print "PROFILE BASELINE_JSON RUN_JSON".
+cmd_score_paths() {
+    tier=full
+    local dir base=""
+    dir="$(ensure_run)"
+    base="$(baseline_dir 2>/dev/null)" && ensure_score "${base}" && base="${base}/score.json"
+    echo "SCORE ${PGDEV_CHROM} ${base:--} ${dir}/score.json"
+}
+
+# pg sweep [-j N] CONFIG ...: each CONFIG is LABEL or LABEL:VAR=VAL[,VAR=VAL...]
+# (PGPHASE_* environment for pgphase); runs the full tier of ./pgphase for every
+# profile and prints, per configuration, each profile's change from its pinned
+# baseline and the total.
+cmd_sweep() {
+    local jobs=() cfg label vars kv lines=()
+    if [[ "${1:-}" == -j ]]; then jobs=(-j "$2"); shift 2; fi
+    [[ $# -ge 1 ]] || set -- base
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    for cfg in "$@"; do
+        label="${cfg%%:*}"; vars=""
+        [[ "${cfg}" == *:* ]] && vars="${cfg#*:}"
+        local envs=()
+        if [[ -n "${vars}" ]]; then
+            IFS=, read -r -a kvs <<< "${vars}"
+            for kv in "${kvs[@]}"; do envs+=("${kv}"); done
+        fi
+        while read -r line; do lines+=("${label} ${line#SCORE }"); done < <(
+            env "${envs[@]}" PGDEV_BIN="${PGDEV_BIN:-${root}/pgphase}" "${here}/pg" each "${jobs[@]}" score-paths | grep "^SCORE \|failed$")
+    done
+    printf '%s\n' "${lines[@]}" | py "${here}/sweep.py"
 }
 
 baseline_link() { echo "${PGDEV_STATE}/baseline-${tier}$([[ "${graph_only}" == 1 ]] && echo -graph)"; }
@@ -284,13 +411,19 @@ main() {
         pin) cmd_pin "$@" ;;
         pin-dir) [[ $# -ge 2 ]] || die "usage: pg pin-dir TIER DIR [--graph-only]"; cmd_pin_dir "$@" ;;
         path) parse_tier "$@"; run_dir ;;
+        each) cmd_each "$@" ;;
+        sweep) cmd_sweep "$@" ;;
+        score-paths) cmd_score_paths ;;
+        islands) local d; d="$(diag_dir)"; py "${here}/islands.py" "${d}" "$@" ;;
+        calls) local d; d="$(diag_dir)"; py "${here}/calls.py" "${d}" "$@" ;;
+        realign) local d; d="$(diag_dir)"; py "${here}/realign.py" "${d}" "$@" ;;
         diag) diag_dir ;;
         inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"
                  local d; d="$(diag_dir)"; py "${here}/inspect_region.py" "${d}" "$@" ;;
         funnel) local d; d="$(diag_dir)"; py "${here}/funnel.py" "${d}" "$@" ;;
         gaps) local d; d="$(diag_dir)"; py "${here}/gapclose.py" "${d}" "$@" ;;
         gapsites) local d; d="$(diag_dir)"; py "${here}/gapsites.py" "${d}" "$@" ;;
-        audit) local d; d="$(diag_dir)"; py "${here}/readaudit.py" "${d}" "${@:-hiphase}" ;;
+        audit) local d; d="$(diag_dir)"; py "${here}/readaudit.py" "${d}" "$@" ;;
         reads) [[ $# -ge 1 ]] || die "usage: pg reads REGION [--rival NAME] [--missed]"
                local d; d="$(diag_dir)"; py "${here}/locusreads.py" "${d}" "$@" ;;
         help|-h|--help) usage ;;

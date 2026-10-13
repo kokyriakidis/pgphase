@@ -791,6 +791,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
+        apply_island_labels(graph_chunks[i].chunk);
     }
     return graph_chunks;
 }
@@ -985,6 +986,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
+        apply_island_labels(graph_chunks[i].chunk);
     }
     return graph_chunks;
 }

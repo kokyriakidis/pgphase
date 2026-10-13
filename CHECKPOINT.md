@@ -18996,3 +18996,39 @@ Measured and rejected:
   half real, half noise. One-edit STR windows split by edit-distance
   medoids: 90% pure at chr18 75.57 Mb but margin 1 for every read.
 
+## 2026-10-13: island blocks
+
+Reads the union EM leaves unlabelled are phased locally, each by its own call
+at one site that cannot vote, in a block of that site alone that never joins
+(IMPLEMENTATION.md, union step 10). Candidates: EM-rejected sites (learned
+error below 0.40), repeat het indels the EM never sees, and MSA-verified hets
+injection kept out (few confident reads, depth gate), now injected as
+island-only sites. Each read takes its lowest-error candidate; labels apply
+after the rescue, fill-only.
+
+arms_phaseable reads against c8391f1 (correct / discordant / unphased):
+chr20 +886 / +95 / -981, chr12 +828 / +217 / -1,045, chr18 +635 / +145 / -780;
+total +2,349 / +457 / -2,806 (5.1 : 1); arm switches 6/6/18 -> 7/6/18.
+Steps: rejected sites at 0.35 +975 / +191, at 0.40 +1,458 / +415; plus
+repeat het indels +2,180 / +502; plus lowest-error choice +2,221 / +461;
+plus island-only MSA hets +2,349 / +457.
+
+Islands at truth hets: 1,651 correct / 95 discordant; at repeat-length
+noise (no truth het, mostly 13-30 bp runs): 570 / 366. Measured and rejected
+as discriminators: learned error, minor allele fraction, repeat run, callers,
+links to other sites, agreement with labelled reads, co-segregation among
+unlabelled reads, the MSA verdict (it verifies noise as two-cluster hets as
+often as real ones, so a targeted MSA would too), base qualities (keeps 17 of
+31 real, 57 of 185 noise), distance to read end. At real hets the EM rejects,
+calls are 25-33% wrong for HiPhase's exact graph realignment and ours alike
+(scripts/dev/realign.py on its DeepVariant sites).
+
+Rejected: admitting MSA-verified hets the injection gates drop as ordinary
+EM sites (depth gate off: chr12 -1,258 / +1,269, a paralog split joining a
+block; confident-read rule off: chr20 arm switches 6 -> 13), co-segregation
+and unlinked filters on islands, applying islands before the rescue.
+
+Harness: island dump (islands.*); pg each / sweep (per-profile deltas and
+totals, diag runs reused as full runs); pg islands, calls, realign; pg audit
+--reads; baselines re-pinned to c8391f1 output.
+

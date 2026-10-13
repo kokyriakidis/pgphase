@@ -3,6 +3,9 @@
 
 #include "union_internal.hpp"
 
+#include <algorithm>
+#include <set>
+
 namespace pgphase_collect {
 
 namespace {
@@ -214,6 +217,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
     // alignment's own category bits.
     std::vector<size_t> selected;
+    std::set<size_t> island_only;  // selected only as island sites
     // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
     // candidate's injection decision (inj.TID.BEG.tsv) and the graph chunk's
     // rows before the merge (graph.TID.BEG.tsv).
@@ -230,9 +234,26 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (!clean && !msa) { decide(bi, "category"); continue; }
         if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) { decide(bi, "not_germline"); continue; }
         if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) { decide(bi, "outside_chunk"); continue; }
-        if (!confidently_supported(bi)) { decide(bi, "few_confident_reads"); continue; }
-        if (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) { decide(bi, "depth_gate"); continue; }
+        // An MSA-verified het these two rules drop enters as an island-only
+        // site (island_only): its reads may phase locally, but it never votes
+        // or joins. Admitted as an ordinary site instead, the same calls cost
+        // -1,258 correct / +1,269 discordant reads (chr12, depth gate: a
+        // paralog split joined a block the wrong way) or doubled chr20's arm
+        // switches (confident-read rule).
+        const char* dropped = !confidently_supported(bi) ? "few_confident_reads"
+                            : (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) ? "depth_gate"
+                            : nullptr;
         std::vector<size_t> rows = voting_rows_over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
+        if (dropped != nullptr) {
+            if (msa && rows.empty()) {
+                decide(bi, dropped[0] == 'f' ? "island:few_confident_reads" : "island:depth_gate");
+                island_only.insert(bi);
+                selected.push_back(bi);
+            } else {
+                decide(bi, dropped);
+            }
+            continue;
+        }
         decide(bi, rows.empty() ? "injected" : "complement");
         if (!rows.empty()) complement_rows.emplace(bi, std::move(rows));
         selected.push_back(bi);
@@ -316,10 +337,14 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     {
         std::map<CandKey, size_t> canonical;
         std::vector<size_t> kept;
+        // Regular sites first: an island-only call never absorbs one, and one
+        // at an allele a regular site already carries is dropped.
+        std::stable_partition(selected.begin(), selected.end(),
+                              [&](size_t bi) { return island_only.count(bi) == 0; });
         for (const size_t bi : selected) {
             const auto [it, inserted] = canonical.emplace(left_aligned_indel_key(bam.candidates[bi], bam), bi);
             if (inserted) kept.push_back(bi);
-            else alias_of.emplace(bi, it->second);
+            else if (island_only.count(bi) == 0) alias_of.emplace(bi, it->second);
         }
         selected = std::move(kept);
     }
@@ -371,7 +396,11 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (cand.counts.alle_covs.size() < 2)
             cand.counts.alle_covs = {cand.counts.ref_cov, cand.counts.alt_cov};
         auto [meta, orig] = synthesize_alignment_site_meta(bam.candidates[bi], bam, contig_name);
-        if (complement_rows.count(bi) != 0) {
+        if (island_only.count(bi) != 0) {
+            cand.island_only = true;
+            cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+        }
+        if (complement_rows.count(bi) != 0 || island_only.count(bi) != 0) {
             meta = GraphSiteMeta{};  // empty REF: the writer emits no record
             meta.chrom = contig_name != nullptr ? contig_name : std::string();
         }

@@ -704,6 +704,10 @@ struct CandidateVariant {
     bool is_homopolymer_indel = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
+    // An MSA-verified het the union injection keeps out of the solve (too few
+    // confidently mapped reads, or the depth gate): it enters only as an
+    // island site, never as an EM site (no germline bits, no VCF record).
+    bool island_only = false;
     /// Discovered by the recovery sub-solve from the alignment and injected
     /// into this chunk, carrying the allele depths and per-read alleles the
     /// solve that saw the reads measured.
@@ -804,6 +808,14 @@ struct PhasingChunk {
     // exact BAM observation missing in the graph profile. These are fill-only
     // when overlapping chunks already supplied any phased assignment.
     std::vector<bool> gap_from_bam_observation;
+    // Island blocks from the union EM: reads it leaves unlabelled, phased by
+    // their own call at one site that cannot vote, in a block of that site
+    // alone that is never joined. Recorded by the EM, applied after the rescue
+    // to reads still unphased (apply_island_labels), through the gap_* channel.
+    struct IslandSite { size_t candidate; hts_pos_t phase_set; int hap1; int hap2; };
+    std::vector<int> island_haps;
+    std::vector<hts_pos_t> island_phase_sets;
+    std::vector<IslandSite> island_sites;
     std::vector<ReadVariantProfile> read_var_profile;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;

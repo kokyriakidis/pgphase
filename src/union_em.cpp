@@ -3,6 +3,7 @@
 
 #include "union_internal.hpp"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 
@@ -54,6 +55,16 @@ constexpr int kEmMinStrongJoinReads = 3;
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
 constexpr double kEmMinMinorAlleleFraction = 0.25;
+// Island blocks (see the end of phase_chunk_by_global_em). A rejected EM site
+// offers islands below this learned error: 0.35 gave +975/+191 reads over
+// chr12/18/20, 0.40 +1,458/+415, before the other candidates and
+// lowest-error choice.
+constexpr double kIslandMaxError = 0.40;
+// A candidate outside the solve offers islands below this raw disagreement
+// with the labelled reads.
+constexpr double kIslandOutsideMaxError = 0.30;
+// Unlabelled reads that must call a candidate for it to hold an island.
+constexpr int kIslandMinReads = 2;
 
 static double log_sum_exp(double a, double b) {
     const double m = std::max(a, b);
@@ -519,6 +530,172 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             chunk.phase_sets[ri] = ps;
         }
     }
+    // Island blocks. A read the solve leaves unlabelled is phased locally by
+    // its own call at one site that cannot vote: a block of that site alone,
+    // never joined to anything, so a wrong island costs its own reads and
+    // never flips a neighbour. Candidates: sites the EM rejects (learned error
+    // in [kEmUnreliableError, kIslandMaxError)), repeat het indels it never
+    // sees (REP_HET_INDEL) and MSA-verified hets injection kept out
+    // (island_only), the last two judged by their raw disagreement with the
+    // labelled reads. Each read takes its lowest-error candidate. Recorded
+    // here, applied after the rescue to reads still unphased
+    // (apply_island_labels). Measured on chr12/18/20 against c8391f1:
+    // +2,349 correct, +457 discordant, -2,806 unphased reads, one arm switch;
+    // islands at truth hets run 18-20 : 1, at repeat-length noise 1.5 : 1.
+    if (loci != nullptr) {
+        struct IslandCand { size_t ci; int x; int y; hts_pos_t pos; int k; double err; int phase; char kind; };
+        std::vector<IslandCand> cands;
+        std::vector<int> cand_of_site(n, -1);
+        for (size_t k = 0; k < n; ++k) {
+            if (sites[k].locus >= 0 || join_excluded[k] || err[k] < kEmUnreliableError || err[k] >= kIslandMaxError) continue;
+            cand_of_site[k] = static_cast<int>(cands.size());
+            cands.push_back(IslandCand{sites[k].ci, sites[k].x, sites[k].y, sites[k].pos, static_cast<int>(k), err[k], phase[k], 'E'});
+        }
+        std::vector<int> cand_of_ci(chunk.candidates.size(), -1);
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+            const CandidateVariant& c = chunk.candidates[ci];
+            if ((c.counts.category != VariantCategory::RepeatHetIndel && !c.island_only) || site_of[ci] >= 0) continue;
+            std::vector<std::pair<int, int>> by_count;
+            for (const auto& [al, cnt] : allele_counts[ci]) by_count.emplace_back(cnt, al);
+            std::sort(by_count.rbegin(), by_count.rend());
+            if (by_count.size() < 2) continue;
+            const int nx = by_count[0].first, ny = by_count[1].first;
+            if (ny < kEmMinMinorAlleleFraction * (nx + ny)) continue;
+            cand_of_ci[ci] = static_cast<int>(cands.size());
+            cands.push_back(IslandCand{ci, by_count[0].second, by_count[1].second, c.key.sort_pos(), -1, 1.0, 0,
+                                       c.island_only ? 'M' : 'R'});
+        }
+        // A site outside the solve: its raw disagreement with the labelled
+        // reads, block by block; too few labelled reads to judge counts as the
+        // unreliable cut.
+        {
+            std::vector<std::map<hts_pos_t, std::array<int, 2>>> agree(cands.size());
+            for (size_t ri = 0; ri < chunk.read_var_profile.size() && ri < chunk.haps.size(); ++ri) {
+                const int hap = chunk.haps[ri];
+                if (hap != 1 && hap != 2) continue;
+                const ReadVariantProfile& prof = chunk.read_var_profile[ri];
+                if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
+                for (size_t j = 0; j < prof.alleles.size(); ++j) {
+                    const int ic = cand_of_ci[static_cast<size_t>(prof.start_var_idx) + j];
+                    if (ic < 0) continue;
+                    const int al = prof.alleles[j];
+                    const IslandCand& cand = cands[static_cast<size_t>(ic)];
+                    if (al != cand.x && al != cand.y) continue;
+                    ++agree[static_cast<size_t>(ic)][chunk.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
+                }
+            }
+            for (size_t ic = 0; ic < cands.size(); ++ic) {
+                if (cands[ic].kind == 'E') continue;
+                int best = 0, total = 0;
+                for (const auto& [ps, v] : agree[ic]) { best += std::max(v[0], v[1]); total += v[0] + v[1]; }
+                cands[ic].err = total >= 3 ? 1.0 - static_cast<double>(best) / total : kEmUnreliableError;
+            }
+        }
+        const auto usable = [&](size_t ic) { return cands[ic].kind == 'E' || cands[ic].err < kIslandOutsideMaxError; };
+        // Each unlabelled read's calls at the candidates.
+        std::vector<std::vector<std::pair<int, int>>> iobs(robs.size());
+        for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
+            if (chunk.haps[ri] != 0) continue;
+            for (const EmObs& o : robs[ri])
+                if (cand_of_site[static_cast<size_t>(o.s)] >= 0) iobs[ri].emplace_back(cand_of_site[static_cast<size_t>(o.s)], o.b);
+            if (ri >= chunk.read_var_profile.size()) continue;
+            const ReadVariantProfile& prof = chunk.read_var_profile[ri];
+            if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
+            for (size_t j = 0; j < prof.alleles.size(); ++j) {
+                const int ic = cand_of_ci[static_cast<size_t>(prof.start_var_idx) + j];
+                if (ic < 0 || !usable(static_cast<size_t>(ic))) continue;
+                const int al = prof.alleles[j];
+                if (al == cands[static_cast<size_t>(ic)].x) iobs[ri].emplace_back(ic, 0);
+                else if (al == cands[static_cast<size_t>(ic)].y) iobs[ri].emplace_back(ic, 1);
+            }
+        }
+        std::vector<int> unlabelled_callers(cands.size(), 0);
+        for (const auto& v : iobs)
+            for (const auto& [ic, side] : v) ++unlabelled_callers[static_cast<size_t>(ic)];
+        std::vector<int> pick_cand(robs.size(), -1), pick_side(robs.size(), 0);
+        for (size_t ri = 0; ri < iobs.size(); ++ri) {
+            int best = -1, best_side = 0;
+            for (const auto& [ic, side] : iobs[ri]) {
+                const size_t u = static_cast<size_t>(ic);
+                if (unlabelled_callers[u] < kIslandMinReads) continue;
+                if (best >= 0) {
+                    const size_t b = static_cast<size_t>(best);
+                    if (cands[u].err > cands[b].err) continue;
+                    if (cands[u].err == cands[b].err && unlabelled_callers[u] <= unlabelled_callers[b]) continue;
+                }
+                best = ic;
+                best_side = side;
+            }
+            pick_cand[ri] = best;
+            pick_side[ri] = best_side;
+        }
+        std::set<hts_pos_t> used_ps(block.begin(), block.end());
+        std::map<size_t, hts_pos_t> island_ps;  // candidate -> its own phase set
+        const auto ps_of = [&](size_t ic) {
+            auto it = island_ps.find(ic);
+            if (it != island_ps.end()) return it->second;
+            hts_pos_t ps = cands[ic].pos;
+            while (used_ps.count(ps)) ++ps;
+            used_ps.insert(ps);
+            island_ps.emplace(ic, ps);
+            return ps;
+        };
+        for (size_t ri = 0; ri < robs.size(); ++ri) {
+            if (pick_cand[ri] < 0) continue;
+            const size_t ic = static_cast<size_t>(pick_cand[ri]);
+            if (chunk.island_haps.size() < chunk.reads.size()) {
+                chunk.island_haps.resize(chunk.reads.size(), 0);
+                chunk.island_phase_sets.resize(chunk.reads.size(), 0);
+            }
+            chunk.island_haps[ri] = pick_side[ri] == cands[ic].phase ? 1 : 2;
+            chunk.island_phase_sets[ri] = ps_of(ic);
+        }
+        chunk.island_sites.clear();
+        for (const auto& [ic, ps] : island_ps) {
+            const IslandCand& c = cands[ic];
+            const int hap1 = c.phase == 0 ? c.x : c.y;
+            const int hap2 = c.phase == 0 ? c.y : c.x;
+            chunk.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
+        }
+        // Diagnostic, off by default: PGPHASE_DIAG=DIR writes every read an
+        // island claims (islands.TID.BEG.tsv): read, site position, island PS,
+        // the read's side, its island haplotype, its read error at the site,
+        // the site's error (learned, or raw outside the solve), unlabelled
+        // callers, the most member reads sharing one other verified site, 1,
+        // kind (E rejected EM site, R repeat het indel, M island-only MSA het).
+        static const char* const island_diag = std::getenv("PGPHASE_DIAG");
+        if (island_diag != nullptr) {
+            std::vector<int> linked_reads(cands.size(), 0);
+            std::map<std::pair<int, int>, int> shared;  // (island, other EM site) -> member reads calling it
+            for (size_t ri = 0; ri < robs.size(); ++ri) {
+                if (pick_cand[ri] < 0) continue;
+                const int own = cands[static_cast<size_t>(pick_cand[ri])].k;
+                for (const EmObs& o : robs[ri]) {
+                    const size_t k = static_cast<size_t>(o.s);
+                    if (o.s == own || sites[k].locus >= 0 || chunk.candidates[sites[k].ci].unresolved_noisy) continue;
+                    int& c = ++shared[{pick_cand[ri], o.s}];
+                    int& m = linked_reads[static_cast<size_t>(pick_cand[ri])];
+                    m = std::max(m, c);
+                }
+            }
+            const std::string path = std::string(island_diag) + "/islands." + std::to_string(chunk.region.tid) + "." +
+                                     std::to_string(chunk.region.beg) + ".tsv";
+            if (FILE* fh = std::fopen(path.c_str(), "w")) {
+                for (size_t ri = 0; ri < robs.size(); ++ri) {
+                    if (pick_cand[ri] < 0) continue;
+                    const size_t ic = static_cast<size_t>(pick_cand[ri]);
+                    double read_err = 0.0;
+                    for (const EmObs& o : robs[ri])
+                        if (o.s == cands[ic].k) read_err = o.e;
+                    std::fprintf(fh, "%s\t%lld\t%lld\t%d\t%d\t%.4f\t%.3f\t%d\t%d\t1\t%c\n", chunk.reads[ri].qname.c_str(),
+                                 static_cast<long long>(cands[ic].pos), static_cast<long long>(island_ps.at(ic)),
+                                 pick_side[ri], pick_side[ri] == cands[ic].phase ? 1 : 2, read_err, cands[ic].err,
+                                 unlabelled_callers[ic], linked_reads[ic], cands[ic].kind);
+                }
+                std::fclose(fh);
+            }
+        }
+    }
     // Diagnostic, off by default: PGPHASE_EM_DUMP=DIR writes the final solve's
     // evidence per read, one file per chunk. A line is the read, MAPQ, label
     // (HP, PS), per-block log-likelihood margins (PS=margin), the label the
@@ -659,5 +836,30 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
 }
 
 // ── Local haplotype windows ─────────────────────────────────────────────────
+
+size_t apply_island_labels(PhasingChunk& chunk) {
+    if (chunk.island_haps.empty()) return 0;
+    if (chunk.gap_haps.size() < chunk.reads.size()) chunk.gap_haps.resize(chunk.reads.size(), 0);
+    if (chunk.gap_phase_sets.size() < chunk.reads.size()) chunk.gap_phase_sets.resize(chunk.reads.size(), 0);
+    if (chunk.gap_from_bam_observation.size() < chunk.reads.size())
+        chunk.gap_from_bam_observation.resize(chunk.reads.size(), false);
+    size_t labelled = 0;
+    for (size_t ri = 0; ri < chunk.island_haps.size() && ri < chunk.reads.size(); ++ri) {
+        if (chunk.island_haps[ri] == 0) continue;
+        if (ri < chunk.haps.size() && chunk.haps[ri] != 0) continue;
+        if (chunk.gap_haps[ri] != 0) continue;
+        chunk.gap_haps[ri] = chunk.island_haps[ri];
+        chunk.gap_phase_sets[ri] = chunk.island_phase_sets[ri] + kGapFillPsOffset;
+        chunk.gap_from_bam_observation[ri] = true;  // fill only: never replaces another chunk's label
+        ++labelled;
+    }
+    for (const PhasingChunk::IslandSite& s : chunk.island_sites) {
+        if (s.candidate >= chunk.candidates.size()) continue;
+        CandidateVariant& c = chunk.candidates[s.candidate];
+        if (c.hap_to_cons_alle[1] >= 0 && c.hap_to_cons_alle[2] >= 0) continue;  // phased since
+        set_site_phase(c, s.phase_set, s.hap1, s.hap2);
+    }
+    return labelled;
+}
 
 } // namespace pgphase_collect

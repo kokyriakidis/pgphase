@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Every read a rival phases correctly and we do not, each in one primary cause (evaluation only).
 
-Usage: readaudit.py DIAG_DIR RIVAL [--list CLASS] [--top N]
+Usage: readaudit.py DIAG_DIR RIVAL [--reads islands|FILE] [--list CLASS] [--top N]
 
 Population: arms reads crossing a truth het that RIVAL phases correctly and we
 leave unphased or discordant (official classes). For each read, the rival's
@@ -28,6 +28,12 @@ compared:
   right calls (block)        all real-site calls right: the block's
                              orientation there is what is wrong
   no clear site              no call at a site with a clear parental split
+Then every rival truth-het site in those reads, by kind, our furthest stage
+and the read's own EM call there (right / wrong by the parents' sides, or
+none): what the rival uses that we lack, reject or call wrong.
+--reads restricts the population: "islands" (reads an island block labelled,
+from aln/islands.*.tsv) or a file of read names; it also prints our class
+against the rival's for the whole set.
 --list CLASS lists the loci (5 kb merge) of a primary cause (prefix match).
 """
 import argparse
@@ -79,10 +85,29 @@ def site_kind(fa, ref_name, pos, ref, alt):
     return ("hp" if p == 1 else "str"), tract
 
 
+def select_reads(diag, spec):
+    """Read names for --reads: "islands" (applied island reads) or a file of names."""
+    if spec == "islands":
+        claims = {}
+        for f in D.chunk_files(os.path.join(diag, "aln"), "islands"):
+            with open(f) as fh:
+                for line in fh:
+                    p = line.split("\t")
+                    if p[9].strip() == "1":
+                        claims[p[0]] = int(p[2]) + 1_000_000_000
+        if not claims:
+            sys.exit("no island rows: make the diag run with PGPHASE_ISLAND_MAX_ERR set")
+        tags = score.read_tags(diag, set(claims))
+        return {q for q, ps in claims.items() if tags.get(q, (0, 0))[1] == ps}
+    with open(spec) as fh:
+        return {line.split()[0] for line in fh if line.strip()}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("diag")
-    ap.add_argument("rival")
+    ap.add_argument("rival", nargs="?", default="hiphase")
+    ap.add_argument("--reads", default="")
     ap.add_argument("--list", default="")
     ap.add_argument("--top", type=int, default=20)
     a = ap.parse_args()
@@ -94,6 +119,14 @@ def main():
     ours = score.read_classes(a.diag)
     theirs = score.read_classes(rdir)
     target = [q for q in scope if ours[q] != "correct" and theirs[q] == "correct"]
+    if a.reads:
+        chosen = select_reads(a.diag, a.reads)
+        sel = [q for q in scope if q in chosen]
+        print(f"read set {a.reads}: {len(chosen):,} reads, arms_phaseable {len(sel):,}; ours x {a.rival}:")
+        for (x, y), n in collections.Counter((ours[q], theirs[q]) for q in sel).most_common():
+            print(f"  ours {x:10} {a.rival} {y:10} {n:6,}")
+        print()
+        target = [q for q in target if q in chosen]
     names = set(target)
     rtags = score.read_tags(rdir, names)
     # rival hets by phase set
@@ -200,6 +233,7 @@ def main():
     disc_where = collections.defaultdict(collections.Counter)
     detail = collections.defaultdict(list)
     called_quality = collections.Counter()
+    site_tab = collections.Counter()
     for q in target:
         t = rtags.get(q)
         s, e = scope[q][3], scope[q][4]
@@ -253,6 +287,19 @@ def main():
             disc_sub[sub] += 1
             disc_where[sub][scope[q][3] // 100000] += 1
         detail[cls].append((q, ours[q], s, e, mq, sites, obs))
+        obs_at = {o[0]: o for o in obs}
+        for pos, kind, tract, tr, st, our_pos in sites:
+            if tr != "het":
+                continue
+            o = obs_at.get(our_pos) if our_pos is not None else None
+            if o is None:
+                call = "no call"
+            else:
+                st_, mat_side = site_truth((o[0], o[1]))
+                call = ("call ?" if mat_side is None else
+                        "call right" if (o[2] == mat_side) == scope[q][2] else "call wrong")
+            stg = st if st.startswith("em_") else st.split("_")[0] + "_*" if "_" in st else st
+            site_tab[(ours[q], kind, stg, call)] += 1
         if cls == "good_site_called":
             # the read's reliable EM calls against truth: does it carry wrong ones?
             rel = [o for o in obs if o[3] < 0.3 and o[1] != "U"]
@@ -266,6 +313,11 @@ def main():
     print("\ndiscordant reads by their own calls (judged by the parents' sides at each site):")
     for k, n in disc_sub.most_common():
         print(f"  {k:28} {n:6,}   " + ", ".join(f"{b / 10:.1f} Mb:{c}" for b, c in disc_where[k].most_common(5)))
+    print("\nrival truth-het sites in these reads: kind x our stage x the read's EM call there")
+    print(f"  {'kind':8} {'our stage':16} {'read call':12} {'unphased':>9} {'discordant':>11}")
+    keys = sorted({k[1:] for k in site_tab}, key=lambda k: -(site_tab[("unphased",) + k] + site_tab[("discordant",) + k]))
+    for k in keys:
+        print(f"  {k[0]:8} {k[1]:16} {k[2]:12} {site_tab[('unphased',) + k]:9,} {site_tab[('discordant',) + k]:11,}")
     if a.list:
         rows = sorted((r for k, v in detail.items() if k.startswith(a.list) for r in v), key=lambda r: r[2])
         # group into loci (5 kb)

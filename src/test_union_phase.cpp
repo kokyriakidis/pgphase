@@ -553,6 +553,141 @@ static void test_confirm_catalog_snp_calls() {
           "confirm: graph-only call kept with a per-read error");
 }
 
+static void test_inject_island_only_sites() {
+    // An MSA-verified het whose ALT only low-MAPQ reads carry fails the
+    // confident-read rule: it enters as an island-only site (no germline
+    // bits, no VCF record). One at an indel a regular site already carries
+    // (same left-aligned allele) is dropped, never made canonical.
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    ref.replace(399, 7, "CAAAAAG");  // 1-based 400: C, 401-405: A run, 406: G
+    for (size_t i : {99, 199, 249}) ref[i] = 'A';
+
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 500;
+    graph.candidates.push_back(clean_snp(100));
+    for (int r = 0; r < 6; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {r % 2}));
+    }
+    gc.site_ids = {"s100"};
+    gc.site_meta.resize(1);
+    gc.site_allele_orig_idx = {{0, 1}};
+    finish_chunk(graph);
+
+    const auto msa_ins = [](hts_pos_t pos) {
+        CandidateVariant ins;
+        ins.key.tid = 0;
+        ins.key.pos = pos;
+        ins.key.type = VariantType::Insertion;
+        ins.key.ref_len = 0;
+        ins.key.alt = "A";
+        ins.counts.category = VariantCategory::NoisyCandHet;
+        ins.lcd_var_i_to_cate = kCandNoisyCandHet;
+        ins.msa_verified = true;
+        return ins;
+    };
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 500;
+    bam.ref_seq = ref;
+    bam.candidates.push_back(clean_snp(200));                                    // 0: injected
+    CandidateVariant weak = snp(250, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    weak.msa_verified = true;
+    bam.candidates.push_back(weak);                                              // 1: island-only
+    bam.candidates.push_back(msa_ins(403));                                      // 2: island-only, aliases 3
+    bam.candidates.push_back(msa_ins(406));                                      // 3: injected
+    for (int r = 0; r < 6; ++r) {
+        const int a = r % 2;
+        bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {a, 0, 0, a}));
+    }
+    for (int r = 6; r < 8; ++r) {
+        bam.reads.push_back(read_named("x" + std::to_string(r), 5));
+        bam.read_var_profile.push_back(profile(r, 1, {1, 1}));
+    }
+    inject_alignment_sites(gc, bam, "chr1");
+    int at250 = -1, n_ins = 0;
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const CandidateVariant& c = graph.candidates[ci];
+        if (c.key.pos == 250) at250 = static_cast<int>(ci);
+        if (c.key.type == VariantType::Insertion) {
+            ++n_ins;
+            check(!c.island_only && (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0,
+                  "inject: the regular insertion stays canonical");
+        }
+    }
+    check(n_ins == 1, "inject: one insertion row, got " + std::to_string(n_ins));
+    check(at250 >= 0, "inject: the low-confidence MSA het enters");
+    if (at250 < 0) return;
+    const CandidateVariant& c = graph.candidates[static_cast<size_t>(at250)];
+    check(c.island_only && c.bam_injected, "inject: it is island-only");
+    check((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0, "inject: it carries no germline bits");
+    check(gc.site_meta[static_cast<size_t>(at250)].ref.empty(), "inject: it writes no VCF record");
+}
+
+static void test_em_island_blocks() {
+    // Sites 0-5 clean SNPs, tiled; site 6 a repeat het indel and site 7 an
+    // island-only MSA het, neither an EM site, read by labelled reads that
+    // agree with their haplotypes. Two reads each call only site 6 or only
+    // site 7: the solve cannot label them, the islands do, by their own calls.
+    PhasingChunk chunk;
+    for (int k = 0; k < 6; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    CandidateVariant rhi = snp(700, VariantCategory::RepeatHetIndel, 0);
+    chunk.candidates.push_back(rhi);
+    CandidateVariant only = snp(800, VariantCategory::NoisyCandHet, 0);
+    only.island_only = true;
+    chunk.candidates.push_back(only);
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 5, 3);
+    add_tiled_reads(chunk, truth, 4, 6, 3);
+    add_tiled_reads(chunk, truth, 5, 7, 3);
+    const size_t first_lone = chunk.reads.size();
+    for (int site : {6, 7}) {
+        for (int hap = 0; hap < 2; ++hap) {
+            const int id = static_cast<int>(chunk.reads.size());
+            chunk.reads.push_back(read_named("lone" + std::to_string(id), 60));
+            chunk.read_var_profile.push_back(profile(id, site, {hap_allele(hap, static_cast<size_t>(site))}));
+            truth.push_back(hap);
+        }
+    }
+    finish_chunk(chunk);
+    const std::vector<LocusWindowSite> no_loci;
+    phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
+    for (size_t r = first_lone; r < chunk.reads.size(); ++r)
+        check(chunk.haps[r] == 0, "islands: the solve leaves lone read " + std::to_string(r) + " unlabelled");
+    check(chunk.island_haps.size() == chunk.reads.size(), "islands: island labels recorded");
+    if (chunk.island_haps.size() != chunk.reads.size()) return;
+    for (size_t pair = 0; pair < 2; ++pair) {
+        const size_t a = first_lone + 2 * pair, b = a + 1;
+        check(chunk.island_haps[a] != 0 && chunk.island_haps[b] != 0 && chunk.island_haps[a] != chunk.island_haps[b],
+              "islands: lone reads at site " + std::to_string(6 + pair) + " take opposite haplotypes");
+        check(chunk.island_phase_sets[a] == chunk.island_phase_sets[b] &&
+              chunk.island_phase_sets[a] == chunk.candidates[6 + pair].key.sort_pos(),
+              "islands: one phase set per island, at its site");
+    }
+    // Applied after the rescue: a read the rescue labelled keeps its label.
+    chunk.gap_haps.assign(chunk.reads.size(), 0);
+    chunk.gap_phase_sets.assign(chunk.reads.size(), 0);
+    chunk.gap_haps[first_lone + 3] = 1;
+    chunk.gap_phase_sets[first_lone + 3] = 100 + kGapFillPsOffset;
+    const size_t applied = apply_island_labels(chunk);
+    check(applied == 3, "islands: three lone reads labelled, got " + std::to_string(applied));
+    check(chunk.gap_haps[first_lone] == chunk.island_haps[first_lone] &&
+          chunk.gap_phase_sets[first_lone] == chunk.island_phase_sets[first_lone] + kGapFillPsOffset &&
+          chunk.gap_from_bam_observation[first_lone],
+          "islands: label goes through the gap channel, fill only");
+    check(chunk.gap_haps[first_lone + 3] == 1 && chunk.gap_phase_sets[first_lone + 3] == 100 + kGapFillPsOffset,
+          "islands: an earlier gap label is kept");
+    for (size_t r = 0; r < first_lone; ++r)
+        check(chunk.gap_haps[r] == 0, "islands: solve-labelled read " + std::to_string(r) + " untouched");
+    check(chunk.candidates[6].phase_set == chunk.island_phase_sets[first_lone] &&
+          chunk.candidates[6].hap_to_cons_alle[1] != chunk.candidates[6].hap_to_cons_alle[2],
+          "islands: the island site is phased in its own block");
+}
+
 int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
@@ -569,6 +704,8 @@ int main() {
     test_em_join_needs_strong_reads();
     test_msa_absence_of_alt();
     test_confirm_catalog_snp_calls();
+    test_inject_island_only_sites();
+    test_em_island_blocks();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";
         return 1;

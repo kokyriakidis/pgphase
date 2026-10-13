@@ -57,7 +57,7 @@ every read's profile as the final EM saw it (emreads.*), every EM block-cut
 decision with its margins (joins.*), every noisy-region MSA variant with its
 cluster consensus coverage and read calls before and after the refresh of
 assigned reads (msa.*), and each read's calls in the alignment solve
-(alnreads.*). `scripts/dev/pg diag` makes a cached
+(alnreads.*), and every read an island block claims (islands.*). `scripts/dev/pg diag` makes a cached
 full-contig run with all of these; `scripts/dev/pg inspect REGION` prints
 everything at a region by position (truth, catalog, graph, alignment,
 injection, EM, our and every competitor's VCF, the reads of each tool, the
@@ -67,7 +67,17 @@ alignment solve and in the EM against its truth haplotype;
 `scripts/dev/pg gapsites` lists, per gap a competitor closes, the sites it
 uses there (snp / indel / str / homopolymer, truth) and how far each gets
 with us and why;
-`scripts/dev/pg audit [RIVAL]` puts every read a competitor phases correctly
+`scripts/dev/pg each [-j N] CMD` runs any pg command on every profile in
+`PGDEV_EACH` (default chr20 chr12 chr18), each in its own environment;
+`scripts/dev/pg sweep LABEL[:VAR=VAL,...] ...` runs the full tier per
+configuration and prints each profile's change from its pinned baseline and
+the total (a diag run doubles as the full run of its binary and environment,
+so neither runs twice); `scripts/dev/pg islands` reports the island blocks
+(classes, truth, purity and production features against truth);
+`scripts/dev/pg calls` the EM's per-read call accuracy at rejected sites;
+`scripts/dev/pg realign` HiPhase's allele assignment reproduced read by read
+against ours at the rival's repeat het indels, and where we lose them;
+`scripts/dev/pg audit [RIVAL] [--reads islands|FILE]` puts every read a competitor phases correctly
 and we do not -- unphased or discordant -- in one primary cause, and splits
 the discordant ones by their own calls judged by each parent's side at the
 site (no allele representation compared); scripts/dev/gaptriage.py classes

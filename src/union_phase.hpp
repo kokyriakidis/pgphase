@@ -100,6 +100,12 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
 /// one homopolymer base), the dominant HiFi error. Indexed by candidate.
 std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam);
 
+/// Apply the union EM's local island blocks (PhasingChunk::island_*) after the
+/// rescue: reads it left unphased take their island label through the gap_*
+/// channel, and island sites still unphased take their island phase. Returns
+/// reads labelled.
+size_t apply_island_labels(PhasingChunk& chunk);
+
 /// Phase a chunk by EM over its whole read x site matrix.
 ///
 /// Every voting site carrying two observed alleles gets a phase and its own
