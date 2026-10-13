@@ -30,8 +30,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diaglib as D  # noqa: E402
 import score  # noqa: E402
 
-DECISION_ORDER = ["injected", "complement", "depth_gate", "few_confident_reads", "category", "not_germline",
-                  "outside_chunk"]
 
 
 def main():
@@ -81,7 +79,7 @@ def main():
             return f"em {e['kind']} {e['err']:.2f} b{e['block']}"
         i = inj.get(pos)
         if i:
-            r = min(i, key=lambda r: DECISION_ORDER.index(r["decision"]) if r["decision"] in DECISION_ORDER else 9)
+            r = min(i, key=lambda r: D.decision_rank(r["decision"]))
             return f"inj {r['decision']} {r['cat']}{' msa' if r['msa'] else ''} conf {r['conf']}"
         al = aln.get(pos)
         if al:

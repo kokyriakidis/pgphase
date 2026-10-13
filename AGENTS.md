@@ -77,6 +77,8 @@ so neither runs twice); `scripts/dev/pg islands` reports the island blocks
 `scripts/dev/pg calls` the EM's per-read call accuracy at rejected sites;
 `scripts/dev/pg realign` HiPhase's allele assignment reproduced read by read
 against ours at the rival's repeat het indels, and where we lose them;
+`scripts/dev/pg unphased` every arms_phaseable read we leave unphased in one
+primary cause, crossed with the rivals' classes, with the loci it concentrates in;
 `scripts/dev/pg audit [RIVAL] [--reads islands|FILE]` puts every read a competitor phases correctly
 and we do not -- unphased or discordant -- in one primary cause, and splits
 the discordant ones by their own calls judged by each parent's side at the

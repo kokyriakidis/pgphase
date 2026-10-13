@@ -150,8 +150,7 @@ def main():
         if ij:
             short = {"injected": "inj", "complement": "comp", "depth_gate": "depth", "few_confident_reads": "conf",
                      "category": "cat", "outside_chunk": "out", "not_germline": "ng"}
-            best = min(ij, key=lambda r: ["injected", "complement", "depth_gate", "few_confident_reads",
-                                          "category", "not_germline", "outside_chunk"].index(r["decision"]))
+            best = min(ij, key=lambda r: D.decision_rank(r["decision"]))
             icell = short.get(best["decision"], best["decision"])
         e = D.near(em_sites, pos)
         ecell = ""

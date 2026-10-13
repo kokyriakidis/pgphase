@@ -36,8 +36,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diaglib as D  # noqa: E402
 import score  # noqa: E402
 
-DECISION_ORDER = ["injected", "complement", "depth_gate", "few_confident_reads", "category", "not_germline",
-                  "outside_chunk"]
 
 
 def period(s):
@@ -166,7 +164,7 @@ def main():
             return "graph_" + rows[0]["cat"], "covs " + rows[0]["covs"], g[0][0]
         i = D.near(inj, pos, tol)
         if i:
-            r = min(i[0][1], key=lambda r: DECISION_ORDER.index(r["decision"]) if r["decision"] in DECISION_ORDER else 9)
+            r = min(i[0][1], key=lambda r: D.decision_rank(r["decision"]))
             st = "inj_" + r["decision"] + ((":" + r["cat"] + (":msa" if r["msa"] else "")) if r["decision"] == "category" else "")
             return st, f"{r['cat']}{' msa' if r['msa'] else ''} depth {r['depth']}/{r['median']:.0f} conf {r['conf']}", i[0][0]
         al = D.near(aln, pos, tol)

@@ -19032,3 +19032,38 @@ Harness: island dump (islands.*); pg each / sweep (per-profile deltas and
 totals, diag runs reused as full runs); pg islands, calls, realign; pg audit
 --reads; baselines re-pinned to c8391f1 output.
 
+## 2026-10-13 (later): deferred labels for reads one agreeing call cannot label
+
+`pg unphased` put every remaining unphased arms_phaseable read in one cause
+(729 / 663 / 563 on chr20 / chr12 / chr18). The largest group rivals phase:
+reads with a right call at a reliable EM site and no label (~420; HiPhase
+correct on ~330). Most hold exactly one reliable call, at an injected repeat
+site of learned error 0.2-0.3: with its read error the posterior is ~0.72, so
+it can never reach 0.8. Those calls were right 301 times in 315.
+
+A read below 0.8 whose calls in a block all agree now takes that block's
+label from posterior 0.70, applied last and fill-only with the island labels.
+arms_phaseable against 5b9befe: chr20 +97 / +21 / -118, chr12 +162 / -15 /
+-147, chr18 +110 / -2 / -108; total +369 correct / +4 discordant / -373
+unphased; switches unchanged. Applied inside the EM the same labels seeded
+windows and steered stitching and the rescue (+261 / +101, chr20 blocks
+flipping: 138 correct reads went discordant). 0.60 adds 8 / 5.
+
+Remaining causes: 1/2 hets in long homopolymers that the MSA consensus calls
+homozygous (chr12:103,422,901, +13/+14 T in a 28 T run: reads split by
+parent at ~88%, 35 reads unphased; a length-spread genotyper would be
+needed); pericentromeric reads with no candidate (chr20 32.2-32.9 Mb); reads
+whose calls sit only where the parents do not differ.
+
+Realignment of merged deletion rows: merge_msa_colocated_deletions turns two
+deletions of different length at one anchor into one row whose alleles sit in
+msa_insertion_alts; realign_indel_observations and fill_missing_observations
+only handled such rows for insertions, so a merged 1/2 deletion kept the
+MSA's clustered reads alone (chr18:77,670,828, a reliable EM site at error
+0.01, read by 11 of ~60 crossing reads). Now both build the row's allele
+haplotypes for deletions too. With the deferred labels, against 5b9befe:
++408 correct / +13 discordant / -421 unphased (chr20 +134 / +9, chr12
++148 / +6, chr18 +126 / -2); the deletion fix's share +39 / +9, its chr12
+-14 / +21 from one 39-read block at 48.76 Mb whose orientation is a coin
+flip (HiPhase 51 / 111 there).
+

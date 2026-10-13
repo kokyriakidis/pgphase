@@ -27,6 +27,14 @@ constexpr double kEmUnverifiedReportError = 0.1;
 constexpr int kEmIterations = 15;
 constexpr int kEmSwitchRounds = 30;
 constexpr double kEmReadLabelPosterior = 0.8;
+// A read below kEmReadLabelPosterior whose calls in a block all agree takes
+// that block's label from this posterior, applied last and fill-only (with the
+// island labels). Typically one call at an injected repeat site of learned
+// error 0.2-0.3, which can never reach 0.8 alone: such calls on unphased reads
+// were right 301 times in 315 (chr12/18/20). Applied inside the EM, the same
+// labels steered windows, stitching and rescue: +261 correct / +101
+// discordant, chr20 blocks flipping. Deferred: +369 / +4. 0.6 adds 8 / 5.
+constexpr double kEmDeferredLabelPosterior = 0.70;
 constexpr double kEmBlockCutLogLikelihood = 4.0;
 // The cut for joins carried only by weak sites (see bridge_weak_sites).
 constexpr double kEmWeakBridgeCutLogLikelihood = 10.0;
@@ -507,6 +515,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
         chunk.haps[ri] = 0;
         chunk.phase_sets[ri] = kUnphasedReadPhaseSet;
+        std::map<hts_pos_t, std::array<int, 2>> directions;  // calls favouring hap 1 / hap 2
         std::map<hts_pos_t, std::array<double, 2>> per_block;
         for (const EmObs& o : robs[ri]) {
             if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
@@ -519,6 +528,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             auto& l = per_block[block[static_cast<size_t>(o.s)]];
             l[0] += ll[0];
             l[1] += ll[1];
+            if (ll[0] != ll[1]) ++directions[block[static_cast<size_t>(o.s)]][ll[0] > ll[1] ? 0 : 1];
         }
         double best = 0.0;
         for (const auto& [ps, l] : per_block) {
@@ -528,6 +538,31 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             best = std::abs(margin);
             chunk.haps[ri] = p1 >= 0.5 ? 1 : 2;
             chunk.phase_sets[ri] = ps;
+        }
+        // Deferred: a read below the label posterior whose calls in a block all
+        // point one way takes that block's label last (apply_island_labels,
+        // fill-only), so it steers no window, stitch or rescue.
+        if (chunk.haps[ri] != 0 || loci == nullptr) continue;
+        double weak_best = 0.0;
+        int weak_hap = 0;
+        hts_pos_t weak_ps = 0;
+        for (const auto& [ps, l] : per_block) {
+            const double margin = l[0] - l[1];
+            const double p1 = margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
+            const auto& dir = directions[ps];
+            if (dir[0] != 0 && dir[1] != 0) continue;
+            if (std::max(p1, 1.0 - p1) < kEmDeferredLabelPosterior || std::abs(margin) <= weak_best) continue;
+            weak_best = std::abs(margin);
+            weak_hap = p1 >= 0.5 ? 1 : 2;
+            weak_ps = ps;
+        }
+        if (weak_hap != 0) {
+            if (chunk.island_haps.size() < chunk.reads.size()) {
+                chunk.island_haps.resize(chunk.reads.size(), 0);
+                chunk.island_phase_sets.resize(chunk.reads.size(), 0);
+            }
+            chunk.island_haps[ri] = weak_hap;
+            chunk.island_phase_sets[ri] = weak_ps;
         }
     }
     // Island blocks. A read the solve leaves unlabelled is phased locally by
@@ -596,6 +631,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         std::vector<std::vector<std::pair<int, int>>> iobs(robs.size());
         for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
             if (chunk.haps[ri] != 0) continue;
+            if (ri < chunk.island_haps.size() && chunk.island_haps[ri] != 0) continue;  // deferred block label
             for (const EmObs& o : robs[ri])
                 if (cand_of_site[static_cast<size_t>(o.s)] >= 0) iobs[ri].emplace_back(cand_of_site[static_cast<size_t>(o.s)], o.b);
             if (ri >= chunk.read_var_profile.size()) continue;

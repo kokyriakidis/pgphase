@@ -97,8 +97,7 @@ def main():
             return "graph_" + rows[0]["cat"]
         i = D.near(inj, pos, tol)
         if i:
-            best = min(i[0][1], key=lambda r: ["injected", "complement", "depth_gate", "few_confident_reads",
-                                               "category", "not_germline", "outside_chunk"].index(r["decision"]))
+            best = min(i[0][1], key=lambda r: D.decision_rank(r["decision"]))
             if best["decision"] == "category":
                 return "inj_category:" + best["cat"] + (":msa" if best["msa"] else "")
             return "inj_" + best["decision"]

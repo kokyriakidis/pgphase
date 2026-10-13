@@ -49,7 +49,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diaglib as D  # noqa: E402
 import score  # noqa: E402
 
-DECISIONS = ["injected", "complement", "depth_gate", "few_confident_reads", "category", "not_germline", "outside_chunk"]
 
 
 def period(s):
@@ -210,7 +209,7 @@ def main():
             return ("graph_voting" if any(r["voting"] for r in rows) else "graph_" + rows[0]["cat"]), g[0][0]
         i = D.near(inj, pos, tol)
         if i:
-            r = min(i[0][1], key=lambda r: DECISIONS.index(r["decision"]) if r["decision"] in DECISIONS else 9)
+            r = min(i[0][1], key=lambda r: D.decision_rank(r["decision"]))
             d = r["decision"]
             return ("inj_" + (f"category:{r['cat']}" if d == "category" else d)), i[0][0]
         al = D.near(aln, pos, tol)

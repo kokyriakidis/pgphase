@@ -426,6 +426,53 @@ static void test_realign_recalls_indel() {
     check(graded, "realign: calls carry a per-read error in (0, 0.5)");
 }
 
+static void test_realign_recalls_merged_deletion() {
+    // Two deletions of different length at one anchor merged into one row
+    // (merge_msa_colocated_deletions): REF spans the longer one, allele 1
+    // deletes all of it, allele 2 keeps the bases the shorter one leaves.
+    // Reads the MSA did not call are re-called against all three.
+    std::string ref;
+    uint32_t state = 4242;
+    for (int i = 0; i < 600; ++i) {
+        state = state * 1103515245u + 12345u;
+        ref += "ACGT"[(state >> 16) % 4];
+    }
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 600;
+    bam.ref_seq = ref;
+    PhasingChunk chunk;
+    CandidateVariant c;
+    c.key.tid = 0;
+    c.key.pos = 300;  // first deleted base, 1-based
+    c.key.type = VariantType::Deletion;
+    c.key.ref_len = 6;
+    c.msa_insertion_alts = {std::string(), ref.substr(301, 4)};
+    c.counts.category = VariantCategory::NoisyCandHet;
+    c.lcd_var_i_to_cate = kCandNoisyCandHet;
+    c.bam_injected = true;
+    chunk.candidates.push_back(c);
+    for (int r = 0; r < 9; ++r) {
+        const std::string name = "d" + std::to_string(r);
+        chunk.reads.push_back(read_named(name, 60));
+        chunk.read_var_profile.push_back(profile(r, 0, {-1}));
+        ReadRecord rec = read_named(name, 60);
+        const int del = r % 3 == 0 ? 0 : r % 3 == 1 ? 6 : 2;  // allele 0, 1, 2
+        if (del == 0)
+            rec.alignment = make_alignment(name, ref, {bam_cigar_gen(600, BAM_CMATCH)});
+        else
+            rec.alignment = make_alignment(name, ref.substr(0, 299) + ref.substr(299 + del),
+                {bam_cigar_gen(299, BAM_CMATCH), bam_cigar_gen(del, BAM_CDEL), bam_cigar_gen(301 - del, BAM_CMATCH)});
+        bam.reads.push_back(std::move(rec));
+    }
+    finish_chunk(chunk);
+    const size_t changed = realign_indel_observations(chunk, bam, nullptr);
+    check(changed == 9, "realign: every read of a merged deletion row called, got " + std::to_string(changed));
+    bool ok = true;
+    for (int r = 0; r < 9; ++r) ok = ok && chunk.read_var_profile[static_cast<size_t>(r)].alleles[0] == r % 3;
+    check(ok, "realign: each read takes its own deletion allele");
+}
+
 static void test_bridge_weak_sites() {
     // A one-base insertion into a long homopolymer is a weak bridge; a SNP and
     // a one-base insertion outside any run are not.
@@ -688,6 +735,43 @@ static void test_em_island_blocks() {
           "islands: the island site is phased in its own block");
 }
 
+static void test_em_deferred_labels() {
+    // A read whose one call carries a high per-read error stays below the
+    // label posterior: its calls agree, so it takes its block's label last,
+    // through the island channel. A read whose calls disagree does not.
+    PhasingChunk chunk;
+    for (int k = 0; k < 6; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 5, 3);
+    const size_t weak = chunk.reads.size();
+    chunk.reads.push_back(read_named("weak", 60));
+    chunk.read_var_profile.push_back(profile(static_cast<int>(weak), 2, {hap_allele(0, 2)}));
+    truth.push_back(0);
+    const size_t torn = chunk.reads.size();
+    chunk.reads.push_back(read_named("torn", 60));
+    chunk.read_var_profile.push_back(profile(static_cast<int>(torn), 2, {hap_allele(0, 2), hap_allele(1, 3)}));
+    truth.push_back(0);
+    finish_chunk(chunk);
+    ObservationErrors errors;
+    errors[observation_key(weak, 2)] = 0.25;
+    errors[observation_key(torn, 2)] = 0.25;
+    errors[observation_key(torn, 3)] = 0.25;
+    const std::vector<LocusWindowSite> no_loci;
+    phase_chunk_by_global_em(chunk, &no_loci, nullptr, &errors);
+    check(chunk.haps[weak] == 0 && chunk.haps[torn] == 0, "deferred: both reads stay below the label posterior");
+    check(chunk.island_haps.size() == chunk.reads.size(), "deferred: labels recorded");
+    if (chunk.island_haps.size() != chunk.reads.size()) return;
+    // Its label agrees with a solve-labelled read on the same haplotype.
+    size_t mate = 0;
+    while (mate < weak && !(truth[mate] == 0 && chunk.haps[mate] != 0)) ++mate;
+    check(mate < weak && chunk.island_haps[weak] == chunk.haps[mate] &&
+          chunk.island_phase_sets[weak] == chunk.phase_sets[mate],
+          "deferred: the agreeing read takes its block's label");
+    check(chunk.island_haps[torn] == 0, "deferred: a read whose calls disagree takes none");
+    check(apply_island_labels(chunk) == 1 && chunk.gap_haps[weak] == chunk.island_haps[weak],
+          "deferred: applied through the gap channel");
+}
+
 int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
@@ -700,12 +784,14 @@ int main() {
     window_case(false);
     window_case(true, false);
     test_realign_recalls_indel();
+    test_realign_recalls_merged_deletion();
     test_bridge_weak_sites();
     test_em_join_needs_strong_reads();
     test_msa_absence_of_alt();
     test_confirm_catalog_snp_calls();
     test_inject_island_only_sites();
     test_em_island_blocks();
+    test_em_deferred_labels();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";
         return 1;

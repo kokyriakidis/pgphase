@@ -76,6 +76,12 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        and affine realignment by margin threshold against our
                        EM's calls, by our EM state at the site
                        (scripts/dev/realign.py)
+  unphased [--loci N] [--list CAUSE]
+                       every arms_phaseable read we leave unphased in one
+                       primary cause (its calls judged by each parent's
+                       allele), crossed with HiPhase's and LongPhase's class,
+                       with the loci each cause concentrates in
+                       (scripts/dev/unphased.py)
   audit [RIVAL] [--reads islands|FILE] [--list CLASS]
                        every read RIVAL (default hiphase) phases correctly and
                        we do not, unphased or discordant, in one primary cause
@@ -417,6 +423,7 @@ main() {
         islands) local d; d="$(diag_dir)"; py "${here}/islands.py" "${d}" "$@" ;;
         calls) local d; d="$(diag_dir)"; py "${here}/calls.py" "${d}" "$@" ;;
         realign) local d; d="$(diag_dir)"; py "${here}/realign.py" "${d}" "$@" ;;
+        unphased) local d; d="$(diag_dir)"; py "${here}/unphased.py" "${d}" "$@" ;;
         diag) diag_dir ;;
         inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"
                  local d; d="$(diag_dir)"; py "${here}/inspect_region.py" "${d}" "$@" ;;

@@ -310,8 +310,8 @@ Per chunk, in order:
    These reads get calls at the voting sites they span by realignment to the
    two candidate alleles (`fill_missing_observations`; one edit decides a SNP,
    an indel needs two). Decomposed catalog rows are called against every other
-   allele of the site, and multi-allelic MSA insertion rows against REF and
-   every insertion. Graph reads are never filled: where a read's graph
+   allele of the site, and multi-allelic MSA rows (insertions or deletions)
+   against REF and every allele. Graph reads are never filled: where a read's graph
    alignment does not reach a site, its linear placement there may be a
    paralog's.
 5. **Realigned indel calls** (`realign_indel_observations`). This step only
@@ -332,8 +332,13 @@ Per chunk, in order:
      Allele 1 is this indel. Allele 0 is the closest of REF and every other
      injected allele inside the same repeat, so at a two-allele (1/2) locus the
      other haplotype's allele competes, not just REF.
-   - *Multi-allelic MSA rows.* Insertion rows with several alleles
-     (`msa_insertion_alts`) are called against REF and every insertion.
+   - *Multi-allelic MSA rows.* Rows with several alleles
+     (`msa_insertion_alts`) are called against REF and every allele: merged
+     co-located insertions, and merged co-located deletions (REF the longer
+     deletion's span, each allele the bases it keeps). Deletion rows were
+     skipped before, so a merged 1/2 deletion kept only the MSA's clustered
+     reads (chr18:77,670,828: 11 of ~60 crossing reads; +39 correct / +9
+     discordant over chr12/18/20).
    - *Why.* Pileup and MSA calls at repeat indels are too noisy for the EM
      (learned error ≥ 0.3), while exact-allele realignment is not.
    - *Per-read confidence* (`ObservationErrors`). Every call at an injected
@@ -426,6 +431,16 @@ Per chunk, in order:
    - *Output.* A site whose learned error is 0.3 or more is reported unphased
      and labels no read. A read is labelled in the block where its own
      evidence is strongest, if its posterior there is at least 0.8.
+   - *Deferred labels* (final pass). A read below 0.8 whose calls in a block
+     all point one way takes that block's label from posterior 0.70
+     (`kEmDeferredLabelPosterior`), applied last with the island labels
+     (step 10): through the gap channel, fill-only, after stitching and the
+     rescue. Typically one call at an injected repeat site of learned error
+     0.2-0.3, which can never reach 0.8 alone; on unphased reads such calls
+     were right 301 times in 315. Applied inside the EM instead, these labels
+     seeded windows and steered stitching and the rescue: blocks flipped on
+     chr20 (+261 correct / +101 discordant over chr12/18/20, against
+     +369 / +4 deferred).
 7. **Local haplotype windows** (`build_locus_window_sites`).
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats
@@ -482,6 +497,7 @@ Per chunk, in order:
     - *Choice.* Each read takes its lowest-error candidate (ties: more
       unlabelled callers). Choosing by callers instead let a read with a right
       call at a real repeat het land on a noise site beside it.
+    - *Order.* A read holding a deferred block label (step 6) takes no island.
     - *Applied last.* Island labels go through the gap channel only for reads
       still unphased after the rescue, marked fill-only, so a rescue label
       from this chunk or another always wins. Applied before the rescue, they

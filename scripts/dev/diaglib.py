@@ -40,6 +40,15 @@ SHORT = {"LOW_COV": "LC", "LOW_AF": "LAF", "STRAND_BIAS": "SB", "CLEAN_HET_SNP":
          "CLEAN_HET_INDEL": "HI", "CLEAN_HOM": "HOM", "NOISY_CAND_HET": "NH", "NOISY_CAND_HOM": "NHOM",
          "NOISY_RESOLVED": "NR", "REP_HET_INDEL": "RHI", "NON_VAR": "NV"}
 CHUNK_SLACK = 2_000_000
+# Injection decisions (inj.* dump), most advanced first: a site injected as a
+# voting or hidden complement site, then as an island-only site, then the
+# reasons it was not.
+DECISIONS = ["injected", "complement", "island:few_confident_reads", "island:depth_gate", "depth_gate",
+             "few_confident_reads", "category", "not_germline", "outside_chunk"]
+
+
+def decision_rank(decision):
+    return DECISIONS.index(decision) if decision in DECISIONS else len(DECISIONS)
 
 
 def cat(code):

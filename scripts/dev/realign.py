@@ -37,7 +37,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import diaglib as D  # noqa: E402
 import score  # noqa: E402
 from islands import repeat_run  # noqa: E402
-from readaudit import DECISIONS  # noqa: E402
 
 FLANK = 50
 MAX_BUBBLES = 10
@@ -152,7 +151,7 @@ def main():
             return "graph_voting" if any(r["voting"] for r in rows) else "graph_" + rows[0]["cat"]
         i = D.near(inj, pos, tol)
         if i:
-            r = min(i[0][1], key=lambda r: DECISIONS.index(r["decision"]) if r["decision"] in DECISIONS else 9)
+            r = min(i[0][1], key=lambda r: D.decision_rank(r["decision"]))
             return "inj_" + (f"category:{r['cat']}" if r["decision"] == "category" else r["decision"])
         al = D.near(aln, pos, tol)
         if al:

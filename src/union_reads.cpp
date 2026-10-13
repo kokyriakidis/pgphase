@@ -56,15 +56,30 @@ static int closest_haplotype(const std::string& seq, const std::vector<std::stri
     return best;
 }
 
-// Haplotype sequences of a multi-allelic MSA insertion row over [w0, w1):
-// index 0 the reference, index i the reference with msa_insertion_alts[i-1].
+// A multi-allelic MSA row: co-located insertions (merge_msa_insertion_alleles,
+// empty reference span) or co-located deletions (merge_msa_colocated_deletions:
+// the longer deletion's span, each allele the bases it keeps). Its window is the
+// span extended through tandem repeats plus the flank; false when too long.
+static bool msa_row_window(const ReferenceView& ref, const CandidateVariant& c, hts_pos_t* w0, hts_pos_t* w1) {
+    if (c.key.type != VariantType::Insertion && c.key.type != VariantType::Deletion) return false;
+    const hts_pos_t p0 = c.key.pos - 1;
+    const hts_pos_t end0 = c.key.type == VariantType::Deletion ? p0 + c.key.ref_len : p0;
+    *w0 = std::max<hts_pos_t>(0, p0 - ref.repeat_left(p0) - kAlleleWindowFlank);
+    *w1 = end0 + ref.repeat_right(end0) + kAlleleWindowFlank;
+    return *w1 - *w0 <= kLocusMaxLength;
+}
+
+// Haplotype sequences of a multi-allelic MSA row over [w0, w1): index 0 the
+// reference, index i the reference with the row's span replaced by
+// msa_insertion_alts[i-1].
 static std::vector<std::string> msa_allele_haplotypes(const ReferenceView& ref, const CandidateVariant& c,
                                                       hts_pos_t w0, hts_pos_t w1) {
     const hts_pos_t p0 = c.key.pos - 1;
+    const hts_pos_t end0 = c.key.type == VariantType::Deletion ? p0 + c.key.ref_len : p0;
     std::vector<std::string> haps{ref.slice(w0, w1)};
-    for (const std::string& ins : c.msa_insertion_alts) {
-        if (ins.find_first_not_of("ACGTacgt") != std::string::npos) return {};
-        haps.push_back(ref.slice(w0, p0) + ins + ref.slice(p0, w1));
+    for (const std::string& allele : c.msa_insertion_alts) {
+        if (allele.find_first_not_of("ACGTacgt") != std::string::npos) return {};
+        haps.push_back(ref.slice(w0, p0) + allele + ref.slice(end0, w1));
     }
     return haps;
 }
@@ -139,12 +154,13 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
         // ones whose base there failed the base-quality filter.
         if (!c.bam_injected || (c.key.type == VariantType::Snp && !c.msa_verified)) continue;
         if (!c.msa_insertion_alts.empty()) {
-            // One row, several insertion alleles: the closest allele by index.
-            if (c.key.type != VariantType::Insertion || (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-            const hts_pos_t p0 = c.key.pos - 1;
-            const hts_pos_t w0 = std::max<hts_pos_t>(0, p0 - ref.repeat_left(p0) - kAlleleWindowFlank);
-            const hts_pos_t w1 = p0 + ref.repeat_right(p0) + kAlleleWindowFlank;
-            if (w1 - w0 > kLocusMaxLength) continue;
+            // One row, several insertion or deletion alleles: the closest
+            // allele by index. Deletion rows were skipped before, leaving a
+            // merged 1/2 deletion with only the MSA's clustered reads
+            // (chr18:77,670,828: 11 of ~60 crossing reads).
+            if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            hts_pos_t w0 = 0, w1 = 0;
+            if (!msa_row_window(ref, c, &w0, &w1)) continue;
             const std::vector<std::string> haps = msa_allele_haplotypes(ref, c, w0, w1);
             if (haps.size() < 3) continue;
             for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads))
@@ -253,11 +269,9 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
         const CandidateVariant& c = chunk.candidates[ci];
         if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
         if (!c.msa_insertion_alts.empty()) {
-            if (!c.bam_injected || c.key.type != VariantType::Insertion) continue;
-            const hts_pos_t p0 = c.key.pos - 1;
-            const hts_pos_t w0 = std::max<hts_pos_t>(0, p0 - ref.repeat_left(p0) - kAlleleWindowFlank);
-            const hts_pos_t w1 = p0 + ref.repeat_right(p0) + kAlleleWindowFlank;
-            if (w1 - w0 > kLocusMaxLength) continue;
+            if (!c.bam_injected) continue;
+            hts_pos_t w0 = 0, w1 = 0;
+            if (!msa_row_window(ref, c, &w0, &w1)) continue;
             const std::vector<std::string> haps = msa_allele_haplotypes(ref, c, w0, w1);
             if (haps.size() < 3) continue;
             for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
