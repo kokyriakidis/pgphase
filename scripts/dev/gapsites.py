@@ -10,7 +10,8 @@ set's heterozygous records inside the locus: the sites the rival closes the
 gap with. Each site gets
   kind     snp | indel (non-repeat) | str (period 2-6 tract) | hp (homopolymer
            tract) | complex; tract length in bp for str / hp
-  truth    het (a truth heterozygote at the position, indels within 3 bp) | hom | no
+  truth    het (a truth heterozygote at the position; indels within 3 bp,
+           repeat indels within their tract length) | hom | no
   stage    our furthest stage (funnel.py's names) with its detail: EM kind,
            learned error, block; graph row category; injection decision,
            category, MSA, depth / chunk median, confident reads per allele;
@@ -190,7 +191,9 @@ def main():
             if pos > l["end"]:
                 break
             kind, tract = site_kind(fa, ref_name, pos, ref, alt)
-            tol = 0 if kind == "snp" else 3   # a SNP is never credited to an adjacent indel's site
+            # a SNP is never credited to an adjacent indel's site; a repeat indel
+            # may sit anywhere in its tract (truth left-aligns it elsewhere)
+            tol = 0 if kind == "snp" else max(3, tract)
             st, detail, our_pos = stage_of(pos, tol)
             if not st.startswith("em_reliable"):
                 detail += msa_note(pos, tol)

@@ -382,4 +382,86 @@ std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChu
     return is_added;
 }
 
+// The alignment's call at a catalog SNP outranks the graph's. Where both
+// called a read and disagreed, the graph's base was right 7-12% of the time
+// (chr12 / chr18 / chr20, reads we phase correctly); where the alignment
+// calls the site but not that read (base quality, read end), the graph's
+// call was right 77-79% of the time, against 99.9% where the two agree.
+constexpr double kGraphOnlyCallError = 0.25;
+
+size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
+                                 ObservationErrors* errors) {
+    PhasingChunk& chunk = graph_chunk.chunk;
+    if (graph_chunk.site_meta.size() != chunk.candidates.size() ||
+        graph_chunk.site_allele_orig_idx.size() != chunk.candidates.size()) return 0;
+    std::unordered_map<hts_pos_t, std::vector<size_t>> bam_snps;  // VCF position -> alignment SNP rows
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        const CandidateVariant& c = bam.candidates[bi];
+        if (c.key.type == VariantType::Snp && c.key.alt.size() == 1) bam_snps[c.key.pos].push_back(bi);
+    }
+    std::unordered_map<std::string_view, const ReadVariantProfile*> bam_profile;
+    for (const ReadVariantProfile& p : bam.read_var_profile)
+        if (p.read_id >= 0 && p.start_var_idx >= 0)
+            bam_profile.emplace(bam.reads[static_cast<size_t>(p.read_id)].qname, &p);
+    const auto upper = [](char b) { return static_cast<char>(std::toupper(static_cast<unsigned char>(b))); };
+    size_t changed = 0;
+    for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
+        ReadVariantProfile& prof = chunk.read_var_profile[ri];
+        if (prof.start_var_idx < 0 || prof.read_id < 0) continue;
+        const auto found = bam_profile.find(chunk.reads[static_cast<size_t>(prof.read_id)].qname);
+        const ReadVariantProfile* bp = found == bam_profile.end() ? nullptr : found->second;
+        for (size_t k = 0; k < prof.alleles.size(); ++k) {
+            const int a = prof.alleles[k];
+            if (a < 0) continue;
+            const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+            if (chunk.candidates[ci].bam_injected) continue;
+            const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
+            if (meta.ref.size() != 1 || static_cast<size_t>(a) >= orig.size()) continue;
+            bool snp_row = !meta.alts.empty();
+            for (const std::string& alt : meta.alts) snp_row = snp_row && alt.size() == 1;
+            if (!snp_row) continue;
+            const auto site = bam_snps.find(meta.pos);
+            if (site == bam_snps.end()) continue;  // the alignment has no call here at all
+            // The read's base by the alignment, when it called the read here.
+            char base = 0;
+            for (const size_t bi : site->second) {
+                const int b = bp != nullptr && static_cast<int>(bi) >= bp->start_var_idx &&
+                              static_cast<int>(bi) <= bp->end_var_idx
+                                  ? bp->alleles[bi - static_cast<size_t>(bp->start_var_idx)] : -1;
+                if (b == 1) { base = upper(bam.candidates[bi].key.alt[0]); break; }
+                if (b == 0 && site->second.size() == 1) base = upper(meta.ref[0]);
+            }
+            if (base == 0) {
+                if (errors != nullptr) {
+                    double& e = (*errors)[observation_key(ri, ci)];
+                    e = std::max(e, kGraphOnlyCallError);
+                }
+                continue;
+            }
+            // Does graph allele j carry `base`? Allele 0 of a decomposed row is
+            // "not the selected ALT", not literal REF.
+            const auto carries = [&](size_t j) {
+                const int o = orig[j];
+                if (o == 0 && meta.non_selected_alt_class) {
+                    for (size_t i = 0; i < orig.size(); ++i)
+                        if (orig[i] >= 1 && static_cast<size_t>(orig[i]) <= meta.alts.size() &&
+                            upper(meta.alts[static_cast<size_t>(orig[i]) - 1][0]) == base) return false;
+                    return true;
+                }
+                if (o == 0) return upper(meta.ref[0]) == base;
+                return o >= 1 && static_cast<size_t>(o) <= meta.alts.size() &&
+                       upper(meta.alts[static_cast<size_t>(o) - 1][0]) == base;
+            };
+            if (carries(static_cast<size_t>(a))) continue;
+            int replacement = -1;
+            for (size_t j = 0; j < orig.size(); ++j)
+                if (carries(j)) { replacement = static_cast<int>(j); break; }
+            prof.alleles[k] = replacement;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
 } // namespace pgphase_collect

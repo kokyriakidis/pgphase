@@ -24,7 +24,12 @@ constexpr int kUnionMinConfidentAlleleReads = 2;
 // haplotypes. Measured on chr12 at 10.31 Mb: ~150 such sites at twice the local
 // depth agreed with each other perfectly, separated the parents at 0.52-0.66,
 // and joined the flanking blocks in the wrong orientation.
-constexpr double kUnionMaxDepthRatio = 1.6;
+// 1.5 rather than 1.6: a paralog run at 1.45-1.52 times the depth (chr18
+// 73.19 Mb, 70/35 alleles, reads split by parent at 0.53) joined two blocks
+// the wrong way (546 reads) once the graph's catalog calls were checked
+// against the alignment's (confirm_catalog_snp_calls). 1.4 cost real sites
+// (chr12: 125 correct reads to unphased).
+constexpr double kUnionMaxDepthRatio = 1.5;
 // The longest voting row an alignment call can be another description of:
 // the alignment's own noisy-region MSA covers up to 2 kb (max_noisy_reg_len).
 // A call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on

@@ -18966,3 +18966,33 @@ Measured and rejected:
   reliable sites; 3 reads crossing at any site: no effect on the switch.
 - Label posterior 0.75: +403 / +123; 0.70: +782 / +288 (left at 0.8).
 
+## 2026-10-13 (later): the alignment's base outranks the graph's at catalog SNPs; depth gate 1.5
+
+Every rival-closed gap classified (scripts/dev gaptriage over gapsites
+--kind all; truth matching for repeat indels must cover the whole tract): of
+HiPhase's 2,330 gap reads on chr12 / chr18 / chr20, repeat-length sites
+carry 50-73%, low MAPQ 2-6%, clean sites the rest. The clean ones led to a
+call-quality bug: comparing each read's EM call at catalog SNPs with its
+alignment-solve call against the parents (chancheck.py), the EM took the
+graph's base where the two disagreed (right 7-12% of the time) and weighed
+graph-only calls at sites the alignment calls (right 77-79%) like confirmed
+ones (99.9%). confirm_catalog_snp_calls fixes both before the EM; on chr18
+disagreements fell from 5,204 to 10. It exposed a paralog run at chr18
+73.19 Mb at 1.45-1.52 times the depth, just under the 1.6 gate: the gate is
+now 1.5 (1.4: chr12 -125 correct).
+
+Against 546a745 (arms_phaseable correct / discordant / unphased): chr12
+522,354 / 2,155 / 1,708 (+13 / -9 / -4), chr18 293,912 / 1,547 / 1,343 (+52
+/ -17 / -35), chr20 216,488 / 1,088 / 1,710 (+21 / +5 / -26); arm switches
+6 / 18 / 6 (were 11 / 17 / 6). Unit test test_confirm_catalog_snp_calls.
+
+Measured and rejected:
+- Haplotype-aware re-calling on our own labels (hapcall.py): separates real
+  from noise (dropped repeat indels: 840 real / 12 noise segregate on
+  chr20) but gains no reads -- 90% of unphased reads touch no segregating
+  site; labelling the rest 332 right / 109 wrong; dropping non-segregating
+  sites -1,363 to -2,881 correct per chromosome.
+- Restoring clean pileup hets an MSA with few labelled reads demoted: about
+  half real, half noise. One-edit STR windows split by edit-distance
+  medoids: 90% pure at chr18 75.57 Mb but margin 1 for every read.
+

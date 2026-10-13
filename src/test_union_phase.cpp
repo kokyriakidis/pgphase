@@ -518,6 +518,41 @@ static void test_msa_absence_of_alt() {
     check(msa_site_allele_from_sequences(snv, "C", insertion_before, "GC") == -1, "msa: unrelated read uncalled");
 }
 
+static void test_confirm_catalog_snp_calls() {
+    // Catalog SNP at 100 (REF A, ALT T). Read 0's graph call disagrees with its
+    // alignment call; read 1 agrees; read 2 has no alignment call there.
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.candidates.push_back(clean_snp(100));
+    for (int r = 0; r < 3; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {1}));
+    }
+    GraphSiteMeta meta;
+    meta.pos = 100;
+    meta.ref = "A";
+    meta.alts = {"T"};
+    gc.site_meta = {meta};
+    gc.site_allele_orig_idx = {{0, 1}};
+    finish_chunk(graph);
+    PhasingChunk bam;
+    bam.candidates.push_back(clean_snp(100));
+    for (int r = 0; r < 3; ++r) bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+    bam.read_var_profile.push_back(profile(0, 0, {0}));   // alignment: REF
+    bam.read_var_profile.push_back(profile(1, 0, {1}));   // alignment: ALT
+    ReadVariantProfile none;
+    none.read_id = 2;
+    bam.read_var_profile.push_back(none);                 // no alignment call
+    ObservationErrors errors;
+    const size_t changed = confirm_catalog_snp_calls(gc, bam, &errors);
+    check(changed == 1 && graph.read_var_profile[0].alleles[0] == 0, "confirm: disagreeing graph call takes the alignment's");
+    check(graph.read_var_profile[1].alleles[0] == 1 && errors.count(observation_key(1, 0)) == 0,
+          "confirm: agreeing call untouched");
+    check(graph.read_var_profile[2].alleles[0] == 1 && errors.count(observation_key(2, 0)) == 1 &&
+              errors[observation_key(2, 0)] >= 0.2,
+          "confirm: graph-only call kept with a per-read error");
+}
+
 int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
@@ -533,6 +568,7 @@ int main() {
     test_bridge_weak_sites();
     test_em_join_needs_strong_reads();
     test_msa_absence_of_alt();
+    test_confirm_catalog_snp_calls();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";
         return 1;

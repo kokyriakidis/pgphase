@@ -74,6 +74,9 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
     // are re-called per read by realignment to their two exact alleles.
     ObservationErrors errors;
     if (bam != nullptr) realign_indel_observations(chunk, *bam, &errors);
+    // The graph's call at a catalog SNP, unbacked by the alignment's base call,
+    // is the noisier one (see confirm_catalog_snp_calls).
+    if (bam != nullptr) confirm_catalog_snp_calls(graph_chunk, *bam, &errors);
     // The first solve labels reads where the clean stage could not (dense
     // noisy regions); those labels seed the windows the second solve adds.
     const std::vector<char> weak = bam != nullptr ? bridge_weak_sites(graph_chunk, *bam) : std::vector<char>{};

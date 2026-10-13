@@ -76,6 +76,14 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
 size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam,
                                   ObservationErrors* errors = nullptr);
 
+/// The alignment's base call outranks the graph's at catalog SNP rows: a read
+/// whose graph allele disagrees with its alignment call takes the alignment's
+/// allele (or no call when the row cannot carry that base), and a graph call
+/// at a site the alignment calls but not for that read gets a per-read error
+/// (kGraphOnlyCallError). Returns calls changed.
+size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
+                                 ObservationErrors* errors);
+
 /// Add the alignment's primary reads (MAPQ >= 20) that the graph chunk lacks,
 /// with no observations. Returns a per-read flag marking the added reads.
 std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChunk& bam);

@@ -251,16 +251,28 @@ Per chunk, in order:
      (12 bp and 3 bp deletions of one repeat) kept 0 of 28 reads, and the
      site failed injection's two-allele test. On chr12 the truth-het SNPs a
      rival used in our gaps and we dropped this way fell from 12 to 3.
+   - *The alignment's base outranks the graph's at catalog SNPs*
+     (`confirm_catalog_snp_calls`, before the EM). A read's graph call at a
+     catalog SNP row is checked against the same read's call in the
+     alignment solve: where they disagree the alignment's base is taken (or
+     the call dropped when the row cannot carry it); where the alignment
+     calls the site but not that read, the graph call keeps a per-read error
+     of 0.25 (`kGraphOnlyCallError`). Measured against the parents on reads
+     we phase correctly: when both called and disagreed the graph was right
+     7-12% of the time; a graph-only call at a site the alignment calls was
+     right 77-79%, against 99.9% when the two agree.
 2. **Injection** (`inject_alignment_sites`).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk, each needing both of its two most observed
      alleles (REF need not be one) seen by at least two reads with MAPQ ≥ 30.
-   - *Depth gate.* A site read by more than 1.6 times the chunk's median
+   - *Depth gate.* A site read by more than 1.5 times the chunk's median
      depth is not injected (`kUnionMaxDepthRatio`): at a collapsed
      duplication its two "alleles" separate paralogous copies, not
      haplotypes, and a run of such sites agrees with itself perfectly (chr12
      10.31 Mb: about 150 sites at twice the local depth joined the flanking
-     blocks in the wrong orientation, 1,294 reads).
+     blocks in the wrong orientation, 1,294 reads; chr18 73.19 Mb: a run at
+     1.45-1.52 times, 546 reads, once catalog calls were confirmed; 1.4 cost
+     125 correct reads on chr12).
    - *Dedup.* Placements of one indel at different repeat copies collapse to
      one row by left-aligned identity; alias rows' read calls fold into it.
    - *Injected rows* keep the alignment's category bits and per-read alleles,
