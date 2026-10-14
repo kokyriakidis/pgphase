@@ -12,7 +12,6 @@
 #include <array>
 #include <cinttypes>
 #include <climits>
-#include <cstdlib>
 #include <cmath>
 #include <cstdio>
 #include <functional>
@@ -1254,6 +1253,8 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur,
     //   no-flip: pre1->cur1 (n11) and pre2->cur2 (n22)
     //   flip:    pre1->cur2 (n12) and pre2->cur1 (n21)
     int n11 = 0, n12 = 0, n21 = 0, n22 = 0;
+    // The same counts per pair of blocks the read is labelled in.
+    std::map<std::pair<hts_pos_t, hts_pos_t>, std::array<int, 4>> by_pair;
 
     for (size_t bi = 0; bi < n_bams; ++bi) {
         const std::vector<int>& cur_list = cur.up_ovlp_read_i[bi];
@@ -1282,9 +1283,29 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur,
             else if (pre_read_hap == 1 && cur_read_hap == 2) ++n12;
             else if (pre_read_hap == 2 && cur_read_hap == 1) ++n21;
             else ++n22;
+            ++by_pair[{pre_read_ps, cur_read_ps}][(pre_read_hap - 1) * 2 + (cur_read_hap - 1)];
             if (max_pre_read_ps < pre_read_ps) max_pre_read_ps = pre_read_ps;
             if (min_cur_read_ps > cur_read_ps) min_cur_read_ps = cur_read_ps;
         }
+    }
+    if (!by_pair.empty()) {
+        // Vote and merge one pair of blocks: the pair the most overlap reads
+        // link. Counted over every read, a one-site block at the upstream end
+        // that a few reads were labelled in became the merge target (the
+        // largest upstream phase set) while the vote came from the block
+        // before it: chr12:104,999,759, one het against the next 85.
+        auto best = by_pair.begin();
+        for (auto it = by_pair.begin(); it != by_pair.end(); ++it) {
+            const auto& v = it->second;
+            const auto& w = best->second;
+            if (v[0] + v[1] + v[2] + v[3] > w[0] + w[1] + w[2] + w[3]) best = it;
+        }
+        n11 = best->second[0];
+        n12 = best->second[1];
+        n21 = best->second[2];
+        n22 = best->second[3];
+        max_pre_read_ps = best->first.first;
+        min_cur_read_ps = best->first.second;
     }
 
     bool do_flip = false;

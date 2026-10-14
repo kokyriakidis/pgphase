@@ -130,7 +130,11 @@ retain the original full-walk solve.
 
 Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
 straddle each boundary and `stitch_chunk_haps` joins adjacent chunks on those
-shared reads. The final HP gauge is then fixed, so
+shared reads: the vote and the merge use the one pair of blocks (upstream phase
+set, downstream phase set) the most overlap reads are labelled in. Voting over
+every overlap read but merging into the largest upstream phase set let a
+one-site block at a chunk end become the merge target (chr12:104,999,759, one
+het against the next 85). The final HP gauge is then fixed, so
 `rescue_unphased_graph_reads` can orient a biallelic site excluded from the clean
 solve from reads already assigned to one phase set. Both haplotypes and both
 alleles must be observed, the exact one-sided binomial association must pass at
@@ -236,8 +240,9 @@ Per chunk, in order:
      region is longer than the MSA limit, and tagged `unresolved_noisy`.
      Such a call is unverified: a divergent copy's mismatches look the same
      (chr20 49.65 Mb, 695 calls in 24 kb, none a truth het). In the EM it has
-     its own error class, is left out of the join test and of read labels,
-     and is written phased only below learned error 0.1
+     its own error class, is left out of the join test and of read labels
+     (except as the last resort, step 6 *Unverified fallback*), and is
+     written phased only below learned error 0.1
      (`kEmUnverifiedReportError`). It is also left out of the depth gate's
      median.
    - *Absence of an ALT in the MSA refresh.* After a two-haplotype MSA,
@@ -264,8 +269,17 @@ Per chunk, in order:
      right 77-79%, against 99.9% when the two agree.
 2. **Injection** (`inject_alignment_sites`).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
-     heterozygotes inside the chunk, each needing both of its two most observed
-     alleles (REF need not be one) seen by at least two reads with MAPQ ≥ 30.
+     heterozygotes inside the chunk. An MSA het needs both of its two most
+     observed alleles (REF need not be one) seen by at least two reads with
+     MAPQ ≥ 30. A clean het is exempt: where a region has a second copy
+     elsewhere in the reference every read loses its MAPQ though the reads are
+     this copy's (chr18 21.09-21.10 Mb: six truth hets read only below MAPQ 30,
+     25 reads LongPhase phases left unphased); the depth gate still screens it.
+     One that fails the rule enters flagged `low_mapq_only` and is treated in
+     the EM like an unverified call (no joins; labels only as the last
+     resort). Against the build without the exemption: +155 correct / -88
+     discordant / -67 unphased, +1,569 truth hets phased; arm switches 32 ->
+     37, in sparse pericentromeric, satellite and VNTR blocks.
    - *Depth gate.* A site read by more than 1.5 times the chunk's median
      depth is not injected (`kUnionMaxDepthRatio`): at a collapsed
      duplication its two "alleles" separate paralogous copies, not
@@ -419,6 +433,17 @@ Per chunk, in order:
      30 kb past a true het; 165 reads discordant). In the join test the
      candidate's call is dropped for reads that also carry the window's, and
      a window covering a weak site is weak. Labels and learning keep both.
+   - *Echo sites* (`kEmEchoMaxGap`). A candidate within 30 bp after another
+     whose shared reads (at least 80% of the larger site's callers) split the
+     same way (95%) repeats that site's evidence: one event written as
+     several records, such as an MSA splitting reads by where their aligner
+     placed a shift in a homopolymer (chr18:56,758,778-781, four injected
+     sites for a 1|1 change) or catalog SNPs in a tandem repeat that follow
+     where an insertion was placed (chr12:55,857,714 and 732). Each voted
+     once, and two or four such votes outweighed a read's real hets. An echo
+     site is learned and phased but does not vote on read labels; joins and
+     switch moves still count it (muting it there flipped blocks). +81
+     correct / -76 discordant / -5 unphased over chr12/18/20.
    - *Blocks.* A block is cut wherever flipping the rest would cost less than
      4 log units, judged over every read: a read too ambiguously mapped to
      shape the model still shows that its molecule continues across the
@@ -441,6 +466,11 @@ Per chunk, in order:
      seeded windows and steered stitching and the rescue: blocks flipped on
      chr20 (+261 correct / +101 discordant over chr12/18/20, against
      +369 / +4 deferred).
+   - *Unverified fallback.* A read with no label and no deferred label takes
+     one from its unverified calls (and `low_mapq_only` sites) whose learned
+     error is under 0.1, at posterior 0.8 (`kEmUnverifiedLabelPosterior`),
+     through the same last, fill-only channel: +22 correct / -3 discordant /
+     -19 unphased.
 7. **Local haplotype windows** (`build_locus_window_sites`).
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats

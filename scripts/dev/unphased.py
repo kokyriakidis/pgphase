@@ -297,19 +297,23 @@ def main():
         print("  no-call reads, our furthest stage at their truth hets (most common per read):")
         for (c, st), v in detail.most_common(12):
             print(f"    {c:32} {st:40} {v:5,}")
-    print(f"  loci (reads within 5 kb), largest {a.loci} per cause:")
+    print(f"  loci (reads within 5 kb; H / L: reads HiPhase / LongPhase phase correctly), largest {a.loci} per cause:")
     for c in causes:
         rows = sorted(loci[c])
         groups, cur = [], None
         for s, e, q in rows:
+            h = rivals.get("hiphase", {}).get(q) == "correct"
+            lp = rivals.get("longphase", {}).get(q) == "correct"
             if cur and s <= cur[1] + 5000:
                 cur[1] = max(cur[1], e)
                 cur[2] += 1
+                cur[3] += h
+                cur[4] += lp
             else:
-                cur = [s, e, 1]
+                cur = [s, e, 1, int(h), int(lp)]
                 groups.append(cur)
         groups.sort(key=lambda g: -g[2])
-        print(f"    {c:58} " + ", ".join(f"{g[0]:,}-{g[1]:,} ({g[2]})" for g in groups[:a.loci]) +
+        print(f"    {c:58} " + ", ".join(f"{g[0]:,}-{g[1]:,} ({g[2]} H{g[3]} L{g[4]})" for g in groups[:a.loci]) +
               f"  [{len(groups)} loci]")
     if a.list:
         for c in causes:

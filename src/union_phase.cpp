@@ -22,7 +22,7 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
         // at chr18:20.78 Mb such calls are the real hets of a 98 kb region,
         // at chr20:49.65 Mb 695 of them in 24 kb are a divergent copy's
         // mismatches that flipped a block of 110 reads.
-        if (c.unresolved_noisy) {
+        if (c.unresolved_noisy || c.low_mapq_only) {
             weak[ci] = 1;
             continue;
         }

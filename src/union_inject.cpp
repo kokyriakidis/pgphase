@@ -19,8 +19,9 @@ CandKey cand_key_of(const CandidateVariant& cand) {
 
 }  // namespace
 
-// A site is admitted only if each of its two alleles is seen by at least this
-// many reads mapped at kDefaultMinMapq or better.
+// An MSA-verified site is admitted only if each of its two alleles is seen by
+// at least this many reads mapped at kDefaultMinMapq or better (a clean het is
+// exempt; see the selection loop).
 constexpr int kUnionMinConfidentAlleleReads = 2;
 // A site read by more than this multiple of its chunk's median depth is a
 // collapsed duplication: its two "alleles" separate paralogous copies, not
@@ -218,6 +219,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     // alignment's own category bits.
     std::vector<size_t> selected;
     std::set<size_t> island_only;  // selected only as island sites
+    std::set<size_t> low_mapq_only;  // clean hets admitted by the exemption
     // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
     // candidate's injection decision (inj.TID.BEG.tsv) and the graph chunk's
     // rows before the merge (graph.TID.BEG.tsv).
@@ -240,7 +242,19 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         // -1,258 correct / +1,269 discordant reads (chr12, depth gate: a
         // paralog split joined a block the wrong way) or doubled chr20's arm
         // switches (confident-read rule).
-        const char* dropped = !confidently_supported(bi) ? "few_confident_reads"
+        // A clean het is exempt from the confident-read rule: the depth gate
+        // alone screens it. Where a region has a second copy elsewhere in the
+        // reference every read loses its MAPQ, yet the reads are this copy's
+        // (depth at or below the median, not a collapse): at chr18:21.09-21.10
+        // Mb six truth hets read only at MAPQ < 30 were dropped and 25 reads
+        // LongPhase phases stayed unphased. Such a site enters flagged
+        // low_mapq_only: phased, but it joins no blocks and labels reads only
+        // as an unverified call does (union EM). Measured on chr12/18/20 with
+        // the echo sites, unverified fallback and per-pair stitching: +155
+        // correct / -88 discordant / -67 unphased, +1,569 truth hets phased;
+        // arm switches 32 -> 37 (sparse pericentromeric, satellite and VNTR
+        // blocks: chr12 34.65-37.19 Mb, chr20 32.76 and 65.51 Mb).
+        const char* dropped = !clean && !confidently_supported(bi) ? "few_confident_reads"
                             : (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) ? "depth_gate"
                             : nullptr;
         std::vector<size_t> rows = voting_rows_over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
@@ -256,6 +270,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         }
         decide(bi, rows.empty() ? "injected" : "complement");
         if (!rows.empty()) complement_rows.emplace(bi, std::move(rows));
+        if (!confidently_supported(bi)) low_mapq_only.insert(bi);
         selected.push_back(bi);
     }
     if (diag_dir != nullptr) {
@@ -396,6 +411,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (cand.counts.alle_covs.size() < 2)
             cand.counts.alle_covs = {cand.counts.ref_cov, cand.counts.alt_cov};
         auto [meta, orig] = synthesize_alignment_site_meta(bam.candidates[bi], bam, contig_name);
+        cand.low_mapq_only = low_mapq_only.count(bi) != 0;
         if (island_only.count(bi) != 0) {
             cand.island_only = true;
             cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;

@@ -19097,3 +19097,48 @@ chr20 +62 / +16 / -78, chr12 +63 / +14 / -77, chr18 +107 / +6 / -113;
 total +232 correct / +36 discordant / -268 unphased (6.4 : 1); switches
 unchanged. Gated by agreement with the labelled reads only 5 reads moved.
 
+
+## 2026-10-14: echo sites, unverified fallback, clean hets at low MAPQ, per-pair stitching
+
+Reads a rival phases correctly and we do not (pg audit): HiPhase 1,749,
+LongPhase 664, mostly discordant, against our +43k lead. Largest classes:
+repeat-only reads (HiPhase keeps noisy repeat sites; adding them back to ours
+is a wash), low MAPQ, and discordant reads labelled by sites the parents do
+not split (pg noise).
+
+Kept, chr12/18/20 arms_phaseable against 20293c8 (all four together):
+chr20 +50 / -31 / -19, chr12 +14 / -35 / +21, chr18 +188 / -95 / -93; total
++252 correct / -161 discordant / -91 unphased, +1,601 truth hets phased; arm
+switches 31 -> 37, flips 71 -> 67.
+- Echo sites: one event as several records split reads the same way and
+  voted once per record (chr18 56,758,778-781; chr12 55,857,714/732). Echoes
+  no longer vote on labels; +81 / -76 / -5. Muting them in joins too flipped
+  blocks (chr12 -19, chr20 -24).
+- Unverified fallback: unlabelled reads take a label from their unverified
+  calls last; +22 / -3 / -19.
+- Clean hets exempt from the confident-read rule (chr18 21.09 Mb: 24 of 25
+  reads LongPhase phases now correct), flagged low_mapq_only and treated as
+  unverified calls: +155 / -88 / -67 and five arm switches in sparse blocks
+  (chr12 34.65-37.19 Mb, chr20 32.76 Mb satellite, 65.509 Mb VNTR). As
+  ordinary sites: +2 switches more for 3 reads; as weak bridges: no change.
+  Exempting only sites with no confident read on either allele: +172 / -89 /
+  -83, worse on every chromosome.
+- Per-pair stitching: one switch (chr12 104,999,759) from a one-site block
+  at a chunk end taken as the merge target.
+
+Rejected:
+- Skew filter on MAPQ >= 30 reads (paralog sites): +111 / -175 / +64 but
+  chr20 -920 hets phased (chr20 25.8 Mb: clean real hets read at MAPQ 0, the
+  five confident reads all on one allele). Depth-gated (>= 1.3x median) and
+  muted rather than dropped: +194 / -280 / +86 over the echo sites, held back
+  because it raises unphased.
+- Leave-window-out muting (a site judged against labels without calls within
+  30 bp separates noise well: >= 0.3 disagreement, chr12 13 real / 196
+  noise): -217 correct, reads unphased.
+- Unskipping reads mostly inside noisy regions or with > 5% variant events:
+  freed reads mostly mislabelled (-7 / +22 / -17; -22 / +55 / -33).
+- Writing phase only below learned error 0.2: -214 correct, -1,826 hets.
+
+Open: chr18 75.56 Mb (complex AT repeat, 23 reads HiPhase phases: reads
+spell the haplotypes differently from our one allele record), chr12 8.03 Mb
+(26, repeat-only), the five new switches.

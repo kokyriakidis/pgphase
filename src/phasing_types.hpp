@@ -708,6 +708,11 @@ struct CandidateVariant {
     // confidently mapped reads, or the depth gate): it enters only as an
     // island site, never as an EM site (no germline bits, no VCF record).
     bool island_only = false;
+    // A clean het the union injection admits although its alleles lack
+    // confidently mapped reads (the confident-read exemption): phased like an
+    // unverified call (unresolved_noisy) -- it joins no blocks and labels
+    // reads only as their last resort.
+    bool low_mapq_only = false;
     /// Discovered by the recovery sub-solve from the alignment and injected
     /// into this chunk, carrying the allele depths and per-read alleles the
     /// solve that saw the reads measured.

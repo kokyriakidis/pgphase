@@ -911,3 +911,41 @@ TEST_CASE("recovery MSA calls stay inside physical read coverage", "[msa-coverag
 }
 
 
+
+TEST_CASE("chunk stitching votes and merges the block pair the overlap reads link",
+          "[stitch]") {
+    // Upstream: three overlap reads in block 100, one in a one-site block at
+    // the chunk end (150) on the other haplotype. Downstream: all four in block
+    // 200. The pair (100, 200) carries the vote and the merge; block 150 is not
+    // the merge target although its phase set is the largest upstream.
+    const auto cand = [](hts_pos_t pos, hts_pos_t ps) {
+        CandidateVariant v;
+        v.key.pos = pos;
+        v.key.type = VariantType::Snp;
+        v.key.ref_len = 1;
+        v.lcd_var_i_to_cate = kCandCleanHetSnp;
+        v.phase_set = ps;
+        v.hap_to_cons_alle[1] = 0;
+        v.hap_to_cons_alle[2] = 1;
+        return v;
+    };
+    std::vector<PhasingChunk> chunks(2);
+    PhasingChunk& pre = chunks[0];
+    PhasingChunk& cur = chunks[1];
+    pre.region.tid = cur.region.tid = 0;
+    pre.candidates = {cand(100, 100), cand(150, 150)};
+    cur.candidates = {cand(200, 200)};
+    pre.reads.resize(4);
+    cur.reads.resize(4);
+    pre.haps = {1, 1, 1, 2};
+    pre.phase_sets = {100, 100, 100, 150};
+    cur.haps = {1, 1, 1, 1};
+    cur.phase_sets = {200, 200, 200, 200};
+    pre.down_ovlp_read_i = {{0, 1, 2, 3}};
+    cur.up_ovlp_read_i = {{0, 1, 2, 3}};
+    Options opts;
+    opts.upstream_assign_hap = true;
+    stitch_chunk_haps(chunks, &opts);
+    CHECK(chunks[1].candidates[0].phase_set == 100);
+    CHECK(chunks[1].candidates[0].hap_to_cons_alle[1] == 0);
+}

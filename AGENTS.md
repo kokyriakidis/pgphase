@@ -82,7 +82,12 @@ inputs, read by read against our EM's calls; `scripts/dev/pg missing` where
 each real het without an EM site is lost; `scripts/dev/pg lengthwin` the length
 windows against truth;
 `scripts/dev/pg unphased` every arms_phaseable read we leave unphased in one
-primary cause, crossed with the rivals' classes, with the loci it concentrates in;
+primary cause, crossed with the rivals' classes, with the loci it concentrates
+in and how many of each locus's reads each rival phases correctly;
+`scripts/dev/pg noise [--rival NAME]` the EM-reliable sites the parents do not
+split and the discordant reads they label, by production feature;
+`scripts/dev/pg switches [--all]` every arm switch (and flip) of the run against
+the baseline, new, kept or gone, between which truth-matched hets;
 `scripts/dev/pg audit [RIVAL] [--reads islands|FILE]` puts every read a competitor phases correctly
 and we do not -- unphased or discordant -- in one primary cause, and splits
 the discordant ones by their own calls judged by each parent's side at the

@@ -242,7 +242,9 @@ static void test_inject_selects_private_sites() {
     bam.ref_seq = ref;
     bam.candidates.push_back(clean_snp(100));                                    // 0: graph has it
     bam.candidates.push_back(clean_snp(200));                                    // 1: injected
-    bam.candidates.push_back(clean_snp(300));                                    // 2: ALT only at low MAPQ
+    // 2: ALT only at low MAPQ, outside the het categories (a clean het read so
+    // is injected: test_inject_low_mapq_clean_het)
+    bam.candidates.push_back(snp(300, VariantCategory::NoisyCandHom, 0));
     bam.candidates.push_back(snp(350, VariantCategory::NoisyCandHet, kCandNoisyCandHet));  // 3: not verified
     for (hts_pos_t pos : {403, 406}) {                                           // 4, 5: one allele
         CandidateVariant ins;
@@ -675,6 +677,61 @@ static void test_inject_island_only_sites() {
     check(gc.site_meta[static_cast<size_t>(at250)].ref.empty(), "inject: it writes no VCF record");
 }
 
+static void test_inject_low_mapq_clean_het() {
+    // A clean het read only at low MAPQ is injected as an ordinary site (the
+    // confident-read rule binds MSA-verified hets only); an MSA het read the
+    // same way stays island-only.
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    for (size_t i : {99, 199, 299, 349}) ref[i] = 'A';
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 500;
+    graph.candidates.push_back(clean_snp(100));
+    for (int r = 0; r < 6; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {r % 2}));
+    }
+    gc.site_ids = {"s100"};
+    gc.site_meta.resize(1);
+    gc.site_allele_orig_idx = {{0, 1}};
+    finish_chunk(graph);
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 500;
+    bam.ref_seq = ref;
+    bam.candidates.push_back(clean_snp(200));                                    // 0: confident reads
+    bam.candidates.push_back(clean_snp(300));                                    // 1: low MAPQ only
+    CandidateVariant weak = snp(350, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    weak.msa_verified = true;
+    bam.candidates.push_back(weak);                                              // 2: low MAPQ only
+    for (int r = 0; r < 6; ++r) {
+        bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {r % 2}));
+    }
+    for (int r = 6; r < 12; ++r) {
+        bam.reads.push_back(read_named("x" + std::to_string(r), 5));
+        bam.read_var_profile.push_back(profile(r, 1, {r % 2, r % 2}));
+    }
+    inject_alignment_sites(gc, bam, "chr1");
+    int at300 = -1, at350 = -1;
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        if (graph.candidates[ci].key.pos == 300) at300 = static_cast<int>(ci);
+        if (graph.candidates[ci].key.pos == 350) at350 = static_cast<int>(ci);
+    }
+    check(at300 >= 0, "low-MAPQ clean het: injected");
+    if (at300 >= 0) {
+        const CandidateVariant& c = graph.candidates[static_cast<size_t>(at300)];
+        check(!c.island_only && (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 && c.low_mapq_only,
+              "low-MAPQ clean het: a germline site flagged low_mapq_only");
+    }
+    for (const CandidateVariant& c : graph.candidates)
+        if (c.key.pos == 200) check(!c.low_mapq_only, "confidently read clean het: not flagged");
+    check(at350 >= 0 && graph.candidates[static_cast<size_t>(at350)].island_only,
+          "low-MAPQ MSA het: island-only");
+}
+
 static void test_em_island_blocks() {
     // Sites 0-5 clean SNPs, tiled; site 6 a repeat het indel and site 7 an
     // island-only MSA het, neither an EM site, read by labelled reads that
@@ -770,6 +827,69 @@ static void test_em_deferred_labels() {
     check(chunk.island_haps[torn] == 0, "deferred: a read whose calls disagree takes none");
     check(apply_island_labels(chunk) == 1 && chunk.gap_haps[weak] == chunk.island_haps[weak],
           "deferred: applied through the gap channel");
+}
+
+static void test_em_echo_sites() {
+    // Sites 2 (300) and 3 (310) split every read the same way: one event
+    // written twice. A read with calls at sites 1-4 carries the event on the
+    // other haplotype; counted twice it ties the read's two other calls and
+    // leaves the read unlabelled, counted once it is outvoted. Site 3 is
+    // still phased.
+    PhasingChunk chunk;
+    for (hts_pos_t pos : {100, 200, 300, 310, 400, 500, 600}) chunk.candidates.push_back(clean_snp(pos));
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 6, 5);
+    add_tiled_reads(chunk, truth, 0, 6, 5);
+    const size_t odd = chunk.reads.size();
+    chunk.reads.push_back(read_named("odd", 60));
+    chunk.read_var_profile.push_back(
+        profile(static_cast<int>(odd), 1, {hap_allele(0, 1), hap_allele(1, 2), hap_allele(1, 3), hap_allele(0, 4)}));
+    truth.push_back(0);
+    finish_chunk(chunk);
+    const std::vector<LocusWindowSite> no_loci;
+    phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
+    size_t mate = 0;
+    while (mate < odd && !(truth[mate] == 0 && chunk.haps[mate] != 0 && chunk.phase_sets[mate] == chunk.phase_sets[0]))
+        ++mate;
+    check(mate < odd, "echo: a haplotype-0 read is labelled");
+    check(chunk.haps[odd] != 0 && chunk.haps[odd] == chunk.haps[mate] && chunk.phase_sets[odd] == chunk.phase_sets[mate],
+          "echo: the read takes its other calls' haplotype");
+    check(chunk.candidates[3].phase_set == chunk.candidates[2].phase_set &&
+          chunk.candidates[3].hap_to_cons_alle[1] != chunk.candidates[3].hap_to_cons_alle[2],
+          "echo: the echo site is phased with its block");
+}
+
+static void test_em_unverified_fallback(bool low_mapq) {
+    // Sites 4 and 5 are unverified calls (a noisy region too long for MSA) or,
+    // with low_mapq, clean hets no confidently mapped read carries -- treated
+    // the same. They sit between clean sites, learned from tiled reads that
+    // cross them. A read whose only calls are there gets no solve or deferred
+    // label, then takes its block's label from them, last and fill-only.
+    PhasingChunk chunk;
+    for (int k = 0; k < 10; ++k) {
+        chunk.candidates.push_back(clean_snp(100 + 100 * k));
+        if (k == 4 || k == 5) (low_mapq ? chunk.candidates.back().low_mapq_only : chunk.candidates.back().unresolved_noisy) = true;
+    }
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 9, 5);
+    add_tiled_reads(chunk, truth, 0, 9, 5);
+    const size_t lone = chunk.reads.size();
+    chunk.reads.push_back(read_named("lone", 60));
+    chunk.read_var_profile.push_back(profile(static_cast<int>(lone), 4, {hap_allele(0, 4), hap_allele(0, 5)}));
+    truth.push_back(0);
+    finish_chunk(chunk);
+    const std::vector<LocusWindowSite> no_loci;
+    phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
+    check(chunk.haps[lone] == 0, "unverified: the solve leaves the read unlabelled");
+    size_t mate = 0;
+    while (mate < lone && !(truth[mate] == 0 && chunk.haps[mate] != 0 && chunk.phase_sets[mate] == chunk.candidates[4].phase_set))
+        ++mate;
+    check(mate < lone, "unverified: a haplotype-0 read is labelled in the unverified sites' block");
+    check(chunk.island_haps.size() == chunk.reads.size() && chunk.island_haps[lone] != 0 &&
+          chunk.island_haps[lone] == chunk.haps[mate] && chunk.island_phase_sets[lone] == chunk.phase_sets[mate],
+          "unverified: the read takes its block's label from its unverified calls");
+    check(apply_island_labels(chunk) == 1 && chunk.gap_haps[lone] == chunk.island_haps[lone],
+          "unverified: applied through the gap channel");
 }
 
 static void test_length_window_sites() {
@@ -879,8 +999,12 @@ int main() {
     test_msa_absence_of_alt();
     test_confirm_catalog_snp_calls();
     test_inject_island_only_sites();
+    test_inject_low_mapq_clean_het();
     test_em_island_blocks();
     test_em_deferred_labels();
+    test_em_echo_sites();
+    test_em_unverified_fallback(false);
+    test_em_unverified_fallback(true);
     test_length_window_sites();
     test_em_length_window_islands();
     if (failures != 0) {

@@ -36,6 +36,13 @@ constexpr double kEmReadLabelPosterior = 0.8;
 // labels steered windows, stitching and rescue: +261 correct / +101
 // discordant, chr20 blocks flipping. Deferred: +369 / +4. 0.6 adds 8 / 5.
 constexpr double kEmDeferredLabelPosterior = 0.70;
+// A read with no deferred label either takes one from its unverified calls
+// (noisy regions too long for MSA; sites phased for the VCF, learned error
+// under kEmUnverifiedReportError) at this posterior. They never label a read
+// that has any other way (see join_excluded); as the last resort, measured
+// on chr12/18/20 on top of the echo sites: +22 correct / -3 discordant / -19
+// unphased (chr18 alone +19 / -31 unphased).
+constexpr double kEmUnverifiedLabelPosterior = 0.8;
 constexpr double kEmBlockCutLogLikelihood = 4.0;
 // The cut for joins carried only by weak sites (see bridge_weak_sites).
 constexpr double kEmWeakBridgeCutLogLikelihood = 10.0;
@@ -64,6 +71,22 @@ constexpr int kEmMinStrongJoinReads = 3;
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
 constexpr double kEmMinMinorAlleleFraction = 0.25;
+// Echo sites: a site within kEmEchoMaxGap bp after another whose shared reads
+// (at least kEmEchoMinShare of the larger site's callers) split the same way
+// (kEmEchoMinConcordance of them) repeats that site's evidence. One event
+// written as several records -- an MSA splitting reads by how their aligner
+// placed a shift in a homopolymer (chr18:56,758,778-781, four injected sites,
+// a 1|1 change in the truth), catalog SNPs inside a tandem repeat that follow
+// where an insertion was placed (chr12:55,857,714 and 732) -- otherwise votes
+// once per record, and two or four such votes outweigh a read's real hets
+// whatever the parents say. An echo site is learned and phased but does not
+// vote on read labels; block joins and switch moves still count it (muting it
+// there too flipped blocks: chr12 -19, chr20 -24 correct). Measured on
+// chr12/18/20 against 20293c8: +81 correct, -76 discordant, -5 unphased.
+constexpr hts_pos_t kEmEchoMaxGap = 30;
+constexpr double kEmEchoMinConcordance = 0.95;
+constexpr double kEmEchoMinShare = 0.8;
+constexpr int kEmEchoMinReads = 4;
 // Island blocks (see the end of phase_chunk_by_global_em). A rejected EM site
 // offers islands below this learned error: 0.35 gave +975/+191 reads over
 // chr12/18/20, 0.40 +1,458/+415, before the other candidates and
@@ -183,6 +206,33 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         if (ri < start_label.size()) start_label[ri] = hap;
         learns[ri] = chunk.reads[ri].mapq >= kEmLearnMinMapq;
     }
+    // Echo sites (see kEmEchoMaxGap): each candidate pair within the gap,
+    // counted over the reads that call both.
+    std::vector<char> echo(n, 0);
+    {
+        std::vector<int> callers(n, 0);
+        std::map<std::pair<int, int>, std::array<int, 2>> pair_calls;  // (k, j): same / opposite sides
+        for (const std::vector<EmObs>& obs : robs) {
+            for (size_t i = 0; i < obs.size(); ++i) {
+                ++callers[static_cast<size_t>(obs[i].s)];
+                const EmSite& si = sites[static_cast<size_t>(obs[i].s)];
+                if (si.locus >= 0) continue;
+                for (size_t j = i + 1; j < obs.size(); ++j) {
+                    const EmSite& sj = sites[static_cast<size_t>(obs[j].s)];
+                    if (sj.pos - si.pos > kEmEchoMaxGap) break;
+                    if (obs[j].s == obs[i].s || sj.locus >= 0) continue;
+                    ++pair_calls[{obs[i].s, obs[j].s}][obs[i].b == obs[j].b ? 0 : 1];
+                }
+            }
+        }
+        for (const auto& [kj, c] : pair_calls) {
+            const int shared = c[0] + c[1];
+            const int larger = std::max(callers[static_cast<size_t>(kj.first)], callers[static_cast<size_t>(kj.second)]);
+            if (shared >= kEmEchoMinReads && shared >= kEmEchoMinShare * larger &&
+                std::max(c[0], c[1]) >= kEmEchoMinConcordance * shared)
+                echo[static_cast<size_t>(kj.second)] = 1;
+        }
+    }
     const auto obs_error = [&](const EmObs& o) {
         return std::min(kEmMaxError, 1.0 - (1.0 - err[static_cast<size_t>(o.s)]) * (1.0 - o.e));
     };
@@ -206,10 +256,14 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // Calls kept from noisy regions too long for MSA (unresolved_noisy) are
     // left out of the join test altogether: a divergent copy's mismatches
     // (695 such calls in 24 kb at chr20:49.65 Mb) clear even the weak-bridge
-    // margin by sheer number, and flipped a block of 110 reads.
+    // margin by sheer number, and flipped a block of 110 reads. Clean hets no
+    // confidently mapped read carries (low_mapq_only) are treated the same:
+    // as ordinary sites they added two arm switches over chr12/18/20 (chr12
+    // 34.64 Mb, chr20 32.25 Mb) for three correct reads.
     std::vector<char> join_excluded(n, 0);
     for (size_t k = 0; k < n; ++k)
-        if (sites[k].locus < 0 && chunk.candidates[sites[k].ci].unresolved_noisy) join_excluded[k] = 1;
+        if (sites[k].locus < 0 && (chunk.candidates[sites[k].ci].unresolved_noisy ||
+                                   chunk.candidates[sites[k].ci].low_mapq_only)) join_excluded[k] = 1;
     {
         std::vector<hts_pos_t> site_pos(n);
         for (size_t k = 0; k < n; ++k) site_pos[k] = sites[k].pos;
@@ -334,12 +388,17 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         const bool match1 = o.b == phase[static_cast<size_t>(o.s)];
         return {std::log(match1 ? 1.0 - e : e), std::log(match1 ? e : 1.0 - e)};
     };
+    // A call's vote on its read's label: none at an echo site.
+    const auto label_log_likelihoods = [&](const EmObs& o) -> std::array<double, 2> {
+        if (echo[static_cast<size_t>(o.s)]) return {0.0, 0.0};
+        return read_log_likelihoods(o);
+    };
     const auto e_step = [&]() {
         for (size_t ri = 0; ri < robs.size(); ++ri) {
             if (robs[ri].empty()) continue;
             double l1 = 0.0, l2 = 0.0;
             for (const EmObs& o : robs[ri]) {
-                const auto ll = read_log_likelihoods(o);
+                const auto ll = label_log_likelihoods(o);
                 l1 += ll[0];
                 l2 += ll[1];
             }
@@ -415,7 +474,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             if (robs[ri].empty() || start_label[ri] != 0) continue;
             double l1 = 0.0, l2 = 0.0;
             for (const EmObs& o : robs[ri]) {
-                const auto ll = read_log_likelihoods(o);
+                const auto ll = label_log_likelihoods(o);
                 l1 += ll[0];
                 l2 += ll[1];
             }
@@ -527,7 +586,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             // 90, 125 and 12 reads off the discordant count and added correct
             // ones on chr12 and chr18.
             if (join_excluded[static_cast<size_t>(o.s)]) continue;
-            const auto ll = read_log_likelihoods(o);
+            const auto ll = label_log_likelihoods(o);
             auto& l = per_block[block[static_cast<size_t>(o.s)]];
             l[0] += ll[0];
             l[1] += ll[1];
@@ -544,7 +603,8 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         }
         // Deferred: a read below the label posterior whose calls in a block all
         // point one way takes that block's label last (apply_island_labels,
-        // fill-only), so it steers no window, stitch or rescue.
+        // fill-only), so it steers no window, stitch or rescue; failing that,
+        // its unverified calls may label it (kEmUnverifiedLabelPosterior).
         if (chunk.haps[ri] != 0 || loci == nullptr) continue;
         double weak_best = 0.0;
         int weak_hap = 0;
@@ -558,6 +618,25 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             weak_best = std::abs(margin);
             weak_hap = p1 >= 0.5 ? 1 : 2;
             weak_ps = ps;
+        }
+        if (weak_hap == 0) {
+            std::map<hts_pos_t, std::array<double, 2>> unverified;
+            for (const EmObs& o : robs[ri]) {
+                const size_t k = static_cast<size_t>(o.s);
+                if (!join_excluded[k] || err[k] >= kEmUnverifiedReportError) continue;
+                const auto ll = label_log_likelihoods(o);
+                auto& l = unverified[block[k]];
+                l[0] += ll[0];
+                l[1] += ll[1];
+            }
+            for (const auto& [ps, l] : unverified) {
+                const double margin = l[0] - l[1];
+                const double p1 = margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
+                if (std::max(p1, 1.0 - p1) < kEmUnverifiedLabelPosterior || std::abs(margin) <= weak_best) continue;
+                weak_best = std::abs(margin);
+                weak_hap = p1 >= 0.5 ? 1 : 2;
+                weak_ps = ps;
+            }
         }
         if (weak_hap != 0) {
             if (chunk.island_haps.size() < chunk.reads.size()) {
@@ -880,7 +959,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 for (const EmObs& o : robs[ri]) {
                     if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
                     if (join_excluded[static_cast<size_t>(o.s)]) continue;
-                    const auto ll = read_log_likelihoods(o);
+                    const auto ll = label_log_likelihoods(o);
                     margin[block[static_cast<size_t>(o.s)]] += ll[0] - ll[1];
                 }
                 const char* sep = "";

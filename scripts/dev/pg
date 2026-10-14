@@ -23,6 +23,9 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        baseline and the competitors
   same  [TIER]         is ./pgphase output-identical to the baseline? (refactors)
   diff  [TIER]         which arms_phaseable reads changed class vs the baseline
+  switches [--all]     every arm switch (--all: and flip) of the full run against
+                       the baseline: new, kept or gone, between which
+                       truth-matched hets (scripts/dev/switches.py)
   pin   [TIER]         make ./pgphase's run the baseline for TIER
   pin-dir TIER DIR [--graph-only]
                        make an existing run directory the baseline for TIER
@@ -80,6 +83,11 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        truth het indels the rival calls and we have no EM site
                        for: where each is lost (MSA verdict, best injection
                        decision, EM) (scripts/dev/missing.py)
+  noise [--rival NAME] [--examples N]
+                       EM-reliable sites the parents do not split and the
+                       discordant reads they label, by production feature
+                       (--rival: only reads NAME phases correctly)
+                       (scripts/dev/noise.py)
   lengthwin            the length windows (repeat loci genotyped from read
                        lengths) against truth: real het share and parental
                        purity by het score (scripts/dev/lengthwin.py)
@@ -395,6 +403,14 @@ cmd_diff() {
     py "${here}/score.py" diff "${base}" "${dir}" $(regions_bed) --out "${dir}/changed_reads.tsv"
 }
 
+cmd_switches() {
+    tier=full
+    [[ -z "${PGDEV_BIN:-}" ]] && build
+    local dir base
+    dir="$(ensure_run)"; base="$(baseline_dir)"
+    py "${here}/switches.py" "${dir}" "${base}" "$@"
+}
+
 cmd_pin() {
     parse_tier "$@"
     [[ -z "${PGDEV_BIN:-}" ]] && build
@@ -421,6 +437,7 @@ main() {
         quick|full) cmd_eval "${cmd}" "$@" ;;
         same) cmd_same "$@" ;;
         diff) cmd_diff "$@" ;;
+        switches) cmd_switches "$@" ;;
         pin) cmd_pin "$@" ;;
         pin-dir) [[ $# -ge 2 ]] || die "usage: pg pin-dir TIER DIR [--graph-only]"; cmd_pin_dir "$@" ;;
         path) parse_tier "$@"; run_dir ;;
@@ -432,6 +449,7 @@ main() {
         hiphase-exact) local d; d="$(diag_dir)"; py "${here}/hiphase_exact.py" "${d}" "$@" ;;
         missing) local d; d="$(diag_dir)"; py "${here}/missing.py" "${d}" "$@" ;;
         lengthwin) local d; d="$(diag_dir)"; py "${here}/lengthwin.py" "${d}" "$@" ;;
+        noise) local d; d="$(diag_dir)"; py "${here}/noise.py" "${d}" "$@" ;;
         unphased) local d; d="$(diag_dir)"; py "${here}/unphased.py" "${d}" "$@" ;;
         diag) diag_dir ;;
         inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"
