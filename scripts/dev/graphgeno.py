@@ -85,6 +85,8 @@ def main():
     ap.add_argument("--min-margin", type=int, default=2)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--sites", choices=["ours", "truth", "rival"], default="ours")
+    ap.add_argument("--group", default="arms_phaseable", help="read group: arms_phaseable or cen_phaseable")
+    ap.add_argument("--rival", default="hiphase", help="rival whose calls --sites rival uses (its run's VCF)")
     a = ap.parse_args()
     contig = os.environ["PGDEV_CONTIG"]
     fa = pysam.FastaFile(os.environ["PGDEV_REF"])
@@ -111,8 +113,12 @@ def main():
         if a.sites == "truth":
             src = os.environ["PGDEV_TRUTH_VCF"]
         else:
-            from hiphase_exact import hiphase_inputs
-            src = hiphase_inputs()[2]
+            if a.rival == "hiphase":
+                from hiphase_exact import hiphase_inputs
+                src = hiphase_inputs()[2]
+            else:
+                rdir = D.competitors()[a.rival]
+                src = next(os.path.join(rdir, f) for f in ("phased.vcf.gz", "phased.vcf") if os.path.exists(os.path.join(rdir, f)))
         for pos, recs in sorted(D.vcf_records(src, contig, 1, 2 ** 31 - 1).items()):
             for ref, alts, gt, ps, c in recs:
                 if len(gt) != 2 or None in gt:
@@ -141,7 +147,7 @@ def main():
             votes[str(ps)][((hp == 1) == scope[q][2])] += 1
         orient = {ps: v[1] >= v[0] for ps, v in votes.items()}
     want = set(a.classes.split(","))
-    arms = [q for q, v in scope.items() if v[1] == "arms_phaseable"]
+    arms = [q for q, v in scope.items() if v[1] == a.group]
     targets = [q for q in arms if classes[q] in want]
     rng = random.Random(a.seed)
     correct = [q for q in arms if classes[q] == "correct"]

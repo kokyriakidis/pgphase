@@ -87,11 +87,11 @@ constexpr hts_pos_t kEmEchoMaxGap = 30;
 constexpr double kEmEchoMinConcordance = 0.95;
 constexpr double kEmEchoMinShare = 0.8;
 constexpr int kEmEchoMinReads = 4;
-// Island blocks (see the end of phase_chunk_by_global_em). A rejected EM site
-// offers islands below this learned error: 0.35 gave +975/+191 reads over
-// chr12/18/20, 0.40 +1,458/+415, before the other candidates and
-// lowest-error choice.
-constexpr double kIslandMaxError = 0.40;
+// Island blocks (see GlobalEm::island_blocks). Every site the EM
+// rejects offers islands, whatever its learned error (it is capped at
+// kEmMaxError): a cap at 0.40 left +155 correct / +16 discordant / -171
+// unphased arms reads over chr12/18/20 (all reads +2,249 / +1,476 / -3,725),
+// 0.35 lost -464 / -104 / +568.
 // A candidate outside the solve offers islands below this raw disagreement
 // with the labelled reads.
 constexpr double kIslandOutsideMaxError = 0.30;
@@ -112,113 +112,187 @@ static void set_site_phase(CandidateVariant& c, hts_pos_t ps, int hap1_allele, i
     c.hap_ref = h1 && h2 ? 0 : h1 ? 2 : h2 ? 1 : 0;
 }
 
-size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
-                                const std::vector<char>* bridge_weak,
-                                const ObservationErrors* errors) {
-    struct EmSite { long locus; size_t ci; int x; int y; hts_pos_t pos; };  // locus < 0: candidate
-    struct EmObs { int s; int b; double e; };
+// Probability that a read is on haplotype 1 given its log-likelihoods on the
+// two haplotypes (E-step form) and given their difference (label form).
+static double read_posterior(double l1, double l2) {
+    const double d = l2 - l1;
+    return d > 700 ? 0.0 : d < -700 ? 1.0 : 1.0 / (1.0 + std::exp(d));
+}
+
+static double hap1_posterior(double margin) {
+    return margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
+}
+
+namespace {
+
+// A voting site: a chunk candidate (locus < 0) contrasting alleles x and y, or
+// a locus window contrasting its two haplotype sequences (0 and 1).
+struct EmSite { long locus; size_t ci; int x; int y; hts_pos_t pos; };
+// A read's call at site s: side b (0: x, 1: y) and its own error e.
+struct EmObs { int s; int b; double e; };
+
+// The global EM over one chunk's read x site matrix: site selection, the EM
+// with switch moves, block cuts, read labels and the last-resort labels
+// (deferred, unverified, one-edit windows, islands), applied in that order by
+// run().
+class GlobalEm {
+public:
+    GlobalEm(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci, const std::vector<char>* bridge_weak,
+             const ObservationErrors* errors)
+        : chunk_(chunk), loci_(loci), bridge_weak_(bridge_weak), errors_(errors),
+          n_locus_(loci != nullptr ? loci->size() : 0) {}
+
+    size_t run() {
+        select_sites();
+        n_ = sites_.size();
+        if (n_ < 2) return 0;
+        collect_observations();
+        find_echo_sites();
+        setup_joins();
+        solve();
+        cut_blocks();
+        write_site_phases();
+        label_reads();
+        if (loci_ != nullptr) island_blocks();
+        write_diagnostics();
+        return blocks_;
+    }
+
+private:
+    PhasingChunk& chunk_;
+    const std::vector<LocusWindowSite>* loci_;
+    const std::vector<char>* bridge_weak_;
+    const ObservationErrors* errors_;
+    const size_t n_locus_;
+
+    std::vector<std::map<int, int>> allele_counts_;  // per candidate: allele -> reads
+    std::vector<int> undecided_;                      // reads in range without an allele (diagnostic)
+    std::vector<EmSite> sites_;                       // in position order
+    size_t n_ = 0;
+    std::vector<int> site_of_;     // candidate -> site, or -1
+    std::vector<int> locus_site_;  // locus window -> site, or -1 (island-only)
+    std::vector<int> phase_;       // 0: hap1 carries x
+    std::vector<double> err_;      // learned error
+    std::vector<std::vector<EmObs>> robs_;  // per read, in site order
+    std::vector<double> post_;              // P(read on hap1)
+    std::vector<int> start_label_;          // label the read started with (diagnostic)
+    std::vector<char> learns_;              // read teaches the model (MAPQ)
+    std::vector<char> echo_;
+    std::vector<char> site_weak_, join_weak_, join_excluded_;
+    std::vector<std::vector<char>> join_skip_;
+    std::vector<int> site_class_;
+    bool m_started_ = false;
+    std::vector<double> delta_, delta_strong_;
+    std::vector<int> spanning_, spanning_strong_;
+    std::vector<hts_pos_t> block_;
+    std::vector<char> weak_bridge_;
+    size_t blocks_ = 1;
+
     // Sites in position order with their two-allele contrast; a locus window
     // contrasts its two local haplotype sequences (0 and 1).
-    std::vector<std::map<int, int>> allele_counts(chunk.candidates.size());
-    std::vector<int> undecided(chunk.candidates.size(), 0);  // reads in range without an allele (diagnostic)
-    for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
-        const ReadVariantProfile& prof = chunk.read_var_profile[ri];
-        if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
-        for (size_t k = 0; k < prof.alleles.size(); ++k) {
-            if (prof.alleles[k] >= 0)
-                ++allele_counts[static_cast<size_t>(prof.start_var_idx) + k][prof.alleles[k]];
-            else
-                ++undecided[static_cast<size_t>(prof.start_var_idx) + k];
-        }
-    }
-    std::vector<EmSite> sites;
-    for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-        const CandidateVariant& c = chunk.candidates[ci];
-        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-        int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
-        if (x < 0 || y < 0 || x == y) {
-            std::vector<std::pair<int, int>> by_count;
-            for (const auto& [a, n] : allele_counts[ci]) by_count.emplace_back(n, a);
-            std::sort(by_count.rbegin(), by_count.rend());
-            if (by_count.size() < 2) continue;
-            x = by_count[0].second;
-            y = by_count[1].second;
-        }
-        const auto count_of = [&](int a) {
-            const auto it = allele_counts[ci].find(a);
-            return it == allele_counts[ci].end() ? 0 : it->second;
-        };
-        const int nx = count_of(x), ny = count_of(y);
-        if (nx + ny == 0 || std::min(nx, ny) < kEmMinMinorAlleleFraction * (nx + ny)) continue;
-        sites.push_back(EmSite{-1, ci, x, y, c.key.sort_pos()});
-    }
-    const size_t n_locus = loci != nullptr ? loci->size() : 0;
-    for (size_t li = 0; li < n_locus; ++li)
-        if (!(*loci)[li].island_only) sites.push_back(EmSite{static_cast<long>(li), 0, 0, 1, (*loci)[li].pos});
-    std::stable_sort(sites.begin(), sites.end(),
-                     [](const EmSite& a, const EmSite& b) { return a.pos < b.pos; });
-    const size_t n = sites.size();
-    if (n < 2) return 0;
-    std::vector<int> site_of(chunk.candidates.size(), -1);
-    std::vector<int> locus_site(n_locus, -1);
-    for (size_t k = 0; k < n; ++k) {
-        if (sites[k].locus >= 0) locus_site[static_cast<size_t>(sites[k].locus)] = static_cast<int>(k);
-        else site_of[sites[k].ci] = static_cast<int>(k);
-    }
-    std::vector<int> phase(n, 0);  // 0: hap1 carries x
-    std::vector<double> err(n);
-    for (size_t k = 0; k < n; ++k) {
-        const bool clean = sites[k].locus < 0 &&
-            (chunk.candidates[sites[k].ci].lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0;
-        err[k] = clean ? kEmCleanStartError : kEmOtherStartError;
-    }
-    // Read observations as (site, side, own error) in site order.
-    std::vector<std::vector<EmObs>> robs(chunk.reads.size());
-    for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
-        const ReadVariantProfile& prof = chunk.read_var_profile[ri];
-        if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
-        for (size_t k = 0; k < prof.alleles.size(); ++k) {
-            const int s = site_of[static_cast<size_t>(prof.start_var_idx) + k];
-            if (s < 0 || prof.alleles[k] < 0) continue;
-            const EmSite& site = sites[static_cast<size_t>(s)];
-            double e = 0.0;
-            if (errors != nullptr) {
-                const auto it = errors->find(observation_key(ri, static_cast<size_t>(prof.start_var_idx) + k));
-                if (it != errors->end()) e = it->second;
+    void select_sites() {
+        allele_counts_.assign(chunk_.candidates.size(), {});
+        undecided_.assign(chunk_.candidates.size(), 0);
+        for (size_t ri = 0; ri < chunk_.read_var_profile.size(); ++ri) {
+            const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
+            if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                if (prof.alleles[k] >= 0)
+                    ++allele_counts_[static_cast<size_t>(prof.start_var_idx) + k][prof.alleles[k]];
+                else
+                    ++undecided_[static_cast<size_t>(prof.start_var_idx) + k];
             }
-            if (prof.alleles[k] == site.x) robs[ri].push_back(EmObs{s, 0, e});
-            else if (prof.alleles[k] == site.y) robs[ri].push_back(EmObs{s, 1, e});
+        }
+        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
+            const CandidateVariant& c = chunk_.candidates[ci];
+            if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
+            if (x < 0 || y < 0 || x == y) {
+                std::vector<std::pair<int, int>> by_count;
+                for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
+                std::sort(by_count.rbegin(), by_count.rend());
+                if (by_count.size() < 2) continue;
+                x = by_count[0].second;
+                y = by_count[1].second;
+            }
+            const auto count_of = [&](int a) {
+                const auto it = allele_counts_[ci].find(a);
+                return it == allele_counts_[ci].end() ? 0 : it->second;
+            };
+            const int nx = count_of(x), ny = count_of(y);
+            if (nx + ny == 0 || std::min(nx, ny) < kEmMinMinorAlleleFraction * (nx + ny)) continue;
+            sites_.push_back(EmSite{-1, ci, x, y, c.key.sort_pos()});
+        }
+        for (size_t li = 0; li < n_locus_; ++li)
+            if (!(*loci_)[li].island_only) sites_.push_back(EmSite{static_cast<long>(li), 0, 0, 1, (*loci_)[li].pos});
+        std::stable_sort(sites_.begin(), sites_.end(),
+                         [](const EmSite& a, const EmSite& b) { return a.pos < b.pos; });
+    }
+
+    // Read observations as (site, side, own error) in site order; each read's
+    // starting posterior from its incoming label.
+    void collect_observations() {
+        site_of_.assign(chunk_.candidates.size(), -1);
+        locus_site_.assign(n_locus_, -1);
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) locus_site_[static_cast<size_t>(sites_[k].locus)] = static_cast<int>(k);
+            else site_of_[sites_[k].ci] = static_cast<int>(k);
+        }
+        phase_.assign(n_, 0);
+        err_.assign(n_, 0.0);
+        for (size_t k = 0; k < n_; ++k) {
+            const bool clean = sites_[k].locus < 0 &&
+                (chunk_.candidates[sites_[k].ci].lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0;
+            err_[k] = clean ? kEmCleanStartError : kEmOtherStartError;
+        }
+        robs_.assign(chunk_.reads.size(), {});
+        for (size_t ri = 0; ri < chunk_.read_var_profile.size(); ++ri) {
+            const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
+            if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                const int s = site_of_[static_cast<size_t>(prof.start_var_idx) + k];
+                if (s < 0 || prof.alleles[k] < 0) continue;
+                const EmSite& site = sites_[static_cast<size_t>(s)];
+                double e = 0.0;
+                if (errors_ != nullptr) {
+                    const auto it = errors_->find(observation_key(ri, static_cast<size_t>(prof.start_var_idx) + k));
+                    if (it != errors_->end()) e = it->second;
+                }
+                if (prof.alleles[k] == site.x) robs_[ri].push_back(EmObs{s, 0, e});
+                else if (prof.alleles[k] == site.y) robs_[ri].push_back(EmObs{s, 1, e});
+            }
+        }
+        for (size_t li = 0; li < n_locus_; ++li) {
+            if (locus_site_[li] < 0) continue;  // island-only window
+            for (const auto& [ri, side, e] : (*loci_)[li].observations)
+                if (ri < robs_.size()) robs_[ri].push_back(EmObs{locus_site_[li], side, static_cast<double>(e)});
+        }
+        post_.assign(chunk_.reads.size(), 0.5);
+        start_label_.assign(chunk_.reads.size(), 0);
+        learns_.assign(chunk_.reads.size(), 0);
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            std::sort(robs_[ri].begin(), robs_[ri].end(),
+                      [](const EmObs& a, const EmObs& b) { return a.s < b.s; });
+            const int hap = ri < chunk_.haps.size() ? chunk_.haps[ri] : 0;
+            post_[ri] = hap == 1 ? 0.95 : hap == 2 ? 0.05 : 0.5;
+            if (ri < start_label_.size()) start_label_[ri] = hap;
+            learns_[ri] = chunk_.reads[ri].mapq >= kEmLearnMinMapq;
         }
     }
-    for (size_t li = 0; li < n_locus; ++li) {
-        if (locus_site[li] < 0) continue;  // island-only window
-        for (const auto& [ri, side, e] : (*loci)[li].observations)
-            if (ri < robs.size()) robs[ri].push_back(EmObs{locus_site[li], side, static_cast<double>(e)});
-    }
-    std::vector<double> post(chunk.reads.size(), 0.5);
-    std::vector<int> start_label(chunk.reads.size(), 0);  // for the diagnostic dump
-    std::vector<char> learns(chunk.reads.size(), 0);
-    for (size_t ri = 0; ri < robs.size(); ++ri) {
-        std::sort(robs[ri].begin(), robs[ri].end(),
-                  [](const EmObs& a, const EmObs& b) { return a.s < b.s; });
-        const int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
-        post[ri] = hap == 1 ? 0.95 : hap == 2 ? 0.05 : 0.5;
-        if (ri < start_label.size()) start_label[ri] = hap;
-        learns[ri] = chunk.reads[ri].mapq >= kEmLearnMinMapq;
-    }
+
     // Echo sites (see kEmEchoMaxGap): each candidate pair within the gap,
     // counted over the reads that call both.
-    std::vector<char> echo(n, 0);
-    {
-        std::vector<int> callers(n, 0);
+    void find_echo_sites() {
+        echo_.assign(n_, 0);
+        std::vector<int> callers(n_, 0);
         std::map<std::pair<int, int>, std::array<int, 2>> pair_calls;  // (k, j): same / opposite sides
-        for (const std::vector<EmObs>& obs : robs) {
+        for (const std::vector<EmObs>& obs : robs_) {
             for (size_t i = 0; i < obs.size(); ++i) {
                 ++callers[static_cast<size_t>(obs[i].s)];
-                const EmSite& si = sites[static_cast<size_t>(obs[i].s)];
+                const EmSite& si = sites_[static_cast<size_t>(obs[i].s)];
                 if (si.locus >= 0) continue;
                 for (size_t j = i + 1; j < obs.size(); ++j) {
-                    const EmSite& sj = sites[static_cast<size_t>(obs[j].s)];
+                    const EmSite& sj = sites_[static_cast<size_t>(obs[j].s)];
                     if (sj.pos - si.pos > kEmEchoMaxGap) break;
                     if (obs[j].s == obs[i].s || sj.locus >= 0) continue;
                     ++pair_calls[{obs[i].s, obs[j].s}][obs[i].b == obs[j].b ? 0 : 1];
@@ -230,89 +304,106 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             const int larger = std::max(callers[static_cast<size_t>(kj.first)], callers[static_cast<size_t>(kj.second)]);
             if (shared >= kEmEchoMinReads && shared >= kEmEchoMinShare * larger &&
                 std::max(c[0], c[1]) >= kEmEchoMinConcordance * shared)
-                echo[static_cast<size_t>(kj.second)] = 1;
+                echo_[static_cast<size_t>(kj.second)] = 1;
         }
     }
-    const auto obs_error = [&](const EmObs& o) {
-        return std::min(kEmMaxError, 1.0 - (1.0 - err[static_cast<size_t>(o.s)]) * (1.0 - o.e));
-    };
-    // Weak sites (see bridge_weak_sites) are phased but cannot hold blocks
-    // together: the final cuts are judged on the other sites' evidence.
-    std::vector<char> site_weak(n, 0);
-    if (bridge_weak != nullptr)
-        for (size_t k = 0; k < n; ++k)
-            if (sites[k].locus < 0 && sites[k].ci < bridge_weak->size()) site_weak[k] = (*bridge_weak)[sites[k].ci];
-    // The join test counts a locus once. A locus window and a candidate
-    // inside it are read from the same bases, so a read's two calls there
-    // agree by construction; counted twice they outvote a real heterozygote
-    // read once. And a window over a homopolymer length call is that call
-    // re-read, so it is weak too. At chr12:122,284,562 a window and the +1
-    // indel inside it (one locus, purity 0.53 against the parents) carried a
-    // 30 kb join past a true het (122,290,121, purity 0.95) with a margin of
-    // 5.65 from "strong" sites, and 165 reads went discordant. Labels and
-    // learning keep every observation: only the decision to join uses this.
-    std::vector<char> join_weak = site_weak;
-    std::vector<std::vector<char>> join_skip(robs.size());
-    // Calls kept from noisy regions too long for MSA (unresolved_noisy) are
-    // left out of the join test altogether: a divergent copy's mismatches
-    // (695 such calls in 24 kb at chr20:49.65 Mb) clear even the weak-bridge
-    // margin by sheer number, and flipped a block of 110 reads. Clean hets no
-    // confidently mapped read carries (low_mapq_only) are treated the same:
-    // as ordinary sites they added two arm switches over chr12/18/20 (chr12
-    // 34.64 Mb, chr20 32.25 Mb) for three correct reads.
-    std::vector<char> join_excluded(n, 0);
-    for (size_t k = 0; k < n; ++k)
-        if (sites[k].locus < 0 && (chunk.candidates[sites[k].ci].unresolved_noisy ||
-                                   chunk.candidates[sites[k].ci].low_mapq_only)) join_excluded[k] = 1;
-    {
-        std::vector<hts_pos_t> site_pos(n);
-        for (size_t k = 0; k < n; ++k) site_pos[k] = sites[k].pos;
-        for (size_t k = 0; k < n; ++k) {
-            if (sites[k].locus < 0) continue;
-            const LocusWindowSite& w = (*loci)[static_cast<size_t>(sites[k].locus)];
+
+    // Which sites and calls the block-cut test counts, and each site's class
+    // for the error prior.
+    void setup_joins() {
+        // Weak sites (see bridge_weak_sites) are phased but cannot hold blocks
+        // together: the final cuts are judged on the other sites' evidence.
+        site_weak_.assign(n_, 0);
+        if (bridge_weak_ != nullptr)
+            for (size_t k = 0; k < n_; ++k)
+                if (sites_[k].locus < 0 && sites_[k].ci < bridge_weak_->size())
+                    site_weak_[k] = (*bridge_weak_)[sites_[k].ci];
+        // The join test counts a locus once. A locus window and a candidate
+        // inside it are read from the same bases, so a read's two calls there
+        // agree by construction; counted twice they outvote a real heterozygote
+        // read once. And a window over a homopolymer length call is that call
+        // re-read, so it is weak too. At chr12:122,284,562 a window and the +1
+        // indel inside it (one locus, purity 0.53 against the parents) carried a
+        // 30 kb join past a true het (122,290,121, purity 0.95) with a margin of
+        // 5.65 from "strong" sites, and 165 reads went discordant. Labels and
+        // learning keep every observation: only the decision to join uses this.
+        join_weak_ = site_weak_;
+        join_skip_.assign(robs_.size(), {});
+        // Calls kept from noisy regions too long for MSA (unresolved_noisy) are
+        // left out of the join test altogether: a divergent copy's mismatches
+        // (695 such calls in 24 kb at chr20:49.65 Mb) clear even the weak-bridge
+        // margin by sheer number, and flipped a block of 110 reads. Clean hets no
+        // confidently mapped read carries (low_mapq_only) are treated the same:
+        // as ordinary sites they added two arm switches over chr12/18/20 (chr12
+        // 34.64 Mb, chr20 32.25 Mb) for three correct reads.
+        join_excluded_.assign(n_, 0);
+        for (size_t k = 0; k < n_; ++k)
+            if (sites_[k].locus < 0 && (chunk_.candidates[sites_[k].ci].unresolved_noisy ||
+                                        chunk_.candidates[sites_[k].ci].low_mapq_only)) join_excluded_[k] = 1;
+        std::vector<hts_pos_t> site_pos(n_);
+        for (size_t k = 0; k < n_; ++k) site_pos[k] = sites_[k].pos;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus < 0) continue;
+            const LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
             const auto lo = std::lower_bound(site_pos.begin(), site_pos.end(), w.pos);
             const auto hi = std::upper_bound(lo, site_pos.end(), std::max(w.pos, w.end));
             for (auto it = lo; it != hi; ++it) {
                 const size_t j = static_cast<size_t>(it - site_pos.begin());
-                if (sites[j].locus < 0 && site_weak[j]) join_weak[k] = 1;
+                if (sites_[j].locus < 0 && site_weak_[j]) join_weak_[k] = 1;
             }
         }
         std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
             spans.clear();
-            for (const EmObs& o : robs[ri]) {
-                const EmSite& site = sites[static_cast<size_t>(o.s)];
+            for (const EmObs& o : robs_[ri]) {
+                const EmSite& site = sites_[static_cast<size_t>(o.s)];
                 if (site.locus < 0) continue;
-                const LocusWindowSite& w = (*loci)[static_cast<size_t>(site.locus)];
+                const LocusWindowSite& w = (*loci_)[static_cast<size_t>(site.locus)];
                 spans.emplace_back(w.pos, std::max(w.pos, w.end));
             }
             if (spans.empty()) continue;
-            join_skip[ri].assign(robs[ri].size(), 0);
-            for (size_t i = 0; i < robs[ri].size(); ++i) {
-                const EmSite& site = sites[static_cast<size_t>(robs[ri][i].s)];
+            join_skip_[ri].assign(robs_[ri].size(), 0);
+            for (size_t i = 0; i < robs_[ri].size(); ++i) {
+                const EmSite& site = sites_[static_cast<size_t>(robs_[ri][i].s)];
                 if (site.locus >= 0) continue;
                 for (const auto& [beg, end] : spans)
-                    if (beg <= site.pos && site.pos <= end) join_skip[ri][i] = 1;
+                    if (beg <= site.pos && site.pos <= end) join_skip_[ri][i] = 1;
             }
         }
-    }
-    // Site classes for the error prior: clean catalog het, other catalog
-    // site, alignment-injected site, locus window -- each split by weak --
-    // and calls from noisy regions too long for MSA, pooled apart: they are
-    // flagged weak, and sharing the homopolymer calls' pool raised those
-    // calls' errors with their own (chr12 lost 232 labels at 37 and 133 Mb).
-    std::vector<int> site_class(n);
-    for (size_t k = 0; k < n; ++k) {
-        int kind = 3;
-        if (sites[k].locus < 0) {
-            const CandidateVariant& c = chunk.candidates[sites[k].ci];
-            kind = c.unresolved_noisy ? 4
-                 : c.bam_injected ? 2
-                 : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 0 : 1;
+        // Site classes for the error prior: clean catalog het, other catalog
+        // site, alignment-injected site, locus window -- each split by weak --
+        // and calls from noisy regions too long for MSA, pooled apart: they are
+        // flagged weak, and sharing the homopolymer calls' pool raised those
+        // calls' errors with their own (chr12 lost 232 labels at 37 and 133 Mb).
+        site_class_.assign(n_, 0);
+        for (size_t k = 0; k < n_; ++k) {
+            int kind = 3;
+            if (sites_[k].locus < 0) {
+                const CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+                kind = c.unresolved_noisy ? 4
+                     : c.bam_injected ? 2
+                     : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 0 : 1;
+            }
+            site_class_[k] = 2 * kind + (site_weak_[k] ? 1 : 0);
         }
-        site_class[k] = 2 * kind + (site_weak[k] ? 1 : 0);
     }
-    bool m_started = false;
+
+    double obs_error(const EmObs& o) const {
+        return std::min(kEmMaxError, 1.0 - (1.0 - err_[static_cast<size_t>(o.s)]) * (1.0 - o.e));
+    }
+
+    std::array<double, 2> read_log_likelihoods(const EmObs& o) const {
+        const double e = obs_error(o);
+        const bool match1 = o.b == phase_[static_cast<size_t>(o.s)];
+        return {std::log(match1 ? 1.0 - e : e), std::log(match1 ? e : 1.0 - e)};
+    }
+
+    // A call's vote on its read's label: none at an echo site.
+    std::array<double, 2> label_log_likelihoods(const EmObs& o) const {
+        if (echo_[static_cast<size_t>(o.s)]) return {0.0, 0.0};
+        return read_log_likelihoods(o);
+    }
+
     // A site's error is its reads' disagreement rate, shrunk toward the pooled
     // rate of its class by kEmClassPriorReads pseudo-reads. Two sites that
     // share their reads and disagree are otherwise symmetric: whichever the
@@ -321,10 +412,10 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // paternal and 24 maternal reads all split by the SNP, rejected at 0.316
     // against a +T/+TT call that does not separate the parents). The class
     // pools say how often each kind of site is wrong in this chunk.
-    const auto m_step = [&]() {
-        std::vector<std::array<double, 2>> w(n, {0.0, 0.0});  // hap1 weight per side
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
-            if (!learns[ri]) continue;
+    void m_step() {
+        std::vector<std::array<double, 2>> w(n_, {0.0, 0.0});  // hap1 weight per side
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            if (!learns_[ri]) continue;
             // A read whose observations all sit at one site has a posterior
             // made from that site alone: counted, it returns the site's own
             // current error and pins it wherever it started. Weakly connected
@@ -335,11 +426,11 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             // better prior: a lone clean SNP taught only by reads crossing
             // noisy neighbours was rejected (chr18:71,515,222, 74 reads at
             // purity 0.99, 21 reads went discordant).
-            const bool single_site = robs[ri].empty() || robs[ri].front().s == robs[ri].back().s;
-            if (single_site && site_class[static_cast<size_t>(robs[ri].front().s)] / 2 != 0) continue;
-            for (const EmObs& o : robs[ri]) {
-                w[static_cast<size_t>(o.s)][static_cast<size_t>(o.b)] += post[ri];
-                w[static_cast<size_t>(o.s)][static_cast<size_t>(1 - o.b)] += 1.0 - post[ri];
+            const bool single_site = robs_[ri].empty() || robs_[ri].front().s == robs_[ri].back().s;
+            if (single_site && site_class_[static_cast<size_t>(robs_[ri].front().s)] / 2 != 0) continue;
+            for (const EmObs& o : robs_[ri]) {
+                w[static_cast<size_t>(o.s)][static_cast<size_t>(o.b)] += post_[ri];
+                w[static_cast<size_t>(o.s)][static_cast<size_t>(1 - o.b)] += 1.0 - post_[ri];
             }
         }
         std::array<double, 10> class_minor{}, class_total{};
@@ -352,11 +443,11 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         // the label posterior). A site with no teaching weight at all takes
         // the pool instead of keeping its start error.
         std::array<std::vector<double>, 10> class_rates;
-        for (size_t k = 0; k < n; ++k) {
-            class_minor[static_cast<size_t>(site_class[k])] += std::min(w[k][0], w[k][1]);
-            class_total[static_cast<size_t>(site_class[k])] += w[k][0] + w[k][1];
+        for (size_t k = 0; k < n_; ++k) {
+            class_minor[static_cast<size_t>(site_class_[k])] += std::min(w[k][0], w[k][1]);
+            class_total[static_cast<size_t>(site_class_[k])] += w[k][0] + w[k][1];
             if (w[k][0] + w[k][1] >= kEmPoolMinWeight)
-                class_rates[static_cast<size_t>(site_class[k])].push_back(std::min(w[k][0], w[k][1]) / (w[k][0] + w[k][1]));
+                class_rates[static_cast<size_t>(site_class_[k])].push_back(std::min(w[k][0], w[k][1]) / (w[k][0] + w[k][1]));
         }
         std::array<double, 10> class_pool{};
         for (size_t c = 0; c < 10; ++c) {
@@ -367,71 +458,64 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 class_pool[c] = r[r.size() / 2];
             }
         }
-        const double shrink = m_started ? kEmClassPriorReads : 0.0;
-        for (size_t k = 0; k < n; ++k) {
+        const double shrink = m_started_ ? kEmClassPriorReads : 0.0;
+        for (size_t k = 0; k < n_; ++k) {
             const double total = w[k][0] + w[k][1];
             if (total < 1e-6) {
-                if (m_started)
-                    err[k] = std::min(kEmMaxError, std::max(kEmMinError, class_pool[static_cast<size_t>(site_class[k])]));
+                if (m_started_)
+                    err_[k] = std::min(kEmMaxError, std::max(kEmMinError, class_pool[static_cast<size_t>(site_class_[k])]));
                 continue;
             }
-            phase[k] = w[k][0] >= w[k][1] ? 0 : 1;
-            const size_t c = static_cast<size_t>(site_class[k]);
+            phase_[k] = w[k][0] >= w[k][1] ? 0 : 1;
+            const size_t c = static_cast<size_t>(site_class_[k]);
             const double pooled = class_pool[c];
             const double e = (std::min(w[k][0], w[k][1]) + shrink * pooled) / (total + shrink);
-            err[k] = std::min(kEmMaxError, std::max(kEmMinError, e));
+            err_[k] = std::min(kEmMaxError, std::max(kEmMinError, e));
         }
-        m_started = true;
-    };
-    const auto read_log_likelihoods = [&](const EmObs& o) -> std::array<double, 2> {
-        const double e = obs_error(o);
-        const bool match1 = o.b == phase[static_cast<size_t>(o.s)];
-        return {std::log(match1 ? 1.0 - e : e), std::log(match1 ? e : 1.0 - e)};
-    };
-    // A call's vote on its read's label: none at an echo site.
-    const auto label_log_likelihoods = [&](const EmObs& o) -> std::array<double, 2> {
-        if (echo[static_cast<size_t>(o.s)]) return {0.0, 0.0};
-        return read_log_likelihoods(o);
-    };
-    const auto e_step = [&]() {
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
-            if (robs[ri].empty()) continue;
+        m_started_ = true;
+    }
+
+    // Posteriors of reads; with only_unlabelled, of the reads that started
+    // without a label.
+    void e_step(bool only_unlabelled = false) {
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            if (robs_[ri].empty() || (only_unlabelled && start_label_[ri] != 0)) continue;
             double l1 = 0.0, l2 = 0.0;
-            for (const EmObs& o : robs[ri]) {
+            for (const EmObs& o : robs_[ri]) {
                 const auto ll = label_log_likelihoods(o);
                 l1 += ll[0];
                 l2 += ll[1];
             }
-            const double d = l2 - l1;
-            post[ri] = d > 700 ? 0.0 : d < -700 ? 1.0 : 1.0 / (1.0 + std::exp(d));
+            post_[ri] = read_posterior(l1, l2);
         }
-    };
+    }
+
     // delta[k] = log L(current) - log L(every site right of k flipped), over
     // the reads that teach the model or, for block cuts, over every read: a
     // read too ambiguously mapped to shape the model still shows the molecule
     // continues across the boundary.
     // joining: the block-cut test, with each locus counted once (join_skip,
     // join_weak) rather than the switch moves' every observation.
-    const auto boundary_delta = [&](bool every_read, bool strong_only = false, bool joining = false) {
+    std::vector<double> boundary_delta(bool every_read, bool strong_only = false, bool joining = false) const {
         static const std::vector<char> no_skip;
-        std::vector<double> diff(n + 1, 0.0);
+        std::vector<double> diff(n_ + 1, 0.0);
         std::vector<EmObs> strong;
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
-            const std::vector<EmObs>* items_ptr = &robs[ri];
-            const std::vector<char>& skip = joining ? join_skip[ri] : no_skip;
-            const std::vector<char>& weak_of = joining ? join_weak : site_weak;
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            const std::vector<EmObs>* items_ptr = &robs_[ri];
+            const std::vector<char>& skip = joining ? join_skip_[ri] : no_skip;
+            const std::vector<char>& weak_of = joining ? join_weak_ : site_weak_;
             if (strong_only || joining) {
                 strong.clear();
-                for (size_t i = 0; i < robs[ri].size(); ++i) {
-                    const EmObs& o = robs[ri][i];
-                    if (joining && ((!skip.empty() && skip[i]) || join_excluded[static_cast<size_t>(o.s)])) continue;
+                for (size_t i = 0; i < robs_[ri].size(); ++i) {
+                    const EmObs& o = robs_[ri][i];
+                    if (joining && ((!skip.empty() && skip[i]) || join_excluded_[static_cast<size_t>(o.s)])) continue;
                     if (strong_only && weak_of[static_cast<size_t>(o.s)]) continue;
                     strong.push_back(o);
                 }
                 items_ptr = &strong;
             }
             const auto& items = *items_ptr;
-            if ((!every_read && !learns[ri]) || items.size() < 2 || items.front().s == items.back().s)
+            if ((!every_read && !learns_[ri]) || items.size() < 2 || items.front().s == items.back().s)
                 continue;
             std::vector<std::array<double, 2>> ll(items.size());
             double tot1 = 0.0, tot2 = 0.0;
@@ -452,256 +536,263 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 diff[static_cast<size_t>(k_next)] -= gain;
             }
         }
-        std::vector<double> delta(n, 0.0);
+        std::vector<double> delta(n_, 0.0);
         double run = 0.0;
-        for (size_t k = 0; k < n; ++k) {
+        for (size_t k = 0; k < n_; ++k) {
             run += diff[k];
             delta[k] = run;
         }
         return delta;
-    };
+    }
+
     // EM, then switch moves: flip everything right of the worst boundary while
-    // that raises the likelihood.
-    std::vector<double> delta;
-    // Reads the clean stage left unlabelled start from an E-step under the
-    // sites' initial orientation and starting errors, not from 0.5. At 0.5
-    // every site's first M-step error is 0.5 -- a saddle -- and the class
-    // prior holds an island there: two sites shared by 75 reads at
-    // chr18:60,372,121, 97% pure against the parents, stayed at error 0.45
+    // that raises the likelihood. Reads the clean stage left unlabelled start
+    // from an E-step under the sites' initial orientation and starting errors,
+    // not from 0.5. At 0.5 every site's first M-step error is 0.5 -- a saddle --
+    // and the class prior holds an island there: two sites shared by 75 reads
+    // at chr18:60,372,121, 97% pure against the parents, stayed at error 0.45
     // with no read labelled.
-    {
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
-            if (robs[ri].empty() || start_label[ri] != 0) continue;
-            double l1 = 0.0, l2 = 0.0;
-            for (const EmObs& o : robs[ri]) {
-                const auto ll = label_log_likelihoods(o);
-                l1 += ll[0];
-                l2 += ll[1];
+    void solve() {
+        e_step(/*only_unlabelled=*/true);
+        for (int round = 0; round < kEmSwitchRounds; ++round) {
+            for (int it = 0; it < kEmIterations; ++it) {
+                m_step();
+                e_step();
             }
-            const double d = l2 - l1;
-            post[ri] = d > 700 ? 0.0 : d < -700 ? 1.0 : 1.0 / (1.0 + std::exp(d));
+            const std::vector<double> delta = boundary_delta(false);
+            size_t worst = n_;
+            for (size_t k = 0; k + 1 < n_; ++k)
+                if (delta[k] < -1e-6 && (worst == n_ || delta[k] < delta[worst])) worst = k;
+            if (worst == n_) break;
+            for (size_t k = worst + 1; k < n_; ++k) phase_[k] ^= 1;
+            for (size_t ri = 0; ri < robs_.size(); ++ri)
+                if (!robs_[ri].empty() && static_cast<size_t>(robs_[ri].front().s) > worst)
+                    post_[ri] = 1.0 - post_[ri];
         }
     }
-    for (int round = 0; round < kEmSwitchRounds; ++round) {
-        for (int it = 0; it < kEmIterations; ++it) {
-            m_step();
-            e_step();
-        }
-        delta = boundary_delta(false);
-        size_t worst = n;
-        for (size_t k = 0; k + 1 < n; ++k)
-            if (delta[k] < -1e-6 && (worst == n || delta[k] < delta[worst])) worst = k;
-        if (worst == n) break;
-        for (size_t k = worst + 1; k < n; ++k) phase[k] ^= 1;
-        for (size_t ri = 0; ri < robs.size(); ++ri)
-            if (!robs[ri].empty() && static_cast<size_t>(robs[ri].front().s) > worst)
-                post[ri] = 1.0 - post[ri];
-    }
-    delta = boundary_delta(true, false, true);
-    // A join that the non-weak sites alone do not carry (its margin comes from
-    // weak sites: homopolymer length calls) needs a larger margin. Measured on
-    // chr20: wrong joins of this kind sit just above the ordinary cut
-    // (median 6), right ones well above it (median 19).
-    const std::vector<double> delta_strong =
-        bridge_weak != nullptr ? boundary_delta(true, true, true) : delta;
-    // Reads whose observations lie on both sides of each boundary.
-    std::vector<int> spanning(n, 0);
-    {
-        std::vector<int> diff(n + 1, 0);
-        for (const std::vector<EmObs>& obs : robs) {
-            if (obs.size() < 2 || obs.front().s == obs.back().s) continue;
-            ++diff[static_cast<size_t>(obs.front().s)];
-            --diff[static_cast<size_t>(obs.back().s)];
-        }
-        int run = 0;
-        for (size_t k = 0; k < n; ++k) spanning[k] = run += diff[k];
-    }
-    // Reads whose strong evidence -- reliable, join-eligible, non-weak sites --
-    // lies on both sides of each boundary. The strong margin is only as
-    // independent as the reads behind it (see kEmMinStrongJoinReads).
-    std::vector<int> spanning_strong(n, 0);
-    if (bridge_weak != nullptr) {
-        std::vector<int> diff(n + 1, 0);
-        for (const std::vector<EmObs>& obs : robs) {
-            int first = -1, last = -1;
-            for (const EmObs& o : obs) {
-                const size_t k = static_cast<size_t>(o.s);
-                if (err[k] >= kEmUnreliableError || join_excluded[k] || join_weak[k]) continue;
-                if (first < 0) first = o.s;
-                last = o.s;
-            }
-            if (first < 0 || first == last) continue;
-            ++diff[static_cast<size_t>(first)];
-            --diff[static_cast<size_t>(last)];
-        }
-        int run = 0;
-        for (size_t k = 0; k < n; ++k) spanning_strong[k] = run += diff[k];
-    }
+
     // Blocks: cut where flipping the rest would cost less than the threshold,
     // or where too few reads cross.
-    std::vector<hts_pos_t> block(n);
-    std::vector<char> weak_bridge(n, 0);
-    hts_pos_t current = sites[0].pos;
-    size_t blocks = 1;
-    for (size_t k = 0; k < n; ++k) {
-        block[k] = current;
-        weak_bridge[k] = delta_strong[k] < kEmBlockCutLogLikelihood ||
-                         (bridge_weak != nullptr && spanning_strong[k] < kEmMinStrongJoinReads);
-        if (k + 1 < n && (delta[k] < kEmBlockCutLogLikelihood || spanning[k] < kEmMinJoinReads ||
-                          (weak_bridge[k] && delta[k] < kEmWeakBridgeCutLogLikelihood))) {
-            current = sites[k + 1].pos;
-            ++blocks;
+    void cut_blocks() {
+        delta_ = boundary_delta(true, false, true);
+        // A join that the non-weak sites alone do not carry (its margin comes
+        // from weak sites: homopolymer length calls) needs a larger margin.
+        // Measured on chr20: wrong joins of this kind sit just above the
+        // ordinary cut (median 6), right ones well above it (median 19).
+        delta_strong_ = bridge_weak_ != nullptr ? boundary_delta(true, true, true) : delta_;
+        // Reads whose observations lie on both sides of each boundary.
+        spanning_.assign(n_, 0);
+        {
+            std::vector<int> diff(n_ + 1, 0);
+            for (const std::vector<EmObs>& obs : robs_) {
+                if (obs.size() < 2 || obs.front().s == obs.back().s) continue;
+                ++diff[static_cast<size_t>(obs.front().s)];
+                --diff[static_cast<size_t>(obs.back().s)];
+            }
+            int run = 0;
+            for (size_t k = 0; k < n_; ++k) spanning_[k] = run += diff[k];
+        }
+        // Reads whose strong evidence -- reliable, join-eligible, non-weak
+        // sites -- lies on both sides of each boundary. The strong margin is
+        // only as independent as the reads behind it (see kEmMinStrongJoinReads).
+        spanning_strong_.assign(n_, 0);
+        if (bridge_weak_ != nullptr) {
+            std::vector<int> diff(n_ + 1, 0);
+            for (const std::vector<EmObs>& obs : robs_) {
+                int first = -1, last = -1;
+                for (const EmObs& o : obs) {
+                    const size_t k = static_cast<size_t>(o.s);
+                    if (err_[k] >= kEmUnreliableError || join_excluded_[k] || join_weak_[k]) continue;
+                    if (first < 0) first = o.s;
+                    last = o.s;
+                }
+                if (first < 0 || first == last) continue;
+                ++diff[static_cast<size_t>(first)];
+                --diff[static_cast<size_t>(last)];
+            }
+            int run = 0;
+            for (size_t k = 0; k < n_; ++k) spanning_strong_[k] = run += diff[k];
+        }
+        block_.assign(n_, 0);
+        weak_bridge_.assign(n_, 0);
+        hts_pos_t current = sites_[0].pos;
+        blocks_ = 1;
+        for (size_t k = 0; k < n_; ++k) {
+            block_[k] = current;
+            weak_bridge_[k] = delta_strong_[k] < kEmBlockCutLogLikelihood ||
+                              (bridge_weak_ != nullptr && spanning_strong_[k] < kEmMinStrongJoinReads);
+            if (k + 1 < n_ && (delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
+                               (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood))) {
+                current = sites_[k + 1].pos;
+                ++blocks_;
+            }
         }
     }
-    for (CandidateVariant& c : chunk.candidates)
-        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet;
-    for (size_t k = 0; k < n; ++k) {
-        if (sites[k].locus >= 0) {
-            const LocusWindowSite& w = (*loci)[static_cast<size_t>(sites[k].locus)];
-            w.phase = phase[k];
-            w.block = block[k];
-            w.error = err[k];
-            continue;
+
+    // Each site's phase and block onto its candidate (or locus window); an
+    // unreliable site is left unphased.
+    void write_site_phases() {
+        for (CandidateVariant& c : chunk_.candidates)
+            if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) {
+                const LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
+                w.phase = phase_[k];
+                w.block = block_[k];
+                w.error = err_[k];
+                continue;
+            }
+            CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+            if (err_[k] >= (join_excluded_[k] ? kEmUnverifiedReportError : kEmUnreliableError)) {
+                c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
+                c.hap_alt = c.hap_ref = 0;
+                continue;
+            }
+            const int hap1 = phase_[k] == 0 ? sites_[k].x : sites_[k].y;
+            const int hap2 = phase_[k] == 0 ? sites_[k].y : sites_[k].x;
+            set_site_phase(c, block_[k], hap1, hap2);
         }
-        CandidateVariant& c = chunk.candidates[sites[k].ci];
-        if (err[k] >= (join_excluded[k] ? kEmUnverifiedReportError : kEmUnreliableError)) {
-            c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
-            c.hap_alt = c.hap_ref = 0;
-            continue;
-        }
-        const int hap1 = phase[k] == 0 ? sites[k].x : sites[k].y;
-        const int hap2 = phase[k] == 0 ? sites[k].y : sites[k].x;
-        set_site_phase(c, block[k], hap1, hap2);
     }
-    // Weak window calls per read (site, side), for the last-resort labels.
-    std::vector<std::vector<std::pair<size_t, int>>> weak_window_obs(robs.size());
-    for (size_t li = 0; li < n_locus; ++li) {
-        if (locus_site[li] < 0) continue;
-        for (const auto& [ri, side] : (*loci)[li].weak_observations)
-            if (ri < weak_window_obs.size()) weak_window_obs[ri].emplace_back(static_cast<size_t>(locus_site[li]), side);
+
+    // A last-resort label: applied after stitching and the rescue, fill-only
+    // (apply_island_labels), so it steers no window, stitch or rescue.
+    void defer_label(size_t ri, int hap, hts_pos_t ps) {
+        if (chunk_.island_haps.size() < chunk_.reads.size()) {
+            chunk_.island_haps.resize(chunk_.reads.size(), 0);
+            chunk_.island_phase_sets.resize(chunk_.reads.size(), 0);
+        }
+        chunk_.island_haps[ri] = hap;
+        chunk_.island_phase_sets[ri] = ps;
     }
-    // Reads: label in the block where their own evidence is strongest.
-    for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
-        chunk.haps[ri] = 0;
-        chunk.phase_sets[ri] = kUnphasedReadPhaseSet;
-        std::map<hts_pos_t, std::array<int, 2>> directions;  // calls favouring hap 1 / hap 2
-        std::map<hts_pos_t, std::array<double, 2>> per_block;
-        for (const EmObs& o : robs[ri]) {
-            if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
-            // Unverified calls (join_excluded) are phased for the VCF but do
-            // not label reads: on chr12, chr18 and chr20 leaving them out took
-            // 90, 125 and 12 reads off the discordant count and added correct
-            // ones on chr12 and chr18.
-            if (join_excluded[static_cast<size_t>(o.s)]) continue;
-            const auto ll = label_log_likelihoods(o);
-            auto& l = per_block[block[static_cast<size_t>(o.s)]];
-            l[0] += ll[0];
-            l[1] += ll[1];
-            if (ll[0] != ll[1]) ++directions[block[static_cast<size_t>(o.s)]][ll[0] > ll[1] ? 0 : 1];
+
+    // Reads: label in the block where their own evidence is strongest. A read
+    // below the label posterior takes, in turn, a deferred label (its calls in
+    // a block all agree, kEmDeferredLabelPosterior), one from its unverified
+    // calls (kEmUnverifiedLabelPosterior) or one from its one-edit window calls.
+    void label_reads() {
+        // Weak window calls per read (site, side), for the last-resort labels.
+        std::vector<std::vector<std::pair<size_t, int>>> weak_window_obs(robs_.size());
+        for (size_t li = 0; li < n_locus_; ++li) {
+            if (locus_site_[li] < 0) continue;
+            for (const auto& [ri, side] : (*loci_)[li].weak_observations)
+                if (ri < weak_window_obs.size())
+                    weak_window_obs[ri].emplace_back(static_cast<size_t>(locus_site_[li]), side);
         }
-        double best = 0.0;
-        for (const auto& [ps, l] : per_block) {
-            const double margin = l[0] - l[1];
-            const double p1 = margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
-            if (std::max(p1, 1.0 - p1) < kEmReadLabelPosterior || std::abs(margin) <= best) continue;
-            best = std::abs(margin);
-            chunk.haps[ri] = p1 >= 0.5 ? 1 : 2;
-            chunk.phase_sets[ri] = ps;
-        }
-        // Deferred: a read below the label posterior whose calls in a block all
-        // point one way takes that block's label last (apply_island_labels,
-        // fill-only), so it steers no window, stitch or rescue; failing that,
-        // its unverified calls may label it (kEmUnverifiedLabelPosterior).
-        if (chunk.haps[ri] != 0 || loci == nullptr) continue;
-        double weak_best = 0.0;
-        int weak_hap = 0;
-        hts_pos_t weak_ps = 0;
-        for (const auto& [ps, l] : per_block) {
-            const double margin = l[0] - l[1];
-            const double p1 = margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
-            const auto& dir = directions[ps];
-            if (dir[0] != 0 && dir[1] != 0) continue;
-            if (std::max(p1, 1.0 - p1) < kEmDeferredLabelPosterior || std::abs(margin) <= weak_best) continue;
-            weak_best = std::abs(margin);
-            weak_hap = p1 >= 0.5 ? 1 : 2;
-            weak_ps = ps;
-        }
-        if (weak_hap == 0) {
-            std::map<hts_pos_t, std::array<double, 2>> unverified;
-            for (const EmObs& o : robs[ri]) {
-                const size_t k = static_cast<size_t>(o.s);
-                if (!join_excluded[k] || err[k] >= kEmUnverifiedReportError) continue;
+        for (size_t ri = 0; ri < robs_.size() && ri < chunk_.haps.size(); ++ri) {
+            chunk_.haps[ri] = 0;
+            chunk_.phase_sets[ri] = kUnphasedReadPhaseSet;
+            std::map<hts_pos_t, std::array<int, 2>> directions;  // calls favouring hap 1 / hap 2
+            std::map<hts_pos_t, std::array<double, 2>> per_block;
+            for (const EmObs& o : robs_[ri]) {
+                if (err_[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
+                // Unverified calls (join_excluded) are phased for the VCF but do
+                // not label reads: on chr12, chr18 and chr20 leaving them out took
+                // 90, 125 and 12 reads off the discordant count and added correct
+                // ones on chr12 and chr18.
+                if (join_excluded_[static_cast<size_t>(o.s)]) continue;
                 const auto ll = label_log_likelihoods(o);
-                auto& l = unverified[block[k]];
+                auto& l = per_block[block_[static_cast<size_t>(o.s)]];
                 l[0] += ll[0];
                 l[1] += ll[1];
+                if (ll[0] != ll[1]) ++directions[block_[static_cast<size_t>(o.s)]][ll[0] > ll[1] ? 0 : 1];
             }
-            for (const auto& [ps, l] : unverified) {
+            double best = 0.0;
+            for (const auto& [ps, l] : per_block) {
                 const double margin = l[0] - l[1];
-                const double p1 = margin > 700 ? 1.0 : margin < -700 ? 0.0 : 1.0 / (1.0 + std::exp(-margin));
-                if (std::max(p1, 1.0 - p1) < kEmUnverifiedLabelPosterior || std::abs(margin) <= weak_best) continue;
+                const double p1 = hap1_posterior(margin);
+                if (std::max(p1, 1.0 - p1) < kEmReadLabelPosterior || std::abs(margin) <= best) continue;
+                best = std::abs(margin);
+                chunk_.haps[ri] = p1 >= 0.5 ? 1 : 2;
+                chunk_.phase_sets[ri] = ps;
+            }
+            if (chunk_.haps[ri] != 0 || loci_ == nullptr) continue;
+            // Deferred: all of the read's calls in a block point one way.
+            double weak_best = 0.0;
+            int weak_hap = 0;
+            hts_pos_t weak_ps = 0;
+            for (const auto& [ps, l] : per_block) {
+                const double margin = l[0] - l[1];
+                const double p1 = hap1_posterior(margin);
+                const auto& dir = directions[ps];
+                if (dir[0] != 0 && dir[1] != 0) continue;
+                if (std::max(p1, 1.0 - p1) < kEmDeferredLabelPosterior || std::abs(margin) <= weak_best) continue;
                 weak_best = std::abs(margin);
                 weak_hap = p1 >= 0.5 ? 1 : 2;
                 weak_ps = ps;
             }
-        }
-        // Failing those, its one-edit window calls (weak_observations) at
-        // reliable windows, all agreeing within a block: +25 correct / +4
-        // discordant / -29 unphased over chr12/18/20, switches unchanged.
-        // Refining the windows' haplotype medoids from their assigned reads
-        // first cost chr20 67 correct reads and 15% of the run time.
-        if (weak_hap == 0 && ri < weak_window_obs.size() && !weak_window_obs[ri].empty()) {
-            std::map<hts_pos_t, std::array<int, 2>> wv;
-            for (const auto& [k, side] : weak_window_obs[ri]) {
-                if (err[k] >= kEmUnreliableError) continue;
-                ++wv[block[k]][side == phase[k] ? 0 : 1];
+            // Failing that, its unverified calls.
+            if (weak_hap == 0) {
+                std::map<hts_pos_t, std::array<double, 2>> unverified;
+                for (const EmObs& o : robs_[ri]) {
+                    const size_t k = static_cast<size_t>(o.s);
+                    if (!join_excluded_[k] || err_[k] >= kEmUnverifiedReportError) continue;
+                    const auto ll = label_log_likelihoods(o);
+                    auto& l = unverified[block_[k]];
+                    l[0] += ll[0];
+                    l[1] += ll[1];
+                }
+                for (const auto& [ps, l] : unverified) {
+                    const double margin = l[0] - l[1];
+                    const double p1 = hap1_posterior(margin);
+                    if (std::max(p1, 1.0 - p1) < kEmUnverifiedLabelPosterior || std::abs(margin) <= weak_best) continue;
+                    weak_best = std::abs(margin);
+                    weak_hap = p1 >= 0.5 ? 1 : 2;
+                    weak_ps = ps;
+                }
             }
-            int best = 0;
-            for (const auto& [ps, v] : wv) {
-                if (v[0] != 0 && v[1] != 0) continue;
-                if (v[0] + v[1] <= best) continue;
-                best = v[0] + v[1];
-                weak_hap = v[0] > 0 ? 1 : 2;
-                weak_ps = ps;
+            // Failing those, its one-edit window calls (weak_observations) at
+            // reliable windows, all agreeing within a block: +25 correct / +4
+            // discordant / -29 unphased over chr12/18/20, switches unchanged.
+            // Refining the windows' haplotype medoids from their assigned reads
+            // first cost chr20 67 correct reads and 15% of the run time.
+            if (weak_hap == 0 && ri < weak_window_obs.size() && !weak_window_obs[ri].empty()) {
+                std::map<hts_pos_t, std::array<int, 2>> wv;
+                for (const auto& [k, side] : weak_window_obs[ri]) {
+                    if (err_[k] >= kEmUnreliableError) continue;
+                    ++wv[block_[k]][side == phase_[k] ? 0 : 1];
+                }
+                int most = 0;
+                for (const auto& [ps, v] : wv) {
+                    if (v[0] != 0 && v[1] != 0) continue;
+                    if (v[0] + v[1] <= most) continue;
+                    most = v[0] + v[1];
+                    weak_hap = v[0] > 0 ? 1 : 2;
+                    weak_ps = ps;
+                }
             }
-        }
-        if (weak_hap != 0) {
-            if (chunk.island_haps.size() < chunk.reads.size()) {
-                chunk.island_haps.resize(chunk.reads.size(), 0);
-                chunk.island_phase_sets.resize(chunk.reads.size(), 0);
-            }
-            chunk.island_haps[ri] = weak_hap;
-            chunk.island_phase_sets[ri] = weak_ps;
+            if (weak_hap != 0) defer_label(ri, weak_hap, weak_ps);
         }
     }
+
     // Island blocks. A read the solve leaves unlabelled is phased locally by
     // its own call at one site that cannot vote: a block of that site alone,
     // never joined to anything, so a wrong island costs its own reads and
     // never flips a neighbour. Candidates: sites the EM rejects (learned error
-    // in [kEmUnreliableError, kIslandMaxError)), repeat het indels it never
-    // sees (REP_HET_INDEL) and MSA-verified hets injection kept out
-    // (island_only), the last two judged by their raw disagreement with the
-    // labelled reads, and island-only length windows (repeat loci genotyped
-    // from read lengths; ungated). Each read takes its lowest-error candidate. Recorded
-    // here, applied after the rescue to reads still unphased
-    // (apply_island_labels). Measured on chr12/18/20 against c8391f1:
-    // +2,349 correct, +457 discordant, -2,806 unphased reads, one arm switch;
-    // islands at truth hets run 18-20 : 1, at repeat-length noise 1.5 : 1.
-    if (loci != nullptr) {
+    // kEmUnreliableError or more), repeat het indels it never sees
+    // (REP_HET_INDEL) and MSA-verified hets injection kept out (island_only),
+    // the last two judged by their raw disagreement with the labelled reads,
+    // and island-only length windows (repeat loci genotyped from read lengths;
+    // ungated). Each read takes its lowest-error candidate. Recorded here,
+    // applied after the rescue to reads still unphased (apply_island_labels).
+    // Measured on chr12/18/20 against c8391f1: +2,349 correct, +457
+    // discordant, -2,806 unphased reads, one arm switch; islands at truth hets
+    // run 18-20 : 1, at repeat-length noise 1.5 : 1.
+    void island_blocks() {
         struct IslandCand { size_t ci; int x; int y; hts_pos_t pos; int k; double err; int phase; char kind; };
         std::vector<IslandCand> cands;
-        std::vector<int> cand_of_site(n, -1);
-        for (size_t k = 0; k < n; ++k) {
-            if (sites[k].locus >= 0 || join_excluded[k] || err[k] < kEmUnreliableError || err[k] >= kIslandMaxError) continue;
+        std::vector<int> cand_of_site(n_, -1);
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0 || join_excluded_[k] || err_[k] < kEmUnreliableError) continue;
             cand_of_site[k] = static_cast<int>(cands.size());
-            cands.push_back(IslandCand{sites[k].ci, sites[k].x, sites[k].y, sites[k].pos, static_cast<int>(k), err[k], phase[k], 'E'});
+            cands.push_back(IslandCand{sites_[k].ci, sites_[k].x, sites_[k].y, sites_[k].pos, static_cast<int>(k),
+                                       err_[k], phase_[k], 'E'});
         }
-        std::vector<int> cand_of_ci(chunk.candidates.size(), -1);
-        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-            const CandidateVariant& c = chunk.candidates[ci];
-            if ((c.counts.category != VariantCategory::RepeatHetIndel && !c.island_only) || site_of[ci] >= 0) continue;
+        std::vector<int> cand_of_ci(chunk_.candidates.size(), -1);
+        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
+            const CandidateVariant& c = chunk_.candidates[ci];
+            if ((c.counts.category != VariantCategory::RepeatHetIndel && !c.island_only) || site_of_[ci] >= 0) continue;
             std::vector<std::pair<int, int>> by_count;
-            for (const auto& [al, cnt] : allele_counts[ci]) by_count.emplace_back(cnt, al);
+            for (const auto& [al, cnt] : allele_counts_[ci]) by_count.emplace_back(cnt, al);
             std::sort(by_count.rbegin(), by_count.rend());
             if (by_count.size() < 2) continue;
             const int nx = by_count[0].first, ny = by_count[1].first;
@@ -712,39 +803,39 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         }
         // Island-only length windows (kind W; build_length_window_sites): sides 0
         // and 1 are the shorter and longer length.
-        std::vector<int> cand_of_locus(n_locus, -1);
-        for (size_t li = 0; li < n_locus; ++li) {
-            if (!(*loci)[li].island_only) continue;
+        std::vector<int> cand_of_locus(n_locus_, -1);
+        for (size_t li = 0; li < n_locus_; ++li) {
+            if (!(*loci_)[li].island_only) continue;
             cand_of_locus[li] = static_cast<int>(cands.size());
-            cands.push_back(IslandCand{SIZE_MAX, 0, 1, (*loci)[li].pos, -1, 1.0, 0, 'W'});
+            cands.push_back(IslandCand{SIZE_MAX, 0, 1, (*loci_)[li].pos, -1, 1.0, 0, 'W'});
         }
         // A site outside the solve: its raw disagreement with the labelled
         // reads, block by block; too few labelled reads to judge counts as the
         // unreliable cut.
         {
             std::vector<std::map<hts_pos_t, std::array<int, 2>>> agree(cands.size());
-            for (size_t ri = 0; ri < chunk.read_var_profile.size() && ri < chunk.haps.size(); ++ri) {
-                const int hap = chunk.haps[ri];
+            for (size_t ri = 0; ri < chunk_.read_var_profile.size() && ri < chunk_.haps.size(); ++ri) {
+                const int hap = chunk_.haps[ri];
                 if (hap != 1 && hap != 2) continue;
-                const ReadVariantProfile& prof = chunk.read_var_profile[ri];
-                if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
+                const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
+                if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
                 for (size_t j = 0; j < prof.alleles.size(); ++j) {
                     const int ic = cand_of_ci[static_cast<size_t>(prof.start_var_idx) + j];
                     if (ic < 0) continue;
                     const int al = prof.alleles[j];
                     const IslandCand& cand = cands[static_cast<size_t>(ic)];
                     if (al != cand.x && al != cand.y) continue;
-                    ++agree[static_cast<size_t>(ic)][chunk.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
+                    ++agree[static_cast<size_t>(ic)][chunk_.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
                 }
             }
-            for (size_t li = 0; li < n_locus; ++li) {
+            for (size_t li = 0; li < n_locus_; ++li) {
                 const int ic = cand_of_locus[li];
                 if (ic < 0) continue;
-                for (const auto& [ri, side, e] : (*loci)[li].observations) {
-                    if (ri >= chunk.haps.size()) continue;
-                    const int hap = chunk.haps[ri];
+                for (const auto& [ri, side, e] : (*loci_)[li].observations) {
+                    if (ri >= chunk_.haps.size()) continue;
+                    const int hap = chunk_.haps[ri];
                     if (hap != 1 && hap != 2) continue;
-                    ++agree[static_cast<size_t>(ic)][chunk.phase_sets[ri]][((side == 0) == (hap == 1)) ? 0 : 1];
+                    ++agree[static_cast<size_t>(ic)][chunk_.phase_sets[ri]][((side == 0) == (hap == 1)) ? 0 : 1];
                 }
             }
             for (size_t ic = 0; ic < cands.size(); ++ic) {
@@ -762,15 +853,16 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             return cands[ic].kind == 'E' || cands[ic].kind == 'W' || cands[ic].err < kIslandOutsideMaxError;
         };
         // Each unlabelled read's calls at the candidates.
-        std::vector<std::vector<std::pair<int, int>>> iobs(robs.size());
-        for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
-            if (chunk.haps[ri] != 0) continue;
-            if (ri < chunk.island_haps.size() && chunk.island_haps[ri] != 0) continue;  // deferred block label
-            for (const EmObs& o : robs[ri])
-                if (cand_of_site[static_cast<size_t>(o.s)] >= 0) iobs[ri].emplace_back(cand_of_site[static_cast<size_t>(o.s)], o.b);
-            if (ri >= chunk.read_var_profile.size()) continue;
-            const ReadVariantProfile& prof = chunk.read_var_profile[ri];
-            if (prof.start_var_idx < 0 || chunk.reads[ri].is_skipped) continue;
+        std::vector<std::vector<std::pair<int, int>>> iobs(robs_.size());
+        for (size_t ri = 0; ri < robs_.size() && ri < chunk_.haps.size(); ++ri) {
+            if (chunk_.haps[ri] != 0) continue;
+            if (ri < chunk_.island_haps.size() && chunk_.island_haps[ri] != 0) continue;  // deferred block label
+            for (const EmObs& o : robs_[ri])
+                if (cand_of_site[static_cast<size_t>(o.s)] >= 0)
+                    iobs[ri].emplace_back(cand_of_site[static_cast<size_t>(o.s)], o.b);
+            if (ri >= chunk_.read_var_profile.size()) continue;
+            const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
+            if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
             for (size_t j = 0; j < prof.alleles.size(); ++j) {
                 const int ic = cand_of_ci[static_cast<size_t>(prof.start_var_idx) + j];
                 if (ic < 0 || !usable(static_cast<size_t>(ic))) continue;
@@ -779,19 +871,19 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 else if (al == cands[static_cast<size_t>(ic)].y) iobs[ri].emplace_back(ic, 1);
             }
         }
-        for (size_t li = 0; li < n_locus; ++li) {
+        for (size_t li = 0; li < n_locus_; ++li) {
             const int ic = cand_of_locus[li];
             if (ic < 0 || !usable(static_cast<size_t>(ic))) continue;
-            for (const auto& [ri, side, e] : (*loci)[li].observations) {
-                if (ri >= iobs.size() || ri >= chunk.haps.size() || chunk.haps[ri] != 0) continue;
-                if (ri < chunk.island_haps.size() && chunk.island_haps[ri] != 0) continue;
+            for (const auto& [ri, side, e] : (*loci_)[li].observations) {
+                if (ri >= iobs.size() || ri >= chunk_.haps.size() || chunk_.haps[ri] != 0) continue;
+                if (ri < chunk_.island_haps.size() && chunk_.island_haps[ri] != 0) continue;
                 iobs[ri].emplace_back(ic, side);
             }
         }
         std::vector<int> unlabelled_callers(cands.size(), 0);
         for (const auto& v : iobs)
             for (const auto& [ic, side] : v) ++unlabelled_callers[static_cast<size_t>(ic)];
-        std::vector<int> pick_cand(robs.size(), -1), pick_side(robs.size(), 0);
+        std::vector<int> pick_cand(robs_.size(), -1), pick_side(robs_.size(), 0);
         for (size_t ri = 0; ri < iobs.size(); ++ri) {
             int best = -1, best_side = 0;
             for (const auto& [ic, side] : iobs[ri]) {
@@ -808,7 +900,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             pick_cand[ri] = best;
             pick_side[ri] = best_side;
         }
-        std::set<hts_pos_t> used_ps(block.begin(), block.end());
+        std::set<hts_pos_t> used_ps(block_.begin(), block_.end());
         std::map<size_t, hts_pos_t> island_ps;  // candidate -> its own phase set
         const auto ps_of = [&](size_t ic) {
             auto it = island_ps.find(ic);
@@ -819,23 +911,18 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             island_ps.emplace(ic, ps);
             return ps;
         };
-        for (size_t ri = 0; ri < robs.size(); ++ri) {
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
             if (pick_cand[ri] < 0) continue;
             const size_t ic = static_cast<size_t>(pick_cand[ri]);
-            if (chunk.island_haps.size() < chunk.reads.size()) {
-                chunk.island_haps.resize(chunk.reads.size(), 0);
-                chunk.island_phase_sets.resize(chunk.reads.size(), 0);
-            }
-            chunk.island_haps[ri] = pick_side[ri] == cands[ic].phase ? 1 : 2;
-            chunk.island_phase_sets[ri] = ps_of(ic);
+            defer_label(ri, pick_side[ri] == cands[ic].phase ? 1 : 2, ps_of(ic));
         }
-        chunk.island_sites.clear();
+        chunk_.island_sites.clear();
         for (const auto& [ic, ps] : island_ps) {
             const IslandCand& c = cands[ic];
             if (c.kind == 'W') continue;  // a window writes no VCF record
             const int hap1 = c.phase == 0 ? c.x : c.y;
             const int hap2 = c.phase == 0 ? c.y : c.x;
-            chunk.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
+            chunk_.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
         }
         // Diagnostic, off by default: PGPHASE_DIAG=DIR writes every read an
         // island claims (islands.TID.BEG.tsv): read, site position, island PS,
@@ -845,178 +932,187 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         // kind (E rejected EM site, R repeat het indel, M island-only MSA het,
         // W length window).
         static const char* const island_diag = std::getenv("PGPHASE_DIAG");
-        if (island_diag != nullptr) {
-            std::vector<int> linked_reads(cands.size(), 0);
-            std::map<std::pair<int, int>, int> shared;  // (island, other EM site) -> member reads calling it
-            for (size_t ri = 0; ri < robs.size(); ++ri) {
-                if (pick_cand[ri] < 0) continue;
-                const int own = cands[static_cast<size_t>(pick_cand[ri])].k;
-                for (const EmObs& o : robs[ri]) {
-                    const size_t k = static_cast<size_t>(o.s);
-                    if (o.s == own || sites[k].locus >= 0 || chunk.candidates[sites[k].ci].unresolved_noisy) continue;
-                    int& c = ++shared[{pick_cand[ri], o.s}];
-                    int& m = linked_reads[static_cast<size_t>(pick_cand[ri])];
-                    m = std::max(m, c);
-                }
+        if (island_diag == nullptr) return;
+        std::vector<int> linked_reads(cands.size(), 0);
+        std::map<std::pair<int, int>, int> shared;  // (island, other EM site) -> member reads calling it
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            if (pick_cand[ri] < 0) continue;
+            const int own = cands[static_cast<size_t>(pick_cand[ri])].k;
+            for (const EmObs& o : robs_[ri]) {
+                const size_t k = static_cast<size_t>(o.s);
+                if (o.s == own || sites_[k].locus >= 0 || chunk_.candidates[sites_[k].ci].unresolved_noisy) continue;
+                int& c = ++shared[{pick_cand[ri], o.s}];
+                int& m = linked_reads[static_cast<size_t>(pick_cand[ri])];
+                m = std::max(m, c);
             }
-            const std::string path = std::string(island_diag) + "/islands." + std::to_string(chunk.region.tid) + "." +
-                                     std::to_string(chunk.region.beg) + ".tsv";
+        }
+        const std::string path = std::string(island_diag) + "/islands." + std::to_string(chunk_.region.tid) + "." +
+                                 std::to_string(chunk_.region.beg) + ".tsv";
+        if (FILE* fh = std::fopen(path.c_str(), "w")) {
+            for (size_t ri = 0; ri < robs_.size(); ++ri) {
+                if (pick_cand[ri] < 0) continue;
+                const size_t ic = static_cast<size_t>(pick_cand[ri]);
+                double read_err = 0.0;
+                for (const EmObs& o : robs_[ri])
+                    if (o.s == cands[ic].k) read_err = o.e;
+                std::fprintf(fh, "%s\t%lld\t%lld\t%d\t%d\t%.4f\t%.3f\t%d\t%d\t1\t%c\n", chunk_.reads[ri].qname.c_str(),
+                             static_cast<long long>(cands[ic].pos), static_cast<long long>(island_ps.at(ic)),
+                             pick_side[ri], pick_side[ri] == cands[ic].phase ? 1 : 2, read_err, cands[ic].err,
+                             unlabelled_callers[ic], linked_reads[ic], cands[ic].kind);
+            }
+            std::fclose(fh);
+        }
+    }
+
+    // Diagnostics, off by default (only for the union solve, loci given).
+    void write_diagnostics() const {
+        if (loci_ == nullptr) return;
+        // PGPHASE_DIAG=DIR writes the final solve's voting candidates
+        // (emsites.TID.BEG.tsv): VCF-convention position, type, REF length, ALT,
+        // origin (C catalog clean, O catalog other, I injected, U unverified),
+        // allele read counts (allele:reads;...), reads in range without an
+        // allele, EM site or "-" (left out: skewed alleles), the two alleles
+        // contrasted, learned error, phase (which allele haplotype 1 carries),
+        // block.
+        static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+        if (diag_dir != nullptr) {
+            const std::string path = std::string(diag_dir) + "/emsites." + std::to_string(chunk_.region.tid) + "." +
+                                     std::to_string(chunk_.region.beg) + ".tsv";
             if (FILE* fh = std::fopen(path.c_str(), "w")) {
-                for (size_t ri = 0; ri < robs.size(); ++ri) {
-                    if (pick_cand[ri] < 0) continue;
-                    const size_t ic = static_cast<size_t>(pick_cand[ri]);
-                    double read_err = 0.0;
-                    for (const EmObs& o : robs[ri])
-                        if (o.s == cands[ic].k) read_err = o.e;
-                    std::fprintf(fh, "%s\t%lld\t%lld\t%d\t%d\t%.4f\t%.3f\t%d\t%d\t1\t%c\n", chunk.reads[ri].qname.c_str(),
-                                 static_cast<long long>(cands[ic].pos), static_cast<long long>(island_ps.at(ic)),
-                                 pick_side[ri], pick_side[ri] == cands[ic].phase ? 1 : 2, read_err, cands[ic].err,
-                                 unlabelled_callers[ic], linked_reads[ic], cands[ic].kind);
+                for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
+                    const CandidateVariant& c = chunk_.candidates[ci];
+                    if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+                    const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+                    const char origin = c.unresolved_noisy ? 'U' : c.bam_injected ? 'I'
+                                      : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
+                    std::string counts;
+                    for (const auto& [a, n] : allele_counts_[ci])
+                        counts += (counts.empty() ? "" : ";") + std::to_string(a) + ":" + std::to_string(n);
+                    std::fprintf(fh, "%lld\t%c\t%d\t%s\t%c\t%s\t%d", static_cast<long long>(c.key.sort_pos()), type,
+                                 c.key.ref_len, c.key.alt.substr(0, 40).c_str(), origin,
+                                 counts.empty() ? "." : counts.c_str(), undecided_[ci]);
+                    const int k = site_of_[ci];
+                    if (k < 0) {
+                        std::fprintf(fh, "\t-\t.\t.\t.\t.\t.\n");
+                    } else {
+                        const EmSite& site = sites_[static_cast<size_t>(k)];
+                        std::fprintf(fh, "\tem\t%d\t%d\t%.3f\t%d\t%lld\n", site.x, site.y, err_[static_cast<size_t>(k)],
+                                     phase_[static_cast<size_t>(k)] == 0 ? site.x : site.y,
+                                     static_cast<long long>(block_[static_cast<size_t>(k)]));
+                    }
+                }
+                std::fclose(fh);
+            }
+            // Every read's profile as the final solve saw it (emreads.TID.BEG.tsv):
+            // name, MAPQ, skipped flag, then each call as VCF-convention position
+            // of the candidate : allele, including candidates the EM left out.
+            const std::string rpath = std::string(diag_dir) + "/emreads." + std::to_string(chunk_.region.tid) + "." +
+                                      std::to_string(chunk_.region.beg) + ".tsv";
+            if (FILE* fh = std::fopen(rpath.c_str(), "w")) {
+                for (size_t ri = 0; ri < chunk_.reads.size(); ++ri) {
+                    const ReadRecord& r = chunk_.reads[ri];
+                    std::fprintf(fh, "%s\t%d\t%d", r.qname.c_str(), r.mapq, r.is_skipped ? 1 : 0);
+                    const ReadVariantProfile* prof = nullptr;
+                    for (const ReadVariantProfile& p2 : chunk_.read_var_profile)
+                        if (p2.read_id == static_cast<int>(ri)) { prof = &p2; break; }
+                    if (prof == nullptr) {
+                        std::fputs("\tno_profile\n", fh);
+                        continue;
+                    }
+                    if (prof->start_var_idx < 0) {
+                        std::fputs("\tempty\n", fh);
+                        continue;
+                    }
+                    for (size_t k = 0; k < prof->alleles.size(); ++k) {
+                        const size_t ci = static_cast<size_t>(prof->start_var_idx) + k;
+                        if (ci >= chunk_.candidates.size()) break;
+                        std::fprintf(fh, "\t%lld:%d", static_cast<long long>(chunk_.candidates[ci].key.sort_pos()),
+                                     prof->alleles[k]);
+                    }
+                    std::fputc('\n', fh);
+                }
+                std::fclose(fh);
+            }
+            // Every block-cut decision (joins.TID.BEG.tsv): between each EM site
+            // and the next, their VCF-convention positions, the join margin (log L
+            // of the solve minus log L with every site to the right flipped, each
+            // locus counted once), the margin without weak sites, reads with
+            // observations on both sides, the decision -- J joined, C cut (margin
+            // below the cut), S cut (too few reads cross), W cut (a weak bridge
+            // below its larger cut) -- and reads with strong evidence on both
+            // sides.
+            const std::string jpath = std::string(diag_dir) + "/joins." + std::to_string(chunk_.region.tid) + "." +
+                                      std::to_string(chunk_.region.beg) + ".tsv";
+            if (FILE* fh = std::fopen(jpath.c_str(), "w")) {
+                for (size_t k = 0; k + 1 < n_; ++k) {
+                    const char decision = delta_[k] < kEmBlockCutLogLikelihood ? 'C'
+                                        : spanning_[k] < kEmMinJoinReads ? 'S'
+                                        : weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood ? 'W' : 'J';
+                    std::fprintf(fh, "%lld\t%lld\t%.2f\t%.2f\t%d\t%c\t%d\n", static_cast<long long>(sites_[k].pos),
+                                 static_cast<long long>(sites_[k + 1].pos), delta_[k], delta_strong_[k], spanning_[k],
+                                 decision, spanning_strong_[k]);
                 }
                 std::fclose(fh);
             }
         }
-    }
-    // Diagnostic, off by default: PGPHASE_EM_DUMP=DIR writes the final solve's
-    // evidence per read, one file per chunk. A line is the read, MAPQ, label
-    // (HP, PS), per-block log-likelihood margins (PS=margin), the label the
-    // read started the solve with, then each observation as
-    // POS:KIND:SIDE:SITE_ERROR:BLOCK:WEAK:READ_ERROR, with KIND C clean het,
-    // O other, I injected from the alignment, U injected from a noisy region
-    // too long for MSA, L window.
-    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes the final solve's
-    // voting candidates (emsites.TID.BEG.tsv): VCF-convention position, type,
-    // REF length, ALT, origin (C catalog clean, O catalog other, I injected, U
-    // unverified), allele read counts (allele:reads;...), reads in range
-    // without an allele, EM site or "-" (left out: skewed alleles), the two
-    // alleles contrasted, learned error, phase (which allele haplotype 1
-    // carries), block.
-    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    if (diag_dir != nullptr && loci != nullptr) {
-        const std::string path = std::string(diag_dir) + "/emsites." + std::to_string(chunk.region.tid) + "." +
-                                 std::to_string(chunk.region.beg) + ".tsv";
-        if (FILE* fh = std::fopen(path.c_str(), "w")) {
-            for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-                const CandidateVariant& c = chunk.candidates[ci];
-                if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
-                const char origin = c.unresolved_noisy ? 'U' : c.bam_injected ? 'I'
-                                  : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
-                std::string counts;
-                for (const auto& [a, n] : allele_counts[ci])
-                    counts += (counts.empty() ? "" : ";") + std::to_string(a) + ":" + std::to_string(n);
-                std::fprintf(fh, "%lld\t%c\t%d\t%s\t%c\t%s\t%d", static_cast<long long>(c.key.sort_pos()), type,
-                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), origin,
-                             counts.empty() ? "." : counts.c_str(), undecided[ci]);
-                const int k = site_of[ci];
-                if (k < 0) {
-                    std::fprintf(fh, "\t-\t.\t.\t.\t.\t.\n");
-                } else {
-                    const EmSite& site = sites[static_cast<size_t>(k)];
-                    std::fprintf(fh, "\tem\t%d\t%d\t%.3f\t%d\t%lld\n", site.x, site.y, err[static_cast<size_t>(k)],
-                                 phase[static_cast<size_t>(k)] == 0 ? site.x : site.y,
-                                 static_cast<long long>(block[static_cast<size_t>(k)]));
-                }
+        // PGPHASE_EM_DUMP=DIR writes the final solve's evidence per read, one
+        // file per chunk. A line is the read, MAPQ, label (HP, PS), per-block
+        // log-likelihood margins (PS=margin), the label the read started the
+        // solve with, then each observation as
+        // POS:KIND:SIDE:SITE_ERROR:BLOCK:WEAK:READ_ERROR, with KIND C clean het,
+        // O other, I injected from the alignment, U injected from a noisy
+        // region too long for MSA, L window.
+        static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
+        if (dump_dir == nullptr) return;
+        const std::string path = std::string(dump_dir) + "/em." + std::to_string(chunk_.region.tid) + "." +
+                                 std::to_string(chunk_.region.beg) + ".tsv";
+        FILE* fh = std::fopen(path.c_str(), "w");
+        if (fh == nullptr) return;
+        for (size_t ri = 0; ri < chunk_.reads.size() && ri < robs_.size(); ++ri) {
+            const ReadRecord& r = chunk_.reads[ri];
+            std::fprintf(fh, "%s\t%d\t%d\t%lld\t", r.qname.c_str(), r.mapq, chunk_.haps[ri],
+                         static_cast<long long>(chunk_.phase_sets[ri]));
+            std::map<hts_pos_t, double> margin;
+            for (const EmObs& o : robs_[ri]) {
+                if (err_[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
+                if (join_excluded_[static_cast<size_t>(o.s)]) continue;
+                const auto ll = label_log_likelihoods(o);
+                margin[block_[static_cast<size_t>(o.s)]] += ll[0] - ll[1];
             }
-            std::fclose(fh);
-        }
-        // Every read's profile as the final solve saw it (emreads.TID.BEG.tsv):
-        // name, MAPQ, skipped flag, then each call as VCF-convention position
-        // of the candidate : allele, including candidates the EM left out.
-        const std::string rpath = std::string(diag_dir) + "/emreads." + std::to_string(chunk.region.tid) + "." +
-                                  std::to_string(chunk.region.beg) + ".tsv";
-        if (FILE* fh = std::fopen(rpath.c_str(), "w")) {
-            for (size_t ri = 0; ri < chunk.reads.size(); ++ri) {
-                const ReadRecord& r = chunk.reads[ri];
-                std::fprintf(fh, "%s\t%d\t%d", r.qname.c_str(), r.mapq, r.is_skipped ? 1 : 0);
-                const ReadVariantProfile* prof = nullptr;
-                for (const ReadVariantProfile& p2 : chunk.read_var_profile)
-                    if (p2.read_id == static_cast<int>(ri)) { prof = &p2; break; }
-                if (prof == nullptr) {
-                    std::fputs("\tno_profile\n", fh);
-                    continue;
-                }
-                if (prof->start_var_idx < 0) {
-                    std::fputs("\tempty\n", fh);
-                    continue;
-                }
-                for (size_t k = 0; k < prof->alleles.size(); ++k) {
-                    const size_t ci = static_cast<size_t>(prof->start_var_idx) + k;
-                    if (ci >= chunk.candidates.size()) break;
-                    std::fprintf(fh, "\t%lld:%d", static_cast<long long>(chunk.candidates[ci].key.sort_pos()),
-                                 prof->alleles[k]);
-                }
-                std::fputc('\n', fh);
+            const char* sep = "";
+            for (const auto& [ps, m] : margin) {
+                std::fprintf(fh, "%s%lld=%.2f", sep, static_cast<long long>(ps), m);
+                sep = ",";
             }
-            std::fclose(fh);
-        }
-    }
-    // Every block-cut decision (joins.TID.BEG.tsv): between each EM site and
-    // the next, their VCF-convention positions, the join margin (log L of the
-    // solve minus log L with every site to the right flipped, each locus
-    // counted once), the margin without weak sites, reads with observations on
-    // both sides, the decision -- J joined, C cut (margin below the cut), S cut
-    // (too few reads cross), W cut (a weak bridge below its larger cut) -- and
-    // reads with strong evidence on both sides.
-    if (diag_dir != nullptr && loci != nullptr) {
-        const std::string path = std::string(diag_dir) + "/joins." + std::to_string(chunk.region.tid) + "." +
-                                 std::to_string(chunk.region.beg) + ".tsv";
-        if (FILE* fh = std::fopen(path.c_str(), "w")) {
-            for (size_t k = 0; k + 1 < n; ++k) {
-                const char decision = delta[k] < kEmBlockCutLogLikelihood ? 'C'
-                                    : spanning[k] < kEmMinJoinReads ? 'S'
-                                    : weak_bridge[k] && delta[k] < kEmWeakBridgeCutLogLikelihood ? 'W' : 'J';
-                std::fprintf(fh, "%lld\t%lld\t%.2f\t%.2f\t%d\t%c\t%d\n", static_cast<long long>(sites[k].pos),
-                             static_cast<long long>(sites[k + 1].pos), delta[k], delta_strong[k], spanning[k], decision,
-                             spanning_strong[k]);
+            std::fprintf(fh, "\t%d", start_label_[ri]);
+            for (const EmObs& o : robs_[ri]) {
+                const EmSite& site = sites_[static_cast<size_t>(o.s)];
+                char kind = 'L';
+                if (site.locus < 0) {
+                    const CandidateVariant& c = chunk_.candidates[site.ci];
+                    kind = c.unresolved_noisy ? 'U'
+                         : c.bam_injected ? 'I'
+                         : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
+                }
+                std::fprintf(fh, "\t%lld:%c:%d:%.3f:%lld:%d:%.4f", static_cast<long long>(site.pos), kind, o.b,
+                             err_[static_cast<size_t>(o.s)], static_cast<long long>(block_[static_cast<size_t>(o.s)]),
+                             static_cast<int>(site_weak_[static_cast<size_t>(o.s)]), o.e);
             }
-            std::fclose(fh);
+            std::fputc('\n', fh);
         }
+        std::fclose(fh);
     }
-    static const char* const dump_dir = std::getenv("PGPHASE_EM_DUMP");
-    if (dump_dir != nullptr && loci != nullptr) {
-        const std::string path = std::string(dump_dir) + "/em." + std::to_string(chunk.region.tid) + "." +
-                                 std::to_string(chunk.region.beg) + ".tsv";
-        if (FILE* fh = std::fopen(path.c_str(), "w")) {
-            for (size_t ri = 0; ri < chunk.reads.size() && ri < robs.size(); ++ri) {
-                const ReadRecord& r = chunk.reads[ri];
-                std::fprintf(fh, "%s\t%d\t%d\t%lld\t", r.qname.c_str(), r.mapq, chunk.haps[ri],
-                             static_cast<long long>(chunk.phase_sets[ri]));
-                std::map<hts_pos_t, double> margin;
-                for (const EmObs& o : robs[ri]) {
-                    if (err[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
-                    if (join_excluded[static_cast<size_t>(o.s)]) continue;
-                    const auto ll = label_log_likelihoods(o);
-                    margin[block[static_cast<size_t>(o.s)]] += ll[0] - ll[1];
-                }
-                const char* sep = "";
-                for (const auto& [ps, m] : margin) {
-                    std::fprintf(fh, "%s%lld=%.2f", sep, static_cast<long long>(ps), m);
-                    sep = ",";
-                }
-                std::fprintf(fh, "\t%d", start_label[ri]);
-                for (const EmObs& o : robs[ri]) {
-                    const EmSite& site = sites[static_cast<size_t>(o.s)];
-                    char kind = 'L';
-                    if (site.locus < 0) {
-                        const CandidateVariant& c = chunk.candidates[site.ci];
-                        kind = c.unresolved_noisy ? 'U'
-                             : c.bam_injected ? 'I'
-                             : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
-                    }
-                    std::fprintf(fh, "\t%lld:%c:%d:%.3f:%lld:%d:%.4f", static_cast<long long>(site.pos), kind, o.b,
-                                 err[static_cast<size_t>(o.s)], static_cast<long long>(block[static_cast<size_t>(o.s)]),
-                                 static_cast<int>(site_weak[static_cast<size_t>(o.s)]), o.e);
-                }
-                std::fputc('\n', fh);
-            }
-            std::fclose(fh);
-        }
-    }
-    return blocks;
+};
+
+}  // namespace
+
+size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
+                                const std::vector<char>* bridge_weak,
+                                const ObservationErrors* errors) {
+    return GlobalEm(chunk, loci, bridge_weak, errors).run();
 }
 
-// ── Local haplotype windows ─────────────────────────────────────────────────
+// ── Island labels ───────────────────────────────────────────────────────────
 
 size_t apply_island_labels(PhasingChunk& chunk) {
     if (chunk.island_haps.empty()) return 0;

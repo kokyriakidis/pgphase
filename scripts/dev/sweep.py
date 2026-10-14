@@ -3,7 +3,10 @@
 
 stdin: lines "LABEL CHROM BASELINE_JSON RUN_JSON" (BASELINE_JSON "-" when the
 profile has no pinned baseline) or "LABEL pg each: NAME failed". Per
-configuration, each profile's change from its baseline and the total.
+configuration, each profile's change from its baseline and the total:
+arms_phaseable reads and arms variants, then every scored read (centromere
+and reads crossing no truth het included), the guard against a change that
+helps the arms by costing the rest.
 """
 import collections
 import json
@@ -14,7 +17,10 @@ ROWS = [("correct", lambda s: s["reads"]["arms_phaseable"]["correct"]),
         ("unphased", lambda s: s["reads"]["arms_phaseable"]["unphased"]),
         ("switches", lambda s: s["variants"]["switches_arms"]),
         ("flips", lambda s: s["variants"]["flips_arms"]),
-        ("hets phased", lambda s: s["variants"]["truth_matched_phased_hets"])]
+        ("hets phased", lambda s: s["variants"]["truth_matched_phased_hets"]),
+        ("all correct", lambda s: s["reads"]["all"]["correct"]),
+        ("all discordant", lambda s: s["reads"]["all"]["discordant"]),
+        ("all unphased", lambda s: s["reads"]["all"]["unphased"])]
 
 
 def main():
@@ -29,7 +35,7 @@ def main():
         label, chrom, base, run = f
         by_cfg.setdefault(label, []).append((chrom, None if base == "-" else json.load(open(base)), json.load(open(run))))
     head = f"{'config':16} {'profile':8}" + "".join(f"{n:>22}" for n, _ in ROWS)
-    print("arms_phaseable reads and arms variants; each cell: run (change from the pinned baseline)")
+    print("arms_phaseable reads, arms variants, then every scored read (all); each cell: run (change from the pinned baseline)")
     print(head)
     for label, rows in by_cfg.items():
         tot = collections.Counter()

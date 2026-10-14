@@ -1,6 +1,8 @@
 // Union gap phasing: haplotype (medoid) windows and allele windows over noisy
 // loci, as extra EM sites.
 
+#include <unordered_map>
+#include <string_view>
 #include "union_internal.hpp"
 #include <cstdlib>
 #include <cstdio>
@@ -43,16 +45,31 @@ int locus_edit_distance(const std::string& a, const std::string& b) {
     return d;
 }
 
+// The sequence with the least total edit distance to the others; the first
+// such in input order. Identical sequences are aligned once, each pair once.
 static const std::string* locus_medoid(const std::vector<const std::string*>& seqs) {
-    const std::string* best = nullptr;
-    long best_cost = -1;
-    for (size_t i = 0; i < seqs.size(); ++i) {
-        long cost = 0;
-        for (size_t j = 0; j < seqs.size(); ++j)
-            if (j != i) cost += locus_edit_distance(*seqs[i], *seqs[j]);
-        if (best_cost < 0 || cost < best_cost) { best = seqs[i]; best_cost = cost; }
+    std::vector<const std::string*> uniq;
+    std::vector<long> count;
+    for (const std::string* s : seqs) {
+        size_t u = 0;
+        while (u < uniq.size() && *uniq[u] != *s) ++u;
+        if (u == uniq.size()) {
+            uniq.push_back(s);
+            count.push_back(0);
+        }
+        ++count[u];
     }
-    return best;
+    std::vector<long> cost(uniq.size(), 0);
+    for (size_t i = 0; i < uniq.size(); ++i)
+        for (size_t j = i + 1; j < uniq.size(); ++j) {
+            const long d = locus_edit_distance(*uniq[i], *uniq[j]);
+            cost[i] += d * count[j];
+            cost[j] += d * count[i];
+        }
+    size_t best = 0;
+    for (size_t i = 1; i < uniq.size(); ++i)
+        if (cost[i] < cost[best]) best = i;
+    return uniq.empty() ? nullptr : uniq[best];
 }
 
 // (haplotype, phase set) per read from the chunk's phased sites.
@@ -192,8 +209,13 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
         const bool one_substitution =
             hap1->size() == hap2->size() && locus_edit_distance(*hap1, *hap2) == 1;
         const int min_margin = one_substitution ? 1 : kLocusMinMargin;
+        // Spanning reads often share a sequence: each is aligned once.
+        std::unordered_map<std::string_view, std::pair<int, int>> seen;
         for (const auto& [ri, seq] : segs) {
-            const int d1 = locus_edit_distance(seq, *hap1), d2 = locus_edit_distance(seq, *hap2);
+            auto hit = seen.find(seq);
+            if (hit == seen.end())
+                hit = seen.emplace(seq, std::make_pair(locus_edit_distance(seq, *hap1), locus_edit_distance(seq, *hap2))).first;
+            const int d1 = hit->second.first, d2 = hit->second.second;
             const int margin = std::abs(d1 - d2);
             if (margin < min_margin) {
                 // One edit where two are required: kept for the last-resort

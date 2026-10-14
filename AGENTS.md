@@ -72,8 +72,13 @@ with us and why;
 `PGDEV_EACH` (default chr20 chr12 chr18), each in its own environment;
 `scripts/dev/pg sweep LABEL[:VAR=VAL,...] ...` runs the full tier per
 configuration and prints each profile's change from its pinned baseline and
-the total (a diag run doubles as the full run of its binary and environment,
-so neither runs twice); `scripts/dev/pg islands` reports the island blocks
+the total, for arms_phaseable reads and for every scored read (centromeres
+included: a change can help the arms by costing the rest) (a diag run doubles
+as the full run of its binary and environment, so neither runs twice);
+scripts/dev/groups.py RUN prints every read group (arms / centromere x
+crossing a truth het or not) for us and each rival; scripts/dev/copies.py RUN
+REGION clusters a region's reads on every polymorphic base into K groups
+with each group's parents, MAPQ and flank reach (copy number studies); `scripts/dev/pg islands` reports the island blocks
 (classes, truth, purity and production features against truth);
 `scripts/dev/pg calls` the EM's per-read call accuracy at rejected sites;
 `scripts/dev/pg hiphase-exact` HiPhase's own allele assignment (a line-for-line

@@ -1,6 +1,8 @@
 // Union gap phasing: alignment-only reads, their fills, and realignment of
 // uncalled reads at injected indel sites.
 
+#include <unordered_map>
+#include <string_view>
 #include "union_internal.hpp"
 
 namespace pgphase_collect {
@@ -180,10 +182,14 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
         // Allele 0 is the closest of REF and every other allele of the locus.
         const std::vector<std::string> competitors =
             competing_haplotypes(ref, w0, w1, LocusAllele{p0, end0, c.key.alt}, locus_alleles);
+        // Distances to the ALT haplotype and the closest competitor, once per
+        // distinct read sequence: the call (closest_allele_call, margin 1) and
+        // the margin for the read's error come from the same pair.
+        std::unordered_map<std::string_view, std::pair<int, int>> seen;
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
             if (profile_of[ri] == nullptr) continue;
-            calls[ri].emplace_back(ci, closest_allele_call(seq, hap_alt, competitors, 1));
-            if (errors != nullptr) {
+            auto hit = seen.find(seq);
+            if (hit == seen.end()) {
                 const int d1 = locus_edit_distance(seq, hap_alt);
                 int d0 = -1;
                 for (const std::string& h : competitors) {
@@ -191,8 +197,11 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
                     const int d = locus_edit_distance(seq, h);
                     if (d0 < 0 || d < d0) d0 = d;
                 }
-                if (d0 >= 0) margins[{ri, ci}] = std::abs(d0 - d1);
+                hit = seen.emplace(seq, std::make_pair(d1, d0)).first;
             }
+            const auto [d1, d0] = hit->second;
+            calls[ri].emplace_back(ci, d0 < 0 || std::abs(d0 - d1) < 1 ? -1 : d1 < d0 ? 1 : 0);
+            if (errors != nullptr && d0 >= 0) margins[{ri, ci}] = std::abs(d0 - d1);
         }
     }
     // Every read spanning the site's window is re-called there, its range
@@ -336,12 +345,16 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
         if (c.bam_injected && !snp)
             competitors = competing_haplotypes(ref, w0, w1, LocusAllele{p0, end0, seq1}, locus_alleles);
         for (const std::string& o : decomposed_others) competitors.push_back(left + o + right);
+        // One call per distinct read sequence.
+        std::unordered_map<std::string_view, int> seen;
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
             if (ri >= only_reads.size() || !only_reads[ri] || chunk.reads[ri].is_skipped || has_call(ri, ci)) continue;
             // A one-edit difference decides a SNP; at an indel it is as often a
             // homopolymer length error as the allele.
-            const int a = closest_allele_call(seq, hap1, competitors, snp ? 1 : kLocusMinMargin);
-            if (a >= 0) fills[ri].emplace_back(ci, a);
+            auto hit = seen.find(seq);
+            if (hit == seen.end())
+                hit = seen.emplace(seq, closest_allele_call(seq, hap1, competitors, snp ? 1 : kLocusMinMargin)).first;
+            if (hit->second >= 0) fills[ri].emplace_back(ci, hit->second);
         }
     }
     // Write the calls, widening a profile's index range where needed.

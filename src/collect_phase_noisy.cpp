@@ -1341,9 +1341,9 @@ int merge_var_profile(PhasingChunk& chunk,
 
     // The chunk's tables are rebuilt below: take them rather than copy them.
     CandidateTable old_vars = std::move(chunk.candidates);
-    const std::vector<ReadVariantProfile> old_profiles = chunk.read_var_profile.empty()
-                                                             ? init_read_profiles(chunk.reads.size())
-                                                             : std::move(chunk.read_var_profile);
+    std::vector<ReadVariantProfile> old_profiles = chunk.read_var_profile.empty()
+                                                       ? init_read_profiles(chunk.reads.size())
+                                                       : std::move(chunk.read_var_profile);
 
     CandidateTable merged_vars;
     merged_vars.reserve(old_vars.size() + new_vars.size());
@@ -1457,12 +1457,58 @@ int merge_var_profile(PhasingChunk& chunk,
     const std::vector<ReadVariantProfile>& new_profiles = noisy_rvp.empty() ? empty_new_profiles : noisy_rvp;
 
     const int n_reads = static_cast<int>(chunk.reads.size());
+    // A read with no new observation whose old rows all keep their order with
+    // nothing inserted or dropped among them (most reads: the merge adds one
+    // noisy region's calls) keeps its profile, shifted. Rebuilt entry by entry
+    // it comes out the same: alleles and alt_qi as before; graph_alleles,
+    // bam_alleles and bam_qi padded (or cut) to the span with -1; base
+    // qualities and MAPQ not carried (as the full rebuild below).
+    std::vector<char> shifted(static_cast<size_t>(n_reads), 0);
     for (int ord = 0; ord < (chunk.ordered_read_ids.empty() ? n_reads : static_cast<int>(chunk.ordered_read_ids.size())); ++ord) {
         const int read_i = chunk.ordered_read_ids.empty()
                                ? ord
                                : chunk.ordered_read_ids[static_cast<size_t>(ord)];
         if (read_i < 0 || read_i >= n_reads) continue;
         if (chunk.reads[static_cast<size_t>(read_i)].is_skipped) continue;
+        if (static_cast<size_t>(read_i) >= old_profiles.size() || shifted[static_cast<size_t>(read_i)]) continue;
+        ReadVariantProfile& old_p = old_profiles[static_cast<size_t>(read_i)];
+        const ReadVariantProfile* new_p = static_cast<size_t>(read_i) < new_profiles.size()
+                                              ? &new_profiles[static_cast<size_t>(read_i)]
+                                              : nullptr;
+        if (new_p != nullptr && new_p->start_var_idx >= 0 && new_p->end_var_idx >= new_p->start_var_idx) continue;
+        const int s0 = old_p.start_var_idx, e0 = old_p.end_var_idx;
+        if (s0 < 0 || e0 < s0 || static_cast<size_t>(e0) >= old_to_merged.size() ||
+            old_p.alleles.size() != static_cast<size_t>(e0 - s0 + 1) || old_p.alt_qi.size() != old_p.alleles.size())
+            continue;
+        const int m0 = old_to_merged[static_cast<size_t>(s0)];
+        bool contiguous = m0 >= 0;
+        for (int v = s0; contiguous && v <= e0; ++v)
+            contiguous = old_to_merged[static_cast<size_t>(v)] == m0 + (v - s0) &&
+                         old_key_to_merged[static_cast<size_t>(v)] == m0 + (v - s0);
+        if (!contiguous) continue;
+        const size_t n = old_p.alleles.size();
+        ReadVariantProfile& dest = merged_profiles[static_cast<size_t>(read_i)];
+        dest.start_var_idx = m0;
+        dest.end_var_idx = m0 + (e0 - s0);
+        dest.alleles = std::move(old_p.alleles);
+        dest.alt_qi = std::move(old_p.alt_qi);
+        if (!old_p.graph_alleles.empty()) {
+            dest.graph_alleles = std::move(old_p.graph_alleles);
+            dest.graph_alleles.resize(n, -1);
+        }
+        dest.bam_alleles = std::move(old_p.bam_alleles);
+        dest.bam_alleles.resize(n, -1);
+        dest.bam_qi = std::move(old_p.bam_qi);
+        dest.bam_qi.resize(n, -1);
+        shifted[static_cast<size_t>(read_i)] = 1;
+    }
+    for (int ord = 0; ord < (chunk.ordered_read_ids.empty() ? n_reads : static_cast<int>(chunk.ordered_read_ids.size())); ++ord) {
+        const int read_i = chunk.ordered_read_ids.empty()
+                               ? ord
+                               : chunk.ordered_read_ids[static_cast<size_t>(ord)];
+        if (read_i < 0 || read_i >= n_reads) continue;
+        if (chunk.reads[static_cast<size_t>(read_i)].is_skipped) continue;
+        if (shifted[static_cast<size_t>(read_i)]) continue;
         const ReadVariantProfile* old_p = static_cast<size_t>(read_i) < old_profiles.size()
                                               ? &old_profiles[static_cast<size_t>(read_i)]
                                               : nullptr;
@@ -1477,6 +1523,7 @@ int merge_var_profile(PhasingChunk& chunk,
 
     // MSA replaces a working observation, not its original BAM/GAF history.
     for (size_t ri = 0; ri < merged_profiles.size() && ri < old_profiles.size(); ++ri) {
+        if (ri < shifted.size() && shifted[ri]) continue;
         auto& dest = merged_profiles[ri];
         const auto& source = old_profiles[ri];
         dest.bam_alleles.assign(dest.alleles.size(), -1);

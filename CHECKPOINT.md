@@ -19160,3 +19160,33 @@ length-differing window needs two. One-edit window calls now label reads
 left with no other label (+25 / +4 / -29 on chr12/18/20; switches
 unchanged). Re-deriving window medoids from assigned reads: -30 / -13 / +43,
 chr20 -67, 15% slower.
+
+## 2026-10-14 (evening): all-read guard, rejected paralog and depth changes, speed
+
+`pg sweep` now also prints every scored read (centromeres and reads crossing
+no truth het). It overturned paralog-site muting: arms +199 / -218 / +19 but
+all reads about -380 correct / +500 unphased (chr12 and chr18 centromeres).
+Relaxing the injection depth gate: all reads +8,061 / +6,765 / -14,826 (1.2 :
+1, centromeric arrays), arms -1,891 / +1,914 (wrong joins). Copy assignment
+(Paraphase-style; kivvi uses Paraphase for D4Z4): chr12 34.585-34.62 Mb holds
+5,173 polymorphic positions in 35 kb, 87 split the parents; K-medoid clusters
+mix parents and the suspected extra copy's reads are mostly phased right
+already; not built. The chr20 32.x satellite: reads carry no truth alleles at
+the truth positions (assembly-based truth) -- not reachable by pileup.
+
+Re-tuning after the echo / fallback / exemption changes: label posterior,
+deferred posterior, block and weak-bridge cuts, minor-allele floor, island
+outside cap and the unverified posterior are at their best values. The island
+cap on EM-rejected sites is removed (0.40 -> none): arms +155 / +16 / -171,
+all reads +2,249 / +1,476 / -3,725.
+
+Speed, byte-identical output (pg same; diagnostic dumps identical): chr20
+61.1 -> 46.6 s, chr12 117.8 -> 83.1 s standalone at 10 threads.
+merge_var_profile no longer rebuilds the profile of a read the merge does not
+touch (no new observation, its rows contiguous and kept): it is moved and
+shifted. Window medoids align each distinct sequence once and each pair once;
+read-to-haplotype distances are memoized per distinct sequence in the windows,
+indel realignment and fill-missing calls. Caching per-site logs in the EM and
+hoisting base lookups in build_digars_ref_cigar gave about 1% each and were
+not kept. phase_chunk_by_global_em is now the GlobalEm class, one method per
+stage.

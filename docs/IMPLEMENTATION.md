@@ -366,7 +366,10 @@ Per chunk, in order:
      chr20 (arms_phaseable): -667 / -160, -521 / -311 and -508 / -130
      correct / discordant, and 290-1,140 fewer labels on reads that cross no
      heterozygote.
-6. **Global EM, pass 1** (`phase_chunk_by_global_em`).
+6. **Global EM, pass 1** (`phase_chunk_by_global_em`, which runs the
+   file-local `GlobalEm`: one method per stage below -- select_sites,
+   collect_observations, find_echo_sites, setup_joins, solve, cut_blocks,
+   write_site_phases, label_reads, island_blocks, write_diagnostics).
    - *Model.* Every voting site with two observed alleles gets a phase and its
      own error rate, starting at 0.05 for clean sites and 0.2 for others. Every
      read gets a haplotype posterior. A site whose less observed allele has
@@ -534,8 +537,9 @@ Per chunk, in order:
       the site's position, bumped past the chunk's block phase sets). An
       island never joins anything: a wrong island costs its own reads and
       never flips a neighbouring block.
-    - *Candidates.* Sites the EM rejects with learned error below 0.40
-      (`kIslandMaxError`); repeat het indels (REP_HET_INDEL) the EM never
+    - *Candidates.* Every site the EM rejects (learned error 0.3 or more; a
+      cap at 0.40 left +155 correct / +16 discordant / -171 unphased arms
+      reads, all reads +2,249 / +1,476 / -3,725); repeat het indels (REP_HET_INDEL) the EM never
       sees; island-only MSA hets (step 2). The last two are judged by their raw
       disagreement with the labelled reads, block by block, and offer islands
       below 0.30 (`kIslandOutsideMaxError`; fewer than 3 labelled reads counts
