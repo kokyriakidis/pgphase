@@ -42,6 +42,9 @@ struct LocusWindowSite {
     hts_pos_t pos = 0;  // 1-based window start
     hts_pos_t end = 0;  // 1-based inclusive window end
     std::vector<std::tuple<size_t, int, float>> observations;  // graph read, side, error
+    // An island-only window is never an EM site: it can only phase reads the
+    // solve leaves unlabelled, in a block of its own (see island blocks).
+    bool island_only = false;
     // Written by phase_chunk_by_global_em: which side haplotype 1 carries
     // (-1 when not phased), the block, and the learned error.
     mutable int phase = -1;
@@ -99,6 +102,16 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
 /// their two alleles differ by one base of length (for injected 1 bp indels,
 /// one homopolymer base), the dominant HiFi error. Indexed by candidate.
 std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam);
+
+/// Length windows over repeat loci: at every tandem-repeat tract holding an
+/// alignment indel candidate (any category) and no voting site, each spanning
+/// read's length change across the tract (between unique flanks) is
+/// genotyped against a stutter model learned from the chunk's own loci; a
+/// confident two-length locus becomes a window contrasting the two lengths.
+/// They enter the EM island-only (see island blocks).
+std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
+                                                       const GraphChunkBuildResult& graph_chunk,
+                                                       const std::vector<LocusWindowSite>& taken);
 
 /// Apply the union EM's local island blocks (PhasingChunk::island_*) after the
 /// rescue: reads it left unphased take their island label through the gap_*

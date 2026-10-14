@@ -70,12 +70,19 @@ Usage: scripts/dev/pg COMMAND [TIER] [-- PGPHASE_ARGS...]
                        default) by distance to the read end, labelled or not,
                        and repeat run: wrong % at truth hets, minority % where
                        there is none (scripts/dev/calls.py)
-  realign [--max-sites N] [--min-run BP]
-                       per-read calling at truth het indels in repeats, with
-                       the truth alleles (exact representation): edit-distance
-                       and affine realignment by margin threshold against our
-                       EM's calls, by our EM state at the site
-                       (scripts/dev/realign.py)
+  hiphase-exact [--sites N] [--workers W]
+                       HiPhase's own allele assignment (hiphase_port.py, a
+                       line-for-line port of its global realignment, checked
+                       by test_hiphase_port.py) on its own inputs, read by
+                       read against our EM's calls at the rival's repeat het
+                       indels, by truth and our EM state (scripts/dev/hiphase_exact.py)
+  missing [--examples N]
+                       truth het indels the rival calls and we have no EM site
+                       for: where each is lost (MSA verdict, best injection
+                       decision, EM) (scripts/dev/missing.py)
+  lengthwin            the length windows (repeat loci genotyped from read
+                       lengths) against truth: real het share and parental
+                       purity by het score (scripts/dev/lengthwin.py)
   unphased [--loci N] [--list CAUSE]
                        every arms_phaseable read we leave unphased in one
                        primary cause (its calls judged by each parent's
@@ -422,7 +429,9 @@ main() {
         score-paths) cmd_score_paths ;;
         islands) local d; d="$(diag_dir)"; py "${here}/islands.py" "${d}" "$@" ;;
         calls) local d; d="$(diag_dir)"; py "${here}/calls.py" "${d}" "$@" ;;
-        realign) local d; d="$(diag_dir)"; py "${here}/realign.py" "${d}" "$@" ;;
+        hiphase-exact) local d; d="$(diag_dir)"; py "${here}/hiphase_exact.py" "${d}" "$@" ;;
+        missing) local d; d="$(diag_dir)"; py "${here}/missing.py" "${d}" "$@" ;;
+        lengthwin) local d; d="$(diag_dir)"; py "${here}/lengthwin.py" "${d}" "$@" ;;
         unphased) local d; d="$(diag_dir)"; py "${here}/unphased.py" "${d}" "$@" ;;
         diag) diag_dir ;;
         inspect) [[ $# -ge 1 ]] || die "usage: pg inspect REGION [--all] [--reads N]"

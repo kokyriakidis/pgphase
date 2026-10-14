@@ -19067,3 +19067,33 @@ haplotypes for deletions too. With the deferred labels, against 5b9befe:
 -14 / +21 from one 39-read block at 48.76 Mb whose orientation is a coin
 flip (HiPhase 51 / 111 there).
 
+## 2026-10-13 (later): length windows as last-resort islands; HiPhase exact; rival survey
+
+HiPhase reproduced exactly (scripts/dev/hiphase_port.py: variant loading and
+allele truncation, graph construction, WFA graph alignment with node-set
+merging and pruning, edit-distance cap and local fallback; matches brute
+force on 300 synthetic cases) on its own BAM, reference and DeepVariant calls,
+25 rival repeat het indels per group and chromosome. Per-read error at truth
+hets our EM rejects: HiPhase 27.3 / 26.5 / 25.0% (chr20 / chr12 / chr18),
+our EM 30.9 / 27.5 / 27.8%; at sites our EM keeps: 6.2 / 4.9 / 5.9% against
+5.9 / 4.8 / 6.2%. Its realignment is not why it reads more; which sites
+exist is.
+
+Rival source survey (HiPhase, LongPhase, WhatsHap, HapCUT2, Margin, Longshot,
+hifiasm and newer tools): nothing that beats our read labelling or block
+cuts. Tested and rejected here:
+- LongPhase's ALT-carrier paralog test (without its clip-defined CNV
+  intervals): real hets score >= 0.8 as often as paralog splits.
+- MSA-verified hets the EM's skew filter drops (minor allele < 25%; 31 / 81 /
+  31 sites) admitted at a lower floor: 0.15 -1,166 correct / +1,250
+  discordant, 0.10 -1,543 / +1,715 (wrong joins); as island sites +103 / +63.
+- Length windows as voting sites: -99 / +22 (most of the loci left without a
+  site split their reads near 50/50 by parent; only score >= 50 windows two
+  units apart reach purity 0.94, 43 on chr20, and change nothing).
+
+Kept: length windows (repeat loci genotyped from read lengths, stutter
+learned per chunk) as island-only sites without the agreement gate:
+chr20 +62 / +16 / -78, chr12 +63 / +14 / -77, chr18 +107 / +6 / -113;
+total +232 correct / +36 discordant / -268 unphased (6.4 : 1); switches
+unchanged. Gated by agreement with the labelled reads only 5 reads moved.
+

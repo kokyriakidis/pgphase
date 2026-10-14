@@ -4,6 +4,7 @@
 #include "union_internal.hpp"
 
 #include <array>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 
@@ -130,7 +131,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     }
     const size_t n_locus = loci != nullptr ? loci->size() : 0;
     for (size_t li = 0; li < n_locus; ++li)
-        sites.push_back(EmSite{static_cast<long>(li), 0, 0, 1, (*loci)[li].pos});
+        if (!(*loci)[li].island_only) sites.push_back(EmSite{static_cast<long>(li), 0, 0, 1, (*loci)[li].pos});
     std::stable_sort(sites.begin(), sites.end(),
                      [](const EmSite& a, const EmSite& b) { return a.pos < b.pos; });
     const size_t n = sites.size();
@@ -166,9 +167,11 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             else if (prof.alleles[k] == site.y) robs[ri].push_back(EmObs{s, 1, e});
         }
     }
-    for (size_t li = 0; li < n_locus; ++li)
+    for (size_t li = 0; li < n_locus; ++li) {
+        if (locus_site[li] < 0) continue;  // island-only window
         for (const auto& [ri, side, e] : (*loci)[li].observations)
             if (ri < robs.size()) robs[ri].push_back(EmObs{locus_site[li], side, static_cast<double>(e)});
+    }
     std::vector<double> post(chunk.reads.size(), 0.5);
     std::vector<int> start_label(chunk.reads.size(), 0);  // for the diagnostic dump
     std::vector<char> learns(chunk.reads.size(), 0);
@@ -572,7 +575,8 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
     // in [kEmUnreliableError, kIslandMaxError)), repeat het indels it never
     // sees (REP_HET_INDEL) and MSA-verified hets injection kept out
     // (island_only), the last two judged by their raw disagreement with the
-    // labelled reads. Each read takes its lowest-error candidate. Recorded
+    // labelled reads, and island-only length windows (repeat loci genotyped
+    // from read lengths; ungated). Each read takes its lowest-error candidate. Recorded
     // here, applied after the rescue to reads still unphased
     // (apply_island_labels). Measured on chr12/18/20 against c8391f1:
     // +2,349 correct, +457 discordant, -2,806 unphased reads, one arm switch;
@@ -600,6 +604,14 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
             cands.push_back(IslandCand{ci, by_count[0].second, by_count[1].second, c.key.sort_pos(), -1, 1.0, 0,
                                        c.island_only ? 'M' : 'R'});
         }
+        // Island-only length windows (kind W; build_length_window_sites): sides 0
+        // and 1 are the shorter and longer length.
+        std::vector<int> cand_of_locus(n_locus, -1);
+        for (size_t li = 0; li < n_locus; ++li) {
+            if (!(*loci)[li].island_only) continue;
+            cand_of_locus[li] = static_cast<int>(cands.size());
+            cands.push_back(IslandCand{SIZE_MAX, 0, 1, (*loci)[li].pos, -1, 1.0, 0, 'W'});
+        }
         // A site outside the solve: its raw disagreement with the labelled
         // reads, block by block; too few labelled reads to judge counts as the
         // unreliable cut.
@@ -619,6 +631,16 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                     ++agree[static_cast<size_t>(ic)][chunk.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
                 }
             }
+            for (size_t li = 0; li < n_locus; ++li) {
+                const int ic = cand_of_locus[li];
+                if (ic < 0) continue;
+                for (const auto& [ri, side, e] : (*loci)[li].observations) {
+                    if (ri >= chunk.haps.size()) continue;
+                    const int hap = chunk.haps[ri];
+                    if (hap != 1 && hap != 2) continue;
+                    ++agree[static_cast<size_t>(ic)][chunk.phase_sets[ri]][((side == 0) == (hap == 1)) ? 0 : 1];
+                }
+            }
             for (size_t ic = 0; ic < cands.size(); ++ic) {
                 if (cands[ic].kind == 'E') continue;
                 int best = 0, total = 0;
@@ -626,7 +648,13 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 cands[ic].err = total >= 3 ? 1.0 - static_cast<double>(best) / total : kEmUnreliableError;
             }
         }
-        const auto usable = [&](size_t ic) { return cands[ic].kind == 'E' || cands[ic].err < kIslandOutsideMaxError; };
+        // A length window is not gated by agreement with the labelled reads: its
+        // two lengths are measured from the reads themselves. Gated, 5 of ~270
+        // unphased reads it calls were labelled; ungated +232 correct / +36
+        // discordant over chr12/18/20.
+        const auto usable = [&](size_t ic) {
+            return cands[ic].kind == 'E' || cands[ic].kind == 'W' || cands[ic].err < kIslandOutsideMaxError;
+        };
         // Each unlabelled read's calls at the candidates.
         std::vector<std::vector<std::pair<int, int>>> iobs(robs.size());
         for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
@@ -643,6 +671,15 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 const int al = prof.alleles[j];
                 if (al == cands[static_cast<size_t>(ic)].x) iobs[ri].emplace_back(ic, 0);
                 else if (al == cands[static_cast<size_t>(ic)].y) iobs[ri].emplace_back(ic, 1);
+            }
+        }
+        for (size_t li = 0; li < n_locus; ++li) {
+            const int ic = cand_of_locus[li];
+            if (ic < 0 || !usable(static_cast<size_t>(ic))) continue;
+            for (const auto& [ri, side, e] : (*loci)[li].observations) {
+                if (ri >= iobs.size() || ri >= chunk.haps.size() || chunk.haps[ri] != 0) continue;
+                if (ri < chunk.island_haps.size() && chunk.island_haps[ri] != 0) continue;
+                iobs[ri].emplace_back(ic, side);
             }
         }
         std::vector<int> unlabelled_callers(cands.size(), 0);
@@ -689,6 +726,7 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         chunk.island_sites.clear();
         for (const auto& [ic, ps] : island_ps) {
             const IslandCand& c = cands[ic];
+            if (c.kind == 'W') continue;  // a window writes no VCF record
             const int hap1 = c.phase == 0 ? c.x : c.y;
             const int hap2 = c.phase == 0 ? c.y : c.x;
             chunk.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
@@ -698,7 +736,8 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         // the read's side, its island haplotype, its read error at the site,
         // the site's error (learned, or raw outside the solve), unlabelled
         // callers, the most member reads sharing one other verified site, 1,
-        // kind (E rejected EM site, R repeat het indel, M island-only MSA het).
+        // kind (E rejected EM site, R repeat het indel, M island-only MSA het,
+        // W length window).
         static const char* const island_diag = std::getenv("PGPHASE_DIAG");
         if (island_diag != nullptr) {
             std::vector<int> linked_reads(cands.size(), 0);

@@ -2,6 +2,10 @@
 // loci, as extra EM sites.
 
 #include "union_internal.hpp"
+#include <cstdlib>
+#include <cstdio>
+#include <cmath>
+#include <map>
 
 #include "edlib.h"
 
@@ -359,6 +363,179 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         last_end = w1;
         out.push_back(std::move(site));
     }
+    return out;
+}
+
+// Length windows (see build_length_window_sites).
+namespace {
+// Run-length buckets of the stutter model (bp of the reference tract) and the
+// largest length change modelled; beyond it the floor probability applies.
+constexpr int kLengthBuckets[] = {6, 10, 15, 20, 30};
+constexpr int kLengthMaxDev = 8;
+constexpr int kLengthMinTract = 6;          // homopolymer / STR tract, bp
+constexpr int kLengthMinReads = 8;          // spanning reads to genotype a locus
+constexpr double kLengthMinHetLLR = 6.0;    // two lengths over one, log units
+constexpr double kLengthMinReadLLR = 0.5;   // a read nearer one length than this calls nothing
+
+int length_bucket(hts_pos_t tract) {
+    int b = 0;
+    for (int i = 0; i < static_cast<int>(sizeof(kLengthBuckets) / sizeof(int)); ++i)
+        if (tract >= kLengthBuckets[i]) b = i;
+    return b;
+}
+}  // namespace
+
+std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
+                                                       const GraphChunkBuildResult& graph_chunk,
+                                                       const std::vector<LocusWindowSite>& taken) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    std::vector<LocusWindowSite> out;
+    if (bam.ref_seq.empty()) return out;
+    const ReferenceView ref{bam};
+    // Loci the EM already observes: windows, and voting indel rows.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> busy;
+    for (const LocusWindowSite& w : taken) busy.emplace_back(w.pos - 1, w.end);
+    for (const CandidateVariant& c : graph.candidates) {
+        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0 || c.key.type == VariantType::Snp) continue;
+        busy.emplace_back(c.key.pos - 1, c.key.pos - 1 + std::max(1, c.key.ref_len));
+    }
+    std::sort(busy.begin(), busy.end());
+    hts_pos_t widest = 0;
+    for (const auto& b : busy) widest = std::max(widest, b.second - b.first);
+    const auto overlaps_busy = [&](hts_pos_t a, hts_pos_t b) {
+        auto it = std::lower_bound(busy.begin(), busy.end(), std::make_pair(a - widest, hts_pos_t{0}));
+        for (; it != busy.end() && it->first < b; ++it)
+            if (it->second > a) return true;
+        return false;
+    };
+    // Tracts: the repeat around every indel candidate of the alignment solve,
+    // merged where they overlap.
+    struct Tract { hts_pos_t t0; hts_pos_t t1; int period; };
+    std::vector<Tract> tracts;
+    for (const CandidateVariant& c : bam.candidates) {
+        if (c.key.type == VariantType::Snp) continue;
+        const hts_pos_t p0 = c.key.pos - 1;
+        const hts_pos_t end0 = p0 + (c.key.type == VariantType::Deletion ? c.key.ref_len : 0);
+        const hts_pos_t t0 = p0 - ref.repeat_left(p0), t1 = end0 + ref.repeat_right(end0);
+        if (t1 - t0 < kLengthMinTract) continue;
+        const std::string edit = c.key.type == VariantType::Deletion ? ref.slice(p0, end0) : c.key.alt;
+        int period = static_cast<int>(edit.size());
+        for (int q = 1; q <= static_cast<int>(edit.size()); ++q) {
+            if (edit.size() % static_cast<size_t>(q) != 0) continue;
+            bool rep = true;
+            for (size_t i = static_cast<size_t>(q); i < edit.size() && rep; ++i) rep = edit[i] == edit[i - static_cast<size_t>(q)];
+            if (rep) { period = q; break; }
+        }
+        tracts.push_back(Tract{t0, t1, std::max(1, period)});
+    }
+    std::sort(tracts.begin(), tracts.end(), [](const Tract& a, const Tract& b) { return a.t0 < b.t0; });
+    std::vector<Tract> merged;
+    for (const Tract& t : tracts) {
+        if (!merged.empty() && t.t0 <= merged.back().t1) {
+            merged.back().t1 = std::max(merged.back().t1, t.t1);
+            merged.back().period = std::min(merged.back().period, t.period);
+        } else {
+            merged.push_back(t);
+        }
+    }
+    // Each tract's reads: their length change across the tract.
+    const SpanningReadIndex index(bam, graph);
+    struct Locus { hts_pos_t w0; hts_pos_t w1; int period; hts_pos_t tract; std::vector<std::pair<size_t, int>> reads; };
+    std::vector<Locus> loci;
+    for (const Tract& t : merged) {
+        const hts_pos_t w0 = std::max<hts_pos_t>(0, t.t0 - kAlleleWindowFlank), w1 = t.t1 + kAlleleWindowFlank;
+        if (w1 - w0 > kLocusMaxLength || overlaps_busy(w0, w1)) continue;
+        Locus l{w0, w1, t.period, t.t1 - t.t0, {}};
+        for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads))
+            l.reads.emplace_back(ri, static_cast<int>(seq.size()) - static_cast<int>(w1 - w0));
+        if (static_cast<int>(l.reads.size()) >= kLengthMinReads) loci.push_back(std::move(l));
+    }
+    if (loci.empty()) return out;
+    // Stutter: deviation from each locus's most common length, by tract bucket.
+    constexpr int nb = static_cast<int>(sizeof(kLengthBuckets) / sizeof(int));
+    std::vector<std::vector<double>> dev_counts(nb, std::vector<double>(2 * kLengthMaxDev + 1, 1.0));
+    for (const Locus& l : loci) {
+        std::map<int, int> hist;
+        for (const auto& [ri, d] : l.reads) ++hist[d];
+        int mode = hist.begin()->first, best = 0;
+        for (const auto& [d, n] : hist) if (n > best) { best = n; mode = d; }
+        for (const auto& [ri, d] : l.reads) {
+            const int dev = d - mode;
+            if (std::abs(dev) <= kLengthMaxDev) dev_counts[length_bucket(l.tract)][dev + kLengthMaxDev] += 1.0;
+        }
+    }
+    std::vector<std::vector<double>> logp(nb, std::vector<double>(2 * kLengthMaxDev + 1));
+    double floor = 0.0;
+    for (int b = 0; b < nb; ++b) {
+        double tot = 0.0;
+        for (double v : dev_counts[b]) tot += v;
+        for (int i = 0; i <= 2 * kLengthMaxDev; ++i) {
+            logp[b][i] = std::log(dev_counts[b][i] / tot);
+            floor = std::min(floor, logp[b][i]);
+        }
+    }
+    floor -= 2.0;
+    const auto lp = [&](int b, int d, int len) {
+        const int dev = d - len;
+        return std::abs(dev) <= kLengthMaxDev ? logp[b][dev + kLengthMaxDev] : floor;
+    };
+    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes every length window
+    // (lengthwin.TID.BEG.tsv): 1-based window start and end, repeat period,
+    // tract bp, the two lengths (change from the reference), het score,
+    // reads on each side, one repeat unit apart (1/0), then read:side per
+    // called read.
+    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+    FILE* dump = diag_dir == nullptr ? nullptr
+        : std::fopen((std::string(diag_dir) + "/lengthwin." + std::to_string(graph.region.tid) + "." +
+                      std::to_string(graph.region.beg) + ".tsv").c_str(), "w");
+    for (const Locus& l : loci) {
+        const int b = length_bucket(l.tract);
+        int lo = l.reads.front().second, hi = lo;
+        for (const auto& [ri, d] : l.reads) { lo = std::min(lo, d); hi = std::max(hi, d); }
+        double ll1 = -1e300;
+        for (int c = lo - 1; c <= hi + 1; ++c) {
+            double s = 0.0;
+            for (const auto& [ri, d] : l.reads) s += lp(b, d, c);
+            ll1 = std::max(ll1, s);
+        }
+        double ll2 = -1e300;
+        int c1 = 0, c2 = 0;
+        for (int x = lo - 1; x <= hi + 1; ++x) {
+            for (int y = x + 1; y <= hi + 1; ++y) {
+                double s = 0.0;
+                for (const auto& [ri, d] : l.reads) {
+                    const double a = lp(b, d, x), bb = lp(b, d, y);
+                    const double m = std::max(a, bb);
+                    s += m + std::log(0.5 * std::exp(a - m) + 0.5 * std::exp(bb - m));
+                }
+                if (s > ll2) { ll2 = s; c1 = x; c2 = y; }
+            }
+        }
+        if (ll2 - ll1 < kLengthMinHetLLR) continue;
+        LocusWindowSite site;
+        site.pos = l.w0 + 1;
+        site.end = l.w1;
+        int n0 = 0, n1 = 0;
+        for (const auto& [ri, d] : l.reads) {
+            const double r = lp(b, d, c1) - lp(b, d, c2);
+            if (std::abs(r) < kLengthMinReadLLR) continue;
+            const int side = r > 0 ? 0 : 1;
+            (side == 0 ? n0 : n1)++;
+            site.observations.emplace_back(
+                ri, side, static_cast<float>(std::min(kLocusMaxObsError, 1.0 / (1.0 + std::exp(std::abs(r))))));
+        }
+        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * (n0 + n1)) continue;
+        if (dump != nullptr) {
+            std::fprintf(dump, "%lld\t%lld\t%d\t%lld\t%d\t%d\t%.2f\t%d\t%d\t%d", static_cast<long long>(site.pos),
+                         static_cast<long long>(site.end), l.period, static_cast<long long>(l.tract), c1, c2,
+                         ll2 - ll1, n0, n1, std::abs(c2 - c1) <= l.period ? 1 : 0);
+            for (const auto& [ri, side, e] : site.observations)
+                std::fprintf(dump, "\t%s:%d", graph.reads[ri].qname.c_str(), side);
+            std::fputc('\n', dump);
+        }
+        out.push_back(std::move(site));
+    }
+    if (dump != nullptr) std::fclose(dump);
     return out;
 }
 

@@ -87,6 +87,13 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
         loci = build_locus_window_sites(*bam, chunk);
         std::vector<LocusWindowSite> alleles = build_allele_window_sites(*bam, graph_chunk, loci);
         loci.insert(loci.end(), std::make_move_iterator(alleles.begin()), std::make_move_iterator(alleles.end()));
+        // Length windows over repeat loci no other site covers, as island-only
+        // sites: a last resort for reads the solve leaves unlabelled. As voting
+        // sites they cost reads (-99 correct / +22 discordant over
+        // chr12/18/20): most split their reads near 50/50 by parent.
+        std::vector<LocusWindowSite> lengths = build_length_window_sites(*bam, graph_chunk, loci);
+        for (LocusWindowSite& w : lengths) w.island_only = true;
+        loci.insert(loci.end(), std::make_move_iterator(lengths.begin()), std::make_move_iterator(lengths.end()));
     }
     phase_chunk_by_global_em(chunk, &loci, weak_ptr, &errors);
 }

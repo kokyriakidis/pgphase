@@ -480,6 +480,21 @@ Per chunk, in order:
      are skipped.
 9. **Global EM, pass 2.** The same solve with both kinds of windows added as
    locus-level sites carrying per-read errors.
+   - *Length windows* (`build_length_window_sites`), island-only. At every
+     tandem-repeat tract (homopolymer or STR, at least 6 bp) holding an
+     alignment indel candidate of any category, and covered by no voting
+     indel row or window, each spanning read's length change across the tract
+     (segment between unique 20 bp flanks against the reference window) is
+     genotyped: one length against the best pair, under a stutter model
+     learned from the chunk's own loci (deviation from each locus's most
+     common length, by tract-length bucket, add-one smoothed). A pair beating
+     one length by 6 log units with at least 3 reads and 20% on each side
+     becomes a window contrasting the two lengths; each read takes the nearer
+     length when the likelihood ratio is at least 0.5, error 1/(1+e^|LLR|).
+     These loci are what the MSA collapses (two lengths, one consensus) or
+     never calls. As voting sites they cost reads (-99 correct / +22
+     discordant over chr12/18/20: most split their reads near 50/50 by
+     parent); they enter only as island sites (step 10).
 10. **Island blocks** (end of the final EM; applied by `apply_island_labels`
     after stitching and the rescue).
     - *What.* A read the solve leaves unlabelled is phased by its own call at
@@ -492,7 +507,10 @@ Per chunk, in order:
       sees; island-only MSA hets (step 2). The last two are judged by their raw
       disagreement with the labelled reads, block by block, and offer islands
       below 0.30 (`kIslandOutsideMaxError`; fewer than 3 labelled reads counts
-      as 0.30). A candidate needs 2 unlabelled callers (`kIslandMinReads`), and
+      as 0.30), and island-only length windows (step 9), which are not gated:
+      gated, 5 of ~270 unphased reads they call were labelled; ungated
+      +232 correct / +36 discordant / -268 unphased. A candidate needs 2
+      unlabelled callers (`kIslandMinReads`), and
       both alleles at 25% or more of its reads, as an EM site.
     - *Choice.* Each read takes its lowest-error candidate (ties: more
       unlabelled callers). Choosing by callers instead let a read with a right

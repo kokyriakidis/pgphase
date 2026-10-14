@@ -772,6 +772,95 @@ static void test_em_deferred_labels() {
           "deferred: applied through the gap channel");
 }
 
+static void test_length_window_sites() {
+    // Five 10-A runs, each with an indel candidate in the alignment solve. At
+    // the run at 300 half the reads carry +1 A and half +3 A; every other run
+    // is read exactly, which teaches the stutter model. One window, over the
+    // het run, splitting the reads by length.
+    std::string ref;
+    uint32_t state = 99;
+    for (int i = 0; i < 700; ++i) {
+        state = state * 1103515245u + 12345u;
+        char b = "CGT"[(state >> 16) % 3];  // no A outside the runs
+        ref += b;
+    }
+    for (int run : {100, 200, 300, 400, 500}) ref.replace(static_cast<size_t>(run), 10, std::string(10, 'A'));
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 700;
+    bam.ref_seq = ref;
+    for (int run : {100, 200, 300, 400, 500}) {
+        CandidateVariant c;
+        c.key.tid = 0;
+        c.key.pos = run + 1;  // insertion after the run's first base (1-based anchor + 1)
+        c.key.type = VariantType::Insertion;
+        c.key.ref_len = 0;
+        c.key.alt = "A";
+        c.counts.category = VariantCategory::RepeatHetIndel;
+        bam.candidates.push_back(c);
+    }
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 700;
+    for (int r = 0; r < 24; ++r) {
+        const std::string name = "len" + std::to_string(r);
+        const int extra = r % 2 == 0 ? 1 : 3;
+        const std::string seq = ref.substr(0, 305) + std::string(static_cast<size_t>(extra), 'A') + ref.substr(305);
+        ReadRecord rec = read_named(name, 60);
+        rec.alignment = make_alignment(name, seq,
+            {bam_cigar_gen(305, BAM_CMATCH), bam_cigar_gen(static_cast<uint32_t>(extra), BAM_CINS),
+             bam_cigar_gen(395, BAM_CMATCH)});
+        bam.reads.push_back(std::move(rec));
+        graph.reads.push_back(read_named(name, 60));
+        graph.read_var_profile.push_back(ReadVariantProfile{});
+    }
+    finish_chunk(graph);
+    const std::vector<LocusWindowSite> windows = build_length_window_sites(bam, gc, {});
+    check(windows.size() == 1, "length windows: one window, at the het run, got " + std::to_string(windows.size()));
+    if (windows.size() != 1) return;
+    const LocusWindowSite& w = windows[0];
+    check(w.pos <= 301 && w.end >= 310, "length windows: the window covers the run");
+    std::set<int> side_of[2];
+    for (const auto& [ri, side, e] : w.observations) side_of[ri % 2].insert(side);
+    check(w.observations.size() == 24, "length windows: every read called, got " + std::to_string(w.observations.size()));
+    check(side_of[0].size() == 1 && side_of[1].size() == 1 && *side_of[0].begin() != *side_of[1].begin(),
+          "length windows: reads split by their length");
+}
+
+static void test_em_length_window_islands() {
+    // An island-only window is no EM site, but phases the reads the solve
+    // leaves unlabelled, in a block of its own at the window.
+    PhasingChunk chunk;
+    for (int k = 0; k < 6; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 5, 3);
+    const size_t first_lone = chunk.reads.size();
+    for (int r = 0; r < 4; ++r) {
+        chunk.reads.push_back(read_named("lone" + std::to_string(r), 60));
+        chunk.read_var_profile.push_back(ReadVariantProfile{});
+        truth.push_back(r % 2);
+    }
+    finish_chunk(chunk);
+    LocusWindowSite w;
+    w.pos = 900;
+    w.end = 940;
+    w.island_only = true;
+    for (int r = 0; r < 4; ++r) w.observations.emplace_back(first_lone + static_cast<size_t>(r), r % 2, 0.05f);
+    const std::vector<LocusWindowSite> loci{w};
+    phase_chunk_by_global_em(chunk, &loci, nullptr, nullptr);
+    check(chunk.island_haps.size() == chunk.reads.size(), "length islands: island labels recorded");
+    if (chunk.island_haps.size() != chunk.reads.size()) return;
+    bool ok = true;
+    for (int r = 0; r < 4; ++r) {
+        const size_t ri = first_lone + static_cast<size_t>(r);
+        ok = ok && chunk.haps[ri] == 0 && chunk.island_haps[ri] != 0 && chunk.island_phase_sets[ri] == 900 &&
+             chunk.island_haps[ri] == chunk.island_haps[first_lone + static_cast<size_t>(r % 2)];
+    }
+    check(ok && chunk.island_haps[first_lone] != chunk.island_haps[first_lone + 1],
+          "length islands: lone reads take their window side, in a block at the window");
+}
+
 int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
@@ -792,6 +881,8 @@ int main() {
     test_inject_island_only_sites();
     test_em_island_blocks();
     test_em_deferred_labels();
+    test_length_window_sites();
+    test_em_length_window_islands();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";
         return 1;

@@ -57,7 +57,8 @@ every read's profile as the final EM saw it (emreads.*), every EM block-cut
 decision with its margins (joins.*), every noisy-region MSA variant with its
 cluster consensus coverage and read calls before and after the refresh of
 assigned reads (msa.*), and each read's calls in the alignment solve
-(alnreads.*), and every read an island block claims (islands.*). `scripts/dev/pg diag` makes a cached
+(alnreads.*), every read an island block claims (islands.*), and every length
+window with its read sides (lengthwin.*). `scripts/dev/pg diag` makes a cached
 full-contig run with all of these; `scripts/dev/pg inspect REGION` prints
 everything at a region by position (truth, catalog, graph, alignment,
 injection, EM, our and every competitor's VCF, the reads of each tool, the
@@ -75,8 +76,11 @@ the total (a diag run doubles as the full run of its binary and environment,
 so neither runs twice); `scripts/dev/pg islands` reports the island blocks
 (classes, truth, purity and production features against truth);
 `scripts/dev/pg calls` the EM's per-read call accuracy at rejected sites;
-`scripts/dev/pg realign` HiPhase's allele assignment reproduced read by read
-against ours at the rival's repeat het indels, and where we lose them;
+`scripts/dev/pg hiphase-exact` HiPhase's own allele assignment (a line-for-line
+port, scripts/dev/hiphase_port.py, checked by test_hiphase_port.py) on its own
+inputs, read by read against our EM's calls; `scripts/dev/pg missing` where
+each real het without an EM site is lost; `scripts/dev/pg lengthwin` the length
+windows against truth;
 `scripts/dev/pg unphased` every arms_phaseable read we leave unphased in one
 primary cause, crossed with the rivals' classes, with the loci it concentrates in;
 `scripts/dev/pg audit [RIVAL] [--reads islands|FILE]` puts every read a competitor phases correctly
