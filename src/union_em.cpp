@@ -415,7 +415,7 @@ private:
     void m_step() {
         std::vector<std::array<double, 2>> w(n_, {0.0, 0.0});  // hap1 weight per side
         for (size_t ri = 0; ri < robs_.size(); ++ri) {
-            if (!learns_[ri]) continue;
+            if (!learns_[ri] || robs_[ri].empty()) continue;
             // A read whose observations all sit at one site has a posterior
             // made from that site alone: counted, it returns the site's own
             // current error and pins it wherever it started. Weakly connected
@@ -426,7 +426,7 @@ private:
             // better prior: a lone clean SNP taught only by reads crossing
             // noisy neighbours was rejected (chr18:71,515,222, 74 reads at
             // purity 0.99, 21 reads went discordant).
-            const bool single_site = robs_[ri].empty() || robs_[ri].front().s == robs_[ri].back().s;
+            const bool single_site = robs_[ri].front().s == robs_[ri].back().s;
             if (single_site && site_class_[static_cast<size_t>(robs_[ri].front().s)] / 2 != 0) continue;
             for (const EmObs& o : robs_[ri]) {
                 w[static_cast<size_t>(o.s)][static_cast<size_t>(o.b)] += post_[ri];
