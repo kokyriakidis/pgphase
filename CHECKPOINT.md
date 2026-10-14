@@ -19142,3 +19142,21 @@ Rejected:
 Open: chr18 75.56 Mb (complex AT repeat, 23 reads HiPhase phases: reads
 spell the haplotypes differently from our one allele record), chr12 8.03 Mb
 (26, repeat-only), the five new switches.
+
+## 2026-10-14 (later): graph genotyping ceiling; one-edit window labels
+
+kivvi (PacBio; LPA KIV2 and D4Z4 only) genotypes reads on a WFA graph of all
+calls in a window and assigns duplicate copies with curated copy-specific
+sites. Measured with HiPhase's realignment (scripts/dev/graphgeno.py) on the
+reads we leave unphased (chr20 / chr12 / chr18: 489 / 453 / 233), labels
+right / wrong: our phased VCF 20/8, 5/2, 2/2; the DeepVariant calls HiPhase
+uses with truth phase 21/0, 28/2, 36/2; truth hets 232/8, 45/4, 42/4. On
+reads we phase correctly it is never wrong. Genotyping is not what we lack;
+sites are (chr20 32.x Mb satellite ~230 reads; chr12 34.5 and chr18 20.9 Mb).
+
+chr18 75.56 Mb: across the window the true haplotypes differ by one base;
+the 23 unphased (paternal) reads are each one edit closer to theirs, and a
+length-differing window needs two. One-edit window calls now label reads
+left with no other label (+25 / +4 / -29 on chr12/18/20; switches
+unchanged). Re-deriving window medoids from assigned reads: -30 / -13 / +43,
+chr20 -67, 15% slower.

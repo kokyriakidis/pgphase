@@ -573,6 +573,13 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
         const int hap2 = phase[k] == 0 ? sites[k].y : sites[k].x;
         set_site_phase(c, block[k], hap1, hap2);
     }
+    // Weak window calls per read (site, side), for the last-resort labels.
+    std::vector<std::vector<std::pair<size_t, int>>> weak_window_obs(robs.size());
+    for (size_t li = 0; li < n_locus; ++li) {
+        if (locus_site[li] < 0) continue;
+        for (const auto& [ri, side] : (*loci)[li].weak_observations)
+            if (ri < weak_window_obs.size()) weak_window_obs[ri].emplace_back(static_cast<size_t>(locus_site[li]), side);
+    }
     // Reads: label in the block where their own evidence is strongest.
     for (size_t ri = 0; ri < robs.size() && ri < chunk.haps.size(); ++ri) {
         chunk.haps[ri] = 0;
@@ -635,6 +642,26 @@ size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWind
                 if (std::max(p1, 1.0 - p1) < kEmUnverifiedLabelPosterior || std::abs(margin) <= weak_best) continue;
                 weak_best = std::abs(margin);
                 weak_hap = p1 >= 0.5 ? 1 : 2;
+                weak_ps = ps;
+            }
+        }
+        // Failing those, its one-edit window calls (weak_observations) at
+        // reliable windows, all agreeing within a block: +25 correct / +4
+        // discordant / -29 unphased over chr12/18/20, switches unchanged.
+        // Refining the windows' haplotype medoids from their assigned reads
+        // first cost chr20 67 correct reads and 15% of the run time.
+        if (weak_hap == 0 && ri < weak_window_obs.size() && !weak_window_obs[ri].empty()) {
+            std::map<hts_pos_t, std::array<int, 2>> wv;
+            for (const auto& [k, side] : weak_window_obs[ri]) {
+                if (err[k] >= kEmUnreliableError) continue;
+                ++wv[block[k]][side == phase[k] ? 0 : 1];
+            }
+            int best = 0;
+            for (const auto& [ps, v] : wv) {
+                if (v[0] != 0 && v[1] != 0) continue;
+                if (v[0] + v[1] <= best) continue;
+                best = v[0] + v[1];
+                weak_hap = v[0] > 0 ? 1 : 2;
                 weak_ps = ps;
             }
         }

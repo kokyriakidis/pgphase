@@ -42,6 +42,9 @@ struct LocusWindowSite {
     hts_pos_t pos = 0;  // 1-based window start
     hts_pos_t end = 0;  // 1-based inclusive window end
     std::vector<std::tuple<size_t, int, float>> observations;  // graph read, side, error
+    // Reads one edit closer to one side than the other, where a two-edit
+    // margin is required: they label only reads left with no other label.
+    std::vector<std::pair<size_t, int>> weak_observations;  // graph read, side
     // An island-only window is never an EM site: it can only phase reads the
     // solve leaves unlabelled, in a block of its own (see island blocks).
     bool island_only = false;

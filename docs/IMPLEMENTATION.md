@@ -470,7 +470,9 @@ Per chunk, in order:
      one from its unverified calls (and `low_mapq_only` sites) whose learned
      error is under 0.1, at posterior 0.8 (`kEmUnverifiedLabelPosterior`),
      through the same last, fill-only channel: +22 correct / -3 discordant /
-     -19 unphased.
+     -19 unphased. Failing that, a read one edit closer to one side of a
+     reliable locus window (where two edits are required to vote) takes the
+     window's block label when all such calls agree: +25 / +4 / -29.
 7. **Local haplotype windows** (`build_locus_window_sites`).
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats

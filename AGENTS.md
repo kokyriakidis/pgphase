@@ -88,6 +88,9 @@ in and how many of each locus's reads each rival phases correctly;
 split and the discordant reads they label, by production feature;
 `scripts/dev/pg switches [--all]` every arm switch (and flip) of the run against
 the baseline, new, kept or gone, between which truth-matched hets;
+scripts/dev/graphgeno.py RUN [--sites ours|truth|rival] aligns each read we
+miss whole to the graph of a call set (HiPhase's realignment) and labels it
+from the phased hets: what better genotyping or better sites would recover;
 `scripts/dev/pg audit [RIVAL] [--reads islands|FILE]` puts every read a competitor phases correctly
 and we do not -- unphased or discordant -- in one primary cause, and splits
 the discordant ones by their own calls judged by each parent's side at the

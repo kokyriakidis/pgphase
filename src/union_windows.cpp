@@ -195,7 +195,12 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
         for (const auto& [ri, seq] : segs) {
             const int d1 = locus_edit_distance(seq, *hap1), d2 = locus_edit_distance(seq, *hap2);
             const int margin = std::abs(d1 - d2);
-            if (margin < min_margin) continue;
+            if (margin < min_margin) {
+                // One edit where two are required: kept for the last-resort
+                // labels only (weak_observations).
+                if (margin == 1) site.weak_observations.emplace_back(ri, d1 < d2 ? 0 : 1);
+                continue;
+            }
             const int side = d1 < d2 ? 0 : 1;
             (side == 0 ? n0 : n1)++;
             site.observations.emplace_back(
