@@ -415,17 +415,6 @@ reference_step_positions(const GfaWalkRecord& ref,
 
 } // namespace
 
-std::string GraphSiteLoadStats::summary() const {
-    std::ostringstream o;
-    o << data_lines << " data lines, " << sites_parsed << " sites parsed, "
-      << eligible() << " eligible";
-    if (short_line != 0) o << "; " << short_line << " short lines";
-    if (bad_position != 0) o << "; " << bad_position << " bad POS/END";
-    if (unsupported_allele != 0) o << "; " << unsupported_allele << " unsupported alleles";
-    for (const auto& kv : by_skip_reason) o << "; " << kv.second << " " << kv.first;
-    return o.str();
-}
-
 GraphSiteCatalog load_graph_site_catalog_from_vcf(
     const std::string& path,
     const std::vector<RegionFilter>& filters,

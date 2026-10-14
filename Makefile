@@ -36,8 +36,6 @@ GBZ_FFI_SYSLIBS = -ldl -lrt
 
 SOURCES_CXX = src/main.cpp \
 	src/allele_identity.cpp \
-	src/allele_context.cpp \
-	src/allele_genotype.cpp \
 	src/collect_pipeline.cpp \
 	src/build_catalog.cpp \
 	src/graph_collect.cpp \
@@ -99,10 +97,8 @@ predicate-tests: test_phase_predicates
 
 # In-memory fixtures are the edit loop; owning replays are an explicit check.
 .PHONY: gap-dev-check
-gap-dev-check: test_phase_predicates test_graph_bam_adapter test_allele_identity test_allele_context test_allele_genotype
+gap-dev-check: test_phase_predicates test_graph_bam_adapter test_allele_identity
 	./test_allele_identity
-	./test_allele_context
-	./test_allele_genotype
 	./test_phase_predicates $(if $(PREDICATE),"$(PREDICATE)",)
 	./test_graph_bam_adapter
 
@@ -131,10 +127,8 @@ $(UPSTREAM_PHASE_DIR)/collect_var.o: $(LONGCALLD_ROOT)/src/collect_var.c | $(UPS
 $(UPSTREAM_PHASE_DIR)/bridge.o: src/test_upstream_phase_bridge.c src/test_upstream_phase_bridge.h | $(UPSTREAM_PHASE_DIR)
 	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-function $(UPSTREAM_PHASE_INCLUDES) -Isrc -c $< -o $@
 
-unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype test_union_phase
+unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_union_phase
 	./test_allele_identity
-	./test_allele_context
-	./test_allele_genotype
 	./test_graph_sites
 	./test_graph_bam_adapter
 	./test_noise_filter
@@ -159,9 +153,6 @@ release: pgphase
 
 release-strict: pgphase
 	RUN_CHECKS=1 bash scripts/make_release_bundle.sh
-
-src/allele_context.o: src/allele_context.cpp
-	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
 
 src/align.o: src/align.cpp
 	$(CXX) $(CXXFLAGS) $(ALIGN_CPPFLAGS) -c $< -o $@
@@ -232,12 +223,6 @@ pgphase: $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(GBZ_FFI_LIB)
 test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_allele_genotype: src/test_allele_genotype.cpp src/allele_genotype.o src/allele_context.o src/allele_identity.o $(EDLIB_OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
-
-test_allele_context: src/test_allele_context.cpp src/allele_context.o src/allele_identity.o $(EDLIB_OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
-
 test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
@@ -256,7 +241,7 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_allele_context test_allele_genotype src/*.o src/*.d
+	rm -f pgphase test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity src/*.o src/*.d
 	rm -rf $(UPSTREAM_PHASE_DIR)
 
 test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_pgbam.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)

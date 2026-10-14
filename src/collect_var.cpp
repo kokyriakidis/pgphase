@@ -2299,13 +2299,6 @@ void collect_var_phase(PhasingChunk& chunk,
 }
 
 /// Run BAM candidate discovery, read profiling, and phasing for one chunk.
-void collect_var_main(PhasingChunk& chunk,
-                      const Options& opts,
-                      const bam_hdr_t* header) {
-    collect_var_classify(chunk, opts, header);
-    collect_var_phase(chunk, opts);
-}
-
 // One haplotype cannot carry two different alleles at one position, and we
 // were emitting exactly that: 106 positions on chr20 where a SNP and the
 // insertion that CONTAINS it were both called on the same haplotype --

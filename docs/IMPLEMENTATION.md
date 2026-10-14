@@ -575,9 +575,9 @@ and parsing them, once per overlapping chunk, was 11% of a chr20 run.
 
 ### Test gates
 
-- `make unit-tests` builds and runs seven binaries: `test_allele_identity`,
-  `test_allele_context`, `test_allele_genotype`, `test_graph_sites`,
-  `test_graph_bam_adapter`, `test_noise_filter` and `test_union_phase` (site
+- `make unit-tests` builds and runs five binaries: `test_allele_identity`,
+  `test_graph_sites`, `test_graph_bam_adapter`, `test_noise_filter` and
+  `test_union_phase` (site
   injection, the global EM, local windows). They use in-memory fixtures;
   none reruns BAM/GAF regions.
 - `make predicate-tests` runs `test_phase_predicates` (Catch2): the phasing,

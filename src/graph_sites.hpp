@@ -79,7 +79,6 @@ struct GraphSiteLoadStats {
         return sites_parsed >= bad ? sites_parsed - bad : 0;
     }
     /// One line for a log or a test failure message.
-    std::string summary() const;
 };
 
 struct GraphSiteCatalog {

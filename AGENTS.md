@@ -272,9 +272,8 @@ Adapted from [XOOS C++ rules](https://github.com/Roche-DIA-RDS-CSI/XOOS).
 
 ### Testing
 
-- Unit test binaries: `test_allele_identity`, `test_allele_context`,
-  `test_allele_genotype`, `test_graph_sites`, `test_graph_bam_adapter`,
-  `test_noise_filter`, `test_union_phase`. Standalone `.cpp` files in `src/`,
+- Unit test binaries: `test_allele_identity`, `test_graph_sites`,
+  `test_graph_bam_adapter`, `test_noise_filter`, `test_union_phase`. Standalone `.cpp` files in `src/`,
   hand-rolled `check()` assertions, no framework. Run all: `make unit-tests`.
 - Catch2 predicates: `src/test_phase_predicates.cpp`, built against the vendored
   single header in `third_party/catch2/`. Run: `make predicate-tests`.

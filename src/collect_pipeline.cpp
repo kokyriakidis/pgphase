@@ -9,8 +9,6 @@
 
 #include "collect_pipeline.hpp"
 
-#include "allele_context.hpp"
-#include "allele_genotype.hpp"
 #include "allele_identity.hpp"
 #include "arg_parse.hpp"
 #include "bam_digar.hpp"

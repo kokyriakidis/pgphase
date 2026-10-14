@@ -3,9 +3,9 @@
 
 // Candidate collection, intervals, noisy regions, and classification API.
 //
-// The public entry point for the per-chunk biological workflow is
-// collect_var_main.  Higher-level code owns BAM/FASTA I/O, chunk loading,
-// threading, and output streaming.
+// The public entry points for the per-chunk biological workflow are
+// collect_var_classify and collect_var_phase.  Higher-level code owns
+// BAM/FASTA I/O, chunk loading, threading, and output streaming.
 
 #include "collect_types.hpp"
 
@@ -191,9 +191,6 @@ void collect_var_phase(PhasingChunk& chunk,
 // Full pipeline: collect_var_classify + collect_var_phase.
 // Expects chunk.reads, chunk.ref_seq, read indexes, low-complexity intervals,
 // and initial noisy regions to already be populated by the BAM/FASTA layer.
-void collect_var_main(PhasingChunk& chunk,
-                      const Options& opts,
-                      const bam_hdr_t* header);
 
 } // namespace pgphase_collect
 

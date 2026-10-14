@@ -7,7 +7,7 @@ readonly here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${here}/env.sh"
 readonly root="${PGDEV_ROOT}"
 readonly runs="${PGDEV_STATE}/runs"
-readonly unit_tests=(test_allele_identity test_allele_context test_allele_genotype test_graph_sites
+readonly unit_tests=(test_allele_identity test_graph_sites
                      test_graph_bam_adapter test_noise_filter test_union_phase test_phase_predicates)
 
 die() { echo "pg: $*" >&2; exit 1; }
