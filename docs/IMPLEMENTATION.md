@@ -64,9 +64,11 @@ the catalog's sites phase on GAF evidence alone and gaps stay open.
 
 ### Per chunk, in order
 
-Chunks are processed by a worker pool (`process_graph_chunk_batch` in
-`graph_collect.cpp`, and its indexed-GAF twin), each worker holding its own FAI
-handle and, with `--bam`, its own BAM handles (`WorkerContext`):
+Chunks are processed by a worker pool (`run_graph_chunk_batch` in
+`graph_collect.cpp`, one chunk at a time through `process_graph_chunk`), each
+worker holding its own GAF row source (a tabix-indexed GAF, or the legacy
+GBZ + GAF-base pair), FAI handle and, with `--bam`, its own BAM handles
+(`WorkerContext`):
 
 | step | call | what it contributes |
 |---|---|---|
@@ -267,7 +269,8 @@ Per chunk, in order:
      we phase correctly: when both called and disagreed the graph was right
      7-12% of the time; a graph-only call at a site the alignment calls was
      right 77-79%, against 99.9% when the two agree.
-2. **Injection** (`inject_alignment_sites`).
+2. **Injection** (`inject_alignment_sites`: `VotingRows`, `AlignmentSupport`,
+   `select_sites`, `fold_aliases`, then the merge into the candidate table).
    - *Candidates.* The solve's clean heterozygotes and its MSA-verified noisy
      heterozygotes inside the chunk. An MSA het needs both of its two most
      observed alleles (REF need not be one) seen by at least two reads with

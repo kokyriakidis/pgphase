@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <getopt.h>
 #include <iostream>
 #include <memory>
@@ -560,54 +561,127 @@ static bool exclude_ref_absent_graph_snps(
     return excluded;
 }
 
-// Processes one batch of graph chunks in parallel (one thread pool per reg_chunk_i batch,
-// mirroring collect_chunk_batch_parallel in collect_pipeline.cpp).
-// Each worker queries overlapping reads via the gbz-base FFI (one SQLite connection
-// per thread), then build_graph_chunk + assign_hap k-means.
-// Peak memory = threads × (reads_per_chunk + sites_per_chunk).
-// After all workers join: populate_graph_chunk_overlaps + stitch_chunk_haps.
-static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
+// One chunk's GAF rows for the sites in view, from one worker thread's own
+// handles (opened once per thread; see run_graph_chunk_batch).
+using ChunkRowFetcher =
+    std::function<std::vector<GraphReadAllele>(const RegionChunk&, const GraphSiteCatalogView&)>;
+
+// One chunk, start to finish: its sites (tabix), its GAF rows, the graph
+// chunk, the noise filter, union gap phasing's injected sites (with --bam),
+// the clean solve and the union solve. Diagnostic, off by default:
+// PGPHASE_TIMING=1 prints the chunk's seconds per stage to stderr.
+static void process_graph_chunk(GraphChunkBuildResult& out,
+                                const RegionChunk& region,
+                                const std::string& contig,
+                                SitesVcfHandle& sites_handle,
+                                faidx_t* fai,
+                                WorkerContext* bam_ctx,
+                                const std::unordered_map<std::string, std::string>& chrom_remap,
+                                const Options& opts,
+                                const ChunkRowFetcher& fetch_rows) {
+    static const bool timing = std::getenv("PGPHASE_TIMING") != nullptr;
+    using Clock = std::chrono::steady_clock;
+    std::vector<double> stage_s;
+    Clock::time_point stage_t = Clock::now();
+    const auto lap = [&]() {
+        if (!timing) return;
+        const Clock::time_point now = Clock::now();
+        stage_s.push_back(std::chrono::duration<double>(now - stage_t).count());
+        stage_t = now;
+    };
+
+    GraphSiteCatalog chunk_catalog = load_sites_for_region(sites_handle, contig, region.beg, region.end);
+    lap();
+    // Normalize contig names to match FAI convention.
+    for (GraphSite& s : chunk_catalog.sites) {
+        auto it = chrom_remap.find(s.chrom);
+        if (it != chrom_remap.end()) s.chrom = it->second;
+        if (!s.ref_contig.empty()) {
+            auto it2 = chrom_remap.find(s.ref_contig);
+            if (it2 != chrom_remap.end()) s.ref_contig = it2->second;
+        }
+    }
+    GraphSiteCatalogView chunk_view = chunk_catalog.view_all();
+    std::vector<GraphReadAllele> chunk_rows;
+    if (!chunk_view.empty()) chunk_rows = fetch_rows(region, chunk_view);
+    lap();
+
+    out = build_graph_chunk(chunk_view, chunk_rows, contig, region.beg - 1, region.end, region.chunk_id, opts);
+    if (bam_ctx != nullptr && exclude_ref_absent_graph_snps(chunk_catalog, out, region, contig, *bam_ctx, opts))
+        out = build_graph_chunk(chunk_view, chunk_rows, contig, region.beg - 1, region.end, region.chunk_id, opts);
+
+    std::string reference_slice;
+    // Noise filter: fetch reference slice and reclassify indels in
+    // homopolymer/repeat/low-complexity contexts.
+    {
+        hts_pos_t ref_len = 0;
+        char* ref_raw = faidx_fetch_seq64(fai, contig.c_str(), region.beg - 1, region.end - 1, &ref_len);
+        if (ref_raw && ref_len > 0) {
+            reference_slice.assign(ref_raw, ref_raw + ref_len);
+            std::free(ref_raw);
+            apply_graph_noise_filter(out, reference_slice, region.beg, region.beg + ref_len - 1,
+                                     opts.noisy_reg_max_xgaps);
+        } else {
+            std::free(ref_raw);
+        }
+    }
+    // A repeat-context indel may earn its way back in before the solve.
+    promote_link_supported_repeat_indels(out, opts);
+    lap();
+
+    // With --bam, the alignment's sample-specific hets join the catalog's
+    // before the clean solve (union gap phasing).
+    const bool union_phasing = bam_ctx != nullptr;
+    std::unique_ptr<PhasingChunk> union_bam;
+    if (union_phasing) inject_alignment_private_sites(out, opts, *bam_ctx, contig.c_str(), &union_bam);
+    lap();
+
+    phase_joint_graph_candidates(out, opts, [&](hts_pos_t pos) {
+        const hts_pos_t index = pos - region.beg;
+        return index >= 0 && static_cast<size_t>(index) < reference_slice.size()
+            ? reference_slice[static_cast<size_t>(index)] : 'N';
+    });
+    reclassify_physically_validated_graph_snps(chunk_view, out);
+    if (bam_ctx != nullptr) supplement_phased_snp_branches(chunk_view, chunk_rows, out, opts);
+    lap();
+    if (union_phasing) phase_chunk_with_alignment_sites(out, union_bam.get());
+    lap();
+    if (timing) {
+        std::ostringstream line;
+        line << "[timing] chunk " << region.beg << " sites " << chunk_catalog.sites.size()
+             << " gaf_rows " << chunk_rows.size() << " seconds";
+        static const char* const names[] = {"catalog", "gaf", "build", "inject", "clean", "union"};
+        double total = 0.0;
+        for (size_t i = 0; i < stage_s.size() && i < 6; ++i) {
+            line << ' ' << names[i] << ' ' << std::fixed << std::setprecision(2) << stage_s[i];
+            total += stage_s[i];
+        }
+        line << " total " << total << '\n';
+        std::cerr << line.str();
+    }
+}
+
+// Processes one batch of graph chunks in parallel (one thread pool per
+// reg_chunk_i batch, mirroring collect_chunk_batch_parallel in
+// collect_pipeline.cpp): each worker opens its own row source (open_rows),
+// sites VCF, reference index and, with --bam, BAM context, then takes chunks
+// until none are left. Peak memory = threads x (reads_per_chunk +
+// sites_per_chunk). After all workers join: populate_graph_chunk_overlaps,
+// stitch_chunk_haps, the rescue and the island labels.
+static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     const std::string& sites_vcf,
     const std::vector<RegionChunk>& chunks,
     size_t batch_begin,
     size_t batch_end,
-    const bam_hdr_t* header,
-    const GraphQueryConfig& qconfig,
-    const std::string& ref_sample,
-    const std::unordered_map<std::string, std::string>& fai_full_to_suffix,
+    const std::string& batch_contig,
     const std::unordered_map<std::string, std::string>& chrom_remap,
     const Options& opts,
-    const PgbamSidecarData* pgbam_sidecar)
+    const PgbamSidecarData* pgbam_sidecar,
+    const std::function<ChunkRowFetcher()>& open_rows,
+    bool report_match_stats)
 {
     const size_t batch_size = batch_end - batch_begin;
     std::vector<GraphChunkBuildResult> graph_chunks(batch_size);
-
-    const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
-
-    // Pre-compute the query contig (pangenome suffix) once for the batch.
-    const std::string batch_query_contig = [&]() -> std::string {
-        auto it = fai_full_to_suffix.find(batch_contig);
-        return (it != fai_full_to_suffix.end()) ? it->second : batch_contig;
-    }();
-
-    // Query the genome-coordinate range of the reference path so we can
-    // skip or clamp chunks that fall outside the GBZ subgraph.  This is
-    // done once on the main thread before spawning workers.
-    PathRange path_range;
-    {
-        char* err = nullptr;
-        void* gbz_tmp = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
-        if (gbz_tmp) {
-            path_range = query_gbz_path_range(gbz_tmp, ref_sample, batch_query_contig);
-            pgphase_gbz_close(gbz_tmp);
-            if (opts.verbose >= 2 && path_range.valid)
-                std::cerr << "GBZ path range for " << ref_sample << "#" << batch_query_contig
-                          << ": [" << path_range.start << ", " << path_range.end << ")\n";
-        } else {
-            if (err) pgphase_gbz_free_string(err);
-        }
-    }
-
     const size_t worker_count = std::min<size_t>(static_cast<size_t>(opts.threads), batch_size);
     std::atomic<size_t> next_offset{0};
     std::exception_ptr first_error;
@@ -617,160 +691,21 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
 
     for (size_t w = 0; w < worker_count; ++w) {
         workers.emplace_back([&]() {
-            char* err = nullptr;
-            void* gbz_h = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
-            if (!gbz_h) {
-                std::string msg = err ? std::string(err) : "unknown error";
-                if (err) pgphase_gbz_free_string(err);
-                std::lock_guard<std::mutex> lock(error_mutex);
-                if (!first_error)
-                    first_error = std::make_exception_ptr(
-                        std::runtime_error("failed to open GBZ: " + msg));
-                return;
-            }
-            void* gaf_h = pgphase_gaf_open(qconfig.gaf_db.c_str(), &err);
-            if (!gaf_h) {
-                std::string msg = err ? std::string(err) : "unknown error";
-                if (err) pgphase_gbz_free_string(err);
-                pgphase_gbz_close(gbz_h);
-                std::lock_guard<std::mutex> lock(error_mutex);
-                if (!first_error)
-                    first_error = std::make_exception_ptr(
-                        std::runtime_error("failed to open GAF-base: " + msg));
-                return;
-            }
-            if (pgphase_gbz_gaf_validate(gbz_h, gaf_h, &err) != 0) {
-                std::string msg = err ? std::string(err) : "unknown error";
-                if (err) pgphase_gbz_free_string(err);
-                pgphase_gaf_close(gaf_h);
-                pgphase_gbz_close(gbz_h);
-                std::lock_guard<std::mutex> lock(error_mutex);
-                if (!first_error)
-                    first_error = std::make_exception_ptr(
-                        std::runtime_error("GBZ/GAF-base incompatible: " + msg));
-                return;
-            }
-            struct HandleCleanup {
-                void* gbz; void* gaf;
-                ~HandleCleanup() {
-                    if (gaf) pgphase_gaf_close(gaf);
-                    if (gbz) pgphase_gbz_close(gbz);
-                }
-            } cleanup{gbz_h, gaf_h};
-
             try {
-                // One sites VCF handle per thread.
+                const ChunkRowFetcher fetch_rows = open_rows();
                 SitesVcfHandle sites_handle(sites_vcf);
-
-                // Per-thread reference index for noise detection.
-                std::unique_ptr<faidx_t, FaiDeleter> thread_fai(
-                    load_reference_index(opts.ref_fasta));
-
+                std::unique_ptr<faidx_t, FaiDeleter> thread_fai(load_reference_index(opts.ref_fasta));
                 // Per-thread BAM context for union gap phasing. htslib handles are
                 // not shareable, so each worker opens its own set, once per thread
                 // rather than per chunk.
                 std::unique_ptr<WorkerContext> thread_bam_ctx;
-                if (!opts.bam_files.empty())
-                    thread_bam_ctx = std::make_unique<WorkerContext>(opts);
-
+                if (!opts.bam_files.empty()) thread_bam_ctx = std::make_unique<WorkerContext>(opts);
                 while (true) {
                     const size_t offset = next_offset.fetch_add(1);
                     if (offset >= batch_size) break;
-                    const RegionChunk& region = chunks[batch_begin + offset];
-
-                    // Load sites for this chunk's region via tabix.
-                    GraphSiteCatalog chunk_catalog = load_sites_for_region(
-                        sites_handle, batch_contig, region.beg, region.end);
-                    // Normalize contig names to match FAI convention.
-                    for (GraphSite& s : chunk_catalog.sites) {
-                        auto it = chrom_remap.find(s.chrom);
-                        if (it != chrom_remap.end()) s.chrom = it->second;
-                        if (!s.ref_contig.empty()) {
-                            auto it2 = chrom_remap.find(s.ref_contig);
-                            if (it2 != chrom_remap.end()) s.ref_contig = it2->second;
-                        }
-                    }
-
-                    GraphSiteCatalogView chunk_view = chunk_catalog.view_all();
-
-                    std::vector<GraphReadAllele> chunk_rows;
-                    if (!chunk_view.empty()) {
-                        hts_pos_t q_beg = region.beg - 1;
-                        hts_pos_t q_end = region.end;
-                        if (path_range.valid) {
-                            q_beg = std::max(q_beg, path_range.start);
-                            q_end = std::min(q_end, path_range.end);
-                        }
-                        if (q_beg < q_end) {
-                            chunk_rows = query_gbz_interval_gaf_ffi(
-                                gbz_h, gaf_h, ref_sample, batch_query_contig,
-                                q_beg, q_end,
-                                chunk_view, qconfig.min_mapq);
-                        }
-                    }
-
-                    graph_chunks[offset] = build_graph_chunk(
-                        chunk_view,
-                        chunk_rows,
-                        batch_contig,
-                        region.beg - 1,
-                        region.end,
-                        region.chunk_id,
-                        opts);
-                    if (thread_bam_ctx != nullptr &&
-                        exclude_ref_absent_graph_snps(chunk_catalog, graph_chunks[offset],
-                                                      region, batch_contig,
-                                                      *thread_bam_ctx, opts)) {
-                        graph_chunks[offset] = build_graph_chunk(
-                            chunk_view, chunk_rows, batch_contig, region.beg - 1,
-                            region.end, region.chunk_id, opts);
-                    }
-
-                    std::string reference_slice;
-                    // Noise filter: fetch reference slice and reclassify
-                    // indels in homopolymer/repeat/low-complexity contexts.
-                    {
-                        hts_pos_t ref_len = 0;
-                        char* ref_raw = faidx_fetch_seq64(
-                            thread_fai.get(), batch_contig.c_str(),
-                            region.beg - 1, region.end - 1, &ref_len);
-                        if (ref_raw && ref_len > 0) {
-                            reference_slice.assign(ref_raw, ref_raw + ref_len);
-                            std::free(ref_raw);
-                            apply_graph_noise_filter(
-                                graph_chunks[offset], reference_slice,
-                                region.beg, region.beg + ref_len - 1,
-                                opts.noisy_reg_max_xgaps);
-                        } else {
-                            std::free(ref_raw);
-                        }
-                    }
-
-                    // A repeat-context indel may earn its way back in before the solve.
-                    promote_link_supported_repeat_indels(graph_chunks[offset], opts);
-
-                    // With --bam, the alignment's sample-specific hets join the
-                    // catalog's before the clean solve (union gap phasing).
-                    const bool union_phasing = thread_bam_ctx != nullptr;
-                    std::unique_ptr<PhasingChunk> union_bam;
-                    if (union_phasing)
-                        inject_alignment_private_sites(graph_chunks[offset], opts,
-                            *thread_bam_ctx, batch_contig.c_str(), &union_bam);
-
-                    phase_joint_graph_candidates(graph_chunks[offset], opts,
-                        [&](hts_pos_t pos) {
-                            const hts_pos_t index = pos - region.beg;
-                            return index >= 0 && static_cast<size_t>(index) < reference_slice.size()
-                                ? reference_slice[static_cast<size_t>(index)] : 'N';
-                        });
-                    reclassify_physically_validated_graph_snps(
-                        chunk_view, graph_chunks[offset]);
-                    if (thread_bam_ctx != nullptr)
-                        supplement_phased_snp_branches(
-                            chunk_view, chunk_rows, graph_chunks[offset], opts);
-                    if (union_phasing)
-                        phase_chunk_with_alignment_sites(graph_chunks[offset], union_bam.get());
-
+                    process_graph_chunk(graph_chunks[offset], chunks[batch_begin + offset], batch_contig,
+                                        sites_handle, thread_fai.get(), thread_bam_ctx.get(), chrom_remap, opts,
+                                        fetch_rows);
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
@@ -781,6 +716,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     for (std::thread& w : workers) w.join();
     if (first_error) std::rethrow_exception(first_error);
 
+    if (report_match_stats && opts.verbose >= 1) graph_query_report_match_stats();
     populate_graph_chunk_overlaps(graph_chunks);
 
     std::vector<PhasingChunk> phasing_chunks;
@@ -796,9 +732,90 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
     return graph_chunks;
 }
 
-// Per-chunk tabix queries on an indexed GAF file.  Each worker seeks directly
-// to the overlapping region — only the relevant reads are decompressed and
-// parsed, making this efficient even for very large (100+ GB) GAF files.
+// The pangenome contig a FAI contig is queried under (its suffix in a PanSN
+// name), or the contig itself.
+static std::string query_contig_of(const std::string& contig,
+                                   const std::unordered_map<std::string, std::string>& fai_full_to_suffix) {
+    auto it = fai_full_to_suffix.find(contig);
+    return it != fai_full_to_suffix.end() ? it->second : contig;
+}
+
+// Reads from a GBZ graph and a GAF-base database (the legacy path): one
+// SQLite connection pair per worker thread; queries are clamped to the
+// reference path's range in the GBZ subgraph.
+static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
+    const std::string& sites_vcf,
+    const std::vector<RegionChunk>& chunks,
+    size_t batch_begin,
+    size_t batch_end,
+    const bam_hdr_t* header,
+    const GraphQueryConfig& qconfig,
+    const std::string& ref_sample,
+    const std::unordered_map<std::string, std::string>& fai_full_to_suffix,
+    const std::unordered_map<std::string, std::string>& chrom_remap,
+    const Options& opts,
+    const PgbamSidecarData* pgbam_sidecar)
+{
+    const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
+    const std::string query_contig = query_contig_of(batch_contig, fai_full_to_suffix);
+    // The genome-coordinate range of the reference path, once per batch, so
+    // chunks outside the GBZ subgraph are skipped or clamped.
+    PathRange path_range;
+    {
+        char* err = nullptr;
+        void* gbz_tmp = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
+        if (gbz_tmp) {
+            path_range = query_gbz_path_range(gbz_tmp, ref_sample, query_contig);
+            pgphase_gbz_close(gbz_tmp);
+            if (opts.verbose >= 2 && path_range.valid)
+                std::cerr << "GBZ path range for " << ref_sample << "#" << query_contig
+                          << ": [" << path_range.start << ", " << path_range.end << ")\n";
+        } else {
+            if (err) pgphase_gbz_free_string(err);
+        }
+    }
+    struct GbzGafHandles {
+        void* gbz = nullptr;
+        void* gaf = nullptr;
+        ~GbzGafHandles() {
+            if (gaf) pgphase_gaf_close(gaf);
+            if (gbz) pgphase_gbz_close(gbz);
+        }
+    };
+    const auto open_rows = [&]() -> ChunkRowFetcher {
+        const auto take_error = [](char* err) {
+            std::string msg = err ? std::string(err) : "unknown error";
+            if (err) pgphase_gbz_free_string(err);
+            return msg;
+        };
+        auto handles = std::make_shared<GbzGafHandles>();
+        char* err = nullptr;
+        handles->gbz = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
+        if (!handles->gbz) throw std::runtime_error("failed to open GBZ: " + take_error(err));
+        handles->gaf = pgphase_gaf_open(qconfig.gaf_db.c_str(), &err);
+        if (!handles->gaf) throw std::runtime_error("failed to open GAF-base: " + take_error(err));
+        if (pgphase_gbz_gaf_validate(handles->gbz, handles->gaf, &err) != 0)
+            throw std::runtime_error("GBZ/GAF-base incompatible: " + take_error(err));
+        return [handles, &qconfig, &ref_sample, &query_contig, path_range](
+                   const RegionChunk& region, const GraphSiteCatalogView& view) -> std::vector<GraphReadAllele> {
+            hts_pos_t q_beg = region.beg - 1;
+            hts_pos_t q_end = region.end;
+            if (path_range.valid) {
+                q_beg = std::max(q_beg, path_range.start);
+                q_end = std::min(q_end, path_range.end);
+            }
+            if (q_beg >= q_end) return std::vector<GraphReadAllele>{};
+            return query_gbz_interval_gaf_ffi(handles->gbz, handles->gaf, ref_sample, query_contig, q_beg, q_end,
+                                              view, qconfig.min_mapq);
+        };
+    };
+    return run_graph_chunk_batch(sites_vcf, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
+                                 pgbam_sidecar, open_rows, /*report_match_stats=*/false);
+}
+
+// Reads from a tabix-indexed GAF file: each worker seeks directly to the
+// overlapping region -- only the relevant reads are decompressed and parsed,
+// making this efficient even for very large (100+ GB) GAF files.
 static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     const std::string& sites_vcf,
     const std::vector<RegionChunk>& chunks,
@@ -812,183 +829,18 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     const Options& opts,
     const PgbamSidecarData* pgbam_sidecar)
 {
-    const size_t batch_size = batch_end - batch_begin;
-    std::vector<GraphChunkBuildResult> graph_chunks(batch_size);
-
-    const std::string batch_contig_gaf = header->target_name[chunks[batch_begin].tid];
-    const std::string batch_query_contig_gaf = [&]() -> std::string {
-        auto it = fai_full_to_suffix.find(batch_contig_gaf);
-        return (it != fai_full_to_suffix.end()) ? it->second : batch_contig_gaf;
-    }();
-
-    const size_t worker_count = std::min<size_t>(static_cast<size_t>(opts.threads), batch_size);
-    std::atomic<size_t> next_offset{0};
-    std::exception_ptr first_error;
-    std::mutex error_mutex;
-    std::vector<std::thread> workers;
-    workers.reserve(worker_count);
-
-    for (size_t w = 0; w < worker_count; ++w) {
-        workers.emplace_back([&]() {
-            try {
-                IndexedGafHandle gaf_handle(gaf_file);
-                SitesVcfHandle sites_handle(sites_vcf);
-
-                // Per-thread reference index for noise detection.
-                std::unique_ptr<faidx_t, FaiDeleter> thread_fai(
-                    load_reference_index(opts.ref_fasta));
-
-                // Per-thread BAM context for union gap phasing. htslib handles are
-                // not shareable, so each worker opens its own set, once per thread
-                // rather than per chunk.
-                std::unique_ptr<WorkerContext> thread_bam_ctx;
-                if (!opts.bam_files.empty())
-                    thread_bam_ctx = std::make_unique<WorkerContext>(opts);
-
-                while (true) {
-                    const size_t offset = next_offset.fetch_add(1);
-                    if (offset >= batch_size) break;
-                    const RegionChunk& region = chunks[batch_begin + offset];
-                    // Diagnostic, off by default: PGPHASE_TIMING=1 prints each
-                    // chunk's seconds per stage to stderr.
-                    static const bool timing = std::getenv("PGPHASE_TIMING") != nullptr;
-                    using Clock = std::chrono::steady_clock;
-                    std::vector<double> stage_s;
-                    Clock::time_point stage_t = Clock::now();
-                    const auto lap = [&]() {
-                        if (!timing) return;
-                        const Clock::time_point now = Clock::now();
-                        stage_s.push_back(std::chrono::duration<double>(now - stage_t).count());
-                        stage_t = now;
-                    };
-
-                    GraphSiteCatalog chunk_catalog = load_sites_for_region(
-                        sites_handle, batch_contig_gaf, region.beg, region.end);
-                    lap();
-                    for (GraphSite& s : chunk_catalog.sites) {
-                        auto it = chrom_remap.find(s.chrom);
-                        if (it != chrom_remap.end()) s.chrom = it->second;
-                        if (!s.ref_contig.empty()) {
-                            auto it2 = chrom_remap.find(s.ref_contig);
-                            if (it2 != chrom_remap.end()) s.ref_contig = it2->second;
-                        }
-                    }
-
-                    GraphSiteCatalogView chunk_view = chunk_catalog.view_all();
-
-                    std::vector<GraphReadAllele> chunk_rows;
-                    if (!chunk_view.empty()) {
-                        const hts_pos_t pad = static_cast<hts_pos_t>(opts.gaf_pad);
-                        chunk_rows = scan_indexed_gaf_chunk(
-                            gaf_handle, batch_query_contig_gaf,
-                            std::max<hts_pos_t>(0, region.beg - 1 - pad), region.end + pad,
-                            chunk_view, min_mapq);
-                    }
-                    lap();
-
-                    graph_chunks[offset] = build_graph_chunk(
-                        chunk_view,
-                        chunk_rows,
-                        batch_contig_gaf,
-                        region.beg - 1,
-                        region.end,
-                        region.chunk_id,
-                        opts);
-                    if (thread_bam_ctx != nullptr &&
-                        exclude_ref_absent_graph_snps(chunk_catalog, graph_chunks[offset],
-                                                      region, batch_contig_gaf,
-                                                      *thread_bam_ctx, opts)) {
-                        graph_chunks[offset] = build_graph_chunk(
-                            chunk_view, chunk_rows, batch_contig_gaf, region.beg - 1,
-                            region.end, region.chunk_id, opts);
-                    }
-
-                    std::string reference_slice;
-                    // Noise filter: fetch reference slice and reclassify
-                    // indels in homopolymer/repeat/low-complexity contexts.
-                    {
-                        hts_pos_t ref_len = 0;
-                        char* ref_raw = faidx_fetch_seq64(
-                            thread_fai.get(), batch_contig_gaf.c_str(),
-                            region.beg - 1, region.end - 1, &ref_len);
-                        if (ref_raw && ref_len > 0) {
-                            reference_slice.assign(ref_raw, ref_raw + ref_len);
-                            std::free(ref_raw);
-                            apply_graph_noise_filter(
-                                graph_chunks[offset], reference_slice,
-                                region.beg, region.beg + ref_len - 1,
-                                opts.noisy_reg_max_xgaps);
-                        } else {
-                            std::free(ref_raw);
-                        }
-                    }
-
-                    // A repeat-context indel may earn its way back in before the solve.
-                    promote_link_supported_repeat_indels(graph_chunks[offset], opts);
-                    lap();
-
-                    // With --bam, the alignment's sample-specific hets join the
-                    // catalog's before the clean solve (union gap phasing).
-                    const bool union_phasing = thread_bam_ctx != nullptr;
-                    std::unique_ptr<PhasingChunk> union_bam;
-                    if (union_phasing)
-                        inject_alignment_private_sites(graph_chunks[offset], opts,
-                            *thread_bam_ctx, batch_contig_gaf.c_str(), &union_bam);
-                    lap();
-
-                    phase_joint_graph_candidates(graph_chunks[offset], opts,
-                        [&](hts_pos_t pos) {
-                            const hts_pos_t index = pos - region.beg;
-                            return index >= 0 && static_cast<size_t>(index) < reference_slice.size()
-                                ? reference_slice[static_cast<size_t>(index)] : 'N';
-                        });
-                    reclassify_physically_validated_graph_snps(
-                        chunk_view, graph_chunks[offset]);
-                    if (thread_bam_ctx != nullptr)
-                        supplement_phased_snp_branches(
-                            chunk_view, chunk_rows, graph_chunks[offset], opts);
-                    lap();
-                    if (union_phasing)
-                        phase_chunk_with_alignment_sites(graph_chunks[offset], union_bam.get());
-                    lap();
-                    if (timing) {
-                        std::ostringstream line;
-                        line << "[timing] chunk " << region.beg << " sites " << chunk_catalog.sites.size()
-                             << " gaf_rows " << chunk_rows.size() << " seconds";
-                        static const char* const names[] = {"catalog", "gaf", "build", "inject", "clean", "union"};
-                        double total = 0.0;
-                        for (size_t i = 0; i < stage_s.size() && i < 6; ++i) {
-                            line << ' ' << names[i] << ' ' << std::fixed << std::setprecision(2) << stage_s[i];
-                            total += stage_s[i];
-                        }
-                        line << " total " << total << '\n';
-                        std::cerr << line.str();
-                    }
-
-                }
-            } catch (...) {
-                std::lock_guard<std::mutex> lock(error_mutex);
-                if (!first_error) first_error = std::current_exception();
-            }
-        });
-    }
-    for (std::thread& w : workers) w.join();
-    if (first_error) std::rethrow_exception(first_error);
-
-    if (opts.verbose >= 1) graph_query_report_match_stats();
-    populate_graph_chunk_overlaps(graph_chunks);
-
-    std::vector<PhasingChunk> phasing_chunks;
-    phasing_chunks.reserve(batch_size);
-    for (GraphChunkBuildResult& gc : graph_chunks)
-        phasing_chunks.push_back(std::move(gc.chunk));
-    stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
-    for (size_t i = 0; i < batch_size; ++i) {
-        graph_chunks[i].chunk = std::move(phasing_chunks[i]);
-        rescue_unphased_graph_reads(graph_chunks[i].chunk);
-        apply_island_labels(graph_chunks[i].chunk);
-    }
-    return graph_chunks;
+    const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
+    const std::string query_contig = query_contig_of(batch_contig, fai_full_to_suffix);
+    const auto open_rows = [&]() -> ChunkRowFetcher {
+        auto handle = std::make_shared<IndexedGafHandle>(gaf_file);
+        return [handle, &query_contig, &opts, min_mapq](const RegionChunk& region, const GraphSiteCatalogView& view) {
+            const hts_pos_t pad = static_cast<hts_pos_t>(opts.gaf_pad);
+            return scan_indexed_gaf_chunk(*handle, query_contig, std::max<hts_pos_t>(0, region.beg - 1 - pad),
+                                          region.end + pad, view, min_mapq);
+        };
+    };
+    return run_graph_chunk_batch(sites_vcf, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
+                                 pgbam_sidecar, open_rows, /*report_match_stats=*/true);
 }
 
 void run_collect_graph_variation(const Options& opts) {

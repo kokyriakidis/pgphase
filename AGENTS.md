@@ -157,7 +157,7 @@ Candidates are classified with both a `VariantCategory` enum and a `lcd_var_i_to
 
 ### Thread safety
 
-`faidx_t` is not thread-safe. Each worker thread opens its own handle via `load_reference_index(opts.ref_fasta)`. The graph pipeline does this in both `process_graph_chunk_batch` and `process_graph_chunk_batch_indexed_gaf`.
+`faidx_t` is not thread-safe. Each worker thread opens its own handle via `load_reference_index(opts.ref_fasta)`. The graph pipeline does this once per worker in `run_graph_chunk_batch` (shared by the indexed-GAF and GBZ + GAF-base sources).
 
 ---
 

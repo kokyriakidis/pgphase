@@ -131,102 +131,131 @@ static CandKey left_aligned_indel_key(const CandidateVariant& c, const PhasingCh
     return CandKey{k.sort_pos(), static_cast<int>(k.type), k.ref_len, k.alt};
 }
 
-size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
-                              const char* contig_name) {
-    PhasingChunk& graph = graph_chunk.chunk;
+namespace {
 
-    // Rows that already vote describe this locus. An alignment call overlapping
-    // one is another description of it: it joins as a hidden complement site
-    // (no VCF record) carrying the alignment's calls, because the graph often
-    // leaves reads at such a locus without any allele. Only rows of local span
-    // (kUnionMaxComplementRowSpan) qualify: a 373 kb snarl at chr18:20,440,896
-    // swallowed every alignment het for 35 kb (dozens of truth hets LongPhase
-    // phases), and a paralog cluster then joined across the gap the wrong way.
-    std::vector<std::tuple<hts_pos_t, hts_pos_t, size_t>> voting_spans;
-    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
-        const CandidateVariant& row = graph.candidates[ci];
-        if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-        if (std::max(1, row.key.ref_len) > kUnionMaxComplementRowSpan) continue;
-        voting_spans.emplace_back(row.key.pos - 1, row.key.pos + std::max(1, row.key.ref_len), ci);
+// Rows that already vote describe this locus. An alignment call overlapping
+// one is another description of it: it joins as a hidden complement site
+// (no VCF record) carrying the alignment's calls, because the graph often
+// leaves reads at such a locus without any allele. Only rows of local span
+// (kUnionMaxComplementRowSpan) qualify: a 373 kb snarl at chr18:20,440,896
+// swallowed every alignment het for 35 kb (dozens of truth hets LongPhase
+// phases), and a paralog cluster then joined across the gap the wrong way.
+class VotingRows {
+public:
+    explicit VotingRows(const PhasingChunk& graph) {
+        for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+            const CandidateVariant& row = graph.candidates[ci];
+            if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+            if (std::max(1, row.key.ref_len) > kUnionMaxComplementRowSpan) continue;
+            spans_.emplace_back(row.key.pos - 1, row.key.pos + std::max(1, row.key.ref_len), ci);
+        }
+        std::sort(spans_.begin(), spans_.end());
+        for (const auto& span : spans_) widest_ = std::max(widest_, std::get<1>(span) - std::get<0>(span));
     }
-    std::sort(voting_spans.begin(), voting_spans.end());
-    hts_pos_t widest = 0;
-    for (const auto& span : voting_spans) widest = std::max(widest, std::get<1>(span) - std::get<0>(span));
-    const auto voting_rows_over = [&](hts_pos_t beg, hts_pos_t end) {
+
+    // Voting rows overlapping [beg, end).
+    std::vector<size_t> over(hts_pos_t beg, hts_pos_t end) const {
         std::vector<size_t> rows;
-        auto it = std::lower_bound(voting_spans.begin(), voting_spans.end(),
-                                   std::make_tuple(beg - widest, hts_pos_t{0}, size_t{0}));
-        for (; it != voting_spans.end() && std::get<0>(*it) < end; ++it)
+        auto it = std::lower_bound(spans_.begin(), spans_.end(),
+                                   std::make_tuple(beg - widest_, hts_pos_t{0}, size_t{0}));
+        for (; it != spans_.end() && std::get<0>(*it) < end; ++it)
             if (std::get<1>(*it) > beg) rows.push_back(std::get<2>(*it));
         return rows;
-    };
-    std::unordered_map<size_t, std::vector<size_t>> complement_rows;  // bam candidate -> graph rows it overlaps
+    }
 
-    // Reads admitted at low MAPQ can represent a divergent haplotype but cannot
-    // create a site on their own: each of the site's two alleles (a 1/2 site
-    // carries no REF reads) needs confidently mapped support.
-    std::vector<std::map<int, int>> confident(bam.candidates.size());
-    std::vector<std::map<int, int>> observed(bam.candidates.size());
+private:
+    std::vector<std::tuple<hts_pos_t, hts_pos_t, size_t>> spans_;
+    hts_pos_t widest_ = 0;
+};
+
+// Each alignment candidate's read support: reads per allele, of them reads
+// mapped at kDefaultMinMapq or better, depth and the chunk's median depth.
+struct AlignmentSupport {
+    std::vector<std::map<int, int>> observed;
+    std::vector<std::map<int, int>> confident;
     // Diagnostic counts: reads the alignment solve labelled, and of those, the
     // ones carrying the allele the solve assigned to their haplotype.
-    std::vector<std::array<int, 2>> labelled(bam.candidates.size(), {0, 0});
-    for (const ReadVariantProfile& prof : bam.read_var_profile) {
-        if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
-        const ReadRecord& read = bam.reads[static_cast<size_t>(prof.read_id)];
-        if (read.is_skipped) continue;
-        const int hap = static_cast<size_t>(prof.read_id) < bam.haps.size() ? bam.haps[static_cast<size_t>(prof.read_id)] : 0;
-        for (size_t k = 0; k < prof.alleles.size(); ++k) {
-            const int a = prof.alleles[k];
-            if (a < 0) continue;
-            const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
-            ++observed[ci][a];
-            if (read.mapq >= kDefaultMinMapq) ++confident[ci][a];
-            if (hap == 1 || hap == 2) {
-                ++labelled[ci][0];
-                const auto& cons = bam.candidates[ci].hap_to_cons_alle;
-                if (cons.size() > 2 && cons[static_cast<size_t>(hap)] == a) ++labelled[ci][1];
+    std::vector<std::array<int, 2>> labelled;
+    std::vector<int> depth;
+    double median_depth = 0.0;
+
+    explicit AlignmentSupport(const PhasingChunk& bam)
+        : observed(bam.candidates.size()), confident(bam.candidates.size()),
+          labelled(bam.candidates.size(), {0, 0}), depth(bam.candidates.size(), 0) {
+        for (const ReadVariantProfile& prof : bam.read_var_profile) {
+            if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
+            const ReadRecord& read = bam.reads[static_cast<size_t>(prof.read_id)];
+            if (read.is_skipped) continue;
+            const int hap = static_cast<size_t>(prof.read_id) < bam.haps.size()
+                                ? bam.haps[static_cast<size_t>(prof.read_id)] : 0;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                const int a = prof.alleles[k];
+                if (a < 0) continue;
+                const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+                ++observed[ci][a];
+                if (read.mapq >= kDefaultMinMapq) ++confident[ci][a];
+                if (hap == 1 || hap == 2) {
+                    ++labelled[ci][0];
+                    const auto& cons = bam.candidates[ci].hap_to_cons_alle;
+                    if (cons.size() > 2 && cons[static_cast<size_t>(hap)] == a) ++labelled[ci][1];
+                }
             }
         }
+        std::vector<int> depths;
+        for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+            for (const auto& [a, n] : observed[bi]) depth[bi] += n;
+            // Calls kept from noisy regions too long for MSA sit largely in
+            // repeats of unusual depth (a VNTR at depth 13 on chr18); counted
+            // here they pulled the median down and gated out ordinary sites
+            // (chr12:133,056,148 at depth 81).
+            if (depth[bi] > 0 && !bam.candidates[bi].unresolved_noisy) depths.push_back(depth[bi]);
+        }
+        if (!depths.empty()) {
+            std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
+            median_depth = depths[depths.size() / 2];
+        }
     }
-    std::vector<int> depth(bam.candidates.size(), 0);
-    std::vector<int> depths;
-    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
-        for (const auto& [a, n] : observed[bi]) depth[bi] += n;
-        // Calls kept from noisy regions too long for MSA sit largely in
-        // repeats of unusual depth (a VNTR at depth 13 on chr18); counted
-        // here they pulled the median down and gated out ordinary sites
-        // (chr12:133,056,148 at depth 81).
-        if (depth[bi] > 0 && !bam.candidates[bi].unresolved_noisy) depths.push_back(depth[bi]);
-    }
-    double median_depth = 0.0;
-    if (!depths.empty()) {
-        std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
-        median_depth = depths[depths.size() / 2];
-    }
-    const auto confidently_supported = [&](size_t bi) {
+
+    // Confident reads on the two most observed alleles, in that order.
+    std::array<int, 2> confident_on_leading(size_t bi) const {
         std::vector<std::pair<int, int>> top;
         for (const auto& [a, n] : observed[bi]) top.emplace_back(n, a);
         std::sort(top.rbegin(), top.rend());
-        if (top.size() < 2) return false;
-        for (size_t i = 0; i < 2; ++i) {
+        std::array<int, 2> conf{0, 0};
+        for (size_t i = 0; i < 2 && i < top.size(); ++i) {
             const auto it = confident[bi].find(top[i].second);
-            if (it == confident[bi].end() || it->second < kUnionMinConfidentAlleleReads) return false;
+            if (it != confident[bi].end()) conf[i] = it->second;
         }
-        return true;
-    };
+        return conf;
+    }
 
-    // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
-    // alignment's own category bits.
+    // Reads admitted at low MAPQ can represent a divergent haplotype but
+    // cannot create a site on their own: each of the site's two alleles (a 1/2
+    // site carries no REF reads) needs confidently mapped support.
+    bool confidently_supported(size_t bi) const {
+        if (observed[bi].size() < 2) return false;
+        const std::array<int, 2> conf = confident_on_leading(bi);
+        return conf[0] >= kUnionMinConfidentAlleleReads && conf[1] >= kUnionMinConfidentAlleleReads;
+    }
+};
+
+// Which alignment candidates enter the graph chunk, and as what.
+struct Selection {
     std::vector<size_t> selected;
-    std::set<size_t> island_only;  // selected only as island sites
+    std::set<size_t> island_only;    // selected only as island sites
     std::set<size_t> low_mapq_only;  // clean hets admitted by the exemption
-    // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
-    // candidate's injection decision (inj.TID.BEG.tsv) and the graph chunk's
-    // rows before the merge (graph.TID.BEG.tsv).
-    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    std::vector<const char*> decision(diag_dir != nullptr ? bam.candidates.size() : 0, "");
+    std::unordered_map<size_t, std::vector<size_t>> complement_rows;  // bam candidate -> graph rows it overlaps
+    std::vector<const char*> decision;  // per candidate (diagnostic only)
+};
+
+// Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
+// alignment's own category bits.
+Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
+                       const VotingRows& voting, bool record_decisions) {
+    Selection sel;
+    if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     const auto decide = [&](size_t bi, const char* why) {
-        if (diag_dir != nullptr) decision[bi] = why;
+        if (record_decisions) sel.decision[bi] = why;
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
@@ -254,123 +283,139 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         // correct / -88 discordant / -67 unphased, +1,569 truth hets phased;
         // arm switches 32 -> 37 (sparse pericentromeric, satellite and VNTR
         // blocks: chr12 34.65-37.19 Mb, chr20 32.76 and 65.51 Mb).
-        const char* dropped = !clean && !confidently_supported(bi) ? "few_confident_reads"
-                            : (median_depth > 0.0 && depth[bi] > kUnionMaxDepthRatio * median_depth) ? "depth_gate"
+        const bool confident = support.confidently_supported(bi);
+        const char* dropped = !clean && !confident ? "few_confident_reads"
+                            : (support.median_depth > 0.0 &&
+                               support.depth[bi] > kUnionMaxDepthRatio * support.median_depth) ? "depth_gate"
                             : nullptr;
-        std::vector<size_t> rows = voting_rows_over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
+        std::vector<size_t> rows = voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
         if (dropped != nullptr) {
             if (msa && rows.empty()) {
                 decide(bi, dropped[0] == 'f' ? "island:few_confident_reads" : "island:depth_gate");
-                island_only.insert(bi);
-                selected.push_back(bi);
+                sel.island_only.insert(bi);
+                sel.selected.push_back(bi);
             } else {
                 decide(bi, dropped);
             }
             continue;
         }
         decide(bi, rows.empty() ? "injected" : "complement");
-        if (!rows.empty()) complement_rows.emplace(bi, std::move(rows));
-        if (!confidently_supported(bi)) low_mapq_only.insert(bi);
-        selected.push_back(bi);
+        if (!rows.empty()) sel.complement_rows.emplace(bi, std::move(rows));
+        if (!confident) sel.low_mapq_only.insert(bi);
+        sel.selected.push_back(bi);
     }
-    if (diag_dir != nullptr) {
-        const std::string tag = std::to_string(graph.region.tid) + "." + std::to_string(graph.region.beg) + ".tsv";
-        if (FILE* fh = std::fopen((std::string(diag_dir) + "/inj." + tag).c_str(), "w")) {
-            // VCF-convention position, key position, type, REF length, ALT,
-            // category code, MSA-verified, unresolved_noisy, depth, chunk
-            // median depth, confident reads on the two leading alleles, decision,
-            // reads the alignment solve labelled, and of those the ones carrying
-            // their haplotype's consensus allele.
-            for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
-                const CandidateVariant& c = bam.candidates[bi];
-                std::vector<std::pair<int, int>> top;
-                for (const auto& [a, n] : observed[bi]) top.emplace_back(n, a);
-                std::sort(top.rbegin(), top.rend());
-                int conf[2] = {0, 0};
-                for (size_t i = 0; i < 2 && i < top.size(); ++i) {
-                    const auto it = confident[bi].find(top[i].second);
-                    if (it != confident[bi].end()) conf[i] = it->second;
-                }
-                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
-                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d,%d\t%s\t%d\t%d\n",
-                             static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
-                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
-                             c.msa_verified ? 1 : 0, c.unresolved_noisy ? 1 : 0, depth[bi], median_depth,
-                             conf[0], conf[1], decision[bi], labelled[bi][0], labelled[bi][1]);
-            }
-            std::fclose(fh);
-        }
-        if (FILE* fh = std::fopen((std::string(diag_dir) + "/alnreads." + tag).c_str(), "w")) {
-            // Each read's calls in the alignment solve (alnreads.TID.BEG.tsv):
-            // name, MAPQ, skipped flag, the solve's haplotype and phase set,
-            // then VCF-convention position:type:allele for every het, hom or
-            // repeat-indel candidate the read has an allele at.
-            constexpr uint32_t kListed = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom |
-                                         kCandNoisyCandHet | kCandNoisyCandHom | kCandNonAnchorHet;
-            for (const ReadVariantProfile& prof : bam.read_var_profile) {
-                if (prof.read_id < 0) continue;
-                const size_t ri = static_cast<size_t>(prof.read_id);
-                const ReadRecord& read = bam.reads[ri];
-                std::fprintf(fh, "%s\t%d\t%d\t%d\t%lld", read.qname.c_str(), read.mapq, read.is_skipped ? 1 : 0,
-                             ri < bam.haps.size() ? bam.haps[ri] : 0,
-                             static_cast<long long>(ri < bam.phase_sets.size() ? bam.phase_sets[ri] : 0));
-                for (size_t k = 0; prof.start_var_idx >= 0 && k < prof.alleles.size(); ++k) {
-                    if (prof.alleles[k] < 0) continue;
-                    const CandidateVariant& c = bam.candidates[static_cast<size_t>(prof.start_var_idx) + k];
-                    const bool repeat = c.counts.category == VariantCategory::RepeatHetIndel;
-                    if ((c.lcd_var_i_to_cate & kListed) == 0 && !repeat) continue;
-                    const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
-                    std::fprintf(fh, "\t%lld:%c:%d", static_cast<long long>(c.key.sort_pos()), type, prof.alleles[k]);
-                }
-                std::fputc('\n', fh);
-            }
-            std::fclose(fh);
-        }
-        if (FILE* fh = std::fopen((std::string(diag_dir) + "/graph." + tag).c_str(), "w")) {
-            // VCF-convention position, key position, type, REF length, ALT,
-            // category code, voting (germline), catalog id, allele coverages.
-            for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
-                const CandidateVariant& c = graph.candidates[ci];
-                const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
-                std::string covs;
-                for (const int n : c.counts.alle_covs) covs += (covs.empty() ? "" : ",") + std::to_string(n);
-                const std::string id = ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string();
-                std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%s\t%s\n",
-                             static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type,
-                             c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
-                             (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 ? 1 : 0,
-                             id.empty() ? "." : id.c_str(), covs.empty() ? "." : covs.c_str());
-            }
-            std::fclose(fh);
-        }
-    }
-    if (selected.empty()) return 0;
+    return sel;
+}
 
-    // One site per left-aligned allele: other placements become aliases whose
-    // read calls fold into the canonical row.
-    std::unordered_map<size_t, size_t> alias_of;
-    {
-        std::map<CandKey, size_t> canonical;
-        std::vector<size_t> kept;
-        // Regular sites first: an island-only call never absorbs one, and one
-        // at an allele a regular site already carries is dropped.
-        std::stable_partition(selected.begin(), selected.end(),
-                              [&](size_t bi) { return island_only.count(bi) == 0; });
-        for (const size_t bi : selected) {
-            const auto [it, inserted] = canonical.emplace(left_aligned_indel_key(bam.candidates[bi], bam), bi);
-            if (inserted) kept.push_back(bi);
-            else if (island_only.count(bi) == 0) alias_of.emplace(bi, it->second);
+// Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
+// candidate's injection decision (inj.TID.BEG.tsv), each read's calls in the
+// alignment solve (alnreads.TID.BEG.tsv) and the graph chunk's rows before the
+// merge (graph.TID.BEG.tsv).
+void write_injection_diagnostics(const char* diag_dir, const GraphChunkBuildResult& graph_chunk,
+                                 const PhasingChunk& bam, const AlignmentSupport& support, const Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    const std::string tag = std::to_string(graph.region.tid) + "." + std::to_string(graph.region.beg) + ".tsv";
+    const auto type_of = [](const CandidateVariant& c) {
+        return c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
+    };
+    if (FILE* fh = std::fopen((std::string(diag_dir) + "/inj." + tag).c_str(), "w")) {
+        // VCF-convention position, key position, type, REF length, ALT,
+        // category code, MSA-verified, unresolved_noisy, depth, chunk median
+        // depth, confident reads on the two leading alleles, decision, reads
+        // the alignment solve labelled, and of those the ones carrying their
+        // haplotype's consensus allele.
+        for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+            const CandidateVariant& c = bam.candidates[bi];
+            const std::array<int, 2> conf = support.confident_on_leading(bi);
+            std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%d\t%d\t%.0f\t%d,%d\t%s\t%d\t%d\n",
+                         static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type_of(c),
+                         c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
+                         c.msa_verified ? 1 : 0, c.unresolved_noisy ? 1 : 0, support.depth[bi], support.median_depth,
+                         conf[0], conf[1], sel.decision[bi], support.labelled[bi][0], support.labelled[bi][1]);
         }
-        selected = std::move(kept);
+        std::fclose(fh);
     }
+    if (FILE* fh = std::fopen((std::string(diag_dir) + "/alnreads." + tag).c_str(), "w")) {
+        // Name, MAPQ, skipped flag, the solve's haplotype and phase set, then
+        // VCF-convention position:type:allele for every het, hom or
+        // repeat-indel candidate the read has an allele at.
+        constexpr uint32_t kListed = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom |
+                                     kCandNoisyCandHet | kCandNoisyCandHom | kCandNonAnchorHet;
+        for (const ReadVariantProfile& prof : bam.read_var_profile) {
+            if (prof.read_id < 0) continue;
+            const size_t ri = static_cast<size_t>(prof.read_id);
+            const ReadRecord& read = bam.reads[ri];
+            std::fprintf(fh, "%s\t%d\t%d\t%d\t%lld", read.qname.c_str(), read.mapq, read.is_skipped ? 1 : 0,
+                         ri < bam.haps.size() ? bam.haps[ri] : 0,
+                         static_cast<long long>(ri < bam.phase_sets.size() ? bam.phase_sets[ri] : 0));
+            for (size_t k = 0; prof.start_var_idx >= 0 && k < prof.alleles.size(); ++k) {
+                if (prof.alleles[k] < 0) continue;
+                const CandidateVariant& c = bam.candidates[static_cast<size_t>(prof.start_var_idx) + k];
+                const bool repeat = c.counts.category == VariantCategory::RepeatHetIndel;
+                if ((c.lcd_var_i_to_cate & kListed) == 0 && !repeat) continue;
+                std::fprintf(fh, "\t%lld:%c:%d", static_cast<long long>(c.key.sort_pos()), type_of(c), prof.alleles[k]);
+            }
+            std::fputc('\n', fh);
+        }
+        std::fclose(fh);
+    }
+    if (FILE* fh = std::fopen((std::string(diag_dir) + "/graph." + tag).c_str(), "w")) {
+        // VCF-convention position, key position, type, REF length, ALT,
+        // category code, voting (germline), catalog id, allele coverages.
+        for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+            const CandidateVariant& c = graph.candidates[ci];
+            std::string covs;
+            for (const int n : c.counts.alle_covs) covs += (covs.empty() ? "" : ",") + std::to_string(n);
+            const std::string id = ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string();
+            std::fprintf(fh, "%lld\t%lld\t%c\t%d\t%s\t%d\t%d\t%s\t%s\n",
+                         static_cast<long long>(c.key.sort_pos()), static_cast<long long>(c.key.pos), type_of(c),
+                         c.key.ref_len, c.key.alt.substr(0, 40).c_str(), static_cast<int>(c.counts.category),
+                         (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 ? 1 : 0,
+                         id.empty() ? "." : id.c_str(), covs.empty() ? "." : covs.c_str());
+        }
+        std::fclose(fh);
+    }
+}
+
+// One site per left-aligned allele: other placements become aliases whose
+// read calls fold into the canonical row. Regular sites come first: an
+// island-only call never absorbs one, and one at an allele a regular site
+// already carries is dropped. Returns alias -> canonical candidate.
+std::unordered_map<size_t, size_t> fold_aliases(Selection& sel, const PhasingChunk& bam) {
+    std::unordered_map<size_t, size_t> alias_of;
+    std::map<CandKey, size_t> canonical;
+    std::vector<size_t> kept;
+    std::stable_partition(sel.selected.begin(), sel.selected.end(),
+                          [&](size_t bi) { return sel.island_only.count(bi) == 0; });
+    for (const size_t bi : sel.selected) {
+        const auto [it, inserted] = canonical.emplace(left_aligned_indel_key(bam.candidates[bi], bam), bi);
+        if (inserted) kept.push_back(bi);
+        else if (sel.island_only.count(bi) == 0) alias_of.emplace(bi, it->second);
+    }
+    sel.selected = std::move(kept);
+    return alias_of;
+}
+
+}  // namespace
+
+size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
+                              const char* contig_name) {
+    PhasingChunk& graph = graph_chunk.chunk;
+    const VotingRows voting(graph);
+    const AlignmentSupport support(bam);
+    static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
+    Selection sel = select_sites(graph, bam, support, voting, diag_dir != nullptr);
+    if (diag_dir != nullptr) write_injection_diagnostics(diag_dir, graph_chunk, bam, support, sel);
+    if (sel.selected.empty()) return 0;
+    const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);
 
     // Merge in key order; every index-parallel array is rebuilt with the table.
     struct Slot { CandKey key; long graph_index; long bam_index; };
     std::vector<Slot> slots;
-    slots.reserve(graph.candidates.size() + selected.size());
+    slots.reserve(graph.candidates.size() + sel.selected.size());
     for (size_t ci = 0; ci < graph.candidates.size(); ++ci)
         slots.push_back(Slot{cand_key_of(graph.candidates[ci]), static_cast<long>(ci), -1});
-    for (const size_t bi : selected) {
+    for (const size_t bi : sel.selected) {
         CandidateVariant relabeled = bam.candidates[bi];
         relabeled.key.tid = graph.region.tid;
         slots.push_back(Slot{cand_key_of(relabeled), -1, static_cast<long>(bi)});
@@ -411,12 +456,12 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (cand.counts.alle_covs.size() < 2)
             cand.counts.alle_covs = {cand.counts.ref_cov, cand.counts.alt_cov};
         auto [meta, orig] = synthesize_alignment_site_meta(bam.candidates[bi], bam, contig_name);
-        cand.low_mapq_only = low_mapq_only.count(bi) != 0;
-        if (island_only.count(bi) != 0) {
+        cand.low_mapq_only = sel.low_mapq_only.count(bi) != 0;
+        if (sel.island_only.count(bi) != 0) {
             cand.island_only = true;
             cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
         }
-        if (complement_rows.count(bi) != 0 || island_only.count(bi) != 0) {
+        if (sel.complement_rows.count(bi) != 0 || sel.island_only.count(bi) != 0) {
             meta = GraphSiteMeta{};  // empty REF: the writer emits no record
             meta.chrom = contig_name != nullptr ? contig_name : std::string();
         }
@@ -435,7 +480,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     std::vector<std::vector<std::tuple<size_t, int, int>>> added_obs(graph.reads.size());
     const size_t old_profiles = graph.reads.size();
     std::unordered_map<size_t, const std::vector<size_t>*> complement_of_new;  // merged index -> graph rows
-    for (const auto& [bi, rows] : complement_rows) {
+    for (const auto& [bi, rows] : sel.complement_rows) {
         const auto it = bam_to_new.find(bi);
         if (it != bam_to_new.end()) complement_of_new.emplace(it->second, &rows);
     }
@@ -565,8 +610,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     graph.haps.resize(graph.reads.size(), 0);
     graph.phase_sets.resize(graph.reads.size(), kUnphasedReadPhaseSet);
     rebuild_read_var_cr(graph);
-    return selected.size();
+    return sel.selected.size();
 }
-// ── Global EM ───────────────────────────────────────────────────────────────
 
 } // namespace pgphase_collect
