@@ -1793,7 +1793,7 @@ static void refresh_assigned_msa_observations(const Options& opts,
     // longcallD's own DP 51 at the same locus), and the site silently
     // vanished from the phased VCF. A per-read "skip on failure" instead of
     // this per-variant one measurably regresses read-phasing accuracy
-    // chromosome-wide (evaluations/2026-09-20-refresh-observations-bug/):
+    // chromosome-wide:
     // it reintroduces the contamination on every partially-classifiable
     // variant to fix the rare fully-unclassifiable one.
     std::vector<bool> any_valid_call(vars.size(), false);
@@ -1833,12 +1833,7 @@ static void refresh_assigned_msa_observations(const Options& opts,
             ref_read.target_end = ref_read.query_end = ref_read.aln_len - 1;
             if (opts.gap_aln == kLeftGapAlignment) left_normalize_msa_alignment(ref_read);
             const int rid_ = clu_read_ids[ci][ri];
-            if (rid_ < 0 || static_cast<size_t>(rid_) >= profiles.size()) {
-                if (getenv("PGPHASE_UBPROBE") != nullptr)
-                    fprintf(stderr, "UB profiles.size=%zu index=%d clu=%d/%d\n",
-                            profiles.size(), rid_, ci, ri);
-                continue;
-            }
+            if (rid_ < 0 || static_cast<size_t>(rid_) >= profiles.size()) continue;
             auto& profile = profiles[static_cast<size_t>(rid_)];
             for (size_t vi = 0; vi < vars.size(); ++vi) {
                 if (vars[vi].counts.category != VariantCategory::NoisyCandHet) continue;
@@ -2099,7 +2094,7 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
                 if (ret > 0) any_new_var = true;
             }
         }
-        if (any_new_var && !opts.skip_noisy_kmeans) {
+        if (any_new_var) {
             assign_hap_based_on_germline_het_vars_kmeans(chunk, opts, kCandGermlineVarCate,
                                                          opts.anchored_stage2);
         }

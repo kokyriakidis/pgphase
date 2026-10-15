@@ -374,85 +374,24 @@ TEST_CASE("var_is_homopolymer_indel: rejects what it cannot judge") {
     }
 }
 
-TEST_CASE("select_stitch_orientation: net-margin rule (the default)") {
-    Options opts;
-    opts.stitch_rule = kStitchRuleNetMargin;
-    opts.stitch_min_margin = 0;
+TEST_CASE("select_stitch_orientation: net vote rule") {
     bool flip = false;
 
     SECTION("a clear same-orientation vote merges without flipping") {
         // n11 + n22 dominate: flip_hap_score = n12 + n21 - n11 - n22 < 0.
-        CHECK(select_stitch_orientation({30, 0, 0, 25}, &opts, flip));
+        CHECK(select_stitch_orientation({30, 0, 0, 25}, flip));
         CHECK_FALSE(flip);
     }
     SECTION("a clear crossed vote merges with a flip") {
-        CHECK(select_stitch_orientation({0, 30, 25, 0}, &opts, flip));
+        CHECK(select_stitch_orientation({0, 30, 25, 0}, flip));
         CHECK(flip);
     }
     SECTION("a tie abstains") {
-        CHECK_FALSE(select_stitch_orientation({10, 10, 10, 10}, &opts, flip));
-        CHECK_FALSE(select_stitch_orientation({0, 0, 0, 0}, &opts, flip));
+        CHECK_FALSE(select_stitch_orientation({10, 10, 10, 10}, flip));
+        CHECK_FALSE(select_stitch_orientation({0, 0, 0, 0}, flip));
     }
-    SECTION("margin 0 merges on a single net vote") {
-        CHECK(select_stitch_orientation({1, 0, 0, 0}, &opts, flip));
-    }
-    SECTION("a margin abstains on a net vote that does not exceed it") {
-        opts.stitch_min_margin = 2;
-        CHECK_FALSE(select_stitch_orientation({2, 0, 0, 0}, &opts, flip));
-        CHECK(select_stitch_orientation({3, 0, 0, 0}, &opts, flip));
-    }
-    SECTION("a null Options behaves as margin 0 with the default rule") {
-        CHECK(select_stitch_orientation({1, 0, 0, 0}, nullptr, flip));
-        CHECK_FALSE(select_stitch_orientation({0, 0, 0, 0}, nullptr, flip));
-    }
-}
-
-TEST_CASE("select_stitch_orientation: both-strands rule") {
-    Options opts;
-    opts.stitch_rule = kStitchRuleBothStrands;
-    bool flip = false;
-
-    SECTION("requires evidence on BOTH links of the winning orientation") {
-        // 30 no-flip votes, but only one of the two links carries any.
-        CHECK_FALSE(select_stitch_orientation({30, 0, 0, 0}, &opts, flip));
-        CHECK(select_stitch_orientation({30, 0, 0, 1}, &opts, flip));
-        CHECK_FALSE(flip);
-    }
-    SECTION("when both orientations qualify, the larger net wins") {
-        CHECK(select_stitch_orientation({5, 20, 20, 5}, &opts, flip));
-        CHECK(flip);
-        CHECK(select_stitch_orientation({20, 5, 5, 20}, &opts, flip));
-        CHECK_FALSE(flip);
-    }
-    SECTION("when both qualify equally, it abstains") {
-        CHECK_FALSE(select_stitch_orientation({10, 10, 10, 10}, &opts, flip));
-    }
-}
-
-TEST_CASE("select_stitch_orientation: literal and both-strands-margin rules") {
-    bool flip = false;
-
-    SECTION("the literal rule stitches contested seams on purpose") {
-        Options opts;
-        opts.stitch_rule = kStitchRuleLiteral;
-        CHECK(select_stitch_orientation({1, 1, 0, 0}, &opts, flip));
-        // One vote each way: the net decides the orientation.
-        CHECK(select_stitch_orientation({1, 5, 0, 0}, &opts, flip));
-        CHECK(flip);
-        // Nothing on one side: no merge.
-        CHECK_FALSE(select_stitch_orientation({5, 0, 0, 5}, &opts, flip));
-    }
-    SECTION("both-strands-margin needs both links AND a net above the margin") {
-        Options opts;
-        opts.stitch_rule = kStitchRuleBothStrandsMargin;
-        opts.stitch_min_margin = 3;
-        // Net is 20 and both crossed links carry votes.
-        CHECK(select_stitch_orientation({0, 10, 10, 0}, &opts, flip));
-        CHECK(flip);
-        // Net is only 2, below the margin.
-        CHECK_FALSE(select_stitch_orientation({4, 5, 3, 4}, &opts, flip));
-        // Net is large but one crossed link is empty.
-        CHECK_FALSE(select_stitch_orientation({0, 20, 0, 0}, &opts, flip));
+    SECTION("a single net vote merges") {
+        CHECK(select_stitch_orientation({1, 0, 0, 0}, flip));
     }
 }
 

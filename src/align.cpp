@@ -1960,8 +1960,7 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
         // with longcallD's own firing log, which prints Hap / NoHap / Skipped
         // per region at -V 1 (align.c:1792, :1798, :1800). The three labels are
         // chosen by the same rule on both sides, so a diff of the two logs is a
-        // diff of where the noisy MSA fires. See
-        // evaluations/2026-09-20-msa-firing-parity/.
+        // diff of where the noisy MSA fires.
         const char* branch = ps > 0 ? "Hap"
                            : (n_full_reads >= opts.min_depth ? "NoHap" : "Skipped");
         std::fprintf(stderr,

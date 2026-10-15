@@ -4,11 +4,9 @@
 #include "arg_parse.hpp"
 #include "collect_output.hpp"
 #include "collect_phase.hpp"
-#include "collect_phase_pgbam.hpp"
 #include "collect_phase_noisy.hpp"
 #include "collect_types.hpp"
 #include "collect_var.hpp"
-#include "gbz_ffi.h"
 #include "graph_bam_adapter.hpp"
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
@@ -625,8 +623,6 @@ static void process_graph_chunk(GraphChunkBuildResult& out,
             std::free(ref_raw);
         }
     }
-    // A repeat-context indel may earn its way back in before the solve.
-    promote_link_supported_repeat_indels(out, opts);
     lap();
 
     // With --bam, the alignment's sample-specific hets join the catalog's
@@ -676,9 +672,7 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     const std::string& batch_contig,
     const std::unordered_map<std::string, std::string>& chrom_remap,
     const Options& opts,
-    const PgbamSidecarData* pgbam_sidecar,
-    const std::function<ChunkRowFetcher()>& open_rows,
-    bool report_match_stats)
+    const std::function<ChunkRowFetcher()>& open_rows)
 {
     const size_t batch_size = batch_end - batch_begin;
     std::vector<GraphChunkBuildResult> graph_chunks(batch_size);
@@ -716,14 +710,14 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     for (std::thread& w : workers) w.join();
     if (first_error) std::rethrow_exception(first_error);
 
-    if (report_match_stats && opts.verbose >= 1) graph_query_report_match_stats();
+    if (opts.verbose >= 1) graph_query_report_match_stats();
     populate_graph_chunk_overlaps(graph_chunks);
 
     std::vector<PhasingChunk> phasing_chunks;
     phasing_chunks.reserve(batch_size);
     for (GraphChunkBuildResult& gc : graph_chunks)
         phasing_chunks.push_back(std::move(gc.chunk));
-    stitch_chunk_haps(phasing_chunks, &opts, pgbam_sidecar);
+    stitch_chunk_haps(phasing_chunks, &opts);
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
@@ -740,79 +734,6 @@ static std::string query_contig_of(const std::string& contig,
     return it != fai_full_to_suffix.end() ? it->second : contig;
 }
 
-// Reads from a GBZ graph and a GAF-base database (the legacy path): one
-// SQLite connection pair per worker thread; queries are clamped to the
-// reference path's range in the GBZ subgraph.
-static std::vector<GraphChunkBuildResult> process_graph_chunk_batch(
-    const std::string& sites_vcf,
-    const std::vector<RegionChunk>& chunks,
-    size_t batch_begin,
-    size_t batch_end,
-    const bam_hdr_t* header,
-    const GraphQueryConfig& qconfig,
-    const std::string& ref_sample,
-    const std::unordered_map<std::string, std::string>& fai_full_to_suffix,
-    const std::unordered_map<std::string, std::string>& chrom_remap,
-    const Options& opts,
-    const PgbamSidecarData* pgbam_sidecar)
-{
-    const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
-    const std::string query_contig = query_contig_of(batch_contig, fai_full_to_suffix);
-    // The genome-coordinate range of the reference path, once per batch, so
-    // chunks outside the GBZ subgraph are skipped or clamped.
-    PathRange path_range;
-    {
-        char* err = nullptr;
-        void* gbz_tmp = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
-        if (gbz_tmp) {
-            path_range = query_gbz_path_range(gbz_tmp, ref_sample, query_contig);
-            pgphase_gbz_close(gbz_tmp);
-            if (opts.verbose >= 2 && path_range.valid)
-                std::cerr << "GBZ path range for " << ref_sample << "#" << query_contig
-                          << ": [" << path_range.start << ", " << path_range.end << ")\n";
-        } else {
-            if (err) pgphase_gbz_free_string(err);
-        }
-    }
-    struct GbzGafHandles {
-        void* gbz = nullptr;
-        void* gaf = nullptr;
-        ~GbzGafHandles() {
-            if (gaf) pgphase_gaf_close(gaf);
-            if (gbz) pgphase_gbz_close(gbz);
-        }
-    };
-    const auto open_rows = [&]() -> ChunkRowFetcher {
-        const auto take_error = [](char* err) {
-            std::string msg = err ? std::string(err) : "unknown error";
-            if (err) pgphase_gbz_free_string(err);
-            return msg;
-        };
-        auto handles = std::make_shared<GbzGafHandles>();
-        char* err = nullptr;
-        handles->gbz = pgphase_gbz_open(qconfig.gbz_db.c_str(), &err);
-        if (!handles->gbz) throw std::runtime_error("failed to open GBZ: " + take_error(err));
-        handles->gaf = pgphase_gaf_open(qconfig.gaf_db.c_str(), &err);
-        if (!handles->gaf) throw std::runtime_error("failed to open GAF-base: " + take_error(err));
-        if (pgphase_gbz_gaf_validate(handles->gbz, handles->gaf, &err) != 0)
-            throw std::runtime_error("GBZ/GAF-base incompatible: " + take_error(err));
-        return [handles, &qconfig, &ref_sample, &query_contig, path_range](
-                   const RegionChunk& region, const GraphSiteCatalogView& view) -> std::vector<GraphReadAllele> {
-            hts_pos_t q_beg = region.beg - 1;
-            hts_pos_t q_end = region.end;
-            if (path_range.valid) {
-                q_beg = std::max(q_beg, path_range.start);
-                q_end = std::min(q_end, path_range.end);
-            }
-            if (q_beg >= q_end) return std::vector<GraphReadAllele>{};
-            return query_gbz_interval_gaf_ffi(handles->gbz, handles->gaf, ref_sample, query_contig, q_beg, q_end,
-                                              view, qconfig.min_mapq);
-        };
-    };
-    return run_graph_chunk_batch(sites_vcf, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
-                                 pgbam_sidecar, open_rows, /*report_match_stats=*/false);
-}
-
 // Reads from a tabix-indexed GAF file: each worker seeks directly to the
 // overlapping region -- only the relevant reads are decompressed and parsed,
 // making this efficient even for very large (100+ GB) GAF files.
@@ -826,48 +747,25 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     int min_mapq,
     const std::unordered_map<std::string, std::string>& fai_full_to_suffix,
     const std::unordered_map<std::string, std::string>& chrom_remap,
-    const Options& opts,
-    const PgbamSidecarData* pgbam_sidecar)
+    const Options& opts)
 {
     const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
     const std::string query_contig = query_contig_of(batch_contig, fai_full_to_suffix);
     const auto open_rows = [&]() -> ChunkRowFetcher {
         auto handle = std::make_shared<IndexedGafHandle>(gaf_file);
-        return [handle, &query_contig, &opts, min_mapq](const RegionChunk& region, const GraphSiteCatalogView& view) {
-            const hts_pos_t pad = static_cast<hts_pos_t>(opts.gaf_pad);
-            return scan_indexed_gaf_chunk(*handle, query_contig, std::max<hts_pos_t>(0, region.beg - 1 - pad),
-                                          region.end + pad, view, min_mapq);
+        return [handle, &query_contig, min_mapq](const RegionChunk& region, const GraphSiteCatalogView& view) {
+            return scan_indexed_gaf_chunk(*handle, query_contig, std::max<hts_pos_t>(0, region.beg - 1),
+                                          region.end, view, min_mapq);
         };
     };
     return run_graph_chunk_batch(sites_vcf, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
-                                 pgbam_sidecar, open_rows, /*report_match_stats=*/true);
+                                 open_rows);
 }
 
 void run_collect_graph_variation(const Options& opts) {
-    const bool use_indexed_gaf = !opts.gaf_file.empty();
-    if (!use_indexed_gaf) {
-        if (opts.gbz_db.empty())
-            throw std::runtime_error("--gbz-db is required for collect-graph-variation without --gaf");
-        if (opts.gaf_db.empty())
-            throw std::runtime_error("--gaf-db is required for collect-graph-variation without --gaf");
-    } else {
-        // The --gaf path requires a tabix-indexed, bgzip-compressed GAF with
-        // annotated coordinate columns so per-chunk region queries are efficient.
-        require_indexed_gaf(opts.gaf_file);
-        if (!opts.gbz_db.empty() || !opts.gaf_db.empty()) {
-            std::cerr << "Warning: --gaf provided; ignoring --gbz-db/--gaf-db\n";
-        }
-    }
-
-    // Load optional .pgbam sidecar for fallback chunk stitching.
-    std::unique_ptr<PgbamSidecarData> pgbam_sidecar;
-    if (!opts.pgbam_file.empty()) {
-        pgbam_sidecar = std::make_unique<PgbamSidecarData>(load_pgbam_sidecar(opts.pgbam_file));
-        if (opts.verbose >= 1)
-            std::cerr << "Loaded pgbam sidecar with "
-                      << pgbam_sidecar->set_to_threads.size() << " sets from "
-                      << opts.pgbam_file << "\n";
-    }
+    // The GAF must be bgzip-compressed and tabix-indexed on pggaf's annotated
+    // coordinate columns, so each chunk reads only its own region.
+    require_indexed_gaf(opts.gaf_file);
 
     // 1. Reference FASTA index first — needed to resolve autosome contig names for
     //    region filters, which are then passed to the VCF loader so only sites in the
@@ -987,27 +885,6 @@ void run_collect_graph_variation(const Options& opts) {
                   << opts.chunk_size << " bp, " << opts.threads << " thread(s))\n";
     }
 
-    // 7. Build per-chunk query config for the GBZ/GAF-base FFI path.
-    GraphQueryConfig qconfig;
-    qconfig.gbz_db   = opts.gbz_db;
-    qconfig.gaf_db   = opts.gaf_db;
-    qconfig.min_mapq  = opts.min_mapq;
-
-    // Derive the reference sample name for GBZ interval queries.
-    // For pangenome FASTAs ("CHM13#0#chr20") extract "CHM13".
-    // For plain FASTAs ("chr20") leave empty so query uses its GENERIC_SAMPLE default.
-    std::string ref_sample = opts.graph_sample;
-    if (ref_sample.empty()) {
-        const int nseq = faidx_nseq(fai.get());
-        for (int i = 0; i < nseq && ref_sample.empty(); ++i) {
-            const std::string name(faidx_iseq(fai.get(), i));
-            const size_t h = name.find('#');
-            if (h != std::string::npos && h > 0)
-                ref_sample = name.substr(0, h);
-        }
-    }
-    if (!use_indexed_gaf && opts.verbose >= 1 && !ref_sample.empty())
-        std::cerr << "Using reference sample \"" << ref_sample << "\" for GBZ interval queries\n";
 
     // 8. Open output streams.
     std::ofstream variant_out(opts.output_tsv);
@@ -1097,17 +974,9 @@ void run_collect_graph_variation(const Options& opts) {
             ++batch_end;
         }
 
-        std::vector<GraphChunkBuildResult> graph_chunks =
-            use_indexed_gaf
-                ? process_graph_chunk_batch_indexed_gaf(
-                      opts.graph_sites_vcf, chunks, batch_begin, batch_end,
-                      header.get(), opts.gaf_file, opts.min_mapq,
-                      fai_full_to_suffix, chrom_remap, opts,
-                      pgbam_sidecar.get())
-                : process_graph_chunk_batch(
-                      opts.graph_sites_vcf, chunks, batch_begin, batch_end,
-                      header.get(), qconfig, ref_sample, fai_full_to_suffix,
-                      chrom_remap, opts, pgbam_sidecar.get());
+        std::vector<GraphChunkBuildResult> graph_chunks = process_graph_chunk_batch_indexed_gaf(
+            opts.graph_sites_vcf, chunks, batch_begin, batch_end, header.get(), opts.gaf_file,
+            opts.min_mapq, fai_full_to_suffix, chrom_remap, opts);
 
 
         if (emit_phase_reads) {
@@ -1169,8 +1038,7 @@ void run_collect_graph_variation(const Options& opts) {
         // flush everything after each batch.
         if (emit_phased_bam) {
             for (const GraphChunkBuildResult& gc : graph_chunks)
-                merge_graph_chunk_into_read_rows(phased_bam_rows, gc,
-                                                 opts.min_read_hap_margin);
+                merge_graph_chunk_into_read_rows(phased_bam_rows, gc);
             flush_graph_phase_bam_after_merge(
                 phased_bam_fp.get(), phased_bam_hdr.get(),
                 phased_bam_rows, nullptr, phased_bam_emitted);
@@ -1212,45 +1080,26 @@ static void print_graph_collect_help() {
     std::cout
         << "Usage: pgphase collect-graph-variation [options]\n"
         << "\n"
+        << "Phase long reads from their pangenome graph alignments (GAF); with --bam,\n"
+        << "also from their linear alignments (union gap phasing).\n"
+        << "\n"
         << "Required:\n"
         << "      --ref FILE                Reference FASTA (indexed)\n"
         << "      --sites FILE              Sites VCF from build-snarl-catalog (bgzipped + tabix-indexed)\n"
-        << "\n"
-        << "Read input:\n"
         << "      --gaf FILE                Coordinate-indexed GAF from pggaf (bgzipped + tabix-indexed)\n"
-        << "      --gbz-db FILE             GBZ graph database (legacy --gaf-db path)\n"
-        << "      --gaf-db FILE             GAF-base read alignment database (legacy path)\n"
         << "\n"
-        << "Options:\n"
-        << "  -o, --output FILE             Output TSV [output.tsv]\n"
-        << "  -v, --vcf-output FILE         Candidate VCF output\n"
+        << "Input:\n"
+        << "      --bam FILE                Indexed BAM of the same reads: alignment-only sites and\n"
+        << "                                reads join each chunk's graph solve (recommended;\n"
+        << "                                --min-mapq defaults to 1 with --bam)\n"
+        << "\n"
+        << "Output:\n"
+        << "  -o, --output FILE             Candidate TSV [output.tsv]\n"
+        << "  -v, --vcf-output FILE         Candidate VCF\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
-        << "      --link-earned-repeat-indels  Re-admit a repeat-context het indel when it\n"
-        << "                                agrees with a nearby clean het SNP on >= 15 reads\n"
-        << "      --bam FILE                Indexed BAM for union gap phasing: alignment-only\n"
-        << "                                sites and reads join each chunk's graph solve\n"
-        << "                                (--min-mapq defaults to 1 with --bam)\n"
-        << "      --filtered-sites-out FILE Diagnostic TSV of dropped catalog sites and why\n"
-        << "      --phase-sites-out FILE    Diagnostic TSV of retained graph sites with SITE_ID\n"
-        << "      --phase-reads-out FILE    Diagnostic TSV of per-read phasing evidence\n"
-        << "      --phase-matrix-dump PATH  Dump phasing inputs and incoming assignments\n"
-        << "      --graph-indel-af-margin F  Max |AF-0.5| for a het-indel k-means anchor [0.11]\n"
-        << "      --graph-indel-min-alt INT  Min alt support for a het-indel k-means anchor [0]\n"
-        << "      --min-read-margin INT     Min clean-SNP (agree-conflict) to phase a read [0=off]\n"
-        << "      --stitch-min-margin INT   Abstain on chunk seams below this vote margin [0]\n"
-        << "      --stitch-rule INT         0=net-margin 1=both-strands 2=literal 3=both+margin [0]\n"
-        << "      --anchor-af-margin F      Max |AF-0.5| for a site to vote in k-means [0.5=off]\n"
-        << "      --min-block-link-reads INT Spanning reads needed to carry a phase block [2]\n"
-        << "      --block-link-window INT   Preceding het variants searched for that link [1]\n"
-        << "      --link-by-alleles         Let untagged reads link variants by allele pattern\n"
-        << "      --emit-nonanchor-hets     Emit/phase hets outside --anchor-af-margin (never anchor)\n"
-        << "      --gaf-pad INT             Widen the per-chunk GAF read query by INT bp [0]\n"
-        << "      --snarl-allele-phasing    Score multi-allelic snarls as alt-vs-other, not alt-vs-ref\n"
-        << "      --snarl-keep-whole        Keep multi-allelic snarls as single n-allelic anchors\n"
-        << "      --snarl-top2-frac FLOAT   Min read share on a snarl's top 2 alleles to anchor [0.9]\n"
-        << "      --af-vs-site-depth        Score allele fraction against total site depth,\n"
-        << "                                recovering hets between two non-reference alleles\n"
+        << "\n"
+        << "Options:\n"
         << "  -t, --threads INT             Worker threads [1]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [5]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
@@ -1262,42 +1111,26 @@ static void print_graph_collect_help() {
         << "  -r, --region STR              Restrict to region (may be repeated)\n"
         << "      --region-file FILE        BED file of regions\n"
         << "      --autosome                Process chr1-22 / 1-22 only\n"
-        << "      --sample NAME             Reference sample name for GBZ interval queries\n"
-        << "                                (auto-derived from FASTA if not provided)\n"
-
         << "      --hifi                    HiFi read mode [default]\n"
         << "      --ont                     ONT read mode (enables strand-bias filter)\n"
         << "      --strand-bias-pval FLOAT  Max p-value for ONT strand-bias filter [0.01]\n"
-        << "\n"
-        << "Pgbam stitching:\n"
-        << "      --pgbam-file FILE         Optional .pgbam sidecar for fallback chunk stitching\n"
-        << "      --pgbam-primary-margin INT         Thread polarity margin for primary stitching [2]\n"
-        << "      --pgbam-primary-min-winning INT    Winning shared polarized threads for primary stitching [2]\n"
-        << "      --no-pgbam-cleanup-pass            Disable final .pgbam cleanup pass\n"
-        << "      --pgbam-cleanup-margin INT         Thread polarity margin for cleanup pass [2]\n"
-        << "      --pgbam-cleanup-min-winning INT    Winning shared polarized threads for cleanup pass [1]\n"
-        << "      --no-pgbam-relaxed-cleanup-pass    Disable relaxed .pgbam cleanup pass\n"
-        << "      --pgbam-relaxed-cleanup-margin INT Thread polarity margin for relaxed cleanup [1]\n"
-        << "      --pgbam-relaxed-cleanup-min-winning INT Winning threads for relaxed cleanup [1]\n"
-        << "\n"
         << "  -V, --verbose INT             Verbosity level [0]\n"
         << "  -h, --help                    Print this help\n"
         << "\n"
-        << "Examples:\n"
+        << "Diagnostics:\n"
+        << "      --filtered-sites-out FILE Catalog sites that did not become candidates, and why\n"
+        << "      --phase-sites-out FILE    Retained graph sites with SITE_ID\n"
+        << "      --phase-reads-out FILE    Per-read phasing evidence\n"
+        << "      --phase-matrix-dump PATH  Phasing inputs and incoming assignments\n"
+        << "\n"
+        << "Example:\n"
         << "  pgphase collect-graph-variation \\\n"
         << "      --ref ref.fa \\\n"
-        << "      --sites sites.vcf.gz \\\n"
-        << "      --gaf reads.gaf \\\n"
+        << "      --sites chr20.sites.vcf.gz \\\n"
+        << "      --gaf reads.coord.gaf.gz \\\n"
+        << "      --bam reads.bam \\\n"
         << "      --phased-vcf-out phased.vcf \\\n"
         << "      --phased-bam-out phased.bam \\\n"
-        << "      -t 8\n"
-        << "\n"
-        << "  pgphase collect-graph-variation \\\n"
-        << "      --ref ref.fa \\\n"
-        << "      --sites sites.vcf.gz \\\n"
-        << "      --gbz-db reads.gaf.db \\\n"
-        << "      --ont \\\n"
-        << "      --phased-vcf-out phased.vcf \\\n"
         << "      -t 16\n";
 }
 
@@ -1309,46 +1142,18 @@ enum GraphCollectOption {
     kGcMinSvLen,
     kGcChunkSize,
     kGcPhasedVcf,
-    kGcGbzDb,
     kGcGafFile,
-    kGcGafDb,
     kGcRegionFile,
     kGcAutosome,
-    kGcSample,
     kGcOnt,
     kGcHifi,
     kGcStrandBiasPval,
     kGcPhasedBam,
-    kGcLinkEarnedRepeatIndels,
     kGcRef,
     kGcSites,
-    kGcPgbamFile,
-    kGcPgbamPrimaryMargin,
-    kGcPgbamPrimaryMinWinning,
-    kGcNoPgbamCleanupPass,
-    kGcPgbamCleanupMargin,
-    kGcPgbamCleanupMinWinning,
-    kGcNoPgbamRelaxedCleanupPass,
-    kGcPgbamRelaxedCleanupMargin,
-    kGcPgbamRelaxedCleanupMinWinning,
     kGcFilteredSitesOut,
     kGcPhaseSitesOut,
     kGcPhaseReadsOut,
-    kGcGraphIndelAfMargin,
-    kGcGraphIndelMinAlt,
-    kGcMinReadHapMargin,
-    kGcStitchMinMargin,
-    kGcStitchRule,
-    kGcAnchorAfMargin,
-    kGcAfVsSiteDepth,
-    kGcBlockLink,
-    kGcBlockLinkWindow,
-    kGcLinkByAlleles,
-    kGcEmitNonAnchorHets,
-    kGcGafPad,
-    kGcSnarlAllelePhasing,
-    kGcSnarlKeepWhole,
-    kGcSnarlTop2Frac,
     kGcPhaseMatrixDump,
 };
 
@@ -1376,27 +1181,11 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
-        {"link-earned-repeat-indels", no_argument, nullptr, kGcLinkEarnedRepeatIndels},
         {"bam",              required_argument, nullptr, kGcBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
         {"phase-reads-out",   required_argument, nullptr, kGcPhaseReadsOut},
         {"phase-matrix-dump", required_argument, nullptr, kGcPhaseMatrixDump},
-        {"graph-indel-af-margin", required_argument, nullptr, kGcGraphIndelAfMargin},
-        {"graph-indel-min-alt",   required_argument, nullptr, kGcGraphIndelMinAlt},
-        {"min-read-margin",   required_argument, nullptr, kGcMinReadHapMargin},
-        {"stitch-min-margin", required_argument, nullptr, kGcStitchMinMargin},
-        {"stitch-rule",       required_argument, nullptr, kGcStitchRule},
-        {"anchor-af-margin",  required_argument, nullptr, kGcAnchorAfMargin},
-        {"af-vs-site-depth",  no_argument,       nullptr, kGcAfVsSiteDepth},
-        {"min-block-link-reads", required_argument, nullptr, kGcBlockLink},
-        {"block-link-window",    required_argument, nullptr, kGcBlockLinkWindow},
-        {"link-by-alleles",      no_argument,       nullptr, kGcLinkByAlleles},
-        {"emit-nonanchor-hets",  no_argument,       nullptr, kGcEmitNonAnchorHets},
-        {"gaf-pad",              required_argument, nullptr, kGcGafPad},
-        {"snarl-allele-phasing", no_argument,       nullptr, kGcSnarlAllelePhasing},
-        {"snarl-keep-whole",     no_argument,       nullptr, kGcSnarlKeepWhole},
-        {"snarl-top2-frac",      required_argument, nullptr, kGcSnarlTop2Frac},
         {"threads",           required_argument, nullptr, 't'},
         {"min-mapq",          required_argument, nullptr, 'q'},
         {"min-depth",         required_argument, nullptr, 'D'},
@@ -1410,23 +1199,11 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"autosome",          no_argument,       nullptr, kGcAutosome},
         {"gaf",               required_argument, nullptr, kGcGafFile},
         {"gaf-file",          required_argument, nullptr, kGcGafFile},
-        {"gbz-db",            required_argument, nullptr, kGcGbzDb},
-        {"gaf-db",            required_argument, nullptr, kGcGafDb},
-        {"sample",            required_argument, nullptr, kGcSample},
         {"hifi",              no_argument,       nullptr, kGcHifi},
         {"ont",               no_argument,       nullptr, kGcOnt},
         {"strand-bias-pval",  required_argument, nullptr, kGcStrandBiasPval},
         {"ref",               required_argument, nullptr, kGcRef},
         {"sites",             required_argument, nullptr, kGcSites},
-        {"pgbam-file",                required_argument, nullptr, kGcPgbamFile},
-        {"pgbam-primary-margin",      required_argument, nullptr, kGcPgbamPrimaryMargin},
-        {"pgbam-primary-min-winning", required_argument, nullptr, kGcPgbamPrimaryMinWinning},
-        {"no-pgbam-cleanup-pass",     no_argument,       nullptr, kGcNoPgbamCleanupPass},
-        {"pgbam-cleanup-margin",      required_argument, nullptr, kGcPgbamCleanupMargin},
-        {"pgbam-cleanup-min-winning", required_argument, nullptr, kGcPgbamCleanupMinWinning},
-        {"no-pgbam-relaxed-cleanup-pass", no_argument,   nullptr, kGcNoPgbamRelaxedCleanupPass},
-        {"pgbam-relaxed-cleanup-margin", required_argument, nullptr, kGcPgbamRelaxedCleanupMargin},
-        {"pgbam-relaxed-cleanup-min-winning", required_argument, nullptr, kGcPgbamRelaxedCleanupMinWinning},
         {"verbose",           required_argument, nullptr, 'V'},
         {"help",              no_argument,       nullptr, 'h'},
         {nullptr, 0, nullptr, 0}
@@ -1440,7 +1217,6 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
-            case kGcLinkEarnedRepeatIndels: opts.link_earned_repeat_indels = true; break;
             // Union gap phasing: alignment-only sites and reads join each
             // chunk's graph solve.
             case kGcBam:  opts.bam_files.push_back(optarg); break;
@@ -1449,37 +1225,6 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcPhaseSitesOut: opts.output_phase_sites = optarg; break;
             case kGcPhaseReadsOut: opts.output_phase_reads = optarg; break;
             case kGcPhaseMatrixDump: opts.phase_matrix_dump_prefix = optarg; break;
-            case kGcGraphIndelAfMargin:
-                opts.graph_indel_af_margin = parse_double_arg(optarg, "--graph-indel-af-margin");
-                break;
-            case kGcGraphIndelMinAlt:
-                opts.graph_indel_min_alt = parse_int_arg(optarg, "--graph-indel-min-alt");
-                break;
-            case kGcMinReadHapMargin:
-                opts.min_read_hap_margin = parse_int_arg(optarg, "--min-read-margin");
-                break;
-            case kGcStitchMinMargin:
-                opts.stitch_min_margin = parse_int_arg(optarg, "--stitch-min-margin");
-                break;
-            case kGcStitchRule:
-                opts.stitch_rule = parse_int_arg(optarg, "--stitch-rule");
-                break;
-            case kGcAnchorAfMargin:
-                opts.anchor_af_margin = parse_double_arg(optarg, "--anchor-af-margin");
-                break;
-            case kGcAfVsSiteDepth: opts.af_vs_site_depth = true; break;
-            case kGcBlockLink:
-                opts.min_block_link_reads = parse_int_arg(optarg, "--min-block-link-reads");
-                break;
-            case kGcBlockLinkWindow:
-                opts.block_link_window = parse_int_arg(optarg, "--block-link-window");
-                break;
-            case kGcLinkByAlleles: opts.link_by_alleles = true; break;
-            case kGcEmitNonAnchorHets: opts.emit_nonanchor_hets = true; break;
-            case kGcGafPad: opts.gaf_pad = parse_int_arg(optarg, "--gaf-pad"); break;
-            case kGcSnarlAllelePhasing: opts.snarl_allele_phasing = true; break;
-            case kGcSnarlKeepWhole: opts.snarl_keep_whole = true; opts.snarl_allele_phasing = true; break;
-            case kGcSnarlTop2Frac: opts.snarl_top2_frac = parse_double_arg(optarg, "--snarl-top2-frac"); break;
             case 't': opts.threads = parse_int_arg(optarg, "--threads"); break;
             case 'q':
                 opts.min_mapq = parse_int_arg(optarg, "--min-mapq");
@@ -1498,23 +1243,11 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcRegionFile:   opts.region_file = optarg; break;
             case kGcAutosome:     opts.autosome = true; break;
             case kGcGafFile:      opts.gaf_file = optarg; break;
-            case kGcGbzDb:        opts.gbz_db = optarg; break;
-            case kGcGafDb:        opts.gaf_db = optarg; break;
-            case kGcSample:       opts.graph_sample = optarg; break;
             case kGcHifi:         opts.read_technology = ReadTechnology::Hifi; break;
             case kGcOnt:          opts.read_technology = ReadTechnology::Ont; break;
             case kGcStrandBiasPval: opts.strand_bias_pval = parse_double_arg(optarg, "--strand-bias-pval"); break;
             case kGcRef:          opts.ref_fasta = optarg; break;
             case kGcSites:        opts.graph_sites_vcf = optarg; break;
-            case kGcPgbamFile:      opts.pgbam_file = optarg; break;
-            case kGcPgbamPrimaryMargin: opts.pgbam_primary_polarity_margin = parse_int_arg(optarg, "--pgbam-primary-margin"); break;
-            case kGcPgbamPrimaryMinWinning: opts.pgbam_primary_min_winning_threads = parse_int_arg(optarg, "--pgbam-primary-min-winning"); break;
-            case kGcNoPgbamCleanupPass: opts.pgbam_cleanup_pass = false; break;
-            case kGcPgbamCleanupMargin: opts.pgbam_cleanup_polarity_margin = parse_int_arg(optarg, "--pgbam-cleanup-margin"); break;
-            case kGcPgbamCleanupMinWinning: opts.pgbam_cleanup_min_winning_threads = parse_int_arg(optarg, "--pgbam-cleanup-min-winning"); break;
-            case kGcNoPgbamRelaxedCleanupPass: opts.pgbam_relaxed_cleanup_pass = false; break;
-            case kGcPgbamRelaxedCleanupMargin: opts.pgbam_relaxed_cleanup_polarity_margin = parse_int_arg(optarg, "--pgbam-relaxed-cleanup-margin"); break;
-            case kGcPgbamRelaxedCleanupMinWinning: opts.pgbam_relaxed_cleanup_min_winning_threads = parse_int_arg(optarg, "--pgbam-relaxed-cleanup-min-winning"); break;
             case 'V': opts.verbose = parse_int_arg(optarg, "--verbose"); break;
             case 'h': print_graph_collect_help(); return 0;
             default:  print_graph_collect_help(); return 1;
@@ -1532,8 +1265,8 @@ int collect_graph_variation(int argc, char* argv[]) {
 
     require_graph_site_vcf_tabix_index(opts.graph_sites_vcf);
 
-    if (opts.gaf_file.empty() && (opts.gbz_db.empty() || opts.gaf_db.empty())) {
-        std::cerr << "Error: provide --gaf, or provide --gbz-db and --gaf-db\n";
+    if (opts.gaf_file.empty()) {
+        std::cerr << "Error: --gaf is required\n";
         print_graph_collect_help();
         return 1;
     }

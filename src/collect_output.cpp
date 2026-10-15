@@ -185,8 +185,15 @@ void write_variants(const Options& opts, faidx_t* fai, const CandidateTable& var
  * @param opts Program options (reserved; currently unused in the header text).
  * @param header BAM header containing reference names and lengths.
  */
+// "pgphase <subcommand>": the first two words of the recorded command line.
+static std::string vcf_source(const Options& opts) {
+    const std::string& cl = opts.command_line;
+    const size_t a = cl.find(' ');
+    if (a == std::string::npos) return "pgphase collect-bam-variation";
+    return cl.substr(0, cl.find(' ', a + 1));
+}
+
 void write_variants_vcf_header(std::ostream& out, const Options& opts, const bam_hdr_t* header) {
-    (void)opts;
     out << "##fileformat=VCFv4.2\n";
     {
         std::time_t t = std::time(nullptr);
@@ -196,7 +203,7 @@ void write_variants_vcf_header(std::ostream& out, const Options& opts, const bam
             out << "##fileDate=" << date_buf << "\n";
         }
     }
-    out << "##source=pgphase collect-bam-variation\n";
+    out << "##source=" << vcf_source(opts) << "\n";
     out << "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
     out << "##FILTER=<ID=LowQual,Description=\"Low quality variant\">\n";
     out << "##FILTER=<ID=RefCall,Description=\"Reference call candidate\">\n";
@@ -218,7 +225,6 @@ void write_variants_vcf_header(std::ostream& out, const Options& opts, const bam
 }
 
 void write_phased_variants_vcf_header(std::ostream& out, const Options& opts, const bam_hdr_t* header) {
-    (void)opts;
     out << "##fileformat=VCFv4.2\n";
     {
         std::time_t t = std::time(nullptr);
@@ -228,7 +234,7 @@ void write_phased_variants_vcf_header(std::ostream& out, const Options& opts, co
             out << "##fileDate=" << date_buf << "\n";
         }
     }
-    out << "##source=pgphase collect-bam-variation\n";
+    out << "##source=" << vcf_source(opts) << "\n";
     out << "##FILTER=<ID=PASS,Description=\"All filters passed\">\n";
     out << "##FILTER=<ID=LowQual,Description=\"Low quality variant\">\n";
     out << "##FILTER=<ID=RefCall,Description=\"Reference call candidate\">\n";

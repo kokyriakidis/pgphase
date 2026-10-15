@@ -7,8 +7,6 @@ haplotype sampling test data from
 
 ## Running the graph pipeline
 
-### Tabix-indexed GAF (current API)
-
 ```bash
 ./pgphase collect-graph-variation \
   --ref test_data/graph/ref.fa.gz \
@@ -50,31 +48,17 @@ To restrict to a single locus:
 | `ref.fa.gz` | Reference FASTA (bgzipped, N-padded to genome coordinates) |
 | `ref.fa.gz.fai` | FASTA index |
 | `ref.fa.gz.gzi` | bgzip index |
-| `micb-kir3dl1.gbz.db` | GBZ database (built by `gbz2db`, legacy API) |
-| `micb-kir3dl1_HG003.gaf.db` | GAF database (built by `gaf2db`, legacy API) |
 
 ### Notes on the reference FASTA
 
 The GBZ subgraph has offset paths (e.g., CHM13 chr6 starts at genome position
 31,350,872).  The reference FASTA is N-padded so that FASTA coordinates match
 genome coordinates.  This is required because pgphase tiles the FASTA into
-chunks and uses those coordinates for GBZ interval queries.
+chunks and uses those coordinates for its region queries.
 
 ## Regenerating derived files
 
 ```bash
-# GBZ database
-third_party/gbz-base/target/release/gbz2db \
-  test_data/graph/micb-kir3dl1.gbz \
-  test_data/graph/micb-kir3dl1.gbz.db
-
-# GAF database
-third_party/gbz-base/target/release/gaf2db \
-  -r test_data/graph/micb-kir3dl1.gbz \
-  -o test_data/graph/micb-kir3dl1_HG003.gaf.db \
-  --overwrite \
-  test_data/graph/micb-kir3dl1_HG003.gaf
-
 # Sites VCF (requires vg)
 ./pgphase build-snarl-catalog \
   --ref-sample CHM13 \

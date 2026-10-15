@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Parity / regression gates for `collect-bam-variation` using fixture golden outputs.
+# Regression gates: collect-bam-variation and collect-graph-variation against fixture golden outputs.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PGPHASE="${PGPHASE:-$ROOT/pgphase}"
@@ -161,3 +161,57 @@ if [[ -f "$ONT_FA" && -f "$ONT_BAM" ]]; then
 else
   echo "skip: ONT fixture not present (FA=$ONT_FA BAM=$ONT_BAM)"
 fi
+
+# --- collect-graph-variation ---------------------------------------------------
+# Graph-only on the MICB-KIR3DL1 graph slice, and union gap phasing (--bam) on
+# the chr20:25.0-25.5 Mb slice. Both are compared with committed goldens, the
+# union run at 1 and 4 threads.
+GRAPH_DIR="${GRAPH_DIR:-$ROOT/test_data/graph}"
+CHR20_DIR="${CHR20_DIR:-$ROOT/test_data/graph_chr20}"
+GRAPH_EXPECTED_TSV="${GRAPH_EXPECTED_TSV:-$ROOT/test_data/expected/graph_micb_expected.tsv}"
+UNION_EXPECTED_TSV="${UNION_EXPECTED_TSV:-$ROOT/test_data/expected/union_chr20_expected.tsv}"
+UNION_EXPECTED_VCF="${UNION_EXPECTED_VCF:-$ROOT/test_data/expected/union_chr20_expected.phased.vcf}"
+
+run_graph() {
+  local log
+  log="$(mktemp)"
+  set +e
+  "$PGPHASE" collect-graph-variation "$@" >"$log" 2>&1
+  local st=$?
+  set -e
+  if [[ "$st" -ne 0 ]]; then
+    cat "$log" >&2
+    rm -f "$log"
+    exit "$st"
+  fi
+  grep -oE 'Collected [0-9]+ candidate variant sites' "$log" | grep -oE '[0-9]+' | head -1
+  rm -f "$log"
+}
+
+check_golden() {
+  local what="$1" actual="$2" expected="$3" hasher="$4"
+  local a e
+  a="$("$hasher" "$actual")"
+  e="$("$hasher" "$expected")"
+  if [[ "$a" != "$e" ]]; then
+    echo "error: $what golden mismatch (sha256 $a expected $e)" >&2
+    echo "       expected: $expected" >&2
+    echo "       actual:   $actual" >&2
+    exit 1
+  fi
+  echo "ok: $what golden match ($a)"
+}
+
+g_tsv="$TMPDIR/pgphase_validate_graph.tsv"
+count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_DIR/micb-kir3dl1.sites.vcf.gz" \
+  --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
+check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
+
+for t in 1 4; do
+  count_u="$(run_graph -t "$t" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
+    --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
+    -o "$TMPDIR/pgphase_validate_union_t$t.tsv" \
+    --phased-vcf-out "$TMPDIR/pgphase_validate_union_t$t.phased.vcf")"
+  check_golden "union TSV t$t (sites=$count_u)" "$TMPDIR/pgphase_validate_union_t$t.tsv" "$UNION_EXPECTED_TSV" hash_file
+  check_golden "union phased VCF t$t" "$TMPDIR/pgphase_validate_union_t$t.phased.vcf" "$UNION_EXPECTED_VCF" hash_vcf_stable
+done

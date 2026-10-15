@@ -51,11 +51,7 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
             const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
             if (orig.size() < 2 || orig[1] < 1 || static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
             const long sel = static_cast<long>(meta.alts[static_cast<size_t>(orig[1]) - 1].size());
-            if (std::abs(sel - static_cast<long>(meta.ref.size())) == 1 && !meta.non_selected_alt_class) weak[ci] = 1;
-            if (meta.non_selected_alt_class)
-                for (size_t a = 0; a < meta.alts.size(); ++a)
-                    if (static_cast<int>(a) + 1 != orig[1] && std::abs(sel - static_cast<long>(meta.alts[a].size())) == 1)
-                        weak[ci] = 1;
+            if (std::abs(sel - static_cast<long>(meta.ref.size())) == 1) weak[ci] = 1;
         }
     }
     return weak;

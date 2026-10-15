@@ -298,38 +298,10 @@ void classify_graph_candidates(PhasingChunk& chunk, const Options& opts) {
         }
 
         // Surviving het — type-aware classification.
-        //
-        // Allele fraction gates k-means participation for every site, not just
-        // indels.  Where the graph collapses two paralogous loci into one, reads
-        // from both pile up together: a site that is het on one copy and hom on
-        // the other lands near AF 0.25 or 0.75, which clears the 0.20/0.80
-        // depth filters and then votes as if it were a haplotype marker.  The
-        // pipeline consequently separates paralogs rather than haplotypes, and
-        // does so *confidently* -- on HG002 chr20:65.99-66.21 Mb the discordant
-        // reads carry a higher evidence margin (24) than the concordant ones
-        // (16).  In that window 32.9% of anchors sit outside AF 0.35-0.65
-        // against 11.8% chromosome-wide.
-        //
-        // Only lcd_var_i_to_cate changes: the site is still emitted as a call,
-        // it just stops voting.
-        const bool af_centred =
-            std::abs(c.allele_fraction - 0.5) <= opts.anchor_af_margin;
-        // The comment above says the site "is still emitted as a call, it just
-        // stops voting" -- but kLongcalldLowAfVar is outside kCandGermlineClean,
-        // which is what gates VCF output, so the site was in fact dropped
-        // entirely.  kCandNonAnchorHet expresses the stated intent: outside the
-        // anchor mask, inside the germline mask.
-        const uint32_t non_anchor_cate =
-            opts.emit_nonanchor_hets ? kCandNonAnchorHet : kLongcalldLowAfVar;
         if (cand.key.type == VariantType::Snp) {
             c.category = VariantCategory::CleanHetSnp;
             c.candvarcate_initial = VariantCategory::CleanHetSnp;
-            cand.lcd_var_i_to_cate =
-                af_centred ? kCandCleanHetSnp : non_anchor_cate;
-        } else if (!af_centred) {
-            c.category = VariantCategory::CleanHetIndel;
-            c.candvarcate_initial = VariantCategory::CleanHetIndel;
-            cand.lcd_var_i_to_cate = non_anchor_cate;
+            cand.lcd_var_i_to_cate = kCandCleanHetSnp;
         } else {
             c.category = VariantCategory::CleanHetIndel;
             c.candvarcate_initial = VariantCategory::CleanHetIndel;
@@ -351,71 +323,6 @@ void rebuild_read_var_cr(PhasingChunk& chunk) {
     }
     cr_index(cr);
     chunk.read_var_cr.reset(cr);
-}
-
-size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
-                                            const Options& opts) {
-    if (!opts.link_earned_repeat_indels) return 0;
-    PhasingChunk& chunk = result.chunk;
-    const size_t n = chunk.candidates.size();
-    if (n == 0) return 0;
-
-    // Per-candidate read alleles, binarised: 0 reference, 1 any alt. The
-    // profile carries an allele index, and which alt a read carries does not
-    // matter for agreement with a biallelic neighbour.
-    std::vector<std::vector<std::pair<int, int>>> obs(n);  // (read_id, 0|1)
-    for (const ReadVariantProfile& prof : chunk.read_var_profile) {
-        if (prof.start_var_idx < 0) continue;
-        for (size_t k = 0; k < prof.alleles.size(); ++k) {
-            const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
-            if (ci >= n) break;
-            const int a = prof.alleles[k];
-            if (a < 0) continue;
-            obs[ci].emplace_back(prof.read_id, a == 0 ? 0 : 1);
-        }
-    }
-
-    std::vector<size_t> trusted;
-    for (size_t i = 0; i < n; ++i)
-        if (chunk.candidates[i].counts.category == VariantCategory::CleanHetSnp)
-            trusted.push_back(i);
-    if (trusted.empty()) return 0;
-
-    size_t promoted = 0;
-    for (size_t i = 0; i < n; ++i) {
-        CandidateVariant& cand = chunk.candidates[i];
-        if (cand.counts.category != VariantCategory::RepeatHetIndel) continue;
-        if (obs[i].size() < static_cast<size_t>(opts.link_earned_min_reads)) continue;
-        std::map<int, int> mine;
-        for (const auto& o : obs[i]) mine[o.first] = o.second;
-
-        // Nearest trusted neighbours on either side, by candidate order.
-        const auto it = std::lower_bound(trusted.begin(), trusted.end(), i);
-        std::vector<size_t> near;
-        for (auto j = it; j != trusted.end() && near.size() < 3; ++j) near.push_back(*j);
-        for (auto j = it; j != trusted.begin() && near.size() < 6;) near.push_back(*--j);
-
-        bool earned = false;
-        for (size_t j : near) {
-            int same = 0, cross = 0;
-            for (const auto& o : obs[j]) {
-                const auto f = mine.find(o.first);
-                if (f == mine.end()) continue;
-                if (f->second == o.second) ++same;
-                else ++cross;
-            }
-            const int total = same + cross;
-            if (total < opts.link_earned_min_reads) continue;
-            const double purity = static_cast<double>(std::max(same, cross)) / total;
-            if (purity >= opts.link_earned_min_purity) { earned = true; break; }
-        }
-        if (!earned) continue;
-        cand.counts.category = VariantCategory::CleanHetIndel;
-        cand.counts.candvarcate_initial = VariantCategory::CleanHetIndel;
-        cand.lcd_var_i_to_cate = kCandCleanHetIndel;
-        ++promoted;
-    }
-    return promoted;
 }
 
 void apply_graph_noise_filter(GraphChunkBuildResult& result,
@@ -511,7 +418,7 @@ private:
 
     struct SiteAlleleEntry { int site_i; int packed; };
     // Each original site's surviving pairs after decomposition: the new
-    // candidate and the Phase 1 alt it holds (-1: the whole snarl, alleles kept).
+    // candidate and the Phase 1 alt it holds.
     struct NewPairEntry { int new_idx; int old_alt_phase1; };
 
     const GraphSiteCatalogView& catalog_;
@@ -537,7 +444,6 @@ private:
     std::vector<std::vector<int>> allele_remap_;
     std::vector<std::vector<int>> allele_orig_idx_;
     std::vector<std::vector<NewPairEntry>> old_site_to_pairs_;
-    std::vector<bool> source_is_multi_;
 
     void init_chunk() {
         out_.chunk.region.chunk_id = chunk_id_;
@@ -841,78 +747,14 @@ private:
         std::vector<std::vector<int>> orig_idx;
     };
 
-    // Keep a multi-allelic snarl whole rather than splitting it into
-    // independent ref/alt questions.  k-means already works on integer
-    // allele indices -- hap_to_cons_alle[hap] is "which allele this
-    // haplotype carries", and any non-zero index projects as ALT -- so a
-    // snarl with n alleles can be a single anchor where two reads agree iff
-    // they carry the same allele.  That is well defined no matter how the
-    // reads distribute across the alleles, which binary contrasts are not:
-    // in a repeat snarl with 8+ alleles no single alt reaches an
-    // informative allele fraction, and the site is lost either way.
-    // Returns false when the snarl is too spread to keep whole and is to be
-    // decomposed instead; true when it was kept or filtered.
-    bool keep_snarl_whole(size_t i, int site_total, NewTables& t) {
-        const std::vector<int>& ac = allele_counts_[i];
-        int alt_total = 0;
-        for (size_t a = 1; a < ac.size(); ++a) alt_total += ac[a];
-        // Need two alleles with real support for the locus to say anything.
-        int n_supported = 0;
-        for (int c : ac) if (c >= opts_.min_alt_depth) ++n_supported;
-        if (site_total < opts_.min_depth || n_supported < 2) {
-            out_.filtered_sites.push_back({out_.site_ids[i], out_.site_meta[i].chrom, out_.site_meta[i].pos,
-                                           ac[0], alt_total, site_total, 0.0,
-                                           site_total < opts_.min_depth ? "low_depth" : "multiallelic_unsupported"});
-            return true;
-        }
-        // The sample is diploid: however many alleles the graph offers here,
-        // its reads should concentrate on at most two.  When they spread
-        // wider, the snarl is not resolving two haplotypes -- measured on
-        // HG002 chr20, within-haplotype allele purity falls from 99% at two
-        // alleles to 38% at sixteen -- and using it as an anchor assigns
-        // reads confidently to the wrong haplotype.  Nesting level does not
-        // predict this (LV0/LV1/LV2 purity is flat); allele spread does.
-        // Too spread to trust as a single n-allelic anchor -- but dropping it
-        // outright would discard signal the biallelic decomposition does
-        // extract, so it is decomposed instead of skipped.  (Dropping made the
-        // gate non-monotonic: tightening it removed anchors faster than it
-        // removed noise.)
-        std::vector<int> desc(ac);
-        std::sort(desc.begin(), desc.end(), std::greater<int>());
-        const int top2 = desc[0] + (desc.size() > 1 ? desc[1] : 0);
-        const double top2_frac = site_total > 0 ? static_cast<double>(top2) / site_total : 0.0;
-        if (top2_frac < opts_.snarl_top2_frac) return false;
-        const int new_idx = static_cast<int>(t.cands.size());
-        CandidateVariant whole = out_.chunk.candidates[i];
-        whole.counts.alle_covs       = ac;
-        whole.counts.n_uniq_alles    = static_cast<int>(ac.size());
-        whole.counts.ref_cov         = ac[0];
-        whole.counts.alt_cov         = alt_total;
-        whole.counts.total_cov       = site_total;
-        whole.counts.allele_fraction = site_total > 0 ? static_cast<double>(alt_total) / site_total : 0.0;
-        t.cands.push_back(whole);
-        t.ids.push_back(out_.site_ids[i]);
-        t.meta.push_back(out_.site_meta[i]);
-        t.allele_counts.push_back(ac);
-        t.fwd_strand.push_back(fwd_strand_counts_[i]);
-        t.rev_strand.push_back(rev_strand_counts_[i]);
-        t.orig_idx.push_back(allele_orig_idx_[i]);
-        // old_alt_phase1 = -1 marks "identity mapping": observations keep
-        // their allele index instead of collapsing to 0/1.
-        old_site_to_pairs_[i].push_back({new_idx, -1});
-        return true;
-    }
-
     // 6. Phase 2: decompose each surviving site into biallelic (ref vs alt_i)
     //    pairs, mirroring the BAM path where every candidate is a single
     //    ref/alt pair. AF and depth filters are applied per pair; filtered
     //    pairs go to out.filtered_sites. A read observing ref contributes
-    //    allele 0 to every pair from that site; with --snarl-allele-phasing, a
-    //    read observing alt_i contributes allele 1 to its own pair and allele
-    //    0 to the other pairs from that site.
+    //    allele 0 to every pair from that site, and a read observing alt_i
+    //    allele 1 to its own pair only.
     void decompose_sites() {
         old_site_to_pairs_.assign(n_cands_, {});
-        source_is_multi_.assign(n_cands_, false);
 
         // Overlapping/nested snarls can emit the same physical variant from different
         // sites. Keyed by snarl order_pos() these look distinct, but in minimal VCF
@@ -963,33 +805,10 @@ private:
             const int ref_c = ac[0];
             const std::string& meta_chrom = out_.site_meta[i].chrom;
             const hts_pos_t meta_pos = out_.site_meta[i].pos;
-            // Total depth across every observed allele at this site.  The default
-            // denominator, ref_c + alt_c, treats each alt as if the site were
-            // biallelic against the graph's reference allele.  Where no read carries
-            // that reference allele -- 34,698 sites on HG002 chr18, median alt depth
-            // 66 -- every alt then scores AF = 1.0 and the site is discarded as
-            // homozygous, however the reads actually split between the alts.  A het
-            // between two non-reference alleles is invisible to that model.
-            // Measuring against site depth makes such a site read as, say, 40/58 and
-            // 12/58 rather than 1.0 and 1.0.  For a biallelic site the two
-            // denominators are equal, so only multi-allele sites change.
-            int site_total = 0;
-            for (int c : ac) site_total += c;
-            // A multi-allelic snarl is not a set of independent ref/alt questions.
-            // For pair_i the meaningful contrast is "carries alt_i" vs "carries
-            // something else" -- a read on alt_j is direct evidence against alt_i,
-            // not a missing observation.  Scoring it that way makes an alt_1/alt_2
-            // heterozygote read as 0.5/0.5 instead of 1.0/1.0, which is what made it
-            // invisible.  (--af-vs-site-depth changed only the denominator and left
-            // the read profile monomorphic, which is why it degraded phasing.)
-            const bool multi = opts_.snarl_allele_phasing && ac.size() > 2;
-            source_is_multi_[i] = multi;
-            if (multi && opts_.snarl_keep_whole && keep_snarl_whole(i, site_total, t)) continue;
             for (size_t a = 1; a < ac.size(); ++a) {
                 const int alt_c   = ac[a];
-                const int pair_ref_c = multi ? (site_total - alt_c) : ref_c;
-                const int total_c = multi ? site_total
-                                          : (opts_.af_vs_site_depth ? site_total : ref_c + alt_c);
+                const int pair_ref_c = ref_c;
+                const int total_c = ref_c + alt_c;
                 const double af   = total_c > 0 ? static_cast<double>(alt_c) / total_c : 0.0;
                 const int orig_alt = allele_orig_idx_[i][a];
 
@@ -1011,13 +830,8 @@ private:
                     continue;
                 }
 
-                int fwd_ref = fc.empty() ? 0 : fc[0];
-                int rev_ref = rc_s.empty() ? 0 : rc_s[0];
-                if (multi) {
-                    fwd_ref = 0; rev_ref = 0;
-                    for (size_t b = 0; b < fc.size(); ++b) if (b != a) fwd_ref += fc[b];
-                    for (size_t b = 0; b < rc_s.size(); ++b) if (b != a) rev_ref += rc_s[b];
-                }
+                const int fwd_ref = fc.empty() ? 0 : fc[0];
+                const int rev_ref = rc_s.empty() ? 0 : rc_s[0];
                 const int fwd_alt = a < fc.size() ? fc[a] : 0;
                 const int rev_alt = a < rc_s.size() ? rc_s[a] : 0;
 
@@ -1081,7 +895,6 @@ private:
                 t.cands.push_back(pair_cand);
                 t.ids.push_back(pair_id);
                 t.meta.push_back(out_.site_meta[i]);
-                t.meta.back().non_selected_alt_class = multi;
                 t.allele_counts.push_back({ref_c, alt_c});
                 t.fwd_strand.push_back({fwd_ref, fwd_alt});
                 t.rev_strand.push_back({rev_ref, rev_alt});
@@ -1120,31 +933,14 @@ private:
                 const size_t old_si = static_cast<size_t>(o.site_index);
                 const auto& pairs = old_site_to_pairs_[old_si];
                 if (pairs.empty()) continue;
-                // Was the *original* snarl multi-allelic?  If so, a read carrying one
-                // alt is evidence against every other alt of that snarl, so it must
-                // appear in those pairs as allele 0 rather than be omitted.  Omitting
-                // it leaves each pair seeing only its own carriers -- monomorphic, and
-                // useless to k-means -- which is how alt-vs-alt heterozygotes became
-                // invisible even after their allele fractions were corrected.
-                const bool multi_src = old_si < source_is_multi_.size() && source_is_multi_[old_si];
                 // Fast path: biallelic site (one surviving pair) -- no loop needed.
                 if (pairs.size() == 1) {
                     if (cand_pruned[static_cast<size_t>(pairs[0].new_idx)]) continue;
-                    if (pairs[0].old_alt_phase1 < 0) {
-                        // Whole multi-allelic snarl: carry the allele index through.
-                        if (o.allele >= 0 && static_cast<size_t>(o.allele) < allele_remap_[old_si].size()) {
-                            const int mapped = allele_remap_[old_si][static_cast<size_t>(o.allele)];
-                            if (mapped >= 0) new_obs.push_back({pairs[0].new_idx, mapped});
-                        }
-                        continue;
-                    }
                     if (o.allele == 0) {
                         new_obs.push_back({pairs[0].new_idx, 0});
                     } else if (o.allele > 0 && static_cast<size_t>(o.allele) < allele_remap_[old_si].size()) {
                         if (allele_remap_[old_si][static_cast<size_t>(o.allele)] == pairs[0].old_alt_phase1)
                             new_obs.push_back({pairs[0].new_idx, 1});
-                        else if (multi_src)
-                            new_obs.push_back({pairs[0].new_idx, 0});
                     }
                     continue;
                 }
@@ -1158,7 +954,6 @@ private:
                         for (const NewPairEntry& pe : pairs) {
                             if (cand_pruned[static_cast<size_t>(pe.new_idx)]) continue;
                             if (pe.old_alt_phase1 == phase1_alt) new_obs.push_back({pe.new_idx, 1});
-                            else if (multi_src) new_obs.push_back({pe.new_idx, 0});
                         }
                     }
                 }
@@ -1211,8 +1006,8 @@ private:
 //   4. Parent-gated observation counting (child obs only counted when the
 //      read also observes a qualifying parent allele)
 //   5. Phase 1: drop individual alt alleles below min_alt_depth
-//   6. Phase 2: decompose multi-allelic sites into biallelic ref/alt pairs
-//      (or keep a snarl whole), apply depth + AF filters per pair
+//   6. Phase 2: decompose multi-allelic sites into biallelic ref/alt pairs,
+//      apply depth + AF filters per pair
 //   7. Classify surviving candidates (het/hom/low-cov/strand-bias), then
 //      Phase 3: remap read observations to biallelic pair space, drop pruned
 //   8. Build ReadVariantProfile + cgranges index for k-means
@@ -1454,7 +1249,6 @@ void rebuild_joint_candidate_loci(GraphChunkBuildResult& graph_chunk,
     for (size_t ci = 0; ci < graph_chunk.chunk.candidates.size(); ++ci) {
         if (ci >= graph_chunk.site_meta.size() || ci >= graph_chunk.site_allele_orig_idx.size()) continue;
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-        if (meta.non_selected_alt_class) continue;
         const CandidateVariant& row = graph_chunk.chunk.candidates[ci];
         const auto& original = graph_chunk.site_allele_orig_idx[ci];
         std::array<int, 2> local = {row.hap_to_cons_alle[1], row.hap_to_cons_alle[2]};
@@ -1513,7 +1307,6 @@ void phase_joint_graph_candidates(GraphChunkBuildResult& graph_chunk, const Opti
             return row.lcd_var_i_to_cate == first.lcd_var_i_to_cate &&
                 row.counts.category == first.counts.category && row.phase_set <= 0 &&
                 row.hap_to_cons_alle[1] < 0 && row.hap_to_cons_alle[2] < 0 &&
-                (!opts.snarl_allele_phasing || graph_chunk.site_meta[ci].alts.size() == 1) &&
                 row.msa_insertion_alts.empty() && !row.is_homopolymer_indel &&
                 !row.is_homopolymer_indel;
         });
@@ -2060,8 +1853,7 @@ size_t rescue_unphased_graph_reads(PhasingChunk& chunk) {
 
 void merge_graph_chunk_into_read_rows(
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
-    const GraphChunkBuildResult& gc,
-    int min_read_hap_margin) {
+    const GraphChunkBuildResult& gc) {
     const PhasingChunk& chunk = gc.chunk;
     for (const ReadVariantProfile& profile : chunk.read_var_profile) {
         const size_t read_i = static_cast<size_t>(profile.read_id);
@@ -2081,17 +1873,6 @@ void merge_graph_chunk_into_read_rows(
             chunk.gap_phase_sets[read_i] > 0) {
             hap = chunk.gap_haps[read_i];
             phase_set = chunk.gap_phase_sets[read_i];
-        }
-        // Read-confidence gate.  init_assign_read_hap_based_on_cons_alle commits a read to a
-        // haplotype on any non-zero score, with no minimum evidence: a read
-        // agreeing with a single clean het SNP and contradicting none is
-        // assigned as confidently as one agreeing with thirty.  On HG002 chr20
-        // those one-SNP-margin reads are 11% of reads and 69% of all phasing
-        // errors, at an 18x elevated error rate.  Leaving them unphased is
-        // better than guessing.
-        if (min_read_hap_margin > 0 &&
-            read.n_clean_agree_snps - read.n_clean_conflict_snps < min_read_hap_margin) {
-            hap = 0;
         }
 
         for (int site_i = profile.start_var_idx; site_i <= profile.end_var_idx; ++site_i) {

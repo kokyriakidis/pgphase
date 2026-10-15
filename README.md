@@ -1,214 +1,145 @@
 # pgphase
 
-Variant calling and haplotype phasing for long reads, with two pipelines:
+pgphase phases long reads (PacBio HiFi or ONT) using their alignments to a
+pangenome graph. Each read gets a haplotype (`HP`) and phase set (`PS`), and the
+heterozygous variants are written to a phased VCF.
 
-- **`collect-graph-variation`** — call and phase variants from pangenome graph alignments (coordinate-indexed GAF).
-- **`collect-bam-variation`** — call and phase SNPs/indels from BAM/CRAM alignments (HiFi, ONT, short reads).
-- **`build-snarl-catalog`** — preprocess a GBZ pangenome graph into a phasing site catalog VCF for `collect-graph-variation`.
+Variant sites come from the graph's snarls, so pgphase can phase on variation
+that a linear reference represents badly. Given the reads' linear alignments as
+well (`--bam`), it adds the sample's own heterozygous sites, those not in the
+graph, and phases both kinds of site together ("union gap phasing"). This is the
+recommended mode.
 
-## Prerequisites
+## Commands
 
-- C++17 compiler (GCC ≥ 8 or Clang ≥ 7)
-- [htslib](https://github.com/samtools/htslib) (development headers and library)
-- zlib, pthreads
-<!-- - Rust toolchain (for the `gbz-base` graph query tools; install via [rustup](https://rustup.rs/)) -->
-- [vg](https://github.com/vgteam/vg) (only needed for `build-snarl-catalog`)
-- [samtools](https://github.com/samtools/samtools) (optional; needed for `--refine-aln` coordinate sorting)
+| Command | What it does |
+|---|---|
+| `collect-graph-variation` | Phase reads from their graph alignments (GAF), optionally with their linear alignments (`--bam`) |
+| `collect-bam-variation` | Phase reads from linear alignments alone (BAM/CRAM); a C++ port of [longcallD](https://github.com/yangao07/longcallD)'s phasing |
+| `build-snarl-catalog` | Build the per-chromosome site catalog that `collect-graph-variation` reads |
 
-## Building
+## Installation
+
+Requirements:
+
+- a C++17 compiler (GCC 8+ or Clang 7+)
+- [htslib](https://github.com/samtools/htslib) with headers, zlib, pthreads
+- [vg](https://github.com/vgteam/vg), only for `build-snarl-catalog`
+- [pggaf](https://github.com/kokyriakidis/pggaf), to prepare the GAF input
+- [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
-
-# Build third-party libraries (WFA2, abPOA)
-make third-party-libs
-
-# Build the gbz-base Rust tools (query, gaf2db, gbz2db) — optional
-# make gbz-base
-
-# Build the evaluation toolchain (phase accuracy only; not needed to run pgphase)
-# make eval-tools      # third_party/minimap2 (v2.31) + third_party/hiphap
-
-# Verify the whole evaluation chain end to end (~1 min)
-# ./scripts/test_end_to_end.sh --asm /path/to/hg002v1.1.fasta
-
-# Build pgphase
-make -j$(nproc)
+make third-party-libs   # WFA2-lib and abPOA
+make -j"$(nproc)"
+./pgphase --version
 ```
 
-To build a portable self-contained bundle (binary + shared libraries + launcher):
-
-```bash
-make portable-bundle
-# Output: dist/pgphase-<os>-<arch>/
-```
+`make portable-bundle` writes a self-contained binary with its shared libraries
+to `dist/pgphase-<os>-<arch>/`.
 
 ## Quick start
 
-### Graph pipeline
+pgphase needs four inputs: the reference FASTA, a site catalog built from the
+graph, the reads' graph alignments as a coordinate-indexed GAF, and (recommended)
+the same reads' linear alignments as an indexed BAM.
 
-1. Build a site catalog from a pangenome GBZ:
+### 1. Build the site catalog (once per graph)
 
 ```bash
-# Precompute snarls once
-vg snarls -t 16 full.gbz > full.snarls.pb
+vg snarls -t 16 graph.gbz > graph.snarls      # once per graph
 
-# Build per-chromosome catalog VCFs
-for chr in chr{1..22} chrX chrY; do
-    vg chunk --gbz --contig $chr -x full.gbz -o /tmp/chunk_${chr}
+for chr in chr{1..22} chrX; do
     pgphase build-snarl-catalog \
-        --ref-sample CHM13 \
-        --contig $chr \
-        --snarls full.snarls.pb \
-        --threads 8 \
-        -o ${chr}.sites.vcf.gz \
-        /tmp/chunk_${chr}_graph_0_${chr}.gbz &
+        --ref-sample CHM13 --contig "$chr" --snarls graph.snarls -t 16 \
+        -o "$chr.sites.vcf.gz" graph.gbz
 done
-wait
 ```
 
-2. Annotate and index the GAF with [pggaf](https://github.com/kokyriakidis/pggaf):
+`build-snarl-catalog` runs `vg deconstruct -a` on the reference path
+`<ref-sample>#0#<contig>` and writes a bgzipped, tabix-indexed sites-only VCF.
+On a whole-genome HPRC graph this is the slow, memory-hungry step; each
+chromosome is an independent job.
+
+### 2. Index the GAF by reference coordinate
 
 ```bash
-# Add reference coordinate tags (rc/rb/re) to each alignment
-pggaf annotate-gaf \
-    --gaf reads.gaf \
-    --gbz full.gbz \
-    --ref-sample CHM13 \
-    --out-gaf reads.annotated.gaf \
-    --out-sets reads.pgs
-
-# Coordinate-sort and tabix-index for region queries
-pggaf index-gaf \
-    --in reads.annotated.gaf \
-    --out reads.coord.gaf.gz
+pggaf annotate-gaf --gaf reads.gaf --gbz graph.gbz --ref-sample CHM13 \
+    --out-gaf reads.annotated.gaf --out-sets reads.pgs
+pggaf index-gaf --in reads.annotated.gaf --out reads.coord.gaf.gz
 ```
 
-3. Run graph-based phasing:
+### 3. Phase
 
 ```bash
 pgphase collect-graph-variation \
-    --ref ref.fa \
+    --ref chm13.fa \
     --sites chr20.sites.vcf.gz \
     --gaf reads.coord.gaf.gz \
+    --bam reads.bam \
+    -r 'CHM13#0#chr20' \
+    -o candidates.tsv \
     --phased-vcf-out phased.vcf \
     --phased-bam-out phased.bam \
-    -t 8
-```
-
-The sites VCF must be bgzip-compressed with a tabix index (`.tbi` or `.csi`).
-
-### BAM pipeline (HiFi)
-
-```bash
-pgphase collect-bam-variation \
-    --ref ref.fa \
-    --bam hifi.bam \
-    --hifi \
-    --phased-vcf-out phased.vcf \
-    -o candidates.tsv \
-    -t 8
-```
-
-### BAM pipeline (ONT)
-
-```bash
-pgphase collect-bam-variation \
-    --ref ref.fa \
-    --bam ont.bam \
-    --ont \
-    --phased-vcf-out phased.vcf \
-    -o candidates.tsv \
     -t 16
 ```
 
-## Subcommands
+Leave out `--bam` to phase from the graph alignments alone.
 
-### `collect-graph-variation`
+## Outputs
 
-Collects and phases variants using a pangenome graph site catalog and coordinate-indexed GAF read alignments.
+| Option | Content |
+|---|---|
+| `-o FILE` | Every candidate site with its allele counts, category and phase |
+| `--phased-vcf-out FILE` | Heterozygous calls, phased (`GT:DP:AD:VAF:GQ:PS`) |
+| `--phased-bam-out FILE` | One unaligned record per read seen, with `HP` and `PS` tags when phased |
 
-**Inputs:**
-- A sites VCF from `build-snarl-catalog` (bgzipped + tabix-indexed)
-- A coordinate-indexed GAF from [pggaf](https://github.com/kokyriakidis/pggaf) (bgzipped + tabix-indexed)
+Read tags can be copied onto an aligned BAM by read name, for example for
+haplotype-aware variant calling.
 
-| Option | Description | Default |
-|---|---|---|
-| `--ref FILE` | Reference FASTA (indexed) | required |
-| `--sites FILE` | Sites VCF (bgzipped + tabix-indexed) | required |
-| `--gaf FILE` | Coordinate-indexed GAF from [pggaf](https://github.com/kokyriakidis/pggaf) (bgzipped + tabix) | required |
-| `--hifi` | HiFi read mode | default |
-| `--ont` | ONT read mode (enables strand-bias filter) | off |
-| `--strand-bias-pval FLOAT` | Max p-value for ONT strand-bias filter | 0.01 |
-| `-q INT` | Minimum mapping quality | 30 |
-| `--phased-vcf-out FILE` | Phased VCF | — |
-| `--phased-bam-out FILE` | Unaligned BAM with HP/PS tags | — |
-| `-r STR` | Restrict to region (repeatable) | whole genome |
-| `-t INT` | Worker threads | 1 |
-
-### `collect-bam-variation`
-
-Collects SNP/indel candidates from BAM/CRAM alignments and phases them using k-means clustering on read haplotype support.
-
-Key options:
+## `collect-graph-variation` options
 
 | Option | Description | Default |
 |---|---|---|
 | `--ref FILE` | Reference FASTA (indexed) | required |
-| `--bam FILE` | Input BAM/CRAM | required |
-| `--hifi` / `--ont` / `--short-reads` | Read technology mode | `--hifi` |
+| `--sites FILE` | Site catalog from `build-snarl-catalog` | required |
+| `--gaf FILE` | Coordinate-indexed GAF from pggaf | required |
+| `--bam FILE` | Indexed BAM of the same reads (union gap phasing) | off |
 | `-t INT` | Worker threads | 1 |
-| `-o FILE` | Candidate TSV output | `output.tsv` |
-| `--phased-vcf-out FILE` | Phased VCF (GT:DP:AD:VAF:GQ:PS) | — |
-| `--out-bam FILE` | Phased BAM with HP/PS tags | — |
-| `-r STR` | Restrict to region (repeatable) | whole genome |
-| `--autosome` | Process chr1–22 only | off |
-| `-q INT` | Minimum mapping quality | 30 |
-| `-D INT` | Minimum depth | 5 |
-| `--min-af FLOAT` | Minimum allele fraction | 0.20 |
-| `--pgbam-file FILE` | `.pgbam` sidecar for chunk stitching | — |
+| `-q INT` | Minimum mapping quality | 5 (1 with `--bam`) |
+| `-D INT` | Minimum total depth | 5 |
+| `--min-alt-depth INT` | Minimum alt depth | 2 |
+| `--min-af FLOAT` / `--max-af FLOAT` | Allele fraction band for a het | 0.20 / 0.80 |
+| `--chunk-size INT` | Region chunk size | 500000 (1000000 with `--bam`) |
+| `-r STR` / `--region-file FILE` | Restrict to regions | whole genome |
+| `--hifi` / `--ont` | Read technology | `--hifi` |
 
-Run `pgphase collect-bam-variation --help` for the full option list.
+`pgphase collect-graph-variation --help` lists everything, including
+diagnostic outputs.
 
-### `build-snarl-catalog`
+## `collect-bam-variation`
 
-Runs `vg deconstruct -a` on a GBZ graph and produces a bgzipped, tabix-indexed sites-only VCF for use with `collect-graph-variation`.
+Linear-only phasing, as in longcallD, for when no graph alignment is available:
 
-| Option | Description | Default |
-|---|---|---|
-| `--ref-sample STR` | Reference sample name (e.g. `CHM13`) | required |
-| `--contig STR` | Process one contig (recommended) | all |
-| `-o FILE` | Output bgzipped VCF | required |
-| `--snarls FILE` | Pre-built snarls file | recomputed |
-| `--vg-bin PATH` | Path to `vg` binary | `vg` |
-| `-t INT` | Threads for `vg deconstruct` | 4 |
+```bash
+pgphase collect-bam-variation --ref ref.fa --bam reads.bam --hifi \
+    -o candidates.tsv --phased-vcf-out phased.vcf -b phased.bam -t 16
+```
+
+Use `--ont` for ONT reads; `--help` lists all options.
 
 ## Testing
 
 ```bash
-# Run validation gates (requires test_data/)
-make check
-
-# Run unit tests
-make unit-tests
-
-# Compare BAM phasing functions and full k-means against original longcallD C
-make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD
+make unit-tests   # unit tests
+make check        # end-to-end golden tests on the bundled data in test_data/
 ```
 
-## Release
+`make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD` compiles
+longcallD's original C and checks the ported phasing functions against it.
 
-```bash
-# Build + portable bundle + tarball
-make release
+## Licence
 
-# Strict mode: fails if output differs from golden fixtures
-make release-strict
-```
-
-Output: `dist/pgphase-<os>-<arch>.tar.gz`
-
-## License
-
-See repository for license details.
+MIT; see `LICENSE`. Third-party code and its licences are listed in
+`THIRD_PARTY_NOTICES.md`.

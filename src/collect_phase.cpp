@@ -6,7 +6,6 @@
 #include "collect_phase.hpp"
 
 #include <stdexcept>
-#include "collect_phase_pgbam.hpp"
 
 #include <algorithm>
 #include <array>
@@ -564,35 +563,6 @@ int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int var1, i
     return -1;
 }
 
-// Link two variants by the allele pattern a read carries across them, without
-// requiring the read to have been assigned a haplotype.
-//
-// check_agree_haps() consults chunk.haps[read_i] and so ignores every unassigned
-// read.  That is a real loss: at the junctions where blocks break, most spanning
-// reads are untagged precisely *because* the block broke there, so the evidence
-// that would repair the break is discarded.  A read does not need a haplotype to
-// say "these two variants' alleles travel together on me" -- which is the edge a
-// read-backed phasing graph is built from.  Returns 1 if the read carries the
-// same haplotype's consensus at both variants, 0 if opposite ones, -1 if it does
-// not resolve both.
-int check_agree_alleles(const PhasingChunk& chunk, int read_i, int var1, int var2) {
-    const ReadVariantProfile& prof = chunk.read_var_profile[read_i];
-    if (var1 < prof.start_var_idx || var2 > prof.end_var_idx) return -1;
-    const int a1 = prof.alleles[var1 - prof.start_var_idx];
-    const int a2 = prof.alleles[var2 - prof.start_var_idx];
-    if (a1 < 0 || a2 < 0) return -1;
-    const CandidateVariant& v1 = chunk.candidates[var1];
-    const CandidateVariant& v2 = chunk.candidates[var2];
-    // Both are het here, so hap_to_cons_alle[1] != [2] and the match is unambiguous.
-    int h1 = 0, h2 = 0;
-    if (v1.hap_to_cons_alle[1] == a1) h1 = 1;
-    else if (v1.hap_to_cons_alle[2] == a1) h1 = 2;
-    if (v2.hap_to_cons_alle[1] == a2) h2 = 1;
-    else if (v2.hap_to_cons_alle[2] == a2) h2 = 2;
-    if (h1 == 0 || h2 == 0) return -1;
-    return (h1 == h2) ? 1 : 0;
-}
-
 using DiploidLinkCounts = std::array<std::array<int, 2>, 2>;
 
 
@@ -628,8 +598,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
         // is iterative -- the caller re-derives read labels from the flipped
         // consensus and calls this again -- so by convergence an inherited site
         // is already in the block's gauge and applying the parity double-counts
-        // it. Rejected and reverted; see
-        // evaluations/2026-09-20-inherited-parity/.
+        // it. Rejected and reverted.
         const bool hp_indel_blocks_link = var.is_homopolymer_indel;
         // A record carrying both of the locus' alleles was admitted to the link
         // list only when a gap link had vouched for it, which made every merged
@@ -664,16 +633,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
     int64_t max_b = 0;
     cgranges_t* cr = chunk.read_var_cr.get();
 
-    // Link each het var to a preceding one by spanning-read evidence.
-    //
-    // Search the configured number of preceding heterozygotes and retain the
-    // strongest supported edge. Ties keep the nearer edge because the scan is
-    // nearest first. The ordinary BAM defaults restrict this to one predecessor.
-    // The BAM defaults remain the upstream rule (one predecessor and two
-    // reads). Recovery can widen this local search through its copied Options;
-    // keeping the parameters here avoids a second link implementation.
-    const int window = std::max(1, opts.block_link_window);
-    const int min_link_reads = std::max(1, opts.min_block_link_reads);
+    // Link each het var to the preceding one by spanning-read evidence, as
+    // upstream does: one predecessor, and at least two supporting reads.
+    constexpr int window = 1;
+    constexpr int min_link_reads = 2;
     for (int hi = 1; hi < n_het; ++hi) {
         const int vi = valid_var_idx[het_var_idx[hi]];
         const int lo = std::max(0, hi - window);
@@ -685,20 +648,15 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             for (int64_t oi = 0; oi < ovlp_n; ++oi) {
                 const int read_i = (int)cr_label(cr, ovlp_b[oi]);
                 if (chunk.reads[read_i].is_skipped) continue;
-                const int agree = opts.link_by_alleles
-                        ? check_agree_alleles(chunk, read_i, vj, vi)
-                        : check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
+                const int agree = check_agree_haps(chunk, read_i, chunk.haps[read_i], vj, vi);
                 if (agree > 0) a++;
                 else if (agree == 0) c++;
             }
             // An MSA bridge must segregate both haplotypes. A large pile of
             // reference-only observations cannot compensate for missing or
             // contradictory support on the other allele.
-            const int support = opts.link_by_alleles
-                                    ? (a == c ? 0 : std::max(a, c))
-                                    : (opts.upstream_assign_hap
-                                           ? std::max(a, c)
-                                           : (a == c ? 0 : std::max(a, c)));
+            const int support = opts.upstream_assign_hap ? std::max(a, c)
+                                                         : (a == c ? 0 : std::max(a, c));
             // Require a net margin for additional repeat links. Read-level
             // disagreements alone do not establish a wrong block orientation.
             if (!opts.upstream_assign_hap &&
@@ -727,13 +685,10 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             continue;
         }
         const int hj = link_h[hi];
-        const int support = opts.link_by_alleles
-                                ? (link_agree[hi] == link_conflict[hi]
-                                       ? 0 : std::max(link_agree[hi], link_conflict[hi]))
-                                : (opts.upstream_assign_hap
-                                       ? std::max(link_agree[hi], link_conflict[hi])
-                                       : (link_agree[hi] == link_conflict[hi]
-                                              ? 0 : std::max(link_agree[hi], link_conflict[hi])));
+        const int support = opts.upstream_assign_hap
+                                ? std::max(link_agree[hi], link_conflict[hi])
+                                : (link_agree[hi] == link_conflict[hi]
+                                       ? 0 : std::max(link_agree[hi], link_conflict[hi]));
         if (hj < 0 || support < min_link_reads) {
             // No sufficiently supported link anywhere in the window -- break.
             // Carry the running parity unchanged, as orientation within a fresh
@@ -773,10 +728,7 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                 changed = 1;
                 // assign_hap.c swaps once per hap (1 then 2), returning the
                 // consensus to its original order while still reporting change.
-                // Allele-link recovery resolves orientation directly from
-                // the observed allele pair, so its parity must be applied even
-                // while read assignment follows the upstream BAM rule.
-                if (!opts.upstream_assign_hap || opts.link_by_alleles)
+                if (!opts.upstream_assign_hap)
                     std::swap(var.hap_to_cons_alle[1], var.hap_to_cons_alle[2]);
             }
         }
@@ -806,7 +758,7 @@ static int iter_update_var_hap_to_cons_alle(PhasingChunk& chunk, bool is_ont,
         if (chunk.reads[read_i].is_skipped) continue;
         // Apply phase-set-local updates to clean-candidate rounds first.
         // MSA-round scoping exposes unresolved repeat-link regressions;
-        // retain its existing update path (see CHECKPOINT.md).
+        // retain its existing update path.
         if (opts.upstream_assign_hap || (flags & kCandNoisyCandHet) ||
             !opts.phase_set_scoped_clean_rounds) {
             int hap = init_assign_read_hap_based_on_cons_alle(chunk, read_i, flags, std::nullopt,
@@ -944,8 +896,7 @@ bool read_carries_phase_tags(const int mapq, const Options& opts) {
 ///   kCandGermlineClean   -- clean het SNPs, clean het indels, clean hom. The
 ///                           first solve, and the only one the default runs.
 ///   kCandGermlineVarCate -- that mask PLUS noisy het and noisy hom. What
-///                           collect_noisy_vars_step4 uses once
-///                           skip_noisy_kmeans is clear.
+///                           collect_noisy_vars_step4 uses.
 ///
 /// It is a GLOBAL clustering with NO pairwise evidence test, which is the
 /// property to keep in mind when widening `flags`: any admitted site can act as
@@ -1153,80 +1104,16 @@ static void apply_chunk_flip_and_merge(PhasingChunk& cur,
     }
 }
 
-bool select_stitch_orientation(const std::array<int, 4>& votes,
-                               const Options* opts, bool& do_flip) {
-    const int n11 = votes[0], n12 = votes[1], n21 = votes[2], n22 = votes[3];
-    const int flip_hap_score = n12 + n21 - n11 - n22;
-    const int margin = (opts != nullptr) ? opts->stitch_min_margin : 0;
-    const int rule = (opts != nullptr) ? opts->stitch_rule : kStitchRuleNetMargin;
-
-    // Decide which orientation (if any) to merge under the selected rule.
-    // do_flip is only meaningful when merge == true.
-    bool merge = false;
-    do_flip = false;
-    switch (rule) {
-        case kStitchRuleBothStrands: {
-            // Reading A: merge only when the winning orientation has evidence on
-            // BOTH of its haplotype links.  no-flip needs n11>=1 AND n22>=1;
-            // flip needs n12>=1 AND n21>=1.  When both orientations qualify,
-            // pick the one with more net votes (ties stay unmerged).
-            const bool noflip_ok = (n11 >= 1 && n22 >= 1);
-            const bool flip_ok = (n12 >= 1 && n21 >= 1);
-            const int noflip_votes = n11 + n22;
-            const int flip_votes = n12 + n21;
-            if (noflip_ok && flip_ok) {
-                if (flip_votes > noflip_votes) { merge = true; do_flip = true; }
-                else if (noflip_votes > flip_votes) { merge = true; do_flip = false; }
-            } else if (noflip_ok) {
-                merge = true; do_flip = false;
-            } else if (flip_ok) {
-                merge = true; do_flip = true;
-            }
-            break;
-        }
-        case kStitchRuleLiteral: {
-            // Reading B: merge whenever both orientations have >=1 supporting
-            // read (>=2 reads total, at least one each way).  Diagnostic: this
-            // deliberately stitches contested seams.  Orientation follows the
-            // net vote.
-            const int noflip_votes = n11 + n22;
-            const int flip_votes = n12 + n21;
-            if (noflip_votes >= 1 && flip_votes >= 1) {
-                merge = true;
-                do_flip = flip_hap_score > 0;
-            }
-            break;
-        }
-        case kStitchRuleBothStrandsMargin: {
-            // Reading C: Reading A AND the net vote still exceeds the margin.
-            const bool noflip_ok = (n11 >= 1 && n22 >= 1);
-            const bool flip_ok = (n12 >= 1 && n21 >= 1);
-            if (std::abs(flip_hap_score) > margin) {
-                if (flip_hap_score > 0 && flip_ok) { merge = true; do_flip = true; }
-                else if (flip_hap_score < 0 && noflip_ok) { merge = true; do_flip = false; }
-            }
-            break;
-        }
-        case kStitchRuleNetMargin:
-        default: {
-            // Abstain on weakly supported boundaries: require the net vote
-            // magnitude to strictly exceed the configured margin.  margin 0
-            // reproduces the original behavior (merge on any non-zero score).
-            if (std::abs(flip_hap_score) > margin) {
-                merge = true;
-                do_flip = flip_hap_score > 0;
-            }
-            break;
-        }
-    }
-
-    return merge;
+bool select_stitch_orientation(const std::array<int, 4>& votes, bool& do_flip) {
+    // Merge on any non-zero net vote, oriented by its sign; a tie abstains.
+    const int flip_hap_score = votes[1] + votes[2] - votes[0] - votes[3];
+    do_flip = flip_hap_score > 0;
+    return flip_hap_score != 0;
 }
 
 // Overlap-read voting between adjacent chunks: count reads that agree vs
 // disagree on hap assignment, then flip + merge if disagreement wins.
-static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur,
-                           const Options* opts, bool update_reads) {
+static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_reads) {
     if (pre.region.tid != cur.region.tid) return false;
 
     int n_cur_ovlp_reads = 0;
@@ -1309,7 +1196,7 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur,
     }
 
     bool do_flip = false;
-    const bool merge = select_stitch_orientation({n11, n12, n21, n22}, opts, do_flip);
+    const bool merge = select_stitch_orientation({n11, n12, n21, n22}, do_flip);
 
     if (!merge) return false;
 
@@ -1356,49 +1243,16 @@ static void propagate_overlap_read_phase_to_output_owner(PhasingChunk& pre, cons
     }
 }
 
-void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
-                       const Options* opts,
-                       const PgbamSidecarData* pgbam_sidecar) {
-    const bool use_pgbam = opts != nullptr && pgbam_sidecar != nullptr && !opts->pgbam_file.empty();
-    if (use_pgbam) {
-        for (PhasingChunk& chunk : chunks) {
-            stitch_phase_blocks_with_pgbam(chunk,
-                                          *pgbam_sidecar,
-                                          opts->pgbam_primary_min_winning_threads,
-                                          opts->pgbam_primary_polarity_margin);
-        }
-    }
+void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts) {
     // Track which adjacent pairs were successfully merged so we can safely
-    // propagate overlap-read phase only for those pairs (see CHECKPOINT.md
-    // "BAM Pipeline Parity").
+    // propagate overlap-read phase only for those pairs.
     std::vector<bool> pair_stitched(chunks.size(), false);
     // collect_var.c updates stitched read HP/PS only when writing an alignment.
     const bool update_reads = opts == nullptr || !opts->upstream_assign_hap ||
                               !opts->output_aln.empty();
     for (size_t ii = 1; ii < chunks.size(); ++ii) {
-        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], opts,
-                                             update_reads);
-        if (stitched) {
-            pair_stitched[ii] = true;
-        } else if (use_pgbam) {
-            stitch_adjacent_chunks_with_pgbam(chunks[ii - 1],
-                                             chunks[ii],
-                                             *pgbam_sidecar,
-                                             opts->pgbam_primary_min_winning_threads,
-                                             opts->pgbam_primary_polarity_margin);
-        }
-    }
-    if (use_pgbam && opts->pgbam_cleanup_pass) {
-        stitch_phase_blocks_with_pgbam(chunks,
-                                      *pgbam_sidecar,
-                                      opts->pgbam_cleanup_min_winning_threads,
-                                      opts->pgbam_cleanup_polarity_margin);
-    }
-    if (use_pgbam && opts->pgbam_relaxed_cleanup_pass) {
-        stitch_phase_blocks_with_pgbam(chunks,
-                                      *pgbam_sidecar,
-                                      opts->pgbam_relaxed_cleanup_min_winning_threads,
-                                      opts->pgbam_relaxed_cleanup_polarity_margin);
+        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], update_reads);
+        if (stitched) pair_stitched[ii] = true;
     }
     // Propagate overlap-read phase only when read tags are being written and
     // the pair was merged. For an unmerged pair the relative phase is unknown.

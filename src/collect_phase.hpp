@@ -70,13 +70,10 @@ constexpr uint32_t kCandGermlineVarCate =
 // Maps a VariantCategory enum to its bitmask flag (0 for unmapped categories).
 uint32_t category_to_flag(VariantCategory c);
 
-void stitch_chunk_haps(std::vector<PhasingChunk>& chunks,
-                       const Options* opts = nullptr,
-                       const PgbamSidecarData* pgbam_sidecar = nullptr);
+void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts = nullptr);
 
-/// Apply the normal overlap-read stitching rule to 11/12/21/22 haplotype votes.
-bool select_stitch_orientation(const std::array<int, 4>& votes,
-                               const Options* opts, bool& do_flip);
+/// Apply the overlap-read stitching rule to 11/12/21/22 haplotype votes.
+bool select_stitch_orientation(const std::array<int, 4>& votes, bool& do_flip);
 
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
@@ -134,8 +131,7 @@ int read_to_cons_allele_score(CandidateVariant& var, int hap, int allele_i,
 // the original C. Each comment gives the upstream definition.
 
 /// longcallD assign_hap.c:307 -- do two variants agree for one read, under the
-/// haplotype it is being tested against? Our `check_agree_alleles` is a
-/// SEPARATE helper that consults chunk.haps instead; it is not this function.
+/// haplotype it is being tested against?
 int check_agree_haps(const PhasingChunk& chunk, int read_i, int hap, int var1, int var2);
 
 /// longcallD assign_hap.c:151 -- pick the haplotype whose consensus a read's

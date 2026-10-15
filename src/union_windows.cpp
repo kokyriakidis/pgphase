@@ -336,7 +336,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
                 c.counts.category != VariantCategory::NoisyCandHet) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
             const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-            if (meta.pos <= 0 || meta.ref.empty() || meta.non_selected_alt_class || orig.size() < 2) continue;
+            if (meta.pos <= 0 || meta.ref.empty() || orig.size() < 2) continue;
             const auto allele_seq = [&meta](int k) -> const std::string* {
                 if (k == 0) return &meta.ref;
                 return k >= 1 && static_cast<size_t>(k) <= meta.alts.size() ? &meta.alts[static_cast<size_t>(k) - 1]

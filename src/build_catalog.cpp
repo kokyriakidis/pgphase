@@ -24,17 +24,16 @@ std::string bc_shell_quote(const std::string& val) {
     return out;
 }
 
-void print_help(const char* prog) {
+void print_help() {
     std::cerr
-        << "Usage: " << prog << " build-snarl-catalog [options] <graph.gbz>\n"
+        << "Usage: pgphase build-snarl-catalog [options] <graph.gbz>\n"
         << "\n"
         << "Run 'vg deconstruct -a' on a GBZ pangenome graph and write a bgzipped,\n"
         << "tabix-indexed sites-only VCF (no sample genotypes) for use as a\n"
         << "phasing site catalog with 'collect-graph-variation'.\n"
         << "\n"
-        << "  <graph.gbz> may be the full pangenome GBZ or a per-chr chunk extracted\n"
-        << "  with 'vg chunk --gbz --contig CHR -x full.gbz -o /tmp/chunk'.\n"
-        << "  Using a per-chr chunk keeps 'vg deconstruct' RAM under ~1 GB per chromosome.\n"
+        << "  <graph.gbz> is the pangenome GBZ; the catalog covers the reference path\n"
+        << "  <ref-sample>#0#<contig> (all <ref-sample>#0# paths without --contig).\n"
         << "\n"
         << "Options:\n"
         << "  --ref-sample STR    Reference sample name, e.g. CHM13 [required]\n"
@@ -45,25 +44,19 @@ void print_help(const char* prog) {
         << "  -o, --output FILE   Output bgzipped VCF file (tabix index created automatically) [required]\n"
         << "  -h, --help          Show this help\n"
         << "\n"
-        << "Example — per-chr (low RAM, recommended):\n"
-        << "  # Precompute snarls once\n"
-        << "  vg snarls -t 16 full.gbz > full.snarls.pb\n"
-        << "\n"
-        << "  # Extract per-chr chunks and build catalog VCF in parallel\n"
-        << "  for chr in chr{1..22} chrX chrY; do\n"
-        << "    vg chunk --gbz --contig $chr -x full.gbz -o /tmp/chunk_${chr}\n"
+        << "Example:\n"
+        << "  vg snarls -t 16 graph.gbz > graph.snarls      # once per graph\n"
+        << "  for chr in chr{1..22} chrX; do\n"
         << "    pgphase build-snarl-catalog --ref-sample CHM13 --contig $chr \\\n"
-        << "        --snarls full.snarls.pb --threads 8 \\\n"
-        << "        -o ${chr}.sites.vcf.gz \\\n"
-        << "        /tmp/chunk_${chr}_graph_0_${chr}.gbz &\n"
+        << "        --snarls graph.snarls -t 16 -o ${chr}.sites.vcf.gz graph.gbz\n"
         << "  done\n"
-        << "  wait\n"
         << "\n"
         << "  # Run phasing\n"
         << "  pgphase collect-graph-variation \\\n"
         << "      --ref ref.fa \\\n"
         << "      --sites chr20.sites.vcf.gz \\\n"
-        << "      --gaf reads.gaf \\\n"
+        << "      --gaf reads.coord.gaf.gz \\\n"
+        << "      --bam reads.bam \\\n"
         << "      --phased-vcf-out phased.vcf \\\n"
         << "      --phased-bam-out phased.bam \\\n"
         << "      -t 8\n";
@@ -99,14 +92,14 @@ int build_snarl_catalog(int argc, char* argv[]) {
         case 'V': vg_bin      = optarg; break;
         case 'S': snarls_file = optarg; break;
         case 'o': output_file = optarg; break;
-        case 'h': print_help(argv[0]); return 0;
-        default:  print_help(argv[0]); return 1;
+        case 'h': print_help(); return 0;
+        default:  print_help(); return 1;
         }
     }
 
     if (optind >= argc) {
         std::cerr << "error: missing <graph.gbz>\n";
-        print_help(argv[0]);
+        print_help();
         return 1;
     }
     if (ref_sample.empty()) {
@@ -115,7 +108,7 @@ int build_snarl_catalog(int argc, char* argv[]) {
     }
     if (output_file.empty()) {
         std::cerr << "error: -o/--output is required\n";
-        print_help(argv[0]);
+        print_help();
         return 1;
     }
 
@@ -133,16 +126,17 @@ int build_snarl_catalog(int argc, char* argv[]) {
         deconstruct_cmd << " -r " << bc_shell_quote(snarls_file);
     deconstruct_cmd << " " << bc_shell_quote(gbz_file);
 
-    // Strip FORMAT/SAMPLE columns (fields 9+) — pgphase only reads
-    // CHROM..INFO (fields 1-8).  Keep ##header lines intact; rewrite
-    // the #CHROM header line to drop FORMAT and sample names.
-    const std::string strip_samples =
-        "awk -F'\\t' 'BEGIN{OFS=\"\\t\"} /^##/{print;next} "
-        "{for(i=9;i<=NF;i++) $i=\"\"; sub(/\\t*$/,\"\"); print}'";
-
-    const std::string full_cmd =
-        deconstruct_cmd.str() + " | " + strip_samples + " | bgzip -c > " + bc_shell_quote(output_file);
-    std::cerr << "[build-snarl-catalog] " << full_cmd << "\n";
+    // Keep CHROM..INFO (fields 1-8), the only columns pgphase reads; this also
+    // drops FORMAT and the sample names from the #CHROM line. cut and a
+    // multithreaded bgzip keep pace with vg (awk ran at ~11 MB/s, bgzip at one
+    // core), and give byte-identical output.
+    const std::string strip_samples = "cut -f1-8";
+    const std::string pipeline =
+        deconstruct_cmd.str() + " | " + strip_samples + " | bgzip -@ " + std::to_string(threads) + " -c > " + bc_shell_quote(output_file);
+    std::cerr << "[build-snarl-catalog] " << pipeline << "\n";
+    // pipefail: a vg failure part way (e.g. out of memory) must fail the
+    // command, not leave a truncated catalog behind bgzip's exit status.
+    const std::string full_cmd = "bash -o pipefail -c " + bc_shell_quote(pipeline);
     int ret = std::system(full_cmd.c_str());
 
     if (ret == 0) {
@@ -152,6 +146,7 @@ int build_snarl_catalog(int argc, char* argv[]) {
     }
 
     if (ret != 0)
-        std::cerr << "[build-snarl-catalog] warning: command exited with non-zero status\n";
+        std::cerr << "[build-snarl-catalog] error: command failed; " << output_file
+                  << " is incomplete\n";
     return ret == 0 ? 0 : 1;
 }

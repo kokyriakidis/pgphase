@@ -1,48 +1,31 @@
 # Graph pipeline test data — chr20:25,000,001–25,500,000
 
-Small chr20 test case for `collect-graph-variation` using a 500 kb slice of
-the CHM13 chr20 locus (HG002 HiFi reads aligned to the HPRC pangenome).
+A 500 kb slice of CHM13 chr20 with HG002 HiFi reads, aligned both to the HPRC
+pangenome (GAF) and to CHM13 (BAM). `make check` runs union gap phasing on it
+and compares the output with `test_data/expected/union_chr20_expected.*`.
 
-## Running the pipelines
+## Running
 
-### BAM pipeline
+```bash
+./pgphase collect-graph-variation \
+  --ref   test_data/graph_chr20/ref.fa.gz \
+  --sites test_data/graph_chr20/chr20_25M.sites.vcf.gz \
+  --gaf   test_data/graph_chr20/HG002_chr20_25M.coord.gaf.gz \
+  --bam   test_data/graph_chr20/HG002_chr20_25M.bam \
+  -o output.tsv --phased-vcf-out phased.vcf --phased-bam-out phased.bam
+```
+
+Expected: 576 candidate sites; 2,006 of the 2,032 reads in the phased BAM carry
+an `HP` tag. Without `--bam` the run phases from the graph alignments alone.
+
+`collect-bam-variation` runs on the BAM alone:
 
 ```bash
 ./pgphase collect-bam-variation \
   --ref test_data/graph_chr20/ref.fa.gz \
   --bam test_data/graph_chr20/HG002_chr20_25M.bam \
-  --hifi \
-  -o output.tsv
+  --hifi -o output.tsv
 ```
-
-Expected output: **1,108 candidate variant sites** from 2,048 reads (51 chunks).
-
-### Graph pipeline
-
-```bash
-./pgphase collect-graph-variation \
-  --ref  test_data/graph_chr20/ref.fa.gz \
-  --sites test_data/graph_chr20/chr20_25M.sites.vcf.gz \
-  --gaf  test_data/graph_chr20/HG002_chr20_25M.coord.gaf.gz \
-  --hifi \
-  -o output.tsv
-```
-
-Expected output: **509 candidate variant sites** from 2,048 reads (51 chunks).
-
-### Hybrid pipeline
-
-```bash
-./pgphase collect-hybrid-variation \
-  --ref         test_data/graph_chr20/ref.fa.gz \
-  --bam         test_data/graph_chr20/HG002_chr20_25M.bam \
-  --graph-sites test_data/graph_chr20/chr20_25M.sites.vcf.gz \
-  --gaf         test_data/graph_chr20/HG002_chr20_25M.coord.gaf.gz \
-  --hifi \
-  -o output.tsv
-```
-
-Expected output: **7,141 candidate variant sites** from 2,048 reads (51 chunks).
 
 ## Files
 
@@ -52,7 +35,7 @@ Expected output: **7,141 candidate variant sites** from 2,048 reads (51 chunks).
 | `ref.fa.gz.fai` | 23 B | FASTA index |
 | `ref.fa.gz.gzi` | 6.2 KB | bgzip index |
 | `HG002_chr20_25M.bam` | 12 MB | HiFi reads aligned to chr20 (contig = `chr20`, LN=25,500,000) |
-| `HG002_chr20_25M.bam.bai` | — | BAM index |
+| `HG002_chr20_25M.bam.bai` | 17 KB | BAM index |
 | `chr20_25M.sites.vcf.gz` | 213 KB | Graph snarl sites VCF (tabix-indexed) |
 | `chr20_25M.sites.vcf.gz.tbi` | 488 B | Tabix index |
 | `HG002_chr20_25M.coord.gaf.gz` | 5.6 MB | Coordinate-sorted GAF, HG002 HiFi (tabix-indexed) |

@@ -16,7 +16,6 @@
 #include "collect_output.hpp"
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
-#include "collect_phase_pgbam.hpp"
 #include "collect_var.hpp"
 #include "fisher_exact.hpp"
 #include "union_phase.hpp"
@@ -591,10 +590,6 @@ static std::vector<PhasingChunk> collect_chunk_batch_parallel(const Options& opt
  * @param opts Output paths, reference, BAM list, and threading configuration.
  */
 void run_collect_bam_variation(const Options& opts) {
-    std::unique_ptr<PgbamSidecarData> pgbam_sidecar;
-    if (!opts.pgbam_file.empty()) {
-        pgbam_sidecar = std::make_unique<PgbamSidecarData>(load_pgbam_sidecar(opts.pgbam_file));
-    }
 
     std::unique_ptr<faidx_t, FaiDeleter> fai(load_reference_index(opts.ref_fasta));
 
@@ -641,7 +636,7 @@ void run_collect_bam_variation(const Options& opts) {
         // Stitch overlapping chunks before merging candidate rows and writing.
         std::vector<PhasingChunk> batch = collect_chunk_batch_parallel(
             opts, chunks, batch_begin, batch_end);
-        stitch_chunk_haps(batch, &opts, pgbam_sidecar.get());
+        stitch_chunk_haps(batch, &opts);
         CandidateTable variants = merge_chunk_candidates(batch);
         // Two records at one locus cannot assign different alleles to the same
         // haplotype. Make their genotypes complementary, then remove conflicts.
@@ -760,7 +755,6 @@ static Options union_alignment_options(const Options& opts) {
     Options sub = opts;
     sub.min_mapq = kUnionAlignmentMinMapq;
     sub.max_noisy_reg_len = kUnionMsaMaxRegionLength;
-    sub.skip_noisy_kmeans = false;
     sub.keep_calls_in_unresolved_noisy = true;
     if (const char* diag = std::getenv("PGPHASE_DIAG")) sub.diag_dir = diag;
     sub.threads = 1;
@@ -818,15 +812,6 @@ enum LongOption {
     kInputIsListOption,
     kRefineAlnOption,
     kPhasedVcfOutputOption,
-    kPgbamFileOption,
-    kPgbamPrimaryMarginOption,
-    kPgbamPrimaryMinWinningOption,
-    kNoPgbamCleanupPassOption,
-    kPgbamCleanupMarginOption,
-    kPgbamCleanupMinWinningOption,
-    kNoPgbamRelaxedCleanupPassOption,
-    kPgbamRelaxedCleanupMarginOption,
-    kPgbamRelaxedCleanupMinWinningOption,
     kAmbBaseOption,
     kRefOption,
     kBamOption,
@@ -895,16 +880,6 @@ static void print_collect_help() {
         << "      --refine-aln              refine alignment in SAM/BAM/CRAM output;\n"
         << "                                coordinate-sorts with samtools sort before BAM/CRAM indexing (samtools on PATH)\n"
 
-        << "      --pgbam-file FILE         Optional .pgbam sidecar for fallback chunk stitching when common-read signal is absent\n"
-        << "      --pgbam-primary-margin INT         Thread polarity margin for primary .pgbam stitching [2]\n"
-        << "      --pgbam-primary-min-winning INT    Winning shared polarized threads for primary .pgbam stitching [2]\n"
-        << "      --no-pgbam-cleanup-pass            Disable final .pgbam cleanup pass with margin/min [2/1]\n"
-        << "      --pgbam-cleanup-margin INT         Thread polarity margin for final cleanup pass [2]\n"
-        << "      --pgbam-cleanup-min-winning INT    Winning shared polarized threads for final cleanup pass [1]\n"
-        << "      --no-pgbam-relaxed-cleanup-pass    Disable relaxed .pgbam cleanup pass with margin/min [1/1]\n"
-        << "      --pgbam-relaxed-cleanup-margin INT Thread polarity margin for relaxed cleanup pass [1]\n"
-        << "      --pgbam-relaxed-cleanup-min-winning INT\n"
-        << "                                      Winning shared polarized threads for relaxed cleanup pass [1]\n"
 
         << "      --chunk-size INT          Region chunk size in bp [500000]\n"
         << "      --noisy-merge-dis INT     Max distance (bp) to merge noisy/SV windows [500]\n"
@@ -985,15 +960,6 @@ int collect_bam_variation(int argc, char* argv[]) {
         {"out-cram",                  required_argument, nullptr, 'C'},
         {"refine-aln",                no_argument,       nullptr, kRefineAlnOption},
 
-        {"pgbam-file",                required_argument, nullptr, kPgbamFileOption},
-        {"pgbam-primary-margin",      required_argument, nullptr, kPgbamPrimaryMarginOption},
-        {"pgbam-primary-min-winning", required_argument, nullptr, kPgbamPrimaryMinWinningOption},
-        {"no-pgbam-cleanup-pass",     no_argument,       nullptr, kNoPgbamCleanupPassOption},
-        {"pgbam-cleanup-margin",      required_argument, nullptr, kPgbamCleanupMarginOption},
-        {"pgbam-cleanup-min-winning", required_argument, nullptr, kPgbamCleanupMinWinningOption},
-        {"no-pgbam-relaxed-cleanup-pass", no_argument,   nullptr, kNoPgbamRelaxedCleanupPassOption},
-        {"pgbam-relaxed-cleanup-margin", required_argument, nullptr, kPgbamRelaxedCleanupMarginOption},
-        {"pgbam-relaxed-cleanup-min-winning", required_argument, nullptr, kPgbamRelaxedCleanupMinWinningOption},
 
         {"chunk-size",                required_argument, nullptr, kChunkSizeOption},
         {"noisy-merge-dis",           required_argument, nullptr, kNoisyRegMergeDisOption},
@@ -1062,15 +1028,6 @@ int collect_bam_variation(int argc, char* argv[]) {
             case kPhasedVcfOutputOption: opts.output_phased_vcf = optarg; break;
             case kRefineAlnOption:      opts.refine_aln = true; break;
 
-            case kPgbamFileOption:      opts.pgbam_file = optarg; break;
-            case kPgbamPrimaryMarginOption: opts.pgbam_primary_polarity_margin = parse_int_arg(optarg, "--pgbam-primary-margin"); break;
-            case kPgbamPrimaryMinWinningOption: opts.pgbam_primary_min_winning_threads = parse_int_arg(optarg, "--pgbam-primary-min-winning"); break;
-            case kNoPgbamCleanupPassOption: opts.pgbam_cleanup_pass = false; break;
-            case kPgbamCleanupMarginOption: opts.pgbam_cleanup_polarity_margin = parse_int_arg(optarg, "--pgbam-cleanup-margin"); break;
-            case kPgbamCleanupMinWinningOption: opts.pgbam_cleanup_min_winning_threads = parse_int_arg(optarg, "--pgbam-cleanup-min-winning"); break;
-            case kNoPgbamRelaxedCleanupPassOption: opts.pgbam_relaxed_cleanup_pass = false; break;
-            case kPgbamRelaxedCleanupMarginOption: opts.pgbam_relaxed_cleanup_polarity_margin = parse_int_arg(optarg, "--pgbam-relaxed-cleanup-margin"); break;
-            case kPgbamRelaxedCleanupMinWinningOption: opts.pgbam_relaxed_cleanup_min_winning_threads = parse_int_arg(optarg, "--pgbam-relaxed-cleanup-min-winning"); break;
             case kChunkSizeOption:      opts.chunk_size = parse_ll_arg(optarg, "--chunk-size"); break;
             case kNoisyRegMergeDisOption: opts.noisy_reg_merge_dis = parse_int_arg(optarg, "--noisy-merge-dis"); break;
             case kMinSvLenOption:       opts.min_sv_len = parse_int_arg(optarg, "--min-sv-len"); break;
@@ -1098,10 +1055,7 @@ int collect_bam_variation(int argc, char* argv[]) {
         opts.strand_bias_pval < 0.0 || opts.strand_bias_pval > 1.0 ||
         opts.max_var_ratio_per_read < 0.0 || opts.max_noisy_frac_per_read < 0.0 ||
         opts.noisy_reg_max_xgaps < 0 ||
-        opts.noisy_reg_slide_win < -1 || opts.verbose < 0 ||
-        opts.pgbam_primary_polarity_margin < 1 || opts.pgbam_primary_min_winning_threads < 1 ||
-        opts.pgbam_cleanup_polarity_margin < 1 || opts.pgbam_cleanup_min_winning_threads < 1 ||
-        opts.pgbam_relaxed_cleanup_polarity_margin < 1 || opts.pgbam_relaxed_cleanup_min_winning_threads < 1) {
+        opts.noisy_reg_slide_win < -1 || opts.verbose < 0) {
         std::cerr << "Error: numeric thresholds are invalid\n";
         return 1;
     }

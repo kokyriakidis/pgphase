@@ -149,8 +149,8 @@ void classify_chunk_candidates(PhasingChunk& chunk, const Options& opts, const b
 // First-pass category from depth, ONT strand bias, AF band, and repeat
 // context.  Sets counts.allele_fraction.  Returns the initial category
 // (CleanHetSnp/CleanHetIndel/CleanHom/LowCoverage/RepeatHetIndel/StrandBias)
-// before any noisy-overlap second pass.  Exposed for the hybrid pipeline,
-// which gates graph-only candidates with the same thresholds as the BAM
+// before any noisy-overlap second pass.  Exposed for the graph pipeline,
+// which classifies graph candidates with the same thresholds as the BAM
 // pipeline once their allele counts are final.
 VariantCategory classify_variant_initial(const VariantKey& key,
                                          VariantCounts& counts,
@@ -161,9 +161,8 @@ VariantCategory classify_variant_initial(const VariantKey& key,
 
 // Drop candidates whose category is not a real call (NonVariant,
 // LowCoverage, StrandBias).  The BAM pipeline calls this at the end of
-// collect_var_classify; exposed so the hybrid pipeline can re-prune after
-// appending and gating graph-only candidates (which happens after
-// collect_var_classify has already run).
+// collect_var_classify; exposed so noisy-region recall can re-prune after
+// it adds candidates.
 void prune_not_candidate_variants(PhasingChunk& chunk);
 
 // Steps 1-2: candidate discovery + classification.  Collects sites from
@@ -179,8 +178,7 @@ void collect_var_classify(PhasingChunk& chunk,
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts);
 
 // Steps 3.2-4: k-means phasing and noisy-region MSA recall.
-// Expects read profiles to be populated (by collect_var_build_profiles
-// and/or manual injection for hybrid reads).
+// Expects read profiles to be populated by collect_var_build_profiles.
 void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,
                              const VariantKeySet* noisy_site_whitelist = nullptr);
 

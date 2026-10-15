@@ -294,7 +294,6 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
         hts_pos_t p0 = 0;
         int ref_len = 0;
         std::string seq0, seq1;
-        std::vector<std::string> decomposed_others;
         if (c.bam_injected) {
             if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
             p0 = c.key.pos - 1;
@@ -319,18 +318,6 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
             if (ref.slice(p0, p0 + ref_len) != upper(meta.ref)) continue;
             seq0 = upper(*a0);
             seq1 = upper(*a1);
-            // Allele 0 of a decomposed multi-allelic row is "any other allele of
-            // the site": every one of them competes with the selected allele.
-            if (meta.non_selected_alt_class) {
-                decomposed_others.push_back(upper(meta.ref));
-                bool usable = is_acgt(meta.ref);
-                for (size_t a = 0; a < meta.alts.size(); ++a) {
-                    if (static_cast<int>(a) + 1 == orig[1]) continue;
-                    if (!is_acgt(meta.alts[a])) { usable = false; break; }
-                    decomposed_others.push_back(upper(meta.alts[a]));
-                }
-                if (!usable) continue;
-            }
         }
         if (seq0 == seq1) continue;
         const hts_pos_t end0 = p0 + ref_len;
@@ -344,7 +331,6 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
         std::vector<std::string> competitors{hap0};
         if (c.bam_injected && !snp)
             competitors = competing_haplotypes(ref, w0, w1, LocusAllele{p0, end0, seq1}, locus_alleles);
-        for (const std::string& o : decomposed_others) competitors.push_back(left + o + right);
         // One call per distinct read sequence.
         std::unordered_map<std::string_view, int> seen;
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
@@ -466,16 +452,9 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
                 }
                 continue;
             }
-            // Does graph allele j carry `base`? Allele 0 of a decomposed row is
-            // "not the selected ALT", not literal REF.
+            // Does graph allele j carry `base`?
             const auto carries = [&](size_t j) {
                 const int o = orig[j];
-                if (o == 0 && meta.non_selected_alt_class) {
-                    for (size_t i = 0; i < orig.size(); ++i)
-                        if (orig[i] >= 1 && static_cast<size_t>(orig[i]) <= meta.alts.size() &&
-                            upper(meta.alts[static_cast<size_t>(orig[i]) - 1][0]) == base) return false;
-                    return true;
-                }
                 if (o == 0) return upper(meta.ref[0]) == base;
                 return o >= 1 && static_cast<size_t>(o) <= meta.alts.size() &&
                        upper(meta.alts[static_cast<size_t>(o) - 1][0]) == base;

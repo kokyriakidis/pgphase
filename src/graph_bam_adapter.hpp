@@ -59,8 +59,6 @@ struct GraphSiteMeta {
     std::vector<std::string> alts;
     bool bam_alt_deletion_no_ref = false;
     bool bam_low_fraction_snp = false;
-    // Decomposed graph zero means "not selected ALT", not literal REF.
-    bool non_selected_alt_class = false;
 };
 
 struct CandidateAlleleContrast {
@@ -136,16 +134,6 @@ GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
 // @param ref_beg 1-based start of ref_seq on the chromosome.
 // @param ref_end 1-based end of ref_seq (inclusive).
 // @param max_xgaps Maximum indel span to check (opts.noisy_reg_max_xgaps).
-/// Re-admit repeat-context het indels that agree with a trusted neighbour.
-///
-/// `apply_graph_noise_filter` demotes every het indel in a homopolymer/STR
-/// context, judging the locus by its reference sequence and never by whether
-/// the reads separate there. This pass gives such a site one way back: take the
-/// reads that observe both it and a nearby clean het SNP, and admit it when
-/// they agree. Returns the number of sites promoted.
-size_t promote_link_supported_repeat_indels(GraphChunkBuildResult& result,
-                                            const Options& opts);
-
 void apply_graph_noise_filter(GraphChunkBuildResult& result,
                               const std::string& ref_seq,
                               hts_pos_t ref_beg,
@@ -194,8 +182,7 @@ bool graph_snp_low_alt_fraction_supported(int ref_count, int alt_count,
 // Fold one stitched chunk's per-read hap/PS assignments into a running map.
 void merge_graph_chunk_into_read_rows(
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
-    const GraphChunkBuildResult& gc,
-    int min_read_hap_margin = 0);
+    const GraphChunkBuildResult& gc);
 
 // Write phased-BAM records for reads whose chunks are fully stitched.
 // Reads still needed by the next chunk (next_chunk_qnames) are held back;

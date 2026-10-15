@@ -195,16 +195,8 @@ static bool test_joint_candidate_loci() {
     ok &= check(filtered.chunk.candidates[1].phase_set <= 0 &&
                 filtered.chunk.candidates[1].lcd_var_i_to_cate == kCandNoisyCandHet,
                 "joint locus: identity cannot promote an excluded noisy row into the clean solve");
-    auto multiallelic = fixture(2);
-    multiallelic.site_meta[0].alts.push_back("AAA");
-    multiallelic.site_meta[1].alts.push_back("AAA");
-    opts.snarl_allele_phasing = true;
-    phase_joint_graph_candidates(multiallelic, opts, base);
-    ok &= check(multiallelic.chunk.reads[0].n_vars_scored == 2,
-                "joint locus: non-selected ALT classes cannot claim an actual reference contrast");
     auto partial = fixture(2);
     partial.chunk.reads[1].beg = 4;
-    opts.snarl_allele_phasing = false;
     phase_joint_graph_candidates(partial, opts, base);
     ok &= check(partial.chunk.reads[0].n_vars_scored == 2 &&
                 partial.chunk.read_var_profile[1].alleles == std::vector<int>({1, 1}),
@@ -579,8 +571,7 @@ int main(int argc, char** argv) {
     // A triallelic site (ref + alt1 + alt2) is split into two biallelic (ref vs alt_i)
     // pairs. Each pair gets its own AF/depth filter.
     // Sub-test A: both pairs pass — ref reads fan out to both pairs (allele 0 each);
-    //             alt reads contribute allele 1 to their own pair and allele 0 to
-    //             the other pair when snarl allele phasing is enabled.
+    //             alt reads contribute allele 1 to their own pair only.
     {
         GraphSite tri_both;
         tri_both.chrom = tri_both.ref_contig = "chr1";
@@ -604,12 +595,8 @@ int main(int argc, char** argv) {
             tb_rows.push_back({"tri_both", "chr1", 100, "a2_" + std::to_string(i), 2});
 
         Options default_opts;
-        default_opts.snarl_allele_phasing = true;
         auto tb = build_graph_chunk(tri_both_cat.view_all(), tb_rows, "chr1", 0, 200, 0, default_opts);
 
-        ok &= check(tb.site_meta.size() == 2 && tb.site_meta[0].non_selected_alt_class &&
-                    tb.site_meta[1].non_selected_alt_class,
-                    "multiallelic decomp: collapsed other-ALT classes remain explicit");
         ok &= check(tb.chunk.candidates.size() == 2,
                     "multiallelic decomp: triallelic → 2 biallelic pairs");
         ok &= check(tb.site_ids.size() == 2 &&
@@ -631,12 +618,11 @@ int main(int argc, char** argv) {
         const std::string* selected_only = selected_graph_candidate_alt(alt2_only, 0);
         ok &= check(selected_only != nullptr && *selected_only == "G",
                     "multiallelic decomp: ALT1 cannot claim an ALT2-only candidate");
-        // Under snarl allele phasing, "ref" for each pair means all reads not
-        // carrying that alt: 6 literal-ref reads + 5 reads on the other alt.
-        ok &= check(tb.chunk.candidates[0].counts.ref_cov == 11 &&
+        // "Ref" for each pair is the literal reference allele: 6 reads.
+        ok &= check(tb.chunk.candidates[0].counts.ref_cov == 6 &&
                     tb.chunk.candidates[0].counts.alt_cov == 5,
                     "multiallelic decomp: pair 0 counts correct");
-        ok &= check(tb.chunk.candidates[1].counts.ref_cov == 11 &&
+        ok &= check(tb.chunk.candidates[1].counts.ref_cov == 6 &&
                     tb.chunk.candidates[1].counts.alt_cov == 5,
                     "multiallelic decomp: pair 1 counts correct");
         // All 16 reads (6 ref + 5 alt1 + 5 alt2) survive
@@ -645,19 +631,15 @@ int main(int argc, char** argv) {
         const ReadVariantProfile* a1_profile = profile_for_read(tb.chunk, "a1_0");
         ok &= check(a1_profile != nullptr &&
                     a1_profile->start_var_idx == 0 &&
-                    a1_profile->end_var_idx == 1 &&
-                    a1_profile->alleles.size() == 2 &&
-                    a1_profile->alleles[0] == 1 &&
-                    a1_profile->alleles[1] == 0,
-                    "multiallelic decomp: alt1 read votes ref for alt2 pair");
-        const ReadVariantProfile* a2_profile = profile_for_read(tb.chunk, "a2_0");
-        ok &= check(a2_profile != nullptr &&
-                    a2_profile->start_var_idx == 0 &&
-                    a2_profile->end_var_idx == 1 &&
-                    a2_profile->alleles.size() == 2 &&
-                    a2_profile->alleles[0] == 0 &&
-                    a2_profile->alleles[1] == 1,
-                    "multiallelic decomp: alt2 read votes ref for alt1 pair");
+                    a1_profile->end_var_idx == 0 &&
+                    a1_profile->alleles == std::vector<int>{1},
+                    "multiallelic decomp: alt1 read votes only in its own pair");
+        const ReadVariantProfile* ref_profile = profile_for_read(tb.chunk, "ref_0");
+        ok &= check(ref_profile != nullptr &&
+                    ref_profile->start_var_idx == 0 &&
+                    ref_profile->end_var_idx == 1 &&
+                    ref_profile->alleles == std::vector<int>({0, 0}),
+                    "multiallelic decomp: ref read votes ref in both pairs");
     }
 
     // In the default REF-vs-ALT projection, a read on another ALT cannot
@@ -696,45 +678,6 @@ int main(int argc, char** argv) {
                     alt2->start_var_idx == 1 && alt2->alleles.size() == 1 &&
                     alt2->alleles[0] == 1,
                     "default multiallelic projection: other ALT is unknown, not REF");
-    }
-
-    // Sub-test A2: keeping a no-reference alt1/alt2 snarl whole must remain a
-    // heterozygous n-allelic anchor, not collapse to homozygous non-reference.
-    {
-        GraphSite tri_alt_alt;
-        tri_alt_alt.chrom = tri_alt_alt.ref_contig = "chr1";
-        tri_alt_alt.pos = tri_alt_alt.ref_beg = 100; tri_alt_alt.ref_end = 101;
-        tri_alt_alt.id = "tri_alt_alt";
-        tri_alt_alt.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
-        tri_alt_alt.allele_walks = {parse_graph_walk(">1>2>3"),
-                                    parse_graph_walk(">1>4>3"),
-                                    parse_graph_walk(">1>5>3")};
-        tri_alt_alt.skip_reason = graph_site_validation_skip_reason(tri_alt_alt);
-        tri_alt_alt.eligible = tri_alt_alt.skip_reason.empty();
-        GraphSiteCatalog tri_alt_alt_cat; tri_alt_alt_cat.sites.push_back(tri_alt_alt);
-
-        std::vector<GraphReadAllele> aa_rows;
-        for (int i = 0; i < 5; ++i)
-            aa_rows.push_back({"tri_alt_alt", "chr1", 100, "a1_" + std::to_string(i), 1});
-        for (int i = 0; i < 5; ++i)
-            aa_rows.push_back({"tri_alt_alt", "chr1", 100, "a2_" + std::to_string(i), 2});
-
-        Options keep_whole_opts;
-        keep_whole_opts.snarl_keep_whole = true;
-        keep_whole_opts.snarl_allele_phasing = true;
-        auto aa = build_graph_chunk(tri_alt_alt_cat.view_all(), aa_rows, "chr1", 0, 200, 0,
-                                    keep_whole_opts);
-
-        ok &= check(aa.chunk.candidates.size() == 1,
-                    "whole snarl: alt1/alt2 site retained as one candidate");
-        ok &= check(!aa.chunk.candidates.empty() &&
-                    aa.chunk.candidates[0].counts.n_uniq_alles == 3,
-                    "whole snarl: candidate keeps all allele slots");
-        ok &= check(selected_graph_candidate_alt(aa, 0) == nullptr,
-                    "whole snarl: binary BAM allele cannot claim a multiallelic row");
-        ok &= check(!aa.chunk.candidates.empty() &&
-                    aa.chunk.candidates[0].counts.category == VariantCategory::CleanHetIndel,
-                    "whole snarl: alt1/alt2 site classified as heterozygous");
     }
 
     // Sub-test B: alt2 has AF > max_af (hom-alt), its pair is filtered.
@@ -1040,7 +983,7 @@ int main(int argc, char** argv) {
         chunks[0].chunk.haps.assign(chunks[0].chunk.reads.size(), 1);
         chunks[0].chunk.phase_sets.assign(chunks[0].chunk.reads.size(), 100);
         std::unordered_map<std::string, PhaseReadOutputRow> output_rows;
-        merge_graph_chunk_into_read_rows(output_rows, chunks[0], 0);
+        merge_graph_chunk_into_read_rows(output_rows, chunks[0]);
         const PhaseReadOutputRow initial = output_rows.at("read_a");
         ok &= check(initial.has_phased_assignment,
                     "graph output merge: fixture starts phased");
@@ -1055,7 +998,7 @@ int main(int argc, char** argv) {
                   chunks[0].chunk.phase_sets.end(),
                   kUnphasedReadPhaseSet);
         chunks[0].chunk.region.chunk_id = saved_chunk_id + 1;
-        merge_graph_chunk_into_read_rows(output_rows, chunks[0], 0);
+        merge_graph_chunk_into_read_rows(output_rows, chunks[0]);
         ok &= check(output_rows.at("read_a").hap == initial.hap &&
                     output_rows.at("read_a").phase_set == initial.phase_set &&
                     output_rows.at("read_a").has_phased_assignment,
@@ -1067,7 +1010,7 @@ int main(int argc, char** argv) {
             chunks[0].chunk.reads.size(), kUnphasedReadPhaseSet);
         chunks[0].chunk.gap_haps[0] = replacement_hap;
         chunks[0].chunk.gap_phase_sets[0] = initial.phase_set + 500;
-        merge_graph_chunk_into_read_rows(output_rows, chunks[0], 0);
+        merge_graph_chunk_into_read_rows(output_rows, chunks[0]);
         ok &= check(output_rows.at("read_a").hap == initial.hap &&
                     output_rows.at("read_a").phase_set == initial.phase_set,
                     "graph output merge: rescue cannot replace primary assignment");
@@ -1077,7 +1020,7 @@ int main(int argc, char** argv) {
         chunks[0].chunk.haps[0] = replacement_hap;
         chunks[0].chunk.phase_sets[0] = initial.phase_set + 1000;
         chunks[0].chunk.region.chunk_id = saved_chunk_id + 2;
-        merge_graph_chunk_into_read_rows(output_rows, chunks[0], 0);
+        merge_graph_chunk_into_read_rows(output_rows, chunks[0]);
         ok &= check(output_rows.at("read_a").hap == replacement_hap &&
                     output_rows.at("read_a").phase_set ==
                         initial.phase_set + 1000,
@@ -1141,12 +1084,12 @@ int main(int argc, char** argv) {
         fill_chunk.chunk.gap_from_bam_observation = {false};
 
         std::unordered_map<std::string, PhaseReadOutputRow> rows;
-        merge_graph_chunk_into_read_rows(rows, fill_chunk, 0);
+        merge_graph_chunk_into_read_rows(rows, fill_chunk);
         fill_chunk.chunk.region.chunk_id = 11;
         fill_chunk.chunk.gap_haps[0] = 2;
         fill_chunk.chunk.gap_phase_sets[0] = 1200 + kGapFillPsOffset;
         fill_chunk.chunk.gap_from_bam_observation[0] = true;
-        merge_graph_chunk_into_read_rows(rows, fill_chunk, 0);
+        merge_graph_chunk_into_read_rows(rows, fill_chunk);
 
         ok &= check(
             rows.at("fill_only").hap == 1 &&

@@ -59,42 +59,9 @@ constexpr int kNoisyRegFlankLen = 10;
 constexpr int kLongcalldMinSvLen = 30;
 constexpr double kDefaultStrandBiasPvalOnt = 0.01;
 constexpr int kDefaultNoisyRegMaxXgaps = 5;
-// Chunk-stitch abstain margin: adjacent chunks merge only when the absolute
-// flip-vote score strictly exceeds this margin.  0 reproduces the original
-// behavior (merge on any non-zero vote).  Higher values abstain on weakly
-// supported boundaries to avoid over-merging discordant blocks.
-constexpr int kDefaultStitchMinMargin = 0;
-
-// Chunk-stitch decision rule (experimental).  Selects how flip_chunk_hap
-// decides whether to merge two adjacent chunks:
-//   0 = net-margin (default): merge when |flip_votes - noflip_votes| > margin.
-//   1 = both-strands-bridged (Reading A): merge when the winning orientation
-//       has >=1 read confirming EACH of its two haplotype links (e.g. for a
-//       no-flip merge, >=1 read on pre1->cur1 AND >=1 on pre2->cur2).  Guards
-//       against merging on evidence from a single haplotype.
-//   2 = literal (Reading B): merge when >=2 reads with >=1 supporting flip and
-//       >=1 supporting no-flip (stitches on contested seams; diagnostic only).
-//   3 = both-strands + net margin (Reading C): Reading A AND the net vote still
-//       wins by more than the configured margin.
-constexpr int kStitchRuleNetMargin = 0;
-constexpr int kStitchRuleBothStrands = 1;
-constexpr int kStitchRuleLiteral = 2;
-constexpr int kStitchRuleBothStrandsMargin = 3;
-// BAM/graph pipelines default to the original net-margin rule.
-constexpr int kDefaultStitchRule = kStitchRuleNetMargin;
-
 // scratch-buffer noisy k-means, so their phase sets occupy a disjoint namespace
 // well above any genomic-coordinate PS id and never collide with core blocks.
 constexpr hts_pos_t kGapFillPsOffset = 1000000000;
-
-// Graph-only het-indel anchor gating (hybrid pipeline only).  Graph het indels
-// added to k-means as CleanHetIndel can mis-orient reads when the genotype is
-// unreliable.  Keep an indel anchor only when its allele fraction sits within
-// kDefaultGraphIndelAfMargin of 0.5 and it has at least
-// kDefaultGraphIndelMinAlt supporting alt reads.  Defaults reproduce prior
-// behavior (AF window 0.2-0.8, no extra alt floor beyond min_alt_depth).
-constexpr double kDefaultGraphIndelAfMargin = 0.11;
-constexpr int kDefaultGraphIndelMinAlt = 0;
 
 // ════════════════════════════════════════════════════════════════════════════
 // Enumerations
@@ -314,34 +281,6 @@ struct Options {
     ///     noisy-hom and ungap-linked sites and required the read's own allele to
     ///     match one of the two consensus alleles.
     bool upstream_read_scoring = false;
-    bool link_earned_repeat_indels = false;
-    int link_earned_min_reads = 15;
-    double link_earned_min_purity = 0.90;
-    // Chunk-stitch abstain margin (see kDefaultStitchMinMargin).  Adjacent
-    // chunks merge only when |flip_hap_score| > stitch_min_margin.
-    int stitch_min_margin = kDefaultStitchMinMargin;
-    // Chunk-stitch decision rule (see kStitchRule* constants above).
-    int stitch_rule = kDefaultStitchRule;
-    // Graph-only het-indel anchor gates (hybrid pipeline).  See constants above.
-    double graph_indel_af_margin = kDefaultGraphIndelAfMargin;
-    /** Max |AF-0.5| for ANY graph site to vote in k-means.  Default 0.5 is
-        off: min_af/max_af already bound AF to [0.20, 0.80], and comparing
-        against 0.30 would reject AF exactly 0.20 on floating-point rounding. */
-    double anchor_af_margin = 0.5;
-    /** Compute a graph site's allele fraction against total site depth rather
-        than against the ref+alt pair only.  Identical for biallelic sites;
-        differs only where a site has several observed alleles. */
-    bool af_vs_site_depth = false;
-    int graph_indel_min_alt = kDefaultGraphIndelMinAlt;
-    // When true, keep step-4 noisy-region MSA variant recall (so noisy variants
-    // still appear in the output VCF) but skip the kCandGermlineVarCate k-means
-    // re-run that re-orients reads using those noisy candidates. On the hybrid
-    // pipeline this re-orientation phased ~8k extra reads at ~65% error and
-    // poisoned the BAM-shared core (Hamming 0.71% -> 3.11%); skipping it brings
-    // hybrid accuracy to graph-pipeline level (99.18%) at higher contiguity.
-    // Defaults true for hybrid (set in collect_hybrid_variation), false for the
-    // BAM pipeline. See CHECKPOINT.md "Hybrid step-4 re-orientation".
-    bool skip_noisy_kmeans = false;
 
     /// A noisy region longer than max_noisy_reg_len is never resolved by MSA;
     /// when set, it does not suppress the candidates inside it either (see
@@ -365,7 +304,7 @@ struct Options {
     // excluded read is admitted as bridge evidence.  1 is "strictly better
     // wins", which measured +139 discordant reads on chr20; 24 (4x the
     // mismatch cost) was the only setting that beat the baseline on both
-    // accuracy and contiguity.  See evaluations/.../chr20_15019294_15130077.md.
+    // accuracy and contiguity.
     //
     // Renamed when the private-whitelist mode was removed: the margin was never
     // specific to it, and governs the MSA consensus rescoring in align.cpp for
@@ -409,41 +348,9 @@ struct Options {
     std::string output_phase_sites;
     /** If non-empty, write a per-read TSV of phasing evidence (observations, agree/conflict). */
     std::string output_phase_reads;
-    /** Minimum (clean-SNP agree - conflict) margin to commit a read to a haplotype. 0 disables. */
-    int min_read_hap_margin = 0;
-    /** Spanning reads required to carry a phase block across two adjacent het
-        variants.  Below this the block is cut.  Lowering it trades a higher
-        chance of a wrong link for longer blocks; 2 is the historical value. */
-    int min_block_link_reads = 2;
-    // How many preceding het variants to consider when looking for a spanning-read
-    // link.  1 reproduces the original adjacent-pair chain; higher values let a
-    // block survive a single weakly covered variant by linking across it.
-    int block_link_window = 1;
     /// Follow assign_hap.c's phasing rules on the BAM arm.
     /// The graph arm retains its wider link and final read-label handling.
     bool upstream_assign_hap = false;
-    // Link variants by the allele pattern a read carries rather than by agreement
-    // with the read's assigned haplotype, so untagged reads still contribute
-    // connectivity.
-    bool link_by_alleles = false;
-    // Emit and phase hets that fail the anchor AF margin instead of discarding
-    // them.  They still never anchor k-means; this only restores their output.
-    bool emit_nonanchor_hets = false;
-    // Widen only the GAF read query around each chunk.  Sites are loaded on the
-    // unpadded window, but a snarl near a chunk edge is traversed by reads whose
-    // alignment starts outside it; without padding those sites see zero evidence
-    // and are dropped as if uncovered.
-    int gaf_pad = 0;
-    // Treat a multi-allelic snarl as one locus: for each alt, contrast reads
-    // carrying it against reads carrying any other allele, instead of against
-    // the graph reference alone.
-    bool snarl_allele_phasing = false;
-    // With snarl_allele_phasing, keep multi-allelic snarls as single n-allelic
-    // anchors instead of scoring each alt separately.
-    bool snarl_keep_whole = false;
-    // Minimum share of a snarl's reads that must fall on its two best-supported
-    // alleles for it to be used as a phasing anchor.
-    double snarl_top2_frac = 0.9;
     // If non-empty, output phased SAM/BAM/CRAM with HP/PS tags.
     std::string output_aln;
     // Output alignment format selected by -S/-b/-C.
@@ -451,30 +358,10 @@ struct Options {
     /** If true, refine phased read alignments from per-read digars before writing output alignment. */
     bool refine_aln = false;
 
-    /** Optional pgbam sidecar file used for fallback chunk stitching when overlap reads have no signal. */
-    std::string pgbam_file;
-    int pgbam_primary_polarity_margin = 2;
-    int pgbam_primary_min_winning_threads = 2;
-    bool pgbam_cleanup_pass = true;
-    int pgbam_cleanup_polarity_margin = 2;
-    int pgbam_cleanup_min_winning_threads = 1;
-    bool pgbam_relaxed_cleanup_pass = true;
-    int pgbam_relaxed_cleanup_polarity_margin = 1;
-    int pgbam_relaxed_cleanup_min_winning_threads = 1;
-    /** Reference sample name for GBZ interval queries (e.g. "CHM13"; auto-derived from FASTA if empty). */
-    std::string graph_sample;
-    /** Optional GBZ-base database for future graph-native snarl/read queries. */
-    std::string gbz_db;
-    /** Optional raw GAF alignments for future graph-native read traversal support. */
+    /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;
-    /** Optional GAF-base database/cache for graph-native ReadSet queries. */
-    std::string gaf_db;
-    /** Optional precomputed vg deconstruct VCF used as a development/debug graph-site catalog. */
+    /** Sites VCF from build-snarl-catalog (collect-graph-variation). */
     std::string graph_sites_vcf;
-    /** Optional whitelist of BAM-derived sites added to graph+private joint phasing. */
-    /** Keep GAF as the sole evidence source at every graph-represented site. */
-    /** BED intervals where clean BAM candidates replace graph/GAF evidence. */
-    /** Suppress output assignments from phase sets with fewer phased reads. */
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer
@@ -650,13 +537,6 @@ struct ReadRecord {
 struct OverlapSkipCounts {
     int upstream = 0;
     int downstream = 0;
-};
-
-/**
- * @brief Parsed pgbam sidecar map: set_id -> graph thread IDs.
- */
-struct PgbamSidecarData {
-    std::unordered_map<uint32_t, std::vector<uint64_t>> set_to_threads;
 };
 
 // ════════════════════════════════════════════════════════════════════════════

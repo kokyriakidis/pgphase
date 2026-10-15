@@ -5,21 +5,28 @@
 #include "build_catalog.hpp"
 #include "collect_pipeline.hpp"
 #include "graph_collect.hpp"
+#include "version.hpp"
 
 namespace {
 
 void print_main_help() {
-    std::cerr << "Usage: pgphase <command> [options]\n"
+    std::cerr << "pgphase " PGPHASE_VERSION "\n"
+              << "\n"
+              << "Usage: pgphase <command> [options]\n"
               << "Commands:\n"
-              << "  collect-bam-variation    Collect SNP/indel evidence from a BAM/CRAM\n"
-              << "  collect-graph-variation  Fast candidate collection from deconstruct VCF + GAF\n"
-              << "  build-snarl-catalog      Preprocess GBZ graph into a phasing site catalog\n";
+              << "  collect-graph-variation  Phase reads from graph alignments (GAF), optionally with a BAM\n"
+              << "  collect-bam-variation    Phase reads from linear alignments (BAM/CRAM) only\n"
+              << "  build-snarl-catalog      Build the phasing site catalog from a GBZ graph\n";
 }
 
 } // namespace
 
 int main(int argc, char* argv[]) {
     try {
+        if (argc > 1 && (std::string(argv[1]) == "--version" || std::string(argv[1]) == "version")) {
+            std::cout << "pgphase " PGPHASE_VERSION "\n";
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "collect-bam-variation") {
             return collect_bam_variation(argc - 1, argv + 1);
         }
