@@ -48,19 +48,22 @@ the same reads' linear alignments as an indexed BAM.
 ### 1. Build the site catalog (once per graph)
 
 ```bash
-vg snarls -t 16 graph.gbz > graph.snarls      # once per graph
-
 for chr in chr{1..22} chrX; do
-    pgphase build-snarl-catalog \
-        --ref-sample CHM13 --contig "$chr" --snarls graph.snarls -t 16 \
+    pgphase build-snarl-catalog --ref-sample CHM13 --contig "$chr" -t 16 \
         -o "$chr.sites.vcf.gz" graph.gbz
 done
 ```
 
-`build-snarl-catalog` runs `vg deconstruct -a` on the reference path
-`<ref-sample>#0#<contig>` and writes a bgzipped, tabix-indexed sites-only VCF.
-On a whole-genome HPRC graph this is the slow, memory-hungry step; each
-chromosome is an independent job.
+For each chromosome, `build-snarl-catalog` extracts the chromosome's connected
+component (`vg chunk -C`), computes its snarls (`vg snarls`), and runs
+`vg deconstruct -a` with them on the reference path `<ref-sample>#0#<contig>`,
+writing a bgzipped, tabix-indexed sites-only VCF. On the HPRC v2.1 CHM13 graph,
+chr20 takes 28 minutes on 10 cores with a 25 GB peak. The chromosomes are
+independent jobs.
+
+Do not pass a whole-genome snarls file with `--contig`: `vg deconstruct`
+enumerates the haplotypes through every snarl it is given before checking which
+reference path it belongs to, so each chromosome would pay for the whole genome.
 
 ### 2. Index the GAF by reference coordinate
 
