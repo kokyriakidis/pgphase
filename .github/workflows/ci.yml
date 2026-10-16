@@ -15,16 +15,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libhts-dev zlib1g-dev
+          sudo apt-get install -y build-essential libhts-dev libzstd-dev zlib1g-dev
 
       - name: Build
         run: |
           make third-party-libs
           make -j"$(nproc)"
+          make pgcat
           ./pgphase --version
 
       - name: Unit tests
-        run: make -j"$(nproc)" unit-tests predicate-tests parity-tests
+        run: |
+          make -j"$(nproc)" unit-tests predicate-tests parity-tests
+          make pgcat-tests
 
       - name: End-to-end golden tests
         run: make check

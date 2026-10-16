@@ -16,16 +16,18 @@ recommended mode.
 |---|---|
 | `collect-graph-variation` | Phase reads from their graph alignments (GAF), optionally with their linear alignments (`--bam`) |
 | `collect-bam-variation` | Phase reads from linear alignments alone (BAM/CRAM); a C++ port of [longcallD](https://github.com/yangao07/longcallD)'s phasing |
-| `build-snarl-catalog` | Build the per-chromosome site catalog that `collect-graph-variation` reads |
+| `build-snarl-catalog` | Build the site catalogs that `collect-graph-variation` reads, from the GBZ graph (runs `pgcat build`) |
+| `index-gaf` | Index the reads' graph alignments (GAF) by reference position, for `--gaf` (runs `pgcat index-gaf`) |
 
 ## Installation
 
 Requirements:
 
 - a C++17 compiler (GCC 8+ or Clang 7+)
-- [htslib](https://github.com/samtools/htslib) with headers, zlib, pthreads
+- [htslib](https://github.com/samtools/htslib) with headers, zstd, zlib, pthreads
+- [Rust](https://rustup.rs) (cargo), to build `pgcat`, which `build-snarl-catalog`
+  and `index-gaf` run
 - [vg](https://github.com/vgteam/vg), only for `build-snarl-catalog`
-- [pggaf](https://github.com/kokyriakidis/pggaf), to prepare the GAF input
 - [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
 
 ```bash
@@ -33,6 +35,7 @@ git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
 make third-party-libs   # WFA2-lib and abPOA
 make -j"$(nproc)"
+make pgcat              # catalogs and GAF indexing, placed beside pgphase
 ./pgphase --version
 ```
 
@@ -45,47 +48,71 @@ pgphase needs four inputs: the reference FASTA, a site catalog built from the
 graph, the reads' graph alignments as a coordinate-indexed GAF, and (recommended)
 the same reads' linear alignments as an indexed BAM.
 
-### 1. Build the site catalog (once per graph)
+### 1. Build the site catalogs (once per graph)
 
 ```bash
-for chr in chr{1..22} chrX; do
-    pgphase build-snarl-catalog --ref-sample CHM13 --contig "$chr" -t 16 \
-        -o "$chr.sites.vcf.gz" graph.gbz
-done
+pgphase build-snarl-catalog --graph graph.gbz --reference-sample CHM13
 ```
 
-For each chromosome, `build-snarl-catalog` extracts the chromosome's connected
-component (`vg chunk -C`), computes its snarls (`vg snarls`), and runs
-`vg deconstruct -a` with them on the reference path `<ref-sample>#0#<contig>`,
-writing a bgzipped, tabix-indexed sites-only VCF. On the HPRC v2.1 CHM13 graph,
-chr20 takes 28 minutes on 10 cores with a 25 GB peak. The chromosomes are
-independent jobs.
+This writes `graph.catalog/<contig>.pgsites` (or, with `--out DIR`,
+`DIR/<contig>.pgsites`) for every reference contig: every snarl
+the reference path `CHM13#0#<contig>` passes through, at every nesting level,
+with all its alleles, in position order. It is what `vg deconstruct -a` reports,
+without the genotypes and allele counts, which need the haplotype names and
+take most of its time. `--sites graph.catalog` then gives pgphase every contig.
 
-Do not pass a whole-genome snarls file with `--contig`: `vg deconstruct`
-enumerates the haplotypes through every snarl it is given before checking which
-reference path it belongs to, so each chromosome would pay for the whole genome.
+- `--reference-sample` may be left out when the graph declares a single
+  reference sample (`pgcat reference-samples graph.gbz` lists them); HPRC graphs
+  declare both CHM13 and GRCh38.
+- Contigs may be named either way: `chr20`, or the path name `CHM13#0#chr20`.
+- `--region chr20` (repeatable) builds chosen contigs, and
+  `--region chr20:10000000-12000000` part of one, as `chr20_10000000-12000000.pgsites`.
+- Each contig's snarls come from its own connected component (`vg chunk -C`,
+  then `vg snarls`, several contigs at a time) and are kept in the catalog's
+  `snarls/` folder for later runs on the same graph.
 
-### 2. Index the GAF by reference coordinate
+On the HPRC v2.1 CHM13 graph (10 cores), all 25 contigs take 58 minutes: 12 to
+extract the contigs' components (`vg chunk`, 24 GB), 11 for their snarls (up to
+`--snarls-jobs` 6 `vg snarls` at once, about 10 GB each) and 34 for the catalogs. The catalogs total 1.2 GB with every site
+and allele; chr20's is 30 MB, against 656 MB as a sites-only VCF. Records too
+long to hold in memory (chr2 has a snarl spanning 11.4 Mb, a 6.5 GB line) are
+streamed from their haplotype walks, so pgcat itself peaks at the graph plus one
+contig's working set: 12 GB for chr20, 16 GB for chr2.
+
+A `.pgsites` file holds the catalog's VCF lines in independently
+zstd-compressed position blocks with an index, so a region query reads only the
+blocks it needs. `pgcat view graph.catalog/chr20.pgsites [chr20:START-END]` prints it,
+or the records overlapping a region as `tabix` would, as VCF; pgphase also reads
+a bgzipped, tabix-indexed sites VCF (one file for every contig).
+
+### 2. Index the alignments by reference position
 
 ```bash
-pggaf annotate-gaf --gaf reads.gaf --gbz graph.gbz --ref-sample CHM13 \
-    --out-gaf reads.annotated.gaf --out-sets reads.pgs
-pggaf index-gaf --in reads.annotated.gaf --out reads.coord.gaf.gz
+pgphase index-gaf --graph graph.gbz --gaf reads.gaf.gz --reference-sample CHM13
 ```
+
+This places every alignment on the reference by the nodes of its walk that lie
+on the reference sample's paths, and writes `reads.coord.gaf.gz` (sorted,
+bgzipped) with its tabix index. Unmapped alignments, and those without a unique
+reference interval, are left out and counted. Header lines record the longest
+alignment on each contig: pgphase uses them to skip sites no read can traverse
+(every allele longer than any alignment), which changes nothing but memory and
+time. The GAF may be plain, gzip or bgzip; sorting spills to disk beyond
+`--memory` (a quarter of the machine's memory). chr20 of HG002 HiFi (5.7 GB of
+GAF) takes 61 s.
 
 ### 3. Phase
 
 ```bash
 pgphase collect-graph-variation \
     --ref chm13.fa \
-    --sites chr20.sites.vcf.gz \
+    --sites graph.catalog \
     --gaf reads.coord.gaf.gz \
     --bam reads.bam \
     -r 'CHM13#0#chr20' \
     -o candidates.tsv \
     --phased-vcf-out phased.vcf \
-    --phased-bam-out phased.bam \
-    -t 16
+    --phased-bam-out phased.bam
 ```
 
 Leave out `--bam` to phase from the graph alignments alone.
@@ -106,10 +133,10 @@ haplotype-aware variant calling.
 | Option | Description | Default |
 |---|---|---|
 | `--ref FILE` | Reference FASTA (indexed) | required |
-| `--sites FILE` | Site catalog from `build-snarl-catalog` | required |
-| `--gaf FILE` | Coordinate-indexed GAF from pggaf | required |
+| `--sites PATH` | Site catalogs from `build-snarl-catalog` (the folder, or one `.pgsites` file), or a tabix-indexed sites VCF | required |
+| `--gaf FILE` | Reference-indexed GAF from `index-gaf` | required |
 | `--bam FILE` | Indexed BAM of the same reads (union gap phasing) | off |
-| `-t INT` | Worker threads | 1 |
+| `-t INT` | Worker threads | all cores |
 | `-q INT` | Minimum mapping quality | 5 (1 with `--bam`) |
 | `-D INT` | Minimum total depth | 5 |
 | `--min-alt-depth INT` | Minimum alt depth | 2 |
@@ -127,7 +154,7 @@ Linear-only phasing, as in longcallD, for when no graph alignment is available:
 
 ```bash
 pgphase collect-bam-variation --ref ref.fa --bam reads.bam --hifi \
-    -o candidates.tsv --phased-vcf-out phased.vcf -b phased.bam -t 16
+    -o candidates.tsv --phased-vcf-out phased.vcf -b phased.bam
 ```
 
 Use `--ont` for ONT reads; `--help` lists all options.
@@ -136,6 +163,7 @@ Use `--ont` for ONT reads; `--help` lists all options.
 
 ```bash
 make unit-tests   # unit tests
+make pgcat-tests  # pgcat unit tests
 make check        # end-to-end golden tests on the bundled data in test_data/
 ```
 

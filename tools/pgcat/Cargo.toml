@@ -1,0 +1,18 @@
+[package]
+name = "pgcat"
+version = "0.1.0"
+edition = "2021"
+description = "pgphase inputs from a GBZ pangenome graph: site catalogs and reference-indexed GAF"
+license = "MIT"
+
+[dependencies]
+gbz = "=0.6.2"
+simple-sds = "=0.4.2"
+rayon = "=1.11.0"
+flate2 = { version = "=1.1.9", default-features = false, features = ["zlib-rs"] }
+zstd = { version = "=0.13.3", features = ["zstdmt"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

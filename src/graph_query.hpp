@@ -7,6 +7,7 @@
 #include <htslib/hts.h>
 #include <htslib/tbx.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace pgphase_collect {
@@ -21,7 +22,7 @@ struct GraphReadAllele {
     bool reverse = false; // true when the read traverses the snarl in reverse-complement
 };
 
-// RAII handle for a pggaf coordinate-indexed GAF file (bgzipped + tabix).
+// RAII handle for a reference-indexed GAF (pgphase index-gaf; bgzipped + tabix).
 // Opened once per thread, reused across chunks to avoid repeated file
 // open / tabix index load overhead.
 struct IndexedGafHandle {
@@ -38,8 +39,13 @@ struct IndexedGafHandle {
     explicit operator bool() const { return fp && tbx; }
 };
 
+// The `#max_span <contig> <bases>` header lines of an indexed GAF (written by
+// pgphase index-gaf): the most graph bases any alignment on each contig spans.
+// Empty when the GAF has none.
+std::unordered_map<std::string, hts_pos_t> read_gaf_max_spans(const std::string& path);
+
 // Per-chunk query using a pre-opened IndexedGafHandle.
-// The GAF must have pggaf's three leading coordinate columns (rc rb re).
+// The GAF must have index-gaf's three leading coordinate columns (contig, start, end).
 std::vector<GraphReadAllele>
 scan_indexed_gaf_chunk(IndexedGafHandle& handle,
                        const std::string& contig,

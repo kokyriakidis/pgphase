@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <set>
+#include <tuple>
 #include <sstream>
 #include <string>
 
@@ -54,6 +56,61 @@ static bool test_loader_rejects_bad_records_without_throwing() {
     return ok;
 }
 
+using SiteKey = std::tuple<hts_pos_t, std::string, std::string, std::set<std::pair<std::string, std::string>>, int,
+                           std::string>;
+
+// Sites as a set: ALT order is the builder's choice (vg's, or pgcat's by
+// haplotype count), and must not change what is loaded.
+static std::set<SiteKey> site_set(const GraphSiteCatalog& cat) {
+    std::set<SiteKey> out;
+    for (const GraphSite& s : cat.sites) {
+        std::set<std::pair<std::string, std::string>> alleles;
+        for (size_t i = 0; i < s.alts.size(); ++i)
+            alleles.emplace(s.alts[i], i + 1 < s.allele_traversals.size() ? s.allele_traversals[i + 1] : "");
+        out.emplace(s.pos, s.id, s.ref, alleles, s.level, s.parent);
+    }
+    return out;
+}
+
+// The micb catalog as pgcat writes it (a folder of <contig>.pgsites, or one
+// file) and as vg deconstruct does (a tabix VCF): the same sites for whole
+// contigs and for regions, records overlapping a region included as tabix does.
+static bool test_pgsites_catalog_matches_vcf() {
+    const std::string dir = "test_data/graph/micb-kir3dl1.catalog";
+    const std::string vcf = "test_data/graph/micb-kir3dl1.sites.vcf.gz";
+    bool ok = true;
+    require_site_catalog(dir);
+    require_site_catalog(dir + "/chr6.pgsites");
+    SiteCatalogHandle folder(dir), file(dir + "/chr6.pgsites"), tabix(vcf);
+    struct Query { const char* contig; hts_pos_t beg, end; size_t expect; };
+    const Query queries[] = {
+        {"CHM13#0#chr6", 1, 400000000, 202},
+        {"CHM13#0#chr19", 1, 400000000, 715},
+        {"CHM13#0#chr6", 31351180, 31351181, 0},  // inside the >16>32 record
+        {"CHM13#0#chr6", 31355000, 31357000, 0},
+        {"chr19", 18930000, 18935000, 0},         // bare contig name
+    };
+    for (const Query& q : queries) {
+        const GraphSiteCatalog a = load_sites_for_region(folder, q.contig, q.beg, q.end);
+        const GraphSiteCatalog b = load_sites_for_region(tabix, q.contig, q.beg, q.end);
+        const std::string what = std::string(q.contig) + ":" + std::to_string(q.beg) + "-" + std::to_string(q.end);
+        ok &= check(!a.sites.empty(), what + ": sites loaded from the folder");
+        ok &= check(q.expect == 0 || a.sites.size() == q.expect, what + ": every site of the contig");
+        ok &= check(site_set(a) == site_set(b), what + ": the same sites as the VCF");
+        if (std::string(q.contig).find("chr6") != std::string::npos)
+            ok &= check(site_set(load_sites_for_region(file, q.contig, q.beg, q.end)) == site_set(a),
+                        what + ": the single file loads as the folder does");
+    }
+    ok &= check(load_sites_for_region(file, "CHM13#0#chr19", 1, 400000000).sites.empty(),
+                "a single contig's file has no sites on another contig");
+    ok &= check(load_sites_for_region(folder, "CHM13#0#chrM", 1, 400000000).sites.empty(),
+                "a contig without a file has no sites");
+    ok &= check(load_sites_for_region(folder, "GRCh38#0#chr6", 1, 400000000).sites.empty() &&
+                    load_sites_for_region(tabix, "GRCh38#0#chr6", 1, 400000000).sites.empty(),
+                "another sample's path has no sites in a CHM13 catalog");
+    return ok;
+}
+
 int main() {
     const std::string path = "/tmp/pgphase_graph_sites_test.vcf";
     {
@@ -83,7 +140,7 @@ int main() {
     ok &= check(parent != nullptr && parent->allele_traversals.size() == 2, "parent AT traversals parsed");
     ok &= check(parent != nullptr && parent->allele_walks.size() == 2, "parent AT walks parsed");
     ok &= check(parent != nullptr && parent->allele_walks[1].size() == 3, "parent second walk length");
-    ok &= check(parent != nullptr && parent->allele_walks[1][1].node == "3", "walk node id parsed");
+    ok &= check(parent != nullptr && parent->allele_walks[1][1].node == 3, "walk node id parsed");
     ok &= check(parent != nullptr && parent->allele_walks[1][1].reverse, "walk orientation parsed");
     ok &= check(parent != nullptr && graph_site_between_query(*parent) == "1+:4+",
                 "between query from boundary nodes");
@@ -152,6 +209,7 @@ int main() {
                 "incompatible boundaries have no between query");
 
     ok &= test_loader_rejects_bad_records_without_throwing();
+    ok &= test_pgsites_catalog_matches_vcf();
 
     std::remove(path.c_str());
     if (ok) {

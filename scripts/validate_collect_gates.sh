@@ -188,6 +188,11 @@ run_graph() {
   rm -f "$log"
 }
 
+# A bgzipped file by its decompressed content.
+hash_gz() {
+  gzip -dc "$1" | if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | awk '{print $1}'
+}
+
 check_golden() {
   local what="$1" actual="$2" expected="$3" hasher="$4"
   local a e
@@ -206,6 +211,34 @@ g_tsv="$TMPDIR/pgphase_validate_graph.tsv"
 count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_DIR/micb-kir3dl1.sites.vcf.gz" \
   --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
 check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
+
+# The same run on the .pgsites catalog folder pgcat build writes.
+GRAPH_CATALOG="$GRAPH_DIR/micb-kir3dl1.catalog"
+count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_CATALOG" \
+  --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
+check_golden "graph-only TSV on .pgsites (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
+
+# pgcat rebuilds that catalog from its committed snarls (so without vg).
+PGCAT="${PGCAT:-$ROOT/pgcat}"
+if [[ -x "$PGCAT" ]]; then
+  cat_out="$TMPDIR/pgphase_validate_catalog"
+  rm -rf "$cat_out"
+  mkdir -p "$cat_out"
+  cp -r "$GRAPH_CATALOG/snarls" "$cat_out/snarls"
+  "$PGCAT" build --graph "$GRAPH_DIR/micb-kir3dl1.gbz" --reference-sample CHM13 --out "$cat_out" \
+    --region chr6 --region chr19 --threads 2 2>/dev/null
+  for c in chr6 chr19; do
+    check_golden "pgcat $c catalog" "$cat_out/$c.pgsites" "$GRAPH_CATALOG/$c.pgsites" hash_file
+  done
+  # ... and the reference-indexed GAF from the raw alignments: the same
+  # records and index (compared decompressed).
+  "$PGCAT" index-gaf --graph "$GRAPH_DIR/micb-kir3dl1.gbz" --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.gaf" \
+    --reference-sample CHM13 --out "$cat_out/reads.coord.gaf.gz" -t 2 2>/dev/null
+  check_golden "pgcat index-gaf records" "$cat_out/reads.coord.gaf.gz" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" hash_gz
+  check_golden "pgcat index-gaf index" "$cat_out/reads.coord.gaf.gz.tbi" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz.tbi" hash_gz
+else
+  echo "skip: pgcat not built (make pgcat); catalog and GAF rebuilds not checked"
+fi
 
 for t in 1 4; do
   count_u="$(run_graph -t "$t" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \

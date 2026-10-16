@@ -1,6 +1,7 @@
 #include "graph_sites.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <cerrno>
 #include <cstring>
@@ -9,7 +10,15 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <fstream>
+#include <iostream>
+#include <mutex>
 #include <unordered_set>
+
+#include <dirent.h>
+#include <sys/stat.h>
+
+#include <zstd.h>
 
 #include <htslib/hts.h>
 #include <htslib/kstring.h>
@@ -28,76 +37,67 @@ std::vector<std::string> split_char(const std::string& value, char delim) {
     return out;
 }
 
-std::unordered_map<std::string, std::string> parse_info(const std::string& field) {
-    std::unordered_map<std::string, std::string> out;
-    if (field.empty() || field == ".") return out;
-    for (const std::string& item : split_char(field, ';')) {
-        if (item.empty()) continue;
-        const size_t eq = item.find('=');
-        if (eq == std::string::npos) {
-            out.emplace(item, "");
-        } else {
-            out.emplace(item.substr(0, eq), item.substr(eq + 1));
+// Calls f with each `delim`-separated item of s, as std::getline splitting
+// does: nothing for an empty s, and a final empty item after a trailing delim.
+template <class F>
+void for_each_item(std::string_view s, char delim, F&& f) {
+    if (s.empty()) return;
+    size_t start = 0;
+    while (true) {
+        const size_t d = s.find(delim, start);
+        if (d == std::string_view::npos) {
+            f(s.substr(start));
+            return;
         }
+        f(s.substr(start, d - start));
+        start = d + 1;
     }
-    return out;
 }
 
-int parse_optional_int(const std::unordered_map<std::string, std::string>& info,
-                       const char* key) {
-    auto it = info.find(key);
-    if (it == info.end() || it->second.empty()) return -1;
-    return std::stoi(it->second);
-}
+// A VCF INFO field as key/value views into the line. A key given twice keeps
+// its first value; a key without '=' has an empty value.
+struct InfoView {
+    std::vector<std::pair<std::string_view, std::string_view>> items;
 
-std::string find_first_info_value(const std::unordered_map<std::string, std::string>& info,
-                                  const std::vector<const char*>& keys) {
-    for (const char* key : keys) {
-        auto it = info.find(key);
-        if (it != info.end()) return it->second;
+    explicit InfoView(std::string_view field) {
+        if (field.empty() || field == ".") return;
+        for_each_item(field, ';', [&](std::string_view item) {
+            if (item.empty()) return;
+            const size_t eq = item.find('=');
+            if (eq == std::string_view::npos) items.emplace_back(item, std::string_view());
+            else items.emplace_back(item.substr(0, eq), item.substr(eq + 1));
+        });
     }
-    return "";
+
+    // The value of the first of `keys` present; empty if none is.
+    std::string_view first_of(std::initializer_list<std::string_view> keys) const {
+        for (std::string_view key : keys)
+            for (const auto& kv : items)
+                if (kv.first == key) return kv.second;
+        return {};
+    }
+
+    bool has(std::string_view key) const {
+        for (const auto& kv : items)
+            if (kv.first == key) return true;
+        return false;
+    }
+};
+
+int parse_optional_int(const InfoView& info, std::string_view key) {
+    const std::string_view v = info.first_of({key});
+    if (v.empty()) return -1;
+    return std::stoi(std::string(v));
 }
 
-// Extract the AT (allele traversal) field from VCF INFO.  Falls back to UT
-// and LVAT for compatibility with older vg deconstruct output.
-std::vector<std::string> parse_allele_traversals(const std::unordered_map<std::string, std::string>& info) {
-    const std::string value = find_first_info_value(info, {"AT", "UT", "LVAT"});
-    if (value.empty()) return {};
-    return split_char(value, ',');
-}
-
-std::vector<int> parse_optional_int_list(const std::unordered_map<std::string, std::string>& info,
-                                         const std::vector<const char*>& keys) {
-    const std::string value = find_first_info_value(info, keys);
+std::vector<int> parse_optional_int_list(const InfoView& info, std::initializer_list<std::string_view> keys) {
+    const std::string_view value = info.first_of(keys);
     std::vector<int> out;
     if (value.empty() || value == ".") return out;
-    for (const std::string& field : split_char(value, ',')) {
-        if (field.empty() || field == ".") continue;
-        out.push_back(std::stoi(field));
-    }
-    return out;
-}
-
-// Parse each AT entry into a GraphWalk.  Spanning deletions ('*') and
-// missing entries ('.') produce empty walks.  Sets `malformed` if any
-// entry fails to parse (the site will be marked ineligible).
-std::vector<GraphWalk> parse_allele_walks(const std::vector<std::string>& traversals,
-                                          bool& malformed) {
-    std::vector<GraphWalk> out;
-    out.reserve(traversals.size());
-    for (const std::string& traversal : traversals) {
-        if (traversal == "*" || traversal == ".") {
-            out.emplace_back();
-            continue;
-        }
-        try {
-            out.push_back(parse_graph_walk(traversal));
-        } catch (const std::exception&) {
-            malformed = true;
-            out.emplace_back();
-        }
-    }
+    for_each_item(value, ',', [&](std::string_view field) {
+        if (field.empty() || field == ".") return;
+        out.push_back(std::stoi(std::string(field)));
+    });
     return out;
 }
 
@@ -112,8 +112,20 @@ std::string chrom_suffix_match_key(const std::string& s) {
     return h == std::string::npos ? s : s.substr(h + 1);
 }
 
+// The sample of a pangenome path name ("CHM13" of "CHM13#0#chr20"); empty for
+// a plain contig name.
+std::string chrom_sample(const std::string& s) {
+    const size_t h = s.find('#');
+    return h == std::string::npos ? std::string() : s.substr(0, h);
+}
+
+// The same contig: "chr20" matches "CHM13#0#chr20" and "GRCh38#0#chr20", but
+// two path names must also name the same sample, as their coordinates differ.
 bool chrom_names_match_vcf(const std::string& a, const std::string& b) {
-    return a == b || chrom_suffix_match_key(a) == chrom_suffix_match_key(b);
+    if (a == b) return true;
+    if (chrom_suffix_match_key(a) != chrom_suffix_match_key(b)) return false;
+    const std::string sa = chrom_sample(a), sb = chrom_sample(b);
+    return sa.empty() || sb.empty() || sa == sb;
 }
 
 // Sort sites by (chrom, pos, id) and run structural validation on each.
@@ -183,20 +195,23 @@ void append_graph_site_from_vcf_data_line(const char* buf,
                                           bool keep_allele_traversal_strings) {
     if (len == 0 || buf[0] == '#') return;
     ++catalog.stats.data_lines;
-    const std::string line(buf, len);
-    std::vector<std::string> fields = split_char(line, '\t');
+    // Fields are views into the line; only what the site keeps is copied.
+    std::vector<std::string_view> fields;
+    fields.reserve(10);
+    for_each_item(std::string_view(buf, len), '\t', [&](std::string_view f) { fields.push_back(f); });
     if (fields.size() < 8) { ++catalog.stats.short_line; return; }
 
     GraphSite site;
-    site.chrom = fields[0];
+    site.chrom = std::string(fields[0]);
     const auto hash_pos = fields[0].rfind('#');
-    site.ref_contig = (hash_pos != std::string::npos)
-                      ? fields[0].substr(hash_pos + 1)
-                      : fields[0];
-    if (!parse_positive(fields[1], site.pos)) { ++catalog.stats.bad_position; return; }
-    site.id = fields[2];
-    site.ref = fields[3];
-    if (fields[4] != ".") site.alts = split_char(fields[4], ',');
+    site.ref_contig = std::string((hash_pos != std::string_view::npos)
+                                  ? fields[0].substr(hash_pos + 1)
+                                  : fields[0]);
+    if (!parse_positive(std::string(fields[1]), site.pos)) { ++catalog.stats.bad_position; return; }
+    site.id = std::string(fields[2]);
+    site.ref = std::string(fields[3]);
+    if (fields[4] != ".")
+        for_each_item(fields[4], ',', [&](std::string_view a) { site.alts.emplace_back(a); });
     // Case is not meaning: a soft-masked reference writes acgt, and an allele
     // that differs from a candidate's only in case would never match it.
     upper_in_place(site.ref);
@@ -207,21 +222,35 @@ void append_graph_site_from_vcf_data_line(const char* buf,
         ++catalog.stats.unsupported_allele;
         return;
     }
-    const auto info = parse_info(fields[7]);
-    site.allele_traversals = parse_allele_traversals(info);
+    const InfoView info(fields[7]);
+    // AT (or UT, LVAT from older vg) walks, parsed straight from the line.
+    // Spanning deletions ('*') and missing entries ('.') are empty walks; an
+    // entry that does not parse marks the site ineligible.
     bool malformed_walk = false;
-    site.allele_walks = parse_allele_walks(site.allele_traversals, malformed_walk);
+    for_each_item(info.first_of({"AT", "UT", "LVAT"}), ',', [&](std::string_view t) {
+        if (keep_allele_traversal_strings) site.allele_traversals.emplace_back(t);
+        if (t == "*" || t == ".") {
+            site.allele_walks.emplace_back();
+            return;
+        }
+        try {
+            site.allele_walks.push_back(parse_graph_walk(t));
+        } catch (const std::exception&) {
+            malformed_walk = true;
+            site.allele_walks.emplace_back();
+        }
+    });
     site.level = parse_optional_int(info, "LV");
-    site.parent = find_first_info_value(info, {"PS", "PARENT", "Parent"});
-    site.root = find_first_info_value(info, {"RS", "ROOT", "Root"});
-    const std::string rc_value = find_first_info_value(info, {"RC", "REF_CONTIG", "RefContig"});
+    site.parent = std::string(info.first_of({"PS", "PARENT", "Parent"}));
+    site.root = std::string(info.first_of({"RS", "ROOT", "Root"}));
+    const std::string rc_value(info.first_of({"RC", "REF_CONTIG", "RefContig"}));
     if (!rc_value.empty()) {
         const auto hp = rc_value.rfind('#');
         site.ref_contig = (hp != std::string::npos) ? rc_value.substr(hp + 1) : rc_value;
     }
     site.ref_beg = site.pos;
     site.ref_end = site.pos;
-    const std::string end_value = find_first_info_value(info, {"END"});
+    const std::string end_value(info.first_of({"END"}));
     if (!end_value.empty() && !parse_positive(end_value, site.ref_end)) {
         ++catalog.stats.bad_position;
         return;
@@ -236,21 +265,78 @@ void append_graph_site_from_vcf_data_line(const char* buf,
         site.skip_reason = graph_site_validation_skip_reason(site);
         site.eligible = site.skip_reason.empty();
     }
-    if (!keep_allele_traversal_strings) {
-        std::vector<std::string>().swap(site.allele_traversals);
-    }
     ++catalog.stats.sites_parsed;
     catalog.sites.push_back(std::move(site));
+}
+
+// The fewest bases any allele of a VCF data line spans, the padding base not
+// counted (alleles of unequal lengths carry one), as pgcat computes it; 0 when
+// the line has no REF/ALT fields.
+hts_pos_t shortest_allele(const char* line, size_t len) {
+    const char* end = line + len;
+    const char* p = line;
+    for (int tabs = 0; tabs < 3; ++p) {          // to REF, the 4th field
+        if (p >= end) return 0;
+        if (*p == '\t') ++tabs;
+    }
+    hts_pos_t shortest = -1, first = -1;
+    bool equal = true;
+    int fields = 0;                               // REF, then ALT
+    for (const char* a = p; p <= end; ++p) {
+        if (p != end && *p != '\t' && *p != ',') continue;
+        const hts_pos_t l = p - a;
+        if (first < 0) first = l;
+        equal = equal && l == first;
+        if (shortest < 0 || l < shortest) shortest = l;
+        a = p + 1;
+        if (p == end || (*p == '\t' && ++fields == 2)) break;
+    }
+    if (shortest < 0) return 0;
+    return equal ? shortest : shortest - 1;
+}
+
+// The most nodes any allele walk in the line's AT field visits.
+size_t longest_walk(const char* line, size_t len) {
+    const char* end = line + len;
+    const char* at = nullptr;
+    for (const char* p = line; p + 3 <= end; ++p) {
+        if ((p == line || p[-1] == '\t' || p[-1] == ';') && p[0] == 'A' && p[1] == 'T' && p[2] == '=') {
+            at = p + 3;
+            break;
+        }
+    }
+    if (at == nullptr) return 0;
+    size_t longest = 0, steps = 0;
+    for (const char* p = at; p < end && *p != ';' && *p != '\t'; ++p) {
+        if (*p == '>' || *p == '<') ++steps;
+        else if (*p == ',') { longest = std::max(longest, steps); steps = 0; }
+    }
+    return std::max(longest, steps);
+}
+
+// Whether no read can be matched to the record's site, and so it need not be
+// loaded: every allele spans more graph bases than any alignment, or some
+// allele walk is longer than the matcher takes. Counted in the load stats.
+bool unmatchable_record(const char* line, size_t len, hts_pos_t max_span, GraphSiteLoadStats& stats) {
+    if (shortest_allele(line, len) > max_span) {
+        ++stats.beyond_read_span;
+        return true;
+    }
+    // A walk of more than kMaxSiteWalkSteps nodes takes over two bytes a node.
+    if (len > 2 * kMaxSiteWalkSteps && longest_walk(line, len) > kMaxSiteWalkSteps) {
+        ++stats.walk_too_long;
+        return true;
+    }
+    return false;
 }
 
 // Load sites from a tabix-indexed VCF, restricted to the given regions.
 // Handles pangenome path name mismatches (e.g. filter asks for "chr20" but
 // VCF uses "CHM13#0#chr20") via suffix matching.
-constexpr size_t kMaxSiteRecordBytes = size_t{64} << 20;
-
 void append_graph_sites_tabix_filtered(htsFile* fp,
                                        tbx_t* tbx,
                                        const std::vector<RegionFilter>& filters,
+                                       hts_pos_t max_span,
                                        GraphSiteCatalog& catalog,
                                        bool keep_allele_traversal_strings) {
     struct HtsItrDeleter {
@@ -303,12 +389,8 @@ void append_graph_sites_tabix_filtered(htsFile* fp,
                            make_rstr(it->second, filter.beg, filter.end).c_str()));
         if (!itr) continue;
         while (tbx_itr_next(fp, tbx, itr.get(), &str) >= 0) {
-            // A record this large is a snarl with hundreds of megabase-scale
-            // alleles (chr20: 130-700 MB lines, up to 436 alleles of ~1 Mb).
-            // No read on HG002 chr12/18/20 observes one, and parsing them was
-            // 11% of the run, concentrated in a few chunks.
-            if (str.l > kMaxSiteRecordBytes) continue;
-            if (str.l > 0)
+            if (str.l == 0) continue;
+            if (!unmatchable_record(str.s, str.l, max_span, catalog.stats))
                 append_graph_site_from_vcf_data_line(str.s, str.l, catalog,
                                                      keep_allele_traversal_strings);
         }
@@ -325,7 +407,7 @@ struct GfaWalkRecord {
 };
 
 std::string step_key(const GraphWalkStep& step) {
-    std::string out = step.node;
+    std::string out = std::to_string(step.node);
     out.push_back(step.reverse ? '-' : '+');
     return out;
 }
@@ -405,7 +487,7 @@ reference_step_positions(const GfaWalkRecord& ref,
     hts_pos_t pos = ref.start;
     for (const GraphWalkStep& step : ref.walk) {
         positions.push_back(pos);
-        auto it = node_seqs.find(step.node);
+        auto it = node_seqs.find(std::to_string(step.node));
         pos += (it == node_seqs.end() || it->second.empty())
                  ? 1
                  : static_cast<hts_pos_t>(it->second.size());
@@ -438,7 +520,8 @@ GraphSiteCatalog load_graph_site_catalog_from_vcf(
                 "sites VCF must be bgzip-compressed with a tabix index: " + path);
         std::unique_ptr<htsFile, HtsFileDeleter> fp(hts_open(path.c_str(), "r"));
         if (!fp) throw std::runtime_error("failed to open graph site VCF: " + path);
-        append_graph_sites_tabix_filtered(fp.get(), tbx.get(), filters, catalog,
+        append_graph_sites_tabix_filtered(fp.get(), tbx.get(), filters,
+                                           std::numeric_limits<hts_pos_t>::max(), catalog,
                                            keep_allele_traversal_strings);
     } else {
         // No region filters: stream the entire file.
@@ -457,18 +540,218 @@ GraphSiteCatalog load_graph_site_catalog_from_vcf(
     return catalog;
 }
 
-bool graph_site_vcf_has_tabix_index(const std::string& path) {
+// --- .pgsites catalogs ---------------------------------------------------------
+//
+// "PGSITES2", u64 header length + zstd(header text), zstd blocks of VCF lines,
+// then the index (u64 count; per block u64 first_pos, last_pos, max_end, offset,
+// compressed length, raw length, records, min_allele, max_walk) and the index's
+// u64 offset last. min_allele is the fewest bases any allele of the block's
+// records spans, max_walk the most nodes any of their allele walks visits: a
+// block whose records no read can be matched to is skipped unread.
+// max_end is the largest POS + len(REF) - 1 in the block: the record span tabix
+// uses for VCF, so a region query selects the same records either way. One file
+// holds one contig, named by the header's ##contig line.
+
+struct PgSitesFile {
+    struct Block { uint64_t first_pos, last_pos, max_end, offset, comp_len, raw_len, records, min_allele, max_walk; };
+    std::ifstream in;
+    std::string chrom;
+    std::vector<Block> blocks;
+};
+
+// One .pgsites file, or a folder of them opened as their contigs are queried.
+struct PgSitesCatalog {
+    std::string dir;  // empty for a single file
+    std::vector<std::unique_ptr<PgSitesFile>> files;
+    std::unordered_set<std::string> absent;  // contigs the folder has no file for
+};
+
+namespace {
+
+constexpr char kPgSitesMagic[8] = {'P', 'G', 'S', 'I', 'T', 'E', 'S', '2'};
+constexpr const char* kPgSitesExt = ".pgsites";
+
+bool is_directory(const std::string& path) {
+    struct stat st;
+    return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+// A .pgsites file of any version: the version is checked when it is opened.
+bool is_pgsites_file(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    char magic[8] = {};
+    return in.read(magic, 8) && std::memcmp(magic, kPgSitesMagic, 7) == 0;
+}
+
+bool has_pgsites_file(const std::string& dir) {
+    DIR* d = opendir(dir.c_str());
+    if (d == nullptr) return false;
+    bool found = false;
+    while (const dirent* e = readdir(d)) {
+        const std::string name = e->d_name;
+        if (name.size() > std::strlen(kPgSitesExt) &&
+            name.compare(name.size() - std::strlen(kPgSitesExt), std::string::npos, kPgSitesExt) == 0 &&
+            is_pgsites_file(dir + "/" + name)) {
+            found = true;
+            break;
+        }
+    }
+    closedir(d);
+    return found;
+}
+
+uint64_t read_u64(std::istream& in) {
+    unsigned char b[8];
+    if (!in.read(reinterpret_cast<char*>(b), 8)) throw std::runtime_error("truncated .pgsites file");
+    uint64_t v = 0;
+    for (int i = 7; i >= 0; --i) v = (v << 8) | b[i];
+    return v;
+}
+
+// Blocks holding a giant record are written with a long window (log 31), above
+// zstd's default decoding limit, so the limit is raised for every block.
+std::string zstd_decompress(const std::string& comp, size_t raw_len) {
+    struct Ctx {
+        ZSTD_DCtx* c = ZSTD_createDCtx();
+        Ctx() { ZSTD_DCtx_setParameter(c, ZSTD_d_windowLogMax, 31); }
+        ~Ctx() { ZSTD_freeDCtx(c); }
+    };
+    thread_local Ctx ctx;
+    std::string out(raw_len, '\0');
+    const size_t n = ZSTD_decompressDCtx(ctx.c, out.data(), raw_len, comp.data(), comp.size());
+    if (ZSTD_isError(n) || n != raw_len) throw std::runtime_error("corrupt .pgsites block");
+    return out;
+}
+
+std::unique_ptr<PgSitesFile> open_pgsites(const std::string& path) {
+    auto f = std::make_unique<PgSitesFile>();
+    f->in.open(path, std::ios::binary);
+    if (!f->in) throw std::runtime_error("failed to open site catalog: " + path);
+    char magic[8] = {};
+    if (!f->in.read(magic, 8) || std::memcmp(magic, kPgSitesMagic, 8) != 0)
+        throw std::runtime_error(path + ": an older .pgsites format; rebuild it with pgphase build-snarl-catalog");
+    const uint64_t header_len = read_u64(f->in);
+    std::string comp(header_len, '\0');
+    f->in.read(comp.data(), static_cast<std::streamsize>(header_len));
+    const unsigned long long raw = ZSTD_getFrameContentSize(comp.data(), comp.size());
+    if (raw == ZSTD_CONTENTSIZE_ERROR || raw == ZSTD_CONTENTSIZE_UNKNOWN)
+        throw std::runtime_error("corrupt .pgsites header: " + path);
+    const std::string header = zstd_decompress(comp, raw);
+    const size_t at = header.find("##contig=<ID=");
+    if (at == std::string::npos) throw std::runtime_error(".pgsites header has no ##contig: " + path);
+    const size_t b = at + 13;
+    f->chrom = header.substr(b, header.find_first_of(",>", b) - b);
+    f->in.seekg(-8, std::ios::end);
+    const uint64_t index_offset = read_u64(f->in);
+    f->in.seekg(static_cast<std::streamoff>(index_offset));
+    const uint64_t n = read_u64(f->in);
+    f->blocks.resize(n);
+    for (auto& blk : f->blocks) {
+        blk.first_pos = read_u64(f->in);
+        blk.last_pos = read_u64(f->in);
+        blk.max_end = read_u64(f->in);
+        blk.offset = read_u64(f->in);
+        blk.comp_len = read_u64(f->in);
+        blk.raw_len = read_u64(f->in);
+        blk.records = read_u64(f->in);
+        blk.min_allele = read_u64(f->in);
+        blk.max_walk = read_u64(f->in);
+    }
+    return f;
+}
+
+// The catalog's file for `contig`: from a folder, <contig>.pgsites, or for a
+// pangenome path name (CHM13#0#chr20) <chr20>.pgsites; null when there is none.
+PgSitesFile* pgsites_for_contig(PgSitesCatalog& cat, const std::string& contig) {
+    for (const auto& f : cat.files)
+        if (chrom_names_match_vcf(contig, f->chrom)) return f.get();
+    if (cat.dir.empty() || cat.absent.count(contig)) return nullptr;
+    std::vector<std::string> names = {contig};
+    if (chrom_suffix_match_key(contig) != contig) names.push_back(chrom_suffix_match_key(contig));
+    std::string other;  // a file found for the contig on another sample's path
+    for (const std::string& name : names) {
+        const std::string path = cat.dir + "/" + name + kPgSitesExt;
+        if (!is_pgsites_file(path)) continue;
+        cat.files.push_back(open_pgsites(path));
+        if (chrom_names_match_vcf(contig, cat.files.back()->chrom)) return cat.files.back().get();
+        other = path + " holds " + cat.files.back()->chrom;
+    }
+    cat.absent.insert(contig);
+    // Handles are per thread: say it once per run, not once per thread.
+    static std::mutex mu;
+    static std::unordered_set<std::string> warned;
+    std::lock_guard<std::mutex> lock(mu);
+    if (warned.insert(contig).second) {
+        std::cerr << "warning: no sites on " << contig << ": ";
+        if (other.empty()) std::cerr << "no " << chrom_suffix_match_key(contig) << kPgSitesExt << " in " << cat.dir << "\n";
+        else std::cerr << other << ", another reference\n";
+    }
+    return nullptr;
+}
+
+// Lines of the blocks that may overlap [beg, end], kept when the record's
+// [POS, POS + len(REF) - 1] overlaps it, as a tabix query would.
+void append_graph_sites_pgsites(PgSitesCatalog& cat, const std::string& contig, hts_pos_t beg, hts_pos_t end,
+                                hts_pos_t max_span, GraphSiteCatalog& catalog) {
+    PgSitesFile* f = pgsites_for_contig(cat, contig);
+    if (f == nullptr) return;
+    std::string comp;
+    for (const PgSitesFile::Block& blk : f->blocks) {
+        if (static_cast<hts_pos_t>(blk.first_pos) > end || static_cast<hts_pos_t>(blk.max_end) < beg) continue;
+        if (static_cast<hts_pos_t>(blk.min_allele) > max_span) {
+            catalog.stats.beyond_read_span += blk.records;
+            continue;
+        }
+        if (blk.records == 1 && blk.max_walk > kMaxSiteWalkSteps) {
+            ++catalog.stats.walk_too_long;
+            continue;
+        }
+        comp.resize(blk.comp_len);
+        f->in.seekg(static_cast<std::streamoff>(blk.offset));
+        if (!f->in.read(comp.data(), static_cast<std::streamsize>(blk.comp_len)))
+            throw std::runtime_error("truncated .pgsites block");
+        const std::string raw = zstd_decompress(comp, blk.raw_len);
+        size_t i = 0;
+        while (i < raw.size()) {
+            size_t nl = raw.find('\n', i);
+            if (nl == std::string::npos) nl = raw.size();
+            const char* line = raw.data() + i;
+            const size_t len = nl - i;
+            // POS is field 2, REF field 4.
+            const char* t1 = static_cast<const char*>(std::memchr(line, '\t', len));
+            const char* t2 = t1 ? static_cast<const char*>(std::memchr(t1 + 1, '\t', len - (t1 + 1 - line))) : nullptr;
+            const char* t3 = t2 ? static_cast<const char*>(std::memchr(t2 + 1, '\t', len - (t2 + 1 - line))) : nullptr;
+            const char* t4 = t3 ? static_cast<const char*>(std::memchr(t3 + 1, '\t', len - (t3 + 1 - line))) : nullptr;
+            if (t4 != nullptr) {
+                const hts_pos_t pos = std::strtoll(t1 + 1, nullptr, 10);
+                const hts_pos_t rec_end = pos + std::max<hts_pos_t>(1, t4 - (t3 + 1)) - 1;
+                if (pos <= end && rec_end >= beg && !unmatchable_record(line, len, max_span, catalog.stats))
+                    append_graph_site_from_vcf_data_line(line, len, catalog, false);
+            }
+            i = nl + 1;
+        }
+    }
+}
+
+bool has_tabix_index(const std::string& path) {
     tbx_t* tbx = tbx_index_load(path.c_str());
     if (!tbx) return false;
     tbx_destroy(tbx);
     return true;
 }
 
-void require_graph_site_vcf_tabix_index(const std::string& path) {
-    if (graph_site_vcf_has_tabix_index(path)) return;
+}  // namespace
+
+
+void require_site_catalog(const std::string& path) {
+    if (is_directory(path)) {
+        if (has_pgsites_file(path)) return;
+        throw std::runtime_error("site catalog folder has no .pgsites files: " + path);
+    }
+    if (is_pgsites_file(path) || has_tabix_index(path)) return;
     throw std::runtime_error(
-        "graph-site VCF must be bgzip-compressed with a tabix index (.tbi or .csi): " +
-        path);
+        "site catalog must be a .pgsites file, a folder of them, or a bgzipped VCF with a tabix "
+        "index (.tbi or .csi): " + path);
 }
 
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
@@ -589,22 +872,27 @@ GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_te
     return catalog;
 }
 
-GraphWalk parse_graph_walk(const std::string& walk) {
+GraphWalk parse_graph_walk(std::string_view walk) {
     GraphWalk out;
     size_t i = 0;
     while (i < walk.size()) {
         const char c = walk[i];
         if (c != '>' && c != '<') {
-            throw std::runtime_error("invalid graph walk step in: " + walk);
+            throw std::runtime_error("invalid graph walk step in: " + std::string(walk));
         }
         const bool reverse = (c == '<');
         ++i;
         const size_t node_beg = i;
         while (i < walk.size() && walk[i] != '>' && walk[i] != '<') ++i;
         if (node_beg == i) {
-            throw std::runtime_error("empty node id in graph walk: " + walk);
+            throw std::runtime_error("empty node id in graph walk: " + std::string(walk));
         }
-        out.push_back(GraphWalkStep{walk.substr(node_beg, i - node_beg), reverse});
+        uint64_t node = 0;
+        const auto parsed = std::from_chars(walk.data() + node_beg, walk.data() + i, node);
+        if (parsed.ec != std::errc() || parsed.ptr != walk.data() + i) {
+            throw std::runtime_error("invalid node id in graph walk: " + std::string(walk));
+        }
+        out.push_back(GraphWalkStep{node, reverse});
     }
     return out;
 }
@@ -613,7 +901,7 @@ std::string graph_walk_to_string(const GraphWalk& walk) {
     std::string out;
     for (const GraphWalkStep& step : walk) {
         out.push_back(step.reverse ? '<' : '>');
-        out += step.node;
+        out += std::to_string(step.node);
     }
     return out;
 }
@@ -659,11 +947,11 @@ std::string graph_site_validation_skip_reason(const GraphSite& site) {
     if (site.allele_walks.size() < 2) return "too_few_alleles";
 
     const GraphWalk* boundary_walk = nullptr;
-    std::unordered_set<std::string> unique_walks;
+    bool two_distinct = false;  // two different non-empty walks
     for (const GraphWalk& walk : site.allele_walks) {
         if (walk.empty()) continue;
         if (walk.size() < 2) return "allele_walk_without_boundaries";
-        unique_walks.insert(graph_walk_to_string(walk));
+        if (boundary_walk != nullptr && !two_distinct && walk != *boundary_walk) two_distinct = true;
         if (boundary_walk == nullptr) {
             boundary_walk = &walk;
             continue;
@@ -674,7 +962,7 @@ std::string graph_site_validation_skip_reason(const GraphSite& site) {
         }
     }
     if (boundary_walk == nullptr) return "no_queryable_allele_walks";
-    if (unique_walks.size() < 2) return "too_few_unique_alleles";
+    if (!two_distinct) return "too_few_unique_alleles";
     return "";
 }
 
@@ -697,10 +985,10 @@ std::string graph_site_between_query(const GraphSite& site) {
     const GraphWalkStep& left = walk.front();
     const GraphWalkStep& right = walk.back();
     std::string out;
-    out += left.node;
+    out += std::to_string(left.node);
     out.push_back(left.reverse ? '-' : '+');
     out.push_back(':');
-    out += right.node;
+    out += std::to_string(right.node);
     out.push_back(right.reverse ? '-' : '+');
     return out;
 }
@@ -738,9 +1026,19 @@ void write_graph_site_catalog_tsv(std::ostream& out, const GraphSiteCatalog& cat
     }
 }
 
-// --- SitesVcfHandle RAII implementation ---
+// --- SiteCatalogHandle RAII implementation ---
 
-SitesVcfHandle::SitesVcfHandle(const std::string& path) {
+SiteCatalogHandle::SiteCatalogHandle(const std::string& path) {
+    if (is_directory(path)) {
+        pgsites = std::make_unique<PgSitesCatalog>();
+        pgsites->dir = path;
+        return;
+    }
+    if (is_pgsites_file(path)) {
+        pgsites = std::make_unique<PgSitesCatalog>();
+        pgsites->files.push_back(open_pgsites(path));
+        return;
+    }
     fp = hts_open(path.c_str(), "r");
     if (fp == nullptr)
         throw std::runtime_error("failed to open sites VCF: " + path);
@@ -752,39 +1050,48 @@ SitesVcfHandle::SitesVcfHandle(const std::string& path) {
     }
 }
 
-SitesVcfHandle::~SitesVcfHandle() {
+SiteCatalogHandle::~SiteCatalogHandle() {
     if (tbx != nullptr) tbx_destroy(tbx);
     if (fp != nullptr) hts_close(fp);
 }
 
-SitesVcfHandle::SitesVcfHandle(SitesVcfHandle&& o) noexcept
-    : fp(o.fp), tbx(o.tbx) {
+SiteCatalogHandle::SiteCatalogHandle(SiteCatalogHandle&& o) noexcept
+    : fp(o.fp), tbx(o.tbx), pgsites(std::move(o.pgsites)), max_span(std::move(o.max_span)) {
     o.fp  = nullptr;
     o.tbx = nullptr;
 }
 
-SitesVcfHandle& SitesVcfHandle::operator=(SitesVcfHandle&& o) noexcept {
+SiteCatalogHandle& SiteCatalogHandle::operator=(SiteCatalogHandle&& o) noexcept {
     if (this != &o) {
         if (tbx != nullptr) tbx_destroy(tbx);
         if (fp != nullptr) hts_close(fp);
         fp    = o.fp;
         tbx   = o.tbx;
+        pgsites = std::move(o.pgsites);
+        max_span = std::move(o.max_span);
         o.fp  = nullptr;
         o.tbx = nullptr;
     }
     return *this;
 }
 
-GraphSiteCatalog load_sites_for_region(SitesVcfHandle& handle,
+GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
                                        const std::string& contig,
                                        hts_pos_t beg, hts_pos_t end) {
     GraphSiteCatalog catalog;
     if (!handle || contig.empty() || end <= beg) return catalog;
 
-    std::vector<RegionFilter> filters = {
-        {true, contig, beg, end}
-    };
-    append_graph_sites_tabix_filtered(handle.fp, handle.tbx, filters, catalog, true);
+    hts_pos_t max_span = std::numeric_limits<hts_pos_t>::max();
+    const auto span = handle.max_span.find(chrom_suffix_match_key(contig));
+    if (span != handle.max_span.end()) max_span = span->second;
+    if (handle.pgsites) {
+        append_graph_sites_pgsites(*handle.pgsites, contig, beg, end, max_span, catalog);
+    } else {
+        std::vector<RegionFilter> filters = {
+            {true, contig, beg, end}
+        };
+        append_graph_sites_tabix_filtered(handle.fp, handle.tbx, filters, max_span, catalog, false);
+    }
     finalize_graph_site_catalog_inplace(catalog);
     return catalog;
 }

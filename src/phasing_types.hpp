@@ -360,8 +360,8 @@ struct Options {
 
     /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;
-    /** Sites VCF from build-snarl-catalog (collect-graph-variation). */
-    std::string graph_sites_vcf;
+    /** Site catalog (.pgsites folder or file, or sites VCF) from build-snarl-catalog (collect-graph-variation). */
+    std::string graph_sites;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer

@@ -571,7 +571,7 @@ using ChunkRowFetcher =
 static void process_graph_chunk(GraphChunkBuildResult& out,
                                 const RegionChunk& region,
                                 const std::string& contig,
-                                SitesVcfHandle& sites_handle,
+                                SiteCatalogHandle& sites_handle,
                                 faidx_t* fai,
                                 WorkerContext* bam_ctx,
                                 const std::unordered_map<std::string, std::string>& chrom_remap,
@@ -665,7 +665,8 @@ static void process_graph_chunk(GraphChunkBuildResult& out,
 // sites_per_chunk). After all workers join: populate_graph_chunk_overlaps,
 // stitch_chunk_haps, the rescue and the island labels.
 static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
-    const std::string& sites_vcf,
+    const std::string& sites,
+    const std::unordered_map<std::string, hts_pos_t>& max_span,
     const std::vector<RegionChunk>& chunks,
     size_t batch_begin,
     size_t batch_end,
@@ -687,7 +688,8 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
         workers.emplace_back([&]() {
             try {
                 const ChunkRowFetcher fetch_rows = open_rows();
-                SitesVcfHandle sites_handle(sites_vcf);
+                SiteCatalogHandle sites_handle(sites);
+                sites_handle.max_span = max_span;
                 std::unique_ptr<faidx_t, FaiDeleter> thread_fai(load_reference_index(opts.ref_fasta));
                 // Per-thread BAM context for union gap phasing. htslib handles are
                 // not shareable, so each worker opens its own set, once per thread
@@ -738,7 +740,8 @@ static std::string query_contig_of(const std::string& contig,
 // overlapping region -- only the relevant reads are decompressed and parsed,
 // making this efficient even for very large (100+ GB) GAF files.
 static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
-    const std::string& sites_vcf,
+    const std::string& sites,
+    const std::unordered_map<std::string, hts_pos_t>& max_span,
     const std::vector<RegionChunk>& chunks,
     size_t batch_begin,
     size_t batch_end,
@@ -758,14 +761,17 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
                                           region.end, view, min_mapq);
         };
     };
-    return run_graph_chunk_batch(sites_vcf, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
+    return run_graph_chunk_batch(sites, max_span, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
                                  open_rows);
 }
 
 void run_collect_graph_variation(const Options& opts) {
-    // The GAF must be bgzip-compressed and tabix-indexed on pggaf's annotated
+    // The GAF must be bgzip-compressed and tabix-indexed on index-gaf's
     // coordinate columns, so each chunk reads only its own region.
     require_indexed_gaf(opts.gaf_file);
+    // A site whose every allele spans more graph bases than any alignment on
+    // its contig cannot be traversed whole by a read: it is not loaded.
+    const std::unordered_map<std::string, hts_pos_t> max_span = read_gaf_max_spans(opts.gaf_file);
 
     // 1. Reference FASTA index first — needed to resolve autosome contig names for
     //    region filters, which are then passed to the VCF loader so only sites in the
@@ -975,7 +981,7 @@ void run_collect_graph_variation(const Options& opts) {
         }
 
         std::vector<GraphChunkBuildResult> graph_chunks = process_graph_chunk_batch_indexed_gaf(
-            opts.graph_sites_vcf, chunks, batch_begin, batch_end, header.get(), opts.gaf_file,
+            opts.graph_sites, max_span, chunks, batch_begin, batch_end, header.get(), opts.gaf_file,
             opts.min_mapq, fai_full_to_suffix, chrom_remap, opts);
 
 
@@ -1085,8 +1091,11 @@ static void print_graph_collect_help() {
         << "\n"
         << "Required:\n"
         << "      --ref FILE                Reference FASTA (indexed)\n"
-        << "      --sites FILE              Sites VCF from build-snarl-catalog (bgzipped + tabix-indexed)\n"
-        << "      --gaf FILE                Coordinate-indexed GAF from pggaf (bgzipped + tabix-indexed)\n"
+        << "      --sites PATH              Site catalogs from build-snarl-catalog: its output folder\n"
+        << "                                (<contig>.pgsites), one .pgsites file, or a bgzipped,\n"
+        << "                                tabix-indexed sites VCF\n"
+        << "      --gaf FILE                The reads' GAF indexed by reference position, from\n"
+        << "                                pgphase index-gaf (bgzipped + tabix-indexed)\n"
         << "\n"
         << "Input:\n"
         << "      --bam FILE                Indexed BAM of the same reads: alignment-only sites and\n"
@@ -1100,7 +1109,7 @@ static void print_graph_collect_help() {
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
         << "\n"
         << "Options:\n"
-        << "  -t, --threads INT             Worker threads [1]\n"
+        << "  -t, --threads INT             Worker threads [all cores]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [5]\n"
         << "  -D, --min-depth INT           Minimum total depth [5]\n"
         << "      --min-alt-depth INT       Minimum alt depth [2]\n"
@@ -1164,6 +1173,7 @@ enum GraphCollectOption {
 int collect_graph_variation(int argc, char* argv[]) {
     using namespace pgphase_collect;
     Options opts;
+    opts.threads = default_thread_count();
     opts.min_mapq = kDefaultGraphMinMapq;
     bool chunk_size_explicit = false;
     bool min_mapq_explicit = false;
@@ -1247,7 +1257,7 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcOnt:          opts.read_technology = ReadTechnology::Ont; break;
             case kGcStrandBiasPval: opts.strand_bias_pval = parse_double_arg(optarg, "--strand-bias-pval"); break;
             case kGcRef:          opts.ref_fasta = optarg; break;
-            case kGcSites:        opts.graph_sites_vcf = optarg; break;
+            case kGcSites:        opts.graph_sites = optarg; break;
             case 'V': opts.verbose = parse_int_arg(optarg, "--verbose"); break;
             case 'h': print_graph_collect_help(); return 0;
             default:  print_graph_collect_help(); return 1;
@@ -1257,13 +1267,13 @@ int collect_graph_variation(int argc, char* argv[]) {
     if (!chunk_size_explicit && !opts.primary_bam_file().empty())
         opts.chunk_size = kDefaultGraphBamChunkSize;
 
-    if (opts.ref_fasta.empty() || opts.graph_sites_vcf.empty()) {
+    if (opts.ref_fasta.empty() || opts.graph_sites.empty()) {
         std::cerr << "Error: --ref and --sites are required\n";
         print_graph_collect_help();
         return 1;
     }
 
-    require_graph_site_vcf_tabix_index(opts.graph_sites_vcf);
+    require_site_catalog(opts.graph_sites);
 
     if (opts.gaf_file.empty()) {
         std::cerr << "Error: --gaf is required\n";

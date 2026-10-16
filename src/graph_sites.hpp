@@ -1,9 +1,10 @@
 #ifndef PGPHASE_GRAPH_SITES_HPP
 #define PGPHASE_GRAPH_SITES_HPP
 
-// Snarl site catalog: parsing VCF sites produced by `vg deconstruct -a`,
-// validating allele traversals, and providing the GraphSiteCatalog used by
-// graph_query for allele matching and graph_bam_adapter for phasing.
+// Snarl site catalog: reading the sites of a catalog (pgcat .pgsites files, or a
+// sites-only VCF in the format of `vg deconstruct -a`), validating allele
+// traversals, and providing the GraphSiteCatalog used by graph_query for allele
+// matching and graph_bam_adapter for phasing.
 
 #include "collect_types.hpp"
 
@@ -11,14 +12,22 @@
 #include <cstdint>
 #include <iosfwd>
 #include <map>
+#include <memory>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace pgphase_collect {
 
+/// The most nodes an allele walk may visit for reads to be matched to its site
+/// (the compact index stores walk lengths in 16 bits). A site with a longer
+/// walk is never matched, so loaders skip it.
+constexpr size_t kMaxSiteWalkSteps = 65535;
+
 // One step in an allele traversal walk: a graph node ID and its orientation.
 struct GraphWalkStep {
-    std::string node;
+    uint64_t node = 0;
     bool reverse = false;
 
     bool operator==(const GraphWalkStep& other) const {
@@ -70,6 +79,8 @@ struct GraphSiteLoadStats {
     size_t sites_parsed = 0;       ///< lines that became a GraphSite
     size_t short_line = 0;         ///< fewer than the 8 mandatory VCF columns
     size_t bad_position = 0;       ///< POS or END not a positive integer
+    size_t beyond_read_span = 0;   ///< every allele longer than any alignment on the contig: skipped
+    size_t walk_too_long = 0;      ///< an allele walk over kMaxSiteWalkSteps nodes: never matched, skipped
     size_t unsupported_allele = 0; ///< symbolic <DEL>, or a character outside ACGTN*.
     std::map<std::string, size_t> by_skip_reason;  ///< ineligible sites, by reason
 
@@ -117,34 +128,43 @@ GraphSiteCatalog load_graph_site_catalog_from_vcf(
     const std::vector<RegionFilter>& filters = {},
     bool keep_allele_traversal_strings = true);
 
-// RAII handle for a tabix-indexed sites VCF.  Opened once per thread,
-// reused across chunks to avoid repeated file open / index load.
-struct SitesVcfHandle {
+struct PgSitesCatalog;
+
+// RAII handle for a site catalog: a tabix-indexed sites VCF, a .pgsites file
+// (the same VCF lines in independently zstd-compressed position blocks, written
+// by pgcat), or a folder of <contig>.pgsites files (pgcat build's output), each
+// opened when its contig is first queried. Opened once per thread, reused
+// across chunks to avoid repeated file open / index load.
+struct SiteCatalogHandle {
     htsFile* fp  = nullptr;
     tbx_t*   tbx = nullptr;
+    std::unique_ptr<PgSitesCatalog> pgsites;
+    // The most graph bases any alignment on each contig spans (bare contig
+    // name), from the GAF's #max_span lines. A site whose every allele is
+    // longer cannot be traversed whole by any read, so it is not loaded; for a
+    // contig not listed, every site is.
+    std::unordered_map<std::string, hts_pos_t> max_span;
 
-    SitesVcfHandle() = default;
-    explicit SitesVcfHandle(const std::string& path);
-    ~SitesVcfHandle();
-    SitesVcfHandle(const SitesVcfHandle&) = delete;
-    SitesVcfHandle& operator=(const SitesVcfHandle&) = delete;
-    SitesVcfHandle(SitesVcfHandle&& o) noexcept;
-    SitesVcfHandle& operator=(SitesVcfHandle&& o) noexcept;
-    explicit operator bool() const { return fp && tbx; }
+    SiteCatalogHandle() = default;
+    explicit SiteCatalogHandle(const std::string& path);
+    ~SiteCatalogHandle();
+    SiteCatalogHandle(const SiteCatalogHandle&) = delete;
+    SiteCatalogHandle& operator=(const SiteCatalogHandle&) = delete;
+    SiteCatalogHandle(SiteCatalogHandle&& o) noexcept;
+    SiteCatalogHandle& operator=(SiteCatalogHandle&& o) noexcept;
+    explicit operator bool() const { return (fp && tbx) || pgsites; }
 };
 
 /// Load sites overlapping the 1-based inclusive VCF interval [beg, end].
 /// The returned catalog is finalized (sorted, validated). Callers querying
 /// zero-based APIs such as GAF must convert those coordinates separately.
-GraphSiteCatalog load_sites_for_region(SitesVcfHandle& handle,
+GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
                                        const std::string& contig,
                                        hts_pos_t beg, hts_pos_t end);
 
-// True if `path` has a tabix index (.tbi/.csi) loadable by htslib.
-bool graph_site_vcf_has_tabix_index(const std::string& path);
-
-// Throws std::runtime_error if `path` has no tabix index (.tbi/.csi).
-void require_graph_site_vcf_tabix_index(const std::string& path);
+/// Throws unless `path` is a usable site catalog: a bgzipped VCF with a tabix
+/// index, a .pgsites file, or a folder holding .pgsites files.
+void require_site_catalog(const std::string& path);
 
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
                                                        const std::string& reference_sample,
@@ -153,7 +173,7 @@ GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_te
 void write_graph_site_catalog_tsv(std::ostream& out, const GraphSiteCatalog& catalog);
 
 
-GraphWalk parse_graph_walk(const std::string& walk);
+GraphWalk parse_graph_walk(std::string_view walk);
 
 std::string graph_walk_to_string(const GraphWalk& walk);
 

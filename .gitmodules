@@ -7,9 +7,6 @@
 [submodule "third_party/edlib"]
 	path = third_party/edlib
 	url = https://github.com/Martinsos/edlib.git
-[submodule "third_party/pggaf"]
-	path = third_party/pggaf
-	url = https://github.com/kokyriakidis/pggaf.git
 [submodule "third_party/hiphap"]
 	path = third_party/hiphap
 	url = https://github.com/jheinz27/hiphap.git

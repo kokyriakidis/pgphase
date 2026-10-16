@@ -1,7 +1,8 @@
 # Third-party notices
 
 pgphase is distributed under the MIT License (see `LICENSE`). It contains or
-builds against the following third-party code, all under the MIT License.
+builds against the following third-party code, under the MIT License unless
+stated otherwise.
 
 ## Code derived from longcallD
 
@@ -33,3 +34,19 @@ Functions that keep their upstream names cite the upstream source location.
 | `catch2` | Catch2 (tests only), Boost Software License 1.0 | upstream |
 
 Each submodule's licence travels with its source.
+
+## pgcat (`tools/pgcat`)
+
+pgcat is built by cargo from these crates (versions pinned in
+`tools/pgcat/Cargo.lock`), each with its licence in its source:
+
+| Crate | Project | Licence |
+|---|---|---|
+| `gbz`, `simple-sds` | Jouni Sirén (<https://github.com/jltsiren/gbwt-rs>, <https://github.com/jltsiren/simple-sds>) | MIT |
+| `rayon` | <https://github.com/rayon-rs/rayon> | MIT or Apache-2.0 |
+| `flate2` | <https://github.com/rust-lang/flate2-rs> | MIT or Apache-2.0 |
+| `zstd`, `zstd-safe` | <https://github.com/gyscos/zstd-rs> | MIT |
+| `zstd-sys` | the same, bundling zstd (<https://github.com/facebook/zstd>) | BSD-3-Clause |
+
+pgphase itself links the system zstd library (BSD-3-Clause) to read `.pgsites`
+catalogs.

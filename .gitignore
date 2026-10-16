@@ -109,8 +109,8 @@ __pycache__/
 .codex
 
 # Rust / Cargo build artifacts
-src/gbz_ffi/target/
-src/gbz_ffi/Cargo.lock
+/pgcat
+tools/pgcat/target/
 
 # OS metadata
 .DS_Store

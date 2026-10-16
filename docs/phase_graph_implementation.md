@@ -43,7 +43,7 @@ High-level loop:
 3. Open **`--graph-sites-tsv`** and write **`write_graph_bam_phase_sites_tsv_header`** once.
 4. Open **`--graph-phase-bam`**, allocate a minimal SAM header (`HD VN=1.6 SO=unknown`), write header.
 5. Optionally open **`--graph-filtered-sites`** and write **`write_graph_bam_filtered_sites_tsv_header`**; allocate **`filter_reason_hist`**.
-6. **`require_indexed_gaf`** + **`require_graph_site_vcf_tabix_index`** — both inputs must be BGZF-backed with **`.tbi`** (see §5).
+6. **`require_indexed_gaf`** + **`require_site_catalog`** — both inputs must be BGZF-backed with **`.tbi`** (see §5).
 7. For each logical contig (either **`--contig`** alone or every name from **`load_graph_site_contig_names`**):
    - Resolve **`[interval_beg, interval_end)`**: from **`--interval`** when exactly one contig is selected; otherwise **`[0, graph_site_contig_end_bp_from_vcf_header(...))`**.
    - **`split_graph_interval`** → vector of half-open chunk spans **`[chunk_beg, chunk_end)`**.
@@ -82,7 +82,7 @@ High-level loop:
 
 ### 5.1 Graph-site VCF
 
-- Must be **bgzip-compressed** with **tabix index** (`.tbi` or `.csi`) — enforced by **`require_graph_site_vcf_tabix_index`**.
+- Must be **bgzip-compressed** with **tabix index** (`.tbi` or `.csi`) — enforced by **`require_site_catalog`**.
 - **`GraphSitesTabixReader`** holds an **`htsFile*`** + **`tbx_t*`** per **worker thread** (each worker constructs its own reader inside **`run_vcf_gaf_chunks_parallel`**).
 - **`load_half_open_interval(contig, beg0, end0, keep_strings=true)`** for phase-graph passes **`keep_allele_traversal_strings = true`** so walks remain available for indexed-GAF matching **unless** released earlier by other paths (see queryable checks in **`build_graph_bam_chunk`**).
 

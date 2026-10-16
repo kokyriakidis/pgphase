@@ -26,10 +26,7 @@
 #
 # # Graph pipeline (HiFi reads aligned to pangenome graph):
 # # 1. Build site catalog from GBZ
-# ./pgphase build-snarl-catalog \
-#     --ref-sample CHM13 \
-#     -o chr20.sites.vcf.gz \
-#     chr20.gbz
+# ./pgphase build-snarl-catalog --graph chr20.gbz --reference-sample CHM13
 #
 # # 2. Build databases
 # third_party/gbz-base/target/release/gbz2db chr20.gbz chr20.gbz.db
@@ -39,7 +36,7 @@
 # # 3. Run graph-based phasing
 # ./pgphase collect-graph-variation \
 #     --ref ref.fa \
-#     --sites chr20.sites.vcf.gz \
+#     --sites chr20.catalog \
 #     --gbz-db chr20.gbz.db \
 #     --gaf-db HG002.gaf.db \
 #     --sample CHM13 \

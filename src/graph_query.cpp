@@ -1,6 +1,7 @@
 #include "graph_query.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdlib>
 #include <cstdio>
 #include <array>
@@ -50,19 +51,6 @@ CompactHandle encode_handle(uint64_t node, bool reverse) {
 
 CompactHandle reverse_handle(CompactHandle handle) {
     return handle ^ 1ULL;
-}
-
-bool parse_unsigned_node(std::string_view value, uint64_t& out) {
-    if (value.empty()) return false;
-    uint64_t v = 0;
-    for (char c : value) {
-        if (c < '0' || c > '9') return false;
-        const uint64_t digit = static_cast<uint64_t>(c - '0');
-        if (v > (std::numeric_limits<uint64_t>::max() - digit) / 10ULL) return false;
-        v = v * 10ULL + digit;
-    }
-    out = v;
-    return true;
 }
 
 // Parse a GAF path field (e.g. ">12>34<56>78") into a vector of CompactHandles.
@@ -235,8 +223,8 @@ bool build_compact_graph_site_index(const GraphSiteCatalogView& catalog,
             }
             const size_t walk_start = pack.data.size();
             for (const GraphWalkStep& step : walk) {
-                uint64_t node = 0;
-                if (!parse_unsigned_node(step.node, node) || node > kMaxCompactNodeId) {
+                const uint64_t node = step.node;
+                if (node > kMaxCompactNodeId) {
                     site_ok = false;
                     break;
                 }
@@ -244,7 +232,9 @@ bool build_compact_graph_site_index(const GraphSiteCatalogView& catalog,
             }
             if (!site_ok) break;
             const size_t walk_len = pack.data.size() - walk_start;
-            if (walk_len == 0 || walk_len > std::numeric_limits<uint16_t>::max()) {
+            static_assert(kMaxSiteWalkSteps <= std::numeric_limits<uint16_t>::max(),
+                          "walk lengths are stored in 16 bits");
+            if (walk_len == 0 || walk_len > kMaxSiteWalkSteps) {
                 site_ok = false;
                 break;
             }
@@ -495,7 +485,7 @@ size_t scan_gaf_line_compact(std::string_view line,
 
 } // namespace
 
-// pggaf coordinate-indexed GAF tabix often names sequences by reference suffix ("chr20")
+// A reference-indexed GAF names sequences by the bare contig ("chr20")
 // while graph-site VCFs use pangenome paths ("CHM13#0#chr20"). Mirrors graph_sites
 // chrom_suffix matching so tabix queries succeed without a separate FAI map.
 static int tbx_seq_tid_with_pangenome_fallback(tbx_t* tbx, const std::string& contig) {
@@ -523,6 +513,32 @@ static int tbx_seq_tid_with_pangenome_fallback(tbx_t* tbx, const std::string& co
     }
     free(seqs);
     return found;
+}
+
+std::unordered_map<std::string, hts_pos_t> read_gaf_max_spans(const std::string& path) {
+    std::unordered_map<std::string, hts_pos_t> spans;
+    htsFile* fp = hts_open(path.c_str(), "r");
+    if (fp == nullptr) throw std::runtime_error("failed to open indexed GAF: " + path);
+    kstring_t line = KS_INITIALIZE;
+    while (hts_getline(fp, '\n', &line) >= 0 && line.l > 0 && line.s[0] == '#') {
+        // #max_span<TAB>contig<TAB>bases
+        const std::string_view l(line.s, line.l);
+        constexpr std::string_view tag = "#max_span\t";
+        if (l.substr(0, tag.size()) != tag) continue;
+        const size_t tab = l.find('\t', tag.size());
+        if (tab == std::string_view::npos) continue;
+        const std::string contig(l.substr(tag.size(), tab - tag.size()));
+        // A malformed count is ignored (all sites of the contig load), never
+        // read as 0, which would load none.
+        const std::string_view digits = l.substr(tab + 1);
+        long long bases = 0;
+        const auto parsed = std::from_chars(digits.data(), digits.data() + digits.size(), bases);
+        if (parsed.ec == std::errc() && parsed.ptr == digits.data() + digits.size() && bases >= 0)
+            spans[contig] = static_cast<hts_pos_t>(bases);
+    }
+    ks_free(&line);
+    hts_close(fp);
+    return spans;
 }
 
 // --- IndexedGafHandle RAII implementation ---

@@ -857,7 +857,7 @@ static void print_collect_help() {
         << "Options:\n"
         << "  -L, --input-is-list          Treat --bam path as a list of BAM/CRAM files\n"
         << "  -X, --extra-bam FILE         Extra input BAM/CRAM file; may be repeated\n"
-        << "  -t, --threads INT             Region worker threads [1]\n"
+        << "  -t, --threads INT             Region worker threads [all cores]\n"
         << "  -q, --min-mapq INT            Minimum read mapping quality [30]\n"
         << "  -B, --min-bq INT              Minimum base quality for candidate sites [10]\n"
         << "  -D, --min-depth INT           Minimum total depth for clean candidates [5]\n"
@@ -926,6 +926,7 @@ static void print_collect_help() {
 int collect_bam_variation(int argc, char* argv[]) {
     using namespace pgphase_collect;
     Options opts;
+    opts.threads = default_thread_count();
     {
         std::ostringstream cmd;
         cmd << "pgphase collect-bam-variation";

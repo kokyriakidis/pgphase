@@ -8,8 +8,9 @@ ABPOA_ROOT ?= $(THIRD_PARTY)/abPOA
 EDLIB_ROOT ?= $(THIRD_PARTY)/edlib/edlib
 HIPHAP_ROOT ?= $(THIRD_PARTY)/hiphap
 MINIMAP2_ROOT ?= $(THIRD_PARTY)/minimap2
-# Rust is needed only for the evaluation-only HipHap build (make eval-tools).
-# Prefer the rustup-managed toolchain over any system-installed rustc/cargo.
+# Rust is needed for pgcat, the site catalog builder (make pgcat), and the
+# evaluation-only HipHap build (make eval-tools). Prefer the rustup-managed
+# toolchain over any system-installed rustc/cargo.
 CARGO       ?= $(firstword $(wildcard $(HOME)/.cargo/bin/cargo) cargo)
 CARGO_RUSTC ?= $(firstword $(wildcard $(HOME)/.cargo/bin/rustc) rustc)
 
@@ -29,7 +30,7 @@ ABPOA_LIB = $(ABPOA_ROOT)/lib/libabpoa.a
 SOURCES_CXX = src/main.cpp \
 	src/allele_identity.cpp \
 	src/collect_pipeline.cpp \
-	src/build_catalog.cpp \
+	src/pgcat_command.cpp \
 	src/graph_collect.cpp \
 	src/bam_digar.cpp \
 	src/noise_filter.cpp \
@@ -54,11 +55,11 @@ UNION_OBJS = src/union_phase.o src/union_inject.o src/union_em.o src/union_windo
 EDLIB_OBJ = src/edlib.o
 OBJS += $(EDLIB_OBJ)
 
-LDFLAGS ?= -lhts -lm -lz -lpthread
+LDFLAGS ?= -lhts -lzstd -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests pgcat-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs hiphap minimap2 eval-tools portable-bundle release release-strict
 
 all: pgphase
 
@@ -202,6 +203,16 @@ $(EDLIB_OBJ): $(EDLIB_ROOT)/src/edlib.cpp
 pgphase: $(OBJS) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
+# pgcat builds the site catalogs (pgphase build-snarl-catalog runs it); it is
+# placed beside pgphase, where build-snarl-catalog looks first.
+PGCAT_SOURCES = tools/pgcat/Cargo.toml tools/pgcat/Cargo.lock $(wildcard tools/pgcat/src/*.rs)
+pgcat: $(PGCAT_SOURCES)
+	cd tools/pgcat && $(CARGO) build --release --locked
+	cp tools/pgcat/target/release/pgcat $@
+
+pgcat-tests:
+	cd tools/pgcat && $(CARGO) test --release --locked
+
 
 test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
@@ -224,8 +235,8 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity src/*.o src/*.d
-	rm -rf $(UPSTREAM_PHASE_DIR)
+	rm -f pgphase pgcat test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity src/*.o src/*.d
+	rm -rf $(UPSTREAM_PHASE_DIR) tools/pgcat/target
 
 test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) -Wl,--gc-sections $(LDFLAGS)

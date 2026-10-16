@@ -93,6 +93,15 @@ else
   echo "[portable] warning: samtools not found (set SAMTOOLS=/path/to/samtools to bundle); --refine-aln needs samtools on PATH" >&2
 fi
 
+# pgcat (the site catalog builder) beside pgphase, where build-snarl-catalog
+# looks for it; built when cargo is available.
+if make -C "$ROOT_DIR" pgcat >/dev/null 2>&1; then
+  cp "$ROOT_DIR/pgcat" "$BIN_DIR/pgcat"
+  echo "[portable] bundled pgcat -> bin/pgcat"
+else
+  echo "[portable] warning: pgcat not built (needs Rust: make pgcat); build-snarl-catalog will look for pgcat on PATH" >&2
+fi
+
 # Create launcher that pins runtime library search to bundled libs first.
 if [[ "$OS_NAME" == "Linux" ]]; then
 cat > "$BIN_DIR/pgphase-portable" <<'EOF'

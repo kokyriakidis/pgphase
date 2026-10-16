@@ -11,8 +11,15 @@
 #include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace pgphase_collect {
+
+/// The default for -t/--threads: every core the machine reports.
+inline int default_thread_count() {
+    const unsigned n = std::thread::hardware_concurrency();
+    return n == 0 ? 1 : static_cast<int>(n);
+}
 
 /// Parse an integer option value, naming @p opt on failure.
 inline int parse_int_arg(const char* value, const char* opt) {
