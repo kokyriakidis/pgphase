@@ -1,4 +1,0 @@
-# Regions where the HG002 truth contradicts itself; not scored.
-# 66.10 Mb to the end of chr20: every read is labelled PATERNAL although the
-# reads carry both haplotypes of the truth VCF (102 vs 66 reads).
-CHM13#0#chr20	66100000	66300000

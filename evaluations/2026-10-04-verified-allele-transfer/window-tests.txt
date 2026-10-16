@@ -1,4 +1,0 @@
-./test_gap_windows
-===============================================================================
-All tests passed (8006 assertions in 76 test cases)
-

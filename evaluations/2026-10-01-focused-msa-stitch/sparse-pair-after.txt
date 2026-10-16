@@ -1,3 +1,0 @@
-Filters: [sparse-pair]
-===============================================================================
-All tests passed (49 assertions in 1 test case)

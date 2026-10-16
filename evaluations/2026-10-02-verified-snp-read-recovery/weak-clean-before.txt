@@ -1,1 +1,0 @@
-FAIL: physical SNP refresh: weak clean contradiction vetoes a noisy singleton

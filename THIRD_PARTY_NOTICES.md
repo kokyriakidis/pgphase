@@ -30,7 +30,6 @@ Functions that keep their upstream names cite the upstream source location.
 | `WFA2-lib` | WFA2-lib, Copyright (c) 2017 Santiago Marco-Sola | `third_party/WFA2-lib/LICENSE` |
 | `abPOA` | abPOA, Copyright (c) 2020 Yan Gao | `third_party/abPOA/LICENSE` |
 | `edlib` | edlib, Copyright (c) 2014 Martin Šošić | `third_party/edlib/LICENSE` |
-| `minimap2` | minimap2, Copyright (c) 2018- Dana-Farber Cancer Institute (evaluation only) | `third_party/minimap2/LICENSE.txt` |
 | `catch2` | Catch2 (tests only), Boost Software License 1.0 | upstream |
 
 Each submodule's licence travels with its source.

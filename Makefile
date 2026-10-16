@@ -6,16 +6,9 @@ THIRD_PARTY ?= $(abspath third_party)
 WFA2_ROOT ?= $(THIRD_PARTY)/WFA2-lib
 ABPOA_ROOT ?= $(THIRD_PARTY)/abPOA
 EDLIB_ROOT ?= $(THIRD_PARTY)/edlib/edlib
-HIPHAP_ROOT ?= $(THIRD_PARTY)/hiphap
-MINIMAP2_ROOT ?= $(THIRD_PARTY)/minimap2
-# Rust is needed for pgcat, the site catalog builder (make pgcat), and the
-# evaluation-only HipHap build (make eval-tools). Prefer the rustup-managed
-# toolchain over any system-installed rustc/cargo.
-CARGO       ?= $(firstword $(wildcard $(HOME)/.cargo/bin/cargo) cargo)
-CARGO_RUSTC ?= $(firstword $(wildcard $(HOME)/.cargo/bin/rustc) rustc)
-
-HIPHAP_BIN    = $(HIPHAP_ROOT)/target/release/hiphap
-MINIMAP2_BIN  = $(MINIMAP2_ROOT)/minimap2
+# Rust is needed for pgcat (make pgcat). Prefer the rustup-managed toolchain
+# over any system-installed cargo.
+CARGO ?= $(firstword $(wildcard $(HOME)/.cargo/bin/cargo) cargo)
 
 CXXFLAGS ?= -O3 -std=c++17 -Wall -Wextra -MMD -MP
 WFA_CPPFLAGS = -I$(WFA2_ROOT)
@@ -59,30 +52,12 @@ LDFLAGS ?= -lhts -lzstd -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests pgcat-tests upstream-parity-tests benchmark-tests benchmark-report third-party-libs hiphap minimap2 eval-tools portable-bundle release release-strict
+.PHONY: all clean check unit-tests predicate-tests parity-tests pgcat-tests upstream-parity-tests gap-dev-check third-party-libs portable-bundle release release-strict
 
 all: pgphase
 
 check: pgphase
 	bash scripts/validate_collect_gates.sh
-
-# Development loop (scripts/dev/pg): dev = build + all fast tests; quick/full =
-# run, score and compare with the pinned baseline and competitors; same = output
-# identity with the baseline (refactors). TIER=quick|full for same/diff/pin.
-.PHONY: dev quick full same diff pin
-TIER ?= quick
-dev:
-	scripts/dev/pg test
-quick:
-	scripts/dev/pg quick
-full:
-	scripts/dev/pg full
-same:
-	scripts/dev/pg same $(TIER)
-diff:
-	scripts/dev/pg diff $(TIER)
-pin:
-	scripts/dev/pg pin $(TIER)
 
 predicate-tests: test_phase_predicates
 	./test_phase_predicates
@@ -126,17 +101,6 @@ unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allel
 	./test_noise_filter
 	./test_union_phase
 
-benchmark-tests:
-	python3 scripts/test_replay_gap_decisions.py
-	python3 scripts/test_evaluate_phase_accuracy.py
-	python3 scripts/test_trial_graph_gap_bam.py
-	PYTHONPATH=scripts python3 scripts/test_benchmark_framework.py
-	python3 -m py_compile scripts/benchmark_panel.py scripts/run_cached_step.py scripts/analyze_correct_competitor_bridges.py
-	bash -n evaluations/2026-09-12-chr12-18-20-comparison/commands.sh
-
-benchmark-report:
-	python3 scripts/benchmark_panel.py report
-
 portable-bundle: pgphase
 	bash scripts/make_portable_bundle.sh
 
@@ -162,33 +126,6 @@ $(UNION_OBJS): src/%.o: src/%.cpp
 	$(CC) $(C_CFLAGS) -c $< -o $@
 
 third-party-libs: $(WFA2_LIB) $(ABPOA_LIB)
-
-# HipHap (formerly diplinator): builds the truth BAM used by
-# scripts/evaluate_phase_accuracy.sh.  Evaluation-only -- nothing in pgphase
-# links against it, so this is never part of `all`.  Pinned as a submodule
-# because HapQ feeds --min-hapq and therefore every recorded accuracy number;
-# an unpinned HipHap would silently make old and new evals incomparable.
-hiphap: $(HIPHAP_BIN)
-
-# Upstream ships no Cargo.lock, so a fresh `cargo build` resolves hts-sys 2.2.1,
-# which renames bam1_core_t::isize and flips size_t->usize and therefore fails to
-# compile against rust-htslib 0.46.  third_party/hiphap-Cargo.lock pins the
-# resolution that actually builds; it is installed into the submodule (which is
-# upstream's working tree and cannot carry it) before every build.
-# Everything scripts/build_truth_bam.sh needs beyond samtools.  Evaluation only.
-eval-tools: hiphap minimap2
-
-# minimap2, pinned to a release tag: the aligner version determines which
-# haplotype each read is assigned to, and therefore every recorded accuracy
-# number, exactly as HapQ does.
-minimap2: $(MINIMAP2_BIN)
-
-$(MINIMAP2_BIN):
-	$(MAKE) -C $(MINIMAP2_ROOT)
-
-$(HIPHAP_BIN): $(THIRD_PARTY)/hiphap-Cargo.lock
-	cp $(THIRD_PARTY)/hiphap-Cargo.lock $(HIPHAP_ROOT)/Cargo.lock
-	cd $(HIPHAP_ROOT) && RUSTC=$(CARGO_RUSTC) $(CARGO) build --release --locked
 
 $(WFA2_LIB):
 	$(MAKE) -C "$(WFA2_ROOT)" setup

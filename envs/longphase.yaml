@@ -1,9 +1,0 @@
-name: bench-longphase
-channels:
-  - bioconda
-  - conda-forge
-dependencies:
-  - deepvariant=1.10.0
-  - longphase=2.0.2
-  - samtools
-  - htslib       # bgzip, tabix

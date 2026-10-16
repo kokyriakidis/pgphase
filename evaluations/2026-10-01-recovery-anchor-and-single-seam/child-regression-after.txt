@@ -1,3 +1,0 @@
-Filters: focused BAM recovery retains insertion representations of graph child SNPs
-===============================================================================
-All tests passed (22 assertions in 1 test case)
