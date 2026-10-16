@@ -122,6 +122,10 @@ $(UNION_OBJS): src/%.o: src/%.cpp
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Vendored from longcallD and kept identical to it: its warnings are upstream's.
+src/cgranges.o: src/cgranges.c
+	$(CC) $(C_CFLAGS) -Wno-unused-parameter -Wno-sign-compare -c $< -o $@
+
 %.o: %.c
 	$(CC) $(C_CFLAGS) -c $< -o $@
 

@@ -5,9 +5,9 @@ update this file in the same commit** -- that is the whole point of it being one
 file.
 
 What belongs here: how the code behaves today. What does not: measurements,
-history, retracted findings, plans. Those live in `evaluations/` by date, in
-`CHECKPOINT.md`, and in `docs/HANDOFF.md`; keeping them out is what lets this
-file be trusted without a date check.
+history, retracted findings, plans. Those live in the development repository
+(evaluations by date, working notes); keeping them out is what lets this file
+be trusted without a date check.
 
 **Precedence.** Part I is current and authoritative. Part II is deep
 per-component detail carrying the date it was last revised; where it disagrees
@@ -582,9 +582,17 @@ and parsing them, once per overlapping chunk, was 11% of a chr20 run.
   longcallD's original C source (`LONGCALLD_ROOT`, default `../longcallD`), so
   the expected results cannot drift with a hand-copied reference.
 
-`src/test_bam_site_injection.cpp` was deleted in c092785. A compiled binary
-outlived it in some working trees and kept printing pass/fail counts from
-retired expectations; it is not a build target and its output means nothing.
+### Diagnostic environment variables
+
+Off unless set; none changes the output.
+
+| Variable | Effect |
+|---|---|
+| `PGPHASE_TIMING=1` | Prints the seconds each stage of each chunk takes |
+| `PGPHASE_DIAG=DIR` | Writes per-locus TSVs to DIR: union windows (`windows.*`), alignment-site injection, island blocks, the EM's reads |
+| `PGPHASE_EM_DUMP=DIR` | Writes each union EM solve's inputs (`em.TID.BEG.tsv`): sites, then every observation |
+| `PGPHASE_DEBUG_SITE=POS` | Traces, for the catalog site within 2 bp of POS, each read's boundary matching and the allele counts |
+| `PGCAT=PATH` | The pgcat that `build-snarl-catalog` and `index-gaf` run [beside pgphase, then on PATH] |
 
 ## Part II -- component reference
 
@@ -2353,7 +2361,7 @@ HAP_REF
 ```
 
 - **`CATEGORY`**: final label after the full longcallD-shaped classify pass, post-process, containment filter, and not-candidate pruning. Use this for phasing filters and for VCF projection eligibility (`--vcf-output` / `--phased-vcf-out`) plus `INFO.CAT`.
-- **`INIT_CAT`**: first-pass `classify_var_cate` only (matches longcallD’s first `CandVarCate-` block before `After classify var:`). Use for parity checks against `longcallD -V 2` stderr (`scripts/compare_candidates.py --category-stage initial`).
+- **`INIT_CAT`**: first-pass `classify_var_cate` only (matches longcallD’s first `CandVarCate-` block before `After classify var:`). Use for parity checks against `longcallD -V 2` stderr (the development tooling's `compare_candidates.py --category-stage initial`).
 
 Example row:
 

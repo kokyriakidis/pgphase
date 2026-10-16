@@ -36,6 +36,7 @@ cd pgphase
 make third-party-libs   # WFA2-lib and abPOA
 make -j"$(nproc)"
 make pgcat              # catalogs and GAF indexing, placed beside pgphase
+                        # (pgphase finds it there, then on PATH; PGCAT=PATH overrides)
 ./pgphase --version
 ```
 

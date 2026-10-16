@@ -336,7 +336,6 @@ struct Options {
     std::string region_file;
     std::vector<std::string> regions;
     std::string ref_fasta;
-    std::string bam_file;
     std::vector<std::string> bam_files;
     std::string output_tsv = "output.tsv";
     std::string output_vcf;
@@ -375,10 +374,11 @@ struct Options {
     std::string command_line;
 
     /**
-     * @brief First BAM path: `bam_files.front()` when multi-input, else legacy `bam_file`.
+     * @brief The first BAM path; empty when there is none.
      */
     const std::string& primary_bam_file() const {
-        return bam_files.empty() ? bam_file : bam_files.front();
+        static const std::string none;
+        return bam_files.empty() ? none : bam_files.front();
     }
 
     /** @brief True when `--ont` mode (Fisher strand bias, shorter noisy window default). */

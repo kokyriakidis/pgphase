@@ -2,6 +2,9 @@
 name = "pgcat"
 version = "0.1.0"
 edition = "2021"
+# gbz and simple-sds use edition 2024 and let chains.
+rust-version = "1.88"
+repository = "https://github.com/kokyriakidis/pgphase"
 description = "pgphase inputs from a GBZ pangenome graph: site catalogs and reference-indexed GAF"
 license = "MIT"
 
