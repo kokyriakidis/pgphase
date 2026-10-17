@@ -529,11 +529,23 @@ static void build_digars_ref_cigar(const bam1_t* aln,
             int equal_len = 0;
             int equal_qi = query_pos;
             hts_pos_t equal_pos = ref_pos;
+            // M bases are compared as 4-bit codes, the read's packed in place
+            // and the reference's through seq_nt16_table: the same test as
+            // read_base(aln, qi) != ref.base(...) (out-of-range and '=' read
+            // bases are N), without two calls and a decode per base.
+            const std::string& contig = ref.contig(aln->core.tid, header);
+            const uint8_t* qseq = bam_get_seq(aln);
+            const auto differs = [&](hts_pos_t pos, int qi) {
+                int qc = qi >= 0 && qi < aln->core.l_qseq ? bam_seqi(qseq, qi) : 15;
+                if (qc == 0) qc = 15;
+                const int rc = pos >= 1 && pos <= static_cast<hts_pos_t>(contig.size())
+                    ? seq_nt16_table[static_cast<unsigned char>(contig[static_cast<size_t>(pos - 1)])] : 15;
+                return qc != rc;
+            };
             for (int j = 0; j < len; ++j) {
                 const hts_pos_t pos = ref_pos + j;
                 const int qi = query_pos + j;
-                const char alt_base = read_base(aln, qi);
-                const bool is_snp = op == BAM_CDIFF || (op == BAM_CMATCH && alt_base != ref.base(aln->core.tid, pos, header));
+                const bool is_snp = op == BAM_CDIFF || (op == BAM_CMATCH && differs(pos, qi));
                 if (!is_snp) {
                     if (equal_len == 0) {
                         equal_pos = pos;
@@ -546,6 +558,7 @@ static void build_digars_ref_cigar(const bam1_t* aln,
                 append_digar(read.digars, DigarOp{equal_pos, DigarType::Equal, equal_len, equal_qi, false, ""});
                 equal_len = 0;
 
+                const char alt_base = read_base(aln, qi);
                 const bool low_quality = base_quality(aln, qi) < opts.min_bq;
                 DigarOp digar{pos, DigarType::Snp, 1, qi, low_quality, std::string(1, alt_base)};
                 append_digar(read.digars, digar);

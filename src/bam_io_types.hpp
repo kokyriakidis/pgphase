@@ -96,6 +96,16 @@ public:
     }
 
     /**
+     * @brief The whole normalized contig \a tid (index 0 = 1-based position 1).
+     */
+    const std::string& contig(int tid, const bam_hdr_t* header) {
+        static const std::string none;
+        if (tid < 0 || tid >= header->n_targets) return none;
+        load_contig(tid, header);
+        return seq_;
+    }
+
+    /**
      * @brief Concatenates `len` bases starting at \a one_based_pos; returns `"."` if `len <= 0`.
      */
     std::string subseq(int tid, hts_pos_t one_based_pos, int len, const bam_hdr_t* header) {

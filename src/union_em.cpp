@@ -173,6 +173,7 @@ private:
     std::vector<int> locus_site_;  // locus window -> site, or -1 (island-only)
     std::vector<int> phase_;       // 0: hap1 carries x
     std::vector<double> err_;      // learned error
+    std::vector<std::array<double, 2>> site_log_;  // log(1 - e), log(e) of a call without its own error
     std::vector<std::vector<EmObs>> robs_;  // per read, in site order
     std::vector<double> post_;              // P(read on hap1)
     std::vector<int> start_label_;          // label the read started with (diagnostic)
@@ -245,6 +246,7 @@ private:
                 (chunk_.candidates[sites_[k].ci].lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0;
             err_[k] = clean ? kEmCleanStartError : kEmOtherStartError;
         }
+        refresh_site_logs();
         robs_.assign(chunk_.reads.size(), {});
         for (size_t ri = 0; ri < chunk_.read_var_profile.size(); ++ri) {
             const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
@@ -392,9 +394,24 @@ private:
         return std::min(kEmMaxError, 1.0 - (1.0 - err_[static_cast<size_t>(o.s)]) * (1.0 - o.e));
     }
 
+    // Most calls carry no error of their own: their two log terms depend on
+    // the site's error alone and are computed once per error update (the
+    // E-steps, switch moves and cut tests took ~4% of a run in std::log).
+    void refresh_site_logs() {
+        site_log_.resize(n_);
+        for (size_t k = 0; k < n_; ++k) {
+            const double e = std::min(kEmMaxError, 1.0 - (1.0 - err_[k]) * (1.0 - 0.0));
+            site_log_[k] = {std::log(1.0 - e), std::log(e)};
+        }
+    }
+
     std::array<double, 2> read_log_likelihoods(const EmObs& o) const {
-        const double e = obs_error(o);
         const bool match1 = o.b == phase_[static_cast<size_t>(o.s)];
+        if (o.e == 0.0) {
+            const auto& l = site_log_[static_cast<size_t>(o.s)];
+            return {match1 ? l[0] : l[1], match1 ? l[1] : l[0]};
+        }
+        const double e = obs_error(o);
         return {std::log(match1 ? 1.0 - e : e), std::log(match1 ? e : 1.0 - e)};
     }
 
@@ -472,6 +489,7 @@ private:
             const double e = (std::min(w[k][0], w[k][1]) + shrink * pooled) / (total + shrink);
             err_[k] = std::min(kEmMaxError, std::max(kEmMinError, e));
         }
+        refresh_site_logs();
         m_started_ = true;
     }
 
