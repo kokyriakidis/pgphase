@@ -56,7 +56,7 @@ pgcat build: write site catalogs (DIR/<contig>.pgsites) from a GBZ graph
   --snarls-cache DIR        where each contig's snarls are kept and reused by
                             later runs on the same graph [DIR/snarls]
   --vg PATH                 the vg binary, for vg paths/chunk/snarls [vg]
-  --level N                 zstd level [19]
+  --level N                 zstd level, 1-22 [6]; higher is smaller and slower
 
 Every snarl the reference path passes through is kept, at every nesting level,
 with all its alleles. `pgcat view` prints a catalog as VCF; for a tabix-indexed
@@ -163,7 +163,7 @@ fn build_main(args: &[String]) {
         snarls_jobs: None,
         snarls_cache: None,
         vg: "vg".into(),
-        catalog: catalog::CatalogOptions { threads, level: 19 },
+        catalog: catalog::CatalogOptions { threads, level: 6 },
     };
     let mut i = 0;
     let value = |i: &mut usize| -> String {

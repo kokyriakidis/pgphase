@@ -72,13 +72,15 @@ take most of its time. `--sites graph.catalog` then gives pgphase every contig.
   then `vg snarls`, several contigs at a time) and are kept in the catalog's
   `snarls/` folder for later runs on the same graph.
 
-On the HPRC v2.1 CHM13 graph (10 cores), all 25 contigs take 58 minutes: 12 to
-extract the contigs' components (`vg chunk`, 24 GB), 11 for their snarls (up to
-`--snarls-jobs` 6 `vg snarls` at once, about 10 GB each) and 34 for the catalogs. The catalogs total 1.2 GB with every site
-and allele; chr20's is 30 MB, against 656 MB as a sites-only VCF. Records too
-long to hold in memory (chr2 has a snarl spanning 11.4 Mb, a 6.5 GB line) are
-streamed from their haplotype walks, so pgcat itself peaks at the graph plus one
-contig's working set: 12 GB for chr20, 16 GB for chr2.
+On the HPRC v2.1 CHM13 graph (10 cores), all 25 contigs take about 32 minutes:
+12 to extract the contigs' components (`vg chunk`, 24 GB), 11 for their snarls
+(up to `--snarls-jobs` 6 `vg snarls` at once, about 10 GB each) and 8.5 for the
+catalogs (pgcat, 18 GB at most). The catalogs total 1.5 GB with every site and
+allele; chr20's is 37 MB, against 656 MB as a sites-only VCF. Snarls spanning
+megabases (chr2 has one of 11.4 Mb, whose record is a 6.5 GB line) are searched
+in parallel and streamed from their haplotype walks, never held as text.
+`--level` trades time for size (zstd, default 6): on chr20, level 19 is a
+quarter smaller at 40 times the compression time.
 
 A `.pgsites` file holds the catalog's VCF lines in independently
 zstd-compressed position blocks with an index, so a region query reads only the

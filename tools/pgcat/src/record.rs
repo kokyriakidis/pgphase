@@ -72,11 +72,21 @@ fn walk_string(g: &GBZ, w: &[Visit]) -> Vec<u8> {
     s
 }
 
-fn hash_bytes(s: &[u8]) -> u64 {
+/// A walk's bases' length and hash (that of walk_string, without building it:
+/// the hasher takes the bases node by node).
+fn walk_key(g: &GBZ, w: &[Visit]) -> (usize, u64) {
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    h.write(s);
-    h.finish()
+    let mut len = 0;
+    for &v in inner(w) {
+        let s = oriented_seq(g, v);
+        len += s.len();
+        h.write(&s);
+    }
+    (len, h.finish())
 }
+
+/// Snarls with more walk steps than this hash their alleles in parallel.
+const PARALLEL_STEPS: usize = 1 << 20;
 
 pub struct Record {
     pub pos: usize,
@@ -130,11 +140,99 @@ fn haplotype_walks(g: &GBZ, start: Handle, end: Handle) -> Vec<(Vec<Visit>, usiz
     out
 }
 
+/// The visits a parallel walk search had made when it split off a task: the
+/// parent's prefix, then these.
+struct Prefix {
+    parent: Option<std::sync::Arc<Prefix>>,
+    steps: Vec<Visit>,
+}
+
+impl Prefix {
+    fn extend_into(&self, out: &mut Vec<Visit>) {
+        if let Some(p) = &self.parent {
+            p.extend_into(out);
+        }
+        out.extend_from_slice(&self.steps);
+    }
+}
+
+/// Tasks a parallel walk search may split into.
+const SEARCH_TASKS: usize = 512;
+
+/// haplotype_walks, its search tree split across rayon tasks at branches (the
+/// same walks and counts, in another order).
+fn haplotype_walks_parallel(g: &GBZ, start: Handle, end: Handle) -> Vec<(Vec<Visit>, usize)> {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
+    let Some(first) = g.search_state(start.0, start.1) else { return Vec::new() };
+    let (start, end) = (visit(start), visit(end));
+    let out = Mutex::new(Vec::new());
+    let tasks = AtomicUsize::new(1);
+
+    // One task: a serial search below `prefix`, whose last visit `state` is at.
+    fn task<'s>(
+        scope: &rayon::Scope<'s>,
+        g: &'s GBZ,
+        prefix: Arc<Prefix>,
+        state: gbz::BidirectionalState,
+        (start, end): (Visit, Visit),
+        out: &'s Mutex<Vec<(Vec<Visit>, usize)>>,
+        tasks: &'s AtomicUsize,
+    ) {
+        let (start_back, end_back) = (start ^ 1, end ^ 1);
+        // Local arena: (visit, parent index), u32::MAX for the prefix.
+        let mut arena: Vec<(Visit, u32)> = Vec::new();
+        let mut stack = vec![(u32::MAX, state)];
+        let local_path = |arena: &[(Visit, u32)], mut k: u32| {
+            let mut w = Vec::new();
+            while k != u32::MAX {
+                w.push(arena[k as usize].0);
+                k = arena[k as usize].1;
+            }
+            w.reverse();
+            w
+        };
+        while let Some((at, state)) = stack.pop() {
+            let Some(it) = g.follow_forward(&state) else { continue };
+            let nexts: Vec<_> = it
+                .filter(|n| {
+                    let v = visit(support::decode_node(n.forward.node));
+                    v != end_back && v != start_back
+                })
+                .collect();
+            let branching = nexts.len() > 1;
+            for (j, next) in nexts.into_iter().enumerate() {
+                let v = visit(support::decode_node(next.forward.node));
+                if v == end {
+                    let mut w = Vec::new();
+                    prefix.extend_into(&mut w);
+                    w.extend(local_path(&arena, at));
+                    w.push(v);
+                    out.lock().unwrap().push((w, next.len()));
+                } else if branching && j > 0 && tasks.fetch_add(1, Ordering::Relaxed) < SEARCH_TASKS {
+                    let mut steps = local_path(&arena, at);
+                    steps.push(v);
+                    let p = Arc::new(Prefix { parent: Some(prefix.clone()), steps });
+                    scope.spawn(move |s| task(s, g, p, next, (start, end), out, tasks));
+                } else {
+                    arena.push((v, at));
+                    stack.push(((arena.len() - 1) as u32, next));
+                }
+            }
+        }
+    }
+
+    let root = Arc::new(Prefix { parent: None, steps: vec![start] });
+    rayon::scope(|s| task(s, g, root, first, (start, end), &out, &tasks));
+    out.into_inner().unwrap()
+}
+
 /// The record of a snarl the reference passes through, or None when every
-/// haplotype spells the reference.
-pub fn build_record(g: &GBZ, reference: &ReferencePath, sn: &Snarl, rt: &RefTrav) -> Option<Record> {
+/// haplotype spells the reference. `parallel`: search its walks in parallel
+/// (for snarls spanning tens of kilobases or more).
+pub fn build_record(g: &GBZ, reference: &ReferencePath, sn: &Snarl, rt: &RefTrav, parallel: bool) -> Option<Record> {
     let ref_walk: Vec<Visit> = rt.trav.iter().map(|&h| visit(h)).collect();
-    let mut walks = haplotype_walks(g, sn.start, sn.end);
+    let mut walks = if parallel { haplotype_walks_parallel(g, sn.start, sn.end) } else { haplotype_walks(g, sn.start, sn.end) };
     let start_pos = reference.pos[rt.start_step];
     let end_pos = reference.pos[rt.end_step];
     // As vg: VCF position and padding base come from the boundary node the
@@ -157,26 +255,29 @@ pub fn build_record(g: &GBZ, reference: &ReferencePath, sn: &Snarl, rt: &RefTrav
     // Equal sequences are found by hash and confirmed byte by byte.
     walks.retain(|(w, _)| *w != ref_walk);
     walks.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    let ref_str = walk_string(g, &ref_walk);
-    let ref_len = ref_str.len();
+    let (ref_len, ref_hash) = walk_key(g, &ref_walk);
+    let keys: Vec<(usize, u64)> = if walks.iter().map(|(w, _)| w.len()).sum::<usize>() > PARALLEL_STEPS {
+        use rayon::prelude::*;
+        walks.par_iter().map(|(w, _)| walk_key(g, w)).collect()
+    } else {
+        walks.iter().map(|(w, _)| walk_key(g, w)).collect()
+    };
     let mut by_hash: HashMap<u64, Vec<usize>> = HashMap::new();
-    by_hash.entry(hash_bytes(&ref_str)).or_default().push(0);
-    drop(ref_str);
+    by_hash.entry(ref_hash).or_default().push(0);
     let mut kept: Vec<Vec<Visit>> = vec![ref_walk];
     let mut lens: Vec<usize> = vec![ref_len];
     let mut substitution = true;
-    for (w, _) in walks {
-        let s = walk_string(g, &w);
-        let h = hash_bytes(&s);
-        let seen = by_hash
-            .get(&h)
-            .is_some_and(|ks| ks.iter().any(|&k| lens[k] == s.len() && walk_string(g, &kept[k]) == s));
+    for ((w, _), (len, h)) in walks.into_iter().zip(keys) {
+        // Equal length and hash are confirmed byte by byte.
+        let seen = by_hash.get(&h).is_some_and(|ks| {
+            ks.iter().any(|&k| lens[k] == len && walk_string(g, &kept[k]) == walk_string(g, &w))
+        });
         if seen {
             continue;
         }
-        substitution = substitution && s.len() == ref_len;
+        substitution = substitution && len == ref_len;
         by_hash.entry(h).or_default().push(kept.len());
-        lens.push(s.len());
+        lens.push(len);
         kept.push(w);
     }
     if kept.len() < 2 {

@@ -21,8 +21,8 @@
 //! counted): a reader whose reads align along fewer graph bases can skip the
 //! block unread, as no read can traverse any of its alleles whole. max_walk is
 //! the most nodes any allele walk of its records visits.
-//! A block of one giant record is written with a long window (log <= 31);
-//! readers raise zstd's window limit to match.
+//! Blocks are compressed with long-distance matching and a window as long as
+//! the block (log <= 31); readers raise zstd's window limit to match.
 
 use rayon::prelude::*;
 use std::io::{Read, Write};
@@ -33,34 +33,26 @@ const BLOCK_BYTES: usize = 4 << 20;
 const OWN_BLOCK_BYTES: usize = 1 << 20;
 const INDEX_FIELDS: usize = 9;
 
-/// Blocks holding a giant record are compressed at this level at most: with the
-/// long window it is within 1.5x of level 19's size at a fifth of its time
-/// (chr20's 7 giant records: 6.7 MB in 5.6 s against 4.5 MB in 27 s).
-const GIANT_LEVEL: i32 = 15;
+/// zstd parameters for a block of `len` raw bytes: long-distance matching with
+/// a window covering the block, so a block's near-identical haplotype alleles
+/// (hundreds of them, megabases each in a giant record) are found however far
+/// apart. Measured on HPRC v2.1 chr20 and chr2: level 6 this way is within 2% of
+/// level 9's size and a twentieth of level 19's CPU (chr20: 36 MB in 8 s
+/// against 30 MB in 147 s). A giant block also uses zstd's own threads, so it
+/// does not hold up the others.
+fn block_params(len: usize, level: i32, threads: usize) -> (i32, Vec<zstd::zstd_safe::CParameter>) {
+    use zstd::zstd_safe::CParameter;
+    let window_log = (usize::BITS - len.max(2).saturating_sub(1).leading_zeros()).clamp(20, 31);
+    let mut params = vec![CParameter::EnableLongDistanceMatching(true), CParameter::WindowLog(window_log)];
+    if len > 16 << 20 {
+        params.push(CParameter::NbWorkers(threads as u32));
+    }
+    (level, params)
+}
 
 /// One block as one zstd frame. A block over 16 MB is a giant record: hundreds
 /// of near-identical haplotype alleles, which only a window as long as the block
 /// finds; zstd's own threads keep it from holding up the others.
-/// zstd parameters for a block of `len` raw bytes: past 16 MB it is a giant
-/// record (hundreds of near-identical haplotype alleles), which only a window
-/// as long as the block finds; zstd's own threads keep it from holding up the
-/// others.
-fn block_params(len: usize, level: i32, threads: usize) -> (i32, Vec<zstd::zstd_safe::CParameter>) {
-    use zstd::zstd_safe::CParameter;
-    if len <= 16 << 20 {
-        return (level, vec![]);
-    }
-    let window_log = (usize::BITS - (len - 1).leading_zeros()).clamp(24, 31);
-    (
-        level.min(GIANT_LEVEL),
-        vec![
-            CParameter::EnableLongDistanceMatching(true),
-            CParameter::WindowLog(window_log),
-            CParameter::NbWorkers(threads as u32),
-        ],
-    )
-}
-
 /// One block as one zstd frame.
 fn compress_block(raw: &[u8], level: i32, threads: usize) -> Vec<u8> {
     let (level, params) = block_params(raw.len(), level, threads);
@@ -87,6 +79,44 @@ impl<W: Write> Write for Counting<W> {
     fn flush(&mut self) -> std::io::Result<()> {
         self.inner.flush()
     }
+}
+
+/// One record in a block of its own, compressed: a giant record, whose line
+/// never exists in memory whole.
+pub struct Block {
+    pub pos: usize,
+    pub max_end: usize,
+    pub min_allele: usize,
+    pub max_walk: usize,
+    /// The line's length, newline included.
+    pub raw_len: usize,
+    pub bytes: Vec<u8>,
+}
+
+/// One record of `len` bytes (newline excluded), written by `write` straight
+/// into the compressor, as a block.
+pub fn compress_record(
+    len: usize,
+    level: i32,
+    threads: usize,
+    write: impl FnOnce(&mut dyn Write) -> std::io::Result<()>,
+) -> std::io::Result<Vec<u8>> {
+    let raw_len = len + 1;
+    let (level, params) = block_params(raw_len, level, threads);
+    let mut enc = zstd::stream::write::Encoder::new(Vec::new(), level)?;
+    enc.include_contentsize(true)?;
+    enc.set_pledged_src_size(Some(raw_len as u64))?;
+    for p in params {
+        enc.set_parameter(p)?;
+    }
+    let mut buf = std::io::BufWriter::with_capacity(1 << 20, Counting { inner: enc, n: 0 });
+    write(&mut buf)?;
+    buf.write_all(b"\n")?;
+    let inner = buf.into_inner().map_err(|e| e.into_error())?;
+    if inner.n != raw_len as u64 {
+        return Err(std::io::Error::other(format!("record wrote {} bytes, expected {raw_len}", inner.n)));
+    }
+    inner.inner.finish()
 }
 
 struct Pending {
@@ -153,40 +183,15 @@ impl Writer {
         b.records += 1;
     }
 
-    /// One record of `len` bytes (newline excluded) in a block of its own,
-    /// written by `write` straight into the compressor: the line never exists
-    /// in memory whole.
-    pub fn add_streamed(
-        &mut self,
-        pos: usize,
-        max_end: usize,
-        min_allele: usize,
-        max_walk: usize,
-        len: usize,
-        write: impl FnOnce(&mut dyn Write) -> std::io::Result<()>,
-    ) -> std::io::Result<()> {
+    /// A block compressed elsewhere (compress_record), after every pending one.
+    pub fn add_block(&mut self, b: Block) -> std::io::Result<()> {
         self.write_blocks(self.pending.len())?;
-        let raw_len = len + 1;
-        let (level, params) = block_params(raw_len, self.level, self.threads);
-        let mut counting = Counting { inner: &mut self.out, n: 0 };
-        {
-            let mut enc = zstd::stream::write::Encoder::new(&mut counting, level)?;
-            enc.include_contentsize(true)?;
-            enc.set_pledged_src_size(Some(raw_len as u64))?;
-            for p in params {
-                enc.set_parameter(p)?;
-            }
-            let mut buf = std::io::BufWriter::with_capacity(1 << 20, Counting { inner: enc, n: 0 });
-            write(&mut buf)?;
-            buf.write_all(b"\n")?;
-            let inner = buf.into_inner().map_err(|e| e.into_error())?;
-            if inner.n != raw_len as u64 {
-                return Err(std::io::Error::other(format!("record at {pos}: wrote {} bytes, expected {raw_len}", inner.n)));
-            }
-            inner.inner.finish()?;
-        }
-        let comp = counting.n;
-        self.index.push([pos as u64, pos as u64, max_end as u64, self.offset, comp, raw_len as u64, 1, min_allele as u64, max_walk as u64]);
+        self.out.write_all(&b.bytes)?;
+        let comp = b.bytes.len() as u64;
+        self.index.push([
+            b.pos as u64, b.pos as u64, b.max_end as u64, self.offset, comp, b.raw_len as u64, 1,
+            b.min_allele as u64, b.max_walk as u64,
+        ]);
         self.offset += comp;
         Ok(())
     }
