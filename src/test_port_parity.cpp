@@ -152,14 +152,15 @@ TEST_CASE("VCF-only BAM stitching rewrites variant PS but leaves read PS") {
         pre.region.tid = cur.region.tid = 0;
         pre.candidates.push_back(port_cand(100, 100, 0, 1));
         cur.candidates.push_back(port_cand(200, 200, 0, 1));
-        pre.reads.resize(1);
-        cur.reads.resize(1);
-        pre.haps = {1};
-        cur.haps = {1};
-        pre.phase_sets = {100};
-        cur.phase_sets = {200};
-        pre.down_ovlp_read_i = {{0}};
-        cur.up_ovlp_read_i = {{0}};
+        // Three overlap reads: a stitch needs kStitchMinNetReads.
+        pre.reads.resize(3);
+        cur.reads.resize(3);
+        pre.haps = {1, 1, 1};
+        cur.haps = {1, 1, 1};
+        pre.phase_sets = {100, 100, 100};
+        cur.phase_sets = {200, 200, 200};
+        pre.down_ovlp_read_i = {{0, 1, 2}};
+        cur.up_ovlp_read_i = {{0, 1, 2}};
         std::vector<PhasingChunk> chunks;
         chunks.push_back(std::move(pre));
         chunks.push_back(std::move(cur));

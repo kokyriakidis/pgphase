@@ -74,6 +74,30 @@ static bool test_tandem_insertion_motif_length() {
     return ok;
 }
 
+// Overlap reads are paired by name even when a chunk's reads are not in name
+// order: the union path appends alignment reads after the sorted build.
+static bool test_chunk_overlap_pairs_appended_reads() {
+    bool ok = true;
+    std::vector<GraphChunkBuildResult> chunks(2);
+    const auto add = [](PhasingChunk& c, const char* name) {
+        ReadRecord r;
+        r.qname = name;
+        c.reads.push_back(std::move(r));
+    };
+    for (const char* n : {"a", "c", "e", "z1"}) add(chunks[0].chunk, n);   // z1 appended
+    for (const char* n : {"b", "c", "e", "a"}) add(chunks[1].chunk, n);    // a appended
+    populate_graph_chunk_overlaps(chunks);
+    const auto& down = chunks[0].chunk.down_ovlp_read_i[0];
+    const auto& up = chunks[1].chunk.up_ovlp_read_i[0];
+    ok &= check(down.size() == 3 && up.size() == 3, "every shared read is an overlap pair (a, c, e)");
+    bool same_names = down.size() == up.size();
+    for (size_t j = 0; same_names && j < down.size(); ++j)
+        same_names = chunks[0].chunk.reads[static_cast<size_t>(down[j])].qname ==
+                     chunks[1].chunk.reads[static_cast<size_t>(up[j])].qname;
+    ok &= check(same_names, "each pair is one read in both chunks");
+    return ok;
+}
+
 static bool test_joint_candidate_loci() {
     bool ok = true;
     const std::string reference = "CAAATG";
@@ -231,6 +255,7 @@ int main(int argc, char** argv) {
     bool ok = true;
     ok &= test_tandem_insertion_motif_length();
     ok &= test_joint_candidate_loci();
+    ok &= test_chunk_overlap_pairs_appended_reads();
 
     {
         GraphSiteCatalog catalog;

@@ -374,7 +374,7 @@ TEST_CASE("var_is_homopolymer_indel: rejects what it cannot judge") {
     }
 }
 
-TEST_CASE("select_stitch_orientation: net vote rule") {
+TEST_CASE("select_stitch_orientation: a clear vote rule") {
     bool flip = false;
 
     SECTION("a clear same-orientation vote merges without flipping") {
@@ -390,9 +390,56 @@ TEST_CASE("select_stitch_orientation: net vote rule") {
         CHECK_FALSE(select_stitch_orientation({10, 10, 10, 10}, flip));
         CHECK_FALSE(select_stitch_orientation({0, 0, 0, 0}, flip));
     }
-    SECTION("a single net vote merges") {
-        CHECK(select_stitch_orientation({1, 0, 0, 0}, flip));
+    SECTION("fewer than three net votes abstain") {
+        CHECK_FALSE(select_stitch_orientation({1, 0, 0, 0}, flip));
+        CHECK_FALSE(select_stitch_orientation({2, 0, 0, 0}, flip));
+        CHECK(select_stitch_orientation({3, 0, 0, 0}, flip));
     }
+    SECTION("a split vote abstains: chr18:21.0 Mb, 3 crossed against 2") {
+        CHECK_FALSE(select_stitch_orientation({1, 2, 1, 1}, flip));
+        CHECK_FALSE(select_stitch_orientation({8, 1, 1, 0}, flip));  // 80%
+        CHECK(select_stitch_orientation({9, 1, 0, 0}, flip));        // 90%
+        CHECK_FALSE(flip);
+    }
+}
+
+TEST_CASE("stitch_chunk_haps: an unmerged downstream block never shares an upstream block's id",
+          "[stitch]") {
+    // A site over the chunk edge (200) starts a block in both chunks; the
+    // overlap reads split 2:2, so the chunks are not merged and the
+    // downstream block must leave the upstream id.
+    const auto cand = [](hts_pos_t pos, hts_pos_t ps) {
+        CandidateVariant v;
+        v.key.pos = pos;
+        v.key.type = VariantType::Snp;
+        v.key.ref_len = 1;
+        v.lcd_var_i_to_cate = kCandCleanHetSnp;
+        v.phase_set = ps;
+        v.hap_to_cons_alle[1] = 0;
+        v.hap_to_cons_alle[2] = 1;
+        return v;
+    };
+    std::vector<PhasingChunk> chunks(2);
+    PhasingChunk& pre = chunks[0];
+    PhasingChunk& cur = chunks[1];
+    pre.region.tid = cur.region.tid = 0;
+    pre.candidates = {cand(100, 100), cand(200, 200)};
+    cur.candidates = {cand(200, 200), cand(300, 200)};
+    pre.reads.resize(4);
+    cur.reads.resize(4);
+    pre.haps = {1, 2, 1, 2};
+    pre.phase_sets = {200, 200, 200, 200};
+    cur.haps = {1, 2, 2, 1};
+    cur.phase_sets = {200, 200, 200, 200};
+    pre.down_ovlp_read_i = {{0, 1, 2, 3}};
+    cur.up_ovlp_read_i = {{0, 1, 2, 3}};
+    Options opts;
+    opts.upstream_assign_hap = true;
+    stitch_chunk_haps(chunks, &opts);
+    CHECK(chunks[0].candidates[1].phase_set == 200);
+    CHECK(chunks[1].candidates[0].phase_set != 200);
+    CHECK(chunks[1].candidates[0].phase_set == chunks[1].candidates[1].phase_set);
+    CHECK(chunks[1].phase_sets[0] == chunks[1].candidates[0].phase_set);
 }
 
 

@@ -122,12 +122,16 @@ The union EM and stitching consume the additional graph calls; graph-only runs
 retain the original full-walk solve.
 
 Then, after the workers join: `populate_graph_chunk_overlaps` records which reads
-straddle each boundary and `stitch_chunk_haps` joins adjacent chunks on those
+straddle each boundary (paired by name: the union path appends reads after the
+name-sorted build) and `stitch_chunk_haps` joins adjacent chunks on those
 shared reads: the vote and the merge use the one pair of blocks (upstream phase
 set, downstream phase set) the most overlap reads are labelled in. Voting over
 every overlap read but merging into the largest upstream phase set let a
 one-site block at a chunk end become the merge target (chr12:104,999,759, one
-het against the next 85). The final HP gauge is then fixed, so
+het against the next 85). The vote must be clear: one orientation at least 3
+reads ahead and 90% of them (`select_stitch_orientation`); a 3:2 vote re-joined
+a block the EM had cut at chr18:20.99 Mb. A downstream block left unmerged
+never keeps an upstream block's id (both start at a site over the chunk edge). The final HP gauge is then fixed, so
 `rescue_unphased_graph_reads` can orient a biallelic site excluded from the clean
 solve from reads already assigned to one phase set. Both haplotypes and both
 alleles must be observed, the exact one-sided binomial association must pass at

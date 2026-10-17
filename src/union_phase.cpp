@@ -49,9 +49,14 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
         if (have_meta && !c.bam_injected) {
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
             const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-            if (orig.size() < 2 || orig[1] < 1 || static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
-            const long sel = static_cast<long>(meta.alts[static_cast<size_t>(orig[1]) - 1].size());
-            if (std::abs(sel - static_cast<long>(meta.ref.size())) == 1) weak[ci] = 1;
+            // The row's two alleles (orig[0] is REF unless it is a 1/2 row).
+            const auto allele_len = [&](int a) -> long {
+                return a == 0 ? static_cast<long>(meta.ref.size())
+                              : static_cast<long>(meta.alts[static_cast<size_t>(a) - 1].size());
+            };
+            if (orig.size() < 2 || orig[0] < 0 || orig[1] < 1 || static_cast<size_t>(orig[0]) > meta.alts.size() ||
+                static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
+            if (std::abs(allele_len(orig[1]) - allele_len(orig[0])) == 1) weak[ci] = 1;
         }
     }
     return weak;

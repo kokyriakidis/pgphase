@@ -72,7 +72,9 @@ uint32_t category_to_flag(VariantCategory c);
 
 void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts = nullptr);
 
-/// Apply the overlap-read stitching rule to 11/12/21/22 haplotype votes.
+/// Apply the overlap-read stitching rule to 11/12/21/22 haplotype votes:
+/// merge when one orientation leads by kStitchMinNetReads reads and holds
+/// kStitchMinShare of them; do_flip when it is the crossed one.
 bool select_stitch_orientation(const std::array<int, 4>& votes, bool& do_flip);
 
 /// Update block links and orient candidate alleles for one k-means iteration.

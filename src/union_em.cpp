@@ -580,14 +580,25 @@ private:
         // Measured on chr20: wrong joins of this kind sit just above the
         // ordinary cut (median 6), right ones well above it (median 19).
         delta_strong_ = bridge_weak_ != nullptr ? boundary_delta(true, true, true) : delta_;
-        // Reads whose observations lie on both sides of each boundary.
+        // Reads whose calls the join test counts (join_skip, join_excluded as
+        // in delta_) lie on both sides of each boundary: a read whose calls on
+        // one side are all left out of the margin cannot stand for a molecule
+        // crossing it.
         spanning_.assign(n_, 0);
         {
             std::vector<int> diff(n_ + 1, 0);
-            for (const std::vector<EmObs>& obs : robs_) {
-                if (obs.size() < 2 || obs.front().s == obs.back().s) continue;
-                ++diff[static_cast<size_t>(obs.front().s)];
-                --diff[static_cast<size_t>(obs.back().s)];
+            for (size_t ri = 0; ri < robs_.size(); ++ri) {
+                const std::vector<EmObs>& obs = robs_[ri];
+                int first = -1, last = -1;
+                for (size_t i = 0; i < obs.size(); ++i) {
+                    if ((!join_skip_[ri].empty() && join_skip_[ri][i]) || join_excluded_[static_cast<size_t>(obs[i].s)])
+                        continue;
+                    if (first < 0) first = obs[i].s;
+                    last = obs[i].s;
+                }
+                if (first < 0 || first == last) continue;
+                ++diff[static_cast<size_t>(first)];
+                --diff[static_cast<size_t>(last)];
             }
             int run = 0;
             for (size_t k = 0; k < n_; ++k) spanning_[k] = run += diff[k];

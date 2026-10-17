@@ -1104,16 +1104,24 @@ static void apply_chunk_flip_and_merge(PhasingChunk& cur,
     }
 }
 
+// A stitch needs a clear vote. Merging on any non-zero net vote re-joined a
+// block the EM had cut at chr18:20.99 Mb (a 120 kb paralog stretch) on 3
+// overlap reads against 2, and ~110 reads went discordant; over chr12/18/20
+// this rule is +122 correct / -122 discordant, arm switches -2, no read
+// unphased (any share from 0.75 to 1.0 does about the same).
+constexpr double kStitchMinShare = 0.9;
+constexpr int kStitchMinNetReads = 3;
+
 bool select_stitch_orientation(const std::array<int, 4>& votes, bool& do_flip) {
-    // Merge on any non-zero net vote, oriented by its sign; a tie abstains.
-    const int flip_hap_score = votes[1] + votes[2] - votes[0] - votes[3];
-    do_flip = flip_hap_score > 0;
-    return flip_hap_score != 0;
+    const int same = votes[0] + votes[3], crossed = votes[1] + votes[2];
+    do_flip = crossed > same;
+    const int win = std::max(same, crossed);
+    return win - std::min(same, crossed) >= kStitchMinNetReads && win >= kStitchMinShare * (same + crossed);
 }
 
 // Overlap-read voting between adjacent chunks: count reads that agree vs
 // disagree on hap assignment, then flip + merge if disagreement wins.
-static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_reads) {
+static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_reads, hts_pos_t* merged_ps) {
     if (pre.region.tid != cur.region.tid) return false;
 
     int n_cur_ovlp_reads = 0;
@@ -1199,6 +1207,7 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_rea
     const bool merge = select_stitch_orientation({n11, n12, n21, n22}, do_flip);
 
     if (!merge) return false;
+    *merged_ps = max_pre_read_ps;
 
     apply_chunk_flip_and_merge(cur,
                                do_flip,
@@ -1243,6 +1252,34 @@ static void propagate_overlap_read_phase_to_output_owner(PhasingChunk& pre, cons
     }
 }
 
+// Block ids are the positions of their first sites, and a site over a chunk
+// edge is loaded into both chunks, so a downstream block can carry the id of
+// an upstream block it was not merged with: the two would write one PS with
+// independent orientations. Renames each such downstream block to an unused id.
+static void separate_colliding_blocks(const PhasingChunk& pre, PhasingChunk& cur, hts_pos_t merged_ps) {
+    std::set<hts_pos_t> pre_ids, cur_ids;
+    for (const CandidateVariant& v : pre.candidates) if (v.phase_set > 0) pre_ids.insert(v.phase_set);
+    for (const hts_pos_t ps : pre.phase_sets) if (ps > 0) pre_ids.insert(ps);
+    for (const CandidateVariant& v : cur.candidates) if (v.phase_set > 0) cur_ids.insert(v.phase_set);
+    for (const hts_pos_t ps : cur.phase_sets) if (ps > 0) cur_ids.insert(ps);
+    std::map<hts_pos_t, hts_pos_t> rename;
+    for (const hts_pos_t id : cur_ids) {
+        if (id == merged_ps || pre_ids.count(id) == 0) continue;
+        hts_pos_t fresh = id + 1;
+        while (pre_ids.count(fresh) != 0 || cur_ids.count(fresh) != 0) ++fresh;
+        cur_ids.insert(fresh);
+        rename[id] = fresh;
+    }
+    if (rename.empty()) return;
+    const auto apply = [&](hts_pos_t& ps) {
+        const auto it = rename.find(ps);
+        if (it != rename.end()) ps = it->second;
+    };
+    for (CandidateVariant& v : cur.candidates) apply(v.phase_set);
+    for (hts_pos_t& ps : cur.phase_sets) apply(ps);
+    for (hts_pos_t& ps : cur.island_phase_sets) apply(ps);
+}
+
 void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts) {
     // Track which adjacent pairs were successfully merged so we can safely
     // propagate overlap-read phase only for those pairs.
@@ -1251,8 +1288,10 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts) {
     const bool update_reads = opts == nullptr || !opts->upstream_assign_hap ||
                               !opts->output_aln.empty();
     for (size_t ii = 1; ii < chunks.size(); ++ii) {
-        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], update_reads);
+        hts_pos_t merged_ps = -1;
+        const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], update_reads, &merged_ps);
         if (stitched) pair_stitched[ii] = true;
+        separate_colliding_blocks(chunks[ii - 1], chunks[ii], merged_ps);
     }
     // Propagate overlap-read phase only when read tags are being written and
     // the pair was merged. For an unmerged pair the relative phase is unknown.

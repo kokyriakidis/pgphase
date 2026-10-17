@@ -19,6 +19,7 @@
 #include <ostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -1406,25 +1407,25 @@ void phase_joint_graph_candidates(GraphChunkBuildResult& graph_chunk, const Opti
     restore();
 }
 
-// Merge-intersect overlap detection between adjacent chunks.
-// Reads are inserted in sorted name order by build_graph_chunk,
-// so we can merge-intersect directly in O(n+m) without sorting.
+// Overlap reads between adjacent chunks, paired by name. build_graph_chunk
+// inserts reads in name order, but the union path appends more after it
+// (alignment reads at injected sites, alignment-only reads), and a sorted
+// merge missed most pairs involving them: the reads that carry a catalog gap
+// across a chunk edge, i.e. the stitch votes that matter there.
 static void populate_graph_chunk_pair_overlap_impl(PhasingChunk& pre, PhasingChunk& cur) {
     pre.down_ovlp_read_i.assign(1, {});
     cur.up_ovlp_read_i.assign(1, {});
     pre.n_down_ovlp_skip_reads.assign(1, 0);
     cur.n_up_ovlp_skip_reads.assign(1, 0);
 
-    size_t pi = 0, ci = 0;
-    while (pi < pre.reads.size() && ci < cur.reads.size()) {
-        const int cmp = pre.reads[pi].qname.compare(cur.reads[ci].qname);
-        if (cmp < 0) { ++pi; }
-        else if (cmp > 0) { ++ci; }
-        else {
-            pre.down_ovlp_read_i[0].push_back(static_cast<int>(pi));
-            cur.up_ovlp_read_i[0].push_back(static_cast<int>(ci));
-            ++pi; ++ci;
-        }
+    std::unordered_map<std::string_view, size_t> cur_by_name;
+    cur_by_name.reserve(cur.reads.size());
+    for (size_t ci = 0; ci < cur.reads.size(); ++ci) cur_by_name.try_emplace(cur.reads[ci].qname, ci);
+    for (size_t pi = 0; pi < pre.reads.size(); ++pi) {
+        const auto it = cur_by_name.find(pre.reads[pi].qname);
+        if (it == cur_by_name.end()) continue;
+        pre.down_ovlp_read_i[0].push_back(static_cast<int>(pi));
+        cur.up_ovlp_read_i[0].push_back(static_cast<int>(it->second));
     }
 }
 
