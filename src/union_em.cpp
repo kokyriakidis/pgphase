@@ -16,6 +16,13 @@ namespace pgphase_collect {
 // log-likelihood below which blocks are cut; and the MAPQ from which a read
 // teaches the model (lower reads are labelled from it but do not shape it).
 constexpr double kEmMinError = 0.01;
+// A site called by more than this many times the chunk's median callers sits
+// in a collapsed duplication: its "alleles" are often the copies' differences,
+// which read in lockstep and carried joins at margins in the hundreds
+// (chr18:21.05 Mb, 140-214 callers against a median near 60). It still
+// labels reads but holds no join. Over chr12/18/20: +72 correct / -69
+// discordant arm reads (all reads +333 / -421); 1.6 and 2.5 do less.
+constexpr double kEmJoinMaxDepthRatio = 2.0;
 constexpr double kEmMaxError = 0.45;
 constexpr double kEmCleanStartError = 0.05;
 constexpr double kEmOtherStartError = 0.2;
@@ -179,6 +186,7 @@ private:
     std::vector<int> start_label_;          // label the read started with (diagnostic)
     std::vector<char> learns_;              // read teaches the model (MAPQ)
     std::vector<char> echo_;
+    std::vector<char> join_deep_;  // called by > kEmJoinMaxDepthRatio x the chunk's median callers
     std::vector<char> site_weak_, join_weak_, join_excluded_;
     std::vector<std::vector<char>> join_skip_;
     std::vector<int> site_class_;
@@ -342,6 +350,21 @@ private:
         for (size_t k = 0; k < n_; ++k)
             if (sites_[k].locus < 0 && (chunk_.candidates[sites_[k].ci].unresolved_noisy ||
                                         chunk_.candidates[sites_[k].ci].low_mapq_only)) join_excluded_[k] = 1;
+        // Collapsed-duplication sites hold no join (kEmJoinMaxDepthRatio).
+        join_deep_.assign(n_, 0);
+        {
+            std::vector<int> callers(n_, 0);
+            for (const std::vector<EmObs>& obs : robs_)
+                for (size_t i = 0; i < obs.size(); ++i)
+                    if (i == 0 || obs[i].s != obs[i - 1].s) ++callers[static_cast<size_t>(obs[i].s)];
+            std::vector<int> called;
+            for (const int c : callers) if (c > 0) called.push_back(c);
+            if (!called.empty()) {
+                std::nth_element(called.begin(), called.begin() + static_cast<long>(called.size() / 2), called.end());
+                const double median = called[called.size() / 2];
+                for (size_t k = 0; k < n_; ++k) join_deep_[k] = callers[k] > kEmJoinMaxDepthRatio * median;
+            }
+        }
         std::vector<hts_pos_t> site_pos(n_);
         for (size_t k = 0; k < n_; ++k) site_pos[k] = sites_[k].pos;
         for (size_t k = 0; k < n_; ++k) {
@@ -526,7 +549,8 @@ private:
                 strong.clear();
                 for (size_t i = 0; i < robs_[ri].size(); ++i) {
                     const EmObs& o = robs_[ri][i];
-                    if (joining && ((!skip.empty() && skip[i]) || join_excluded_[static_cast<size_t>(o.s)])) continue;
+                    if (joining && ((!skip.empty() && skip[i]) || join_excluded_[static_cast<size_t>(o.s)] ||
+                                    join_deep_[static_cast<size_t>(o.s)])) continue;
                     if (strong_only && weak_of[static_cast<size_t>(o.s)]) continue;
                     strong.push_back(o);
                 }
@@ -598,8 +622,8 @@ private:
         // Measured on chr20: wrong joins of this kind sit just above the
         // ordinary cut (median 6), right ones well above it (median 19).
         delta_strong_ = bridge_weak_ != nullptr ? boundary_delta(true, true, true) : delta_;
-        // Reads whose calls the join test counts (join_skip, join_excluded as
-        // in delta_) lie on both sides of each boundary: a read whose calls on
+        // Reads whose calls the join test counts (join_skip, join_excluded,
+        // join_deep as in delta_) lie on both sides of each boundary: a read whose calls on
         // one side are all left out of the margin cannot stand for a molecule
         // crossing it.
         spanning_.assign(n_, 0);
@@ -609,7 +633,8 @@ private:
                 const std::vector<EmObs>& obs = robs_[ri];
                 int first = -1, last = -1;
                 for (size_t i = 0; i < obs.size(); ++i) {
-                    if ((!join_skip_[ri].empty() && join_skip_[ri][i]) || join_excluded_[static_cast<size_t>(obs[i].s)])
+                    if ((!join_skip_[ri].empty() && join_skip_[ri][i]) || join_excluded_[static_cast<size_t>(obs[i].s)] ||
+                        join_deep_[static_cast<size_t>(obs[i].s)])
                         continue;
                     if (first < 0) first = obs[i].s;
                     last = obs[i].s;
@@ -631,7 +656,7 @@ private:
                 int first = -1, last = -1;
                 for (const EmObs& o : obs) {
                     const size_t k = static_cast<size_t>(o.s);
-                    if (err_[k] >= kEmUnreliableError || join_excluded_[k] || join_weak_[k]) continue;
+                    if (err_[k] >= kEmUnreliableError || join_excluded_[k] || join_weak_[k] || join_deep_[k]) continue;
                     if (first < 0) first = o.s;
                     last = o.s;
                 }

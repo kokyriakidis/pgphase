@@ -427,6 +427,12 @@ Per chunk, in order:
        strong margin of 5.2 came from two reads with a wrong call each, the
        rest of the margin from a homopolymer call at learned error 0.27, and
        1,114 reads joined in the wrong orientation.
+   - *Collapsed duplications hold no joins* (`kEmJoinMaxDepthRatio`). A site
+     called by more than 2x the chunk's median callers labels reads but
+     carries no join, and its reads do not count as crossing a boundary
+     there. Copies' differences read in lockstep and gave joins margins in the
+     hundreds at chr18:21.05 Mb (140-214 callers, median near 60). Over
+     chr12/18/20: +72 correct / -69 discordant arm reads.
    - *One locus, one vote in the join test.* A locus window and a candidate
      inside it are read from the same bases, so their calls agree by
      construction; counted twice they outvoted a real het read once
