@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use pgphase, please cite it as below."
+title: "pgphase: phasing long reads with their alignments to a pangenome graph"
+type: software
+authors:
+  - family-names: Kyriakidis
+    given-names: Konstantinos
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/kokyriakidis/pgphase"
+keywords:
+  - phasing
+  - pangenome
+  - long reads
+  - variation graph
