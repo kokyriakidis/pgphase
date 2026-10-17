@@ -51,8 +51,9 @@ pgcat build: write site catalogs (DIR/<contig>.pgsites) from a GBZ graph
                             the records a tabix query of the whole contig's
                             catalog returns
   -t, --threads N           threads [all cores]
-  --snarls-jobs N           vg snarls runs at a time [6, at most --threads]:
-                            about one core and, on HPRC chr1, 10 GB each
+  --snarls-jobs N           vg snarls runs at a time [6, at most --threads];
+                            fewer when memory is short (each needs about 20
+                            times its component's size)
   --snarls-cache DIR        where each contig's snarls are kept and reused by
                             later runs on the same graph [DIR/snarls]
   --vg PATH                 the vg binary, for vg paths/chunk/snarls [vg]

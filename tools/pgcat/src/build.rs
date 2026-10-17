@@ -82,17 +82,16 @@ fn natural_key(s: &str) -> Vec<(String, u64)> {
     out
 }
 
-fn wait_one(running: &mut Vec<(Child, String)>) -> Result<(), String> {
-    loop {
-        for i in 0..running.len() {
-            if let Some(status) = running[i].0.try_wait().map_err(|e| e.to_string())? {
-                let (_, what) = running.swap_remove(i);
-                return if status.success() { Ok(()) } else { Err(format!("{what} failed")) };
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_millis(200));
-    }
+/// /proc/meminfo's value for `key`, in bytes.
+fn meminfo(key: &str) -> Option<u64> {
+    let m = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = m.lines().find(|l| l.starts_with(key))?;
+    Some(line.split_whitespace().nth(1)?.parse::<u64>().ok()? * 1024)
 }
+
+/// vg snarls peaks at 16-21 times its component's file size (HPRC v2.1, all
+/// 25 CHM13 contigs).
+const SNARLS_MEMORY_PER_BYTE: u64 = 22;
 
 /// Removes the `<prefix><pid>` work folders in `dir` of earlier runs that were
 /// killed (their process is gone), which would otherwise stay indefinitely:
@@ -153,39 +152,63 @@ fn compute_snarls_in(
     if !status.success() {
         return Err(format!("{} chunk failed", o.vg));
     }
-    // One component file per targeted path; fragments of a contig that share a
-    // component may come out in one file.
-    let mut jobs: Vec<(String, PathBuf, PathBuf)> = Vec::new(); // contig, component, snarls part
+    // Then each component's snarls, up to --snarls-jobs at once, a job
+    // starting only if the running jobs' and its own predicted peaks fit in
+    // the memory available (one job always may).
+    let mut ready: Vec<(String, PathBuf, u64)> = Vec::new(); // contig, component, size
     for c in contigs {
-        let parts: Vec<PathBuf> = paths[c].iter()
-            .map(|n| PathBuf::from(format!("{}_{n}.vg", prefix.display())))
-            .filter(|p| p.exists())
-            .collect();
-        if parts.is_empty() {
+        for n in &paths[c] {
+            let f = PathBuf::from(format!("{}_{n}.vg", prefix.display()));
+            if let Ok(m) = std::fs::metadata(&f) {
+                ready.push((c.clone(), f, m.len()));
+            }
+        }
+    }
+    let max_jobs = o.snarls_jobs.unwrap_or(6).min(o.catalog.threads).max(1);
+    let budget = meminfo("MemAvailable:").unwrap_or(u64::MAX).saturating_sub(2 << 30);
+    log(t0, &format!("computing snarls of {} component(s), up to {} at a time", ready.len(), max_jobs.min(ready.len())));
+    let per_job = if o.catalog.threads >= 2 * max_jobs { 2 } else { 1 };
+    let mut running: Vec<(Child, String, u64)> = Vec::new(); // job, what, predicted peak
+    let mut jobs: Vec<(String, PathBuf, PathBuf)> = Vec::new(); // contig, component, snarls part
+    while !ready.is_empty() || !running.is_empty() {
+        let mut k = 0;
+        while k < running.len() {
+            if let Some(status) = running[k].0.try_wait().map_err(|e| e.to_string())? {
+                let (_, what, _) = running.swap_remove(k);
+                if !status.success() {
+                    for (c, ..) in &mut running {
+                        let _ = c.kill();
+                    }
+                    return Err(format!("{what} failed"));
+                }
+            } else {
+                k += 1;
+            }
+        }
+        while running.len() < max_jobs && !ready.is_empty() {
+            let need = ready[0].2 * SNARLS_MEMORY_PER_BYTE;
+            let committed: u64 = running.iter().map(|r| r.2).sum();
+            if !running.is_empty() && committed + need > budget {
+                break;
+            }
+            let (c, comp, _) = ready.remove(0);
+            let part = work.join(format!("{c}.{}.snarls", jobs.iter().filter(|j| j.0 == c).count()));
+            let out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
+            let child = Command::new(&o.vg).args(["snarls", "-t", &per_job.to_string()]).arg(&comp).stdout(out).spawn()
+                .map_err(|e| format!("running {} snarls: {e}", o.vg))?;
+            running.push((child, format!("vg snarls on {c}"), need));
+            jobs.push((c, comp, part));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    // Fragments of a contig that share a component come out in one file, so
+    // a path may have none; a contig must have one.
+    for c in contigs {
+        if !jobs.iter().any(|j| &j.0 == c) {
             return Err(format!("vg chunk wrote no component for {sample}#0#{c}"));
         }
-        for (k, p) in parts.into_iter().enumerate() {
-            jobs.push((c.clone(), p, work.join(format!("{c}.{k}.snarls"))));
-        }
     }
-    // vg snarls uses about one core and, on HPRC chr1, 10 GB: at most 6 at
-    // once by default, within --threads.
-    let snarls_jobs = o.snarls_jobs.unwrap_or(6).min(o.catalog.threads).max(1);
-    log(t0, &format!("computing snarls of {} component(s), {} at a time", jobs.len(), snarls_jobs.min(jobs.len())));
-    let per_job = if o.catalog.threads >= 2 * snarls_jobs { 2 } else { 1 };
-    let mut running: Vec<(Child, String)> = Vec::new();
-    for (c, comp, part) in &jobs {
-        if running.len() >= snarls_jobs {
-            wait_one(&mut running)?;
-        }
-        let out = std::fs::File::create(part).map_err(|e| e.to_string())?;
-        let child = Command::new(&o.vg).args(["snarls", "-t", &per_job.to_string()]).arg(comp).stdout(out).spawn()
-            .map_err(|e| format!("running {} snarls: {e}", o.vg))?;
-        running.push((child, format!("vg snarls on {c}")));
-    }
-    while !running.is_empty() {
-        wait_one(&mut running)?;
-    }
+    log(t0, &format!("snarls of {} component(s) computed", jobs.len()));
     // A contig's snarls file is its components' files one after another (both
     // the stream format and gzip allow concatenation).
     for c in contigs {
