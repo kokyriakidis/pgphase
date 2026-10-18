@@ -487,7 +487,13 @@ Per chunk, in order:
      under `PS + kGapFillPsOffset` internally and written under their
      block's PS: written with the offset, each block's fill reads formed a
      phase set of their own and hid 261 arm reads phased against their block.
-     A phase set holding a single phased het is written unphased.
+     A phase set holding a single phased het is written unphased, and so is
+     a phased site the VCF should not vouch for (`vcf_unphased`): an
+     unverified call from a noisy region too long for MSA, a SNP at learned
+     error 0.1 or more (`kEmVcfMaxSnpError`) or an indel at 0.25 or more
+     (`kEmVcfMaxIndelError`). Such sites still label reads; written
+     unphased they removed 9 + 7 arm switches and 27 flips over chr12/18/20
+     for 3,632 phased truth hets.
 7. **Local haplotype windows** (`build_locus_window_sites`).
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats

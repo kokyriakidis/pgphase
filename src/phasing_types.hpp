@@ -588,6 +588,10 @@ struct CandidateVariant {
     // confidently mapped reads, or the depth gate): it enters only as an
     // island site, never as an EM site (no germline bits, no VCF record).
     bool island_only = false;
+    // Phased for the reads but written unphased in the VCF (union EM: an
+    // unverified call, or a learned error above kEmVcfMaxSnpError /
+    // kEmVcfMaxIndelError).
+    bool vcf_unphased = false;
     // A clean het the union injection admits although its alleles lack
     // confidently mapped reads (the confident-read exemption): phased like an
     // unverified call (unresolved_noisy) -- it joins no blocks and labels

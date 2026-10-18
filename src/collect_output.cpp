@@ -602,13 +602,10 @@ void write_phased_variants_vcf_records(std::ostream& out,
             is_hom = gt1 >= 0 && gt1 == gt2;
         }
 
-        // An unverified call from a noisy region too long for MSA keeps its
-        // phase for the reads (labels, rescue) but is written unphased: inside
-        // VNTRs such calls and the truth describe different copies of the
-        // repeat (chr18:79.877 Mb, six switches over 32 correctly phased
-        // reads). Over chr12/18/20 they were 1,972 phased hets holding 9 of
-        // 35 arm switches and 2 flips, 44x the switch rate of the rest.
-        const hts_pos_t ps_val = candidate.unresolved_noisy ? 0 : candidate.phase_set;
+        // A site the phaser keeps for the reads but not for the VCF
+        // (vcf_unphased: unverified calls, high learned error) is written
+        // unphased.
+        const hts_pos_t ps_val = candidate.vcf_unphased ? 0 : candidate.phase_set;
         char gt_sep = '|';
         if (ps_val == 0) {
             gt_sep = '/';

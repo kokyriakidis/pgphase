@@ -162,7 +162,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                 cand.bam_injected = mcand.bam_injected;
                 cand.msa_verified = mcand.msa_verified;
                 cand.alignment_verified = mcand.alignment_verified;
-                cand.unresolved_noisy = mcand.unresolved_noisy;
+                cand.vcf_unphased = mcand.vcf_unphased;
 
                 // Derive VariantKey from VCF-anchored alleles matching BAM-path convention:
                 //   SNP : key.pos = site.pos, key.alt = alt base, ref_len = 1

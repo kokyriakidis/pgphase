@@ -40,6 +40,15 @@ constexpr double kEmUnreliableError = 0.3;
 // 0.1 against 0.3 cut arm switches 12 / 24 / 10 -> 10 / 20 / 6 on chr12,
 // chr18 and chr20 and kept 60-75% of the truth heterozygotes they add.
 constexpr double kEmUnverifiedReportError = 0.1;
+// A phased site written unphased in the VCF above these learned errors (it
+// still labels reads and marks them for the rescue). A real SNP is rarely
+// read wrong: over chr12/18/20 the 324 truth-het SNPs phased at error
+// 0.1-0.3 held 10 of the 61 arm flips (3%, against 0.007% below 0.1), and
+// indels at 0.25-0.3 another 7 flips and 2 switches in 1,117 (0.8%).
+// Written unphased: switches 24 -> 17, flips 61 -> 36, phased truth hets
+// -1,660 (0.6%), reads unchanged.
+constexpr double kEmVcfMaxSnpError = 0.1;
+constexpr double kEmVcfMaxIndelError = 0.25;
 constexpr int kEmIterations = 15;
 constexpr int kEmSwitchRounds = 30;
 constexpr double kEmReadLabelPosterior = 0.8;
@@ -707,7 +716,7 @@ private:
     // unreliable site is left unphased.
     void write_site_phases() {
         for (CandidateVariant& c : chunk_.candidates)
-            if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet;
+            if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet, c.vcf_unphased = false;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) {
                 const LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
@@ -725,6 +734,11 @@ private:
             const int hap1 = phase_[k] == 0 ? sites_[k].x : sites_[k].y;
             const int hap2 = phase_[k] == 0 ? sites_[k].y : sites_[k].x;
             set_site_phase(c, block_[k], hap1, hap2);
+            // Unverified calls from noisy regions too long for MSA: inside VNTRs
+            // they and the truth describe different copies of the repeat
+            // (chr18:79.877 Mb, six switches over 32 correctly phased reads).
+            c.vcf_unphased = c.unresolved_noisy ||
+                             err_[k] >= (c.key.type == VariantType::Snp ? kEmVcfMaxSnpError : kEmVcfMaxIndelError);
         }
     }
 
