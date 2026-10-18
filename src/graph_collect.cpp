@@ -86,13 +86,15 @@ static CandidateTable graph_chunks_to_candidate_table(
 
     for (const GraphChunkBuildResult& graph_chunk : graph_chunks) {
         const PhasingChunk& chunk = graph_chunk.chunk;
-        // A phased het alone in its phase set phases nothing on its own. When
-        // the labelled reads that call it sit in one other phase set (at least
-        // 3, 80% of them) and split there by allele on both haplotypes (80%),
-        // it is written in that phase set with the reads' orientation; the
-        // phaser's own labels are untouched. Over chr12/18/20 +366 phased
-        // truth hets, switches, flips and reads unchanged. The rest of the
-        // lone sites have no labelled read reaching a neighbouring block.
+        // A phased het alone in its phase set phases nothing on its own. It is
+        // written in the phase set holding most of its labelled reads (at least
+        // 3) when they split there by allele on both haplotypes (80% each),
+        // with those reads' orientation; the phaser's own labels are untouched.
+        // Such a site typically sits between two blocks that were not joined,
+        // its reads labelled in either: its phase against one of them comes
+        // from that block's reads alone. Over chr12/18/20 +2,599 phased truth
+        // hets (+366 when 80% of the reads had to sit in one phase set),
+        // switches, flips and reads unchanged.
         std::unordered_map<size_t, std::tuple<hts_pos_t, int, int>> rephase;
         {
             const auto phased_het = [](const CandidateVariant& c) {
@@ -133,7 +135,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                     for (int hh = 1; hh <= 2; ++hh) for (const auto& [a, c] : h[static_cast<size_t>(hh)]) n += c;
                     if (n > best_n) best_n = n, best = ps;
                 }
-                if (best == chunk.candidates[ci].phase_set || best_n < 3 || best_n < 0.8 * labelled[ci]) continue;
+                if (best == chunk.candidates[ci].phase_set || best_n < 3) continue;
                 const auto& h = by_ps.at(best);
                 int alle[3] = {-1, -1, -1};
                 bool ok = true;
