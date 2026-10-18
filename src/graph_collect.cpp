@@ -1,3 +1,4 @@
+#include <tuple>
 #include "graph_collect.hpp"
 #include "collect_pipeline.hpp"
 
@@ -85,8 +86,78 @@ static CandidateTable graph_chunks_to_candidate_table(
 
     for (const GraphChunkBuildResult& graph_chunk : graph_chunks) {
         const PhasingChunk& chunk = graph_chunk.chunk;
+        // A phased het alone in its phase set phases nothing on its own. When
+        // the labelled reads that call it sit in one other phase set (at least
+        // 3, 80% of them) and split there by allele on both haplotypes (80%),
+        // it is written in that phase set with the reads' orientation; the
+        // phaser's own labels are untouched. Over chr12/18/20 +366 phased
+        // truth hets, switches, flips and reads unchanged. The rest of the
+        // lone sites have no labelled read reaching a neighbouring block.
+        std::unordered_map<size_t, std::tuple<hts_pos_t, int, int>> rephase;
+        {
+            const auto phased_het = [](const CandidateVariant& c) {
+                const auto& h = c.hap_to_cons_alle;
+                return (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 && c.phase_set > 0 &&
+                       h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
+            };
+            std::unordered_map<hts_pos_t, int> hets;
+            for (const CandidateVariant& c : chunk.candidates) if (phased_het(c)) ++hets[c.phase_set];
+            std::unordered_map<size_t, std::map<hts_pos_t, std::array<std::map<int, int>, 3>>> votes;
+            std::unordered_map<size_t, int> labelled;
+            for (const ReadVariantProfile& prof : chunk.read_var_profile) {
+                if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
+                const size_t ri = static_cast<size_t>(prof.read_id);
+                int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
+                hts_pos_t ps = ri < chunk.phase_sets.size() ? chunk.phase_sets[ri] : 0;
+                if (!((hap == 1 || hap == 2) && ps > 0) && ri < chunk.gap_haps.size() && ri < chunk.gap_phase_sets.size() &&
+                    (chunk.gap_haps[ri] == 1 || chunk.gap_haps[ri] == 2) && chunk.gap_phase_sets[ri] > kGapFillPsOffset) {
+                    hap = chunk.gap_haps[ri];
+                    ps = chunk.gap_phase_sets[ri] - kGapFillPsOffset;
+                }
+                if (!((hap == 1 || hap == 2) && ps > 0)) continue;
+                for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                    const int a = prof.alleles[k];
+                    if (a < 0) continue;
+                    const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+                    if (ci >= chunk.candidates.size() || !phased_het(chunk.candidates[ci]) ||
+                        hets[chunk.candidates[ci].phase_set] != 1) continue;
+                    ++votes[ci][ps][static_cast<size_t>(hap)][a];
+                    ++labelled[ci];
+                }
+            }
+            for (const auto& [ci, by_ps] : votes) {
+                hts_pos_t best = 0;
+                int best_n = 0;
+                for (const auto& [ps, h] : by_ps) {
+                    int n = 0;
+                    for (int hh = 1; hh <= 2; ++hh) for (const auto& [a, c] : h[static_cast<size_t>(hh)]) n += c;
+                    if (n > best_n) best_n = n, best = ps;
+                }
+                if (best == chunk.candidates[ci].phase_set || best_n < 3 || best_n < 0.8 * labelled[ci]) continue;
+                const auto& h = by_ps.at(best);
+                int alle[3] = {-1, -1, -1};
+                bool ok = true;
+                for (int hh = 1; hh <= 2 && ok; ++hh) {
+                    int tot = 0, top = 0, top_a = -1;
+                    for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; if (c > top) top = c, top_a = a; }
+                    ok = tot >= 2 && top >= 0.8 * tot;
+                    alle[hh] = top_a;
+                }
+                if (!ok || alle[1] == alle[2]) continue;
+                rephase[ci] = {best, alle[1], alle[2]};
+            }
+        }
         for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-            const CandidateVariant& mcand = chunk.candidates[ci];
+            CandidateVariant rephased;
+            const CandidateVariant* mp = &chunk.candidates[ci];
+            if (const auto it = rephase.find(ci); it != rephase.end()) {
+                rephased = chunk.candidates[ci];
+                rephased.phase_set = std::get<0>(it->second);
+                rephased.hap_to_cons_alle[1] = std::get<1>(it->second);
+                rephased.hap_to_cons_alle[2] = std::get<2>(it->second);
+                mp = &rephased;
+            }
+            const CandidateVariant& mcand = *mp;
 
             if (ci >= graph_chunk.site_meta.size()) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
