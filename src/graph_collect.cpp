@@ -336,6 +336,27 @@ static CandidateTable graph_chunks_to_candidate_table(
                         continue;
                 }
 
+                // An equal-length multi-base substitution (an MNP: a catalog walk
+                // changing several adjacent bases) is written as its single-base
+                // changes, each with the MNP's genotype and phase set -- all its
+                // bases change on one haplotype. Written whole (GA>CC), the truth
+                // and other callers' single-base records never matched it: over
+                // chr12/18/20 +3,792 phased truth hets, reads unchanged. A copy
+                // of one of those SNPs from another row collapses below.
+                if (cand.key.type == VariantType::Snp && cand.key.ref_len > 1 &&
+                    static_cast<int>(cand.key.alt.size()) == cand.key.ref_len &&
+                    static_cast<int>(ref_seq.size()) == cand.key.ref_len) {
+                    for (int i = 0; i < cand.key.ref_len; ++i) {
+                        const auto up = [](char c) { return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); };
+                        if (up(ref_seq[static_cast<size_t>(i)]) == up(cand.key.alt[static_cast<size_t>(i)])) continue;
+                        CandidateVariant snp = cand;
+                        snp.key.pos = cand.key.pos + i;
+                        snp.key.alt = std::string(1, cand.key.alt[static_cast<size_t>(i)]);
+                        snp.key.ref_len = 1;
+                        result.push_back(std::move(snp));
+                    }
+                    continue;
+                }
                 result.push_back(std::move(cand));
             }
         }
