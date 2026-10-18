@@ -106,6 +106,36 @@ static CandidateTable graph_chunks_to_candidate_table(
             for (const CandidateVariant& c : chunk.candidates) if (phased_het(c)) ++hets[c.phase_set];
             std::unordered_map<size_t, std::map<hts_pos_t, std::array<std::map<int, int>, 3>>> votes;
             std::unordered_map<size_t, int> labelled;
+            // Two het SNPs at one position with different ALTs, both left
+            // unphased: a site with two non-reference alleles (1|2). No read
+            // carries REF there, so each record's reads carry its ALT or
+            // nothing and the phaser has no two-allele contrast to solve: the
+            // catalog site's pairs (REF vs each ALT) look 100% ALT and are
+            // dropped (high_af), and the alignment's two records each hear one
+            // allele. HLA-B (chr6:31,212,612 G>A,T and 31,212,651) was written
+            // unphased where HiPhase phases it. Each is placed below from the
+            // final labels of the reads carrying its ALT, so no label, join or
+            // block changes. Over chr12/18/20 and the MHC: 8 more truth 1|2
+            // sites phased, reads, switches and flips unchanged (the one
+            // placement against the truth VCF agrees with its read labels).
+            // Indel pairs as well: +2 switches on chr12.
+            std::unordered_map<size_t, size_t> partner;
+            std::unordered_map<size_t, std::map<hts_pos_t, std::array<int, 3>>> alt_votes;
+            {
+                const auto unphased_het = [](const CandidateVariant& c) {
+                    return (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 && c.phase_set <= 0;
+                };
+                std::map<hts_pos_t, std::vector<size_t>> at;
+                for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+                    const CandidateVariant& c = chunk.candidates[ci];
+                    if (!unphased_het(c)) continue;
+                    if (!(c.key.type == VariantType::Snp && c.key.ref_len == 1 && c.key.alt.size() == 1)) continue;
+                    at[c.key.pos].push_back(ci);
+                }
+                for (const auto& [pos, cis] : at)
+                    if (cis.size() == 2 && chunk.candidates[cis[0]].key.alt != chunk.candidates[cis[1]].key.alt)
+                        partner[cis[0]] = cis[1], partner[cis[1]] = cis[0];
+            }
             for (const ReadVariantProfile& prof : chunk.read_var_profile) {
                 if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
                 const size_t ri = static_cast<size_t>(prof.read_id);
@@ -121,6 +151,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                     const int a = prof.alleles[k];
                     if (a < 0) continue;
                     const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+                    if (a == 1 && partner.count(ci) != 0) ++alt_votes[ci][ps][static_cast<size_t>(hap)];
                     if (ci >= chunk.candidates.size() || !phased_het(chunk.candidates[ci]) ||
                         hets[chunk.candidates[ci].phase_set] != 1) continue;
                     ++votes[ci][ps][static_cast<size_t>(hap)][a];
@@ -147,6 +178,28 @@ static CandidateTable graph_chunks_to_candidate_table(
                 }
                 if (!ok || alle[1] == alle[2]) continue;
                 rephase[ci] = {best, alle[1], alle[2]};
+            }
+            // Each ALT goes on the haplotype holding 80% of its labelled
+            // carriers, in the phase set holding most of them (at least 3);
+            // both in one phase set, on opposite haplotypes.
+            const auto place = [&](size_t ci, hts_pos_t& ps, int& hap) {
+                const auto it = alt_votes.find(ci);
+                if (it == alt_votes.end()) return false;
+                int best_n = 0;
+                for (const auto& [p, h] : it->second)
+                    if (h[1] + h[2] > best_n) best_n = h[1] + h[2], ps = p;
+                if (best_n < 3) return false;
+                const auto& h = it->second.at(ps);
+                hap = h[1] >= h[2] ? 1 : 2;
+                return h[static_cast<size_t>(hap)] >= 0.8 * best_n;
+            };
+            for (const auto& [a, b] : partner) {
+                if (a > b) continue;
+                hts_pos_t ps_a = 0, ps_b = 0;
+                int hap_a = 0, hap_b = 0;
+                if (!place(a, ps_a, hap_a) || !place(b, ps_b, hap_b) || ps_a != ps_b || hap_a == hap_b) continue;
+                rephase[a] = {ps_a, hap_a == 1 ? 1 : 0, hap_a == 2 ? 1 : 0};
+                rephase[b] = {ps_b, hap_b == 1 ? 1 : 0, hap_b == 2 ? 1 : 0};
             }
         }
         for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
