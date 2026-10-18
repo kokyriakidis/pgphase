@@ -776,6 +776,24 @@ TEST_CASE("two different substitutions at one position are still made complement
     CHECK(t[0].hap_to_cons_alle[2] == 0);
 }
 
+TEST_CASE("two alleles phased onto one haplotype of one block are not moved",
+          "[conflict]") {
+    // chr12:13,569,119: +12 and +14 bp AT insertions, each phased from its own
+    // reads onto haplotype 2 of one block -- one insertion described twice.
+    // Neither is moved to the reference haplotype; the conflict step then keeps
+    // the containing allele.
+    pgphase_collect::CandidateTable t{
+        conflict_record(13569119, 0, "ATATATATATAT", 2, 24, pgphase_collect::VariantType::Insertion),
+        conflict_record(13569119, 0, "ATATATATATATAT", 2, 16, pgphase_collect::VariantType::Insertion)};
+    t[0].phase_set = t[1].phase_set = 13166071;
+    CHECK(pgphase_collect::make_colocated_alleles_complementary(t, 2) == 0);
+    CHECK(t[0].hap_to_cons_alle[2] == 1);
+    CHECK(t[1].hap_to_cons_alle[2] == 1);
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(alts_of(t) == std::vector<std::string>{"ATATATATATATAT"});
+}
+
 TEST_CASE("records at different positions are never compared", "[conflict]") {
     pgphase_collect::CandidateTable t{conflict_record(100, 1, "G", 1, 9),
                                       conflict_record(200, 1, "GAG", 1, 9)};

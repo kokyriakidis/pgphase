@@ -2388,6 +2388,16 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
         if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
         if (nested_substitutions(a, b)) continue;     // one event described twice
         if (alt_depth(a) < min_alt_support || alt_depth(b) < min_alt_support) continue;
+        // Two records the phaser put in one phase set were each phased from
+        // their own reads, so where both claim one haplotype the reads say so:
+        // they are one allele described twice (a catalog walk and the
+        // alignment's call, two stutter lengths of one repeat insertion), not
+        // two alleles. Moving one to the other haplotype wrote it on the
+        // reference haplotype -- at chr12:13,569,119 +12 and +14 bp AT, both on
+        // haplotype 2 at learned error 0.01, the +14 (the truth's allele) came
+        // out 1|0: 5 of 36 arm flips over chr12/18/20. The pair is left to
+        // drop_conflicting_haplotype_alleles, which keeps one description.
+        if (a.phase_set > 0 && a.phase_set == b.phase_set) continue;
         int hap = 0;
         for (int h = 1; h <= 2; ++h)
             if (a.hap_to_cons_alle[h] == 1 && b.hap_to_cons_alle[h] == 1) hap = h;
