@@ -1118,8 +1118,7 @@ int main(int argc, char** argv) {
 
         ok &= check(
             rows.at("fill_only").hap == 1 &&
-                rows.at("fill_only").phase_set ==
-                    1100 + kGapFillPsOffset,
+                rows.at("fill_only").phase_set == 1100,  // written under its block's PS
             "graph output merge: BAM-observation rescue is fill-only");
     }
 

@@ -1873,7 +1873,13 @@ void merge_graph_chunk_into_read_rows(
             (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) &&
             chunk.gap_phase_sets[read_i] > 0) {
             hap = chunk.gap_haps[read_i];
-            phase_set = chunk.gap_phase_sets[read_i];
+            // The read is phased in its block's gauge (rescue markers, the
+            // EM's block, an island's site): it is written under that block's
+            // PS. kGapFillPsOffset only keeps fill labels apart internally;
+            // written out, each block's fill reads formed a phase set of their
+            // own, oriented on their own -- over chr12/18/20 it hid 261 arm
+            // reads phased against their block.
+            phase_set = chunk.gap_phase_sets[read_i] - kGapFillPsOffset;
         }
 
         for (int site_i = profile.start_var_idx; site_i <= profile.end_var_idx; ++site_i) {

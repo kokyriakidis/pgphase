@@ -480,9 +480,14 @@ Per chunk, in order:
      one from its unverified calls (and `low_mapq_only` sites) whose learned
      error is under 0.1, at posterior 0.8 (`kEmUnverifiedLabelPosterior`),
      through the same last, fill-only channel: +22 correct / -3 discordant /
-     -19 unphased. Failing that, a read one edit closer to one side of a
-     reliable locus window (where two edits are required to vote) takes the
-     window's block label when all such calls agree: +25 / +4 / -29.
+     -19 unphased. (Labels from one-edit window calls followed; once fill
+     labels were written under their block's PS they scored +6 correct / +16
+     discordant and were removed.)
+   - *Output.* Fill labels (rescue, deferred, unverified, islands) are kept
+     under `PS + kGapFillPsOffset` internally and written under their
+     block's PS: written with the offset, each block's fill reads formed a
+     phase set of their own and hid 261 arm reads phased against their block.
+     A phase set holding a single phased het is written unphased.
 7. **Local haplotype windows** (`build_locus_window_sites`).
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats

@@ -741,17 +741,11 @@ private:
 
     // Reads: label in the block where their own evidence is strongest. A read
     // below the label posterior takes, in turn, a deferred label (its calls in
-    // a block all agree, kEmDeferredLabelPosterior), one from its unverified
-    // calls (kEmUnverifiedLabelPosterior) or one from its one-edit window calls.
+    // a block all agree, kEmDeferredLabelPosterior) or one from its unverified
+    // calls (kEmUnverifiedLabelPosterior). Labels from one-edit window calls
+    // came after these until fill labels were written under their block's PS:
+    // scored so they were +6 correct / +16 discordant, and were removed.
     void label_reads() {
-        // Weak window calls per read (site, side), for the last-resort labels.
-        std::vector<std::vector<std::pair<size_t, int>>> weak_window_obs(robs_.size());
-        for (size_t li = 0; li < n_locus_; ++li) {
-            if (locus_site_[li] < 0) continue;
-            for (const auto& [ri, side] : (*loci_)[li].weak_observations)
-                if (ri < weak_window_obs.size())
-                    weak_window_obs[ri].emplace_back(static_cast<size_t>(locus_site_[li]), side);
-        }
         for (size_t ri = 0; ri < robs_.size() && ri < chunk_.haps.size(); ++ri) {
             chunk_.haps[ri] = 0;
             chunk_.phase_sets[ri] = kUnphasedReadPhaseSet;
@@ -811,26 +805,6 @@ private:
                     if (std::max(p1, 1.0 - p1) < kEmUnverifiedLabelPosterior || std::abs(margin) <= weak_best) continue;
                     weak_best = std::abs(margin);
                     weak_hap = p1 >= 0.5 ? 1 : 2;
-                    weak_ps = ps;
-                }
-            }
-            // Failing those, its one-edit window calls (weak_observations) at
-            // reliable windows, all agreeing within a block: +25 correct / +4
-            // discordant / -29 unphased over chr12/18/20, switches unchanged.
-            // Refining the windows' haplotype medoids from their assigned reads
-            // first cost chr20 67 correct reads and 15% of the run time.
-            if (weak_hap == 0 && ri < weak_window_obs.size() && !weak_window_obs[ri].empty()) {
-                std::map<hts_pos_t, std::array<int, 2>> wv;
-                for (const auto& [k, side] : weak_window_obs[ri]) {
-                    if (err_[k] >= kEmUnreliableError) continue;
-                    ++wv[block_[k]][side == phase_[k] ? 0 : 1];
-                }
-                int most = 0;
-                for (const auto& [ps, v] : wv) {
-                    if (v[0] != 0 && v[1] != 0) continue;
-                    if (v[0] + v[1] <= most) continue;
-                    most = v[0] + v[1];
-                    weak_hap = v[0] > 0 ? 1 : 2;
                     weak_ps = ps;
                 }
             }

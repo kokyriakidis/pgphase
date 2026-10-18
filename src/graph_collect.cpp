@@ -1032,6 +1032,18 @@ void run_collect_graph_variation(const Options& opts) {
 
         CandidateTable variants =
             graph_chunks_to_candidate_table(graph_chunks, contig_to_tid, opts);
+        // A phase set holding a single phased heterozygote phases nothing
+        // against anything: written unphased (on chr20's arms 2,205 of 2,621
+        // phase sets, most a site no read was labelled through).
+        {
+            std::unordered_map<hts_pos_t, int> hets;
+            const auto phased_het = [](const CandidateVariant& c) {
+                const auto& h = c.hap_to_cons_alle;
+                return c.phase_set > 0 && h.size() >= 3 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
+            };
+            for (const CandidateVariant& c : variants) if (phased_het(c)) ++hets[c.phase_set];
+            for (CandidateVariant& c : variants) if (phased_het(c) && hets[c.phase_set] == 1) c.phase_set = 0;
+        }
 
         n_variants += variants.size();
         write_variants_tsv_records(variant_out, header.get(), ref, variants);

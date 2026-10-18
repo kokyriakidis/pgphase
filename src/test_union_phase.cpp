@@ -892,36 +892,6 @@ static void test_em_unverified_fallback(bool low_mapq) {
           "unverified: applied through the gap channel");
 }
 
-static void test_em_weak_window_labels() {
-    // A window every tiled read observes; two reads with no other evidence are
-    // one edit closer to one side (weak observations). The solve leaves them
-    // unlabelled; they take the window's block label by their side, last.
-    PhasingChunk chunk;
-    for (int k = 0; k < 6; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
-    std::vector<int> truth;
-    add_tiled_reads(chunk, truth, 0, 5, 3);
-    const size_t tiled = chunk.reads.size();
-    for (int r = 0; r < 2; ++r) {
-        chunk.reads.push_back(read_named("weak" + std::to_string(r), 60));
-        chunk.read_var_profile.push_back(ReadVariantProfile{});
-        truth.push_back(r);
-    }
-    finish_chunk(chunk);
-    std::vector<LocusWindowSite> loci(1);
-    loci[0].pos = 350;
-    loci[0].end = 390;
-    for (size_t r = 0; r < tiled; ++r) loci[0].observations.emplace_back(r, truth[r], 0.01f);
-    for (int r = 0; r < 2; ++r) loci[0].weak_observations.emplace_back(tiled + static_cast<size_t>(r), r);
-    phase_chunk_by_global_em(chunk, &loci, nullptr, nullptr);
-    check(chunk.haps[tiled] == 0 && chunk.haps[tiled + 1] == 0, "weak windows: the solve leaves the reads unlabelled");
-    size_t mate = 0;
-    while (mate < tiled && !(truth[mate] == 0 && chunk.haps[mate] != 0)) ++mate;
-    check(mate < tiled && chunk.island_haps.size() == chunk.reads.size() &&
-          chunk.island_haps[tiled] == chunk.haps[mate] && chunk.island_phase_sets[tiled] == chunk.phase_sets[mate] &&
-          chunk.island_haps[tiled + 1] != 0 && chunk.island_haps[tiled + 1] != chunk.island_haps[tiled],
-          "weak windows: each read takes its side's label in the window's block");
-}
-
 static void test_length_window_sites() {
     // Five 10-A runs, each with an indel candidate in the alignment solve. At
     // the run at 300 half the reads carry +1 A and half +3 A; every other run
@@ -1035,7 +1005,6 @@ int main() {
     test_em_echo_sites();
     test_em_unverified_fallback(false);
     test_em_unverified_fallback(true);
-    test_em_weak_window_labels();
     test_length_window_sites();
     test_em_length_window_islands();
     if (failures != 0) {
