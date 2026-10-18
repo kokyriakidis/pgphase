@@ -23,6 +23,14 @@ constexpr double kEmMinError = 0.01;
 // labels reads but holds no join. Over chr12/18/20: +72 correct / -69
 // discordant arm reads (all reads +333 / -421); 1.6 and 2.5 do less.
 constexpr double kEmJoinMaxDepthRatio = 2.0;
+// A site whose callers' mean MAPQ is below this sits where reads cannot be
+// placed confidently -- again mostly copies' differences: on chr12, 433 of
+// the 450 noise sites (parents not split) that labelled discordant reads,
+// and on chr18 all 26, against 0.3% of real hets. It labels reads but holds
+// no join, like a deep site. Over chr12/18/20: +58 correct / -61 discordant
+// arm reads, switches -2, flips -2, all reads +886 / -634 (30-50 alike;
+// muting its labels instead cost 1,832 correct reads).
+constexpr double kEmJoinMinMeanMapq = 40.0;
 constexpr double kEmMaxError = 0.45;
 constexpr double kEmCleanStartError = 0.05;
 constexpr double kEmOtherStartError = 0.2;
@@ -186,7 +194,9 @@ private:
     std::vector<int> start_label_;          // label the read started with (diagnostic)
     std::vector<char> learns_;              // read teaches the model (MAPQ)
     std::vector<char> echo_;
-    std::vector<char> join_deep_;  // called by > kEmJoinMaxDepthRatio x the chunk's median callers
+    // Holds no join: called by > kEmJoinMaxDepthRatio x the chunk's median
+    // callers, or by reads of mean MAPQ < kEmJoinMinMeanMapq.
+    std::vector<char> join_deep_;
     std::vector<char> site_weak_, join_weak_, join_excluded_;
     std::vector<std::vector<char>> join_skip_;
     std::vector<int> site_class_;
@@ -350,19 +360,29 @@ private:
         for (size_t k = 0; k < n_; ++k)
             if (sites_[k].locus < 0 && (chunk_.candidates[sites_[k].ci].unresolved_noisy ||
                                         chunk_.candidates[sites_[k].ci].low_mapq_only)) join_excluded_[k] = 1;
-        // Collapsed-duplication sites hold no join (kEmJoinMaxDepthRatio).
+        // Sites in collapsed duplications or poorly mapped reads hold no join
+        // (kEmJoinMaxDepthRatio, kEmJoinMinMeanMapq).
         join_deep_.assign(n_, 0);
         {
             std::vector<int> callers(n_, 0);
-            for (const std::vector<EmObs>& obs : robs_)
-                for (size_t i = 0; i < obs.size(); ++i)
-                    if (i == 0 || obs[i].s != obs[i - 1].s) ++callers[static_cast<size_t>(obs[i].s)];
+            std::vector<double> mapq_sum(n_, 0.0);
+            for (size_t ri = 0; ri < robs_.size(); ++ri) {
+                const std::vector<EmObs>& obs = robs_[ri];
+                for (size_t i = 0; i < obs.size(); ++i) {
+                    if (i > 0 && obs[i].s == obs[i - 1].s) continue;
+                    ++callers[static_cast<size_t>(obs[i].s)];
+                    mapq_sum[static_cast<size_t>(obs[i].s)] += chunk_.reads[ri].mapq;
+                }
+            }
+            for (size_t k = 0; k < n_; ++k)
+                if (callers[k] > 0 && mapq_sum[k] / callers[k] < kEmJoinMinMeanMapq) join_deep_[k] = 1;
             std::vector<int> called;
             for (const int c : callers) if (c > 0) called.push_back(c);
             if (!called.empty()) {
                 std::nth_element(called.begin(), called.begin() + static_cast<long>(called.size() / 2), called.end());
                 const double median = called[called.size() / 2];
-                for (size_t k = 0; k < n_; ++k) join_deep_[k] = callers[k] > kEmJoinMaxDepthRatio * median;
+                for (size_t k = 0; k < n_; ++k)
+                    if (callers[k] > kEmJoinMaxDepthRatio * median) join_deep_[k] = 1;
             }
         }
         std::vector<hts_pos_t> site_pos(n_);

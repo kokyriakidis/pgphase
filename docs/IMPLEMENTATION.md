@@ -432,7 +432,10 @@ Per chunk, in order:
      carries no join, and its reads do not count as crossing a boundary
      there. Copies' differences read in lockstep and gave joins margins in the
      hundreds at chr18:21.05 Mb (140-214 callers, median near 60). Over
-     chr12/18/20: +72 correct / -69 discordant arm reads.
+     chr12/18/20: +72 correct / -69 discordant arm reads. A site whose
+     callers' mean MAPQ is below 40 (`kEmJoinMinMeanMapq`) is treated the
+     same: such sites were 433 of the 450 chr12 noise sites labelling
+     discordant reads; +58 / -61 arm reads, switches -2.
    - *One locus, one vote in the join test.* A locus window and a candidate
      inside it are read from the same bases, so their calls agree by
      construction; counted twice they outvoted a real het read once
