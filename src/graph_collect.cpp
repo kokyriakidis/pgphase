@@ -77,7 +77,9 @@ static bam_hdr_t* build_synthetic_header(faidx_t* fai) {
 static CandidateTable graph_chunks_to_candidate_table(
     const std::vector<GraphChunkBuildResult>& graph_chunks,
     const std::unordered_map<std::string, int>& contig_to_tid,
-    const Options& opts)
+    const Options& opts,
+    ReferenceCache& reference,
+    const bam_hdr_t* header)
 {
     CandidateTable result;
 
@@ -362,6 +364,41 @@ static CandidateTable graph_chunks_to_candidate_table(
         }
     }
 
+    // Indels are left-aligned (the VCF convention; truth sets and
+    // alignment-based callers write them so), before duplicates collapse, so
+    // two descriptions of one indel become one record. Catalog alleles sit
+    // wherever their snarl put them: written so, over chr12/18/20 919 phased
+    // truth hets did not match their own truth record; reads unchanged.
+    if (header != nullptr) {
+        const auto base = [&](int tid, hts_pos_t p) {
+            return static_cast<char>(std::toupper(static_cast<unsigned char>(reference.base(tid, p, header))));
+        };
+        for (CandidateVariant& c : result) {
+            const int tid = c.key.tid;
+            if (c.key.type == VariantType::Insertion && c.key.ref_len == 0 && !c.key.alt.empty()) {
+                std::string alt = c.key.alt;
+                for (char& ch : alt) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+                hts_pos_t pos = c.key.pos;
+                for (int n = 0; n < 10000 && pos > 2; ++n) {
+                    const char prev = base(tid, pos - 1);
+                    if (prev == 'N' || prev != alt.back()) break;
+                    alt = prev + alt.substr(0, alt.size() - 1);
+                    --pos;
+                }
+                c.key.pos = pos;
+                c.key.alt = alt;
+            } else if (c.key.type == VariantType::Deletion && c.key.ref_len > 0 && c.key.alt.empty()) {
+                hts_pos_t pos = c.key.pos;
+                const hts_pos_t len = c.key.ref_len;
+                for (int n = 0; n < 10000 && pos > 2; ++n) {
+                    const char prev = base(tid, pos - 1);
+                    if (prev == 'N' || prev != base(tid, pos + len - 1)) break;
+                    --pos;
+                }
+                c.key.pos = pos;
+            }
+        }
+    }
     std::stable_sort(result.begin(), result.end(),
                      [](const CandidateVariant& a, const CandidateVariant& b) {
                          return exact_comp_cand_var(&a, &b) < 0;
@@ -1052,7 +1089,7 @@ void run_collect_graph_variation(const Options& opts) {
         }
 
         CandidateTable variants =
-            graph_chunks_to_candidate_table(graph_chunks, contig_to_tid, opts);
+            graph_chunks_to_candidate_table(graph_chunks, contig_to_tid, opts, ref, header.get());
         // A phase set holding a single phased heterozygote phases nothing
         // against anything: written unphased in the VCF (the candidates TSV
         // keeps its phase set) (on chr20's arms 2,205 of 2,621
