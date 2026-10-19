@@ -724,14 +724,47 @@ private:
         }
         block_.assign(n_, 0);
         weak_bridge_.assign(n_, 0);
+        for (size_t k = 0; k < n_; ++k)
+            weak_bridge_[k] = delta_strong_[k] < kEmBlockCutLogLikelihood ||
+                              (bridge_weak_ != nullptr && spanning_strong_[k] < kEmMinStrongJoinReads);
+        // A site that alone connects its neighbours -- no read observes
+        // join-eligible sites on both sides of it -- with weak joins on both
+        // sides: the block would hinge on that one site's phase. Cut the
+        // weaker of its two joins. chr6:152,636,704, an injected call whose
+        // reads split the parents 0.58 (learned error 0.11), was the only
+        // connection between 152,625,051 and 152,649,680 and flipped the block.
+        // chr6 +930 correct / -927 discordant, one arm switch fewer; chr16
+        // -1 / +1; chr12, chr17, chr18, chr19, chr20, chr21 unchanged.
+        std::vector<char> hinge_cut(n_, 0);
+        if (n_ >= 3) {
+            std::vector<int> through(n_, 0);   // reads with join-eligible sites on both sides of k
+            std::vector<int> diff(n_ + 1, 0);
+            for (size_t ri = 0; ri < robs_.size(); ++ri) {
+                const std::vector<EmObs>& obs = robs_[ri];
+                int first = -1, last = -1;
+                for (size_t i = 0; i < obs.size(); ++i) {
+                    const size_t k = static_cast<size_t>(obs[i].s);
+                    if ((!join_skip_[ri].empty() && join_skip_[ri][i]) || join_excluded_[k] || join_deep_[k]) continue;
+                    if (first < 0) first = obs[i].s;
+                    last = obs[i].s;
+                }
+                if (first < 0 || last - first < 2) continue;
+                ++diff[static_cast<size_t>(first) + 1];
+                --diff[static_cast<size_t>(last)];
+            }
+            int run = 0;
+            for (size_t k = 0; k < n_; ++k) through[k] = run += diff[k];
+            for (size_t k = 1; k + 1 < n_; ++k) {
+                if (through[k] > 0 || !weak_bridge_[k - 1] || !weak_bridge_[k]) continue;
+                hinge_cut[delta_[k - 1] <= delta_[k] ? k - 1 : k] = 1;
+            }
+        }
         hts_pos_t current = sites_[0].pos;
         blocks_ = 1;
         for (size_t k = 0; k < n_; ++k) {
             block_[k] = current;
-            weak_bridge_[k] = delta_strong_[k] < kEmBlockCutLogLikelihood ||
-                              (bridge_weak_ != nullptr && spanning_strong_[k] < kEmMinStrongJoinReads);
             if (k + 1 < n_ && (delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
-                               (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood))) {
+                               (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k])) {
                 current = sites_[k + 1].pos;
                 ++blocks_;
             }
