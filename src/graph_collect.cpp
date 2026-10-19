@@ -102,8 +102,18 @@ static CandidateTable graph_chunks_to_candidate_table(
                 return (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 && c.phase_set > 0 &&
                        h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
             };
+            // Hets per phase set by position: a catalog site and the
+            // alignment's injected copy of the same SNP are two candidates
+            // here and one record after duplicates collapse, so counting
+            // candidates skipped every lone het held twice -- chr12:10,999,331
+            // -351, four SNPs whose 86 reads split cleanly in one block.
             std::unordered_map<hts_pos_t, int> hets;
-            for (const CandidateVariant& c : chunk.candidates) if (phased_het(c)) ++hets[c.phase_set];
+            {
+                std::unordered_map<hts_pos_t, std::set<hts_pos_t>> at;
+                for (const CandidateVariant& c : chunk.candidates)
+                    if (phased_het(c)) at[c.phase_set].insert(c.key.sort_pos());
+                for (const auto& [ps, positions] : at) hets[ps] = static_cast<int>(positions.size());
+            }
             std::unordered_map<size_t, std::map<hts_pos_t, std::array<std::map<int, int>, 3>>> votes;
             std::unordered_map<size_t, int> labelled;
             // Two het SNPs at one position with different ALTs, both left
