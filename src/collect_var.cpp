@@ -2398,6 +2398,14 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
         // out 1|0: 5 of 36 arm flips over chr12/18/20. The pair is left to
         // drop_conflicting_haplotype_alleles, which keeps one description.
         if (a.phase_set > 0 && a.phase_set == b.phase_set) continue;
+        // Records in two different phase sets: their haplotype numbers are
+        // unrelated, so "both claim haplotype 1" says nothing. Moving one
+        // inverted it against its own reads -- chr20:7,184,086 +4 bp AC
+        // (phase set 7,184,047), carried by 38 paternal reads on haplotype 2,
+        // was moved to haplotype 1 because a +2 bp record in phase set
+        // 7,184,085 claimed haplotype 2 too. Arm switches -1 on chr20 and
+        // chr12, flips -1 on chr12 and chr17; reads unchanged.
+        if (a.phase_set > 0 && b.phase_set > 0 && a.phase_set != b.phase_set) continue;
         int hap = 0;
         for (int h = 1; h <= 2; ++h)
             if (a.hap_to_cons_alle[h] == 1 && b.hap_to_cons_alle[h] == 1) hap = h;
