@@ -89,8 +89,13 @@ constexpr int kEmMinJoinReads = 2;
 // it is a weak bridge and needs kEmWeakBridgeCutLogLikelihood. Measured at
 // chr12:118.48-118.50 Mb: a margin of 5.2 without weak sites, carried by two
 // reads with a wrong call each, joined 1,114 reads in the wrong orientation
-// through a homopolymer call of learned error 0.27.
-constexpr int kEmMinStrongJoinReads = 3;
+// through a homopolymer call of learned error 0.27. Three are still too few:
+// at chr17:11.54-11.56 Mb three reads, their only calls left of a 16 kb gap
+// in a noisy MSA region and partly wrong, carried a margin of 7.1 and joined
+// 121 confidently labelled reads in the wrong orientation (HiPhase, WhatsHap
+// start a block there). Four: chr17 +144 correct / -144 discordant, one
+// switch fewer; chr20 -4 / +4, chr19 -1 / +1; chr12, chr18 unchanged.
+constexpr int kEmMinStrongJoinReads = 4;
 // A site whose less observed allele carries under this fraction of its reads
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
