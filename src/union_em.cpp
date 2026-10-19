@@ -23,6 +23,16 @@ constexpr double kEmMinError = 0.01;
 // labels reads but holds no join. Over chr12/18/20: +72 correct / -69
 // discordant arm reads (all reads +333 / -421); 1.6 and 2.5 do less.
 constexpr double kEmJoinMaxDepthRatio = 2.0;
+// A haplotype duplicated at a site: callers above kEmDupDepthRatio x the
+// chunk's median and the minority allele under kEmDupMinorFraction of them
+// (one parent's two copies differ, the other parent matches one copy). The
+// site separates copies, not parents, and holds no join. chr19:8.274-8.284 Mb,
+// 1.5x depth, sites of error 0.01 splitting maternal + half the paternal reads
+// from the other paternal half, carried a join that flipped 29 kb of reads.
+// chr19 +83 correct / -83 discordant, one arm switch fewer; chr12 -1 / +1;
+// chr20, chr18, chr17 unchanged. At 1.2 and 0.42: +1 switch on chr17.
+constexpr double kEmDupDepthRatio = 1.3;
+constexpr double kEmDupMinorFraction = 0.4;
 // A site whose callers' mean MAPQ is below this sits where reads cannot be
 // placed confidently -- again mostly copies' differences: on chr12, 433 of
 // the 450 noise sites (parents not split) that labelled discordant reads,
@@ -397,6 +407,17 @@ private:
                 const double median = called[called.size() / 2];
                 for (size_t k = 0; k < n_; ++k)
                     if (callers[k] > kEmJoinMaxDepthRatio * median) join_deep_[k] = 1;
+                std::vector<std::array<int, 2>> sides(n_, {0, 0});
+                for (const std::vector<EmObs>& obs : robs_)
+                    for (size_t i = 0; i < obs.size(); ++i) {
+                        if (i > 0 && obs[i].s == obs[i - 1].s) continue;
+                        ++sides[static_cast<size_t>(obs[i].s)][obs[i].b ? 1 : 0];
+                    }
+                for (size_t k = 0; k < n_; ++k) {
+                    const int tot = sides[k][0] + sides[k][1];
+                    if (tot > 0 && callers[k] > kEmDupDepthRatio * median &&
+                        std::min(sides[k][0], sides[k][1]) < kEmDupMinorFraction * tot) join_deep_[k] = 1;
+                }
             }
         }
         std::vector<hts_pos_t> site_pos(n_);
