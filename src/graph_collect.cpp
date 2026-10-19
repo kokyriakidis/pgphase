@@ -1241,8 +1241,24 @@ void run_collect_graph_variation(const Options& opts) {
             };
             for (const CandidateVariant& c : variants)
                 if (phased_het(c) && !c.vcf_unphased) positions[c.phase_set].insert(c.key.pos);
+            // Positions within 10 bp of each other are one locus: a catalog
+            // MNP is written as its SNPs (141,384/141,385 on chr19), and a
+            // phase set of one locus phases nothing either -- 113 of chr19's
+            // 180 arm phase sets of 2-4 hets. Phase sets chr20 557 -> 408,
+            // chr19 469 -> 339, chr12 656 -> 547; reads, switches and flips
+            // unchanged.
+            constexpr hts_pos_t kOneLocusSpan = 10;
+            const auto loci = [](const std::set<hts_pos_t>& at) {
+                size_t n = 0;
+                hts_pos_t last = -kOneLocusSpan - 1;
+                for (const hts_pos_t p : at) {
+                    if (p - last > kOneLocusSpan) ++n;
+                    last = p;
+                }
+                return n;
+            };
             for (CandidateVariant& c : variants)
-                if (phased_het(c) && positions[c.phase_set].size() <= 1) c.vcf_unphased = true;
+                if (phased_het(c) && loci(positions[c.phase_set]) <= 1) c.vcf_unphased = true;
         }
 
         n_variants += variants.size();
