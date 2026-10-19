@@ -1226,18 +1226,23 @@ void run_collect_graph_variation(const Options& opts) {
 
         CandidateTable variants =
             graph_chunks_to_candidate_table(graph_chunks, contig_to_tid, opts, ref, header.get());
-        // A phase set holding a single phased heterozygote phases nothing
-        // against anything: written unphased in the VCF (the candidates TSV
-        // keeps its phase set) (on chr20's arms 2,205 of 2,621
-        // phase sets, most a site no read was labelled through).
+        // A phase set whose phased heterozygotes sit at a single position
+        // phases nothing against anything: written unphased in the VCF (the
+        // candidates TSV keeps its phase set) (on chr20's arms 2,205 of 2,621
+        // phase sets, most a site no read was labelled through). Counted by
+        // position among the records the VCF writes phased: two lengths of
+        // one repeat insertion (stutter, mostly 1|1 in the truth) made 76 of
+        // chr21's 80 arm phase sets under 1 kb, each one position.
         {
-            std::unordered_map<hts_pos_t, int> hets;
+            std::unordered_map<hts_pos_t, std::set<hts_pos_t>> positions;
             const auto phased_het = [](const CandidateVariant& c) {
                 const auto& h = c.hap_to_cons_alle;
                 return c.phase_set > 0 && h.size() >= 3 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
             };
-            for (const CandidateVariant& c : variants) if (phased_het(c)) ++hets[c.phase_set];
-            for (CandidateVariant& c : variants) if (phased_het(c) && hets[c.phase_set] == 1) c.vcf_unphased = true;
+            for (const CandidateVariant& c : variants)
+                if (phased_het(c) && !c.vcf_unphased) positions[c.phase_set].insert(c.key.pos);
+            for (CandidateVariant& c : variants)
+                if (phased_het(c) && positions[c.phase_set].size() <= 1) c.vcf_unphased = true;
         }
 
         n_variants += variants.size();
