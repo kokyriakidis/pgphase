@@ -345,9 +345,12 @@ BACK = [
  ("Conflict of interest", "None declared."),
  ("Funding", "This work received no specific funding."),
  ("Data availability",
-  "pgphase is available at https://github.com/kokyriakidis/pgphase. DRAFT: the evaluation scripts, the exact "
-  "commands of every tool (Supplementary Section S5) and the scores behind every table are to be released with "
-  f"the paper; the results reported here are of pgphase {V['commit']}."),
+  "pgphase is available at https://github.com/kokyriakidis/pgphase; the results reported here are of pgphase "
+  f"{V['commit']}. The scores behind every table and figure are in the same repository (`tools/paper/results.json`), "
+  "from which `tools/paper/` regenerates this paper. The evaluation scripts, which run every tool and score its "
+  "output, are available at https://github.com/kokyriakidis/pgphase-dev, and the exact command of every tool is "
+  "given in Supplementary Section S5. The HG002 reads (DRAFT: source), the HPRC release 2 graph [@HPRC2], the HG002 "
+  "v1.1 assembly and the Q100 benchmark [@Hansen2025] are publicly available."),
 ]
 
 FIGURES = {
