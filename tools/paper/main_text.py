@@ -67,7 +67,7 @@ BODY = [
  'reads it misphases, and do not count the reads left unphased.'),
 ('p',
  'A pangenome graph represents the known alleles of many genomes at once [@Liao2023; @Hickey2024], and graph '
- 'aligners place reads on it [@Garrison2018; @Siren2021]. Where a read crosses a site of the graph, a snarl '
+ 'aligners place reads on it [@Garrison2018; @Siren2021; @Chang2025]. Where a read crosses a site of the graph, a snarl '
  '[@Paten2018], the walk its alignment takes names the allele it carries, so the allele is observed without being '
  'called, including in repeats where alignments to a single reference place the same variant inconsistently. '
  'Pangenome references have been used to genotype known variants [@Siren2021; @Ebler2022]. Known alleles alone '
@@ -205,7 +205,7 @@ BODY = [
 ('sub', 'Evaluation'),
 ('p',
  '**Data.** HG002 [@Zook2016] PacBio HiFi reads (DRAFT: source and chemistry) were aligned with vg Giraffe '
- 'v1.73.0 [@Siren2021] (HiFi preset, minimizers \\(k=31\\), \\(w=50\\)) to a 16-haplotype sample [@Siren2024] '
+ 'v1.73.0 [@Siren2021; @Chang2025] (HiFi preset, minimizers \\(k=31\\), \\(w=50\\)) to a 16-haplotype sample [@Siren2024] '
  'of the Human Pangenome Reference Consortium release 2 Minigraph-Cactus graph on CHM13 [@Liao2023; @Hickey2024; '
  '@HPRC2], from which HG002 and its parents had been removed (229 assembled samples, CHM13 and GRCh38), and the '
  'alignments were surjected onto CHM13 [@Nurk2022]; they covered chr19 at 59-fold. The catalog was built from the '
@@ -353,10 +353,10 @@ FIGURES = {
              "sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks "
              "only where reads verify the join. Reads still unlabelled are labelled from local windows, the "
              "orientation of excluded sites and island blocks.",
- "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased. (a) Over the eight "
-             "chromosomes, the share misphased (discordant, dark) and unphased (light), tools ordered by their total. "
-             "(b) Per chromosome, the share misphased or unphased (log scale); chr6, chr16 and chr21 were not used "
-             "for tuning; colours as in (a). Lower is better.",
+ "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased, one row per "
+             "tool. (a) Over the eight chromosomes, the share misphased (discordant) and the share left unphased; "
+             "tools are ordered by the sum of the two. (b) Per chromosome, the share misphased or unphased; chr6, "
+             "chr16 and chr21 were not used for tuning.",
 }
 
 WIDE_TABLES = ("reads", "switches")

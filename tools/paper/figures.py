@@ -95,138 +95,141 @@ def _overview_svg():
     return "\n".join(out)
 
 # ------------------------------------------------------------------------------- accuracy
-# Two panels: (a) per tool, the phaseable arm reads misphased (dark) or unphased (light) over the eight
-# chromosomes, as stacked bars; (b) per chromosome, each tool's misphased-or-unphased share as a dot (log scale).
-# Okabe-Ito colours; pgphase in vermillion, drawn last and larger.
-PALETTE = {"pgphase": "D55E00", "hiphase": "0072B2", "longphase": "E69F00", "whatshap": "009E73",
-           "whatshap_opt": "56B4E9", "longcalld": "CC79A7"}
-TIKZ_STYLES += "\n" + "\n".join(f"\\definecolor{{c{t.replace('_', '')}}}{{HTML}}{{{c}}}" for t, c in PALETTE.items())
+# One row per tool, read across: (a) two bar charts, misphased and unphased over the eight chromosomes, each from
+# zero with its value printed, only pgphase coloured; (b) a heatmap of the share misphased or unphased per
+# chromosome, each cell printing its value and shaded by it (log scale), development and untuned chromosomes grouped.
 WIDE["accuracy"] = True
+HIGHLIGHT, MUTED = "D55E00", "9A9A9A"
+TIKZ_STYLES += f"\n\\definecolor{{pghl}}{{HTML}}{{{HIGHLIGHT}}}\\definecolor{{pgmuted}}{{HTML}}{{{MUTED}}}"
 
 from tables import DEV, HELD, TOTALS  # noqa: E402
 
-
-def _ax(v, lo, hi, size):
-    """Position of v on a log axis from lo to hi drawn over size."""
-    return (math.log10(v) - math.log10(lo)) / (math.log10(hi) - math.log10(lo)) * size
-
-A_W, ROW, BAR = 6.2, 0.62, 0.40         # panel a: width (cm) for 0-10%, row pitch, bar height
-B_X0, B_W, B_LO, B_HI = 9.6, 6.8, 0.3, 20.0  # panel b: left edge, width, log range (%)
-ORDER = sorted(TOTALS, key=lambda t: sum(TOTALS[t]))           # best first, top of panel a
-ROWS = DEV + [None] + HELD                                     # panel b rows, a gap between the groups
-
-
-def _b_x(v):
-    return B_X0 + _ax(max(v, B_LO), B_LO, B_HI, B_W)
+ORDER = sorted(TOTALS, key=lambda t: sum(TOTALS[t]))  # best first: top row
+COLS = DEV + HELD
+ROW, BAR_H = 0.5, 0.32           # row pitch and bar height (cm)
+LAB = 2.2                        # tool labels, left of x = 0
+BARS = [("Misphased (%)", 0, 5.0, 3.4), ("Unphased (%)", 1, 10.0, 3.4)]  # title, TOTALS index, axis max, width
+GAP = 1.0                        # after each bar chart (room for its value labels)
+CELL_W, HM_LO, HM_HI = 0.95, 0.3, 15.0
+HM_X0 = sum(w for _, _, _, w in BARS) + GAP * len(BARS) + 0.4
+TITLE_Y, HEAD_Y = 0.55, 0.45     # bar titles; heatmap column headers
 
 
-def _a_items():
-    """Panel a: per tool its row's y and its two segments' widths."""
-    n = len(ORDER)
-    return [(t, (n - 1 - i) * ROW, TOTALS[t][0] / 10 * A_W, TOTALS[t][1] / 10 * A_W) for i, t in enumerate(ORDER)]
+def _row_y(i):
+    return -i * ROW
 
 
-def _b_rows():
-    """Panel b: per chromosome its row's y (top row first)."""
-    n = len(ROWS)
-    return [(p, (n - 1 - i) * ROW * 0.82) for i, p in enumerate(ROWS) if p]
+def _shade(v):
+    """White to Okabe-Ito blue on a log scale from HM_LO to HM_HI: (r, g, b) in 0-255, and a text colour."""
+    f = max(0.0, min(1.0, (math.log10(v) - math.log10(HM_LO)) / (math.log10(HM_HI) - math.log10(HM_LO))))
+    rgb = tuple(round(l + (h - l) * f) for l, h in zip((255, 255, 255), (0, 114, 178)))
+    return rgb, ("white" if f > 0.55 else "black")
+
+
+def _hm_value(t, p):
+    return next(d + u for q, d, u in POINTS[t] if q == p)
+
+
+def _cell_x(j):
+    return HM_X0 + (j + (0.35 if j >= len(DEV) else 0)) * CELL_W
+
+
+def _groups():
+    return [("development", 0, len(DEV) - 1), ("not used for tuning", len(DEV), len(COLS) - 1)]
 
 
 def _accuracy_tikz():
     out = []
     n = len(ORDER)
-    top = (n - 1) * ROW + 0.5
-    # panel a
-    out.append(f"\\node[font=\\bfseries] at (-2.3,{top + 0.35:.2f}) {{a}};")
-    for x in range(0, 11, 2):
-        X = x / 10 * A_W
-        out.append(f"\\draw[gray!25] ({X:.2f},-0.35) -- ({X:.2f},{top - 0.2:.2f});"
-                   f"\\node[below,font=\\scriptsize] at ({X:.2f},-0.35) {{{x}}};")
-    out.append(f"\\node[font=\\small] at ({A_W / 2:.2f},-1.05) {{\\% of phaseable arm reads}};")
-    for t, y, wd, wu in _a_items():
-        c = "c" + t.replace("_", "")
-        out.append(f"\\fill[{c}] (0,{y - BAR / 2:.3f}) rectangle ({wd:.3f},{y + BAR / 2:.3f});")
-        out.append(f"\\fill[{c}!35] ({wd:.3f},{y - BAR / 2:.3f}) rectangle ({wd + wu:.3f},{y + BAR / 2:.3f});")
-        weight = "\\bfseries" if t == "pgphase" else ""
-        out.append(f"\\node[left,font=\\small{weight}] at (-0.05,{y:.3f}) {{{NAME[t]}}};")
-        out.append(f"\\node[right,font=\\scriptsize{weight}] at ({wd + wu + 0.05:.3f},{y:.3f}) {{{sum(TOTALS[t]):.2f}\\%}};")
-    ly = top + 0.05
-    out.append(f"\\fill[black!75] (2.3,{ly - 0.1:.2f}) rectangle (2.6,{ly + 0.1:.2f});\\node[right,font=\\scriptsize] at (2.6,{ly:.2f}) {{misphased}};")
-    out.append(f"\\fill[black!25] (4.2,{ly - 0.1:.2f}) rectangle (4.5,{ly + 0.1:.2f});\\node[right,font=\\scriptsize] at (4.5,{ly:.2f}) {{unphased}};")
-    # panel b
-    rows = _b_rows()
-    btop = rows[0][1] + 0.5
-    out.append(f"\\node[font=\\bfseries] at ({B_X0 - 1.3:.2f},{top + 0.35:.2f}) {{b}};")
-    for v in (0.5, 1, 2, 5, 10, 20):
-        X = _b_x(v)
-        out.append(f"\\draw[gray!25] ({X:.3f},-0.35) -- ({X:.3f},{btop - 0.2:.2f});"
-                   f"\\node[below,font=\\scriptsize] at ({X:.3f},-0.35) {{{v:g}}};")
-    out.append(f"\\node[font=\\small] at ({B_X0 + B_W / 2:.2f},-1.05) {{misphased or unphased (\\%, log scale)}};")
-    for p, y in rows:
-        out.append(f"\\draw[gray!15, line width=3pt] ({B_X0:.2f},{y:.3f}) -- ({B_X0 + B_W:.2f},{y:.3f});"
-                   f"\\node[left,font=\\small] at ({B_X0 - 0.05:.2f},{y:.3f}) {{{p}}};")
-    gy = [y for p, y in rows]
-    dev_mid = (rows[0][1] + rows[len(DEV) - 1][1]) / 2
-    held_mid = (rows[len(DEV)][1] + rows[-1][1]) / 2
-    for label, mid in (("development", dev_mid), ("not tuned", held_mid)):
-        out.append(f"\\node[rotate=-90,font=\\scriptsize\\itshape,black!65] at ({B_X0 + B_W + 0.35:.2f},{mid:.3f}) {{{label}}};")
-    for t in [t for t, _ in TOOLS if t != "pgphase"] + ["pgphase"]:
-        c = "c" + t.replace("_", "")
-        r = 0.11 if t == "pgphase" else 0.075
-        for (p, d, u), (_, y) in zip(POINTS[t], [(q, yy) for q, yy in rows]):
-            out.append(f"\\fill[{c}, draw=white, line width=0.3pt] ({_b_x(d + u):.3f},{y:.3f}) circle ({r});")
+    bottom = _row_y(n - 1) - ROW / 2
+    out.append(f"\\node[font=\\bfseries] at ({-LAB:.2f},{TITLE_Y + 0.45:.2f}) {{a}};")
+    out.append(f"\\node[font=\\bfseries] at ({HM_X0 - 0.35:.2f},{TITLE_Y + 0.45:.2f}) {{b}};")
+    for i, t in enumerate(ORDER):
+        bold = "\\bfseries" if t == "pgphase" else ""
+        out.append(f"\\node[left,font=\\small{bold}] at (-0.1,{_row_y(i):.3f}) {{{NAME[t]}}};")
+    x0 = 0.0
+    for title, k, top, w in BARS:
+        tex_title = title.replace("%", "\\%")
+        out.append(f"\\node[font=\\small\\bfseries] at ({x0 + w / 2:.2f},{TITLE_Y + 0.1:.2f}) {{{tex_title}}};")
+        for tick in range(0, int(top) + 1, 1 if top <= 5 else 2):
+            X = x0 + tick / top * w
+            out.append(f"\\draw[gray!25] ({X:.3f},{TITLE_Y - 0.2:.2f}) -- ({X:.3f},{bottom:.3f});"
+                       f"\\node[below,font=\\scriptsize] at ({X:.3f},{bottom:.3f}) {{{tick}}};")
+        for i, t in enumerate(ORDER):
+            v, y = TOTALS[t][k], _row_y(i)
+            colour = "pghl" if t == "pgphase" else "pgmuted"
+            bold = "\\bfseries" if t == "pgphase" else ""
+            out.append(f"\\fill[{colour}] ({x0:.3f},{y - BAR_H / 2:.3f}) rectangle ({x0 + v / top * w:.3f},{y + BAR_H / 2:.3f});"
+                       f"\\node[right,font=\\scriptsize{bold}] at ({x0 + v / top * w:.3f},{y:.3f}) {{{v:.2f}}};")
+        x0 += w + GAP
+    for label, ja, jb in _groups():
+        xa, xb = _cell_x(ja), _cell_x(jb) + CELL_W
+        out.append(f"\\draw[gray!60] ({xa + 0.05:.3f},{HEAD_Y + 0.32:.2f}) -- ({xb - 0.05:.3f},{HEAD_Y + 0.32:.2f});"
+                   f"\\node[above,font=\\scriptsize\\itshape] at ({(xa + xb) / 2:.3f},{HEAD_Y + 0.3:.2f}) {{{label}}};")
+    for j, p in enumerate(COLS):
+        out.append(f"\\node[font=\\scriptsize] at ({_cell_x(j) + CELL_W / 2:.3f},{HEAD_Y:.2f}) {{{p}}};")
+    for i, t in enumerate(ORDER):
+        y = _row_y(i)
+        bold = "\\bfseries" if t == "pgphase" else ""
+        for j, p in enumerate(COLS):
+            v = _hm_value(t, p)
+            (r, g, b2), text = _shade(v)
+            x = _cell_x(j)
+            out.append(f"\\fill[fill={{rgb,255:red,{r};green,{g};blue,{b2}}}, draw=white, line width=1pt] "
+                       f"({x:.3f},{y - ROW / 2:.3f}) rectangle ({x + CELL_W:.3f},{y + ROW / 2:.3f});"
+                       f"\\node[font=\\scriptsize{bold},text={text}] at ({x + CELL_W / 2:.3f},{y:.3f}) {{{v:.1f}}};")
+    out.append(f"\\node[font=\\scriptsize] at ({(HM_X0 + _cell_x(len(COLS) - 1) + CELL_W) / 2:.2f},{bottom - 0.3:.2f}) "
+               f"{{misphased or unphased (\\%); darker is worse}};")
     return "\n".join(out)
 
 
 def _accuracy_svg():
-    s, pad = 52, 10
+    s = 52
     n = len(ORDER)
-    top = (n - 1) * ROW + 0.9
-    W = (B_X0 + B_W + 0.9 + 2.6) * s
-    H = (top + 1.4) * s
-    def X(x): return (x + 2.6) * s
-    def Y(y): return (top - y) * s
-    out = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" class="chart" role="img" aria-label="Misphased and unphased reads per tool">',
+    bottom = _row_y(n - 1) - ROW / 2
+    W = (LAB + 0.3 + _cell_x(len(COLS) - 1) + CELL_W + 0.2) * s
+    H = (TITLE_Y + 1.2 - bottom + 0.6) * s
+    def X(x): return (x + LAB + 0.3) * s
+    def Y(y): return (TITLE_Y + 1.1 - y) * s
+    out = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" class="chart" role="img" aria-label="Misphased and unphased reads per tool and chromosome">',
            '<style>.t{font-size:12px;fill:currentColor}.s{font-size:10.5px;fill:currentColor}.g{stroke:currentColor;stroke-opacity:.15}</style>']
-    out.append(f'<text x="{X(-2.5):.1f}" y="{Y(top - 0.3):.1f}" class="t" font-weight="700">a</text>')
-    for x in range(0, 11, 2):
-        xx = X(x / 10 * A_W)
-        out.append(f'<line x1="{xx:.1f}" y1="{Y(top - 0.55):.1f}" x2="{xx:.1f}" y2="{Y(-0.35):.1f}" class="g"/>'
-                   f'<text x="{xx:.1f}" y="{Y(-0.35) + 14:.1f}" class="s" text-anchor="middle">{x}</text>')
-    out.append(f'<text x="{X(A_W / 2):.1f}" y="{Y(-0.35) + 32:.1f}" class="t" text-anchor="middle">% of phaseable arm reads</text>')
-    for t, y, wd, wu in _a_items():
-        c = PALETTE[t]
+    out.append(f'<text x="{X(-LAB - 0.2):.1f}" y="{Y(TITLE_Y + 0.4):.1f}" class="t" font-weight="700">a</text>')
+    out.append(f'<text x="{X(HM_X0 - 0.4):.1f}" y="{Y(TITLE_Y + 0.4):.1f}" class="t" font-weight="700">b</text>')
+    for i, t in enumerate(ORDER):
         bold = ' font-weight="700"' if t == "pgphase" else ""
-        out.append(f'<g><title>{NAME[t]}: {TOTALS[t][0]:.2f}% misphased, {TOTALS[t][1]:.2f}% unphased</title>'
-                   f'<rect x="{X(0):.1f}" y="{Y(y + BAR / 2):.1f}" width="{wd * s:.1f}" height="{BAR * s:.1f}" fill="#{c}"/>'
-                   f'<rect x="{X(wd):.1f}" y="{Y(y + BAR / 2):.1f}" width="{wu * s:.1f}" height="{BAR * s:.1f}" fill="#{c}" fill-opacity=".35"/></g>')
-        out.append(f'<text x="{X(-0.08):.1f}" y="{Y(y) + 4:.1f}" class="t" text-anchor="end"{bold}>{NAME[t]}</text>')
-        out.append(f'<text x="{X(wd + wu + 0.08):.1f}" y="{Y(y) + 4:.1f}" class="s"{bold}>{sum(TOTALS[t]):.2f}%</text>')
-    ly = top - 0.45
-    out.append(f'<rect x="{X(2.3):.1f}" y="{Y(ly) - 5:.1f}" width="14" height="10" fill="currentColor" fill-opacity=".75"/>'
-               f'<text x="{X(2.3) + 18:.1f}" y="{Y(ly) + 4:.1f}" class="s">misphased</text>'
-               f'<rect x="{X(4.2):.1f}" y="{Y(ly) - 5:.1f}" width="14" height="10" fill="currentColor" fill-opacity=".25"/>'
-               f'<text x="{X(4.2) + 18:.1f}" y="{Y(ly) + 4:.1f}" class="s">unphased</text>')
-    rows = _b_rows()
-    out.append(f'<text x="{X(B_X0 - 1.3):.1f}" y="{Y(top - 0.3):.1f}" class="t" font-weight="700">b</text>')
-    for v in (0.5, 1, 2, 5, 10, 20):
-        xx = X(_b_x(v))
-        out.append(f'<line x1="{xx:.1f}" y1="{Y(top - 0.55):.1f}" x2="{xx:.1f}" y2="{Y(-0.35):.1f}" class="g"/>'
-                   f'<text x="{xx:.1f}" y="{Y(-0.35) + 14:.1f}" class="s" text-anchor="middle">{v:g}</text>')
-    out.append(f'<text x="{X(B_X0 + B_W / 2):.1f}" y="{Y(-0.35) + 32:.1f}" class="t" text-anchor="middle">misphased or unphased (%, log scale)</text>')
-    for p, y in rows:
-        out.append(f'<line x1="{X(B_X0):.1f}" y1="{Y(y):.1f}" x2="{X(B_X0 + B_W):.1f}" y2="{Y(y):.1f}" stroke="currentColor" stroke-opacity=".08" stroke-width="7"/>'
-                   f'<text x="{X(B_X0 - 0.08):.1f}" y="{Y(y) + 4:.1f}" class="t" text-anchor="end">{p}</text>')
-    dev_mid = (rows[0][1] + rows[len(DEV) - 1][1]) / 2
-    held_mid = (rows[len(DEV)][1] + rows[-1][1]) / 2
-    for label, mid in (("development", dev_mid), ("not tuned", held_mid)):
-        out.append(f'<text transform="translate({X(B_X0 + B_W + 0.35):.1f},{Y(mid):.1f}) rotate(90)" class="s" '
-                   f'text-anchor="middle" font-style="italic" fill-opacity=".75">{label}</text>')
-    for t in [t for t, _ in TOOLS if t != "pgphase"] + ["pgphase"]:
-        r = 6 if t == "pgphase" else 4.2
-        for (p, d, u), (_, y) in zip(POINTS[t], rows):
-            out.append(f'<circle cx="{X(_b_x(d + u)):.1f}" cy="{Y(y):.1f}" r="{r}" fill="#{PALETTE[t]}" stroke="white" stroke-width=".6">'
-                       f'<title>{NAME[t]}, {p}: {d + u:.2f}% misphased or unphased</title></circle>')
+        out.append(f'<text x="{X(-0.1):.1f}" y="{Y(_row_y(i)) + 4:.1f}" class="t" text-anchor="end"{bold}>{NAME[t]}</text>')
+    x0 = 0.0
+    for title, k, top, w in BARS:
+        out.append(f'<text x="{X(x0 + w / 2):.1f}" y="{Y(TITLE_Y + 0.1) + 4:.1f}" class="t" text-anchor="middle" font-weight="700">{title}</text>')
+        for tick in range(0, int(top) + 1, 1 if top <= 5 else 2):
+            xx = X(x0 + tick / top * w)
+            out.append(f'<line x1="{xx:.1f}" y1="{Y(TITLE_Y - 0.2):.1f}" x2="{xx:.1f}" y2="{Y(bottom):.1f}" class="g"/>'
+                       f'<text x="{xx:.1f}" y="{Y(bottom) + 13:.1f}" class="s" text-anchor="middle">{tick}</text>')
+        for i, t in enumerate(ORDER):
+            v, y = TOTALS[t][k], _row_y(i)
+            colour = HIGHLIGHT if t == "pgphase" else MUTED
+            bold = ' font-weight="700"' if t == "pgphase" else ""
+            out.append(f'<rect x="{X(x0):.1f}" y="{Y(y + BAR_H / 2):.1f}" width="{v / top * w * s:.1f}" height="{BAR_H * s:.1f}" fill="#{colour}"/>'
+                       f'<text x="{X(x0 + v / top * w) + 4:.1f}" y="{Y(y) + 4:.1f}" class="s"{bold}>{v:.2f}</text>')
+        x0 += w + GAP
+    for label, ja, jb in _groups():
+        xa, xb = _cell_x(ja), _cell_x(jb) + CELL_W
+        out.append(f'<line x1="{X(xa + 0.05):.1f}" y1="{Y(HEAD_Y + 0.32):.1f}" x2="{X(xb - 0.05):.1f}" y2="{Y(HEAD_Y + 0.32):.1f}" stroke="currentColor" stroke-opacity=".5"/>'
+                   f'<text x="{X((xa + xb) / 2):.1f}" y="{Y(HEAD_Y + 0.4):.1f}" class="s" text-anchor="middle" font-style="italic">{label}</text>')
+    for j, p in enumerate(COLS):
+        out.append(f'<text x="{X(_cell_x(j) + CELL_W / 2):.1f}" y="{Y(HEAD_Y) + 4:.1f}" class="s" text-anchor="middle">{p}</text>')
+    for i, t in enumerate(ORDER):
+        y = _row_y(i)
+        bold = ' font-weight="700"' if t == "pgphase" else ""
+        for j, p in enumerate(COLS):
+            v = _hm_value(t, p)
+            (r, g, b2), text = _shade(v)
+            out.append(f'<g><title>{NAME[t]}, {p}: {v:.2f}% misphased or unphased</title>'
+                       f'<rect x="{X(_cell_x(j)):.1f}" y="{Y(y + ROW / 2):.1f}" width="{CELL_W * s:.1f}" height="{ROW * s:.1f}" '
+                       f'fill="rgb({r},{g},{b2})" stroke="white" stroke-width="2"/>'
+                       f'<text x="{X(_cell_x(j) + CELL_W / 2):.1f}" y="{Y(y) + 4:.1f}" class="s" text-anchor="middle" fill="{text}"{bold}>{v:.1f}</text></g>')
+    out.append(f'<text x="{X((HM_X0 + _cell_x(len(COLS) - 1) + CELL_W) / 2):.1f}" y="{Y(bottom - 0.3) + 4:.1f}" class="s" '
+               f'text-anchor="middle">misphased or unphased (%); darker is worse</text>')
     out.append("</svg>")
     return "\n".join(out)
 
