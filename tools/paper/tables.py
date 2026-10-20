@@ -145,10 +145,9 @@ for col, lower in ((1, False), (2, True), (3, True), (4, False)):
     for r, v in zip(rows, vals):
         if v == best:
             r[col] = f"**{r[col]}**"
-STABLES_CEN = {
-    "label": "S3",
+TABLES["cen"] = {
     "caption": "Phaseable reads in centromeric and pericentromeric satellites (one interval per chromosome, "
-               "Supplementary Table S5) over the eight chromosomes, and the ratio of correct to discordant reads.",
+               "Supplementary Table S4) over the eight chromosomes, and the ratio of correct to discordant reads.",
     "header": ["Tool", "Correct", "Discordant", "Unphased", "Correct : discordant"],
     "align": "lrrrr",
     "rows": rows,
@@ -177,7 +176,7 @@ TABLES["resources"] = {
 }
 
 # ------------------------------------------------------------------------------- supplementary tables
-STABLES = {"cen": STABLES_CEN}
+STABLES = {}
 rows = []
 for p in CHROMS + [MHC]:
     rows.append([label(p), "", "", "", "", "", "", ""])
@@ -217,7 +216,7 @@ for p in CHROMS:
             r = RS[p][t]
             rows.append([lab, str(r["threads"]), f"{r['wall_s']:.0f}", f"{r['rss_gb']:.2f}"])
 STABLES["resources"] = {
-    "label": "S4", "long": True,
+    "label": "S3", "long": True,
     "caption": "Wall-clock time and peak memory per chromosome and tool.",
     "header": ["Tool", "Threads", "Time (s)", "Peak memory (GB)"],
     "align": "lrrr",
@@ -231,7 +230,7 @@ for p in CHROMS + [MHC]:
     excl = "; ".join(f"{c.split('#')[-1]}:{a / 1e6:.2f}–{b / 1e6:.2f} Mb" for c, a, b in SC[p]["exclude"]) or "none"
     rows.append([label(p), f"{beg / 1e6:.2f}–{end / 1e6:.2f}", excl])
 STABLES["scoring"] = {
-    "label": "S5",
+    "label": "S4",
     "caption": "Scoring settings per chromosome: the interval counted as centromeric and pericentromeric "
                "(CHM13 cenSat v2.1 satellite span on chr6, chr16, chr17, chr19 and chr21, the acrocentric short arm "
                "included on chr21; rounded spans on chr12, chr18 and chr20, set earlier in development), and the "
@@ -348,7 +347,7 @@ for group, items in PARAMS:
     for name, what, sec in items:
         rows.append([what[0].upper() + what[1:], const(name), sec, f"`{name}`"])
 STABLES["params"] = {
-    "label": "S6", "long": True,
+    "label": "S5", "long": True,
     "caption": "Every threshold of pgphase, with its value as compiled (read from the source when this table is "
                "generated), the Methods section that uses it, and its name in the source.",
     "header": ["Parameter", "Value", "Section", "Name"],
@@ -470,7 +469,7 @@ best_dv = max(DV, key=lambda t: var(t, "truth_matched_phased_hets"))
 V["best_dv_hets_rival"] = NAME[best_dv]
 V["best_dv_hets_n"] = n(var(best_dv, "truth_matched_phased_hets"))
 assert var("pgphase", "truth_matched_phased_hets") > var(best_dv, "truth_matched_phased_hets")
-assert STABLES["scoring"]["label"] == "S5"  # the centromere caption cites it
+assert STABLES["scoring"]["label"] == "S4"  # the centromere caption cites it
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

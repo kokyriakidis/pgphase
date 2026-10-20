@@ -15,8 +15,6 @@ BODY = [
 ('sec', 'Switch errors by haplotype sequence'),
 ('p', 'Table S2 classes every arm switch of Table S1 by the haplotype sequences around it (main text Section 2.8).'),
 ('table', 'census'),
-('sec', 'Centromeres'),
-('table', 'cen'),
 ('sec', 'Running time and memory'),
 ('table', 'resources'),
 ('sec', 'Scoring settings'),

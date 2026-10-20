@@ -219,9 +219,10 @@ BODY = [
  'where its graph alignment gives none. Last, a read whose calls in a block all '
  "agree takes the block's label if its posterior there is at least 0.7, and a read still unlabelled is phased by its own call at one "
  'site that cannot vote, in a block of that site alone (an *island*), which joins nothing, so that a wrong island '
- 'affects only its own reads. Island sites are rejected sites, repeat indels, verified noisy variants that failed '
- 'Section 2.4\'s rules and length windows, each with two unlabelled reads and both alleles in a quarter of its '
- 'reads; a read takes the one of lowest error. Before islands, a '
+ 'affects only its own reads. Island sites are the sites the solve rejected, repeat indels it never sees, verified '
+ 'noisy variants that failed the rules of Section 2.4, and length windows; a site must be called by two '
+ 'unlabelled reads and have both alleles in at least a quarter of its reads, and a read takes the one with the '
+ 'lowest error. Before islands, a '
  'read with only unverified calls takes their label at posterior 0.8 when their learned error is below 0.1. In the '
  'VCF, multi-base substitutions are written as their '
  'single-base changes, indels are left-aligned, and two records of one variant are collapsed, keeping the phased '
@@ -257,9 +258,10 @@ BODY = [
  'centromeric and pericentromeric satellites, as annotated on CHM13 [@Altemose2022] and listed in '
  f'Supplementary Table {stab("scoring")}, and on the arms '
  'otherwise. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
- f'(Supplementary Table {stab("scoring")}). We also report discordant reads with a confident parental assignment '
- '(HapQ ≥ 30): below HapQ 10 every tool was 25–37% discordant on the development chromosomes, mostly on reads carrying the other parent\'s '
- 'alleles at their own clean SNVs, a wrong label rather than a wrong phase. All tools were scored by the same script.'),
+ f'(Supplementary Table {stab("scoring")}). We also report the discordant reads whose parental assignment is '
+ 'confident (HapQ ≥ 30): on the development chromosomes, every tool was 25–37% discordant on reads below HapQ 10, '
+ 'most of which carry the other parent\'s alleles at their own clean SNVs, which points to an error in the label '
+ 'rather than in the phase. All tools were scored by the same script.'),
 ('p',
  '**Variant metrics.** A tool\'s phased heterozygous biallelic records are matched to the truth by position, '
  'reference and alternative allele. Within a phase set, a single matched heterozygote whose orientation '
@@ -322,25 +324,28 @@ BODY = [
  f'({V["best_dv_hets_n"]} for {V["best_dv_hets_rival"]}; [#tab:switches]). Its blocks are shorter than HiPhase\'s: '
  f'{V["pg_ps"]} phase sets against {V["hiphase_ps"]}, and a median block N50 of {V["pg_n50_kb"]} kb against '
  f'{V["hiphase_n50_kb"]} kb. Many of the additional phase sets lie in centromeric satellites, which pgphase '
- f'phases and HiPhase largely leaves unphased (Supplementary Table {stab("cen")}), and in collapsed duplications and stretches read only at low '
+ f'phases and HiPhase largely leaves unphased ([#tab:cen]), and in collapsed duplications and stretches read only at low '
  'mapping quality, where the join rules leave each site in its own block.'),
 ('sub', 'Centromeres'),
 ('p',
  f'In centromeric and pericentromeric satellites, where reads map ambiguously and copies differ by few bases, '
  f'pgphase phased {V["pg_cen_correct"]} reads correctly, with {V["pg_cen_ratio"]} correct reads per discordant '
- f'one (Supplementary Table {stab("cen")}). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
+ f'one ([#tab:cen]). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
  f'{V["most_cen_rival_ratio"]} correct reads per discordant one. {V["cen_best_ratio_rival"]} had the highest ratio, '
  f'{V["cen_best_ratio"]}, but phased only {V["cen_best_ratio_correct"]} reads correctly and left '
  f'{V["cen_best_ratio_unph"]} unphased.'),
+('table', 'cen'),
 ('sub', 'Running time and memory'),
 ('p',
  f'On the {V["n_same_threads"]} chromosomes where every multi-threaded tool ran with six threads, pgphase took '
  f'{V["pg_wall_total_min"]} minutes in total, against {V["hiphase_wall_total_min"]} for HiPhase and '
  f'{V["longphase_wall_total_min"]} for LongPhase; on chr6, {V["pg_wall_chr6"]} s against {V["hiphase_wall_chr6"]} s '
- f'and {V["longphase_wall_chr6"]} s (Supplementary Table {stab("resources")}). pgphase\'s time includes finding the sample\'s variants and '
+ f'and {V["longphase_wall_chr6"]} s ([#tab:resources]; per chromosome in Supplementary Table {stab("resources")}). pgphase\'s time includes finding the sample\'s variants and '
  'writing the haplotagged reads, whereas the times of the phasers given DeepVariant\'s calls exclude DeepVariant; '
  f'none includes graph alignment. pgphase needed up to {V["pg_rss_max"]} GB of memory, more than the phasers '
  'given DeepVariant\'s calls.'),
+
+('table', 'resources'),
 
 ('sec', 'Discussion'),
 ('p',
@@ -366,7 +371,9 @@ BODY = [
  "repeat whose expansion in the sample no genome shares, a read's graph alignment follows the closest known walk, "
  'and most of the switches we could not classify are of this kind. Representing such alleles from the reads '
  'themselves is a natural next step. pgphase also needs graph alignments of the reads and more memory than the '
- 'phasers it was compared with.'),
+ 'phasers it was compared with. Finally, a record-level comparison counts differences of representation in '
+ 'repeats as switch errors; classifying switches by haplotype sequence, as here, or comparing haplotypes rather '
+ 'than records, would make phasers easier to compare.'),
 ]
 
 BACK = [

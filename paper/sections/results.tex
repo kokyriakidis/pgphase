@@ -19,12 +19,16 @@ pgphase made 58 switch errors on the arms of the eight chromosomes, fewer than a
 
 \subsection{Phased variants and blocks}
 
-longcallD, which calls its own variants, phased the most truth heterozygous variants, 726{,}046; pgphase phased 716{,}046, more than any of the phasers given DeepVariant's calls (685{,}315 for WhatsHap; Table~\ref{tab:switches}). Its blocks are shorter than HiPhase's: 4{,}431 phase sets against 2{,}216, and a median block N50 of 587~kb against 832~kb. Many of the additional phase sets lie in centromeric satellites, which pgphase phases and HiPhase largely leaves unphased (Supplementary Table S3), and in collapsed duplications and stretches read only at low mapping quality, where the join rules leave each site in its own block.
+longcallD, which calls its own variants, phased the most truth heterozygous variants, 726{,}046; pgphase phased 716{,}046, more than any of the phasers given DeepVariant's calls (685{,}315 for WhatsHap; Table~\ref{tab:switches}). Its blocks are shorter than HiPhase's: 4{,}431 phase sets against 2{,}216, and a median block N50 of 587~kb against 832~kb. Many of the additional phase sets lie in centromeric satellites, which pgphase phases and HiPhase largely leaves unphased (Table~\ref{tab:cen}), and in collapsed duplications and stretches read only at low mapping quality, where the join rules leave each site in its own block.
 
 \subsection{Centromeres}
 
-In centromeric and pericentromeric satellites, where reads map ambiguously and copies differ by few bases, pgphase phased 93{,}251 reads correctly, with 5.4 correct reads per discordant one (Supplementary Table S3). LongPhase phased 86{,}567 correctly with 2.6 correct reads per discordant one. longcallD had the highest ratio, 18.0, but phased only 42{,}138 reads correctly and left 104{,}573 unphased.
+In centromeric and pericentromeric satellites, where reads map ambiguously and copies differ by few bases, pgphase phased 93{,}251 reads correctly, with 5.4 correct reads per discordant one (Table~\ref{tab:cen}). LongPhase phased 86{,}567 correctly with 2.6 correct reads per discordant one. longcallD had the highest ratio, 18.0, but phased only 42{,}138 reads correctly and left 104{,}573 unphased.
+
+\input{tables/cen}
 
 \subsection{Running time and memory}
 
-On the five chromosomes where every multi-threaded tool ran with six threads, pgphase took 7.1 minutes in total, against 18.4 for HiPhase and 3.3 for LongPhase; on chr6, 147~s against 459~s and 92~s (Supplementary Table S4). pgphase's time includes finding the sample's variants and writing the haplotagged reads, whereas the times of the phasers given DeepVariant's calls exclude DeepVariant; none includes graph alignment. pgphase needed up to 8.5~GB of memory, more than the phasers given DeepVariant's calls.
+On the five chromosomes where every multi-threaded tool ran with six threads, pgphase took 7.1 minutes in total, against 18.4 for HiPhase and 3.3 for LongPhase; on chr6, 147~s against 459~s and 92~s (Table~\ref{tab:resources}; per chromosome in Supplementary Table S3). pgphase's time includes finding the sample's variants and writing the haplotagged reads, whereas the times of the phasers given DeepVariant's calls exclude DeepVariant; none includes graph alignment. pgphase needed up to 8.5~GB of memory, more than the phasers given DeepVariant's calls.
+
+\input{tables/resources}
