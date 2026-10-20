@@ -111,28 +111,29 @@ rows = []
 for t, lab in TOOLS:
     c = census(t)
     rows.append([lab, n(c["switches"]), n(c["real"]), n(c["representation"]), n(c["undecided"]),
-                 n(var(t, "flips_arms")), n(var(t, "truth_matched_phased_hets")),
+                 n(var(t, "switches_cen")), n(var(t, "flips_arms")), n(var(t, "truth_matched_phased_hets")),
                  n(sum(P[p][t]["blocks"]["phase_sets"] for p in CHROMS)),
                  f"{statistics.median(P[p][t]['blocks']['n50'] for p in CHROMS) / 1e3:,.0f}"])
-for col, lower in ((1, True), (2, True), (5, True), (6, False), (7, True), (8, False)):
+for col, lower in ((1, True), (2, True), (5, True), (6, True), (7, False), (8, True), (9, False)):
     vals = [int(r[col].replace(",", "")) for r in rows]
     best = (min if lower else max)(vals)
     for r, v in zip(rows, vals):
         if v == best:
             r[col] = f"**{r[col]}**"
 TABLES["switches"] = {
-    "caption": "Switch and flip errors on the chromosome arms, phased truth heterozygotes and blocks, over the eight "
-               "chromosomes. A switch is a lasting change of a phase set's orientation against the truth between "
+    "caption": "Switch and flip errors on the chromosome arms and switch errors in the centromeric and "
+               "pericentromeric satellites, phased truth heterozygotes and blocks, over the eight chromosomes. A switch is a lasting change of a phase set's orientation against the truth between "
                "consecutive truth-matched heterozygotes, a flip a single heterozygote out of line with its "
                "neighbours. Each switch is classified by comparing the tool's two haplotype sequences around its two "
-               "heterozygotes with the truth's (Section 2.8): *real* when the two windows pair the haplotypes in "
-               "opposite ways, *representation* when both pair them the same way (the tool writes the same "
-               "haplotypes with different records), *undecided* when either window's two pairings are within 30% "
+               "heterozygotes with the truth's (Section 2.8): *real*, a genuine phasing error, when the two windows "
+               "pair the tool's haplotypes with the truth's in opposite ways; *representation* when both pair them "
+               "the same way (the tool writes the same haplotypes as the truth with different records); "
+               "*undecided* when either window's two pairings are within 30% "
                "of each other (or 2 edits). Phased hets: truth-matched heterozygous variants written phased. Phase "
                "sets summed over the chromosomes, block N50 the median of the per-chromosome N50s.",
-    "header": ["Tool", "All", "Real", "Repr.", "Undec.", "Flips", "Phased hets", "Phase sets", "N50 (kb)"],
-    "groups": [("Arm switches", 1, 4), ("Variants", 5, 6), ("Blocks", 7, 8)],
-    "align": "lrrrrrrrr",
+    "header": ["Tool", "All", "Real", "Repr.", "Undec.", "Switches", "Arm flips", "Phased hets", "Phase sets", "N50 (kb)"],
+    "groups": [("Arm switches", 1, 4), ("Satellites", 5, 5), ("Variants", 6, 7), ("Blocks", 8, 9)],
+    "align": "lrrrrrrrrr",
     "rows": rows,
 }
 
@@ -446,6 +447,10 @@ V["hiphase_switches"] = cs["hiphase"]["switches"]
 V["hiphase_real"] = cs["hiphase"]["real"]
 V["rival_real_min"] = min(cs[t]["real"] for t in RIVALS)
 V["rival_real_max"] = max(cs[t]["real"] for t in RIVALS)
+V["pg_cen_switches"] = n(var("pgphase", "switches_cen"))
+V["rival_cen_switches_min"] = n(min(var(t, "switches_cen") for t in RIVALS))
+V["rival_cen_switches_max"] = n(max(var(t, "switches_cen") for t in RIVALS))
+assert var("pgphase", "switches_cen") < min(var(t, "switches_cen") for t in RIVALS)
 V["pg_flips"] = n(var("pgphase", "flips_arms"))
 fewest_fl = min(RIVALS, key=lambda t: var(t, "flips_arms"))
 V["fewest_flip_rival"] = NAME[fewest_fl]

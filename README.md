@@ -22,19 +22,21 @@ On HG002 PacBio HiFi reads, with the parent of origin of every read as truth on 
 
 - **99.08%** of 2,623,162 phaseable reads phased correctly, against 94.41% for the best other tool (HiPhase).
 - **3.5–9.2× fewer** reads misphased or unphased than the best other tool, on every chromosome.
-- **58 switch errors** against 105 for the next best (LongPhase); 10 of them real by haplotype sequence.
+- **58 switch errors** on the chromosome arms against 105 for the next best (LongPhase); checked against the haplotype sequences, only 10 of them are real phasing errors, against 41–220 for the other tools. In centromeric satellites: 42 against 177–471.
 - **No separate variant caller**: 7.1 minutes for pgphase against 125–141 for DeepVariant followed by LongPhase or HiPhase (same chromosomes and threads).
 
 ![Misphased and unphased reads per tool and chromosome](docs/images/accuracy.svg)
 
-| Tool | Correct (%) | Misphased (%) | Unphased (%) | Arm switches (real) | Minutes, with variant calling |
-|---|---:|---:|---:|---:|---:|
-| **pgphase** | 99.08 | 0.67 | 0.25 | 58 (10) | 7 |
-| HiPhase | 94.41 | 3.09 | 2.50 | 178 (119) | 141 |
-| LongPhase | 92.11 | 1.12 | 6.77 | 105 (41) | 125 |
-| WhatsHap | 90.28 | 4.78 | 4.94 | 364 (220) | 164 |
-| WhatsHap-dg | 91.81 | 3.20 | 4.99 | 208 (130) | 169 |
-| longcallD | 90.28 | 1.21 | 8.51 | 200 (115) | 8 |
+| Tool | Correct (%) | Misphased (%) | Unphased (%) | Switches, arms | of which real | Switches, satellites | Minutes, with variant calling |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **pgphase** | 99.08 | 0.67 | 0.25 | 58 | 10 | 42 | 7 |
+| HiPhase | 94.41 | 3.09 | 2.50 | 178 | 119 | 402 | 141 |
+| LongPhase | 92.11 | 1.12 | 6.77 | 105 | 41 | 349 | 125 |
+| WhatsHap | 90.28 | 4.78 | 4.94 | 364 | 220 | 471 | 164 |
+| WhatsHap-dg | 91.81 | 3.20 | 4.99 | 208 | 130 | 363 | 169 |
+| longcallD | 90.28 | 1.21 | 8.51 | 200 | 115 | 177 | 8 |
+
+*Phaseable*: reads that span a heterozygous truth variant. *Misphased*: assigned to the wrong parent relative to the other reads of their phase set. A *switch* is a lasting change of a phase set's orientation against the truth; *real* switches are those that remain once the tool's haplotype sequences are compared with the truth's (the others are the same haplotypes written with different records, or cannot be told apart). *Satellites*: the centromeric and pericentromeric intervals.
 
 Phaseable reads on the chromosome arms over chr6, chr12, chr16–chr21; minutes over the five chromosomes where every tool ran with six threads, excluding read alignment. Details in the paper (`paper/`); scores in `tools/paper/results.json`.
 

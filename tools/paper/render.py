@@ -516,14 +516,17 @@ def readme_block():
              f"{V['best_rival_correct_pct']}% for the best other tool ({V['best_rival']}).",
              f"- **{V['fold_min']}–{V['fold_max']}× fewer** reads misphased or unphased than the best other tool, "
              f"on every chromosome.",
-             f"- **{V['pg_switches']} switch errors** against {V['fewest_sw_rival_n']} for the next best "
-             f"({V['fewest_sw_rival']}); {V['pg_real']} of them real by haplotype sequence.",
+             f"- **{V['pg_switches']} switch errors** on the chromosome arms against {V['fewest_sw_rival_n']} for "
+             f"the next best ({V['fewest_sw_rival']}); checked against the haplotype sequences, only "
+             f"{V['pg_real']} of them are real phasing errors, against {V['rival_real_min']}–{V['rival_real_max']} "
+             f"for the other tools. In centromeric satellites: {V['pg_cen_switches']} against "
+             f"{V['rival_cen_switches_min']}–{V['rival_cen_switches_max']}.",
              f"- **No separate variant caller**: {V['pg_wall_total_min']} minutes for pgphase against "
              f"{V['longphase_with_calls_min']}–{V['hiphase_with_calls_min']} for DeepVariant followed by LongPhase "
              f"or HiPhase (same chromosomes and threads).", "",
              "![Misphased and unphased reads per tool and chromosome](docs/images/accuracy.svg)", "",
-             "| Tool | Correct (%) | Misphased (%) | Unphased (%) | Arm switches (real) | Minutes, with variant calling |",
-             "|---|---:|---:|---:|---:|---:|"]
+             "| Tool | Correct (%) | Misphased (%) | Unphased (%) | Switches, arms | of which real | Switches, satellites | Minutes, with variant calling |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|"]
     wall = {t: sum(T.RS[p][t]["wall_s"] for p in T.SAME_THREADS) for t, _ in T.TOOLS}
     for t, lab in T.TOOLS:
         tot = T.total(t, "arms_phaseable")
@@ -531,9 +534,15 @@ def readme_block():
         c = T.census(t)
         mins = (wall[t] + (0 if t in T.CALLS_OWN else T.DV_TOTAL)) / 60
         name = f"**{lab}**" if t == "pgphase" else lab
+        cen = sum(T.P[p][t]["variants"]["switches_cen"] for p in T.CHROMS)
         lines.append(f"| {name} | {100 * tot['correct'] / n:.2f} | {100 * tot['discordant'] / n:.2f} | "
-                     f"{100 * tot['unphased'] / n:.2f} | {c['switches']} ({c['real']}) | {mins:.0f} |")
-    lines += ["", f"Phaseable reads on the chromosome arms over chr6, chr12, chr16–chr21; minutes over the "
+                     f"{100 * tot['unphased'] / n:.2f} | {c['switches']} | {c['real']} | {cen} | {mins:.0f} |")
+    lines += ["", "*Phaseable*: reads that span a heterozygous truth variant. *Misphased*: assigned to the wrong parent "
+              "relative to the other reads of their phase set. A *switch* is a lasting change of a phase set's orientation against "
+              "the truth; *real* switches are those that remain once the tool's haplotype sequences are compared with "
+              "the truth's (the others are the same haplotypes written with different records, or cannot be told "
+              "apart). *Satellites*: the centromeric and pericentromeric intervals.", "",
+              f"Phaseable reads on the chromosome arms over chr6, chr12, chr16–chr21; minutes over the "
               f"{V['n_same_threads']} chromosomes where every tool ran with six threads, excluding read alignment. "
               f"Details in the paper (`paper/`); scores in `tools/paper/results.json`.", "", END]
     return "\n".join(lines)

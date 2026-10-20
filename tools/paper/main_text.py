@@ -268,7 +268,8 @@ BODY = [
  '**Variant metrics.** A tool\'s phased heterozygous biallelic records are matched to the truth by position, '
  'reference and alternative allele. Within a phase set, a single matched heterozygote whose orientation '
  'disagrees with agreeing neighbours on both sides is a *flip*, and a lasting change of orientation is a '
- '*switch*. In repeats, the same haplotypes can be written as different records, and a record-level comparison '
+ '*switch*. Switches and flips are counted separately on the arms and in the centromeric intervals. In repeats, '
+ 'the same haplotypes can be written as different records, and a record-level comparison '
  'then counts switches where the haplotypes agree. We therefore classify each switch by sequence: around each of '
  'the two heterozygotes bounding it, a window of 75 bp on either side, extended until no record of either VCF '
  "crosses its edges (at most 20 kb), the tool's two haplotype sequences are compared with the truth's by edit "
@@ -313,13 +314,19 @@ BODY = [
 ('p',
  f'pgphase made {V["pg_switches"]} switch errors on the arms of the eight chromosomes, fewer than any other tool on '
  f'each chromosome; {V["fewest_sw_rival"]} made the next fewest, {V["fewest_sw_rival_n"]}, and HiPhase '
- f'{V["hiphase_switches"]} ([#tab:switches]). Classified by haplotype sequence, {V["pg_real"]} of '
- f'pgphase\'s switches were real ({V["pg_real_chr19"]} of them on chr19), {V["pg_repr"]} were differences of '
- f'representation, and {V["pg_undec"]} were undecided, against {V["rival_real_min"]} to {V["rival_real_max"]} real '
- 'switches for the other tools. pgphase\'s undecided switches lie mostly in tandem repeats where both of its '
- "haplotypes differ from both of the truth's, typically at expansions that no genome of the graph carries "
- f'(Section 4). pgphase made {V["pg_flips"]} flips, against {V["fewest_flip_rival_n"]} for '
- f'{V["fewest_flip_rival"]}.'),
+ f'{V["hiphase_switches"]} ([#tab:switches]). A record-level count includes switches that are not phasing errors, '
+ 'so we checked each one against the haplotype sequences (Section 2.8). A switch is *real* when the tool\'s '
+ 'haplotypes around it pair with the truth\'s one way on one side and the other way on the other: the phase '
+ 'really changes there. It is a difference of *representation* when the haplotypes pair the same way on both '
+ 'sides, so the tool wrote the same haplotypes as the truth with different records, and *undecided* when the '
+ 'sequences cannot tell, because the tool\'s haplotypes differ from both of the truth\'s by similar amounts. '
+ f'{V["pg_real"]} of pgphase\'s arm switches were real ({V["pg_real_chr19"]} of them on chr19), {V["pg_repr"]} '
+ f'were differences of representation and {V["pg_undec"]} undecided, against {V["rival_real_min"]} to '
+ f'{V["rival_real_max"]} real switches for the other tools. pgphase\'s undecided switches lie mostly in tandem '
+ "repeats whose expansion in the sample no genome of the graph carries (Section 4). In the centromeric and "
+ f'pericentromeric satellites, pgphase made {V["pg_cen_switches"]} switch errors, against '
+ f'{V["rival_cen_switches_min"]} to {V["rival_cen_switches_max"]} for the other tools. On the arms it made '
+ f'{V["pg_flips"]} flips, against {V["fewest_flip_rival_n"]} for {V["fewest_flip_rival"]}.'),
 ('table', 'switches'),
 ('sub', 'Phased variants and blocks'),
 ('p',
