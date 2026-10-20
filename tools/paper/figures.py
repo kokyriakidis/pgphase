@@ -26,20 +26,21 @@ TIKZ_STYLES = "\\usetikzlibrary{plotmarks}\n\\tikzset{box/.style={draw, rounded 
 # lane) and union gap phasing (orange lane, only with a BAM) meet in the global EM, then windows and a second EM
 # pass, then stitching, rescue and islands, and the outputs. Coordinates in cm, y upwards; a box is
 # (x, y-centre, width, height, kind, lines).
-LANES = {  # x0, y0, x1, y1, fill (HTML hex), label
+LANES = {  # x0, y0, x1, y1, fill (HTML hex), label at the top-left corner
+    "align": (2.75, 0.15, 5.65, 3.92, "F1F1F1", "read alignment (other tools)"),
     "graph": (6.15, 2.45, 12.35, 4.95, "E3EEF9", "graph arm"),
-    "union": (6.15, 0.15, 12.35, 1.95, "FCEBDD", "union gap phasing (with a BAM)"),
+    "union": (6.15, 0.15, 12.35, 2.05, "FCEBDD", "union gap phasing (with a BAM)"),
 }
 PGPHASE_BOX = (5.85, -0.2, 21.0, 5.35)
 BOXES = {
     "graph": (0.0, 4.15, 2.3, 0.85, "data", ["Pangenome graph", "(GBZ)"]),
     "reads": (0.0, 2.05, 2.3, 0.85, "data", ["Long reads"]),
     "gaf": (2.95, 3.0, 2.5, 0.85, "ext", ["Graph alignments", "(vg Giraffe; GAF)"]),
-    "bam": (2.95, 1.05, 2.5, 0.85, "ext", ["Linear alignments", "(BAM)"]),
+    "bam": (2.95, 0.95, 2.5, 0.85, "ext", ["Linear alignments", "(BAM)"]),
     "catalog": (6.45, 4.15, 2.5, 0.85, "step", ["Site catalog", "(build-snarl-catalog)"]),
     "index": (6.45, 3.0, 2.5, 0.85, "step", ["Indexed GAF", "(index-gaf)"]),
     "clean": (9.45, 3.55, 2.6, 1.05, "step", ["Catalog alleles from", "read walks; k-means"]),
-    "solve": (9.45, 1.05, 2.6, 1.05, "step", ["Sample's own hets:", "candidates, MSA"]),
+    "solve": (7.9, 0.95, 2.9, 1.05, "step", ["Sample's own hets:", "candidates, MSA"]),
     "em": (12.75, 2.3, 2.6, 1.3, "step", ["Global EM:", "site errors,", "verified joins"]),
     "windows": (15.75, 3.2, 2.45, 0.95, "step", ["Local windows,", "EM pass 2"]),
     "fill": (15.75, 1.4, 2.45, 0.95, "step", ["Stitching, rescue,", "islands"]),
@@ -69,9 +70,8 @@ def _overview_tikz():
     for key, (lx0, ly0, lx1, ly1, fill, label) in LANES.items():
         out.append(f"\\fill[fill={{rgb,255:red,{int(fill[0:2], 16)};green,{int(fill[2:4], 16)};blue,{int(fill[4:6], 16)}}}, "
                    f"rounded corners=3pt] ({lx0},{ly0}) rectangle ({lx1},{ly1});"
-                   f"\\node[anchor={'north west' if key == 'graph' else 'south west'}, font=\\scriptsize\\itshape] at "
-                   f"({lx0 + 0.1},{ly1 - 0.05 if key == 'graph' else ly0 + 0.03}) {{{label}}};")
-    out.append(f"\\node[font=\\scriptsize\\itshape, black!70] at (4.2,{y1 - 0.1}) {{read alignment}};")
+                   f"\\node[anchor=north west, font=\\scriptsize\\itshape, inner sep=2pt] at "
+                   f"({lx0 + 0.05},{ly1 - 0.02}) {{{label}}};")
     for k, (x, y, w, h, kind, lines) in BOXES.items():
         fill = FILL[kind]
         rgb = f"{{rgb,255:red,{int(fill[0:2], 16)};green,{int(fill[2:4], 16)};blue,{int(fill[4:6], 16)}}}"
@@ -99,10 +99,9 @@ def _overview_svg():
                f'fill="none" stroke="currentColor" stroke-opacity=".5" stroke-dasharray="5 4"/>'
                f'<text x="{X(x1 - 0.15):.1f}" y="{Y(y1 - 0.4):.1f}" text-anchor="end" font-size="12" font-weight="700" fill="currentColor" fill-opacity=".85">pgphase</text>')
     for key, (lx0, ly0, lx1, ly1, fill, label) in LANES.items():
-        ty = Y(ly1 - 0.35) if key == "graph" else Y(ly0 + 0.15)
+        ty = Y(ly1 - 0.33)
         out.append(f'<rect x="{X(lx0):.1f}" y="{Y(ly1):.1f}" width="{(lx1 - lx0) * s:.1f}" height="{(ly1 - ly0) * s:.1f}" rx="5" fill="#{fill}"/>'
                    f'<text x="{X(lx0 + 0.12):.1f}" y="{ty:.1f}" font-size="10" font-style="italic" fill="#333">{label}</text>')
-    out.append(f'<text x="{X(4.2):.1f}" y="{Y(y1 - 0.35):.1f}" text-anchor="middle" font-size="10" font-style="italic" fill="currentColor" fill-opacity=".7">read alignment</text>')
     for k, (x, y, w, h, kind, lines) in BOXES.items():
         stroke = {"data": "#777", "ext": "#777", "step": "#555", "out": "#D55E00"}[kind]
         dash = ' stroke-dasharray="4 3"' if kind == "ext" else ""

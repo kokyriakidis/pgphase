@@ -399,7 +399,7 @@ BACK = [
 ]
 
 FIGURES = {
- "overview": "pgphase's pipeline. The reads are aligned by other tools (dashed boxes); pgphase's steps lie inside the "
+ "overview": "pgphase's pipeline. The reads are aligned by other tools (grey, dashed boxes); pgphase's steps lie inside the "
              "dashed outline. The graph arm (blue) builds the graph's site catalog and phases its sites from the walks "
              "the reads' graph alignments take through them; union gap phasing (orange), which runs only when a "
              "linear alignment is given, adds the sample's own heterozygous variants. One expectation-maximization "
