@@ -1,6 +1,6 @@
 [package]
 name = "pgcat"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Konstantinos Kyriakidis"]
 edition = "2021"
 # gbz and simple-sds use edition 2024 and let chains.

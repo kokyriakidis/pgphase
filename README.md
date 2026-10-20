@@ -126,6 +126,7 @@ Leave out `--bam` to phase from the graph alignments alone.
 | Option | Content |
 |---|---|
 | `-o FILE` | Every candidate site with its allele counts, category and phase |
+| `-v FILE` | The candidate sites as a VCF |
 | `--phased-vcf-out FILE` | Heterozygous calls, phased (`GT:DP:AD:VAF:GQ:PS`) |
 | `--phased-bam-out FILE` | One unaligned record per read seen, with `HP` and `PS` tags when phased |
 
