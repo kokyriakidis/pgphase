@@ -72,13 +72,13 @@ def label(p):
 
 # ------------------------------------------------------------------------------- Table: reads per chromosome
 rows = [["Used in development", "", "", "", "", "", ""]]
-for group, chroms in (("Used in development", DEV), ("Held out", HELD)):
-    if group == "Held out":
-        rows.append(["Held out", "", "", "", "", "", ""])
+for group, chroms in (("Used in development", DEV), ("Not used for tuning", HELD)):
+    if group == "Not used for tuning":
+        rows.append(["Not used for tuning", "", "", "", "", "", ""])
     for p in chroms:
         vals = [correct_pct(p, t) for t, _ in TOOLS]
         rows.append([p] + bold_best([f"{v:.2f}" for v in vals], [round(v, 2) for v in vals]))
-rows.append(["Region of chr6, held out", "", "", "", "", "", ""])
+rows.append(["Region of chr6", "", "", "", "", "", ""])
 vals = [correct_pct(MHC, t) for t, _ in TOOLS]
 rows.append([label(MHC)] + bold_best([f"{v:.2f}" for v in vals], [round(v, 2) for v in vals]))
 rows.append(["All eight chromosomes", "", "", "", "", "", ""])
@@ -146,9 +146,8 @@ for col, lower in ((1, False), (2, True), (3, True), (4, False)):
         if v == best:
             r[col] = f"**{r[col]}**"
 TABLES["cen"] = {
-    "caption": "Phaseable reads in centromeric and pericentromeric satellites (CHM13 cenSat v2.1 span; the "
-               "acrocentric short arm of chr21 included) over the eight chromosomes, and the ratio of correct to "
-               "discordant reads.",
+    "caption": "Phaseable reads in centromeric and pericentromeric satellites (one interval per chromosome, "
+               "Supplementary Table S4) over the eight chromosomes, and the ratio of correct to discordant reads.",
     "header": ["Tool", "Correct", "Discordant", "Unphased", "Correct : discordant"],
     "align": "lrrrr",
     "rows": rows,
@@ -157,6 +156,7 @@ TABLES["cen"] = {
 # ------------------------------------------------------------------------------- Table: resources
 RS = RES["resources"]
 # The chromosomes every multi-threaded tool ran on with 6 threads (the rivals' chr12/18/20 runs used 20).
+WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 SAME_THREADS = [p for p in CHROMS if all(RS[p][t]["threads"] in (1, 6) for t in RS[p])]
 rows = []
 for t, lab in TOOLS:
@@ -166,7 +166,7 @@ for t, lab in TOOLS:
     rows.append([lab, "/".join(map(str, threads)), f"{RS['chr6'][t]['wall_s']:.0f}", f"{wall / 60:.1f}", f"{rss:.1f}"])
 TABLES["resources"] = {
     "caption": "Wall-clock time and peak memory (GNU time) on one machine with 10 cores, on the "
-               f"{len(SAME_THREADS)} chromosomes where every multi-threaded tool ran with 6 threads "
+               f"{WORDS[len(SAME_THREADS)]} chromosomes where every multi-threaded tool ran with 6 threads "
                f"({', '.join(SAME_THREADS)}): chr6, the largest, then the total time and the largest peak memory. "
                "The DeepVariant-based phasers' times exclude DeepVariant; pgphase's include its own variant "
                "discovery and the haplotagged reads, and exclude graph alignment.",
@@ -220,6 +220,23 @@ STABLES["resources"] = {
     "caption": "Wall-clock time and peak memory per chromosome and tool.",
     "header": ["Tool", "Threads", "Time (s)", "Peak memory (GB)"],
     "align": "lrrr",
+    "rows": rows,
+}
+
+SC = RES["scoring"]
+rows = []
+for p in CHROMS + [MHC]:
+    beg, end = SC[p]["cen"]
+    excl = "; ".join(f"{c.split('#')[-1]}:{a / 1e6:.2f}–{b / 1e6:.2f} Mb" for c, a, b in SC[p]["exclude"]) or "none"
+    rows.append([label(p), f"{beg / 1e6:.2f}–{end / 1e6:.2f}", excl])
+STABLES["scoring"] = {
+    "label": "S4",
+    "caption": "Scoring settings per chromosome: the interval counted as centromeric and pericentromeric "
+               "(CHM13 cenSat v2.1 satellite span on chr6, chr16, chr17, chr19 and chr21, the acrocentric short arm "
+               "included on chr21; rounded spans on chr12, chr18 and chr20, set earlier in development), and the "
+               "regions not scored because the truth contradicts itself there.",
+    "header": ["Chromosome", "Centromeric interval (Mb)", "Not scored"],
+    "align": "lll",
     "rows": rows,
 }
 
@@ -308,7 +325,7 @@ V["cen_best_ratio"] = f"{cen[best_ratio]['correct'] / cen[best_ratio]['discordan
 V["cen_best_ratio_correct"] = n(cen[best_ratio]["correct"])
 V["cen_best_ratio_unph"] = n(cen[best_ratio]["unphased"])
 V["most_cen_rival_ratio"] = f"{cen[most_cen_rival]['correct'] / cen[most_cen_rival]['discordant']:.1f}"
-V["n_same_threads"] = len(SAME_THREADS)
+V["n_same_threads"] = WORDS[len(SAME_THREADS)]
 V["pg_wall_total_min"] = f"{sum(RS[p]['pgphase']['wall_s'] for p in SAME_THREADS) / 60:.1f}"
 V["hiphase_wall_total_min"] = f"{sum(RS[p]['hiphase']['wall_s'] for p in SAME_THREADS) / 60:.1f}"
 V["longphase_wall_total_min"] = f"{sum(RS[p]['longphase']['wall_s'] for p in SAME_THREADS) / 60:.1f}"
@@ -319,6 +336,13 @@ V["longphase_wall_chr6"] = f"{RS['chr6']['longphase']['wall_s']:.0f}"
 nohet = {t: total(t, "arms_nohet") for t, _ in TOOLS}
 V["pg_nohet_disc"] = n(nohet["pgphase"]["discordant"])
 V["pg_nohet_phased"] = n(nohet["pgphase"]["correct"] + nohet["pgphase"]["discordant"])
+V["pg_real_chr19"] = census("pgphase", ["chr19"])["real"]
+V["pg_switch_ties_mhc"] = all(P[MHC][t]["variants"]["switches_arms"] >= P[MHC]["pgphase"]["variants"]["switches_arms"] for t in RIVALS)
+V["fewest_err_every_chrom"] = all(
+    sum(reads(p, "pgphase", "arms_phaseable")[k] for k in ("discordant", "unphased")) <
+    min(sum(reads(p, t, "arms_phaseable")[k] for k in ("discordant", "unphased")) for t in RIVALS) for p in CHROMS)
+V["fewest_switch_every_chrom"] = all(
+    P[p]["pgphase"]["variants"]["switches_arms"] < min(P[p][t]["variants"]["switches_arms"] for t in RIVALS) for p in CHROMS)
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

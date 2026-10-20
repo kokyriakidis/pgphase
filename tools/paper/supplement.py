@@ -17,6 +17,8 @@ BODY = [
 ('table', 'census'),
 ('sec', 'Running time and memory'),
 ('table', 'resources'),
+('sec', 'Scoring settings'),
+('table', 'scoring'),
 ('sec', 'Commands'),
 ('p',
  'Each tool was run on the reads of one chromosome, CHM13 contig names without the graph\'s `CHM13#0#` prefix. '

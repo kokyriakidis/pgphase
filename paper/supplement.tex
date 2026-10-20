@@ -258,6 +258,29 @@ longcallD & 6 & 36 & 7.65 \\
 \end{longtable}
 }
 
+\section{Scoring settings}
+
+\begin{table}[h]
+\caption{Scoring settings per chromosome: the interval counted as centromeric and pericentromeric (CHM13 cenSat v2.1 satellite span on chr6, chr16, chr17, chr19 and chr21, the acrocentric short arm included on chr21; rounded spans on chr12, chr18 and chr20, set earlier in development), and the regions not scored because the truth contradicts itself there.}\label{tab:scoring}
+\centering\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Chromosome & Centromeric interval (Mb) & Not scored \\
+\midrule
+chr12 & 34.70--37.20 & none \\
+chr17 & 21.82--28.14 & none \\
+chr18 & 15.40--20.90 & none \\
+chr19 & 23.83--30.40 & none \\
+chr20 & 26.00--32.00 & chr20:66.10--66.30~Mb \\
+chr6 & 57.22--62.67 & none \\
+chr16 & 33.95--52.26 & none \\
+chr21 & 0.00--12.42 & none \\
+MHC (chr6:28.5--34.0~Mb) & 57.22--62.67 & none \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Commands}
 
 Each tool was run on the reads of one chromosome, CHM13 contig names without the graph's \texttt{CHM13\#0\#} prefix. \texttt{REF} is the chromosome's CHM13 sequence, \texttt{BAM} the surjected reads, \texttt{VCF} the DeepVariant calls, \texttt{T} the threads.

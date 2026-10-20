@@ -29,5 +29,5 @@
 \node[font=\scriptsize\itshape, anchor=west] at (7.0,5.0) {graph arm: known alleles};
 \node[font=\scriptsize\itshape, anchor=west] at (7.0,0.7) {union gap phasing: the sample's own hets};
 \end{tikzpicture}}
-\caption{pgphase's pipeline. The graph arm phases the sites of a pangenome graph's catalog from the walks the reads' graph alignments take through them; with a linear alignment, union gap phasing adds the sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks only where reads verify the join. Reads still unlabelled are phased from local windows, rescue and island blocks.}\label{fig:overview}
+\caption{pgphase's pipeline. The graph arm phases the sites of a pangenome graph's catalog from the walks the reads' graph alignments take through them; with a linear alignment, union gap phasing adds the sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks only where reads verify the join. Reads still unlabelled are labelled from local windows, the orientation of excluded sites and island blocks.}\label{fig:overview}
 \end{figure*}
