@@ -445,6 +445,8 @@ private:
     std::vector<std::vector<int>> allele_remap_;
     std::vector<std::vector<int>> allele_orig_idx_;
     std::vector<std::vector<NewPairEntry>> old_site_to_pairs_;
+    // Original sites kept whole with two ALTs: their site IDs.
+    std::unordered_map<size_t, std::string> kept_two_alt_;
 
     void init_chunk() {
         out_.chunk.region.chunk_id = chunk_id_;
@@ -756,6 +758,7 @@ private:
     //    allele 1 to its own pair only.
     void decompose_sites() {
         old_site_to_pairs_.assign(n_cands_, {});
+        kept_two_alt_.clear();
 
         // Overlapping/nested snarls can emit the same physical variant from different
         // sites. Keyed by snarl order_pos() these look distinct, but in minimal VCF
@@ -804,6 +807,42 @@ private:
             const std::vector<int>& fc = fwd_strand_counts_[i];
             const std::vector<int>& rc_s = rev_strand_counts_[i];
             const int ref_c = ac[0];
+            // Two surviving ALTs and (almost) no REF read, where the REF-vs-ALT
+            // split keeps no pair: each haplotype carries one ALT
+            // (chr12:130,429,421, a 1.2 kb VNTR whose parents carry two
+            // expansions, 18 and 29 reads, REF 0). Split, both pairs look
+            // homozygous (high_af) and the site vanished. Kept whole, held
+            // out of union phasing and placed after it from the reads' labels.
+            // Each ALT needs kTwoAltMinReads reads: the reads spanning a
+            // multi-kb site are few, and on 2-7 of them the closest catalog
+            // walks were wrong (chr18:14,466,432, a 16 kb deletion on 2 of 6;
+            // over chr12/17/18/19/20 a floor of 5 left haplotypes +40k edits
+            // worse than 8 on chr17-19).
+            constexpr int kTwoAltMinReads = 8;
+            const auto pair_survives = [&](size_t a) {
+                const int tot = ref_c + ac[a];
+                const double af = tot > 0 ? static_cast<double>(ac[a]) / tot : 0.0;
+                return tot >= opts_.min_depth && af >= opts_.min_af && af <= opts_.max_af;
+            };
+            if (ac.size() == 3 && !pair_survives(1) && !pair_survives(2)) {
+                const int a1 = ac[1], a2 = ac[2], alts = a1 + a2;
+                if (ref_c <= 0.1 * alts && std::min(a1, a2) >= std::max(opts_.min_alt_depth, kTwoAltMinReads) &&
+                    std::min(a1, a2) >= opts_.min_af * alts && alts + ref_c >= opts_.min_depth) {
+                    CandidateVariant whole = out_.chunk.candidates[i];
+                    whole.counts.alle_covs = ac;
+                    whole.counts.n_uniq_alles = 3;
+                    whole.counts.ref_cov = ref_c;
+                    whole.counts.alt_cov = alts;
+                    whole.counts.total_cov = alts + ref_c;
+                    whole.counts.allele_fraction = static_cast<double>(std::max(a1, a2)) / (alts + ref_c);
+                    whole.two_alt_whole = true;
+                    whole.phase_set = kUnsetCandidatePhaseSet;
+                    whole.hap_to_cons_alle[0] = whole.hap_to_cons_alle[1] = whole.hap_to_cons_alle[2] = -1;
+                    out_.two_alt_sites.push_back({std::move(whole), out_.site_ids[i], out_.site_meta[i], allele_orig_idx_[i]});
+                    kept_two_alt_.emplace(i, out_.site_ids[i]);
+                    continue;
+                }
+            }
             const std::string& meta_chrom = out_.site_meta[i].chrom;
             const hts_pos_t meta_pos = out_.site_meta[i].pos;
             for (size_t a = 1; a < ac.size(); ++a) {
@@ -932,6 +971,19 @@ private:
             for (const auto& o : obs) {
                 if (o.site_index < 0 || static_cast<size_t>(o.site_index) >= n_cands_) continue;
                 const size_t old_si = static_cast<size_t>(o.site_index);
+                if (!kept_two_alt_.empty()) {
+                    const auto kt = kept_two_alt_.find(old_si);
+                    if (kt != kept_two_alt_.end()) {
+                        int al = -1;
+                        if (o.allele == 0) al = 0;
+                        else if (o.allele > 0 && static_cast<size_t>(o.allele) < allele_remap_[old_si].size())
+                            al = allele_remap_[old_si][static_cast<size_t>(o.allele)];
+                        const size_t rid = static_cast<size_t>(&obs - &read_obs_[0]);
+                        if (al >= 0 && rid < read_id_to_name_.size())
+                            out_.two_alt_obs[kt->second].push_back({read_id_to_name_[rid], al});
+                        continue;
+                    }
+                }
                 const auto& pairs = old_site_to_pairs_[old_si];
                 if (pairs.empty()) continue;
                 // Fast path: biallelic site (one surviving pair) -- no loop needed.
