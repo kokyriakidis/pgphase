@@ -160,20 +160,32 @@ RS = RES["resources"]
 # The chromosomes every multi-threaded tool ran on with 6 threads (the rivals' chr12/18/20 runs used 20).
 WORDS = {2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
 SAME_THREADS = [p for p in CHROMS if all(RS[p][t]["threads"] in (1, 6) for t in RS[p])]
+# The phasers given DeepVariant's calls need DeepVariant run first; pgphase and longcallD find their own variants.
+CALLS_OWN = {"pgphase", "longcalld"}
+DV_TOTAL = sum(RS[p]["deepvariant"]["wall_s"] for p in SAME_THREADS)
 rows = []
 for t, lab in TOOLS:
     wall = sum(RS[p][t]["wall_s"] for p in SAME_THREADS)
     rss = max(RS[p][t]["rss_gb"] for p in SAME_THREADS)
     threads = sorted({RS[p][t]["threads"] for p in SAME_THREADS})
-    rows.append([lab, "/".join(map(str, threads)), f"{RS['chr6'][t]['wall_s']:.0f}", f"{wall / 60:.1f}", f"{rss:.1f}"])
+    with_calls = wall + (0 if t in CALLS_OWN else DV_TOTAL)
+    rows.append([lab, "/".join(map(str, threads)), f"{RS['chr6'][t]['wall_s']:.0f}", f"{wall / 60:.1f}",
+                 f"{with_calls / 60:.1f}", f"{rss:.1f}"])
+vals = [float(r[4]) for r in rows]
+for r, v in zip(rows, vals):
+    if v == min(vals):
+        r[4] = f"**{r[4]}**"
 TABLES["resources"] = {
     "caption": "Wall-clock time and peak memory (GNU time) on one machine with 10 cores, on the "
                f"{WORDS[len(SAME_THREADS)]} chromosomes where every multi-threaded tool ran with 6 threads "
                f"({', '.join(SAME_THREADS)}): chr6, the largest, then the total time and the largest peak memory. "
-               "The DeepVariant-based phasers' times exclude DeepVariant; pgphase's include its own variant "
-               "discovery and the haplotagged reads, and exclude graph alignment.",
-    "header": ["Tool", "Threads", "chr6 (s)", "Total (min)", "Memory (GB)"],
-    "align": "lrrrr",
+               "Total: the tool alone. With calling: adding DeepVariant (6 threads), whose calls HiPhase, "
+               "LongPhase and WhatsHap phase; pgphase and longcallD find the sample's variants themselves, so their "
+               "two totals are the same. pgphase's time includes the haplotagged reads; no time includes read "
+               "alignment, which every tool needs.",
+    "header": ["Tool", "Threads", "chr6 (s)", "Total (min)", "With calling (min)", "Memory (GB)"],
+    "align": "lrrrrr",
+    "fit": True,
     "rows": rows,
 }
 
@@ -224,9 +236,13 @@ for p in CHROMS:
         if t in RS.get(p, {}):
             r = RS[p][t]
             rows.append([lab, str(r["threads"]), f"{r['wall_s']:.0f}", f"{r['rss_gb']:.2f}"])
+    if "deepvariant" in RS.get(p, {}):
+        r = RS[p]["deepvariant"]
+        rows.append(["DeepVariant (calls for HiPhase, LongPhase, WhatsHap)", str(r["threads"]), f"{r['wall_s']:.0f}", "–"])
 STABLES["resources"] = {
     "label": "S3", "long": True,
-    "caption": "Wall-clock time and peak memory per chromosome and tool.",
+    "caption": "Wall-clock time and peak memory per chromosome and tool, and DeepVariant's time (its memory was not "
+               "measured: it ran in a container).",
     "header": ["Tool", "Threads", "Time (s)", "Peak memory (GB)"],
     "align": "lrrr",
     "rows": rows,
@@ -485,6 +501,12 @@ for p in CHROMS:
     best = min(sum(POINTS[t][CHROMS.index(p)][1:]) for t in RIVALS)
     folds.append(best / sum(pg[1:]))
 V["fold_min"], V["fold_max"] = f"{min(folds):.1f}", f"{max(folds):.1f}"
+V["dv_total_min"] = f"{DV_TOTAL / 60:.0f}"
+_pg_total = sum(RS[p]["pgphase"]["wall_s"] for p in SAME_THREADS)
+_dv_based = {t: sum(RS[p][t]["wall_s"] for p in SAME_THREADS) + DV_TOTAL for t in ("hiphase", "longphase")}
+V["hiphase_with_calls_min"] = f"{_dv_based['hiphase'] / 60:.0f}"
+V["longphase_with_calls_min"] = f"{_dv_based['longphase'] / 60:.0f}"
+V["calls_speedup"] = f"{min(_dv_based.values()) / _pg_total:.0f}"
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

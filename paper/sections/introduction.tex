@@ -13,7 +13,7 @@ pgphase phases reads with both kinds of variant. Our contributions are:
 
 \begin{enumerate}
   \item \textbf{Phasing at known alleles from graph alignments} (Sections 2.2--2.3): a catalog of the sites of a pangenome graph, and each read's allele at them taken from its graph alignment.
-  \item \textbf{One solve over the catalog's sites and the sample's own} (Sections 2.4--2.5): heterozygous variants from the linear alignments, including those resolved in noisy regions, join the catalog's sites, and an expectation-maximization learns every site's error rate.
+  \item \textbf{One solve over the catalog's sites and the sample's own} (Sections 2.4--2.5): heterozygous variants from the linear alignments, including those resolved in noisy regions, join the catalog's sites, and an expectation-maximization learns every site's error rate. pgphase therefore needs no separate variant caller: the phasers we compare it with, except longcallD, phase the calls of DeepVariant run first.
   \item \textbf{Joins that the reads verify} (Section 2.6): two blocks are joined only when several reads carry evidence on both sides at reliable sites; sites at collapsed duplications, sites read only at low mapping quality and one-base length differences cannot join blocks, although they still label reads.
   \item \textbf{Read-level evaluation} (Section 2.8): the parent of origin of every read as truth, chromosomes not used for tuning, and each switch error classified by comparing the tool's haplotype sequences with the truth's.
 \end{enumerate}

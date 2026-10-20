@@ -39,7 +39,8 @@ ABSTRACT = [
   "resolved analyses that use the reads themselves need as many reads as possible phased, and phased correctly."),
  ("Results",
   "We present pgphase, which phases reads at the known alleles of a pangenome graph, observed directly in the reads' "
-  "graph alignments, together with the sample's own heterozygous variants found in its linear alignments. A single "
+  "graph alignments, together with the sample's own heterozygous variants found in its linear alignments, so that "
+  "no separate variant caller is needed. A single "
   "expectation-maximization learns how reliable each site is, and phase blocks are joined only where several reads "
   "support the join. On HG002 PacBio HiFi reads, with each read's parent of origin as truth on eight chromosomes, "
   f"three of them not used to tune the method, pgphase phased {V['pg_correct_pct1']}% of {V['phaseable_m']} "
@@ -93,7 +94,8 @@ BODY = [
   "graph, and each read's allele at them taken from its graph alignment.",
   "**One solve over the catalog's sites and the sample's own** (Sections 2.4–2.5): heterozygous variants from the "
   "linear alignments, including those resolved in noisy regions, join the catalog's sites, and an "
-  "expectation-maximization learns every site's error rate.",
+  "expectation-maximization learns every site's error rate. pgphase therefore needs no separate variant "
+  "caller: the phasers we compare it with, except longcallD, phase the calls of DeepVariant run first.",
   '**Joins that the reads verify** (Section 2.6): two blocks are joined only when several reads carry evidence on '
   'both sides at reliable sites; sites at collapsed duplications, sites read only at low mapping quality and '
   'one-base length differences cannot join blocks, although they still label reads.',
@@ -345,11 +347,13 @@ BODY = [
  f'On the {V["n_same_threads"]} chromosomes where every multi-threaded tool ran with six threads, pgphase took '
  f'{V["pg_wall_total_min"]} minutes in total, against {V["hiphase_wall_total_min"]} for HiPhase and '
  f'{V["longphase_wall_total_min"]} for LongPhase; on chr6, {V["pg_wall_chr6"]} s against {V["hiphase_wall_chr6"]} s '
- f'and {V["longphase_wall_chr6"]} s ([#tab:resources]; per chromosome in Supplementary Table {stab("resources")}). pgphase\'s time includes finding the sample\'s variants and '
- 'writing the haplotagged reads, whereas the times of the phasers given DeepVariant\'s calls exclude DeepVariant; '
- f'none includes graph alignment. pgphase needed up to {V["pg_rss_max"]} GB of memory, more than the phasers '
+ f'and {V["longphase_wall_chr6"]} s ([#tab:resources]; per chromosome in Supplementary Table {stab("resources")}). '
+ 'pgphase\'s time includes finding the sample\'s own variants and writing the haplotagged reads. HiPhase, '
+ f'LongPhase and WhatsHap first need DeepVariant\'s calls, which took {V["dv_total_min"]} minutes on the same '
+ f'chromosomes and threads: with them, HiPhase took {V["hiphase_with_calls_min"]} minutes and LongPhase '
+ f'{V["longphase_with_calls_min"]}, {V["calls_speedup"]} times or more pgphase\'s time. No time includes read '
+ f'alignment, which every tool needs. pgphase needed up to {V["pg_rss_max"]} GB of memory, more than the phasers '
  'given DeepVariant\'s calls.'),
-
 ('table', 'resources'),
 
 ('sec', 'Discussion'),
@@ -362,7 +366,12 @@ BODY = [
  'known alleles, observed in the reads\' graph alignments rather than called, and the sample\'s own heterozygous '
  'variants. Second, it is conservative in joining blocks: sites at collapsed duplications, poorly mapped sites and '
  'homopolymer length calls still label the reads that cross them but cannot join two blocks. The cost of the '
- 'second is more and shorter blocks than HiPhase produces where the reads cannot verify how blocks connect.'),
+ 'second is more and shorter blocks than HiPhase produces where the reads cannot verify how blocks connect. '
+ 'pgphase also needs no separate variant caller, which simplifies a pipeline and shortens it: the graph\'s '
+ 'known alleles are observed in the reads\' graph alignments and the sample\'s own heterozygous variants are '
+ f'found by its alignment solve, whereas DeepVariant followed by HiPhase or LongPhase took {V["calls_speedup"]} '
+ 'times or more as long here. We '
+ 'did not compare its variant calls with DeepVariant\'s; the evaluation here concerns phasing.'),
 ('p',
  'Our evaluation has limits. All tools were given reads aligned to a pangenome graph and surjected onto CHM13, '
  'not the linear alignments (for example from minimap2 or pbmm2) the other tools are usually run on, and their '

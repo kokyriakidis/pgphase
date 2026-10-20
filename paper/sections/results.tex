@@ -29,6 +29,6 @@ In centromeric and pericentromeric satellites, where reads map ambiguously and c
 
 \subsection{Running time and memory}
 
-On the five chromosomes where every multi-threaded tool ran with six threads, pgphase took 7.1 minutes in total, against 18.4 for HiPhase and 3.3 for LongPhase; on chr6, 147~s against 459~s and 92~s (Table~\ref{tab:resources}; per chromosome in Supplementary Table S3). pgphase's time includes finding the sample's variants and writing the haplotagged reads, whereas the times of the phasers given DeepVariant's calls exclude DeepVariant; none includes graph alignment. pgphase needed up to 8.5~GB of memory, more than the phasers given DeepVariant's calls.
+On the five chromosomes where every multi-threaded tool ran with six threads, pgphase took 7.1 minutes in total, against 18.4 for HiPhase and 3.3 for LongPhase; on chr6, 147~s against 459~s and 92~s (Table~\ref{tab:resources}; per chromosome in Supplementary Table S3). pgphase's time includes finding the sample's own variants and writing the haplotagged reads. HiPhase, LongPhase and WhatsHap first need DeepVariant's calls, which took 122 minutes on the same chromosomes and threads: with them, HiPhase took 141 minutes and LongPhase 125, 18 times or more pgphase's time. No time includes read alignment, which every tool needs. pgphase needed up to 8.5~GB of memory, more than the phasers given DeepVariant's calls.
 
 \input{tables/resources}
