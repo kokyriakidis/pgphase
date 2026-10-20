@@ -8,8 +8,8 @@ Every number comes from tables.V (results.json), never typed here.
 from tables import TABLES, V
 
 TITLE = "pgphase: phasing long reads at a pangenome's known alleles and the sample's own heterozygous variants"
-# Authors in order, each with an email. DRAFT: co-authors to be added.
-AUTHORS = [("Konstantinos Kyriakidis", "kkyriaki@ucsc.edu")]
+# Authors in order, each with an email; both are corresponding authors (as in the dinara-align paper).
+AUTHORS = [("Konstantinos Kyriakidis", "kkyriaki@ucsc.edu"), ("Benedict Paten", "bpaten@ucsc.edu")]
 AFFILIATION = "UC Santa Cruz Genomics Institute, Santa Cruz, CA, USA"
 KEYWORDS = ["phasing", "haplotagging", "long reads", "pangenome graph", "graph alignment", "expectation maximization"]
 
@@ -304,10 +304,13 @@ BODY = [
 ]
 
 BACK = [
- ("Author contributions", "DRAFT: to be completed."),
+ ("Author contributions",
+  "Konstantinos Kyriakidis (Conceptualization [lead], Methodology [lead], Software [lead], Validation [lead], "
+  "Formal analysis [lead], Investigation [lead], Data curation [lead], Visualization [lead], Writing—original "
+  "draft [lead]), Benedict Paten (Supervision [lead], Writing—review & editing [equal])."),
  ("Supplementary data", "Supplementary data are available at *Bioinformatics* online."),
  ("Conflict of interest", "None declared."),
- ("Funding", "DRAFT: to be completed."),
+ ("Funding", "This work received no specific funding."),
  ("Data availability",
   "pgphase is available at https://github.com/kokyriakidis/pgphase. DRAFT: the evaluation scripts, the exact "
   "commands of every tool (Supplementary Section S4) and the scores behind every table are to be released with "
