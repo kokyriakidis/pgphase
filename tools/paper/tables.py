@@ -110,12 +110,13 @@ TABLES["reads"] = {
 rows = []
 for t, lab in TOOLS:
     c = census(t)
-    rows.append([lab, n(c["switches"]), n(c["real"]), n(c["representation"]), n(c["undecided"]),
+    rate = 1e4 * var(t, "switches_arms") / var(t, "truth_matched_phased_hets_arms")
+    rows.append([lab, n(c["switches"]), f"{rate:.2f}", n(c["real"]), n(c["representation"]), n(c["undecided"]),
                  n(var(t, "switches_cen")), n(var(t, "flips_arms")), n(var(t, "truth_matched_phased_hets")),
                  n(sum(P[p][t]["blocks"]["phase_sets"] for p in CHROMS)),
                  f"{statistics.median(P[p][t]['blocks']['n50'] for p in CHROMS) / 1e3:,.0f}"])
-for col, lower in ((1, True), (2, True), (5, True), (6, True), (7, False), (8, True), (9, False)):
-    vals = [int(r[col].replace(",", "")) for r in rows]
+for col, lower in ((1, True), (2, True), (3, True), (6, True), (7, True), (8, False), (9, True), (10, False)):
+    vals = [float(r[col].replace(",", "")) for r in rows]
     best = (min if lower else max)(vals)
     for r, v in zip(rows, vals):
         if v == best:
@@ -129,11 +130,12 @@ TABLES["switches"] = {
                "pair the tool's haplotypes with the truth's in opposite ways; *representation* when both pair them "
                "the same way (the tool writes the same haplotypes as the truth with different records); "
                "*undecided* when either window's two pairings are within 30% "
-               "of each other (or 2 edits). Phased hets: truth-matched heterozygous variants written phased. Phase "
+               "of each other (or 2 edits). Per 10k: arm switches per 10,000 phased truth heterozygotes on the arms. "
+               "Phased hets: truth-matched heterozygous variants written phased. Phase "
                "sets summed over the chromosomes, block N50 the median of the per-chromosome N50s.",
-    "header": ["Tool", "All", "Real", "Repr.", "Undec.", "Switches", "Arm flips", "Phased hets", "Phase sets", "N50 (kb)"],
-    "groups": [("Arm switches", 1, 4), ("Satellites", 5, 5), ("Variants", 6, 7), ("Blocks", 8, 9)],
-    "align": "lrrrrrrrrr",
+    "header": ["Tool", "All", "Per 10k", "Real", "Repr.", "Undec.", "Switches", "Arm flips", "Phased hets", "Phase sets", "N50 (kb)"],
+    "groups": [("Arm switches", 1, 5), ("Satellites", 6, 6), ("Variants", 7, 8), ("Blocks", 9, 10)],
+    "align": "lrrrrrrrrrr",
     "rows": rows,
 }
 
@@ -263,6 +265,28 @@ STABLES["scoring"] = {
                "regions not scored because the truth contradicts itself there.",
     "header": ["Chromosome", "Centromeric interval (Mb)", "Not scored"],
     "align": "lll",
+    "rows": rows,
+}
+
+# ------------------------------------------------------------------------------- ablation
+ABL = [("pgphase", "pgphase, both"), ("pgphase_graphonly", "Graph only"), ("pgphase_bamonly", "Linear only"),
+       ("longcalld", "longcallD")]
+rows = []
+for t, lab in ABL:
+    o = total(t, "arms_phaseable"); m = sum(o.values())
+    sw = var(t, "switches_arms"); h = var(t, "truth_matched_phased_hets_arms")
+    rows.append([lab, f"{100 * o['correct'] / m:.2f}", f"{100 * o['discordant'] / m:.2f}", f"{100 * o['unphased'] / m:.2f}",
+                 n(sw), f"{1e4 * sw / h:.2f}"])
+TABLES["ablation"] = {
+    "caption": "What each part of pgphase contributes, over the eight chromosomes: pgphase with both kinds of "
+               "evidence, from the graph alignments alone (no `--bam`), and from the linear alignments alone "
+               "(`collect-bam-variation`, its port of longcallD's pipeline), beside longcallD itself. Phaseable "
+               "reads on the arms phased correctly, misphased and unphased (%), arm switches and switches per "
+               "10,000 phased truth heterozygotes on the arms. Graph only: graph alignments alone; linear only: linear "
+               "alignments alone.",
+    "header": ["Evidence", "Correct", "Misphased", "Unphased", "Switches", "Per 10k"],
+    "align": "lrrrrr",
+    "fit": True,
     "rows": rows,
 }
 
@@ -512,6 +536,37 @@ _dv_based = {t: sum(RS[p][t]["wall_s"] for p in SAME_THREADS) + DV_TOTAL for t i
 V["hiphase_with_calls_min"] = f"{_dv_based['hiphase'] / 60:.0f}"
 V["longphase_with_calls_min"] = f"{_dv_based['longphase'] / 60:.0f}"
 V["calls_speedup"] = f"{min(_dv_based.values()) / _pg_total:.0f}"
+def _abl(t):
+    o = total(t, "arms_phaseable"); m = sum(o.values())
+    return {k: 100 * o[k] / m for k in o}
+for key, t in (("graphonly", "pgphase_graphonly"), ("bamonly", "pgphase_bamonly"), ("lcd", "longcalld")):
+    a = _abl(t)
+    V[f"abl_{key}_correct"] = f"{a['correct']:.1f}"
+    V[f"abl_{key}_unph"] = f"{a['unphased']:.1f}"
+    V[f"abl_{key}_switches"] = n(var(t, "switches_arms"))
+V["pg_switch_rate"] = f"{1e4 * var('pgphase', 'switches_arms') / var('pgphase', 'truth_matched_phased_hets_arms'):.2f}"
+_rates = {t: 1e4 * var(t, "switches_arms") / var(t, "truth_matched_phased_hets_arms") for t in RIVALS}
+V["rival_rate_min"] = f"{min(_rates.values()):.2f}"
+V["rival_rate_max"] = f"{max(_rates.values()):.2f}"
+# HLA genes
+H = RES["hla"]
+V["hla_phaseable"] = n(sum(H["pgphase"]["reads"]["arms_phaseable"].values()))
+V["hla_pg_correct"] = n(H["pgphase"]["reads"]["arms_phaseable"]["correct"])
+_all = [NAME[t] for t, _ in TOOLS if t != "pgphase" and H[t]["reads"]["arms_phaseable"]["correct"] == sum(H[t]["reads"]["arms_phaseable"].values())]
+V["hla_also_all"] = " and ".join(_all)
+V["hla_whatshap_unph"] = n(H["whatshap"]["reads"]["arms_phaseable"]["unphased"])
+V["hla_lcd_unph"] = n(H["longcalld"]["reads"]["arms_phaseable"]["unphased"])
+assert H["pgphase"]["reads"]["arms_phaseable"]["discordant"] == 0
+# graph density in centromeric alpha-satellite arrays
+CD = RES["censat_density"]
+_alpha = {p: 1e6 * d["alpha_sites"] / d["alpha_bp"] for p, d in CD.items()}
+_arm = {p: 1e6 * d["arm_sites"] / d["arm_bp"] for p, d in CD.items()}
+V["alpha_density_min"], V["alpha_density_max"] = n(int(round(min(_alpha.values()), -2))), n(int(round(max(_alpha.values()), -2)))
+V["arm_density_min"], V["arm_density_max"] = n(int(round(min(_arm.values()), -2))), n(int(round(max(_arm.values()), -2)))
+V["alpha_gaf_min"] = n(int(round(min(d["alpha_gaf_rows"] for d in CD.values()), -2)))
+V["alpha_gaf_max"] = n(int(round(max(d["alpha_gaf_rows"] for d in CD.values()), -2)))
+V["cen_most_correct"] = cen["pgphase"]["correct"] == max(cen[t]["correct"] for t, _ in TOOLS)
+assert V["cen_most_correct"]
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

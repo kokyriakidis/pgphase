@@ -44,7 +44,8 @@ ABSTRACT = [
   f"million phaseable reads correctly, compared with {V['best_rival_correct_pct1']}% for the best of HiPhase, "
   f"LongPhase, WhatsHap and longcallD. It left {V['err_ratio']} times fewer reads misphased or unphased than the "
   f"best alternative, and made {V['pg_switches']} switch errors against {V['fewest_sw_rival_n']} for the next best "
-  "tool."),
+  f"tool. In centromeric satellites it phased the most reads correctly and made {V['pg_cen_switches']} switch errors "
+  f"against {V['rival_cen_switches_min']} to {V['rival_cen_switches_max']}."),
  ("Availability and implementation",
   "pgphase is free software under the MIT license, available at https://github.com/kokyriakidis/pgphase."),
 ]
@@ -101,7 +102,10 @@ BODY = [
 ('p',
  'On each of eight chromosomes of HG002, including the three not used for tuning, pgphase phased more reads '
  'correctly, left fewer reads misphased or unphased, and made fewer switch errors than HiPhase, LongPhase, WhatsHap '
- 'and longcallD ([#tab:reads]; [#tab:switches]).'),
+ 'and longcallD ([#tab:reads]; [#tab:switches]). It did so in centromeric satellites too, which the graph '
+ 'represents, phasing the most reads there correctly with a fraction of the other tools\' switch errors. Neither '
+ 'the graph alignments nor the linear alignments alone come close: together they phase 99% of reads correctly, '
+ 'each alone about 90% ([#tab:ablation]).'),
 
 ('sec', 'Materials and methods'),
 ('sub', 'Overview'),
@@ -259,7 +263,12 @@ BODY = [
  'tag. A read is centromeric when its alignment midpoint lies in one interval per chromosome spanning its '
  'centromeric and pericentromeric satellites, as annotated on CHM13 [@Altemose2022] and listed in '
  f'Supplementary Table {stab("scoring")}, and on the arms '
- 'otherwise. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
+ 'otherwise. The graph represents the satellites: its catalog held '
+ f'{V["alpha_density_min"]} to {V["alpha_density_max"]} sites per Mb in the alpha-satellite arrays of these '
+ f'chromosomes, against {V["arm_density_min"]} to {V["arm_density_max"]} on their arms, and '
+ f'{V["alpha_gaf_min"]} to {V["alpha_gaf_max"]} graph alignments per chromosome lay in the arrays. We report the '
+ 'satellites apart from the arms because reads map there ambiguously and the parental assignments are least '
+ 'reliable. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
  f'(Supplementary Table {stab("scoring")}). We also report the discordant reads whose parental assignment is '
  'confident (HapQ ≥ 30): on the development chromosomes, every tool was 25–37% discordant on reads below HapQ 10, '
  'most of which carry the other parent\'s alleles at their own clean SNVs, which points to an error in the label '
@@ -309,12 +318,27 @@ BODY = [
  f'{V["held_margin_min"]} to {V["held_margin_max"]} percentage points more phaseable reads correctly than the best '
  f'other tool on each, against {V["dev_margin_min"]} to {V["dev_margin_max"]} points on the development '
  f'chromosomes. In the MHC, whose HLA genes are among the most polymorphic of the genome, it phased '
- f'{V["mhc_pg_pct"]}% correctly, against {V["mhc_best_rival_pct"]}% for {V["mhc_best_rival"]}.'),
+ f'{V["mhc_pg_pct"]}% correctly, against {V["mhc_best_rival_pct"]}% for {V["mhc_best_rival"]}. In its eight '
+ f'classical HLA genes (with 5 kb on either side), pgphase, {V["hla_also_all"]} phased all {V["hla_phaseable"]} '
+ f'phaseable reads correctly; WhatsHap left {V["hla_whatshap_unph"]} unphased and longcallD {V["hla_lcd_unph"]}.'),
+('sub', 'Graph and linear alignments complement each other'),
+('p',
+ f'Run on its graph alignments alone, pgphase phased {V["abl_graphonly_correct"]}% of phaseable reads correctly and '
+ f'left {V["abl_graphonly_unph"]}% unphased; run on its linear alignments alone, through its port of longcallD\'s '
+ f'pipeline, {V["abl_bamonly_correct"]}% and {V["abl_bamonly_unph"]}%, close to longcallD itself '
+ f'({V["abl_lcd_correct"]}% and {V["abl_lcd_unph"]}%) ([#tab:ablation]). Together the two phased '
+ f'{V["pg_correct_pct"]}% correctly and left {V["pg_unph_pct"]}% unphased: each kind of evidence phases reads the '
+ 'other leaves without a site, the graph\'s known alleles where linear alignments disagree and the sample\'s own '
+ f'variants where the graph has none. The combination also made fewer arm switch errors, {V["pg_switches"]}, than '
+ f'either part alone ({V["abl_graphonly_switches"]} and {V["abl_bamonly_switches"]}), as the joint solve sees more '
+ 'sites at every boundary.'),
+('table', 'ablation'),
 ('sub', 'Switch errors'),
 ('p',
  f'pgphase made {V["pg_switches"]} switch errors on the arms of the eight chromosomes, fewer than any other tool on '
  f'each chromosome; {V["fewest_sw_rival"]} made the next fewest, {V["fewest_sw_rival_n"]}, and HiPhase '
- f'{V["hiphase_switches"]} ([#tab:switches]). A record-level count includes switches that are not phasing errors, '
+ f'{V["hiphase_switches"]} ([#tab:switches]); that is {V["pg_switch_rate"]} switches per 10,000 phased truth '
+ f'heterozygotes on the arms, against {V["rival_rate_min"]} to {V["rival_rate_max"]} for the other tools. A record-level count includes switches that are not phasing errors, '
  'so we checked each one against the haplotype sequences (Section 2.8). A switch is *real* when the tool\'s '
  'haplotypes around it pair with the truth\'s one way on one side and the other way on the other: the phase '
  'really changes there. It is a difference of *representation* when the haplotypes pair the same way on both '
@@ -340,8 +364,9 @@ BODY = [
 ('sub', 'Centromeres'),
 ('p',
  f'In centromeric and pericentromeric satellites, where reads map ambiguously and copies differ by few bases, '
- f'pgphase phased {V["pg_cen_correct"]} reads correctly, with {V["pg_cen_ratio"]} correct reads per discordant '
- f'one ([#tab:cen]). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
+ f'pgphase phased more reads correctly than any other tool, {V["pg_cen_correct"]}, with {V["pg_cen_ratio"]} correct '
+ f'reads per discordant one, and made the fewest switch errors, {V["pg_cen_switches"]} against '
+ f'{V["rival_cen_switches_min"]} to {V["rival_cen_switches_max"]} ([#tab:cen]; [#tab:switches]). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
  f'{V["most_cen_rival_ratio"]} correct reads per discordant one. {V["cen_best_ratio_rival"]} had the highest ratio, '
  f'{V["cen_best_ratio"]}, but phased only {V["cen_best_ratio_correct"]} reads correctly and left '
  f'{V["cen_best_ratio_unph"]} unphased.'),
@@ -351,24 +376,24 @@ BODY = [
  f'On the {V["n_same_threads"]} chromosomes where every multi-threaded tool ran with six threads, pgphase took '
  f'{V["pg_wall_total_min"]} minutes in total, against {V["hiphase_wall_total_min"]} for HiPhase and '
  f'{V["longphase_wall_total_min"]} for LongPhase; on chr6, {V["pg_wall_chr6"]} s against {V["hiphase_wall_chr6"]} s '
- f'and {V["longphase_wall_chr6"]} s ([#tab:resources]; per chromosome in Supplementary Table {stab("resources")}). '
+ f'and {V["longphase_wall_chr6"]} s (Supplementary Table {stab("resources")}). '
  'pgphase\'s time includes finding the sample\'s own variants and writing the haplotagged reads. HiPhase, '
  f'LongPhase and WhatsHap first need DeepVariant\'s calls, which took {V["dv_total_min"]} minutes on the same '
  f'chromosomes and threads: with them, HiPhase took {V["hiphase_with_calls_min"]} minutes and LongPhase '
  f'{V["longphase_with_calls_min"]}, {V["calls_speedup"]} times or more pgphase\'s time. No time includes read '
  f'alignment, which every tool needs. pgphase needed up to {V["pg_rss_max"]} GB of memory, more than the phasers '
  'given DeepVariant\'s calls.'),
-('table', 'resources'),
 
 ('sec', 'Discussion'),
 ('p',
  'Phasers are usually compared through their phased variants, but many uses of long-read phasing depend on the '
  'reads: a read left unphased is lost to every haplotype-resolved analysis, and a block joined in the wrong '
  'orientation misassigns all of its reads. On these terms pgphase phased more reads correctly than the tools we '
- 'compared it with, on every chromosome we tested. Two of its design choices are the likely reasons, although we '
- 'have not measured their contributions separately. First, it has more sites to phase reads with: the graph\'s '
- 'known alleles, observed in the reads\' graph alignments rather than called, and the sample\'s own heterozygous '
- 'variants. Second, it is conservative in joining blocks: sites at collapsed duplications, poorly mapped sites and '
+ 'compared it with, on every chromosome we tested, centromeric satellites included. Two design choices explain '
+ 'this. First, it has more sites to phase reads with: the graph\'s known alleles, observed in the reads\' graph '
+ 'alignments rather than called, and the sample\'s own heterozygous variants. Each source alone phased about 90% '
+ 'of phaseable reads correctly, no better than the other tools; together they phased 99% ([#tab:ablation]). '
+ 'Second, it is conservative in joining blocks: sites at collapsed duplications, poorly mapped sites and '
  'homopolymer length calls still label the reads that cross them but cannot join two blocks. The cost of the '
  'second is more and shorter blocks than HiPhase produces where the reads cannot verify how blocks connect. '
  'pgphase also needs no separate variant caller, which simplifies a pipeline and shortens it: the graph\'s '
