@@ -52,7 +52,7 @@ LDFLAGS ?= -lhts -lzstd -lm -lz -lpthread
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check unit-tests predicate-tests parity-tests pgcat-tests upstream-parity-tests gap-dev-check third-party-libs portable-bundle release release-strict
+.PHONY: all clean check paper paper-sync unit-tests predicate-tests parity-tests pgcat-tests upstream-parity-tests gap-dev-check third-party-libs portable-bundle release release-strict
 
 all: pgphase
 
@@ -184,3 +184,11 @@ test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.
 
 test_port_parity: src/test_port_parity.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
+
+# The paper: tools/paper/ renders paper/ (an Overleaf project) and build/paper/; paper-sync pushes the
+# committed paper/ to the Overleaf remote (tools/paper/sync-overleaf.sh; FORCE=1 the first time).
+paper:
+	python3 tools/paper/render.py
+
+paper-sync:
+	tools/paper/sync-overleaf.sh $(if $(FORCE),--force,)
