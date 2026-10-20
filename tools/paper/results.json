@@ -3544,6 +3544,10 @@
  },
  "resources": {
   "chr12": {
+   "deepvariant": {
+    "threads": 20,
+    "wall_s": 959.18
+   },
    "hiphase": {
     "cpu_pct": 937,
     "rss_gb": 0.8309593200683594,
@@ -3582,6 +3586,10 @@
    }
   },
   "chr16": {
+   "deepvariant": {
+    "threads": 6,
+    "wall_s": 1874.3
+   },
    "hiphase": {
     "cpu_pct": 431,
     "rss_gb": 0.4858818054199219,
@@ -3620,6 +3628,10 @@
    }
   },
   "chr17": {
+   "deepvariant": {
+    "threads": 6,
+    "wall_s": 950.19
+   },
    "hiphase": {
     "cpu_pct": 620,
     "rss_gb": 0.33452606201171875,
@@ -3658,6 +3670,10 @@
    }
   },
   "chr18": {
+   "deepvariant": {
+    "threads": 20,
+    "wall_s": 729.69
+   },
    "hiphase": {
     "cpu_pct": 1044,
     "rss_gb": 0.5134506225585938,
@@ -3696,6 +3712,10 @@
    }
   },
   "chr19": {
+   "deepvariant": {
+    "threads": 6,
+    "wall_s": 1410.6
+   },
    "hiphase": {
     "cpu_pct": 657,
     "rss_gb": 0.33615875244140625,
@@ -3734,6 +3754,10 @@
    }
   },
   "chr20": {
+   "deepvariant": {
+    "threads": 20,
+    "wall_s": 621.83
+   },
    "hiphase": {
     "cpu_pct": 943,
     "rss_gb": 0.48108673095703125,
@@ -3772,6 +3796,10 @@
    }
   },
   "chr21": {
+   "deepvariant": {
+    "threads": 6,
+    "wall_s": 1203.38
+   },
    "hiphase": {
     "cpu_pct": 660,
     "rss_gb": 0.2681465148925781,
@@ -3810,6 +3838,10 @@
    }
   },
   "chr6": {
+   "deepvariant": {
+    "threads": 6,
+    "wall_s": 1890.6
+   },
    "hiphase": {
     "cpu_pct": 445,
     "rss_gb": 0.47702789306640625,
