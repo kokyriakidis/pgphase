@@ -21,7 +21,7 @@ ABSTRACT = [
   "Long reads can be assigned to the parental haplotype they were sequenced from, but current phasers do so "
   "through heterozygous variants called against a single linear reference. Reads in regions where the caller "
   "finds no heterozygous variant stay unphased, and in collapsed duplications the differences between paralogous "
-  "copies mimic heterozygous variants, phasing reads, and whole blocks, in the wrong orientation. Haplotype-"
+  "copies mimic heterozygous variants and cause reads, and whole blocks, to be phased in the wrong orientation. Haplotype-"
   "resolved analyses that use the reads themselves need as many reads as possible phased, and phased correctly."),
  ("Results",
   "We present pgphase, which phases reads at the known alleles of a pangenome graph, observed directly in the reads' "
@@ -60,9 +60,9 @@ BODY = [
  'Where the caller finds no heterozygous variant, as in many tandem repeats and other regions where read '
  'alignments disagree, the reads there carry nothing to be phased by and stay unphased. Where a region is '
  "duplicated in the sample but not in the reference, the reads of both copies align to one place, and the copies' "
- 'differences look like heterozygous variants. Such differences co-segregate with the reads as consistently as '
- 'real heterozygous variants do, so a phaser can join two blocks through them in the wrong orientation and '
- 'misphase every read beyond the join. Phasers are usually compared by their phased variants, through switch '
+ 'differences look like heterozygous variants. They are as consistent across the reads as real heterozygous '
+ 'variants, so a phaser can join two blocks through them in the wrong orientation and misphase every read beyond '
+ 'the join. Phasers are usually compared by their phased variants, through switch '
  'errors and block lengths [@Lin2022; @Holt2024]. These metrics count a wrong join as one switch however many '
  'reads it misphases, and do not count the reads left unphased.'),
 ('p',
@@ -104,7 +104,7 @@ BODY = [
 ('figure', 'overview'),
 ('sub', 'Site catalog and read evidence from a pangenome graph'),
 ('p',
- "The catalog is built once per graph (`build-snarl-catalog`, from a GBZ graph [@Siren2022]): each snarl "
+ "The catalog is built once per graph, from a GBZ graph [@Siren2022] with `build-snarl-catalog`: each snarl "
  '[@Paten2018] of the graph is a site, whose reference allele is the walk of the reference path through it and '
  'whose alternative alleles are the distinct walks of the haplotype paths, ordered by the number of haplotypes '
  "that take them. The reads' graph alignments are indexed once by reference position (`index-gaf`). For each "
@@ -175,13 +175,13 @@ BODY = [
   'heterozygous. Where the join margin from the other sites alone is below 4, a join that relies on such sites '
   'needs a margin of 10 log-likelihood units.',
   '**Strong joins need several reads.** A margin counts as strong only when at least four reads carry evidence at '
-  'reliable sites that are not weak on both sides of the boundary.',
+  'reliable, non-weak sites on both sides of the boundary.',
   '**Collapsed duplications and poorly mapped sites support no joins.** A site called by more than twice the '
   "chunk's median number of reads, by more than 1.3 times that number with its rarer allele below 40%, or by reads "
   'whose mean mapping quality is below 40, labels reads but supports no join.',
   '**Redundant evidence counts once.** In the join test, a read\'s call at a site inside a local window is ignored '
-  'when the read also has a call at the window. A site within 30 bp of another whose shared reads split the same '
-  'way (95% of at least 80% of the reads) repeats that site\'s evidence and does not vote on read labels.',
+  'when the read also has a call at the window. A site within 30 bp of another that shares at least 80% of its '
+  'reads, 95% of which split the same way at both, repeats that site\'s evidence and does not vote on read labels.',
   '**No hinges.** A site that alone connects two blocks through weak joins on both sides, with no read spanning '
   'it, is cut at the weaker join.']),
 ('p',
@@ -198,18 +198,19 @@ BODY = [
  'when one orientation leads by at least three reads and 90%. Sites left out of the solve are then oriented from '
  'the labelled reads when their alleles associate with one phase set (exact one-sided binomial test, '
  '\\(p \\le 0.01\\)), and label the unlabelled reads that cross them. Last, a read whose calls in a block all '
- "agree takes the block's label from posterior 0.7, and a read still unlabelled is phased by its own call at one "
+ "agree takes the block's label if its posterior there is at least 0.7, and a read still unlabelled is phased by its own call at one "
  'site that cannot vote, in a block of that site alone (an *island*), which joins nothing, so that a wrong island '
  'affects only its own reads. In the VCF, a phase set whose heterozygotes all lie at one locus (within 10 bp) is '
  'written unphased, as are SNPs of learned error 0.1 or more, indels of 0.25 or more and unverified calls.'),
 ('sub', 'Evaluation'),
 ('p',
  '**Data.** HG002 [@Zook2016] PacBio HiFi reads (DRAFT: source and chemistry) were aligned with vg Giraffe '
- 'v1.73.0 [@Siren2021; @Chang2025] (HiFi preset, minimizers \\(k=31\\), \\(w=50\\)) to a 16-haplotype sample [@Siren2024] '
+ 'v1.73.0 [@Siren2021; @Chang2025], in its HiFi preset with minimizers \\(k=31\\) and \\(w=50\\), to a '
+ '16-haplotype sample [@Siren2024] '
  'of the Human Pangenome Reference Consortium release 2 Minigraph-Cactus graph on CHM13 [@Liao2023; @Hickey2024; '
  '@HPRC2], from which HG002 and its parents had been removed (229 assembled samples, CHM13 and GRCh38), and the '
- 'alignments were surjected onto CHM13 [@Nurk2022]; they covered chr19 at 59-fold. The catalog was built from the '
- 'full graph. All tools received the same reads: pgphase their graph alignments and the surjected BAM, the other '
+ 'alignments were surjected onto CHM13 [@Nurk2022]; they covered chr19 at 59-fold. The site catalog was built from '
+ 'the full graph rather than from the 16-haplotype sample. All tools received the same reads: pgphase their graph alignments and the surjected BAM, the other '
  'tools the BAM. HiPhase 1.6.0, LongPhase 2.0.2 and WhatsHap 2.8, run by default and with `--distrust-genotypes` '
  '(WhatsHap-dg), phased DeepVariant 1.10.0 calls (PACBIO model) made on the same BAM; longcallD v0.0.11 called '
  'and phased its own. pgphase was developed on chr12, chr17, chr18, chr19 and chr20, whose truth guided its rules '
@@ -226,7 +227,8 @@ BODY = [
  'phase set takes the parental orientation of the majority of its truth-labelled reads; a read is *correct* when '
  'its haplotype tag agrees with that orientation, *discordant* when it does not, and *unphased* when it has no '
  'tag. A read is centromeric when its alignment midpoint lies in one interval per chromosome spanning its '
- 'centromeric and pericentromeric satellites [@Altemose2022] (Supplementary Table S4), and on the arms '
+ 'centromeric and pericentromeric satellites, as annotated on CHM13 [@Altemose2022] and listed in '
+ 'Supplementary Table S4, and on the arms '
  'otherwise. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
  '(Supplementary Table S4). We also report the discordant reads whose parental assignment is confident (HapQ ≥ 30): '
  'on the development chromosomes, every tool was 25–37% discordant on reads below HapQ 10, most of which carry the '
@@ -253,7 +255,7 @@ BODY = [
  f'{V["best_rival_correct_pct"]}% correctly; pgphase phased {V["more_correct_than_best"]} more reads correctly, '
  f'and left {V["err_ratio"]} times fewer reads discordant or unphased than the tool with the fewest such reads, '
  f'{V["fewest_err_rival"]}. It phased the most reads correctly on every chromosome and left the fewest discordant '
- f'reads on {8 - V["n_disc_lost"]} of the eight; {V["disc_lost"]}, while leaving many more reads unphased '
+ f'reads on {V["n_disc_best_word"]} of the eight; {V["disc_lost"]}, while leaving many more reads unphased '
  f'([#fig:accuracy]). Among reads whose parental assignment is confident, pgphase phased {V["pg_conf_disc"]} '
  f'discordantly, against {V["low_conf_rival_disc"]} for {V["low_conf_rival"]}, the fewest among the others.'),
 ('table', 'reads'),
@@ -266,9 +268,9 @@ BODY = [
  f'{V["mhc_pg_pct"]}% correctly, against {V["mhc_best_rival_pct"]}% for {V["mhc_best_rival"]}.'),
 ('sub', 'Switch errors'),
 ('p',
- f'pgphase made {V["pg_switches"]} switch errors on the arms of the eight chromosomes, the fewest on each of them, '
- f'against {V["fewest_sw_rival_n"]} for {V["fewest_sw_rival"]}, the fewest among the others, and '
- f'{V["hiphase_switches"]} for HiPhase ([#tab:switches]). Classified by haplotype sequence, {V["pg_real"]} of '
+ f'pgphase made {V["pg_switches"]} switch errors on the arms of the eight chromosomes, fewer than any other tool on '
+ f'each chromosome; {V["fewest_sw_rival"]} made the next fewest, {V["fewest_sw_rival_n"]}, and HiPhase '
+ f'{V["hiphase_switches"]} ([#tab:switches]). Classified by haplotype sequence, {V["pg_real"]} of '
  f'pgphase\'s switches were real ({V["pg_real_chr19"]} of them on chr19), {V["pg_repr"]} were differences of '
  f'representation, and {V["pg_undec"]} were undecided, against {V["rival_real_min"]} to {V["rival_real_max"]} real '
  'switches for the other tools. pgphase\'s undecided switches lie mostly in tandem repeats where both of its '
@@ -278,8 +280,9 @@ BODY = [
 ('table', 'switches'),
 ('sub', 'Phased variants and blocks'),
 ('p',
- f'pgphase phased {V["pg_hets"]} truth heterozygous variants, against {V["most_hets_rival_n"]} for '
- f'{V["most_hets_rival"]}, the most among the others ([#tab:switches]). Its blocks are shorter than HiPhase\'s: '
+ f'{V["most_hets_rival"]}, which calls its own variants, phased the most truth heterozygous variants, '
+ f'{V["most_hets_rival_n"]}; pgphase phased {V["pg_hets"]}, more than any of the phasers given DeepVariant\'s calls '
+ f'({V["best_dv_hets_n"]} for {V["best_dv_hets_rival"]}; [#tab:switches]). Its blocks are shorter than HiPhase\'s: '
  f'{V["pg_ps"]} phase sets against {V["hiphase_ps"]}, and a median block N50 of {V["pg_n50_kb"]} kb against '
  f'{V["hiphase_n50_kb"]} kb. Many of the additional phase sets lie in centromeric satellites, which pgphase '
  'phases and HiPhase largely leaves unphased ([#tab:cen]), and in collapsed duplications and stretches read only at low '

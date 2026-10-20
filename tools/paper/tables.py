@@ -98,7 +98,7 @@ TABLES["reads"] = {
                "its alignment spans a heterozygous truth variant; it is correct when its haplotype tag agrees with "
                "the parental orientation its phase set takes over its truth-labelled reads, discordant when it "
                "does not, unphased when it has none. Per chromosome the share of phaseable reads phased correctly "
-               "(%); below, the totals over the eight chromosomes, and the discordant reads whose parental label "
+               "(%); below, the totals over the eight chromosomes, and the discordant reads whose parental assignment "
                "is confident (HapQ ≥ 30). The MHC lies inside chr6 and is not added to the totals. Best in bold. "
                "WhatsHap-dg: WhatsHap with `--distrust-genotypes`.",
     "header": ["Chromosome"] + [lab for _, lab in TOOLS],
@@ -124,7 +124,7 @@ TABLES["switches"] = {
     "caption": "Switch and flip errors on the chromosome arms, phased truth heterozygotes and blocks, over the eight "
                "chromosomes. A switch is a lasting change of a phase set's orientation against the truth between "
                "consecutive truth-matched heterozygotes, a flip a single heterozygote out of line with its "
-               "neighbours. Each switch is classed by comparing the tool's two haplotype sequences around its two "
+               "neighbours. Each switch is classified by comparing the tool's two haplotype sequences around its two "
                "heterozygotes with the truth's (Section 2.8): *real* when the two windows pair the haplotypes in "
                "opposite ways, *representation* when both pair them the same way (the tool writes the same "
                "haplotypes with different records), *undecided* when either window's two pairings are within 30% "
@@ -188,7 +188,7 @@ for p in CHROMS + [MHC]:
                      n(v["switches_arms"]), n(v["flips_arms"]), n(v["truth_matched_phased_hets"])])
 STABLES["perchrom"] = {
     "label": "S1", "long": True,
-    "caption": "Phaseable reads on the arms (correct, discordant, unphased), discordant reads whose parental label "
+    "caption": "Phaseable reads on the arms (correct, discordant, unphased), discordant reads whose parental assignment "
                "is confident (HapQ ≥ 30), arm switches and flips, and phased truth heterozygotes, per chromosome "
                "and tool.",
     "header": ["Tool", "Correct", "Discordant", "Unphased", "Disc. HapQ≥30", "Switches", "Flips", "Phased hets"],
@@ -203,7 +203,7 @@ for p in CHROMS:
         rows.append([lab, n(c["switches"]), n(c["real"]), n(c["representation"]), n(c["undecided"])])
 STABLES["census"] = {
     "label": "S2", "long": True,
-    "caption": "Arm switches per chromosome and tool, classed by the haplotype sequences around them (Section 2.8).",
+    "caption": "Arm switches per chromosome and tool, classified by the haplotype sequences around them (Section 2.8).",
     "header": ["Tool", "Switches", "Real", "Representation", "Undecided"],
     "align": "lrrrr",
     "rows": rows,
@@ -347,6 +347,12 @@ V["fewest_err_every_chrom"] = all(
     min(sum(reads(p, t, "arms_phaseable")[k] for k in ("discordant", "unphased")) for t in RIVALS) for p in CHROMS)
 V["fewest_switch_every_chrom"] = all(
     P[p]["pgphase"]["variants"]["switches_arms"] < min(P[p][t]["variants"]["switches_arms"] for t in RIVALS) for p in CHROMS)
+V["n_disc_best_word"] = WORDS[8 - len(disc_lost)]
+DV = ["hiphase", "longphase", "whatshap", "whatshap_opt"]
+best_dv = max(DV, key=lambda t: var(t, "truth_matched_phased_hets"))
+V["best_dv_hets_rival"] = NAME[best_dv]
+V["best_dv_hets_n"] = n(var(best_dv, "truth_matched_phased_hets"))
+assert var("pgphase", "truth_matched_phased_hets") > var(best_dv, "truth_matched_phased_hets")
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

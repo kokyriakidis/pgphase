@@ -98,6 +98,7 @@ def inline_tex(text):
             urls.append(m.group(1)); return f"\x02{len(urls) - 1}\x02"
         t = re.sub(r"(https://[^\s]+[^\s.,;)])", keep_url, t)
         t = tex_escape(t)
+        t = re.sub(r'"([^"]+)"', r"``\1''", t)  # typographic double quotes
         t = re.sub(r"\*\*(.+?)\*\*", r"\\textbf{\1}", t)
         t = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"\\emph{\1}", t)
         t = re.sub(r"\^([\w/]+)", r"$^{\1}$", t)
