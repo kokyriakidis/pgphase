@@ -205,9 +205,6 @@ BODY = [
   'reads, 95% of which split the same way at both, repeats that site\'s evidence and does not vote on read labels.',
   '**No hinges.** A site that alone connects two blocks through weak joins on both sides, with no read spanning '
   'it, is cut at the weaker join.']),
-('p',
- 'These rules produce more and shorter blocks where the reads cannot verify a join, in exchange for fewer '
- 'misphased reads.'),
 ('sub', 'Labels for the remaining reads, and output'),
 ('p',
  'Reads that the solve leaves unlabelled are labelled from evidence the solve does not vote with. Local haplotype '
@@ -222,9 +219,9 @@ BODY = [
  'where its graph alignment gives none. Last, a read whose calls in a block all '
  "agree takes the block's label if its posterior there is at least 0.7, and a read still unlabelled is phased by its own call at one "
  'site that cannot vote, in a block of that site alone (an *island*), which joins nothing, so that a wrong island '
- 'affects only its own reads. Island sites are those the solve rejected, repeat indels it never sees, verified '
- 'noisy variants that failed the rules of Section 2.4 and length windows; a read takes the one with the lowest '
- 'error, and a site needs two unlabelled reads and both alleles in at least a quarter of its reads. Before islands, a '
+ 'affects only its own reads. Island sites are rejected sites, repeat indels, verified noisy variants that failed '
+ 'Section 2.4\'s rules and length windows, each with two unlabelled reads and both alleles in a quarter of its '
+ 'reads; a read takes the one of lowest error. Before islands, a '
  'read with only unverified calls takes their label at posterior 0.8 when their learned error is below 0.1. In the '
  'VCF, multi-base substitutions are written as their '
  'single-base changes, indels are left-aligned, and two records of one variant are collapsed, keeping the phased '
@@ -246,10 +243,11 @@ BODY = [
  'check that changes generalised, and one rule (the hinge rule, Section 2.6) was found by examining an error on '
  'chr6. The MHC (chr6:28.5–34.0 Mb) is reported separately.'),
 ('p',
- '**Truth.** The parent of origin of each read was determined by aligning it with minimap2 2.31 [@Li2018] '
- '(preset `lr:hqae`, no secondary alignments) to each haplotype of the HG002 v1.1 assembly [@Hansen2025] and '
- 'choosing the better alignment with HipHap [@HipHap], which also scores the confidence of the assignment '
- '(HapQ). Reads without a parental label are not scored. Truth heterozygous variants are those of the Q100 '
+ '**Truth.** The reads were aligned separately to the maternal and the paternal haplotype of the HG002 v1.1 '
+ 'assembly [@Hansen2025] with minimap2 2.31 [@Li2018] (preset `lr:hqae`, no secondary alignments). HipHap '
+ '[@HipHap] compared the two alignments of each read, assigned the read to the haplotype with the better '
+ 'alignment score and scored the assignment\'s confidence (HapQ), using minimap2\'s match score rather than an '
+ 'estimate from a random sample of reads, so that the labels are reproducible. Reads without a parental label are not scored. Truth heterozygous variants are those of the Q100 '
  'HG002 small-variant benchmark on CHM13 [@Hansen2025].'),
 ('p',
  '**Read metrics.** A primary read is *phaseable* when its alignment spans a heterozygous truth variant. Each '
@@ -259,10 +257,9 @@ BODY = [
  'centromeric and pericentromeric satellites, as annotated on CHM13 [@Altemose2022] and listed in '
  f'Supplementary Table {stab("scoring")}, and on the arms '
  'otherwise. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
- f'(Supplementary Table {stab("scoring")}). We also report the discordant reads whose parental assignment is confident (HapQ ≥ 30): '
- 'on the development chromosomes, every tool was 25–37% discordant on reads below HapQ 10, most of which carry the '
- "other parent's alleles at their own clean SNVs, which points to an error in the label rather than in the phase. "
- 'All tools were scored by the same script.'),
+ f'(Supplementary Table {stab("scoring")}). We also report discordant reads with a confident parental assignment '
+ '(HapQ ≥ 30): below HapQ 10 every tool was 25–37% discordant on the development chromosomes, mostly on reads carrying the other parent\'s '
+ 'alleles at their own clean SNVs, a wrong label rather than a wrong phase. All tools were scored by the same script.'),
 ('p',
  '**Variant metrics.** A tool\'s phased heterozygous biallelic records are matched to the truth by position, '
  'reference and alternative allele. Within a phase set, a single matched heterozygote whose orientation '

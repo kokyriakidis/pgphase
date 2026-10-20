@@ -96,7 +96,7 @@ REFS = {
      volume="189", number="16", pages="4857--4875.e31", doi="10.1016/j.cell.2026.06.016"),
  # Software and data without a paper
  "HipHap": dict(type="misc", authors=A("HipHap developers"),
-     title="HipHap: the best alignment of each read to each haplotype of a diploid assembly", year="2026",
+     title="HipHap: choose the best alignment to each haploid of a diploid assembly", year="2026",
      url="https://github.com/jheinz27/hiphap"),
  "HPRC2": dict(type="misc", authors=A("Human Pangenome Reference Consortium"),
      title="Human pangenome reference, release 2 (Minigraph-Cactus graph, CHM13 reference)", year="2026",

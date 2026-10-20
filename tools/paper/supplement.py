@@ -42,6 +42,7 @@ BODY = [
   '-o candidates.tsv --phased-vcf-out phased.vcf --phased-bam-out phased.bam`',
   'Catalog and GAF index: `pgphase build-snarl-catalog` on the GBZ graph; `vg convert -G` of the reads\' GAM, then '
   '`pgphase index-gaf --graph GBZ --reference-sample CHM13`',
-  'Truth labels: `minimap2` of each read to each parental haplotype of HG002 v1.1, then `hiphap` on the two '
-  'alignments']),
+  'Truth labels: `minimap2 -ax lr:hqae -Y --cs --eqx -e 100 --secondary=no` of the reads to the maternal and, '
+  'separately, the paternal haplotype of HG002 v1.1; then `hiphap -p -1 mat -2 pat -A 2 MATERNAL.sam PATERNAL.sam`, '
+  'which compares the two alignments of each read and assigns it to one haplotype (HipHap aligns nothing itself)']),
 ]
