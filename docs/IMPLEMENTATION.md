@@ -187,6 +187,53 @@ flags into duplicate selection, so a verified phased injected row wins over an
 unphased graph repeat row of the same exact allele. These output decisions do
 not change candidate phasing or read HP labels.
 
+Before duplicates collapse, two rewrites put records in the representation the
+truth set and alignment-based callers use, so that a correctly phased variant
+matches its own truth record:
+
+- *Multi-base substitutions are split.* An equal-length multi-base substitution
+  (a catalog walk changing several adjacent bases: GA>CC at chr12:33,368,978)
+  is written as its changed single bases, each with the substitution's genotype
+  and phase set; a copy of one of them from another row then collapses with it.
+- *Indels are left-aligned* against the reference (catalog indels sit wherever
+  their snarl placed them inside a repeat), which also makes two descriptions
+  of one indel a single record.
+
+Records at one position are then reconciled (`make_colocated_alleles_complementary`,
+from longcallD, and `drop_conflicting_haplotype_alleles`). longcallD assumes two
+records at one position are two alleles, one per haplotype, and moves the less
+supported one when both claim the same haplotype. In the union output such a
+pair is usually one allele described twice (a catalog walk and the alignment's
+call, or two stutter lengths of one insertion), each phased by the EM from its
+own reads: moving one wrote it on the reference haplotype (chr12:13,569,119,
++12 and +14 bp AT, the +14 the truth's allele). So a pair in one phase set is
+left in place and `drop_conflicting_haplotype_alleles` keeps one description
+(the containing allele, else the better supported); a pair in two different
+phase sets is left alone too, since haplotype numbers of different phase sets
+are unrelated (chr20:7,184,086, carried by 38 paternal reads, had been inverted
+against its own reads).
+
+Two placements write phases for sites the phaser left alone, from the reads'
+final labels, without changing any label, join or block (phased BAMs are
+identical):
+
+- *Lone hets.* A phased het alone in its phase set phases nothing and would be
+  written unphased. When at least 3 of its labelled reads sit in one other
+  phase set -- the one holding most of them -- and split there by allele on
+  both haplotypes (80% each), it is written in that phase set with the reads'
+  orientation. Such a site typically lies between two blocks that were not
+  joined; its phase against one of them comes from that block's reads alone.
+  A phase set's hets are counted by position: a catalog SNP and the
+  alignment's injected copy are two candidates but one record once duplicates
+  collapse (chr12:10,999,331-351 had been skipped as "not alone").
+- *Two-allele SNP sites (1|2).* Two het SNPs at one position with different
+  ALTs, both left unphased, are a site with no reference allele: its REF-vs-ALT
+  pairs look 100% ALT and are dropped, and the alignment's two records each hear
+  one allele (HLA-B, chr6:31,212,612 G>A,T). Each ALT is written on the
+  haplotype holding 80% of its labelled carrier reads, in the phase set holding
+  most of them (at least 3), when both land in one phase set on opposite
+  haplotypes. Indel pairs are not placed (they added switches).
+
 Phased-BAM output accumulates a read across every chunk that observed it. Site
 alleles are merged by site identity, and a conflicting duplicate observation is
 marked ambiguous. A later primary **phased** HP/PS assignment replaces an earlier one,
@@ -421,12 +468,22 @@ Per chunk, in order:
      - *Calibration.* On chr20, wrong joins of this kind sat just above the
        ordinary cut (median 6) and right ones well above it (median 19).
      - *Strong joins need reads* (`kEmMinStrongJoinReads`). The margin over
-       the other sites counts as strong only when at least 3 reads carry
+       the other sites counts as strong only when at least 4 reads carry
        evidence at reliable, non-weak sites on both sides of the boundary;
        otherwise the join is a weak bridge. At chr12:118.48-118.50 Mb a
        strong margin of 5.2 came from two reads with a wrong call each, the
        rest of the margin from a homopolymer call at learned error 0.27, and
-       1,114 reads joined in the wrong orientation.
+       1,114 reads joined in the wrong orientation. Three reads were still
+       too few: at chr17:11.54-11.56 Mb three reads whose only calls left of
+       a 16 kb gap sat in a noisy MSA region carried a margin of 7.1 and
+       joined 121 confidently labelled reads in the wrong orientation.
+     - *No hinges* (`cut_blocks`). A site that alone connects its
+       neighbours -- no read observes join-eligible sites on both sides of
+       it -- with weak-bridge joins on both sides would leave the block's
+       orientation to that one site's phase; the weaker of its two joins is
+       cut. chr6:152,636,704, an injected call whose reads split the parents
+       0.58 (learned error 0.11), was the only connection between two blocks
+       and flipped the right one (930 reads).
    - *Collapsed duplications hold no joins* (`kEmJoinMaxDepthRatio`). A site
      called by more than 2x the chunk's median callers labels reads but
      carries no join, and its reads do not count as crossing a boundary
@@ -436,6 +493,14 @@ Per chunk, in order:
      callers' mean MAPQ is below 40 (`kEmJoinMinMeanMapq`) is treated the
      same: such sites were 433 of the 450 chr12 noise sites labelling
      discordant reads; +58 / -61 arm reads, switches -2.
+   - *Duplicated haplotypes hold no joins either* (`kEmDupDepthRatio`,
+     `kEmDupMinorFraction`). A site called by more than 1.3x the chunk's
+     median callers whose rarer allele is under 40% of them sits where one
+     parent carries two copies: it separates the copies, not the parents.
+     It labels reads but carries no join. chr19:8.274-8.284 Mb, 1.5x depth:
+     sites of learned error 0.01 split the maternal reads with half the
+     paternal ones from the other paternal half and carried a join that
+     flipped 29 kb of reads.
    - *One locus, one vote in the join test.* A locus window and a candidate
      inside it are read from the same bases, so their calls agree by
      construction; counted twice they outvoted a real het read once
@@ -487,7 +552,13 @@ Per chunk, in order:
      under `PS + kGapFillPsOffset` internally and written under their
      block's PS: written with the offset, each block's fill reads formed a
      phase set of their own and hid 261 arm reads phased against their block.
-     A phase set holding a single phased het is written unphased, and so is
+     A phase set whose phased hets all sit at one locus -- positions within
+     `kOneLocusSpan` (10 bp) of each other, among the records the VCF writes
+     phased -- phases nothing against anything and is written unphased: two
+     stutter lengths of one repeat insertion, or an MNP written as its SNPs
+     (chr19:141,384/141,385), kept such sets before (76 of chr21's 80 arm
+     phase sets under 1 kb). This is a VCF-only mark (`vcf_unphased`): the
+     candidates TSV and the reads' labels are unchanged. So is
      a phased site the VCF should not vouch for (`vcf_unphased`): an
      unverified call from a noisy region too long for MSA, a SNP at learned
      error 0.1 or more (`kEmVcfMaxSnpError`) or an indel at 0.25 or more
@@ -498,8 +569,8 @@ Per chunk, in order:
    - *Loci.* The alignment's noisy calls (NoisyCandHet/Hom) are merged within
      100 bp, padded by 40 bp and extended rightward through tandem repeats
      (period ≤ 50, scan ≤ 500 bp). Loci longer than 2 kb are dropped.
-   - *Reads.* Up to 60 primary reads with MAPQ 5 or more that span the whole
-     locus and are in the chunk are cut to it.
+   - *Reads.* Up to 400 primary reads (`kLocusMaxReads`) with MAPQ 5 or more
+     that span the whole locus and are in the chunk are cut to it.
    - *Haplotype sequences.* Seed labels come from the pass-1 phased sites: a
      read is labelled in a phase set when its votes there differ by at least 2
      and agree at least 90%. The two haplotype sequences are edit-distance

@@ -1,15 +1,22 @@
 cff-version: 1.2.0
 message: "If you use pgphase, please cite it as below."
-title: "pgphase: phasing long reads with their alignments to a pangenome graph"
+title: "pgphase: pangenome graph-aware phasing of long reads with known and sample-specific variants"
 type: software
 authors:
   - family-names: Kyriakidis
     given-names: Konstantinos
-version: 0.1.0
+    email: kkyriaki@ucsc.edu
+    affiliation: "UC Santa Cruz Genomics Institute"
+  - family-names: Paten
+    given-names: Benedict
+    email: bpaten@ucsc.edu
+    affiliation: "UC Santa Cruz Genomics Institute"
+version: 0.2.0
 license: MIT
 repository-code: "https://github.com/kokyriakidis/pgphase"
 keywords:
   - phasing
+  - haplotagging
   - pangenome
   - long reads
   - variation graph

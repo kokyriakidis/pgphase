@@ -174,6 +174,28 @@ make check        # end-to-end golden tests on the bundled data in test_data/
 `make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD` compiles
 longcallD's original C and checks the ported phasing functions against it.
 
+`docs/IMPLEMENTATION.md` describes how pgphase works today, rule by rule.
+
+## Paper
+
+The manuscript lives in `tools/paper/`: the text in `main_text.py` and
+`supplement.py`, the references in `refs.py`, and every table, figure and quoted
+number computed from `tools/paper/results.json` (the scores of pgphase and the
+compared tools) by `tables.py`.
+
+```bash
+make paper        # regenerates paper/ (an Overleaf project) and build/paper/ (HTML, PDFs)
+make paper-sync   # pushes the committed paper/ to the Overleaf project (FORCE=1 the first time)
+```
+
+Edit `tools/paper/`, not the generated `paper/`. `python3 tools/paper/check_refs.py`
+checks every DOI against Crossref. The scripts that run the tools and produce
+`results.json` are in https://github.com/kokyriakidis/pgphase-dev.
+
+## Citing
+
+See `CITATION.cff`.
+
 ## Licence
 
 MIT; see `LICENSE`. Third-party code and its licences are listed in
