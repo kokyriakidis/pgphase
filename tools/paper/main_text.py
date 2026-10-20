@@ -15,23 +15,21 @@ KEYWORDS = ["phasing", "haplotagging", "long reads", "pangenome graph", "graph a
 
 ABSTRACT = [
  ("Motivation",
-  "Read-based phasers assign the heterozygous variants of a diploid genome, and the long reads that carry them, to "
-  "the two parental haplotypes. They phase the variants a caller found on a linear reference: where the caller "
-  "misses the heterozygous variants of a region its reads are left unphased, and where it calls the differences "
-  "between copies of a collapsed duplication as heterozygous, they are phased against one another and join blocks "
-  "in the wrong orientation. Applications that use the reads themselves, such as haplotype-resolved assembly and "
-  "allele-specific analyses, depend on how many reads are phased, and phased correctly."),
+  "Long reads can be assigned to the parental haplotype they were sequenced from, but current phasers do so "
+  "through heterozygous variants called against a single linear reference. Reads in regions where the caller "
+  "finds no heterozygous variant stay unphased, and in collapsed duplications the differences between paralogous "
+  "copies mimic heterozygous variants, phasing reads, and whole blocks, in the wrong orientation. Haplotype-"
+  "resolved analyses that use the reads themselves need as many reads as possible phased, and phased correctly."),
  ("Results",
-  "We present pgphase, which phases reads at the known alleles of a pangenome graph, observed through the reads' "
-  "own graph alignments without calling them, together with the heterozygous variants the sample carries outside "
-  "the graph, found in its linear alignments. One expectation-maximization over both learns each site's error "
-  "rate, and blocks are joined only where several reads verify the join. On HG002 PacBio HiFi reads aligned to the "
-  "Human Pangenome Reference Consortium graph, with the parent of origin of every read as truth, on eight "
-  f"chromosomes of which three were held out from development, pgphase phased {V['pg_correct_pct']}% of "
-  f"{V['phaseable']} phaseable reads correctly, against {V['best_rival_correct_pct']}% for the best of HiPhase, "
-  f"LongPhase, WhatsHap and longcallD. It left {V['err_ratio']} times fewer reads misphased or unphased than "
-  f"{V['fewest_err_rival']}, made {V['pg_switches']} switch errors against {V['fewest_sw_rival_n']} for the "
-  f"best of them, and phased more truth heterozygous variants than any phaser given DeepVariant's calls."),
+  "We present pgphase, which phases reads at the known alleles of a pangenome graph, observed directly in the reads' "
+  "graph alignments, together with the sample's own heterozygous variants found in its linear alignments. A single "
+  "expectation-maximization learns how reliable each site is, and phase blocks are joined only where several reads "
+  "support the join. On HG002 PacBio HiFi reads, with each read's parent of origin as truth on eight chromosomes, "
+  f"three of them held out during development, pgphase phased {V['pg_correct_pct1']}% of {V['phaseable_m']} "
+  f"million phaseable reads correctly, compared with {V['best_rival_correct_pct1']}% for the best of HiPhase, "
+  f"LongPhase, WhatsHap and longcallD. It left {V['err_ratio']} times fewer reads misphased or unphased than the "
+  f"best alternative, and made {V['pg_switches']} switch errors against {V['fewest_sw_rival_n']} for the next best "
+  "tool."),
  ("Availability and implementation",
   "pgphase is free software under the MIT license, available at https://github.com/kokyriakidis/pgphase."),
 ]

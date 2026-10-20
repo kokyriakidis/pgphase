@@ -235,11 +235,14 @@ pg = tot["pgphase"]
 V["phaseable"] = n(sum(pg.values()))
 V["pg_correct"] = n(pg["correct"])
 V["pg_correct_pct"] = pct(pg["correct"], sum(pg.values()))
+V["pg_correct_pct1"] = pct(pg["correct"], sum(pg.values()), 1)
+V["phaseable_m"] = f"{sum(pg.values()) / 1e6:.1f}"
 V["pg_disc_pct"] = pct(pg["discordant"], sum(pg.values()))
 V["pg_unph_pct"] = pct(pg["unphased"], sum(pg.values()))
 best_rival = max(RIVALS, key=lambda t: tot[t]["correct"])
 V["best_rival"] = NAME[best_rival]
 V["best_rival_correct_pct"] = pct(tot[best_rival]["correct"], sum(tot[best_rival].values()))
+V["best_rival_correct_pct1"] = pct(tot[best_rival]["correct"], sum(tot[best_rival].values()), 1)
 V["more_correct_than_best"] = n(pg["correct"] - tot[best_rival]["correct"])
 fewest_err_rival = min(RIVALS, key=lambda t: tot[t]["discordant"] + tot[t]["unphased"])
 V["fewest_err_rival"] = NAME[fewest_err_rival]
