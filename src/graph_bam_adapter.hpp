@@ -83,12 +83,6 @@ struct GraphChunkBuildResult {
     std::vector<std::vector<int>> site_allele_orig_idx;
     // Sites that survived Phase 1 but were dropped in Phase 2.
     std::vector<FilteredGraphSite> filtered_sites;
-    // Catalog sites with two ALTs and no REF read, kept whole (two_alt_whole):
-    // held out of the chunk during union phasing, their read observations by
-    // read name, appended to the candidates for output.
-    struct TwoAltSite { CandidateVariant cand; std::string id; GraphSiteMeta meta; std::vector<int> orig_idx; };
-    std::vector<TwoAltSite> two_alt_sites;
-    std::unordered_map<std::string, std::vector<std::pair<std::string, int>>> two_alt_obs;
 };
 
 /// Group complete biallelic REF/ALT descriptions without combining their contracts.

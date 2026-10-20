@@ -625,11 +625,6 @@ struct CandidateVariant {
     /// apply_noisy_containment_filter): never verified, so union phasing
     /// treats it as weak -- it phases and labels, but cannot carry a join.
     bool unresolved_noisy = false;
-    /// A catalog site with two ALTs and no REF read, kept whole (a 1|2 site):
-    /// held out of union phasing and placed after it from the reads' labels.
-    bool two_alt_whole = false;
-    /// Output only: the records written from one two_alt_whole site share it.
-    int two_alt_group = 0;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
     // True when the variant's VCF POS falls inside the chunk's active region.

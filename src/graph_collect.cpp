@@ -39,7 +39,6 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -84,8 +83,6 @@ static CandidateTable graph_chunks_to_candidate_table(
     const bam_hdr_t* header)
 {
     CandidateTable result;
-    // Sites kept whole with two ALTs: each one's catalog span, by group.
-    std::vector<std::pair<hts_pos_t, hts_pos_t>> two_alt_span(1);
 
     for (const GraphChunkBuildResult& graph_chunk : graph_chunks) {
         const PhasingChunk& chunk = graph_chunk.chunk;
@@ -171,31 +168,6 @@ static CandidateTable graph_chunks_to_candidate_table(
                     ++labelled[ci];
                 }
             }
-            // Sites kept whole with two ALTs: their observations, by read name,
-            // against the reads' final labels.
-            if (!graph_chunk.two_alt_obs.empty()) {
-                std::unordered_map<std::string_view, size_t> read_of;
-                for (size_t ri = 0; ri < chunk.reads.size(); ++ri) read_of.emplace(chunk.reads[ri].qname, ri);
-                for (size_t ci = 0; ci < chunk.candidates.size() && ci < graph_chunk.site_ids.size(); ++ci) {
-                    if (!chunk.candidates[ci].two_alt_whole) continue;
-                    const auto oit = graph_chunk.two_alt_obs.find(graph_chunk.site_ids[ci]);
-                    if (oit == graph_chunk.two_alt_obs.end()) continue;
-                    for (const auto& [name, al] : oit->second) {
-                        const auto it = read_of.find(name);
-                        if (it == read_of.end()) continue;
-                        const size_t ri = it->second;
-                        int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
-                        hts_pos_t ps = ri < chunk.phase_sets.size() ? chunk.phase_sets[ri] : 0;
-                        if (!((hap == 1 || hap == 2) && ps > 0) && ri < chunk.gap_haps.size() && ri < chunk.gap_phase_sets.size() &&
-                            (chunk.gap_haps[ri] == 1 || chunk.gap_haps[ri] == 2) && chunk.gap_phase_sets[ri] > kGapFillPsOffset) {
-                            hap = chunk.gap_haps[ri];
-                            ps = chunk.gap_phase_sets[ri] - kGapFillPsOffset;
-                        }
-                        if (!((hap == 1 || hap == 2) && ps > 0)) continue;
-                        ++votes[ci][ps][static_cast<size_t>(hap)][al];
-                    }
-                }
-            }
             for (const auto& [ci, by_ps] : votes) {
                 hts_pos_t best = 0;
                 int best_n = 0;
@@ -251,21 +223,10 @@ static CandidateTable graph_chunks_to_candidate_table(
                 mp = &rephased;
             }
             const CandidateVariant& mcand = *mp;
-            // A site kept whole with two ALTs is written only where the reads'
-            // labels placed it: its reads carry two different ALTs, so it is
-            // never homozygous for either, which the writer would otherwise
-            // call from ref_cov 0 (chr18:15,724,231, a 3.4 kb 1/1 deletion
-            // the truth does not have).
-            if (mcand.two_alt_whole && mcand.phase_set <= 0) continue;
 
             if (ci >= graph_chunk.site_meta.size()) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
             if (meta.bam_alt_deletion_no_ref) continue;
-            int two_alt_group = 0;
-            if (mcand.two_alt_whole) {
-                two_alt_group = static_cast<int>(two_alt_span.size());
-                two_alt_span.emplace_back(meta.pos, meta.pos + static_cast<hts_pos_t>(meta.ref.size()));
-            }
 
             // A site injected by union gap phasing (no catalog id) is
             // written only when it carries phase information. The alignment's
@@ -340,7 +301,6 @@ static CandidateTable graph_chunks_to_candidate_table(
                 cand.msa_verified = mcand.msa_verified;
                 cand.alignment_verified = mcand.alignment_verified;
                 cand.vcf_unphased = mcand.vcf_unphased;
-                cand.two_alt_group = two_alt_group;
 
                 // Derive VariantKey from VCF-anchored alleles matching BAM-path convention:
                 //   SNP : key.pos = site.pos, key.alt = alt base, ref_len = 1
@@ -574,41 +534,6 @@ static CandidateTable graph_chunks_to_candidate_table(
                 c.key.pos = pos;
             }
         }
-    }
-    // A site kept whole with two ALTs yields to the noisy-region MSA. Where a
-    // phased het the MSA verified lies in its span, the MSA has already
-    // resolved the locus from the reads' own sequences, and the kept site's
-    // records (closest catalog walks) are dropped whole: written beside it,
-    // the same haplotype difference appears twice in two representations
-    // (chr20:52,221,667, a VNTR whose MSA calls at 52,221,681 and 52,221,727
-    // were right; the kept site's SNPs at 52,221,668/670 landed on the other
-    // haplotype, 2 switches).
-    if (two_alt_span.size() > 1) {
-        const auto end_of = [](const CandidateVariant& c) { return c.key.pos + std::max<hts_pos_t>(c.key.ref_len, 1); };
-        for (const CandidateVariant& c : result)
-            if (c.two_alt_group > 0) {
-                auto& sp = two_alt_span[static_cast<size_t>(c.two_alt_group)];
-                sp.first = std::min(sp.first, c.key.pos);
-                sp.second = std::max(sp.second, end_of(c));
-            }
-        std::vector<std::pair<hts_pos_t, hts_pos_t>> het_spans;
-        for (const CandidateVariant& c : result) {
-            if (c.two_alt_group > 0) continue;
-            const bool het = c.phase_set > 0 && c.hap_to_cons_alle[1] >= 0 && c.hap_to_cons_alle[2] >= 0 &&
-                c.hap_to_cons_alle[1] != c.hap_to_cons_alle[2];
-            if (het && c.msa_verified) het_spans.emplace_back(c.key.pos, end_of(c));
-        }
-        std::sort(het_spans.begin(), het_spans.end());
-        std::vector<char> drop(two_alt_span.size(), 0);
-        for (size_t gi = 1; gi < two_alt_span.size(); ++gi) {
-            const auto [beg, end] = two_alt_span[gi];
-            auto it = std::lower_bound(het_spans.begin(), het_spans.end(), std::make_pair(beg - 100000, hts_pos_t{0}));
-            for (; it != het_spans.end() && it->first < end; ++it)
-                if (it->second > beg) { drop[gi] = 1; break; }
-        }
-        result.erase(std::remove_if(result.begin(), result.end(), [&](const CandidateVariant& c) {
-            return c.two_alt_group > 0 && drop[static_cast<size_t>(c.two_alt_group)];
-        }), result.end());
     }
     std::stable_sort(result.begin(), result.end(),
                      [](const CandidateVariant& a, const CandidateVariant& b) {
@@ -994,19 +919,6 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
         apply_island_labels(graph_chunks[i].chunk);
-    }
-    // Sites kept whole with two ALTs join the candidates only now: union
-    // phasing never saw them, so no label, join or block depends on them.
-    for (GraphChunkBuildResult& gc : graph_chunks) {
-        const size_t n = gc.chunk.candidates.size();
-        if (gc.site_ids.size() == n && gc.site_meta.size() == n && gc.site_allele_orig_idx.size() == n)
-            for (GraphChunkBuildResult::TwoAltSite& s : gc.two_alt_sites) {
-                gc.chunk.candidates.push_back(std::move(s.cand));
-                gc.site_ids.push_back(s.id);
-                gc.site_meta.push_back(s.meta);
-                gc.site_allele_orig_idx.push_back(s.orig_idx);
-            }
-        gc.two_alt_sites.clear();
     }
     return graph_chunks;
 }
