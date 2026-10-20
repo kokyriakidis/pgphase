@@ -1,0 +1,3851 @@
+{
+ "census": [
+  {
+   "profile": "chr20",
+   "real": 0,
+   "representation": 2,
+   "switches": 2,
+   "tool": "pgphase",
+   "undecided": 0
+  },
+  {
+   "profile": "chr20",
+   "real": 13,
+   "representation": 0,
+   "switches": 16,
+   "tool": "hiphase",
+   "undecided": 3
+  },
+  {
+   "profile": "chr20",
+   "real": 2,
+   "representation": 0,
+   "switches": 8,
+   "tool": "longphase",
+   "undecided": 6
+  },
+  {
+   "profile": "chr20",
+   "real": 21,
+   "representation": 2,
+   "switches": 33,
+   "tool": "whatshap",
+   "undecided": 10
+  },
+  {
+   "profile": "chr20",
+   "real": 11,
+   "representation": 0,
+   "switches": 17,
+   "tool": "whatshap_opt",
+   "undecided": 6
+  },
+  {
+   "profile": "chr20",
+   "real": 5,
+   "representation": 4,
+   "switches": 15,
+   "tool": "longcalld",
+   "undecided": 6
+  },
+  {
+   "profile": "chr12",
+   "real": 0,
+   "representation": 2,
+   "switches": 4,
+   "tool": "pgphase",
+   "undecided": 2
+  },
+  {
+   "profile": "chr12",
+   "real": 18,
+   "representation": 0,
+   "switches": 23,
+   "tool": "hiphase",
+   "undecided": 5
+  },
+  {
+   "profile": "chr12",
+   "real": 2,
+   "representation": 0,
+   "switches": 10,
+   "tool": "longphase",
+   "undecided": 8
+  },
+  {
+   "profile": "chr12",
+   "real": 28,
+   "representation": 4,
+   "switches": 55,
+   "tool": "whatshap",
+   "undecided": 23
+  },
+  {
+   "profile": "chr12",
+   "real": 16,
+   "representation": 0,
+   "switches": 25,
+   "tool": "whatshap_opt",
+   "undecided": 9
+  },
+  {
+   "profile": "chr12",
+   "real": 20,
+   "representation": 3,
+   "switches": 26,
+   "tool": "longcalld",
+   "undecided": 3
+  },
+  {
+   "profile": "chr18",
+   "real": 0,
+   "representation": 4,
+   "switches": 9,
+   "tool": "pgphase",
+   "undecided": 5
+  },
+  {
+   "profile": "chr18",
+   "real": 13,
+   "representation": 0,
+   "switches": 23,
+   "tool": "hiphase",
+   "undecided": 10
+  },
+  {
+   "profile": "chr18",
+   "real": 2,
+   "representation": 1,
+   "switches": 14,
+   "tool": "longphase",
+   "undecided": 11
+  },
+  {
+   "profile": "chr18",
+   "real": 21,
+   "representation": 1,
+   "switches": 31,
+   "tool": "whatshap",
+   "undecided": 9
+  },
+  {
+   "profile": "chr18",
+   "real": 13,
+   "representation": 0,
+   "switches": 22,
+   "tool": "whatshap_opt",
+   "undecided": 9
+  },
+  {
+   "profile": "chr18",
+   "real": 15,
+   "representation": 8,
+   "switches": 27,
+   "tool": "longcalld",
+   "undecided": 4
+  },
+  {
+   "profile": "chr17",
+   "real": 0,
+   "representation": 2,
+   "switches": 4,
+   "tool": "pgphase",
+   "undecided": 2
+  },
+  {
+   "profile": "chr17",
+   "real": 13,
+   "representation": 0,
+   "switches": 21,
+   "tool": "hiphase",
+   "undecided": 8
+  },
+  {
+   "profile": "chr17",
+   "real": 10,
+   "representation": 1,
+   "switches": 21,
+   "tool": "longphase",
+   "undecided": 10
+  },
+  {
+   "profile": "chr17",
+   "real": 43,
+   "representation": 8,
+   "switches": 71,
+   "tool": "whatshap",
+   "undecided": 20
+  },
+  {
+   "profile": "chr17",
+   "real": 27,
+   "representation": 3,
+   "switches": 42,
+   "tool": "whatshap_opt",
+   "undecided": 12
+  },
+  {
+   "profile": "chr17",
+   "real": 16,
+   "representation": 6,
+   "switches": 30,
+   "tool": "longcalld",
+   "undecided": 8
+  },
+  {
+   "profile": "chr19",
+   "real": 7,
+   "representation": 1,
+   "switches": 13,
+   "tool": "pgphase",
+   "undecided": 5
+  },
+  {
+   "profile": "chr19",
+   "real": 22,
+   "representation": 0,
+   "switches": 28,
+   "tool": "hiphase",
+   "undecided": 6
+  },
+  {
+   "profile": "chr19",
+   "real": 9,
+   "representation": 3,
+   "switches": 19,
+   "tool": "longphase",
+   "undecided": 7
+  },
+  {
+   "profile": "chr19",
+   "real": 34,
+   "representation": 2,
+   "switches": 49,
+   "tool": "whatshap",
+   "undecided": 13
+  },
+  {
+   "profile": "chr19",
+   "real": 22,
+   "representation": 0,
+   "switches": 30,
+   "tool": "whatshap_opt",
+   "undecided": 8
+  },
+  {
+   "profile": "chr19",
+   "real": 14,
+   "representation": 0,
+   "switches": 19,
+   "tool": "longcalld",
+   "undecided": 5
+  },
+  {
+   "profile": "chr16",
+   "real": 1,
+   "representation": 0,
+   "switches": 9,
+   "tool": "pgphase",
+   "undecided": 8
+  },
+  {
+   "profile": "chr16",
+   "real": 12,
+   "representation": 0,
+   "switches": 21,
+   "tool": "hiphase",
+   "undecided": 9
+  },
+  {
+   "profile": "chr16",
+   "real": 6,
+   "representation": 0,
+   "switches": 10,
+   "tool": "longphase",
+   "undecided": 4
+  },
+  {
+   "profile": "chr16",
+   "real": 33,
+   "representation": 2,
+   "switches": 46,
+   "tool": "whatshap",
+   "undecided": 11
+  },
+  {
+   "profile": "chr16",
+   "real": 15,
+   "representation": 2,
+   "switches": 21,
+   "tool": "whatshap_opt",
+   "undecided": 4
+  },
+  {
+   "profile": "chr16",
+   "real": 17,
+   "representation": 3,
+   "switches": 27,
+   "tool": "longcalld",
+   "undecided": 7
+  },
+  {
+   "profile": "chr21",
+   "real": 1,
+   "representation": 2,
+   "switches": 8,
+   "tool": "pgphase",
+   "undecided": 5
+  },
+  {
+   "profile": "chr21",
+   "real": 6,
+   "representation": 0,
+   "switches": 10,
+   "tool": "hiphase",
+   "undecided": 4
+  },
+  {
+   "profile": "chr21",
+   "real": 4,
+   "representation": 0,
+   "switches": 9,
+   "tool": "longphase",
+   "undecided": 5
+  },
+  {
+   "profile": "chr21",
+   "real": 5,
+   "representation": 5,
+   "switches": 18,
+   "tool": "whatshap",
+   "undecided": 8
+  },
+  {
+   "profile": "chr21",
+   "real": 4,
+   "representation": 3,
+   "switches": 11,
+   "tool": "whatshap_opt",
+   "undecided": 4
+  },
+  {
+   "profile": "chr21",
+   "real": 3,
+   "representation": 5,
+   "switches": 13,
+   "tool": "longcalld",
+   "undecided": 5
+  },
+  {
+   "profile": "chr6",
+   "real": 1,
+   "representation": 0,
+   "switches": 9,
+   "tool": "pgphase",
+   "undecided": 8
+  },
+  {
+   "profile": "chr6",
+   "real": 22,
+   "representation": 2,
+   "switches": 36,
+   "tool": "hiphase",
+   "undecided": 12
+  },
+  {
+   "profile": "chr6",
+   "real": 6,
+   "representation": 0,
+   "switches": 14,
+   "tool": "longphase",
+   "undecided": 8
+  },
+  {
+   "profile": "chr6",
+   "real": 35,
+   "representation": 8,
+   "switches": 61,
+   "tool": "whatshap",
+   "undecided": 18
+  },
+  {
+   "profile": "chr6",
+   "real": 22,
+   "representation": 2,
+   "switches": 40,
+   "tool": "whatshap_opt",
+   "undecided": 16
+  },
+  {
+   "profile": "chr6",
+   "real": 25,
+   "representation": 7,
+   "switches": 43,
+   "tool": "longcalld",
+   "undecided": 11
+  }
+ ],
+ "meta": {
+  "binary": "/home/kokyriakidis/Downloads/pgphase-current/pgphase",
+  "git": "89573ef Revert \"Keep REF-less two-ALT catalog sites whole and place them after phasing\"",
+  "sha256": "551435abe64ba2993f52f6d52ed11b3858fb43753655cdc20530dee9db91b91a"
+ },
+ "profiles": {
+  "chr12": {
+   "hiphase": {
+    "blocks": {
+     "largest": 4358941,
+     "n50": 1043766,
+     "phase_sets": 338
+    },
+    "reads": {
+     "all": {
+      "correct": 505641,
+      "discordant": 19806,
+      "unphased": 14375
+     },
+     "arms": {
+      "correct": 504252,
+      "discordant": 18487,
+      "unphased": 8776
+     },
+     "arms_confident": {
+      "correct": 467347,
+      "discordant": 14458,
+      "unphased": 1796
+     },
+     "arms_nohet": {
+      "correct": 651,
+      "discordant": 640,
+      "unphased": 4007
+     },
+     "arms_phaseable": {
+      "correct": 503601,
+      "discordant": 17847,
+      "unphased": 4769
+     },
+     "cen": {
+      "correct": 1389,
+      "discordant": 1319,
+      "unphased": 5599
+     },
+     "cen_nohet": {
+      "correct": 482,
+      "discordant": 274,
+      "unphased": 1161
+     },
+     "cen_phaseable": {
+      "correct": 907,
+      "discordant": 1045,
+      "unphased": 4438
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 19,
+     "flips_cen": 25,
+     "switches_arms": 23,
+     "switches_cen": 15,
+     "truth_matched_phased_hets": 127723
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 2157153,
+     "n50": 497846,
+     "phase_sets": 743
+    },
+    "reads": {
+     "all": {
+      "correct": 487703,
+      "discordant": 7278,
+      "unphased": 44841
+     },
+     "arms": {
+      "correct": 487677,
+      "discordant": 7275,
+      "unphased": 36563
+     },
+     "arms_confident": {
+      "correct": 455564,
+      "discordant": 3161,
+      "unphased": 24876
+     },
+     "arms_nohet": {
+      "correct": 1958,
+      "discordant": 1741,
+      "unphased": 1599
+     },
+     "arms_phaseable": {
+      "correct": 485719,
+      "discordant": 5534,
+      "unphased": 34964
+     },
+     "cen": {
+      "correct": 26,
+      "discordant": 3,
+      "unphased": 8278
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 1917
+     },
+     "cen_phaseable": {
+      "correct": 26,
+      "discordant": 3,
+      "unphased": 6361
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 27,
+     "flips_cen": 2,
+     "switches_arms": 26,
+     "switches_cen": 2,
+     "truth_matched_phased_hets": 136655
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 4357098,
+     "n50": 742672,
+     "phase_sets": 474
+    },
+    "reads": {
+     "all": {
+      "correct": 498400,
+      "discordant": 7168,
+      "unphased": 34254
+     },
+     "arms": {
+      "correct": 493494,
+      "discordant": 4131,
+      "unphased": 33890
+     },
+     "arms_confident": {
+      "correct": 464834,
+      "discordant": 2612,
+      "unphased": 16155
+     },
+     "arms_nohet": {
+      "correct": 36,
+      "discordant": 45,
+      "unphased": 5217
+     },
+     "arms_phaseable": {
+      "correct": 493458,
+      "discordant": 4086,
+      "unphased": 28673
+     },
+     "cen": {
+      "correct": 4906,
+      "discordant": 3037,
+      "unphased": 364
+     },
+     "cen_nohet": {
+      "correct": 1122,
+      "discordant": 713,
+      "unphased": 82
+     },
+     "cen_phaseable": {
+      "correct": 3784,
+      "discordant": 2324,
+      "unphased": 282
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 12,
+     "flips_cen": 24,
+     "switches_arms": 10,
+     "switches_cen": 12,
+     "truth_matched_phased_hets": 109900
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 3183614,
+     "n50": 671269,
+     "phase_sets": 559
+    },
+    "reads": {
+     "all": {
+      "correct": 527641,
+      "discordant": 5067,
+      "unphased": 7114
+     },
+     "arms": {
+      "correct": 526064,
+      "discordant": 4373,
+      "unphased": 1078
+     },
+     "arms_confident": {
+      "correct": 483163,
+      "discordant": 380,
+      "unphased": 58
+     },
+     "arms_nohet": {
+      "correct": 2595,
+      "discordant": 1981,
+      "unphased": 722
+     },
+     "arms_phaseable": {
+      "correct": 523469,
+      "discordant": 2392,
+      "unphased": 356
+     },
+     "cen": {
+      "correct": 1577,
+      "discordant": 694,
+      "unphased": 6036
+     },
+     "cen_nohet": {
+      "correct": 715,
+      "discordant": 328,
+      "unphased": 874
+     },
+     "cen_phaseable": {
+      "correct": 862,
+      "discordant": 366,
+      "unphased": 5162
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr12/runs/full-971fe6eddec7.tmp.3886557",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 14,
+     "flips_cen": 1,
+     "switches_arms": 4,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 134155
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 3800153,
+     "n50": 1029983,
+     "phase_sets": 358
+    },
+    "reads": {
+     "all": {
+      "correct": 487717,
+      "discordant": 24801,
+      "unphased": 27304
+     },
+     "arms": {
+      "correct": 487587,
+      "discordant": 24743,
+      "unphased": 19185
+     },
+     "arms_confident": {
+      "correct": 454954,
+      "discordant": 19876,
+      "unphased": 8771
+     },
+     "arms_nohet": {
+      "correct": 790,
+      "discordant": 748,
+      "unphased": 3760
+     },
+     "arms_phaseable": {
+      "correct": 486797,
+      "discordant": 23995,
+      "unphased": 15425
+     },
+     "cen": {
+      "correct": 130,
+      "discordant": 58,
+      "unphased": 8119
+     },
+     "cen_nohet": {
+      "correct": 42,
+      "discordant": 8,
+      "unphased": 1867
+     },
+     "cen_phaseable": {
+      "correct": 88,
+      "discordant": 50,
+      "unphased": 6252
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 196,
+     "flips_cen": 31,
+     "switches_arms": 55,
+     "switches_cen": 20,
+     "truth_matched_phased_hets": 128022
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 3800153,
+     "n50": 986283,
+     "phase_sets": 377
+    },
+    "reads": {
+     "all": {
+      "correct": 497674,
+      "discordant": 13628,
+      "unphased": 28520
+     },
+     "arms": {
+      "correct": 497543,
+      "discordant": 13570,
+      "unphased": 20402
+     },
+     "arms_confident": {
+      "correct": 463998,
+      "discordant": 10940,
+      "unphased": 8663
+     },
+     "arms_nohet": {
+      "correct": 400,
+      "discordant": 392,
+      "unphased": 4506
+     },
+     "arms_phaseable": {
+      "correct": 497143,
+      "discordant": 13178,
+      "unphased": 15896
+     },
+     "cen": {
+      "correct": 131,
+      "discordant": 58,
+      "unphased": 8118
+     },
+     "cen_nohet": {
+      "correct": 41,
+      "discordant": 10,
+      "unphased": 1866
+     },
+     "cen_phaseable": {
+      "correct": 90,
+      "discordant": 48,
+      "unphased": 6252
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr12/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr12/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 39,
+     "flips_cen": 20,
+     "switches_arms": 25,
+     "switches_cen": 21,
+     "truth_matched_phased_hets": 127238
+    }
+   }
+  },
+  "chr16": {
+   "hiphase": {
+    "blocks": {
+     "largest": 4498794,
+     "n50": 805102,
+     "phase_sets": 351
+    },
+    "reads": {
+     "all": {
+      "correct": 286743,
+      "discordant": 14829,
+      "unphased": 65346
+     },
+     "arms": {
+      "correct": 267140,
+      "discordant": 7759,
+      "unphased": 36123
+     },
+     "arms_confident": {
+      "correct": 246414,
+      "discordant": 5628,
+      "unphased": 14009
+     },
+     "arms_nohet": {
+      "correct": 520,
+      "discordant": 454,
+      "unphased": 18002
+     },
+     "arms_phaseable": {
+      "correct": 266620,
+      "discordant": 7305,
+      "unphased": 18121
+     },
+     "cen": {
+      "correct": 19603,
+      "discordant": 7070,
+      "unphased": 29223
+     },
+     "cen_nohet": {
+      "correct": 6095,
+      "discordant": 4157,
+      "unphased": 19422
+     },
+     "cen_phaseable": {
+      "correct": 13508,
+      "discordant": 2913,
+      "unphased": 9801
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr16/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 36,
+     "switches_arms": 21,
+     "switches_cen": 88,
+     "truth_matched_phased_hets": 79853
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1828774,
+     "n50": 368006,
+     "phase_sets": 603
+    },
+    "reads": {
+     "all": {
+      "correct": 261375,
+      "discordant": 5509,
+      "unphased": 100034
+     },
+     "arms": {
+      "correct": 251226,
+      "discordant": 4363,
+      "unphased": 55433
+     },
+     "arms_confident": {
+      "correct": 234998,
+      "discordant": 1994,
+      "unphased": 29059
+     },
+     "arms_nohet": {
+      "correct": 715,
+      "discordant": 688,
+      "unphased": 17573
+     },
+     "arms_phaseable": {
+      "correct": 250511,
+      "discordant": 3675,
+      "unphased": 37860
+     },
+     "cen": {
+      "correct": 10149,
+      "discordant": 1146,
+      "unphased": 44601
+     },
+     "cen_nohet": {
+      "correct": 1916,
+      "discordant": 767,
+      "unphased": 26991
+     },
+     "cen_phaseable": {
+      "correct": 8233,
+      "discordant": 379,
+      "unphased": 17610
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr16/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 27,
+     "flips_cen": 19,
+     "switches_arms": 27,
+     "switches_cen": 42,
+     "truth_matched_phased_hets": 84142
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 2969362,
+     "n50": 540244,
+     "phase_sets": 392
+    },
+    "reads": {
+     "all": {
+      "correct": 300990,
+      "discordant": 19343,
+      "unphased": 46585
+     },
+     "arms": {
+      "correct": 268452,
+      "discordant": 4254,
+      "unphased": 38316
+     },
+     "arms_confident": {
+      "correct": 251977,
+      "discordant": 2988,
+      "unphased": 11086
+     },
+     "arms_nohet": {
+      "correct": 872,
+      "discordant": 299,
+      "unphased": 17805
+     },
+     "arms_phaseable": {
+      "correct": 267580,
+      "discordant": 3955,
+      "unphased": 20511
+     },
+     "cen": {
+      "correct": 32538,
+      "discordant": 15089,
+      "unphased": 8269
+     },
+     "cen_nohet": {
+      "correct": 14529,
+      "discordant": 9729,
+      "unphased": 5416
+     },
+     "cen_phaseable": {
+      "correct": 18009,
+      "discordant": 5360,
+      "unphased": 2853
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr16/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 8,
+     "flips_cen": 32,
+     "switches_arms": 10,
+     "switches_cen": 86,
+     "truth_matched_phased_hets": 70833
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 2807458,
+     "n50": 508867,
+     "phase_sets": 933
+    },
+    "reads": {
+     "all": {
+      "correct": 326523,
+      "discordant": 14182,
+      "unphased": 26213
+     },
+     "arms": {
+      "correct": 292259,
+      "discordant": 6069,
+      "unphased": 12694
+     },
+     "arms_confident": {
+      "correct": 263916,
+      "discordant": 1295,
+      "unphased": 840
+     },
+     "arms_nohet": {
+      "correct": 4922,
+      "discordant": 3001,
+      "unphased": 11053
+     },
+     "arms_phaseable": {
+      "correct": 287337,
+      "discordant": 3068,
+      "unphased": 1641
+     },
+     "cen": {
+      "correct": 34264,
+      "discordant": 8113,
+      "unphased": 13519
+     },
+     "cen_nohet": {
+      "correct": 15549,
+      "discordant": 5572,
+      "unphased": 8553
+     },
+     "cen_phaseable": {
+      "correct": 18715,
+      "discordant": 2541,
+      "unphased": 4966
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr16/runs/full-c3c8a973cb48.tmp.3893019",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 11,
+     "flips_cen": 1,
+     "switches_arms": 9,
+     "switches_cen": 4,
+     "truth_matched_phased_hets": 83256
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 3054961,
+     "n50": 715056,
+     "phase_sets": 376
+    },
+    "reads": {
+     "all": {
+      "correct": 263465,
+      "discordant": 17053,
+      "unphased": 86400
+     },
+     "arms": {
+      "correct": 251274,
+      "discordant": 14288,
+      "unphased": 45460
+     },
+     "arms_confident": {
+      "correct": 233722,
+      "discordant": 11560,
+      "unphased": 20769
+     },
+     "arms_nohet": {
+      "correct": 554,
+      "discordant": 587,
+      "unphased": 17835
+     },
+     "arms_phaseable": {
+      "correct": 250720,
+      "discordant": 13701,
+      "unphased": 27625
+     },
+     "cen": {
+      "correct": 12191,
+      "discordant": 2765,
+      "unphased": 40940
+     },
+     "cen_nohet": {
+      "correct": 2911,
+      "discordant": 1777,
+      "unphased": 24986
+     },
+     "cen_phaseable": {
+      "correct": 9280,
+      "discordant": 988,
+      "unphased": 15954
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr16/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 108,
+     "flips_cen": 80,
+     "switches_arms": 46,
+     "switches_cen": 110,
+     "truth_matched_phased_hets": 79405
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 3054961,
+     "n50": 700643,
+     "phase_sets": 389
+    },
+    "reads": {
+     "all": {
+      "correct": 271039,
+      "discordant": 8968,
+      "unphased": 86911
+     },
+     "arms": {
+      "correct": 258770,
+      "discordant": 6274,
+      "unphased": 45978
+     },
+     "arms_confident": {
+      "correct": 240828,
+      "discordant": 4397,
+      "unphased": 20826
+     },
+     "arms_nohet": {
+      "correct": 378,
+      "discordant": 374,
+      "unphased": 18224
+     },
+     "arms_phaseable": {
+      "correct": 258392,
+      "discordant": 5900,
+      "unphased": 27754
+     },
+     "cen": {
+      "correct": 12269,
+      "discordant": 2694,
+      "unphased": 40933
+     },
+     "cen_nohet": {
+      "correct": 2933,
+      "discordant": 1743,
+      "unphased": 24998
+     },
+     "cen_phaseable": {
+      "correct": 9336,
+      "discordant": 951,
+      "unphased": 15935
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr16/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr16/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 23,
+     "flips_cen": 47,
+     "switches_arms": 21,
+     "switches_cen": 84,
+     "truth_matched_phased_hets": 78521
+    }
+   }
+  },
+  "chr17": {
+   "hiphase": {
+    "blocks": {
+     "largest": 3596278,
+     "n50": 765857,
+     "phase_sets": 245
+    },
+    "reads": {
+     "all": {
+      "correct": 283228,
+      "discordant": 8590,
+      "unphased": 44327
+     },
+     "arms": {
+      "correct": 272863,
+      "discordant": 6136,
+      "unphased": 32302
+     },
+     "arms_confident": {
+      "correct": 251469,
+      "discordant": 3904,
+      "unphased": 8250
+     },
+     "arms_nohet": {
+      "correct": 507,
+      "discordant": 504,
+      "unphased": 20342
+     },
+     "arms_phaseable": {
+      "correct": 272356,
+      "discordant": 5632,
+      "unphased": 11960
+     },
+     "cen": {
+      "correct": 10365,
+      "discordant": 2454,
+      "unphased": 12025
+     },
+     "cen_nohet": {
+      "correct": 1104,
+      "discordant": 797,
+      "unphased": 5598
+     },
+     "cen_phaseable": {
+      "correct": 9261,
+      "discordant": 1657,
+      "unphased": 6427
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr17/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 13,
+     "flips_cen": 53,
+     "switches_arms": 21,
+     "switches_cen": 80,
+     "truth_matched_phased_hets": 73299
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1282630,
+     "n50": 321644,
+     "phase_sets": 586
+    },
+    "reads": {
+     "all": {
+      "correct": 261620,
+      "discordant": 5610,
+      "unphased": 68915
+     },
+     "arms": {
+      "correct": 254266,
+      "discordant": 5279,
+      "unphased": 51756
+     },
+     "arms_confident": {
+      "correct": 237417,
+      "discordant": 2009,
+      "unphased": 24197
+     },
+     "arms_nohet": {
+      "correct": 1268,
+      "discordant": 1161,
+      "unphased": 18924
+     },
+     "arms_phaseable": {
+      "correct": 252998,
+      "discordant": 4118,
+      "unphased": 32832
+     },
+     "cen": {
+      "correct": 7354,
+      "discordant": 331,
+      "unphased": 17159
+     },
+     "cen_nohet": {
+      "correct": 200,
+      "discordant": 133,
+      "unphased": 7166
+     },
+     "cen_phaseable": {
+      "correct": 7154,
+      "discordant": 198,
+      "unphased": 9993
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr17/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 26,
+     "flips_cen": 21,
+     "switches_arms": 30,
+     "switches_cen": 40,
+     "truth_matched_phased_hets": 78340
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 1744827,
+     "n50": 481262,
+     "phase_sets": 332
+    },
+    "reads": {
+     "all": {
+      "correct": 277618,
+      "discordant": 10131,
+      "unphased": 48396
+     },
+     "arms": {
+      "correct": 263157,
+      "discordant": 3680,
+      "unphased": 44464
+     },
+     "arms_confident": {
+      "correct": 248007,
+      "discordant": 2493,
+      "unphased": 13123
+     },
+     "arms_nohet": {
+      "correct": 256,
+      "discordant": 154,
+      "unphased": 20943
+     },
+     "arms_phaseable": {
+      "correct": 262901,
+      "discordant": 3526,
+      "unphased": 23521
+     },
+     "cen": {
+      "correct": 14461,
+      "discordant": 6451,
+      "unphased": 3932
+     },
+     "cen_nohet": {
+      "correct": 2977,
+      "discordant": 2642,
+      "unphased": 1880
+     },
+     "cen_phaseable": {
+      "correct": 11484,
+      "discordant": 3809,
+      "unphased": 2052
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr17/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 9,
+     "flips_cen": 52,
+     "switches_arms": 21,
+     "switches_cen": 73,
+     "truth_matched_phased_hets": 63498
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 2499902,
+     "n50": 536688,
+     "phase_sets": 611
+    },
+    "reads": {
+     "all": {
+      "correct": 308500,
+      "discordant": 10246,
+      "unphased": 17399
+     },
+     "arms": {
+      "correct": 291905,
+      "discordant": 7237,
+      "unphased": 12159
+     },
+     "arms_confident": {
+      "correct": 262132,
+      "discordant": 1073,
+      "unphased": 418
+     },
+     "arms_nohet": {
+      "correct": 5853,
+      "discordant": 4212,
+      "unphased": 11288
+     },
+     "arms_phaseable": {
+      "correct": 286052,
+      "discordant": 3025,
+      "unphased": 871
+     },
+     "cen": {
+      "correct": 16595,
+      "discordant": 3009,
+      "unphased": 5240
+     },
+     "cen_nohet": {
+      "correct": 2751,
+      "discordant": 1042,
+      "unphased": 3706
+     },
+     "cen_phaseable": {
+      "correct": 13844,
+      "discordant": 1967,
+      "unphased": 1534
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr17/runs/full-8c712a13c2b7.tmp.3887160",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 11,
+     "flips_cen": 2,
+     "switches_arms": 4,
+     "switches_cen": 20,
+     "truth_matched_phased_hets": 78209
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 3544215,
+     "n50": 660078,
+     "phase_sets": 275
+    },
+    "reads": {
+     "all": {
+      "correct": 263815,
+      "discordant": 14794,
+      "unphased": 57536
+     },
+     "arms": {
+      "correct": 255375,
+      "discordant": 14149,
+      "unphased": 41777
+     },
+     "arms_confident": {
+      "correct": 237445,
+      "discordant": 11175,
+      "unphased": 15003
+     },
+     "arms_nohet": {
+      "correct": 455,
+      "discordant": 489,
+      "unphased": 20409
+     },
+     "arms_phaseable": {
+      "correct": 254920,
+      "discordant": 13660,
+      "unphased": 21368
+     },
+     "cen": {
+      "correct": 8440,
+      "discordant": 645,
+      "unphased": 15759
+     },
+     "cen_nohet": {
+      "correct": 496,
+      "discordant": 195,
+      "unphased": 6808
+     },
+     "cen_phaseable": {
+      "correct": 7944,
+      "discordant": 450,
+      "unphased": 8951
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr17/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 127,
+     "flips_cen": 78,
+     "switches_arms": 71,
+     "switches_cen": 95,
+     "truth_matched_phased_hets": 73219
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 3544215,
+     "n50": 646112,
+     "phase_sets": 297
+    },
+    "reads": {
+     "all": {
+      "correct": 266854,
+      "discordant": 11354,
+      "unphased": 57937
+     },
+     "arms": {
+      "correct": 258454,
+      "discordant": 10708,
+      "unphased": 42139
+     },
+     "arms_confident": {
+      "correct": 240551,
+      "discordant": 8465,
+      "unphased": 14607
+     },
+     "arms_nohet": {
+      "correct": 327,
+      "discordant": 325,
+      "unphased": 20701
+     },
+     "arms_phaseable": {
+      "correct": 258127,
+      "discordant": 10383,
+      "unphased": 21438
+     },
+     "cen": {
+      "correct": 8400,
+      "discordant": 646,
+      "unphased": 15798
+     },
+     "cen_nohet": {
+      "correct": 502,
+      "discordant": 191,
+      "unphased": 6806
+     },
+     "cen_phaseable": {
+      "correct": 7898,
+      "discordant": 455,
+      "unphased": 8992
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr17/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr17/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 30,
+     "flips_cen": 56,
+     "switches_arms": 42,
+     "switches_cen": 77,
+     "truth_matched_phased_hets": 72338
+    }
+   }
+  },
+  "chr18": {
+   "hiphase": {
+    "blocks": {
+     "largest": 2555216,
+     "n50": 852169,
+     "phase_sets": 252
+    },
+    "reads": {
+     "all": {
+      "correct": 288333,
+      "discordant": 17236,
+      "unphased": 13472
+     },
+     "arms": {
+      "correct": 281540,
+      "discordant": 11515,
+      "unphased": 7101
+     },
+     "arms_confident": {
+      "correct": 256921,
+      "discordant": 9247,
+      "unphased": 1811
+     },
+     "arms_nohet": {
+      "correct": 396,
+      "discordant": 391,
+      "unphased": 2567
+     },
+     "arms_phaseable": {
+      "correct": 281144,
+      "discordant": 11124,
+      "unphased": 4534
+     },
+     "cen": {
+      "correct": 6793,
+      "discordant": 5721,
+      "unphased": 6371
+     },
+     "cen_nohet": {
+      "correct": 3755,
+      "discordant": 3492,
+      "unphased": 3650
+     },
+     "cen_phaseable": {
+      "correct": 3038,
+      "discordant": 2229,
+      "unphased": 2721
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 11,
+     "flips_cen": 23,
+     "switches_arms": 23,
+     "switches_cen": 54,
+     "truth_matched_phased_hets": 71236
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1454376,
+     "n50": 405897,
+     "phase_sets": 575
+    },
+    "reads": {
+     "all": {
+      "correct": 275258,
+      "discordant": 4782,
+      "unphased": 39001
+     },
+     "arms": {
+      "correct": 273364,
+      "discordant": 4155,
+      "unphased": 22637
+     },
+     "arms_confident": {
+      "correct": 250855,
+      "discordant": 1740,
+      "unphased": 15384
+     },
+     "arms_nohet": {
+      "correct": 1260,
+      "discordant": 1129,
+      "unphased": 965
+     },
+     "arms_phaseable": {
+      "correct": 272104,
+      "discordant": 3026,
+      "unphased": 21672
+     },
+     "cen": {
+      "correct": 1894,
+      "discordant": 627,
+      "unphased": 16364
+     },
+     "cen_nohet": {
+      "correct": 686,
+      "discordant": 300,
+      "unphased": 9911
+     },
+     "cen_phaseable": {
+      "correct": 1208,
+      "discordant": 327,
+      "unphased": 6453
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 11,
+     "flips_cen": 21,
+     "switches_arms": 27,
+     "switches_cen": 37,
+     "truth_matched_phased_hets": 75660
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 2365473,
+     "n50": 612149,
+     "phase_sets": 307
+    },
+    "reads": {
+     "all": {
+      "correct": 283553,
+      "discordant": 10105,
+      "unphased": 25383
+     },
+     "arms": {
+      "correct": 273759,
+      "discordant": 2368,
+      "unphased": 24029
+     },
+     "arms_confident": {
+      "correct": 255223,
+      "discordant": 1493,
+      "unphased": 11263
+     },
+     "arms_nohet": {
+      "correct": 83,
+      "discordant": 1,
+      "unphased": 3270
+     },
+     "arms_phaseable": {
+      "correct": 273676,
+      "discordant": 2367,
+      "unphased": 20759
+     },
+     "cen": {
+      "correct": 9794,
+      "discordant": 7737,
+      "unphased": 1354
+     },
+     "cen_nohet": {
+      "correct": 5595,
+      "discordant": 4511,
+      "unphased": 791
+     },
+     "cen_phaseable": {
+      "correct": 4199,
+      "discordant": 3226,
+      "unphased": 563
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 24,
+     "switches_arms": 14,
+     "switches_cen": 36,
+     "truth_matched_phased_hets": 61960
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 1504620,
+     "n50": 553515,
+     "phase_sets": 435
+    },
+    "reads": {
+     "all": {
+      "correct": 306620,
+      "discordant": 6146,
+      "unphased": 6275
+     },
+     "arms": {
+      "correct": 296789,
+      "discordant": 2722,
+      "unphased": 645
+     },
+     "arms_confident": {
+      "correct": 267620,
+      "discordant": 322,
+      "unphased": 37
+     },
+     "arms_nohet": {
+      "correct": 1698,
+      "discordant": 1209,
+      "unphased": 447
+     },
+     "arms_phaseable": {
+      "correct": 295091,
+      "discordant": 1513,
+      "unphased": 198
+     },
+     "cen": {
+      "correct": 9831,
+      "discordant": 3424,
+      "unphased": 5630
+     },
+     "cen_nohet": {
+      "correct": 5334,
+      "discordant": 1979,
+      "unphased": 3584
+     },
+     "cen_phaseable": {
+      "correct": 4497,
+      "discordant": 1445,
+      "unphased": 2046
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr18/runs/full-94aecfeb97f4.tmp.3886964",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 0,
+     "switches_arms": 9,
+     "switches_cen": 2,
+     "truth_matched_phased_hets": 73464
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 1986482,
+     "n50": 733281,
+     "phase_sets": 267
+    },
+    "reads": {
+     "all": {
+      "correct": 273459,
+      "discordant": 17985,
+      "unphased": 27597
+     },
+     "arms": {
+      "correct": 270565,
+      "discordant": 15927,
+      "unphased": 13664
+     },
+     "arms_confident": {
+      "correct": 248289,
+      "discordant": 13504,
+      "unphased": 6186
+     },
+     "arms_nohet": {
+      "correct": 444,
+      "discordant": 427,
+      "unphased": 2483
+     },
+     "arms_phaseable": {
+      "correct": 270121,
+      "discordant": 15500,
+      "unphased": 11181
+     },
+     "cen": {
+      "correct": 2894,
+      "discordant": 2058,
+      "unphased": 13933
+     },
+     "cen_nohet": {
+      "correct": 1294,
+      "discordant": 1244,
+      "unphased": 8359
+     },
+     "cen_phaseable": {
+      "correct": 1600,
+      "discordant": 814,
+      "unphased": 5574
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 83,
+     "flips_cen": 58,
+     "switches_arms": 31,
+     "switches_cen": 70,
+     "truth_matched_phased_hets": 71527
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 1986482,
+     "n50": 722820,
+     "phase_sets": 284
+    },
+    "reads": {
+     "all": {
+      "correct": 274843,
+      "discordant": 16229,
+      "unphased": 27969
+     },
+     "arms": {
+      "correct": 271873,
+      "discordant": 14246,
+      "unphased": 14037
+     },
+     "arms_confident": {
+      "correct": 249629,
+      "discordant": 12275,
+      "unphased": 6075
+     },
+     "arms_nohet": {
+      "correct": 288,
+      "discordant": 262,
+      "unphased": 2804
+     },
+     "arms_phaseable": {
+      "correct": 271585,
+      "discordant": 13984,
+      "unphased": 11233
+     },
+     "cen": {
+      "correct": 2970,
+      "discordant": 1983,
+      "unphased": 13932
+     },
+     "cen_nohet": {
+      "correct": 1339,
+      "discordant": 1197,
+      "unphased": 8361
+     },
+     "cen_phaseable": {
+      "correct": 1631,
+      "discordant": 786,
+      "unphased": 5571
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr18/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr18/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 21,
+     "flips_cen": 33,
+     "switches_arms": 22,
+     "switches_cen": 45,
+     "truth_matched_phased_hets": 70949
+    }
+   }
+  },
+  "chr19": {
+   "hiphase": {
+    "blocks": {
+     "largest": 3031424,
+     "n50": 1022719,
+     "phase_sets": 158
+    },
+    "reads": {
+     "all": {
+      "correct": 188842,
+      "discordant": 11845,
+      "unphased": 28382
+     },
+     "arms": {
+      "correct": 178369,
+      "discordant": 8359,
+      "unphased": 16188
+     },
+     "arms_confident": {
+      "correct": 167828,
+      "discordant": 6669,
+      "unphased": 4035
+     },
+     "arms_nohet": {
+      "correct": 406,
+      "discordant": 393,
+      "unphased": 9811
+     },
+     "arms_phaseable": {
+      "correct": 177963,
+      "discordant": 7966,
+      "unphased": 6377
+     },
+     "cen": {
+      "correct": 10473,
+      "discordant": 3486,
+      "unphased": 12194
+     },
+     "cen_nohet": {
+      "correct": 3834,
+      "discordant": 3044,
+      "unphased": 10391
+     },
+     "cen_phaseable": {
+      "correct": 6639,
+      "discordant": 442,
+      "unphased": 1803
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr19/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 15,
+     "flips_cen": 13,
+     "switches_arms": 28,
+     "switches_cen": 34,
+     "truth_matched_phased_hets": 66225
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1455950,
+     "n50": 447457,
+     "phase_sets": 340
+    },
+    "reads": {
+     "all": {
+      "correct": 178911,
+      "discordant": 3271,
+      "unphased": 46887
+     },
+     "arms": {
+      "correct": 173328,
+      "discordant": 3075,
+      "unphased": 26513
+     },
+     "arms_confident": {
+      "correct": 164614,
+      "discordant": 1260,
+      "unphased": 12658
+     },
+     "arms_nohet": {
+      "correct": 679,
+      "discordant": 578,
+      "unphased": 9353
+     },
+     "arms_phaseable": {
+      "correct": 172649,
+      "discordant": 2497,
+      "unphased": 17160
+     },
+     "cen": {
+      "correct": 5583,
+      "discordant": 196,
+      "unphased": 20374
+     },
+     "cen_nohet": {
+      "correct": 250,
+      "discordant": 135,
+      "unphased": 16884
+     },
+     "cen_phaseable": {
+      "correct": 5333,
+      "discordant": 61,
+      "unphased": 3490
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr19/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 26,
+     "flips_cen": 6,
+     "switches_arms": 19,
+     "switches_cen": 10,
+     "truth_matched_phased_hets": 71026
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 2097502,
+     "n50": 632008,
+     "phase_sets": 191
+    },
+    "reads": {
+     "all": {
+      "correct": 187926,
+      "discordant": 10959,
+      "unphased": 30184
+     },
+     "arms": {
+      "correct": 174563,
+      "discordant": 4625,
+      "unphased": 23728
+     },
+     "arms_confident": {
+      "correct": 166772,
+      "discordant": 3951,
+      "unphased": 7809
+     },
+     "arms_nohet": {
+      "correct": 523,
+      "discordant": 148,
+      "unphased": 9939
+     },
+     "arms_phaseable": {
+      "correct": 174040,
+      "discordant": 4477,
+      "unphased": 13789
+     },
+     "cen": {
+      "correct": 13363,
+      "discordant": 6334,
+      "unphased": 6456
+     },
+     "cen_nohet": {
+      "correct": 6613,
+      "discordant": 5269,
+      "unphased": 5387
+     },
+     "cen_phaseable": {
+      "correct": 6750,
+      "discordant": 1065,
+      "unphased": 1069
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr19/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 15,
+     "flips_cen": 14,
+     "switches_arms": 19,
+     "switches_cen": 24,
+     "truth_matched_phased_hets": 56005
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 2415788,
+     "n50": 705521,
+     "phase_sets": 347
+    },
+    "reads": {
+     "all": {
+      "correct": 207166,
+      "discordant": 7806,
+      "unphased": 14097
+     },
+     "arms": {
+      "correct": 192575,
+      "discordant": 3694,
+      "unphased": 6647
+     },
+     "arms_confident": {
+      "correct": 176936,
+      "discordant": 418,
+      "unphased": 1178
+     },
+     "arms_nohet": {
+      "correct": 3352,
+      "discordant": 2118,
+      "unphased": 5140
+     },
+     "arms_phaseable": {
+      "correct": 189223,
+      "discordant": 1576,
+      "unphased": 1507
+     },
+     "cen": {
+      "correct": 14591,
+      "discordant": 4112,
+      "unphased": 7450
+     },
+     "cen_nohet": {
+      "correct": 6970,
+      "discordant": 3622,
+      "unphased": 6677
+     },
+     "cen_phaseable": {
+      "correct": 7621,
+      "discordant": 490,
+      "unphased": 773
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr19/runs/full-8c389b667a0e.tmp.3887436",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 3,
+     "switches_arms": 13,
+     "switches_cen": 4,
+     "truth_matched_phased_hets": 69661
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 3031424,
+     "n50": 925062,
+     "phase_sets": 193
+    },
+    "reads": {
+     "all": {
+      "correct": 171681,
+      "discordant": 18984,
+      "unphased": 38404
+     },
+     "arms": {
+      "correct": 165025,
+      "discordant": 18175,
+      "unphased": 19716
+     },
+     "arms_confident": {
+      "correct": 155940,
+      "discordant": 15884,
+      "unphased": 6708
+     },
+     "arms_nohet": {
+      "correct": 519,
+      "discordant": 513,
+      "unphased": 9578
+     },
+     "arms_phaseable": {
+      "correct": 164506,
+      "discordant": 17662,
+      "unphased": 10138
+     },
+     "cen": {
+      "correct": 6656,
+      "discordant": 809,
+      "unphased": 18688
+     },
+     "cen_nohet": {
+      "correct": 936,
+      "discordant": 624,
+      "unphased": 15709
+     },
+     "cen_phaseable": {
+      "correct": 5720,
+      "discordant": 185,
+      "unphased": 2979
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr19/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 104,
+     "flips_cen": 31,
+     "switches_arms": 49,
+     "switches_cen": 33,
+     "truth_matched_phased_hets": 66329
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 3031424,
+     "n50": 832711,
+     "phase_sets": 216
+    },
+    "reads": {
+     "all": {
+      "correct": 179404,
+      "discordant": 10831,
+      "unphased": 38834
+     },
+     "arms": {
+      "correct": 172762,
+      "discordant": 10000,
+      "unphased": 20154
+     },
+     "arms_confident": {
+      "correct": 163362,
+      "discordant": 8566,
+      "unphased": 6604
+     },
+     "arms_nohet": {
+      "correct": 347,
+      "discordant": 285,
+      "unphased": 9978
+     },
+     "arms_phaseable": {
+      "correct": 172415,
+      "discordant": 9715,
+      "unphased": 10176
+     },
+     "cen": {
+      "correct": 6642,
+      "discordant": 831,
+      "unphased": 18680
+     },
+     "cen_nohet": {
+      "correct": 930,
+      "discordant": 644,
+      "unphased": 15695
+     },
+     "cen_phaseable": {
+      "correct": 5712,
+      "discordant": 187,
+      "unphased": 2985
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr19/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr19/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 29,
+     "flips_cen": 22,
+     "switches_arms": 30,
+     "switches_cen": 19,
+     "truth_matched_phased_hets": 65729
+    }
+   }
+  },
+  "chr20": {
+   "hiphase": {
+    "blocks": {
+     "largest": 2908945,
+     "n50": 1005182,
+     "phase_sets": 196
+    },
+    "reads": {
+     "all": {
+      "correct": 223461,
+      "discordant": 9384,
+      "unphased": 38545
+     },
+     "arms": {
+      "correct": 210357,
+      "discordant": 7009,
+      "unphased": 28380
+     },
+     "arms_confident": {
+      "correct": 192058,
+      "discordant": 5088,
+      "unphased": 1594
+     },
+     "arms_nohet": {
+      "correct": 1174,
+      "discordant": 769,
+      "unphased": 24517
+     },
+     "arms_phaseable": {
+      "correct": 209183,
+      "discordant": 6240,
+      "unphased": 3863
+     },
+     "cen": {
+      "correct": 13104,
+      "discordant": 2375,
+      "unphased": 10165
+     },
+     "cen_nohet": {
+      "correct": 761,
+      "discordant": 589,
+      "unphased": 1091
+     },
+     "cen_phaseable": {
+      "correct": 12343,
+      "discordant": 1786,
+      "unphased": 9074
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 12,
+     "flips_cen": 54,
+     "switches_arms": 16,
+     "switches_cen": 90,
+     "truth_matched_phased_hets": 62431
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1236121,
+     "n50": 416120,
+     "phase_sets": 431
+    },
+    "reads": {
+     "all": {
+      "correct": 212294,
+      "discordant": 6186,
+      "unphased": 52910
+     },
+     "arms": {
+      "correct": 203388,
+      "discordant": 5042,
+      "unphased": 37316
+     },
+     "arms_confident": {
+      "correct": 186534,
+      "discordant": 1225,
+      "unphased": 10981
+     },
+     "arms_nohet": {
+      "correct": 3094,
+      "discordant": 2564,
+      "unphased": 20802
+     },
+     "arms_phaseable": {
+      "correct": 200294,
+      "discordant": 2478,
+      "unphased": 16514
+     },
+     "cen": {
+      "correct": 8906,
+      "discordant": 1144,
+      "unphased": 15594
+     },
+     "cen_nohet": {
+      "correct": 237,
+      "discordant": 68,
+      "unphased": 2136
+     },
+     "cen_phaseable": {
+      "correct": 8669,
+      "discordant": 1076,
+      "unphased": 13458
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 14,
+     "flips_cen": 20,
+     "switches_arms": 15,
+     "switches_cen": 34,
+     "truth_matched_phased_hets": 66157
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 1720570,
+     "n50": 607403,
+     "phase_sets": 226
+    },
+    "reads": {
+     "all": {
+      "correct": 221166,
+      "discordant": 6347,
+      "unphased": 43877
+     },
+     "arms": {
+      "correct": 204457,
+      "discordant": 1116,
+      "unphased": 40173
+     },
+     "arms_confident": {
+      "correct": 190630,
+      "discordant": 318,
+      "unphased": 7792
+     },
+     "arms_nohet": {
+      "correct": 630,
+      "discordant": 98,
+      "unphased": 25732
+     },
+     "arms_phaseable": {
+      "correct": 203827,
+      "discordant": 1018,
+      "unphased": 14441
+     },
+     "cen": {
+      "correct": 16709,
+      "discordant": 5231,
+      "unphased": 3704
+     },
+     "cen_nohet": {
+      "correct": 988,
+      "discordant": 1142,
+      "unphased": 311
+     },
+     "cen_phaseable": {
+      "correct": 15721,
+      "discordant": 4089,
+      "unphased": 3393
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 38,
+     "switches_arms": 8,
+     "switches_cen": 90,
+     "truth_matched_phased_hets": 54894
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 1705172,
+     "n50": 621044,
+     "phase_sets": 412
+    },
+    "reads": {
+     "all": {
+      "correct": 241518,
+      "discordant": 8199,
+      "unphased": 21673
+     },
+     "arms": {
+      "correct": 225259,
+      "discordant": 6552,
+      "unphased": 13935
+     },
+     "arms_confident": {
+      "correct": 198326,
+      "discordant": 174,
+      "unphased": 240
+     },
+     "arms_nohet": {
+      "correct": 7666,
+      "discordant": 5302,
+      "unphased": 13492
+     },
+     "arms_phaseable": {
+      "correct": 217593,
+      "discordant": 1250,
+      "unphased": 443
+     },
+     "cen": {
+      "correct": 16259,
+      "discordant": 1647,
+      "unphased": 7738
+     },
+     "cen_nohet": {
+      "correct": 1759,
+      "discordant": 414,
+      "unphased": 268
+     },
+     "cen_phaseable": {
+      "correct": 14500,
+      "discordant": 1233,
+      "unphased": 7470
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/runs/full-533eb9e4363d.tmp.3886148",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 10,
+     "flips_cen": 3,
+     "switches_arms": 2,
+     "switches_cen": 10,
+     "truth_matched_phased_hets": 64312
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 2908945,
+     "n50": 856455,
+     "phase_sets": 228
+    },
+    "reads": {
+     "all": {
+      "correct": 211207,
+      "discordant": 12739,
+      "unphased": 47444
+     },
+     "arms": {
+      "correct": 200537,
+      "discordant": 12230,
+      "unphased": 32979
+     },
+     "arms_confident": {
+      "correct": 184463,
+      "discordant": 9734,
+      "unphased": 4543
+     },
+     "arms_nohet": {
+      "correct": 1206,
+      "discordant": 780,
+      "unphased": 24474
+     },
+     "arms_phaseable": {
+      "correct": 199331,
+      "discordant": 11450,
+      "unphased": 8505
+     },
+     "cen": {
+      "correct": 10670,
+      "discordant": 509,
+      "unphased": 14465
+     },
+     "cen_nohet": {
+      "correct": 401,
+      "discordant": 204,
+      "unphased": 1836
+     },
+     "cen_phaseable": {
+      "correct": 10269,
+      "discordant": 305,
+      "unphased": 12629
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 84,
+     "flips_cen": 82,
+     "switches_arms": 33,
+     "switches_cen": 110,
+     "truth_matched_phased_hets": 62704
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 2908945,
+     "n50": 795032,
+     "phase_sets": 240
+    },
+    "reads": {
+     "all": {
+      "correct": 215786,
+      "discordant": 7846,
+      "unphased": 47758
+     },
+     "arms": {
+      "correct": 205103,
+      "discordant": 7351,
+      "unphased": 33292
+     },
+     "arms_confident": {
+      "correct": 188841,
+      "discordant": 5453,
+      "unphased": 4446
+     },
+     "arms_nohet": {
+      "correct": 947,
+      "discordant": 563,
+      "unphased": 24950
+     },
+     "arms_phaseable": {
+      "correct": 204156,
+      "discordant": 6788,
+      "unphased": 8342
+     },
+     "cen": {
+      "correct": 10683,
+      "discordant": 495,
+      "unphased": 14466
+     },
+     "cen_nohet": {
+      "correct": 407,
+      "discordant": 195,
+      "unphased": 1839
+     },
+     "cen_phaseable": {
+      "correct": 10276,
+      "discordant": 300,
+      "unphased": 12627
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/chr12-18-20-comparison/chr20/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr20/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 24,
+     "flips_cen": 56,
+     "switches_arms": 17,
+     "switches_cen": 88,
+     "truth_matched_phased_hets": 62003
+    }
+   }
+  },
+  "chr21": {
+   "hiphase": {
+    "blocks": {
+     "largest": 3908410,
+     "n50": 649679,
+     "phase_sets": 178
+    },
+    "reads": {
+     "all": {
+      "correct": 132553,
+      "discordant": 3912,
+      "unphased": 50918
+     },
+     "arms": {
+      "correct": 124986,
+      "discordant": 1847,
+      "unphased": 12631
+     },
+     "arms_confident": {
+      "correct": 113013,
+      "discordant": 876,
+      "unphased": 670
+     },
+     "arms_nohet": {
+      "correct": 219,
+      "discordant": 210,
+      "unphased": 10440
+     },
+     "arms_phaseable": {
+      "correct": 124767,
+      "discordant": 1637,
+      "unphased": 2191
+     },
+     "cen": {
+      "correct": 7567,
+      "discordant": 2065,
+      "unphased": 38287
+     },
+     "cen_nohet": {
+      "correct": 1059,
+      "discordant": 318,
+      "unphased": 17980
+     },
+     "cen_phaseable": {
+      "correct": 6508,
+      "discordant": 1747,
+      "unphased": 20307
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr21/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 9,
+     "flips_cen": 19,
+     "switches_arms": 10,
+     "switches_cen": 41,
+     "truth_matched_phased_hets": 34923
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 1447143,
+     "n50": 411237,
+     "phase_sets": 252
+    },
+    "reads": {
+     "all": {
+      "correct": 121465,
+      "discordant": 1788,
+      "unphased": 64130
+     },
+     "arms": {
+      "correct": 117915,
+      "discordant": 1616,
+      "unphased": 19933
+     },
+     "arms_confident": {
+      "correct": 107899,
+      "discordant": 530,
+      "unphased": 6130
+     },
+     "arms_nohet": {
+      "correct": 443,
+      "discordant": 457,
+      "unphased": 9969
+     },
+     "arms_phaseable": {
+      "correct": 117472,
+      "discordant": 1159,
+      "unphased": 9964
+     },
+     "cen": {
+      "correct": 3550,
+      "discordant": 172,
+      "unphased": 44197
+     },
+     "cen_nohet": {
+      "correct": 70,
+      "discordant": 8,
+      "unphased": 19279
+     },
+     "cen_phaseable": {
+      "correct": 3480,
+      "discordant": 164,
+      "unphased": 24918
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr21/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 7,
+     "flips_cen": 7,
+     "switches_arms": 13,
+     "switches_cen": 12,
+     "truth_matched_phased_hets": 37207
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 2141540,
+     "n50": 575866,
+     "phase_sets": 188
+    },
+    "reads": {
+     "all": {
+      "correct": 144303,
+      "discordant": 15013,
+      "unphased": 28067
+     },
+     "arms": {
+      "correct": 119177,
+      "discordant": 659,
+      "unphased": 19628
+     },
+     "arms_confident": {
+      "correct": 109730,
+      "discordant": 216,
+      "unphased": 4613
+     },
+     "arms_nohet": {
+      "correct": 24,
+      "discordant": 18,
+      "unphased": 10827
+     },
+     "arms_phaseable": {
+      "correct": 119153,
+      "discordant": 641,
+      "unphased": 8801
+     },
+     "cen": {
+      "correct": 25126,
+      "discordant": 14354,
+      "unphased": 8439
+     },
+     "cen_nohet": {
+      "correct": 8875,
+      "discordant": 4866,
+      "unphased": 5616
+     },
+     "cen_phaseable": {
+      "correct": 16251,
+      "discordant": 9488,
+      "unphased": 2823
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr21/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 8,
+     "flips_cen": 9,
+     "switches_arms": 9,
+     "switches_cen": 27,
+     "truth_matched_phased_hets": 30589
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 1631160,
+     "n50": 500350,
+     "phase_sets": 431
+    },
+    "reads": {
+     "all": {
+      "correct": 161185,
+      "discordant": 11476,
+      "unphased": 14722
+     },
+     "arms": {
+      "correct": 129482,
+      "discordant": 2247,
+      "unphased": 7735
+     },
+     "arms_confident": {
+      "correct": 114464,
+      "discordant": 72,
+      "unphased": 23
+     },
+     "arms_nohet": {
+      "correct": 1974,
+      "discordant": 1465,
+      "unphased": 7430
+     },
+     "arms_phaseable": {
+      "correct": 127508,
+      "discordant": 782,
+      "unphased": 305
+     },
+     "cen": {
+      "correct": 31703,
+      "discordant": 9229,
+      "unphased": 6987
+     },
+     "cen_nohet": {
+      "correct": 11845,
+      "discordant": 3838,
+      "unphased": 3674
+     },
+     "cen_phaseable": {
+      "correct": 19858,
+      "discordant": 5391,
+      "unphased": 3313
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr21/runs/full-e6e22378d082.tmp.3893025",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 3,
+     "flips_cen": 2,
+     "switches_arms": 8,
+     "switches_cen": 2,
+     "truth_matched_phased_hets": 36482
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 2000124,
+     "n50": 631840,
+     "phase_sets": 160
+    },
+    "reads": {
+     "all": {
+      "correct": 124821,
+      "discordant": 3824,
+      "unphased": 58738
+     },
+     "arms": {
+      "correct": 120563,
+      "discordant": 3272,
+      "unphased": 15629
+     },
+     "arms_confident": {
+      "correct": 110179,
+      "discordant": 1897,
+      "unphased": 2483
+     },
+     "arms_nohet": {
+      "correct": 257,
+      "discordant": 266,
+      "unphased": 10346
+     },
+     "arms_phaseable": {
+      "correct": 120306,
+      "discordant": 3006,
+      "unphased": 5283
+     },
+     "cen": {
+      "correct": 4258,
+      "discordant": 552,
+      "unphased": 43109
+     },
+     "cen_nohet": {
+      "correct": 299,
+      "discordant": 80,
+      "unphased": 18978
+     },
+     "cen_phaseable": {
+      "correct": 3959,
+      "discordant": 472,
+      "unphased": 24131
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr21/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 47,
+     "flips_cen": 22,
+     "switches_arms": 18,
+     "switches_cen": 32,
+     "truth_matched_phased_hets": 34870
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 2000124,
+     "n50": 631840,
+     "phase_sets": 163
+    },
+    "reads": {
+     "all": {
+      "correct": 125489,
+      "discordant": 2861,
+      "unphased": 59033
+     },
+     "arms": {
+      "correct": 121129,
+      "discordant": 2405,
+      "unphased": 15930
+     },
+     "arms_confident": {
+      "correct": 110619,
+      "discordant": 1491,
+      "unphased": 2449
+     },
+     "arms_nohet": {
+      "correct": 205,
+      "discordant": 192,
+      "unphased": 10472
+     },
+     "arms_phaseable": {
+      "correct": 120924,
+      "discordant": 2213,
+      "unphased": 5458
+     },
+     "cen": {
+      "correct": 4360,
+      "discordant": 456,
+      "unphased": 43103
+     },
+     "cen_nohet": {
+      "correct": 302,
+      "discordant": 74,
+      "unphased": 18981
+     },
+     "cen_phaseable": {
+      "correct": 4058,
+      "discordant": 382,
+      "unphased": 24122
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr21/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr21/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 10,
+     "flips_cen": 8,
+     "switches_arms": 11,
+     "switches_cen": 27,
+     "truth_matched_phased_hets": 34577
+    }
+   }
+  },
+  "chr6": {
+   "hiphase": {
+    "blocks": {
+     "largest": 3341642,
+     "n50": 811998,
+     "phase_sets": 498
+    },
+    "reads": {
+     "all": {
+      "correct": 652614,
+      "discordant": 26136,
+      "unphased": 91241
+     },
+     "arms": {
+      "correct": 642496,
+      "discordant": 24409,
+      "unphased": 69550
+     },
+     "arms_confident": {
+      "correct": 589800,
+      "discordant": 18852,
+      "unphased": 4850
+     },
+     "arms_nohet": {
+      "correct": 1552,
+      "discordant": 1111,
+      "unphased": 55830
+     },
+     "arms_phaseable": {
+      "correct": 640944,
+      "discordant": 23298,
+      "unphased": 13720
+     },
+     "cen": {
+      "correct": 10118,
+      "discordant": 1727,
+      "unphased": 21691
+     },
+     "cen_nohet": {
+      "correct": 160,
+      "discordant": 176,
+      "unphased": 2741
+     },
+     "cen_phaseable": {
+      "correct": 9958,
+      "discordant": 1551,
+      "unphased": 18950
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 19,
+     "flips_cen": 0,
+     "switches_arms": 36,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 168982
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 2350115,
+     "n50": 475752,
+     "phase_sets": 1059
+    },
+    "reads": {
+     "all": {
+      "correct": 627929,
+      "discordant": 12606,
+      "unphased": 129456
+     },
+     "arms": {
+      "correct": 619738,
+      "discordant": 12341,
+      "unphased": 104376
+     },
+     "arms_confident": {
+      "correct": 573602,
+      "discordant": 5999,
+      "unphased": 33901
+     },
+     "arms_nohet": {
+      "correct": 3306,
+      "discordant": 3055,
+      "unphased": 52132
+     },
+     "arms_phaseable": {
+      "correct": 616432,
+      "discordant": 9286,
+      "unphased": 52244
+     },
+     "cen": {
+      "correct": 8191,
+      "discordant": 265,
+      "unphased": 25080
+     },
+     "cen_nohet": {
+      "correct": 156,
+      "discordant": 131,
+      "unphased": 2790
+     },
+     "cen_phaseable": {
+      "correct": 8035,
+      "discordant": 134,
+      "unphased": 22290
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 34,
+     "flips_cen": 0,
+     "switches_arms": 43,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 176859
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 2099376,
+     "n50": 641484,
+     "phase_sets": 610
+    },
+    "reads": {
+     "all": {
+      "correct": 632738,
+      "discordant": 13946,
+      "unphased": 123307
+     },
+     "arms": {
+      "correct": 622076,
+      "discordant": 9480,
+      "unphased": 104899
+     },
+     "arms_confident": {
+      "correct": 583311,
+      "discordant": 7434,
+      "unphased": 22757
+     },
+     "arms_nohet": {
+      "correct": 488,
+      "discordant": 111,
+      "unphased": 57894
+     },
+     "arms_phaseable": {
+      "correct": 621588,
+      "discordant": 9369,
+      "unphased": 47005
+     },
+     "cen": {
+      "correct": 10662,
+      "discordant": 4466,
+      "unphased": 18408
+     },
+     "cen_nohet": {
+      "correct": 293,
+      "discordant": 289,
+      "unphased": 2495
+     },
+     "cen_phaseable": {
+      "correct": 10369,
+      "discordant": 4177,
+      "unphased": 15913
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 14,
+     "flips_cen": 0,
+     "switches_arms": 14,
+     "switches_cen": 1,
+     "truth_matched_phased_hets": 146002
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 2993803,
+     "n50": 636987,
+     "phase_sets": 703
+    },
+    "reads": {
+     "all": {
+      "correct": 699280,
+      "discordant": 17712,
+      "unphased": 52999
+     },
+     "arms": {
+      "correct": 685102,
+      "discordant": 13031,
+      "unphased": 38322
+     },
+     "arms_confident": {
+      "correct": 612519,
+      "discordant": 635,
+      "unphased": 348
+     },
+     "arms_nohet": {
+      "correct": 12321,
+      "discordant": 8961,
+      "unphased": 37211
+     },
+     "arms_phaseable": {
+      "correct": 672781,
+      "discordant": 4070,
+      "unphased": 1111
+     },
+     "cen": {
+      "correct": 14178,
+      "discordant": 4681,
+      "unphased": 14677
+     },
+     "cen_nohet": {
+      "correct": 824,
+      "discordant": 687,
+      "unphased": 1566
+     },
+     "cen_phaseable": {
+      "correct": 13354,
+      "discordant": 3994,
+      "unphased": 13111
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr6/runs/full-01021492fa13.tmp.3886139",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 18,
+     "flips_cen": 0,
+     "switches_arms": 9,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 176507
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 3337007,
+     "n50": 793634,
+     "phase_sets": 521
+    },
+    "reads": {
+     "all": {
+      "correct": 631137,
+      "discordant": 28372,
+      "unphased": 110482
+     },
+     "arms": {
+      "correct": 622973,
+      "discordant": 27504,
+      "unphased": 85978
+     },
+     "arms_confident": {
+      "correct": 576703,
+      "discordant": 21908,
+      "unphased": 14891
+     },
+     "arms_nohet": {
+      "correct": 1466,
+      "discordant": 1138,
+      "unphased": 55889
+     },
+     "arms_phaseable": {
+      "correct": 621507,
+      "discordant": 26366,
+      "unphased": 30089
+     },
+     "cen": {
+      "correct": 8164,
+      "discordant": 868,
+      "unphased": 24504
+     },
+     "cen_nohet": {
+      "correct": 27,
+      "discordant": 25,
+      "unphased": 3025
+     },
+     "cen_phaseable": {
+      "correct": 8137,
+      "discordant": 843,
+      "unphased": 21479
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 248,
+     "flips_cen": 2,
+     "switches_arms": 61,
+     "switches_cen": 1,
+     "truth_matched_phased_hets": 169239
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 3337007,
+     "n50": 758169,
+     "phase_sets": 545
+    },
+    "reads": {
+     "all": {
+      "correct": 634800,
+      "discordant": 23263,
+      "unphased": 111928
+     },
+     "arms": {
+      "correct": 626700,
+      "discordant": 22441,
+      "unphased": 87314
+     },
+     "arms_confident": {
+      "correct": 580463,
+      "discordant": 18226,
+      "unphased": 14813
+     },
+     "arms_nohet": {
+      "correct": 1119,
+      "discordant": 750,
+      "unphased": 56624
+     },
+     "arms_phaseable": {
+      "correct": 625581,
+      "discordant": 21691,
+      "unphased": 30690
+     },
+     "cen": {
+      "correct": 8100,
+      "discordant": 822,
+      "unphased": 24614
+     },
+     "cen_nohet": {
+      "correct": 28,
+      "discordant": 25,
+      "unphased": 3024
+     },
+     "cen_phaseable": {
+      "correct": 8072,
+      "discordant": 797,
+      "unphased": 21590
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 52,
+     "flips_cen": 0,
+     "switches_arms": 40,
+     "switches_cen": 2,
+     "truth_matched_phased_hets": 168322
+    }
+   }
+  },
+  "chr6_mhc": {
+   "hiphase": {
+    "blocks": {
+     "largest": 1094539,
+     "n50": 722548,
+     "phase_sets": 19
+    },
+    "reads": {
+     "all": {
+      "correct": 20802,
+      "discordant": 132,
+      "unphased": 1993
+     },
+     "arms": {
+      "correct": 20802,
+      "discordant": 132,
+      "unphased": 1993
+     },
+     "arms_confident": {
+      "correct": 19196,
+      "discordant": 11,
+      "unphased": 296
+     },
+     "arms_nohet": {
+      "correct": 439,
+      "discordant": 77,
+      "unphased": 1407
+     },
+     "arms_phaseable": {
+      "correct": 20363,
+      "discordant": 55,
+      "unphased": 586
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6_mhc/hiphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 1,
+     "flips_cen": 0,
+     "switches_arms": 2,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 14488
+    }
+   },
+   "longcalld": {
+    "blocks": {
+     "largest": 670374,
+     "n50": 355008,
+     "phase_sets": 33
+    },
+    "reads": {
+     "all": {
+      "correct": 19064,
+      "discordant": 162,
+      "unphased": 3701
+     },
+     "arms": {
+      "correct": 19064,
+      "discordant": 162,
+      "unphased": 3701
+     },
+     "arms_confident": {
+      "correct": 18138,
+      "discordant": 58,
+      "unphased": 1307
+     },
+     "arms_nohet": {
+      "correct": 29,
+      "discordant": 37,
+      "unphased": 1857
+     },
+     "arms_phaseable": {
+      "correct": 19035,
+      "discordant": 125,
+      "unphased": 1844
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6_mhc/longcalld",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 1,
+     "flips_cen": 0,
+     "switches_arms": 2,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 13196
+    }
+   },
+   "longphase": {
+    "blocks": {
+     "largest": 897063,
+     "n50": 656100,
+     "phase_sets": 21
+    },
+    "reads": {
+     "all": {
+      "correct": 20115,
+      "discordant": 95,
+      "unphased": 2717
+     },
+     "arms": {
+      "correct": 20115,
+      "discordant": 95,
+      "unphased": 2717
+     },
+     "arms_confident": {
+      "correct": 18903,
+      "discordant": 18,
+      "unphased": 582
+     },
+     "arms_nohet": {
+      "correct": 412,
+      "discordant": 44,
+      "unphased": 1467
+     },
+     "arms_phaseable": {
+      "correct": 19703,
+      "discordant": 51,
+      "unphased": 1250
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6_mhc/longphase",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 1,
+     "flips_cen": 0,
+     "switches_arms": 0,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 12475
+    }
+   },
+   "pgphase": {
+    "blocks": {
+     "largest": 1100253,
+     "n50": 775743,
+     "phase_sets": 20
+    },
+    "reads": {
+     "all": {
+      "correct": 21669,
+      "discordant": 303,
+      "unphased": 955
+     },
+     "arms": {
+      "correct": 21669,
+      "discordant": 303,
+      "unphased": 955
+     },
+     "arms_confident": {
+      "correct": 19480,
+      "discordant": 14,
+      "unphased": 9
+     },
+     "arms_nohet": {
+      "correct": 809,
+      "discordant": 226,
+      "unphased": 888
+     },
+     "arms_phaseable": {
+      "correct": 20860,
+      "discordant": 77,
+      "unphased": 67
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-dev-cache/chr6_mhc/runs/full-64d9174a2f31.tmp.4020528",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 1,
+     "flips_cen": 0,
+     "switches_arms": 0,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 14934
+    }
+   },
+   "whatshap": {
+    "blocks": {
+     "largest": 1100246,
+     "n50": 722548,
+     "phase_sets": 19
+    },
+    "reads": {
+     "all": {
+      "correct": 20356,
+      "discordant": 166,
+      "unphased": 2405
+     },
+     "arms": {
+      "correct": 20356,
+      "discordant": 166,
+      "unphased": 2405
+     },
+     "arms_confident": {
+      "correct": 18889,
+      "discordant": 66,
+      "unphased": 548
+     },
+     "arms_nohet": {
+      "correct": 419,
+      "discordant": 58,
+      "unphased": 1446
+     },
+     "arms_phaseable": {
+      "correct": 19937,
+      "discordant": 108,
+      "unphased": 959
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6_mhc/whatshap",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 16,
+     "flips_cen": 0,
+     "switches_arms": 0,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 14508
+    }
+   },
+   "whatshap_opt": {
+    "blocks": {
+     "largest": 1092556,
+     "n50": 722548,
+     "phase_sets": 19
+    },
+    "reads": {
+     "all": {
+      "correct": 20420,
+      "discordant": 98,
+      "unphased": 2409
+     },
+     "arms": {
+      "correct": 20420,
+      "discordant": 98,
+      "unphased": 2409
+     },
+     "arms_confident": {
+      "correct": 18930,
+      "discordant": 16,
+      "unphased": 557
+     },
+     "arms_nohet": {
+      "correct": 418,
+      "discordant": 51,
+      "unphased": 1454
+     },
+     "arms_phaseable": {
+      "correct": 20002,
+      "discordant": 47,
+      "unphased": 955
+     },
+     "cen": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_nohet": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     },
+     "cen_phaseable": {
+      "correct": 0,
+      "discordant": 0,
+      "unphased": 0
+     }
+    },
+    "run": "/home/kokyriakidis/Downloads/pgphase-eval-data/results/heldout/chr6_mhc/whatshap_opt",
+    "truth_bam": "/home/kokyriakidis/Downloads/pgphase-eval-data/truth/chr6_mhc/diplinator_merged.bam",
+    "variants": {
+     "flips_arms": 3,
+     "flips_cen": 0,
+     "switches_arms": 0,
+     "switches_cen": 0,
+     "truth_matched_phased_hets": 14449
+    }
+   }
+  }
+ },
+ "resources": {
+  "chr12": {
+   "hiphase": {
+    "cpu_pct": 937,
+    "rss_gb": 0.8309593200683594,
+    "threads": 20,
+    "wall_s": 202.74
+   },
+   "longcalld": {
+    "cpu_pct": 872,
+    "rss_gb": 9.435951232910156,
+    "threads": 20,
+    "wall_s": 83.95
+   },
+   "longphase": {
+    "cpu_pct": 284,
+    "rss_gb": 2.5456390380859375,
+    "threads": 20,
+    "wall_s": 31.7
+   },
+   "pgphase": {
+    "cpu_pct": 536,
+    "rss_gb": 6.522987365722656,
+    "threads": 6,
+    "wall_s": 112.86
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 1.3838462829589844,
+    "threads": 1,
+    "wall_s": 635.45
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.7077751159667969,
+    "threads": 1,
+    "wall_s": 715.0
+   }
+  },
+  "chr16": {
+   "hiphase": {
+    "cpu_pct": 431,
+    "rss_gb": 0.4858818054199219,
+    "threads": 6,
+    "wall_s": 280.49
+   },
+   "longcalld": {
+    "cpu_pct": 577,
+    "rss_gb": 12.40384292602539,
+    "threads": 6,
+    "wall_s": 80.44
+   },
+   "longphase": {
+    "cpu_pct": 124,
+    "rss_gb": 1.9091453552246094,
+    "threads": 6,
+    "wall_s": 47.7
+   },
+   "pgphase": {
+    "cpu_pct": 497,
+    "rss_gb": 5.869819641113281,
+    "threads": 6,
+    "wall_s": 88.93
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 1.0949592590332031,
+    "threads": 1,
+    "wall_s": 490.92
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.4460716247558594,
+    "threads": 1,
+    "wall_s": 548.14
+   }
+  },
+  "chr17": {
+   "hiphase": {
+    "cpu_pct": 620,
+    "rss_gb": 0.33452606201171875,
+    "threads": 6,
+    "wall_s": 157.66
+   },
+   "longcalld": {
+    "cpu_pct": 585,
+    "rss_gb": 13.263031005859375,
+    "threads": 6,
+    "wall_s": 72.4
+   },
+   "longphase": {
+    "cpu_pct": 211,
+    "rss_gb": 1.5321578979492188,
+    "threads": 6,
+    "wall_s": 22.91
+   },
+   "pgphase": {
+    "cpu_pct": 540,
+    "rss_gb": 5.018909454345703,
+    "threads": 6,
+    "wall_s": 74.38
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 0.9011192321777344,
+    "threads": 1,
+    "wall_s": 421.53
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.1118125915527344,
+    "threads": 1,
+    "wall_s": 473.68
+   }
+  },
+  "chr18": {
+   "hiphase": {
+    "cpu_pct": 1044,
+    "rss_gb": 0.5134506225585938,
+    "threads": 20,
+    "wall_s": 114.44
+   },
+   "longcalld": {
+    "cpu_pct": 763,
+    "rss_gb": 13.10446548461914,
+    "threads": 20,
+    "wall_s": 66.12
+   },
+   "longphase": {
+    "cpu_pct": 275,
+    "rss_gb": 1.6112098693847656,
+    "threads": 20,
+    "wall_s": 19.74
+   },
+   "pgphase": {
+    "cpu_pct": 526,
+    "rss_gb": 5.3114776611328125,
+    "threads": 6,
+    "wall_s": 67.24
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 0.9410667419433594,
+    "threads": 1,
+    "wall_s": 363.27
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.1841468811035156,
+    "threads": 1,
+    "wall_s": 404.65
+   }
+  },
+  "chr19": {
+   "hiphase": {
+    "cpu_pct": 657,
+    "rss_gb": 0.33615875244140625,
+    "threads": 6,
+    "wall_s": 113.47999999999999
+   },
+   "longcalld": {
+    "cpu_pct": 588,
+    "rss_gb": 4.7256317138671875,
+    "threads": 6,
+    "wall_s": 53.98
+   },
+   "longphase": {
+    "cpu_pct": 194,
+    "rss_gb": 1.226165771484375,
+    "threads": 6,
+    "wall_s": 18.62
+   },
+   "pgphase": {
+    "cpu_pct": 529,
+    "rss_gb": 6.122737884521484,
+    "threads": 6,
+    "wall_s": 62.13
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 0.9254074096679688,
+    "threads": 1,
+    "wall_s": 377.87
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.2618484497070312,
+    "threads": 1,
+    "wall_s": 427.41
+   }
+  },
+  "chr20": {
+   "hiphase": {
+    "cpu_pct": 943,
+    "rss_gb": 0.48108673095703125,
+    "threads": 20,
+    "wall_s": 106.18
+   },
+   "longcalld": {
+    "cpu_pct": 1429,
+    "rss_gb": 11.387176513671875,
+    "threads": 20,
+    "wall_s": 42.79
+   },
+   "longphase": {
+    "cpu_pct": 280,
+    "rss_gb": 1.316314697265625,
+    "threads": 20,
+    "wall_s": 15.89
+   },
+   "pgphase": {
+    "cpu_pct": 502,
+    "rss_gb": 6.922481536865234,
+    "threads": 6,
+    "wall_s": 63.54
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 0.8231697082519531,
+    "threads": 1,
+    "wall_s": 301.28
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 1.0414466857910156,
+    "threads": 1,
+    "wall_s": 336.54
+   }
+  },
+  "chr21": {
+   "hiphase": {
+    "cpu_pct": 660,
+    "rss_gb": 0.2681465148925781,
+    "threads": 6,
+    "wall_s": 91.22
+   },
+   "longcalld": {
+    "cpu_pct": 575,
+    "rss_gb": 7.650001525878906,
+    "threads": 6,
+    "wall_s": 36.5
+   },
+   "longphase": {
+    "cpu_pct": 191,
+    "rss_gb": 0.9822807312011719,
+    "threads": 6,
+    "wall_s": 15.55
+   },
+   "pgphase": {
+    "cpu_pct": 509,
+    "rss_gb": 8.460506439208984,
+    "threads": 6,
+    "wall_s": 56.15
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 0.6269340515136719,
+    "threads": 1,
+    "wall_s": 218.73
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 0.8250885009765625,
+    "threads": 1,
+    "wall_s": 246.01
+   }
+  },
+  "chr6": {
+   "hiphase": {
+    "cpu_pct": 445,
+    "rss_gb": 0.47702789306640625,
+    "threads": 6,
+    "wall_s": 459.47
+   },
+   "longcalld": {
+    "cpu_pct": 369,
+    "rss_gb": 8.479209899902344,
+    "threads": 6,
+    "wall_s": 235.47
+   },
+   "longphase": {
+    "cpu_pct": 126,
+    "rss_gb": 3.376873016357422,
+    "threads": 6,
+    "wall_s": 92.39
+   },
+   "pgphase": {
+    "cpu_pct": 541,
+    "rss_gb": 7.603328704833984,
+    "threads": 6,
+    "wall_s": 147.23
+   },
+   "whatshap": {
+    "cpu_pct": 99,
+    "rss_gb": 1.6934776306152344,
+    "threads": 1,
+    "wall_s": 1003.83
+   },
+   "whatshap_opt": {
+    "cpu_pct": 99,
+    "rss_gb": 2.0501022338867188,
+    "threads": 1,
+    "wall_s": 1112.78
+   }
+  }
+ }
+}
