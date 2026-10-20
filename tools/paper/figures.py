@@ -95,76 +95,138 @@ def _overview_svg():
     return "\n".join(out)
 
 # ------------------------------------------------------------------------------- accuracy
-LO_X, HI_X, LO_Y, HI_Y = 0.2, 20.0, 0.02, 20.0
-TICKS = [0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20]
+# Two panels: (a) per tool, the phaseable arm reads misphased (dark) or unphased (light) over the eight
+# chromosomes, as stacked bars; (b) per chromosome, each tool's misphased-or-unphased share as a dot (log scale).
+# Okabe-Ito colours; pgphase in vermillion, drawn last and larger.
+PALETTE = {"pgphase": "D55E00", "hiphase": "0072B2", "longphase": "E69F00", "whatshap": "009E73",
+           "whatshap_opt": "56B4E9", "longcalld": "CC79A7"}
+TIKZ_STYLES += "\n" + "\n".join(f"\\definecolor{{c{t.replace('_', '')}}}{{HTML}}{{{c}}}" for t, c in PALETTE.items())
+WIDE["accuracy"] = True
+
+from tables import DEV, HELD, TOTALS  # noqa: E402
 
 
 def _ax(v, lo, hi, size):
+    """Position of v on a log axis from lo to hi drawn over size."""
     return (math.log10(v) - math.log10(lo)) / (math.log10(hi) - math.log10(lo)) * size
+
+A_W, ROW, BAR = 6.2, 0.62, 0.40         # panel a: width (cm) for 0-10%, row pitch, bar height
+B_X0, B_W, B_LO, B_HI = 9.6, 6.8, 0.3, 20.0  # panel b: left edge, width, log range (%)
+ORDER = sorted(TOTALS, key=lambda t: sum(TOTALS[t]))           # best first, top of panel a
+ROWS = DEV + [None] + HELD                                     # panel b rows, a gap between the groups
+
+
+def _b_x(v):
+    return B_X0 + _ax(max(v, B_LO), B_LO, B_HI, B_W)
+
+
+def _a_items():
+    """Panel a: per tool its row's y and its two segments' widths."""
+    n = len(ORDER)
+    return [(t, (n - 1 - i) * ROW, TOTALS[t][0] / 10 * A_W, TOTALS[t][1] / 10 * A_W) for i, t in enumerate(ORDER)]
+
+
+def _b_rows():
+    """Panel b: per chromosome its row's y (top row first)."""
+    n = len(ROWS)
+    return [(p, (n - 1 - i) * ROW * 0.82) for i, p in enumerate(ROWS) if p]
 
 
 def _accuracy_tikz():
-    w, h = 7.0, 5.6
-    out = [f"\\draw[->] (0,0) -- ({w + 0.2},0);", f"\\draw[->] (0,0) -- (0,{h + 0.2});"]
-    for t in TICKS:
-        if LO_X <= t <= HI_X:
-            x = _ax(t, LO_X, HI_X, w)
-            out.append(f"\\draw[gray!25] ({x:.3f},0) -- ({x:.3f},{h});\\node[below,font=\\scriptsize] at ({x:.3f},0) {{{t:g}}};")
-        if LO_Y <= t <= HI_Y:
-            y = _ax(t, LO_Y, HI_Y, h)
-            out.append(f"\\draw[gray!25] (0,{y:.3f}) -- ({w},{y:.3f});\\node[left,font=\\scriptsize] at (0,{y:.3f}) {{{t:g}}};")
-    out.append(f"\\node[font=\\small] at ({w / 2},-0.75) {{discordant phaseable reads (\\%)}};")
-    out.append(f"\\node[font=\\small,rotate=90] at (-1.0,{h / 2}) {{unphased phaseable reads (\\%)}};")
-    marks = {"circle": "*", "square": "square*", "diamond": "diamond*", "triangle": "triangle*", "itriangle": "triangle*",
-             "cross": "x"}
-    for i, (t, lab) in enumerate(TOOLS):
-        colour, _, shape = STYLE[t]
-        rot = ",rotate=180" if shape == "itriangle" else ""
-        for _, dx, uy in POINTS[t]:
-            x, y = _ax(max(dx, LO_X), LO_X, HI_X, w), _ax(max(uy, LO_Y), LO_Y, HI_Y, h)
-            out.append(f"\\node[{colour},inner sep=0pt,font=\\scriptsize{rot}] at ({x:.3f},{y:.3f}) {{\\pgfuseplotmark{{{marks[shape]}}}}};")
-        ly = h - 0.35 - i * 0.4
-        out.append(f"\\node[{colour},inner sep=0pt{rot}] at ({w + 0.6:.2f},{ly:.2f}) {{\\pgfuseplotmark{{{marks[shape]}}}}};"
-                   f"\\node[right,font=\\scriptsize] at ({w + 0.75:.2f},{ly:.2f}) {{{lab}}};")
+    out = []
+    n = len(ORDER)
+    top = (n - 1) * ROW + 0.5
+    # panel a
+    out.append(f"\\node[font=\\bfseries] at (-2.3,{top + 0.35:.2f}) {{a}};")
+    for x in range(0, 11, 2):
+        X = x / 10 * A_W
+        out.append(f"\\draw[gray!25] ({X:.2f},-0.35) -- ({X:.2f},{top - 0.2:.2f});"
+                   f"\\node[below,font=\\scriptsize] at ({X:.2f},-0.35) {{{x}}};")
+    out.append(f"\\node[font=\\small] at ({A_W / 2:.2f},-1.05) {{\\% of phaseable arm reads}};")
+    for t, y, wd, wu in _a_items():
+        c = "c" + t.replace("_", "")
+        out.append(f"\\fill[{c}] (0,{y - BAR / 2:.3f}) rectangle ({wd:.3f},{y + BAR / 2:.3f});")
+        out.append(f"\\fill[{c}!35] ({wd:.3f},{y - BAR / 2:.3f}) rectangle ({wd + wu:.3f},{y + BAR / 2:.3f});")
+        weight = "\\bfseries" if t == "pgphase" else ""
+        out.append(f"\\node[left,font=\\small{weight}] at (-0.05,{y:.3f}) {{{NAME[t]}}};")
+        out.append(f"\\node[right,font=\\scriptsize{weight}] at ({wd + wu + 0.05:.3f},{y:.3f}) {{{sum(TOTALS[t]):.2f}\\%}};")
+    ly = top + 0.05
+    out.append(f"\\fill[black!75] (2.3,{ly - 0.1:.2f}) rectangle (2.6,{ly + 0.1:.2f});\\node[right,font=\\scriptsize] at (2.6,{ly:.2f}) {{misphased}};")
+    out.append(f"\\fill[black!25] (4.2,{ly - 0.1:.2f}) rectangle (4.5,{ly + 0.1:.2f});\\node[right,font=\\scriptsize] at (4.5,{ly:.2f}) {{unphased}};")
+    # panel b
+    rows = _b_rows()
+    btop = rows[0][1] + 0.5
+    out.append(f"\\node[font=\\bfseries] at ({B_X0 - 1.3:.2f},{top + 0.35:.2f}) {{b}};")
+    for v in (0.5, 1, 2, 5, 10, 20):
+        X = _b_x(v)
+        out.append(f"\\draw[gray!25] ({X:.3f},-0.35) -- ({X:.3f},{btop - 0.2:.2f});"
+                   f"\\node[below,font=\\scriptsize] at ({X:.3f},-0.35) {{{v:g}}};")
+    out.append(f"\\node[font=\\small] at ({B_X0 + B_W / 2:.2f},-1.05) {{misphased or unphased (\\%, log scale)}};")
+    for p, y in rows:
+        out.append(f"\\draw[gray!15, line width=3pt] ({B_X0:.2f},{y:.3f}) -- ({B_X0 + B_W:.2f},{y:.3f});"
+                   f"\\node[left,font=\\small] at ({B_X0 - 0.05:.2f},{y:.3f}) {{{p}}};")
+    gy = [y for p, y in rows]
+    dev_mid = (rows[0][1] + rows[len(DEV) - 1][1]) / 2
+    held_mid = (rows[len(DEV)][1] + rows[-1][1]) / 2
+    for label, mid in (("development", dev_mid), ("not tuned", held_mid)):
+        out.append(f"\\node[rotate=-90,font=\\scriptsize\\itshape,black!65] at ({B_X0 + B_W + 0.35:.2f},{mid:.3f}) {{{label}}};")
+    for t in [t for t, _ in TOOLS if t != "pgphase"] + ["pgphase"]:
+        c = "c" + t.replace("_", "")
+        r = 0.11 if t == "pgphase" else 0.075
+        for (p, d, u), (_, y) in zip(POINTS[t], [(q, yy) for q, yy in rows]):
+            out.append(f"\\fill[{c}, draw=white, line width=0.3pt] ({_b_x(d + u):.3f},{y:.3f}) circle ({r});")
     return "\n".join(out)
 
 
 def _accuracy_svg():
-    w, h, s, ox, oy = 7.0, 5.6, 60, 70, 20
-    def X(v): return ox + _ax(max(v, LO_X), LO_X, HI_X, w) * s
-    def Y(v): return oy + (h - _ax(max(v, LO_Y), LO_Y, HI_Y, h)) * s
-    W, H = ox + w * s + 170, oy + h * s + 55
-    out = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" class="chart" role="img" aria-label="Discordant against unphased reads">']
-    for t in TICKS:
-        if LO_X <= t <= HI_X:
-            out.append(f'<line x1="{X(t):.1f}" y1="{oy}" x2="{X(t):.1f}" y2="{oy + h * s}" stroke="currentColor" stroke-opacity="0.15"/>'
-                       f'<text x="{X(t):.1f}" y="{oy + h * s + 15}" font-size="11" text-anchor="middle" fill="currentColor">{t:g}</text>')
-        if LO_Y <= t <= HI_Y:
-            out.append(f'<line x1="{ox}" y1="{Y(t):.1f}" x2="{ox + w * s}" y2="{Y(t):.1f}" stroke="currentColor" stroke-opacity="0.15"/>'
-                       f'<text x="{ox - 6}" y="{Y(t) + 4:.1f}" font-size="11" text-anchor="end" fill="currentColor">{t:g}</text>')
-    out.append(f'<text x="{ox + w * s / 2:.0f}" y="{oy + h * s + 38}" font-size="12" text-anchor="middle" fill="currentColor">discordant phaseable reads (%)</text>')
-    out.append(f'<text transform="translate(16,{oy + h * s / 2:.0f}) rotate(-90)" font-size="12" text-anchor="middle" fill="currentColor">unphased phaseable reads (%)</text>')
-
-    def mark(shape, cx, cy, col):
-        r = 4.5
-        if shape == "circle":
-            return f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="#{col}"><title></title></circle>'
-        if shape == "square":
-            return f'<rect x="{cx - r:.1f}" y="{cy - r:.1f}" width="{2 * r}" height="{2 * r}" fill="#{col}"/>'
-        if shape == "diamond":
-            return f'<path d="M{cx},{cy - r - 1} L{cx + r + 1},{cy} L{cx},{cy + r + 1} L{cx - r - 1},{cy} z" fill="#{col}"/>'
-        if shape in ("triangle", "itriangle"):
-            d = -1 if shape == "triangle" else 1
-            return f'<path d="M{cx},{cy + d * (r + 1)} L{cx + r + 1},{cy - d * r} L{cx - r - 1},{cy - d * r} z" fill="#{col}"/>'
-        return (f'<path d="M{cx - r},{cy - r} L{cx + r},{cy + r} M{cx - r},{cy + r} L{cx + r},{cy - r}" stroke="#{col}" stroke-width="2"/>')
-
-    for i, (t, lab) in enumerate(TOOLS):
-        _, col, shape = STYLE[t]
-        for p, dx, uy in POINTS[t]:
-            out.append(f'<g><title>{lab}, {p}: {dx:.2f}% discordant, {uy:.2f}% unphased</title>{mark(shape, X(dx), Y(uy), col)}</g>')
-        ly = oy + 12 + i * 20
-        out.append(mark(shape, ox + w * s + 25, ly, col) +
-                   f'<text x="{ox + w * s + 37}" y="{ly + 4}" font-size="12" fill="currentColor">{lab}</text>')
+    s, pad = 52, 10
+    n = len(ORDER)
+    top = (n - 1) * ROW + 0.9
+    W = (B_X0 + B_W + 0.9 + 2.6) * s
+    H = (top + 1.4) * s
+    def X(x): return (x + 2.6) * s
+    def Y(y): return (top - y) * s
+    out = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" class="chart" role="img" aria-label="Misphased and unphased reads per tool">',
+           '<style>.t{font-size:12px;fill:currentColor}.s{font-size:10.5px;fill:currentColor}.g{stroke:currentColor;stroke-opacity:.15}</style>']
+    out.append(f'<text x="{X(-2.5):.1f}" y="{Y(top - 0.3):.1f}" class="t" font-weight="700">a</text>')
+    for x in range(0, 11, 2):
+        xx = X(x / 10 * A_W)
+        out.append(f'<line x1="{xx:.1f}" y1="{Y(top - 0.55):.1f}" x2="{xx:.1f}" y2="{Y(-0.35):.1f}" class="g"/>'
+                   f'<text x="{xx:.1f}" y="{Y(-0.35) + 14:.1f}" class="s" text-anchor="middle">{x}</text>')
+    out.append(f'<text x="{X(A_W / 2):.1f}" y="{Y(-0.35) + 32:.1f}" class="t" text-anchor="middle">% of phaseable arm reads</text>')
+    for t, y, wd, wu in _a_items():
+        c = PALETTE[t]
+        bold = ' font-weight="700"' if t == "pgphase" else ""
+        out.append(f'<g><title>{NAME[t]}: {TOTALS[t][0]:.2f}% misphased, {TOTALS[t][1]:.2f}% unphased</title>'
+                   f'<rect x="{X(0):.1f}" y="{Y(y + BAR / 2):.1f}" width="{wd * s:.1f}" height="{BAR * s:.1f}" fill="#{c}"/>'
+                   f'<rect x="{X(wd):.1f}" y="{Y(y + BAR / 2):.1f}" width="{wu * s:.1f}" height="{BAR * s:.1f}" fill="#{c}" fill-opacity=".35"/></g>')
+        out.append(f'<text x="{X(-0.08):.1f}" y="{Y(y) + 4:.1f}" class="t" text-anchor="end"{bold}>{NAME[t]}</text>')
+        out.append(f'<text x="{X(wd + wu + 0.08):.1f}" y="{Y(y) + 4:.1f}" class="s"{bold}>{sum(TOTALS[t]):.2f}%</text>')
+    ly = top - 0.45
+    out.append(f'<rect x="{X(2.3):.1f}" y="{Y(ly) - 5:.1f}" width="14" height="10" fill="currentColor" fill-opacity=".75"/>'
+               f'<text x="{X(2.3) + 18:.1f}" y="{Y(ly) + 4:.1f}" class="s">misphased</text>'
+               f'<rect x="{X(4.2):.1f}" y="{Y(ly) - 5:.1f}" width="14" height="10" fill="currentColor" fill-opacity=".25"/>'
+               f'<text x="{X(4.2) + 18:.1f}" y="{Y(ly) + 4:.1f}" class="s">unphased</text>')
+    rows = _b_rows()
+    out.append(f'<text x="{X(B_X0 - 1.3):.1f}" y="{Y(top - 0.3):.1f}" class="t" font-weight="700">b</text>')
+    for v in (0.5, 1, 2, 5, 10, 20):
+        xx = X(_b_x(v))
+        out.append(f'<line x1="{xx:.1f}" y1="{Y(top - 0.55):.1f}" x2="{xx:.1f}" y2="{Y(-0.35):.1f}" class="g"/>'
+                   f'<text x="{xx:.1f}" y="{Y(-0.35) + 14:.1f}" class="s" text-anchor="middle">{v:g}</text>')
+    out.append(f'<text x="{X(B_X0 + B_W / 2):.1f}" y="{Y(-0.35) + 32:.1f}" class="t" text-anchor="middle">misphased or unphased (%, log scale)</text>')
+    for p, y in rows:
+        out.append(f'<line x1="{X(B_X0):.1f}" y1="{Y(y):.1f}" x2="{X(B_X0 + B_W):.1f}" y2="{Y(y):.1f}" stroke="currentColor" stroke-opacity=".08" stroke-width="7"/>'
+                   f'<text x="{X(B_X0 - 0.08):.1f}" y="{Y(y) + 4:.1f}" class="t" text-anchor="end">{p}</text>')
+    dev_mid = (rows[0][1] + rows[len(DEV) - 1][1]) / 2
+    held_mid = (rows[len(DEV)][1] + rows[-1][1]) / 2
+    for label, mid in (("development", dev_mid), ("not tuned", held_mid)):
+        out.append(f'<text transform="translate({X(B_X0 + B_W + 0.35):.1f},{Y(mid):.1f}) rotate(90)" class="s" '
+                   f'text-anchor="middle" font-style="italic" fill-opacity=".75">{label}</text>')
+    for t in [t for t, _ in TOOLS if t != "pgphase"] + ["pgphase"]:
+        r = 6 if t == "pgphase" else 4.2
+        for (p, d, u), (_, y) in zip(POINTS[t], rows):
+            out.append(f'<circle cx="{X(_b_x(d + u)):.1f}" cy="{Y(y):.1f}" r="{r}" fill="#{PALETTE[t]}" stroke="white" stroke-width=".6">'
+                       f'<title>{NAME[t]}, {p}: {d + u:.2f}% misphased or unphased</title></circle>')
     out.append("</svg>")
     return "\n".join(out)
 

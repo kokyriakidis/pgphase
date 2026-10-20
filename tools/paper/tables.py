@@ -246,6 +246,10 @@ POINTS = {t: [(p, 100 * reads(p, t, "arms_phaseable")["discordant"] / sum(reads(
                100 * reads(p, t, "arms_phaseable")["unphased"] / sum(reads(p, t, "arms_phaseable").values()))
               for p in CHROMS] for t, _ in TOOLS}
 
+# Per tool, over the eight chromosomes, the discordant and unphased shares of the phaseable arm reads (%).
+TOTALS = {t: (100 * tot[t]["discordant"] / sum(tot[t].values()), 100 * tot[t]["unphased"] / sum(tot[t].values()))
+          for t, _ in TOOLS}
+
 # ------------------------------------------------------------------------------- numbers the text quotes
 V = {}
 pg = tot["pgphase"]

@@ -353,8 +353,10 @@ FIGURES = {
              "sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks "
              "only where reads verify the join. Reads still unlabelled are labelled from local windows, the "
              "orientation of excluded sites and island blocks.",
- "accuracy": "Discordant against unphased phaseable reads on the arms, per tool and chromosome (eight points per "
-             "tool; both axes logarithmic). Lower left is better.",
+ "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased. (a) Over the eight "
+             "chromosomes, the share misphased (discordant, dark) and unphased (light), tools ordered by their total. "
+             "(b) Per chromosome, the share misphased or unphased (log scale); chr6, chr16 and chr21 were not used "
+             "for tuning; colours as in (a). Lower is better.",
 }
 
 WIDE_TABLES = ("reads", "switches")
