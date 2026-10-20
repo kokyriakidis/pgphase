@@ -7,6 +7,17 @@ Every number comes from tables.V (results.json), never typed here; the claims th
 chromosome are asserted against the same data, so the paper does not render once the data stops supporting them.
 """
 from tables import TABLES, V
+import supplement as S
+
+
+def ssec(title):
+    """A supplementary section's number, by its title."""
+    return "S%d" % ([b[1] for b in S.BODY if b[0] == "sec"].index(title) + 1)
+
+
+def stab(key):
+    """A supplementary table's label."""
+    return S.TABLES[key]["label"]
 
 assert V["fewest_err_every_chrom"] and V["fewest_switch_every_chrom"] and V["rows_best_correct"] == 8
 
@@ -77,10 +88,9 @@ BODY = [
 ('list',
  ['**Phasing at known alleles from graph alignments** (Sections 2.2–2.3): a catalog of the sites of a pangenome '
   "graph, and each read's allele at them taken from its graph alignment.",
-  "**One solve over the catalog's sites and the sample's own** (Sections 2.4–2.5): heterozygous variants found in "
-  "the linear alignments, including those a multiple sequence alignment resolves in noisy regions, join the "
-  "catalog's sites before phasing, and an expectation-maximization learns the error rate of every site, shrunk "
-  "toward that of sites of the same kind.",
+  "**One solve over the catalog's sites and the sample's own** (Sections 2.4–2.5): heterozygous variants from the "
+  "linear alignments, including those resolved in noisy regions, join the catalog's sites, and an "
+  "expectation-maximization learns every site's error rate.",
   '**Joins that the reads verify** (Section 2.6): two blocks are joined only when several reads carry evidence on '
   'both sides at reliable sites; sites at collapsed duplications, sites read only at low mapping quality and '
   'one-base length differences cannot join blocks, although they still label reads.',
@@ -100,7 +110,8 @@ BODY = [
  "reads they share. It has two parts: the *graph arm*, which phases the catalog's sites from the graph "
  "alignments, and *union gap phasing*, which adds the sample's own heterozygous variants from the linear "
  'alignments and phases all sites in one solve. It writes a phased VCF and the reads\' haplotype (HP) and phase set '
- '(PS) tags. All thresholds below were set on the development chromosomes (Section 2.8).'),
+ '(PS) tags. All thresholds below were set on the development chromosomes (Section 2.8); Supplementary '
+ f'Table {stab("params")} lists every one with its value.'),
 ('figure', 'overview'),
 ('sub', 'Site catalog and read evidence from a pangenome graph'),
 ('p',
@@ -135,13 +146,18 @@ BODY = [
  'its two alleles, and no site observed by more than 1.5 times the chunk\'s median depth is added: at a collapsed '
  'duplication the two "alleles" are the copies, and a run of such sites is perfectly consistent with itself. '
  'Verified noisy variants that fail these rules are still used, but only to label reads as islands (Section 2.7). '
+ 'A clean call inside a noisy region longer than the MSA limit cannot be verified; it is kept as an *unverified* '
+ 'call, which takes no part in joins and labels reads only as a last resort (Section 2.7). '
  'Placements of one indel at different copies of a repeat are merged into one site; a call inside a catalog site '
- 'of up to 2 kb only supplies alleles to reads the graph left without one there; and reads with mapping quality 20 '
- 'or more that only the linear alignment holds are added. At each added indel, every read that crosses the site '
+ 'of up to 2 kb only supplies alleles to reads the graph left without one there, and one inside a longer site is '
+ 'added as a site of its own; and reads with mapping quality 20 or more that only the linear alignment holds are '
+ 'added. At each added indel, every read that crosses the site '
  'without a call is realigned to the two alleles in reference context and takes the closer one, with a per-read '
- 'error of \\(1/(1+e^{3m})\\) for a margin of \\(m\\) edits. Where a read\'s allele at a catalog SNP disagrees with '
- 'its aligned base, the base is used: measured against the parents on the development chromosomes, the aligned '
- 'base was correct in 88–93% of such disagreements.'),
+ 'error of \\(1/(1+e^{3m})\\) for a margin of \\(m\\) edits; where the MSA called the read, its call is kept, '
+ 'with error 0.25 if realignment cannot decide and 0.35 if it calls the other allele. Where a read\'s allele at a '
+ 'catalog SNP disagrees with its aligned base, the base is used: measured against the parents on the development '
+ 'chromosomes, the aligned base was correct in 88–93% of such disagreements. A graph allele at a SNP whose base '
+ 'the read\'s alignment does not give keeps an error of 0.25.'),
 ('sub', 'One expectation-maximization over all sites'),
 ('p',
  'Every site with two observed alleles, from the catalog or the sample, is given a phase \\(h_s\\in\\{0,1\\}\\) '
@@ -154,12 +170,15 @@ BODY = [
  'where \\(\\varepsilon_{rs} = 1-(1-\\varepsilon_s)(1-e_{rs})\\) combines the error of the site with that of '
  'the call. Expectation-maximization [@Dempster1977] alternates between the reads\' posteriors and the sites\' '
  'phases and errors, starting from error 0.05 at clean sites and 0.2 at the others and from the clean solve\'s '
- 'labels. The error of a site is the weighted disagreement of its reads, shrunk by five pseudo-reads toward the '
- 'median error of the sites of its class in the chunk (clean catalog heterozygotes, other catalog sites, added '
+ 'labels; site errors are kept between 0.01 and 0.45. The error of a site is the weighted disagreement of its '
+ 'reads, shrunk by five pseudo-reads toward the median error of the sites of its class in the chunk that carry '
+ 'at least ten reads\' teaching weight (the weighted mean when fewer than five such sites exist) (clean catalog heterozygotes, other catalog sites, added '
  'variants, local windows and unverified calls from noisy regions longer than 2 kb, each divided by whether the '
  'site is a one-base length difference). This empirical Bayes prior keeps, for example, a noisy homopolymer call '
  'from overruling a clean SNP that shares its reads. Only reads of mapping quality 20 or more update the model; '
- 'the others are scored against it and labelled. A site whose rarer allele is held by fewer than a quarter of its '
+ 'the others are scored against it and labelled. A read whose calls all lie at one site does not teach that '
+ 'site\'s error, since its posterior comes from the site alone, except at clean catalog heterozygotes, whose '
+ 'starting error is the better prior. A site whose rarer allele is held by fewer than a quarter of its '
  'reads is left out, since such a skewed split is typical of a paralogous copy or of an error. After 15 '
  'iterations, the solve flips all sites beyond the boundary whose flip most increases the likelihood, for as long '
  'as some flip increases it (at most 30 rounds). A site whose learned error is 0.3 or more is reported unphased '
@@ -168,7 +187,9 @@ BODY = [
 ('sub', 'Joining blocks only where reads verify the join'),
 ('p',
  'A block ends wherever flipping all sites beyond a boundary would cost less than 4 log-likelihood units, or where '
- 'fewer than two reads carry evidence on both sides, since a single molecule can be chimeric or misplaced. Because '
+ 'fewer than two reads carry evidence on both sides, since a single molecule can be chimeric or misplaced. The '
+ 'cut is judged over all reads, including those below mapping quality 20: a read too ambiguously mapped to shape '
+ 'the model still shows that its molecule continues across the boundary. Because '
  'a wrong join misphases every read beyond it, pgphase further restricts which sites can support a join:'),
 ('list',
  ['**One-base length differences are weak.** A homopolymer length call in a homozygous stretch can look '
@@ -197,10 +218,17 @@ BODY = [
  'sites. After the solve, adjacent chunks are joined in the orientation supported by the reads they share, only '
  'when one orientation leads by at least three reads and 90%. Sites left out of the solve are then oriented from '
  'the labelled reads when their alleles associate with one phase set (exact one-sided binomial test, '
- '\\(p \\le 0.01\\)), and label the unlabelled reads that cross them. Last, a read whose calls in a block all '
+ '\\(p \\le 0.01\\)), and label the unlabelled reads that cross them, using a read\'s linear-alignment allele '
+ 'where its graph alignment gives none. Last, a read whose calls in a block all '
  "agree takes the block's label if its posterior there is at least 0.7, and a read still unlabelled is phased by its own call at one "
  'site that cannot vote, in a block of that site alone (an *island*), which joins nothing, so that a wrong island '
- 'affects only its own reads. In the VCF, a phase set whose heterozygotes all lie at one locus (within 10 bp) is '
+ 'affects only its own reads. Island sites are those the solve rejected, repeat indels it never sees, verified '
+ 'noisy variants that failed the rules of Section 2.4 and length windows; a read takes the one with the lowest '
+ 'error, and a site needs two unlabelled reads and both alleles in at least a quarter of its reads. Before islands, a '
+ 'read with only unverified calls takes their label at posterior 0.8 when their learned error is below 0.1. In the '
+ 'VCF, multi-base substitutions are written as their '
+ 'single-base changes, indels are left-aligned, and two records of one variant are collapsed, keeping the phased '
+ 'one; a phase set whose heterozygotes all lie at one locus (within 10 bp) is '
  'written unphased, as are SNPs of learned error 0.1 or more, indels of 0.25 or more and unverified calls.'),
 ('sub', 'Evaluation'),
 ('p',
@@ -218,9 +246,10 @@ BODY = [
  'check that changes generalised, and one rule (the hinge rule, Section 2.6) was found by examining an error on '
  'chr6. The MHC (chr6:28.5–34.0 Mb) is reported separately.'),
 ('p',
- '**Truth.** The parent of origin of each read was determined by aligning it with minimap2 [@Li2018] to both '
- 'haplotypes of the HG002 v1.1 assembly [@Hansen2025] and choosing the better alignment with HipHap [@HipHap], '
- 'which also scores the confidence of the assignment (HapQ). Truth heterozygous variants are those of the Q100 '
+ '**Truth.** The parent of origin of each read was determined by aligning it with minimap2 2.31 [@Li2018] '
+ '(preset `lr:hqae`, no secondary alignments) to each haplotype of the HG002 v1.1 assembly [@Hansen2025] and '
+ 'choosing the better alignment with HipHap [@HipHap], which also scores the confidence of the assignment '
+ '(HapQ). Reads without a parental label are not scored. Truth heterozygous variants are those of the Q100 '
  'HG002 small-variant benchmark on CHM13 [@Hansen2025].'),
 ('p',
  '**Read metrics.** A primary read is *phaseable* when its alignment spans a heterozygous truth variant. Each '
@@ -228,9 +257,9 @@ BODY = [
  'its haplotype tag agrees with that orientation, *discordant* when it does not, and *unphased* when it has no '
  'tag. A read is centromeric when its alignment midpoint lies in one interval per chromosome spanning its '
  'centromeric and pericentromeric satellites, as annotated on CHM13 [@Altemose2022] and listed in '
- 'Supplementary Table S4, and on the arms '
+ f'Supplementary Table {stab("scoring")}, and on the arms '
  'otherwise. One region at the end of chr20 where the truth labels contradict the truth variants is not scored '
- '(Supplementary Table S4). We also report the discordant reads whose parental assignment is confident (HapQ ≥ 30): '
+ f'(Supplementary Table {stab("scoring")}). We also report the discordant reads whose parental assignment is confident (HapQ ≥ 30): '
  'on the development chromosomes, every tool was 25–37% discordant on reads below HapQ 10, most of which carry the '
  "other parent's alleles at their own clean SNVs, which points to an error in the label rather than in the phase. "
  'All tools were scored by the same script.'),
@@ -244,7 +273,18 @@ BODY = [
  "crosses its edges (at most 20 kb), the tool's two haplotype sequences are compared with the truth's by edit "
  'distance, and each window pairs them in the cheaper way. A switch is *real* when the two windows pair the '
  'haplotypes in opposite ways, *representation* when both pair them the same way, and *undecided* when the two '
- "pairings of either window differ by less than 30% (or by fewer than 2 edits)."),
+ "pairings of either window differ by less than 30% (or by fewer than 2 edits). A phase set spans from its first "
+ "to its last phased heterozygous record; we report the number of phase sets and the N50 (not NG50) of their "
+ "spans. Running time and peak memory were measured "
+ "with GNU time on one machine with an Intel Core i9-7900X processor (10 cores) and 91 GB of memory."),
+
+('sub', 'Implementation'),
+('p',
+ 'pgphase is written in C++17 on htslib, with abPOA [@Gao2021] for partial order alignment, WFA2-lib and edlib '
+ 'for pairwise alignment; its alignment pipeline is derived from longcallD [@Gao2026], whose MIT-licensed code it '
+ 'ports and tests against. Catalog building and GAF indexing are done by pgcat, a Rust program that reads the '
+ 'GBZ graph with the gbz library [@Siren2022]. Chunks are processed by a pool of worker threads, each with its own '
+ 'file handles, and joined in one sequential pass; output does not depend on the number of threads.'),
 
 ('sec', 'Results'),
 ('sub', 'More reads phased correctly, fewer misphased'),
@@ -285,27 +325,25 @@ BODY = [
  f'({V["best_dv_hets_n"]} for {V["best_dv_hets_rival"]}; [#tab:switches]). Its blocks are shorter than HiPhase\'s: '
  f'{V["pg_ps"]} phase sets against {V["hiphase_ps"]}, and a median block N50 of {V["pg_n50_kb"]} kb against '
  f'{V["hiphase_n50_kb"]} kb. Many of the additional phase sets lie in centromeric satellites, which pgphase '
- 'phases and HiPhase largely leaves unphased ([#tab:cen]), and in collapsed duplications and stretches read only at low '
+ f'phases and HiPhase largely leaves unphased (Supplementary Table {stab("cen")}), and in collapsed duplications and stretches read only at low '
  'mapping quality, where the join rules leave each site in its own block.'),
 ('sub', 'Centromeres'),
 ('p',
  f'In centromeric and pericentromeric satellites, where reads map ambiguously and copies differ by few bases, '
  f'pgphase phased {V["pg_cen_correct"]} reads correctly, with {V["pg_cen_ratio"]} correct reads per discordant '
- f'one ([#tab:cen]). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
+ f'one (Supplementary Table {stab("cen")}). {V["most_cen_rival"]} phased {V["most_cen_rival_correct"]} correctly with '
  f'{V["most_cen_rival_ratio"]} correct reads per discordant one. {V["cen_best_ratio_rival"]} had the highest ratio, '
  f'{V["cen_best_ratio"]}, but phased only {V["cen_best_ratio_correct"]} reads correctly and left '
  f'{V["cen_best_ratio_unph"]} unphased.'),
-('table', 'cen'),
 ('sub', 'Running time and memory'),
 ('p',
  f'On the {V["n_same_threads"]} chromosomes where every multi-threaded tool ran with six threads, pgphase took '
  f'{V["pg_wall_total_min"]} minutes in total, against {V["hiphase_wall_total_min"]} for HiPhase and '
  f'{V["longphase_wall_total_min"]} for LongPhase; on chr6, {V["pg_wall_chr6"]} s against {V["hiphase_wall_chr6"]} s '
- f'and {V["longphase_wall_chr6"]} s ([#tab:resources]). pgphase\'s time includes finding the sample\'s variants and '
+ f'and {V["longphase_wall_chr6"]} s (Supplementary Table {stab("resources")}). pgphase\'s time includes finding the sample\'s variants and '
  'writing the haplotagged reads, whereas the times of the phasers given DeepVariant\'s calls exclude DeepVariant; '
  f'none includes graph alignment. pgphase needed up to {V["pg_rss_max"]} GB of memory, more than the phasers '
  'given DeepVariant\'s calls.'),
-('table', 'resources'),
 
 ('sec', 'Discussion'),
 ('p',
@@ -331,9 +369,7 @@ BODY = [
  "repeat whose expansion in the sample no genome shares, a read's graph alignment follows the closest known walk, "
  'and most of the switches we could not classify are of this kind. Representing such alleles from the reads '
  'themselves is a natural next step. pgphase also needs graph alignments of the reads and more memory than the '
- 'phasers it was compared with. Finally, a record-level comparison counts differences of representation in '
- 'repeats as switch errors; classifying switches by haplotype sequence, as here, or comparing haplotypes rather '
- 'than records, would make phasers easier to compare.'),
+ 'phasers it was compared with.'),
 ]
 
 BACK = [
@@ -349,7 +385,7 @@ BACK = [
   f"{V['commit']}. The scores behind every table and figure are in the same repository (`tools/paper/results.json`), "
   "from which `tools/paper/` regenerates this paper. The evaluation scripts, which run every tool and score its "
   "output, are available at https://github.com/kokyriakidis/pgphase-dev, and the exact command of every tool is "
-  "given in Supplementary Section S5. The HG002 reads (DRAFT: source), the HPRC release 2 graph [@HPRC2], the HG002 "
+  f"given in Supplementary Section {ssec('Commands')}. The HG002 reads (DRAFT: source), the HPRC release 2 graph [@HPRC2], the HG002 "
   "v1.1 assembly and the Q100 benchmark [@Hansen2025] are publicly available."),
 ]
 

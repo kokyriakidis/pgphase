@@ -145,9 +145,10 @@ for col, lower in ((1, False), (2, True), (3, True), (4, False)):
     for r, v in zip(rows, vals):
         if v == best:
             r[col] = f"**{r[col]}**"
-TABLES["cen"] = {
+STABLES_CEN = {
+    "label": "S3",
     "caption": "Phaseable reads in centromeric and pericentromeric satellites (one interval per chromosome, "
-               "Supplementary Table S4) over the eight chromosomes, and the ratio of correct to discordant reads.",
+               "Supplementary Table S5) over the eight chromosomes, and the ratio of correct to discordant reads.",
     "header": ["Tool", "Correct", "Discordant", "Unphased", "Correct : discordant"],
     "align": "lrrrr",
     "rows": rows,
@@ -176,7 +177,7 @@ TABLES["resources"] = {
 }
 
 # ------------------------------------------------------------------------------- supplementary tables
-STABLES = {}
+STABLES = {"cen": STABLES_CEN}
 rows = []
 for p in CHROMS + [MHC]:
     rows.append([label(p), "", "", "", "", "", "", ""])
@@ -216,7 +217,7 @@ for p in CHROMS:
             r = RS[p][t]
             rows.append([lab, str(r["threads"]), f"{r['wall_s']:.0f}", f"{r['rss_gb']:.2f}"])
 STABLES["resources"] = {
-    "label": "S3", "long": True,
+    "label": "S4", "long": True,
     "caption": "Wall-clock time and peak memory per chromosome and tool.",
     "header": ["Tool", "Threads", "Time (s)", "Peak memory (GB)"],
     "align": "lrrr",
@@ -230,13 +231,129 @@ for p in CHROMS + [MHC]:
     excl = "; ".join(f"{c.split('#')[-1]}:{a / 1e6:.2f}–{b / 1e6:.2f} Mb" for c, a, b in SC[p]["exclude"]) or "none"
     rows.append([label(p), f"{beg / 1e6:.2f}–{end / 1e6:.2f}", excl])
 STABLES["scoring"] = {
-    "label": "S4",
+    "label": "S5",
     "caption": "Scoring settings per chromosome: the interval counted as centromeric and pericentromeric "
                "(CHM13 cenSat v2.1 satellite span on chr6, chr16, chr17, chr19 and chr21, the acrocentric short arm "
                "included on chr21; rounded spans on chr12, chr18 and chr20, set earlier in development), and the "
                "regions not scored because the truth contradicts itself there.",
     "header": ["Chromosome", "Centromeric interval (Mb)", "Not scored"],
     "align": "lll",
+    "rows": rows,
+}
+
+# ------------------------------------------------------------------------------- parameters, from the source
+import glob
+import re as _re
+
+_SRC = "".join(open(f).read() for f in sorted(glob.glob(os.path.join(HERE, "..", "..", "src", "*.[ch]pp"))))
+
+
+def const(name):
+    """The value of a constexpr in src/, which must be defined once (or several times to one value)."""
+    vals = set(_re.findall(r"constexpr[\w:\s]+?\b" + name + r"\s*=\s*([0-9.e+-]+)", _SRC))
+    assert len(vals) == 1, (name, vals)
+    v = vals.pop()
+    return f"{float(v):g}" if "." in v else f"{int(v):,}"
+
+
+PARAMS = [
+ ("Graph evidence and catalog sites", [
+  ("kDefaultGraphMinMapq", "minimum mapping quality of graph alignments without a BAM", "2.2"),
+  ("kUnionAlignmentMinMapq", "minimum mapping quality of graph and linear alignments with a BAM", "2.2"),
+  ("kDefaultChunkSize", "chunk length without a BAM (bp)", "2.1"),
+  ("kDefaultGraphBamChunkSize", "chunk length with a BAM (bp)", "2.1"),
+  ("kDefaultMinDepth", "minimum reads at a site", "2.2"),
+  ("kDefaultMinAltDepth", "minimum reads carrying the alternative allele", "2.2"),
+  ("kDefaultMinAf", "minimum alternative allele fraction of a heterozygous site", "2.2"),
+  ("kDefaultMaxAf", "maximum alternative allele fraction of a heterozygous site", "2.2"),
+  ("kDefaultMinBaseq", "minimum base quality of an aligned base", "2.3"),
+  ("kFamilywiseError", "family-wise error of the test for an absent reference base at catalog SNPs", "2.3"),
+  ("kMinDeletionFraction", "deletion share of reads that keeps a catalog SNP from being reclassified", "2.3")]),
+ ("The sample's own heterozygous variants", [
+  ("kDefaultMinMapq", "mapping quality of a confident read", "2.4"),
+  ("kUnionMinConfidentAlleleReads", "confident reads needed on each allele of an MSA-verified variant", "2.4"),
+  ("kUnionMaxDepthRatio", "largest depth, relative to the chunk median, of an added site", "2.4"),
+  ("kUnionMsaMaxRegionLength", "longest noisy region resolved by MSA (bp)", "2.4"),
+  ("kUnionMaxComplementRowSpan", "longest catalog site whose calls only fill reads without a graph allele (bp)", "2.4"),
+  ("kAddedReadMinMapq", "minimum mapping quality of reads only the linear alignment holds", "2.4"),
+  ("kMarginErrorLambda", "slope \\(\\lambda\\) of the per-read error \\(1/(1+e^{\\lambda m})\\) of a realigned call", "2.4"),
+  ("kMsaUndecidedError", "error of an MSA call that realignment cannot decide", "2.4"),
+  ("kMsaContradictedError", "error of an MSA call that realignment contradicts", "2.4"),
+  ("kGraphOnlyCallError", "error of a graph call at a catalog SNP whose base the alignment does not give", "2.4")]),
+ ("Expectation-maximization", [
+  ("kEmCleanStartError", "starting error of clean sites", "2.5"),
+  ("kEmOtherStartError", "starting error of other sites", "2.5"),
+  ("kEmMinError", "smallest site error", "2.5"),
+  ("kEmMaxError", "largest site and call error", "2.5"),
+  ("kEmClassPriorReads", "pseudo-reads of the class prior", "2.5"),
+  ("kEmPoolMinWeight", "teaching weight (reads) for a site to enter its class pool", "2.5"),
+  ("kEmPoolMinSites", "sites needed for the pool median (else the weighted mean)", "2.5"),
+  ("kEmLearnMinMapq", "minimum mapping quality of a read that updates the model", "2.5"),
+  ("kEmMinMinorAlleleFraction", "minimum share of the rarer allele at a site", "2.5"),
+  ("kEmIterations", "iterations before switch moves", "2.5"),
+  ("kEmSwitchRounds", "most rounds of switch moves", "2.5"),
+  ("kEmUnreliableError", "learned error at which a site is unphased and labels no read", "2.5"),
+  ("kEmReadLabelPosterior", "posterior for a read label", "2.5")]),
+ ("Joins", [
+  ("kEmBlockCutLogLikelihood", "join margin below which a block is cut (log units)", "2.6"),
+  ("kEmMinJoinReads", "reads with evidence on both sides of a join", "2.6"),
+  ("kEmWeakBridgeCutLogLikelihood", "margin needed by a join through weak sites (log units)", "2.6"),
+  ("kEmMinStrongJoinReads", "reads at reliable, non-weak sites for a strong margin", "2.6"),
+  ("kEmJoinMaxDepthRatio", "callers, relative to the chunk median, above which a site joins nothing", "2.6"),
+  ("kEmDupDepthRatio", "callers, relative to the median, of a duplicated-haplotype site", "2.6"),
+  ("kEmDupMinorFraction", "rarer-allele share below which such a site joins nothing", "2.6"),
+  ("kEmJoinMinMeanMapq", "mean mapping quality of a site's callers below which it joins nothing", "2.6"),
+  ("kEmEchoMaxGap", "distance within which a site can repeat another (bp)", "2.6"),
+  ("kEmEchoMinShare", "share of reads two such sites must have in common", "2.6"),
+  ("kEmEchoMinConcordance", "share of shared reads that must split the same way", "2.6"),
+  ("kEmEchoMinReads", "minimum shared reads", "2.6")]),
+ ("Labels for the remaining reads, and output", [
+  ("kLocusMergeGap", "noisy calls merged into one local window within (bp)", "2.7"),
+  ("kLocusPad", "padding of a local window (bp)", "2.7"),
+  ("kLocusMaxPeriod", "longest tandem repeat period a window extends through (bp)", "2.7"),
+  ("kLocusMaxRepeatScan", "longest repeat scan (bp)", "2.7"),
+  ("kLocusMaxLength", "longest local window (bp)", "2.7"),
+  ("kLocusMaxReads", "most reads per local window", "2.7"),
+  ("kLocusMinMapq", "minimum mapping quality of a window's reads", "2.7"),
+  ("kSeedLabelMinAgreement", "agreement of a read's phased sites for it to seed a haplotype", "2.7"),
+  ("kLocusSeedSample", "seeded reads per haplotype medoid", "2.7"),
+  ("kLocusSplitRounds", "rounds of the unseeded split", "2.7"),
+  ("kLocusMinMargin", "edits by which a read must be closer to one haplotype or allele", "2.7"),
+  ("kLocusMinSide", "reads needed on the rarer side of a window", "2.7"),
+  ("kLocusMinMinorFraction", "share of reads needed on the rarer side", "2.7"),
+  ("kLocusMaxObsError", "largest per-read error of a window call", "2.7"),
+  ("kAlleleWindowFlank", "flank of an allele window beyond its repeat (bp)", "2.7"),
+  ("kAlleleWindowMaxReads", "most reads per allele window", "2.7"),
+  ("kPairMaxRefFraction", "largest reference share of an indel in a two-allele window", "2.7"),
+  ("kLengthMinTract", "shortest tandem repeat tract of a length window (bp)", "2.7"),
+  ("kLengthMinReads", "spanning reads needed to genotype a length window", "2.7"),
+  ("kLengthMinHetLLR", "two lengths over one, for a heterozygous length window (log units)", "2.7"),
+  ("kLengthMinReadLLR", "a read's least likelihood ratio between the two lengths", "2.7"),
+  ("kStitchMinNetReads", "reads by which one orientation must lead to join chunks", "2.7"),
+  ("kStitchMinShare", "share of reads that orientation needs", "2.7"),
+  ("kRescueSiteOrientationPValue", "p-value of the association that orients an excluded site", "2.7"),
+  ("kRescueSingletonMaxDiscordance", "upper 95% bound on discordance for a site oriented by one locus", "2.7"),
+  ("kEmDeferredLabelPosterior", "posterior for a deferred label", "2.7"),
+  ("kEmUnverifiedReportError", "largest learned error of an unverified call that labels reads", "2.7"),
+  ("kEmUnverifiedLabelPosterior", "posterior for a label from unverified calls", "2.7"),
+  ("kIslandOutsideMaxError", "largest disagreement of an island site with labelled reads", "2.7"),
+  ("kIslandMinReads", "unlabelled reads an island site must call", "2.7"),
+  ("kOneLocusSpan", "span of one locus for an unphased phase set (bp)", "2.7"),
+  ("kEmVcfMaxSnpError", "learned error from which a SNP is written unphased", "2.7"),
+  ("kEmVcfMaxIndelError", "learned error from which an indel is written unphased", "2.7")]),
+]
+rows = []
+for group, items in PARAMS:
+    rows.append([group, "", "", ""])
+    for name, what, sec in items:
+        rows.append([what[0].upper() + what[1:], const(name), sec, f"`{name}`"])
+STABLES["params"] = {
+    "label": "S6", "long": True,
+    "caption": "Every threshold of pgphase, with its value as compiled (read from the source when this table is "
+               "generated), the Methods section that uses it, and its name in the source.",
+    "header": ["Parameter", "Value", "Section", "Name"],
+    "align": "lrrl",
+    "wrap": [0],
     "rows": rows,
 }
 
@@ -353,6 +470,7 @@ best_dv = max(DV, key=lambda t: var(t, "truth_matched_phased_hets"))
 V["best_dv_hets_rival"] = NAME[best_dv]
 V["best_dv_hets_n"] = n(var(best_dv, "truth_matched_phased_hets"))
 assert var("pgphase", "truth_matched_phased_hets") > var(best_dv, "truth_matched_phased_hets")
+assert STABLES["scoring"]["label"] == "S5"  # the centromere caption cites it
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":
