@@ -28,6 +28,8 @@ import refs as R
 import supplement as S
 
 CITE = {k: R.cite(k) for k in R.REFS}
+# The supplement is titled after the paper, so the two cannot drift apart.
+SUPPLEMENT_TITLE = f"Supplementary material for {M.TITLE}"
 
 # ------------------------------------------------------------------------------------------- numbering
 def number_items(body, tables):
@@ -159,8 +161,19 @@ def html_table(key, t, tabs, figs):
             attr = f' class="{" ".join(cls)}"' if cls else ""
             cells.append(f"<td{attr}>{inline_html(c, tabs, figs)}</td>")
         rows.append("<tr>" + "".join(cells) + "</tr>")
+    groups = ""
+    if t.get("groups"):
+        cells, col = [], 0
+        for label, a, b in t["groups"]:
+            if a > col:
+                cells.append(f'<th colspan="{a - col}"></th>')
+            cells.append(f'<th colspan="{b - a + 1}" class="group">{inline_html(label, tabs, figs)}</th>')
+            col = b + 1
+        if col < len(t["header"]):
+            cells.append(f'<th colspan="{len(t["header"]) - col}"></th>')
+        groups = "<tr>" + "".join(cells) + "</tr>"
     return (f'<div class="table-wrap" id="tab-{key}"><table>\n<caption><b>Table {tabs[key]}.</b> {inline_html(t["caption"], tabs, figs)}</caption>\n'
-            f'<thead><tr>{head}</tr></thead>\n<tbody>\n' + "\n".join(rows) + "\n</tbody></table></div>")
+            f'<thead>{groups}<tr>{head}</tr></thead>\n<tbody>\n' + "\n".join(rows) + "\n</tbody></table></div>")
 
 def html_figure(key, caption, num, tabs, figs):
     cap = f'<figcaption><b>Fig. {num}.</b> {inline_html(caption, tabs, figs)}</figcaption>'
@@ -264,7 +277,7 @@ def render_html_supplement():
 <main>
 <header class="col masthead">
   <div class="journal">Bioinformatics · Supplementary material <span class="draft">Draft</span></div>
-  <h1>{inline_html(S.TITLE, {}, {})}</h1>
+  <h1>{inline_html(SUPPLEMENT_TITLE, {}, {})}</h1>
   <div class="authors">{" and ".join(name for name, _ in M.AUTHORS)}</div>
 </header>
 {body}
@@ -288,6 +301,15 @@ def tex_table(key, t, wide):
          else " & ".join(inline_tex(c) for c in r) + " \\\\")
         for r in t["rows"])
     head = " & ".join(inline_tex(h) for h in t["header"]) + " \\\\"
+    if t.get("groups"):
+        cells, rules, col = [], [], 0
+        for label, a, b in t["groups"]:
+            cells += [""] * (a - col)
+            cells.append(f"\\multicolumn{{{b - a + 1}}}{{c}}{{{inline_tex(label)}}}")
+            rules.append(f"\\cmidrule(lr){{{a + 1}-{b + 1}}}")
+            col = b + 1
+        cells += [""] * (len(t["header"]) - col)
+        head = " & ".join(cells) + " \\\\ " + "".join(rules) + "\n" + head
     return (f"\\begin{{{env}}}[t]\n\\caption{{{inline_tex(t['caption'])}}}\\label{{tab:{key}}}\n\\centering\\footnotesize\n"
             f"\\setlength{{\\tabcolsep}}{{4pt}}\n{fit[0]}\\begin{{tabular}}{{@{{}}{''.join(cols)}@{{}}}}\n\\toprule\n{head}\n\\midrule\n{body}\n\\bottomrule\n\\end{{tabular}}{fit[1]}\n\\end{{{env}}}\n")
 
@@ -428,7 +450,7 @@ def render_tex_supplement():
 \\renewcommand{{\\thesection}}{{S\\arabic{{section}}}}
 \\renewcommand{{\\thetable}}{{S\\arabic{{table}}}}
 \\begin{{document}}
-{{\\Large\\bfseries {inline_tex(S.TITLE)}\\par}}\\medskip
+{{\\Large\\bfseries {inline_tex(SUPPLEMENT_TITLE)}\\par}}\\medskip
 {{\\large {" and ".join(name for name, _ in M.AUTHORS)}}}\\par\\bigskip
 {body}
 \\end{{document}}

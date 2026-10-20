@@ -2,14 +2,14 @@
 Same markup as main_text.py; its tables come from tables.STABLES."""
 from tables import STABLES
 
-TITLE = "Supplementary material for pgphase: phasing long reads at a pangenome's known alleles and the sample's own heterozygous variants"
+# The title is the paper's (render.py: SUPPLEMENT_TITLE).
 TABLES = STABLES
 
 BODY = [
 ('sec', 'Per-chromosome results'),
 ('p',
  'Table S1 gives, per chromosome and tool, the phaseable reads on the arms by class, the discordant reads whose '
- 'parental label is confident, the switch and flip errors of a record-level comparison and the phased truth '
+ 'parental assignment is confident, the switch and flip errors of a record-level comparison and the phased truth '
  'heterozygotes. The MHC lies inside chr6.'),
 ('table', 'perchrom'),
 ('sec', 'Switch errors by haplotype sequence'),

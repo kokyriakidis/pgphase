@@ -2,32 +2,37 @@
 \begin{figure*}[t]
 \centering
 \resizebox{\textwidth}{!}{\begin{tikzpicture}
-\node[inbox, minimum width=2.6cm, minimum height=0.9cm, anchor=west] (graph) at (0.0,4.2) {Pangenome graph\\(GBZ)};
-\node[inbox, minimum width=2.6cm, minimum height=0.9cm, anchor=west] (reads) at (0.0,2.3) {Long reads};
-\node[box, minimum width=2.8cm, minimum height=0.9cm, anchor=west] (catalog) at (3.4,4.2) {Site catalog\\(snarl alleles, pgcat)};
-\node[box, minimum width=2.8cm, minimum height=0.9cm, anchor=west] (gaf) at (3.4,2.9) {Graph alignments\\(GAF, indexed)};
-\node[box, minimum width=2.8cm, minimum height=0.9cm, anchor=west] (bam) at (3.4,1.6) {Linear alignments\\(BAM)};
-\node[box, minimum width=3.2cm, minimum height=1.2cm, anchor=west] (clean) at (7.0,3.55) {Catalog sites phased\\from walk observations\\(k-means)};
-\node[box, minimum width=3.2cm, minimum height=1.2cm, anchor=west] (solve) at (7.0,1.6) {Sample-specific hets\\(candidates, noisy-region\\MSA)};
-\node[box, minimum width=3.3cm, minimum height=1.6cm, anchor=west] (em) at (11.0,2.6) {Global EM per chunk:\\site phases and errors,\\joins the reads verify};
-\node[box, minimum width=3.0cm, minimum height=1.0cm, anchor=west] (windows) at (15.1,3.45) {Haplotype and allele\\windows, EM pass 2};
-\node[box, minimum width=3.0cm, minimum height=1.0cm, anchor=west] (fill) at (15.1,1.75) {Stitching, rescue,\\island blocks};
-\node[outbox, minimum width=2.4cm, minimum height=1.3cm, anchor=west] (out) at (18.9,2.6) {Phased VCF\\Haplotagged\\reads (HP/PS)};
-\draw[arr] (2.60,4.20) -- (3.40,4.20);
-\draw[arr] (2.60,2.30) -- (3.40,2.90);
-\draw[arr] (2.60,2.30) -- (3.40,1.60);
-\draw[arr] (2.60,4.20) -- (3.40,2.90);
-\draw[arr] (6.20,4.20) -- (7.00,3.55);
-\draw[arr] (6.20,2.90) -- (7.00,3.55);
-\draw[arr] (6.20,1.60) -- (7.00,1.60);
-\draw[arr] (10.20,3.55) -- (11.00,2.60);
-\draw[arr] (10.20,1.60) -- (11.00,2.60);
-\draw[arr] (14.30,2.60) -- (15.10,3.45);
-\draw[arr] (16.60,2.95) -- (16.60,2.25);
-\draw[arr] (14.30,2.60) -- (15.10,1.75);
-\draw[arr] (18.10,1.75) -- (18.90,2.60);
-\node[font=\scriptsize\itshape, anchor=west] at (7.0,5.0) {graph arm: known alleles};
-\node[font=\scriptsize\itshape, anchor=west] at (7.0,0.7) {union gap phasing: the sample's own hets};
+\draw[gray!70, dashed, rounded corners=4pt] (5.85,-0.2) rectangle (21.0,5.35);\node[anchor=north east, font=\footnotesize\bfseries, black!75] at (20.9,5.3) {pgphase};
+\fill[fill={rgb,255:red,227;green,238;blue,249}, rounded corners=3pt] (6.15,2.45) rectangle (12.35,4.95);\node[anchor=north west, font=\scriptsize\itshape] at (6.25,4.9) {graph arm};
+\fill[fill={rgb,255:red,252;green,235;blue,221}, rounded corners=3pt] (6.15,0.15) rectangle (12.35,1.95);\node[anchor=south west, font=\scriptsize\itshape] at (6.25,0.18) {union gap phasing (with a BAM)};
+\node[font=\scriptsize\itshape, black!70] at (4.2,5.25) {read alignment};
+\node[draw=black!60, fill={rgb,255:red,237;green,237;blue,237}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.3cm, minimum height=0.85cm, anchor=west] (graph) at (0.0,4.15) {Pangenome graph\\(GBZ)};
+\node[draw=black!60, fill={rgb,255:red,237;green,237;blue,237}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.3cm, minimum height=0.85cm, anchor=west] (reads) at (0.0,2.05) {Long reads};
+\node[draw=black!60, dashed, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.5cm, minimum height=0.85cm, anchor=west] (gaf) at (2.95,3.0) {Graph alignments\\(vg Giraffe; GAF)};
+\node[draw=black!60, dashed, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.5cm, minimum height=0.85cm, anchor=west] (bam) at (2.95,1.05) {Linear alignments\\(BAM)};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.5cm, minimum height=0.85cm, anchor=west] (catalog) at (6.45,4.15) {Site catalog\\(build-snarl-catalog)};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.5cm, minimum height=0.85cm, anchor=west] (index) at (6.45,3.0) {Indexed GAF\\(index-gaf)};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.6cm, minimum height=1.05cm, anchor=west] (clean) at (9.45,3.55) {Catalog alleles from\\read walks; k-means};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.6cm, minimum height=1.05cm, anchor=west] (solve) at (9.45,1.05) {Sample's own hets:\\candidates, MSA};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.6cm, minimum height=1.3cm, anchor=west] (em) at (12.75,2.3) {Global EM:\\site errors,\\verified joins};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.45cm, minimum height=0.95cm, anchor=west] (windows) at (15.75,3.2) {Local windows,\\EM pass 2};
+\node[draw=black!70, fill={rgb,255:red,255;green,255;blue,255}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.45cm, minimum height=0.95cm, anchor=west] (fill) at (15.75,1.4) {Stitching, rescue,\\islands};
+\node[draw=pghl, thick, fill={rgb,255:red,251;green,227;blue,214}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.1cm, minimum height=0.85cm, anchor=west] (vcf) at (18.65,3.2) {Phased VCF};
+\node[draw=pghl, thick, fill={rgb,255:red,251;green,227;blue,214}, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum width=2.1cm, minimum height=0.85cm, anchor=west] (tags) at (18.65,1.4) {Read HP/PS tags};
+\draw[-latex, thick, black!70] (2.30,4.15) -- (6.45,4.15);
+\draw[-latex, thick, black!70] (2.30,4.15) -- (2.95,3.00);
+\draw[-latex, thick, black!70] (2.30,2.05) -- (2.95,3.00);
+\draw[-latex, thick, black!70] (2.30,2.05) -- (2.95,1.05);
+\draw[-latex, thick, black!70] (5.45,3.00) -- (6.45,3.00);
+\draw[-latex, thick, black!70] (8.95,4.15) -- (9.45,3.55);
+\draw[-latex, thick, black!70] (8.95,3.00) -- (9.45,3.55);
+\draw[-latex, thick, black!70] (5.45,1.05) -- (9.45,1.05);
+\draw[-latex, thick, black!70] (12.05,3.55) -- (12.75,2.30);
+\draw[-latex, thick, black!70] (12.05,1.05) -- (12.75,2.30);
+\draw[-latex, thick, black!70] (15.35,2.30) -- (15.75,3.20);
+\draw[-latex, thick, black!70] (16.98,2.73) -- (16.98,1.88);
+\draw[-latex, thick, black!70] (18.20,1.40) -- (18.65,3.20);
+\draw[-latex, thick, black!70] (18.20,1.40) -- (18.65,1.40);
 \end{tikzpicture}}
-\caption{pgphase's pipeline. The graph arm phases the sites of a pangenome graph's catalog from the walks the reads' graph alignments take through them; with a linear alignment, union gap phasing adds the sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks only where reads verify the join. Reads still unlabelled are labelled from local windows, the orientation of excluded sites and island blocks.}\label{fig:overview}
+\caption{pgphase's pipeline. The reads are aligned by other tools (dashed boxes); pgphase's steps lie inside the dashed outline. The graph arm (blue) builds the graph's site catalog and phases its sites from the walks the reads' graph alignments take through them; union gap phasing (orange), which runs only when a linear alignment is given, adds the sample's own heterozygous variants. One expectation-maximization phases all sites, joining blocks only where reads verify the join; local windows and a second pass follow, then chunk stitching, the rescue and island blocks label the remaining reads, and pgphase writes a phased VCF and the reads' haplotype tags.}\label{fig:overview}
 \end{figure*}

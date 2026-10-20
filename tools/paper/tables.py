@@ -85,12 +85,12 @@ rows.append(["All eight chromosomes", "", "", "", "", "", ""])
 tot = {t: total(t, "arms_phaseable") for t, _ in TOOLS}
 vals = [100 * tot[t]["correct"] / sum(tot[t].values()) for t, _ in TOOLS]
 rows.append(["Correct (%)"] + bold_best([f"{v:.2f}" for v in vals], [round(v, 2) for v in vals]))
-for k, lab in (("discordant", "Discordant"), ("unphased", "Unphased")):
+for k, lab in (("discordant", "Discordant (reads)"), ("unphased", "Unphased (reads)")):
     vals = [tot[t][k] for t, _ in TOOLS]
     rows.append([lab] + bold_best([n(v) for v in vals], vals, lower=True))
 conf = {t: total(t, "arms_confident") for t, _ in TOOLS}
 vals = [conf[t]["discordant"] for t, _ in TOOLS]
-rows.append(["Discordant, HapQ ≥ 30"] + bold_best([n(v) for v in vals], vals, lower=True))
+rows.append(["Discordant (reads), HapQ ≥ 30"] + bold_best([n(v) for v in vals], vals, lower=True))
 
 TABLES = {}
 TABLES["reads"] = {
@@ -128,8 +128,10 @@ TABLES["switches"] = {
                "heterozygotes with the truth's (Section 2.8): *real* when the two windows pair the haplotypes in "
                "opposite ways, *representation* when both pair them the same way (the tool writes the same "
                "haplotypes with different records), *undecided* when either window's two pairings are within 30% "
-               "of each other. Phase sets summed, block N50 the median over the chromosomes.",
-    "header": ["Tool", "Switches", "Real", "Repr.", "Undec.", "Flips", "Phased truth hets", "Phase sets", "N50 (kb)"],
+               "of each other (or 2 edits). Phased hets: truth-matched heterozygous variants written phased. Phase "
+               "sets summed over the chromosomes, block N50 the median of the per-chromosome N50s.",
+    "header": ["Tool", "All", "Real", "Repr.", "Undec.", "Flips", "Phased hets", "Phase sets", "N50 (kb)"],
+    "groups": [("Arm switches", 1, 4), ("Variants", 5, 6), ("Blocks", 7, 8)],
     "align": "lrrrrrrrr",
     "rows": rows,
 }
@@ -180,12 +182,19 @@ STABLES = {}
 rows = []
 for p in CHROMS + [MHC]:
     rows.append([label(p), "", "", "", "", "", "", ""])
+    group = []
     for t, lab in TOOLS:
         r = reads(p, t, "arms_phaseable")
         c = reads(p, t, "arms_confident")
         v = P[p][t]["variants"]
-        rows.append([lab, n(r["correct"]), n(r["discordant"]), n(r["unphased"]), n(c["discordant"]),
-                     n(v["switches_arms"]), n(v["flips_arms"]), n(v["truth_matched_phased_hets"])])
+        group.append([lab, r["correct"], r["discordant"], r["unphased"], c["discordant"],
+                      v["switches_arms"], v["flips_arms"], v["truth_matched_phased_hets"]])
+    # The best of each column in bold: most correct and phased hets, fewest of the rest.
+    for col, lower in ((1, False), (2, True), (3, True), (4, True), (5, True), (6, True), (7, False)):
+        best = (min if lower else max)(row[col] for row in group)
+        for row in group:
+            row[col] = f"**{n(row[col])}**" if row[col] == best else n(row[col])
+    rows += group
 STABLES["perchrom"] = {
     "label": "S1", "long": True,
     "caption": "Phaseable reads on the arms (correct, discordant, unphased), discordant reads whose parental assignment "

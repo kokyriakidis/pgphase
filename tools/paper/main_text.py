@@ -394,11 +394,13 @@ BACK = [
 ]
 
 FIGURES = {
- "overview": "pgphase's pipeline. The graph arm phases the sites of a pangenome graph's catalog from the walks the "
-             "reads' graph alignments take through them; with a linear alignment, union gap phasing adds the "
-             "sample's own heterozygous variants, and one expectation-maximization phases all sites, joining blocks "
-             "only where reads verify the join. Reads still unlabelled are labelled from local windows, the "
-             "orientation of excluded sites and island blocks.",
+ "overview": "pgphase's pipeline. The reads are aligned by other tools (dashed boxes); pgphase's steps lie inside the "
+             "dashed outline. The graph arm (blue) builds the graph's site catalog and phases its sites from the walks "
+             "the reads' graph alignments take through them; union gap phasing (orange), which runs only when a "
+             "linear alignment is given, adds the sample's own heterozygous variants. One expectation-maximization "
+             "phases all sites, joining blocks only where reads verify the join; local windows and a second pass "
+             "follow, then chunk stitching, the rescue and island blocks label the remaining reads, and pgphase "
+             "writes a phased VCF and the reads' haplotype tags.",
  "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased, one row per "
              "tool. (a) Over the eight chromosomes, the share misphased (discordant) and the share left unphased; "
              "tools are ordered by the sum of the two. (b) Per chromosome, the share misphased or unphased; chr6, "
