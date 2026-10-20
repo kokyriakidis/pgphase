@@ -7,9 +7,6 @@ Every number comes from tables.V (results.json), never typed here; the claims th
 chromosome are asserted against the same data, so the paper does not render once the data stops supporting them.
 """
 from tables import TABLES, V
-
-# The release the paper reports: its source code is that of the commit the results were produced with.
-RELEASE = "v0.2.0"
 import supplement as S
 
 
@@ -400,7 +397,7 @@ BACK = [
  ("Funding", "This work received no specific funding."),
  ("Data availability",
   f"pgphase is available at https://github.com/kokyriakidis/pgphase; the results reported here are of pgphase "
-  f"{RELEASE}, identical to commit {V['commit']} apart from its version number. The scores behind every table and figure are in the same repository (`tools/paper/results.json`), "
+  f"commit {V['commit']}. The scores behind every table and figure are in the same repository (`tools/paper/results.json`), "
   "from which `tools/paper/` regenerates this paper. The evaluation scripts, which run every tool and score its "
   "output, are available at https://github.com/kokyriakidis/pgphase-dev, and the exact command of every tool is "
   f"given in Supplementary Section {ssec('Commands')}. The HG002 reads (DRAFT: source), the HPRC release 2 graph [@HPRC2], the HG002 "

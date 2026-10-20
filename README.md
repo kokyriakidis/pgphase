@@ -4,7 +4,6 @@
 
 <p align="center">
   <a href="https://github.com/kokyriakidis/pgphase/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kokyriakidis/pgphase/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/kokyriakidis/pgphase/releases"><img alt="Release" src="https://img.shields.io/github/v/tag/kokyriakidis/pgphase?label=release"></a>
   <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
 </p>
 
@@ -249,7 +248,6 @@ If you use pgphase, please cite it (see [`CITATION.cff`](CITATION.cff)):
 @software{pgphase,
   author  = {Kyriakidis, Konstantinos and Paten, Benedict},
   title   = {pgphase: pangenome graph-aware phasing of long reads with known and sample-specific variants},
-  version = {0.2.0},
   url     = {https://github.com/kokyriakidis/pgphase},
   license = {MIT}
 }
