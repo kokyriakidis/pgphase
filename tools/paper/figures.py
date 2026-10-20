@@ -120,47 +120,55 @@ def _overview_svg():
     return "\n".join(out)
 
 # ------------------------------------------------------------------------------- accuracy
-# One row per tool, read across: (a) two bar charts, misphased and unphased over the eight chromosomes, each from
-# zero with its value printed, only pgphase coloured; (b) a heatmap of the share misphased or unphased per
-# chromosome, each cell printing its value and shaded by it (log scale), development and untuned chromosomes grouped.
+# (a) Two bar charts, misphased and unphased over the eight chromosomes, one row per tool, values printed, only
+# pgphase coloured. (b) One row per chromosome: the share of phaseable reads misphased or unphased on a linear
+# axis, pgphase's dot joined to the best other tool's, the other tools faint, and how many times fewer reads
+# pgphase leaves misphased or unphased printed at the right.
 WIDE["accuracy"] = True
-HIGHLIGHT, MUTED = "D55E00", "9A9A9A"
-TIKZ_STYLES += f"\n\\definecolor{{pghl}}{{HTML}}{{{HIGHLIGHT}}}\\definecolor{{pgmuted}}{{HTML}}{{{MUTED}}}"
+HIGHLIGHT, MUTED, BEST, FAINT = "D55E00", "9A9A9A", "4D4D4D", "C8C8C8"
+TIKZ_STYLES += (f"\n\\definecolor{{pghl}}{{HTML}}{{{HIGHLIGHT}}}\\definecolor{{pgmuted}}{{HTML}}{{{MUTED}}}"
+                f"\\definecolor{{pgbest}}{{HTML}}{{{BEST}}}\\definecolor{{pgfaint}}{{HTML}}{{{FAINT}}}")
 
 from tables import DEV, HELD, TOTALS  # noqa: E402
 
-ORDER = sorted(TOTALS, key=lambda t: sum(TOTALS[t]))  # best first: top row
-COLS = DEV + HELD
-ROW, BAR_H = 0.5, 0.32           # row pitch and bar height (cm)
-LAB = 2.2                        # tool labels, left of x = 0
-BARS = [("Misphased (%)", 0, 5.0, 3.4), ("Unphased (%)", 1, 10.0, 3.4)]  # title, TOTALS index, axis max, width
-GAP = 1.0                        # after each bar chart (room for its value labels)
-CELL_W, HM_LO, HM_HI = 0.95, 0.3, 15.0
-HM_X0 = sum(w for _, _, _, w in BARS) + GAP * len(BARS) + 0.4
-TITLE_Y, HEAD_Y = 0.55, 0.45     # bar titles; heatmap column headers
+ORDER = sorted(TOTALS, key=lambda t: sum(TOTALS[t]))  # panel a rows, best first
+ROW, BAR_H = 0.5, 0.32            # panel a row pitch and bar height (cm)
+LAB = 2.2                         # tool labels, left of x = 0
+BARS = [("Misphased (%)", 0, 5.0, 3.2), ("Unphased (%)", 1, 10.0, 3.2)]  # title, TOTALS index, axis max, width
+GAP = 0.95
+TITLE_Y = 0.55
+B_X0 = sum(w for _, _, _, w in BARS) + GAP * len(BARS) + 1.5   # panel b axis start (chromosome labels left of it)
+B_W, B_MAX = 6.4, 15.0            # panel b axis width (cm) and range (%)
+B_ROW = 0.42
 
 
 def _row_y(i):
     return -i * ROW
 
 
-def _shade(v):
-    """White to Okabe-Ito blue on a log scale from HM_LO to HM_HI: (r, g, b) in 0-255, and a text colour."""
-    f = max(0.0, min(1.0, (math.log10(v) - math.log10(HM_LO)) / (math.log10(HM_HI) - math.log10(HM_LO))))
-    rgb = tuple(round(l + (h - l) * f) for l, h in zip((255, 255, 255), (0, 114, 178)))
-    return rgb, ("white" if f > 0.55 else "black")
-
-
-def _hm_value(t, p):
+def _err(t, p):
     return next(d + u for q, d, u in POINTS[t] if q == p)
 
 
-def _cell_x(j):
-    return HM_X0 + (j + (0.35 if j >= len(DEV) else 0)) * CELL_W
+def _b_rows():
+    """Panel b: (chromosome, y), development first, a gap, then the chromosomes not used for tuning."""
+    rows, y = [], 0.0
+    for group in (DEV, HELD):
+        for p in group:
+            rows.append((p, y))
+            y -= B_ROW
+        y -= 0.45
+    return rows
 
 
-def _groups():
-    return [("development", 0, len(DEV) - 1), ("not used for tuning", len(DEV), len(COLS) - 1)]
+def _b_x(v):
+    return B_X0 + v / B_MAX * B_W
+
+
+def _fold(p):
+    rivals = [t for t, _ in TOOLS if t != "pgphase"]
+    best = min(rivals, key=lambda t: _err(t, p))
+    return best, _err(best, p) / _err("pgphase", p)
 
 
 def _accuracy_tikz():
@@ -168,7 +176,6 @@ def _accuracy_tikz():
     n = len(ORDER)
     bottom = _row_y(n - 1) - ROW / 2
     out.append(f"\\node[font=\\bfseries] at ({-LAB:.2f},{TITLE_Y + 0.45:.2f}) {{a}};")
-    out.append(f"\\node[font=\\bfseries] at ({HM_X0 - 0.35:.2f},{TITLE_Y + 0.45:.2f}) {{b}};")
     for i, t in enumerate(ORDER):
         bold = "\\bfseries" if t == "pgphase" else ""
         out.append(f"\\node[left,font=\\small{bold}] at (-0.1,{_row_y(i):.3f}) {{{NAME[t]}}};")
@@ -187,52 +194,60 @@ def _accuracy_tikz():
             out.append(f"\\fill[{colour}] ({x0:.3f},{y - BAR_H / 2:.3f}) rectangle ({x0 + v / top * w:.3f},{y + BAR_H / 2:.3f});"
                        f"\\node[right,font=\\scriptsize{bold}] at ({x0 + v / top * w:.3f},{y:.3f}) {{{v:.2f}}};")
         x0 += w + GAP
-    for label, ja, jb in _groups():
-        xa, xb = _cell_x(ja), _cell_x(jb) + CELL_W
-        out.append(f"\\draw[gray!60] ({xa + 0.05:.3f},{HEAD_Y + 0.32:.2f}) -- ({xb - 0.05:.3f},{HEAD_Y + 0.32:.2f});"
-                   f"\\node[above,font=\\scriptsize\\itshape] at ({(xa + xb) / 2:.3f},{HEAD_Y + 0.3:.2f}) {{{label}}};")
-    for j, p in enumerate(COLS):
-        out.append(f"\\node[font=\\scriptsize] at ({_cell_x(j) + CELL_W / 2:.3f},{HEAD_Y:.2f}) {{{p}}};")
-    for i, t in enumerate(ORDER):
-        y = _row_y(i)
-        bold = "\\bfseries" if t == "pgphase" else ""
-        for j, p in enumerate(COLS):
-            v = _hm_value(t, p)
-            (r, g, b2), text = _shade(v)
-            x = _cell_x(j)
-            out.append(f"\\fill[fill={{rgb,255:red,{r};green,{g};blue,{b2}}}, draw=white, line width=1pt] "
-                       f"({x:.3f},{y - ROW / 2:.3f}) rectangle ({x + CELL_W:.3f},{y + ROW / 2:.3f});"
-                       f"\\node[font=\\scriptsize{bold},text={text}] at ({x + CELL_W / 2:.3f},{y:.3f}) {{{v:.1f}}};")
-    i_pg = ORDER.index("pgphase")
-    out.append(f"\\fill[pghl] ({HM_X0 - 0.16:.3f},{_row_y(i_pg) - ROW / 2 + 0.04:.3f}) rectangle "
-               f"({HM_X0 - 0.06:.3f},{_row_y(i_pg) + ROW / 2 - 0.04:.3f});")
-    out.append(f"\\node[font=\\scriptsize] at ({(HM_X0 + _cell_x(len(COLS) - 1) + CELL_W) / 2:.2f},{bottom - 0.3:.2f}) "
-               f"{{misphased or unphased (\\%); darker is worse}};")
+    # panel b
+    rows = _b_rows()
+    b_bottom = rows[-1][1] - 0.3
+    out.append(f"\\node[font=\\bfseries] at ({B_X0 - 1.4:.2f},{TITLE_Y + 0.45:.2f}) {{b}};")
+    out.append(f"\\node[font=\\small\\bfseries] at ({B_X0 + B_W / 2:.2f},{TITLE_Y + 0.1:.2f}) "
+               f"{{Misphased or unphased (\\%), per chromosome}};")
+    for tick in range(0, int(B_MAX) + 1, 5):
+        X = _b_x(tick)
+        out.append(f"\\draw[gray!25] ({X:.3f},{TITLE_Y - 0.2:.2f}) -- ({X:.3f},{b_bottom:.3f});"
+                   f"\\node[below,font=\\scriptsize] at ({X:.3f},{b_bottom:.3f}) {{{tick}}};")
+    out.append(f"\\node[font=\\scriptsize\\bfseries, anchor=west, pghl, align=left] at ({B_X0 + B_W + 0.1:.2f},{TITLE_Y + 0.05:.2f}) {{times\\\\fewer}};")
+    groups = [("development", rows[0][1]), ("not used for tuning", rows[len(DEV)][1])]
+    for label, y in groups:
+        out.append(f"\\node[font=\\scriptsize\\itshape, anchor=south west, black!65] at ({B_X0 - 1.35:.2f},{y + 0.12:.3f}) {{{label}}};")
+    for p, y in rows:
+        best, fold = _fold(p)
+        out.append(f"\\node[left,font=\\small] at ({B_X0 - 0.1:.2f},{y:.3f}) {{{p}}};")
+        for t, _ in TOOLS:
+            if t not in ("pgphase", best):
+                out.append(f"\\fill[pgfaint] ({_b_x(_err(t, p)):.3f},{y:.3f}) circle (0.06);")
+        out.append(f"\\draw[pgbest!60, line width=1.6pt] ({_b_x(_err('pgphase', p)):.3f},{y:.3f}) -- ({_b_x(_err(best, p)):.3f},{y:.3f});")
+        out.append(f"\\fill[pgbest] ({_b_x(_err(best, p)):.3f},{y:.3f}) circle (0.085);")
+        out.append(f"\\fill[pghl, draw=white, line width=0.4pt] ({_b_x(_err('pgphase', p)):.3f},{y:.3f}) circle (0.115);")
+        out.append(f"\\node[font=\\small\\bfseries, anchor=west, pghl] at ({B_X0 + B_W + 0.15:.2f},{y:.3f}) {{{fold:.1f}\\texttimes}};")
+    ly = b_bottom - 0.85
+    lx = B_X0
+    out.append(f"\\fill[pghl] ({lx:.2f},{ly:.2f}) circle (0.1);\\node[right,font=\\scriptsize] at ({lx + 0.12:.2f},{ly:.2f}) {{pgphase}};")
+    out.append(f"\\fill[pgbest] ({lx + 1.7:.2f},{ly:.2f}) circle (0.08);\\node[right,font=\\scriptsize] at ({lx + 1.82:.2f},{ly:.2f}) {{best other tool}};")
+    out.append(f"\\fill[pgfaint] ({lx + 4.1:.2f},{ly:.2f}) circle (0.06);\\node[right,font=\\scriptsize] at ({lx + 4.22:.2f},{ly:.2f}) {{other tools}};")
     return "\n".join(out)
 
 
 def _accuracy_svg():
     s = 52
     n = len(ORDER)
-    bottom = _row_y(n - 1) - ROW / 2
-    W = (LAB + 0.3 + _cell_x(len(COLS) - 1) + CELL_W + 0.2) * s
-    H = (TITLE_Y + 1.2 - bottom + 0.6) * s
+    rows = _b_rows()
+    bottom = min(_row_y(n - 1) - ROW / 2, rows[-1][1] - 0.3) - 1.2
+    W = (LAB + 0.3 + B_X0 + B_W + 1.3) * s
+    H = (TITLE_Y + 1.2 - bottom) * s
     def X(x): return (x + LAB + 0.3) * s
-    def Y(y): return (TITLE_Y + 1.1 - y) * s
+    def Y(y): return (TITLE_Y + 1.0 - y) * s
     out = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" class="chart" role="img" aria-label="Misphased and unphased reads per tool and chromosome">',
            '<style>.t{font-size:12px;fill:currentColor}.s{font-size:10.5px;fill:currentColor}.g{stroke:currentColor;stroke-opacity:.15}</style>']
     out.append(f'<text x="{X(-LAB - 0.2):.1f}" y="{Y(TITLE_Y + 0.4):.1f}" class="t" font-weight="700">a</text>')
-    out.append(f'<text x="{X(HM_X0 - 0.4):.1f}" y="{Y(TITLE_Y + 0.4):.1f}" class="t" font-weight="700">b</text>')
     for i, t in enumerate(ORDER):
         bold = ' font-weight="700"' if t == "pgphase" else ""
         out.append(f'<text x="{X(-0.1):.1f}" y="{Y(_row_y(i)) + 4:.1f}" class="t" text-anchor="end"{bold}>{NAME[t]}</text>')
-    x0 = 0.0
+    x0, a_bottom = 0.0, _row_y(n - 1) - ROW / 2
     for title, k, top, w in BARS:
         out.append(f'<text x="{X(x0 + w / 2):.1f}" y="{Y(TITLE_Y + 0.1) + 4:.1f}" class="t" text-anchor="middle" font-weight="700">{title}</text>')
         for tick in range(0, int(top) + 1, 1 if top <= 5 else 2):
             xx = X(x0 + tick / top * w)
-            out.append(f'<line x1="{xx:.1f}" y1="{Y(TITLE_Y - 0.2):.1f}" x2="{xx:.1f}" y2="{Y(bottom):.1f}" class="g"/>'
-                       f'<text x="{xx:.1f}" y="{Y(bottom) + 13:.1f}" class="s" text-anchor="middle">{tick}</text>')
+            out.append(f'<line x1="{xx:.1f}" y1="{Y(TITLE_Y - 0.2):.1f}" x2="{xx:.1f}" y2="{Y(a_bottom):.1f}" class="g"/>'
+                       f'<text x="{xx:.1f}" y="{Y(a_bottom) + 13:.1f}" class="s" text-anchor="middle">{tick}</text>')
         for i, t in enumerate(ORDER):
             v, y = TOTALS[t][k], _row_y(i)
             colour = HIGHLIGHT if t == "pgphase" else MUTED
@@ -240,24 +255,29 @@ def _accuracy_svg():
             out.append(f'<rect x="{X(x0):.1f}" y="{Y(y + BAR_H / 2):.1f}" width="{v / top * w * s:.1f}" height="{BAR_H * s:.1f}" fill="#{colour}"/>'
                        f'<text x="{X(x0 + v / top * w) + 4:.1f}" y="{Y(y) + 4:.1f}" class="s"{bold}>{v:.2f}</text>')
         x0 += w + GAP
-    for label, ja, jb in _groups():
-        xa, xb = _cell_x(ja), _cell_x(jb) + CELL_W
-        out.append(f'<line x1="{X(xa + 0.05):.1f}" y1="{Y(HEAD_Y + 0.32):.1f}" x2="{X(xb - 0.05):.1f}" y2="{Y(HEAD_Y + 0.32):.1f}" stroke="currentColor" stroke-opacity=".5"/>'
-                   f'<text x="{X((xa + xb) / 2):.1f}" y="{Y(HEAD_Y + 0.4):.1f}" class="s" text-anchor="middle" font-style="italic">{label}</text>')
-    for j, p in enumerate(COLS):
-        out.append(f'<text x="{X(_cell_x(j) + CELL_W / 2):.1f}" y="{Y(HEAD_Y) + 4:.1f}" class="s" text-anchor="middle">{p}</text>')
-    for i, t in enumerate(ORDER):
-        y = _row_y(i)
-        bold = ' font-weight="700"' if t == "pgphase" else ""
-        for j, p in enumerate(COLS):
-            v = _hm_value(t, p)
-            (r, g, b2), text = _shade(v)
-            out.append(f'<g><title>{NAME[t]}, {p}: {v:.2f}% misphased or unphased</title>'
-                       f'<rect x="{X(_cell_x(j)):.1f}" y="{Y(y + ROW / 2):.1f}" width="{CELL_W * s:.1f}" height="{ROW * s:.1f}" '
-                       f'fill="rgb({r},{g},{b2})" stroke="white" stroke-width="2"/>'
-                       f'<text x="{X(_cell_x(j) + CELL_W / 2):.1f}" y="{Y(y) + 4:.1f}" class="s" text-anchor="middle" fill="{text}"{bold}>{v:.1f}</text></g>')
-    out.append(f'<text x="{X((HM_X0 + _cell_x(len(COLS) - 1) + CELL_W) / 2):.1f}" y="{Y(bottom - 0.3) + 4:.1f}" class="s" '
-               f'text-anchor="middle">misphased or unphased (%); darker is worse</text>')
+    b_bottom = rows[-1][1] - 0.3
+    out.append(f'<text x="{X(B_X0 - 1.5):.1f}" y="{Y(TITLE_Y + 0.4):.1f}" class="t" font-weight="700">b</text>')
+    out.append(f'<text x="{X(B_X0 + B_W / 2):.1f}" y="{Y(TITLE_Y + 0.1) + 4:.1f}" class="t" text-anchor="middle" font-weight="700">Misphased or unphased (%), per chromosome</text>')
+    for tick in range(0, int(B_MAX) + 1, 5):
+        xx = X(_b_x(tick))
+        out.append(f'<line x1="{xx:.1f}" y1="{Y(TITLE_Y - 0.2):.1f}" x2="{xx:.1f}" y2="{Y(b_bottom):.1f}" class="g"/>'
+                   f'<text x="{xx:.1f}" y="{Y(b_bottom) + 13:.1f}" class="s" text-anchor="middle">{tick}</text>')
+    out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(TITLE_Y - 0.1) + 4:.1f}" class="s" font-weight="700" fill="#{HIGHLIGHT}">times fewer</text>')
+    for label, y in (("development", rows[0][1]), ("not used for tuning", rows[len(DEV)][1])):
+        out.append(f'<text x="{X(B_X0 - 1.35):.1f}" y="{Y(y + 0.18):.1f}" class="s" font-style="italic" fill-opacity=".7">{label}</text>')
+    for p, y in rows:
+        best, fold = _fold(p)
+        out.append(f'<text x="{X(B_X0 - 0.1):.1f}" y="{Y(y) + 4:.1f}" class="t" text-anchor="end">{p}</text>')
+        for t, lab in TOOLS:
+            if t not in ("pgphase", best):
+                out.append(f'<circle cx="{X(_b_x(_err(t, p))):.1f}" cy="{Y(y):.1f}" r="3.2" fill="#{FAINT}"><title>{lab}, {p}: {_err(t, p):.2f}%</title></circle>')
+        out.append(f'<line x1="{X(_b_x(_err("pgphase", p))):.1f}" y1="{Y(y):.1f}" x2="{X(_b_x(_err(best, p))):.1f}" y2="{Y(y):.1f}" stroke="#{BEST}" stroke-opacity=".6" stroke-width="3"/>')
+        out.append(f'<circle cx="{X(_b_x(_err(best, p))):.1f}" cy="{Y(y):.1f}" r="4.5" fill="#{BEST}"><title>{NAME[best]}, {p}: {_err(best, p):.2f}%</title></circle>')
+        out.append(f'<circle cx="{X(_b_x(_err("pgphase", p))):.1f}" cy="{Y(y):.1f}" r="6" fill="#{HIGHLIGHT}" stroke="white" stroke-width=".8"><title>pgphase, {p}: {_err("pgphase", p):.2f}%</title></circle>')
+        out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(y) + 4:.1f}" class="t" font-weight="700" fill="#{HIGHLIGHT}">{fold:.1f}×</text>')
+    ly, lx = Y(b_bottom - 0.85), B_X0
+    for dx, col, r, lab in ((0, HIGHLIGHT, 5, "pgphase"), (1.7, BEST, 4.2, "best other tool"), (4.1, FAINT, 3.2, "other tools")):
+        out.append(f'<circle cx="{X(lx + dx):.1f}" cy="{ly:.1f}" r="{r}" fill="#{col}"/><text x="{X(lx + dx + 0.15):.1f}" y="{ly + 4:.1f}" class="s">{lab}</text>')
     out.append("</svg>")
     return "\n".join(out)
 

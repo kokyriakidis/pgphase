@@ -479,6 +479,12 @@ V["best_dv_hets_rival"] = NAME[best_dv]
 V["best_dv_hets_n"] = n(var(best_dv, "truth_matched_phased_hets"))
 assert var("pgphase", "truth_matched_phased_hets") > var(best_dv, "truth_matched_phased_hets")
 assert STABLES["scoring"]["label"] == "S4"  # the centromere caption cites it
+folds = []
+for p in CHROMS:
+    pg = POINTS["pgphase"][CHROMS.index(p)]
+    best = min(sum(POINTS[t][CHROMS.index(p)][1:]) for t in RIVALS)
+    folds.append(best / sum(pg[1:]))
+V["fold_min"], V["fold_max"] = f"{min(folds):.1f}", f"{max(folds):.1f}"
 V["commit"] = RES["meta"].get("git", "").split(" ")[0]
 
 if __name__ == "__main__":

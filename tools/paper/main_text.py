@@ -293,7 +293,9 @@ BODY = [
  f'{V["pg_unph_pct"]}% unphased ([#tab:reads]). The best of the other tools, {V["best_rival"]}, phased '
  f'{V["best_rival_correct_pct"]}% correctly; pgphase phased {V["more_correct_than_best"]} more reads correctly, '
  f'and left {V["err_ratio"]} times fewer reads discordant or unphased than the tool with the fewest such reads, '
- f'{V["fewest_err_rival"]}. It phased the most reads correctly on every chromosome and left the fewest discordant '
+ f'{V["fewest_err_rival"]}. On each chromosome, it left {V["fold_min"]} to {V["fold_max"]} times fewer reads '
+ f'misphased or unphased than the best other tool on that chromosome ([#fig:accuracy]b). It phased the most '
+ f'reads correctly on every chromosome and left the fewest discordant '
  f'reads on {V["n_disc_best_word"]} of the eight; {V["disc_lost"]}, while leaving many more reads unphased '
  f'([#fig:accuracy]). Among reads whose parental assignment is confident, pgphase phased {V["pg_conf_disc"]} '
  f'discordantly, against {V["low_conf_rival_disc"]} for {V["low_conf_rival"]}, the fewest among the others.'),
@@ -401,10 +403,11 @@ FIGURES = {
              "phases all sites, joining blocks only where reads verify the join; local windows and a second pass "
              "follow, then chunk stitching, the rescue and island blocks label the remaining reads, and pgphase "
              "writes a phased VCF and the reads' haplotype tags.",
- "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased, one row per "
-             "tool. (a) Over the eight chromosomes, the share misphased (discordant) and the share left unphased; "
-             "tools are ordered by the sum of the two. (b) Per chromosome, the share misphased or unphased; chr6, "
-             "chr16 and chr21 were not used for tuning.",
+ "accuracy": "Phaseable reads on the chromosome arms that each tool misphases or leaves unphased. (a) Over the eight "
+             "chromosomes, the share misphased (discordant) and the share left unphased, one row per tool; tools are "
+             "ordered by the sum of the two. (b) Per chromosome, the share misphased or unphased: pgphase (vermillion) "
+             "joined to the best other tool on that chromosome (dark), the other tools faint, and at the right how many "
+             "times fewer reads pgphase leaves misphased or unphased. chr6, chr16 and chr21 were not used for tuning.",
 }
 
 WIDE_TABLES = ("reads", "switches")
