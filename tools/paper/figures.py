@@ -261,7 +261,7 @@ def _accuracy_svg():
         xx = X(_b_x(tick))
         out.append(f'<line x1="{xx:.1f}" y1="{Y(TITLE_Y - 0.2):.1f}" x2="{xx:.1f}" y2="{Y(b_bottom):.1f}" class="g"/>'
                    f'<text x="{xx:.1f}" y="{Y(b_bottom) + 13:.1f}" class="s" text-anchor="middle">{tick}</text>')
-    out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(TITLE_Y - 0.1) + 4:.1f}" class="s" font-weight="700" fill="#{HIGHLIGHT}">times fewer</text>')
+    out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(TITLE_Y - 0.1) + 4:.1f}" class="s" font-weight="700" style="fill:#{HIGHLIGHT}">times fewer</text>')
     for label, y in (("development", rows[0][1]), ("not used for tuning", rows[len(DEV)][1])):
         out.append(f'<text x="{X(B_X0 - 1.35):.1f}" y="{Y(y + 0.18):.1f}" class="s" font-style="italic" fill-opacity=".7">{label}</text>')
     for p, y in rows:
@@ -273,7 +273,7 @@ def _accuracy_svg():
         out.append(f'<line x1="{X(_b_x(_err("pgphase", p))):.1f}" y1="{Y(y):.1f}" x2="{X(_b_x(_err(best, p))):.1f}" y2="{Y(y):.1f}" stroke="#{BEST}" stroke-opacity=".6" stroke-width="3"/>')
         out.append(f'<circle cx="{X(_b_x(_err(best, p))):.1f}" cy="{Y(y):.1f}" r="4.5" fill="#{BEST}"><title>{NAME[best]}, {p}: {_err(best, p):.2f}%</title></circle>')
         out.append(f'<circle cx="{X(_b_x(_err("pgphase", p))):.1f}" cy="{Y(y):.1f}" r="6" fill="#{HIGHLIGHT}" stroke="white" stroke-width=".8"><title>pgphase, {p}: {_err("pgphase", p):.2f}%</title></circle>')
-        out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(y) + 4:.1f}" class="t" font-weight="700" fill="#{HIGHLIGHT}">{fold:.1f}×</text>')
+        out.append(f'<text x="{X(B_X0 + B_W + 0.15):.1f}" y="{Y(y) + 4:.1f}" class="t" font-weight="700" style="fill:#{HIGHLIGHT}">{fold:.1f}×</text>')
     ly, lx = Y(b_bottom - 0.85), B_X0
     for dx, col, r, lab in ((0, HIGHLIGHT, 5, "pgphase"), (1.7, BEST, 4.2, "best other tool"), (4.1, FAINT, 3.2, "other tools")):
         out.append(f'<circle cx="{X(lx + dx):.1f}" cy="{ly:.1f}" r="{r}" fill="#{col}"/><text x="{X(lx + dx + 0.15):.1f}" y="{ly + 4:.1f}" class="s">{lab}</text>')

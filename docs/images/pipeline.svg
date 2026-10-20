@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="color:#1a1a1a;font-family:Helvetica,Arial,sans-serif" viewBox="0 0 942 266" class="chart" role="img" aria-label="pgphase pipeline"><rect x="0" y="0" width="100%" height="100%" rx="10" fill="#ffffff"/>
+<defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="currentColor"/></marker></defs>
+<rect x="264.0" y="8.8" width="666.6" height="244.2" rx="7" fill="none" stroke="currentColor" stroke-opacity=".5" stroke-dasharray="5 4"/><text x="924.0" y="26.4" text-anchor="end" font-size="12" font-weight="700" fill="currentColor" fill-opacity=".85">pgphase</text>
+<rect x="127.6" y="71.7" width="127.6" height="165.9" rx="5" fill="#F1F1F1"/><text x="132.9" y="86.2" font-size="10" font-style="italic" fill="#333">read alignment (other tools)</text>
+<rect x="277.2" y="26.4" width="272.8" height="110.0" rx="5" fill="#E3EEF9"/><text x="282.5" y="40.9" font-size="10" font-style="italic" fill="#333">graph arm</text>
+<rect x="277.2" y="154.0" width="272.8" height="83.6" rx="5" fill="#FCEBDD"/><text x="282.5" y="168.5" font-size="10" font-style="italic" fill="#333">union gap phasing (with a BAM)</text>
+<rect x="6.6" y="42.9" width="101.2" height="37.4" rx="4" fill="#EDEDED" stroke="#777" stroke-width="1"/>
+<text x="57.2" y="59.1" text-anchor="middle" font-size="11" fill="#111">Pangenome graph</text>
+<text x="57.2" y="72.1" text-anchor="middle" font-size="11" fill="#111">(GBZ)</text>
+<rect x="6.6" y="135.3" width="101.2" height="37.4" rx="4" fill="#EDEDED" stroke="#777" stroke-width="1"/>
+<text x="57.2" y="158.0" text-anchor="middle" font-size="11" fill="#111">Long reads</text>
+<rect x="136.4" y="93.5" width="110.0" height="37.4" rx="4" fill="#FFFFFF" stroke="#777" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="191.4" y="109.7" text-anchor="middle" font-size="11" fill="#111">Graph alignments</text>
+<text x="191.4" y="122.7" text-anchor="middle" font-size="11" fill="#111">(vg Giraffe; GAF)</text>
+<rect x="136.4" y="183.7" width="110.0" height="37.4" rx="4" fill="#FFFFFF" stroke="#777" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="191.4" y="199.9" text-anchor="middle" font-size="11" fill="#111">Linear alignments</text>
+<text x="191.4" y="212.9" text-anchor="middle" font-size="11" fill="#111">(BAM)</text>
+<rect x="290.4" y="42.9" width="110.0" height="37.4" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="345.4" y="59.1" text-anchor="middle" font-size="11" fill="#111">Site catalog</text>
+<text x="345.4" y="72.1" text-anchor="middle" font-size="11" fill="#111">(build-snarl-catalog)</text>
+<rect x="290.4" y="93.5" width="110.0" height="37.4" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="345.4" y="109.7" text-anchor="middle" font-size="11" fill="#111">Indexed GAF</text>
+<text x="345.4" y="122.7" text-anchor="middle" font-size="11" fill="#111">(index-gaf)</text>
+<rect x="422.4" y="64.9" width="114.4" height="46.2" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="479.6" y="85.5" text-anchor="middle" font-size="11" fill="#111">Catalog alleles from</text>
+<text x="479.6" y="98.5" text-anchor="middle" font-size="11" fill="#111">read walks; k-means</text>
+<rect x="354.2" y="179.3" width="127.6" height="46.2" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="418.0" y="199.9" text-anchor="middle" font-size="11" fill="#111">Sample's own hets:</text>
+<text x="418.0" y="212.9" text-anchor="middle" font-size="11" fill="#111">candidates, MSA</text>
+<rect x="567.6" y="114.4" width="114.4" height="57.2" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="624.8" y="134.0" text-anchor="middle" font-size="11" fill="#111">Global EM:</text>
+<text x="624.8" y="147.0" text-anchor="middle" font-size="11" fill="#111">site errors,</text>
+<text x="624.8" y="160.0" text-anchor="middle" font-size="11" fill="#111">verified joins</text>
+<rect x="699.6" y="82.5" width="107.8" height="41.8" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="753.5" y="100.9" text-anchor="middle" font-size="11" fill="#111">Local windows,</text>
+<text x="753.5" y="113.9" text-anchor="middle" font-size="11" fill="#111">EM pass 2</text>
+<rect x="699.6" y="161.7" width="107.8" height="41.8" rx="4" fill="#FFFFFF" stroke="#555" stroke-width="1"/>
+<text x="753.5" y="180.1" text-anchor="middle" font-size="11" fill="#111">Stitching, rescue,</text>
+<text x="753.5" y="193.1" text-anchor="middle" font-size="11" fill="#111">islands</text>
+<rect x="827.2" y="84.7" width="92.4" height="37.4" rx="4" fill="#FBE3D6" stroke="#D55E00" stroke-width="2"/>
+<text x="873.4" y="107.4" text-anchor="middle" font-size="11" fill="#111">Phased VCF</text>
+<rect x="827.2" y="163.9" width="92.4" height="37.4" rx="4" fill="#FBE3D6" stroke="#D55E00" stroke-width="2"/>
+<text x="873.4" y="186.6" text-anchor="middle" font-size="11" fill="#111">Read HP/PS tags</text>
+<line x1="107.8" y1="61.6" x2="288.4" y2="61.6" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="107.8" y1="61.6" x2="134.4" y2="112.2" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="107.8" y1="154.0" x2="134.4" y2="112.2" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="107.8" y1="154.0" x2="134.4" y2="202.4" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="246.4" y1="112.2" x2="288.4" y2="112.2" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="400.4" y1="61.6" x2="420.4" y2="88.0" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="400.4" y1="112.2" x2="420.4" y2="88.0" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="246.4" y1="202.4" x2="352.2" y2="202.4" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="536.8" y1="88.0" x2="565.6" y2="143.0" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="481.8" y1="202.4" x2="565.6" y2="143.0" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="682.0" y1="143.0" x2="697.6" y2="103.4" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="753.5" y1="124.3" x2="753.5" y2="159.7" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="807.4" y1="182.6" x2="825.2" y2="103.4" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+<line x1="807.4" y1="182.6" x2="825.2" y2="182.6" stroke="currentColor" stroke-width="1.3" marker-end="url(#ah)"/>
+</svg>
