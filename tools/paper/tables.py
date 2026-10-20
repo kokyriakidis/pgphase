@@ -548,6 +548,24 @@ V["pg_switch_rate"] = f"{1e4 * var('pgphase', 'switches_arms') / var('pgphase', 
 _rates = {t: 1e4 * var(t, "switches_arms") / var(t, "truth_matched_phased_hets_arms") for t in RIVALS}
 V["rival_rate_min"] = f"{min(_rates.values()):.2f}"
 V["rival_rate_max"] = f"{max(_rates.values()):.2f}"
+# The MHC window
+_mhc = {t: reads(MHC, t, "arms_phaseable") for t, _ in TOOLS}
+_mhc_err = {t: r["discordant"] + r["unphased"] for t, r in _mhc.items()}
+_mhc_next = min(RIVALS, key=lambda t: _mhc_err[t])
+V["mhc_phaseable"] = n(sum(_mhc["pgphase"].values()))
+V["mhc_pg_err"] = n(_mhc_err["pgphase"])
+V["mhc_next_rival"] = NAME[_mhc_next]
+V["mhc_next_err"] = n(_mhc_err[_mhc_next])
+V["mhc_err_ratio"] = f"{_mhc_err[_mhc_next] / _mhc_err['pgphase']:.1f}"
+V["mhc_pg_disc"] = n(_mhc["pgphase"]["discordant"])
+_fewer_disc = [t for t in RIVALS if _mhc[t]["discordant"] < _mhc["pgphase"]["discordant"]]
+_names = [NAME[t] for t in _fewer_disc]
+V["mhc_fewer_disc_tools"] = ", ".join(_names[:-1]) + " and " + _names[-1] if len(_names) > 1 else _names[0]
+V["mhc_fewer_disc_min"] = n(min(_mhc[t]["discordant"] for t in _fewer_disc))
+V["mhc_fewer_disc_max"] = n(max(_mhc[t]["discordant"] for t in _fewer_disc))
+V["mhc_unph_pg"] = n(_mhc["pgphase"]["unphased"])
+V["mhc_unph_min_rival"] = n(min(_mhc[t]["unphased"] for t in RIVALS))
+assert _mhc_err["pgphase"] < min(_mhc_err[t] for t in RIVALS)
 # HLA genes
 H = RES["hla"]
 V["hla_phaseable"] = n(sum(H["pgphase"]["reads"]["arms_phaseable"].values()))

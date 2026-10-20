@@ -317,10 +317,12 @@ BODY = [
  f'The margin was similar on the chromosomes not used for tuning: on chr6, chr16 and chr21, pgphase phased '
  f'{V["held_margin_min"]} to {V["held_margin_max"]} percentage points more phaseable reads correctly than the best '
  f'other tool on each, against {V["dev_margin_min"]} to {V["dev_margin_max"]} points on the development '
- f'chromosomes. In the MHC, whose HLA genes are among the most polymorphic of the genome, it phased '
- f'{V["mhc_pg_pct"]}% correctly, against {V["mhc_best_rival_pct"]}% for {V["mhc_best_rival"]}. In its eight '
- f'classical HLA genes (with 5 kb on either side), pgphase, {V["hla_also_all"]} phased all {V["hla_phaseable"]} '
- f'phaseable reads correctly; WhatsHap left {V["hla_whatshap_unph"]} unphased and longcallD {V["hla_lcd_unph"]}.'),
+ f'chromosomes. In the MHC (chr6:28.5–34.0 Mb), which holds the HLA genes, among the most polymorphic of the '
+ f'genome, pgphase phased {V["mhc_pg_pct"]}% of {V["mhc_phaseable"]} phaseable reads correctly, against '
+ f'{V["mhc_best_rival_pct"]}% for {V["mhc_best_rival"]}, and left {V["mhc_pg_err"]} misphased or unphased, '
+ f'{V["mhc_err_ratio"]} times fewer than {V["mhc_next_rival"]} ({V["mhc_next_err"]}). {V["mhc_fewer_disc_tools"]} '
+ f'misphased fewer reads there ({V["mhc_fewer_disc_min"]} to {V["mhc_fewer_disc_max"]}, against '
+ f'{V["mhc_pg_disc"]}) but left at least {V["mhc_unph_min_rival"]} unphased, against {V["mhc_unph_pg"]}.'),
 ('sub', 'Graph and linear alignments complement each other'),
 ('p',
  f'Run on its graph alignments alone, pgphase phased {V["abl_graphonly_correct"]}% of phaseable reads correctly and '
