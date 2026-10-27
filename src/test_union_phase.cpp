@@ -809,15 +809,16 @@ static void test_inject_msa_allele_replaces_graph_row() {
 
     CandidateVariant same = snp(300, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
     same.msa_verified = true;
-    GraphChunkBuildResult complement;
-    run(same, complement);
-    bool row_written = false, call_hidden = false;
-    for (size_t ci = 0; ci < complement.chunk.candidates.size(); ++ci) {
-        const CandidateVariant& c = complement.chunk.candidates[ci];
-        if (c.bam_injected) call_hidden = complement.site_meta[ci].ref.empty();
-        else row_written = !complement.site_meta[ci].ref.empty();
+    GraphChunkBuildResult reproduced;
+    run(same, reproduced);
+    bool row_written = false, call_written = false;
+    for (size_t ci = 0; ci < reproduced.chunk.candidates.size(); ++ci) {
+        const CandidateVariant& c = reproduced.chunk.candidates[ci];
+        if (c.bam_injected) call_written = !reproduced.site_meta[ci].ref.empty();
+        else row_written = !reproduced.site_meta[ci].ref.empty();
     }
-    check(row_written && call_hidden, "replace: an MSA call spelling the row's allele stays a hidden complement");
+    check(row_written && call_written,
+          "replace: an MSA call reproducing the row's allele is written, the row too (the writer keeps one)");
 }
 
 static void test_inject_rows_msa_reads_as_reference() {
@@ -857,6 +858,77 @@ static void test_inject_rows_msa_reads_as_reference() {
           "msa reference: the row the region's consensus sequences read as reference writes no record, REF kept");
     check(!gc.site_meta[1].no_record, "msa reference: the row where a consensus differs is written");
     check(!gc.site_meta[2].no_record, "msa reference: a row outside the region is written");
+}
+
+static void test_inject_promotes_orphaned_complement_and_writes_the_consensus_anchor() {
+    // Two catalog-row cases. A clean het at 301 overlaps the catalog row at 300 (a complement: the row describes the
+    // locus), and an MSA SNP at 300 the row does not spell replaces that row: the clean het, hidden behind a row no
+    // longer written, is promoted and written itself. And an MSA insertion after 340 whose consensus letter at 340 is
+    // not the reference's is written with the consensus's letter leading its ALT (one complex record).
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 500;
+    graph.ref_seq = ref;
+    CandidateVariant row = clean_snp(300);
+    row.key.ref_len = 2;
+    row.key.alt = "TT";
+    graph.candidates.push_back(row);
+    GraphSiteMeta meta;
+    meta.chrom = "chr1";
+    meta.pos = 300;
+    meta.ref = ref.substr(299, 2);
+    meta.alts = {"TT"};
+    gc.site_meta = {meta};
+    gc.site_ids = {"s300"};
+    gc.site_allele_orig_idx = {{0, 1}};
+    for (int r = 0; r < 6; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {r % 2}));
+    }
+    finish_chunk(graph);
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 500;
+    bam.ref_seq = ref;
+    CandidateVariant msa = snp(300, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    msa.key.alt = ref[299] == 'G' ? "C" : "G";
+    msa.msa_verified = true;
+    bam.candidates.push_back(msa);
+    CandidateVariant clean = clean_snp(301);
+    clean.key.alt = "T";
+    bam.candidates.push_back(clean);
+    CandidateVariant ins;
+    ins.key.tid = 0;
+    ins.key.pos = 341;
+    ins.key.type = VariantType::Insertion;
+    ins.key.ref_len = 0;
+    ins.key.alt = "GG";
+    ins.counts.category = VariantCategory::NoisyCandHet;
+    ins.lcd_var_i_to_cate = kCandNoisyCandHet;
+    ins.msa_verified = true;
+    ins.alt_ref_base = ref[339] == 'A' ? 1 : 0;  // the consensus's letter at 340: C where the reference has A, else A
+    bam.candidates.push_back(ins);
+    for (int r = 0; r < 6; ++r) {
+        bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {r % 2, r % 2, r % 2}));
+    }
+    inject_alignment_sites(gc, bam, "chr1");
+    bool clean_written = false, row_written = true;
+    std::string ins_alt;
+    for (size_t ci = 0; ci < gc.chunk.candidates.size(); ++ci) {
+        const CandidateVariant& c = gc.chunk.candidates[ci];
+        if (c.bam_injected && c.key.pos == 301) clean_written = !gc.site_meta[ci].ref.empty();
+        if (!c.bam_injected) row_written = !gc.site_meta[ci].ref.empty();
+        if (c.bam_injected && c.key.type == VariantType::Insertion && !gc.site_meta[ci].alts.empty())
+            ins_alt = gc.site_meta[ci].alts.front();
+    }
+    check(!row_written, "promote: the row the MSA call replaces writes no record");
+    check(clean_written, "promote: the complement it hid is written itself");
+    check(ins_alt == std::string(1, "ACGT"[ins.alt_ref_base]) + "GG",
+          "anchor: the consensus's letter leads the MSA insertion's ALT, got " + ins_alt);
 }
 
 static void test_inject_low_mapq_clean_het() {
@@ -1186,6 +1258,7 @@ int main() {
     test_inject_low_mapq_clean_het();
     test_inject_msa_allele_replaces_graph_row();
     test_inject_rows_msa_reads_as_reference();
+    test_inject_promotes_orphaned_complement_and_writes_the_consensus_anchor();
     test_em_island_blocks();
     test_em_deferred_labels();
     test_em_echo_sites();

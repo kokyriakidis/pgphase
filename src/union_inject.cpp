@@ -80,6 +80,17 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
         usable = round_trip.type == key.type && round_trip.pos == key.pos &&
                  round_trip.ref_len == key.ref_len && round_trip.alt == key.alt;
     }
+    // An MSA indel whose anchor letter is not the reference's on its haplotype (a SNP right before an insertion or a
+    // deletion, aligned as the mismatch then the gap): the consensus's letter there leads the ALT, one complex record,
+    // as collect-bam-variation writes it (alt_ref_base). With the reference's letter the SNP was lost: chr12:6,396,535
+    // C>CG beside A>G written as A>AG, another haplotype. HG002 HiFi chr12/18/20: true het regions 29,979 -> 30,200,
+    // wrong 681 -> 487; reads unchanged.
+    std::string written_alt = vcf_alt;
+    if (usable && key.type != VariantType::Snp && cand.msa_insertion_alts.empty() &&
+        cand.alt_ref_base < 4 && !written_alt.empty()) {
+        const char consensus = "ACGT"[cand.alt_ref_base];
+        if (std::toupper(static_cast<unsigned char>(written_alt[0])) != consensus) written_alt[0] = consensus;
+    }
     std::vector<std::string> alts;
     if (cand.msa_insertion_alts.size() >= 2) {
         for (const std::string& allele : cand.msa_insertion_alts) {
@@ -88,7 +99,7 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
             alts.push_back(a);
         }
     }
-    if (alts.empty() && usable) alts.push_back(vcf_alt);
+    if (alts.empty() && usable) alts.push_back(written_alt);
     GraphSiteMeta meta;
     meta.chrom = contig_name != nullptr ? contig_name : std::string();
     if (usable && !alts.empty()) {
@@ -100,75 +111,6 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
     for (int i = 0; i <= static_cast<int>(alts.size()); ++i) orig.push_back(i);
     if (orig.size() < 2) orig = std::vector<int>{0, 1};
     return {std::move(meta), std::move(orig)};
-}
-
-// The sequence a VCF-form allele (pos, ref -> alt, the keys' coordinates) spells over the reference [lo, hi); empty
-// when the allele or the window leaves the source's reference, or its REF is not the reference's.
-static std::string spelled_haplotype(const PhasingChunk& source, hts_pos_t lo, hts_pos_t hi, hts_pos_t pos,
-                                     const std::string& ref, const std::string& alt) {
-    const hts_pos_t end = pos + static_cast<hts_pos_t>(ref.size());
-    const hts_pos_t off = lo - source.ref_beg;
-    if (ref.empty() || pos < lo || end > hi || off < 0 ||
-        static_cast<size_t>(hi - source.ref_beg) > source.ref_seq.size())
-        return std::string();
-    const auto upper = [](std::string s) {
-        for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        return s;
-    };
-    const std::string window = upper(source.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(hi - lo)));
-    if (window.compare(static_cast<size_t>(pos - lo), ref.size(), upper(ref)) != 0) return std::string();
-    return window.substr(0, static_cast<size_t>(pos - lo)) + upper(alt) + window.substr(static_cast<size_t>(end - lo));
-}
-
-// Whether an alignment call (its VCF-form `meta`) spells the same haplotype as one of the graph rows it overlaps,
-// alone or with one other: then it is another description of the locus (a hidden complement site). An MSA call
-// that none of them spells is an allele the graph does not have (chr20:509,755, a 4 bp deletion the catalog
-// describes only as a SNP beside it), which the graph's reads were forced onto the nearest path for. Calls apart
-// from a row only by run lengths are replaced too: on HG002 HiFi chr12/18/20 keeping the row's there cost 290 true
-// het regions (the MSA's run length was the truth's far more often than the catalog allele's).
-static bool spelled_by_rows(const PhasingChunk& source, const GraphSiteMeta& meta,
-                            const std::vector<size_t>& rows, const std::vector<GraphSiteMeta>& graph_meta) {
-    if (meta.ref.empty() || meta.alts.empty()) return true;
-    hts_pos_t lo = meta.pos;
-    hts_pos_t hi = meta.pos + static_cast<hts_pos_t>(meta.ref.size());
-    for (const size_t r : rows) {
-        if (r >= graph_meta.size() || graph_meta[r].ref.empty()) return true;  // a row it cannot read: assume so
-        lo = std::min(lo, graph_meta[r].pos);
-        hi = std::max(hi, graph_meta[r].pos + static_cast<hts_pos_t>(graph_meta[r].ref.size()));
-    }
-    lo -= 1;
-    hi += 1;
-    const std::string mine = spelled_haplotype(source, lo, hi, meta.pos, meta.ref, meta.alts.front());
-    if (mine.empty()) return true;
-    for (size_t i = 0; i < rows.size(); ++i) {
-        const GraphSiteMeta& a = graph_meta[rows[i]];
-        for (const std::string& alt : a.alts) {
-            const std::string theirs = spelled_haplotype(source, lo, hi, a.pos, a.ref, alt);
-            if (theirs.empty() || theirs == mine) return true;  // a row it cannot spell: assume the same
-            // With one other row (both alleles on one haplotype), where the two do not overlap.
-            for (size_t j = i + 1; j < rows.size(); ++j) {
-                const GraphSiteMeta& b = graph_meta[rows[j]];
-                const bool a_first = a.pos + static_cast<hts_pos_t>(a.ref.size()) <= b.pos;
-                const bool b_first = b.pos + static_cast<hts_pos_t>(b.ref.size()) <= a.pos;
-                if (!a_first && !b_first) continue;
-                const GraphSiteMeta& first = a_first ? a : b;
-                const GraphSiteMeta& second = a_first ? b : a;
-                for (const std::string& alt_b : b.alts) {
-                    const std::string& first_alt = a_first ? alt : alt_b;
-                    const std::string& second_alt = a_first ? alt_b : alt;
-                    const std::string once = spelled_haplotype(source, lo, hi, second.pos, second.ref, second_alt);
-                    if (once.empty()) continue;
-                    // Apply the first on top: its coordinates are untouched by the second, which lies after it.
-                    const hts_pos_t at = first.pos - lo;
-                    if (once.compare(static_cast<size_t>(at), first.ref.size(), first.ref) != 0) continue;
-                    const std::string both = once.substr(0, static_cast<size_t>(at)) + first_alt +
-                                             once.substr(static_cast<size_t>(at) + first.ref.size());
-                    if (both == mine) return true;
-                }
-            }
-        }
-    }
-    return false;
 }
 
 // Left-aligned identity of a simple insertion or deletion, so placements of
@@ -323,7 +265,7 @@ struct Selection {
 // alignment's own category bits.
 Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
                        const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta,
-                       const char* contig_name, bool record_decisions) {
+                       bool record_decisions) {
     Selection sel;
     // Graph rows an MSA call reproduces exactly stay written: a real variant beside the replaced allele.
     std::set<CandKey> msa_keys;
@@ -376,10 +318,14 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
             }
             continue;
         }
-        if (msa && !rows.empty() && c.msa_insertion_alts.empty() && graph_meta.size() == graph.candidates.size() &&
-            !spelled_by_rows(bam, synthesize_alignment_site_meta(c, bam, contig_name).first, rows, graph_meta)) {
-            // The MSA's allele, which the overlapping rows do not spell: written itself, the rows (still voting)
-            // not, unless an MSA call reproduces one exactly.
+        if (msa && !rows.empty() && c.msa_insertion_alts.empty() && graph_meta.size() == graph.candidates.size()) {
+            // An MSA het over catalog rows is written itself, the rows (still voting) not, unless an MSA call
+            // reproduces one exactly: the MSA's haplotypes are the region's reads' own, the rows' alleles what the
+            // graph's reads were forced onto (chr20:509,755, a 4 bp deletion the catalog describes only as a SNP beside
+            // it) or genotyped from them (chr12:6,797,743, the MSA's het T>A, 33 against 31 reads, under a catalog row
+            // the graph's reads called 14 against 50 and wrote 1/1). Hiding a call whose allele the rows spelled, as a
+            // complement site beside them, left these written wrong: HG002 HiFi chr12/18/20 true het regions
+            // 29,870 -> 29,979, wrong 795 -> 681, missed 539 -> 531; arm reads +25 discordant.
             decide(bi, "replaces");
             for (const size_t r : rows)
                 if (msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0) sel.replaced_rows.insert(r);
@@ -391,6 +337,28 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
         if (!rows.empty()) sel.complement_rows.emplace(bi, std::move(rows));
         if (!confident) sel.low_mapq_only.insert(bi);
         sel.selected.push_back(bi);
+    }
+    // A complement whose rows another MSA call replaced: no row writes it any longer, so it is written itself, its
+    // rows replaced as a replacing call's are. Repeated: each promotion can replace rows another complement leans on
+    // (chr12:322,418-419, C>G and T>G under one catalog row; the MSA's 322,418 replaced the row and its 322,419,
+    // hidden behind that row, went unwritten). HG002 HiFi chr12/18/20: true het regions 29,702 -> 29,870, wrong
+    // 1,014 -> 795; reads unchanged.
+    for (bool changed = true; changed;) {
+        changed = false;
+        for (auto it = sel.complement_rows.begin(); it != sel.complement_rows.end();) {
+            bool orphaned = false;
+            for (const size_t r : it->second) orphaned = orphaned || sel.replaced_rows.count(r) != 0;
+            if (!orphaned) {
+                ++it;
+                continue;
+            }
+            decide(it->first, "promoted");
+            for (const size_t r : it->second)
+                if (msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0 &&
+                    sel.replaced_rows.insert(r).second)
+                    changed = true;
+            it = sel.complement_rows.erase(it);
+        }
     }
     return sel;
 }
@@ -515,7 +483,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     const VotingRows voting(graph);
     const AlignmentSupport support(bam);
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    Selection sel = select_sites(graph, bam, support, voting, graph_chunk.site_meta, contig_name, diag_dir != nullptr);
+    Selection sel = select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr);
     suppress_rows_msa_reads_as_reference(graph, bam, sel);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;

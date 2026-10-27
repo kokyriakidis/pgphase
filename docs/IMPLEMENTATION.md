@@ -2153,13 +2153,23 @@ On HG002 HiFi (chr12, chr18, chr20; the union pipeline, `--bam`) against the tru
 
 Two rules downstream of the MSA, for either backend:
 
-- **An MSA allele the graph does not have replaces the graph rows it overlaps** (`select_sites`, decision
-  `replaces`). An MSA-verified het overlapping catalog rows joins as a hidden complement site only when one row, or
-  two together, spells the same haplotype (`spelled_by_rows`); otherwise it is the sample's own allele, which the
-  graph's reads were forced onto the nearest path for (chr20:509,755: a 4 bp deletion the catalog has only as the
-  SNP beside it), and it is written while the rows it overlaps keep voting but write no record (unless an MSA
-  call reproduces one exactly). plegma: true 28,507 -> 28,997, wrong 1,962 -> 1,480, false unchanged; abPOA alike.
-  Treating calls apart from a row only by run lengths as the row's cost 290 true hets and is not done.
+- **An MSA het replaces the catalog rows it overlaps** (`select_sites`, decision `replaces`): it is written
+  itself, and the rows it overlaps keep voting but write no record (unless an MSA call reproduces one exactly, which
+  the writer's duplicate collapse then keeps once). The MSA's haplotypes are the region's own reads'; the rows'
+  alleles are what the graph's reads were forced onto (chr20:509,755: a 4 bp deletion the catalog has only as the
+  SNP beside it) and their genotypes what those reads say (chr12:6,797,743: the MSA's het T>A, 33 against 31 reads,
+  under a catalog row its graph reads called 14 against 50, written 1/1). An MSA het whose allele one or two rows
+  spelled was once hidden behind them as a complement site; with the rows written instead, on HG002 HiFi chr12/18/20
+  plegma's true het regions are 29,870 -> 29,979 and wrong 795 -> 681 without that exception (abPOA alike).
+- **A complement whose row is replaced is promoted**: a call hidden behind rows (a clean het, a multi-allele MSA
+  insertion) is written itself once another MSA call replaces one of those rows, repeated until nothing changes
+  (chr12:322,418-419, C>G and T>G under one catalog row: 322,418 replaced the row, and 322,419, hidden behind it,
+  was written by nobody). plegma: true 29,702 -> 29,870, wrong 1,014 -> 795.
+- **An MSA indel keeps its consensus anchor letter** (`synthesize_alignment_site_meta`): where the consensus's
+  letter before an insertion or deletion is not the reference's (a SNP the MSA aligned as the mismatch then the
+  gap), that letter leads the ALT, one complex record, as collect-bam-variation writes it from `alt_ref_base`
+  (chr12:6,396,535: C>CG beside A>G, written as A>AG before, another haplotype). plegma: true 29,979 -> 30,200,
+  wrong 681 -> 487; reads unchanged.
 - **Catalog rows the MSA reads as reference write no record** (`suppress_rows_msa_reads_as_reference`): a row
   inside a region plegma resolved (`PhasingChunk::msa_regions`, where its consensus sequences differ from the
   reference) that touches none of those differences is an allele the graph's reads took and the region's reads do
