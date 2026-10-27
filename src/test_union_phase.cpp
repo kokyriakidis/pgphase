@@ -714,6 +714,75 @@ static void test_inject_island_only_sites() {
     check(gc.site_meta[static_cast<size_t>(at250)].ref.empty(), "inject: it writes no VCF record");
 }
 
+static void test_inject_msa_allele_replaces_graph_row() {
+    // A catalog SNP at 300 and the sample's own allele there, a 2 bp deletion of 299-300 the MSA assembled: the
+    // graph's reads took the nearest path, the SNP, so the deletion is written and the SNP row (still voting) is
+    // not. An MSA call spelling the row's own allele stays a hidden complement site beside the written row.
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    ref[299] = 'C';  // REF of the catalog SNP, ALT T
+    const auto run = [&](const CandidateVariant& msa, GraphChunkBuildResult& gc) {
+        PhasingChunk& graph = gc.chunk;
+        graph.ref_beg = 1;
+        graph.ref_end = 500;
+        graph.ref_seq = ref;
+        graph.candidates.push_back(clean_snp(300));
+        for (int r = 0; r < 6; ++r) {
+            graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+            graph.read_var_profile.push_back(profile(r, 0, {r % 2}));
+        }
+        gc.site_ids = {"s300"};
+        GraphSiteMeta meta;
+        meta.chrom = "chr1";
+        meta.pos = 300;
+        meta.ref = "C";
+        meta.alts = {"T"};
+        gc.site_meta = {meta};
+        gc.site_allele_orig_idx = {{0, 1}};
+        finish_chunk(graph);
+        PhasingChunk bam;
+        bam.ref_beg = 1;
+        bam.ref_end = 500;
+        bam.ref_seq = ref;
+        bam.candidates.push_back(msa);
+        for (int r = 0; r < 6; ++r) {
+            bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+            bam.read_var_profile.push_back(profile(r, 0, {r % 2}));
+        }
+        inject_alignment_sites(gc, bam, "chr1");
+    };
+    CandidateVariant del;
+    del.key.tid = 0;
+    del.key.pos = 299;
+    del.key.type = VariantType::Deletion;
+    del.key.ref_len = 2;
+    del.counts.category = VariantCategory::NoisyCandHet;
+    del.lcd_var_i_to_cate = kCandNoisyCandHet;
+    del.msa_verified = true;
+    GraphChunkBuildResult replaced;
+    run(del, replaced);
+    bool del_written = false, snp_written = true;
+    for (size_t ci = 0; ci < replaced.chunk.candidates.size(); ++ci) {
+        const CandidateVariant& c = replaced.chunk.candidates[ci];
+        if (c.bam_injected && c.key.type == VariantType::Deletion) del_written = !replaced.site_meta[ci].ref.empty();
+        if (!c.bam_injected && c.key.type == VariantType::Snp) snp_written = !replaced.site_meta[ci].ref.empty();
+    }
+    check(del_written, "replace: the MSA deletion the catalog lacks is written");
+    check(!snp_written, "replace: the catalog SNP it replaces writes no record");
+
+    CandidateVariant same = snp(300, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    same.msa_verified = true;
+    GraphChunkBuildResult complement;
+    run(same, complement);
+    bool row_written = false, call_hidden = false;
+    for (size_t ci = 0; ci < complement.chunk.candidates.size(); ++ci) {
+        const CandidateVariant& c = complement.chunk.candidates[ci];
+        if (c.bam_injected) call_hidden = complement.site_meta[ci].ref.empty();
+        else row_written = !complement.site_meta[ci].ref.empty();
+    }
+    check(row_written && call_hidden, "replace: an MSA call spelling the row's allele stays a hidden complement");
+}
+
 static void test_inject_low_mapq_clean_het() {
     // A clean het read only at low MAPQ is injected as an ordinary site (the
     // confident-read rule binds MSA-verified hets only); an MSA het read the
@@ -1038,6 +1107,7 @@ int main() {
     test_confirm_catalog_snp_calls();
     test_inject_island_only_sites();
     test_inject_low_mapq_clean_het();
+    test_inject_msa_allele_replaces_graph_row();
     test_em_island_blocks();
     test_em_deferred_labels();
     test_em_echo_sites();

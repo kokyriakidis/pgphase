@@ -102,6 +102,75 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
     return {std::move(meta), std::move(orig)};
 }
 
+// The sequence a VCF-form allele (pos, ref -> alt, the keys' coordinates) spells over the reference [lo, hi); empty
+// when the allele or the window leaves the source's reference, or its REF is not the reference's.
+static std::string spelled_haplotype(const PhasingChunk& source, hts_pos_t lo, hts_pos_t hi, hts_pos_t pos,
+                                     const std::string& ref, const std::string& alt) {
+    const hts_pos_t end = pos + static_cast<hts_pos_t>(ref.size());
+    const hts_pos_t off = lo - source.ref_beg;
+    if (ref.empty() || pos < lo || end > hi || off < 0 ||
+        static_cast<size_t>(hi - source.ref_beg) > source.ref_seq.size())
+        return std::string();
+    const auto upper = [](std::string s) {
+        for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        return s;
+    };
+    const std::string window = upper(source.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(hi - lo)));
+    if (window.compare(static_cast<size_t>(pos - lo), ref.size(), upper(ref)) != 0) return std::string();
+    return window.substr(0, static_cast<size_t>(pos - lo)) + upper(alt) + window.substr(static_cast<size_t>(end - lo));
+}
+
+// Whether an alignment call (its VCF-form `meta`) spells the same haplotype as one of the graph rows it overlaps,
+// alone or with one other: then it is another description of the locus (a hidden complement site). An MSA call
+// that none of them spells is an allele the graph does not have (chr20:509,755, a 4 bp deletion the catalog
+// describes only as a SNP beside it), which the graph's reads were forced onto the nearest path for. Calls apart
+// from a row only by run lengths are replaced too: on HG002 HiFi chr12/18/20 keeping the row's there cost 290 true
+// het regions (the MSA's run length was the truth's far more often than the catalog allele's).
+static bool spelled_by_rows(const PhasingChunk& source, const GraphSiteMeta& meta,
+                            const std::vector<size_t>& rows, const std::vector<GraphSiteMeta>& graph_meta) {
+    if (meta.ref.empty() || meta.alts.empty()) return true;
+    hts_pos_t lo = meta.pos;
+    hts_pos_t hi = meta.pos + static_cast<hts_pos_t>(meta.ref.size());
+    for (const size_t r : rows) {
+        if (r >= graph_meta.size() || graph_meta[r].ref.empty()) return true;  // a row it cannot read: assume so
+        lo = std::min(lo, graph_meta[r].pos);
+        hi = std::max(hi, graph_meta[r].pos + static_cast<hts_pos_t>(graph_meta[r].ref.size()));
+    }
+    lo -= 1;
+    hi += 1;
+    const std::string mine = spelled_haplotype(source, lo, hi, meta.pos, meta.ref, meta.alts.front());
+    if (mine.empty()) return true;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const GraphSiteMeta& a = graph_meta[rows[i]];
+        for (const std::string& alt : a.alts) {
+            const std::string theirs = spelled_haplotype(source, lo, hi, a.pos, a.ref, alt);
+            if (theirs.empty() || theirs == mine) return true;  // a row it cannot spell: assume the same
+            // With one other row (both alleles on one haplotype), where the two do not overlap.
+            for (size_t j = i + 1; j < rows.size(); ++j) {
+                const GraphSiteMeta& b = graph_meta[rows[j]];
+                const bool a_first = a.pos + static_cast<hts_pos_t>(a.ref.size()) <= b.pos;
+                const bool b_first = b.pos + static_cast<hts_pos_t>(b.ref.size()) <= a.pos;
+                if (!a_first && !b_first) continue;
+                const GraphSiteMeta& first = a_first ? a : b;
+                const GraphSiteMeta& second = a_first ? b : a;
+                for (const std::string& alt_b : b.alts) {
+                    const std::string& first_alt = a_first ? alt : alt_b;
+                    const std::string& second_alt = a_first ? alt_b : alt;
+                    const std::string once = spelled_haplotype(source, lo, hi, second.pos, second.ref, second_alt);
+                    if (once.empty()) continue;
+                    // Apply the first on top: its coordinates are untouched by the second, which lies after it.
+                    const hts_pos_t at = first.pos - lo;
+                    if (once.compare(static_cast<size_t>(at), first.ref.size(), first.ref) != 0) continue;
+                    const std::string both = once.substr(0, static_cast<size_t>(at)) + first_alt +
+                                             once.substr(static_cast<size_t>(at) + first.ref.size());
+                    if (both == mine) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 // Left-aligned identity of a simple insertion or deletion, so placements of
 // one allele at different repeat copies compare equal. Other rows keep their key.
 static CandKey left_aligned_indel_key(const CandidateVariant& c, const PhasingChunk& source) {
@@ -245,14 +314,21 @@ struct Selection {
     std::set<size_t> island_only;    // selected only as island sites
     std::set<size_t> low_mapq_only;  // clean hets admitted by the exemption
     std::unordered_map<size_t, std::vector<size_t>> complement_rows;  // bam candidate -> graph rows it overlaps
+    std::set<size_t> replaced_rows;  // graph rows an MSA call of an allele they do not spell replaces in the VCF
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
 
 // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
 // alignment's own category bits.
 Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
-                       const VotingRows& voting, bool record_decisions) {
+                       const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta,
+                       const char* contig_name, bool record_decisions) {
     Selection sel;
+    // Graph rows an MSA call reproduces exactly stay written: a real variant beside the replaced allele.
+    std::set<CandKey> msa_keys;
+    for (const CandidateVariant& c : bam.candidates)
+        if (c.counts.category == VariantCategory::NoisyCandHet && c.msa_verified)
+            msa_keys.insert(left_aligned_indel_key(c, bam));
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     const auto decide = [&](size_t bi, const char* why) {
         if (record_decisions) sel.decision[bi] = why;
@@ -297,6 +373,17 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
             } else {
                 decide(bi, dropped);
             }
+            continue;
+        }
+        if (msa && !rows.empty() && c.msa_insertion_alts.empty() && graph_meta.size() == graph.candidates.size() &&
+            !spelled_by_rows(bam, synthesize_alignment_site_meta(c, bam, contig_name).first, rows, graph_meta)) {
+            // The MSA's allele, which the overlapping rows do not spell: written itself, the rows (still voting)
+            // not, unless an MSA call reproduces one exactly.
+            decide(bi, "replaces");
+            for (const size_t r : rows)
+                if (msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0) sel.replaced_rows.insert(r);
+            if (!confident) sel.low_mapq_only.insert(bi);
+            sel.selected.push_back(bi);
             continue;
         }
         decide(bi, rows.empty() ? "injected" : "complement");
@@ -404,7 +491,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     const VotingRows voting(graph);
     const AlignmentSupport support(bam);
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    Selection sel = select_sites(graph, bam, support, voting, diag_dir != nullptr);
+    Selection sel = select_sites(graph, bam, support, voting, graph_chunk.site_meta, contig_name, diag_dir != nullptr);
     if (diag_dir != nullptr) write_injection_diagnostics(diag_dir, graph_chunk, bam, support, sel);
     if (sel.selected.empty()) return 0;
     const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);
@@ -437,6 +524,10 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             merged.push_back(graph.candidates[ci]);
             merged_ids.push_back(ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string());
             merged_meta.push_back(had_meta ? graph_chunk.site_meta[ci] : GraphSiteMeta{});
+            if (sel.replaced_rows.count(ci) != 0) {
+                merged_meta.back().ref.clear();  // empty REF: the writer emits no record
+                merged_meta.back().alts.clear();
+            }
             merged_orig.push_back(ci < graph_chunk.site_allele_orig_idx.size()
                                       ? graph_chunk.site_allele_orig_idx[ci] : std::vector<int>{});
             continue;
