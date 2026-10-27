@@ -250,15 +250,21 @@ void remember_inputs(const char* kind, const PlegmaInput& in, const std::vector<
     }
 }
 
-/// pgphase's scoring and the PGPHASE_PLEGMA_* knobs as plegma's options.
-plegma::Options options_of(const Options& opts) {
+/// The no-PS path's `two_lengths_db`: clusters of every spanning read apart only by homopolymer lengths stay apart
+/// only above it. HG002 HiFi chr12/18/20 against the PS-aware path's 5 dB: at 8, false het regions 221 -> 205, true
+/// 29,450 -> 29,446, arm reads +38 correct, -24 discordant; 12 dB 197 false for 29,441 true, 20 dB 186 for 29,430.
+constexpr float kClusteredTwoLengthsDb = 8.0f;
+
+/// pgphase's scoring and the PGPHASE_PLEGMA_* knobs as plegma's options; `two_lengths_db` the PS-aware path's 5 dB
+/// unless given (the no-PS path's is kClusteredTwoLengthsDb).
+plegma::Options options_of(const Options& opts, float two_lengths_db = 5.0f) {
     plegma::Options options = plegma::Options()
                                   .pinned(false)
                                   .scoring(opts.match, opts.mismatch)
                                   .gaps(opts.gap_open1, opts.gap_ext1, opts.gap_open2, opts.gap_ext2)
                                   // On HG002 HiFi chr12, 18 and 20, 5 dB against plegma's 15: 22 fewer true hets of
                                   // 28,259 for 77 fewer false of 282, the phasing as good.
-                                  .twoLengthsDb(5.0f);
+                                  .twoLengthsDb(two_lengths_db);
     // PGPHASE_PLEGMA_NOISE_RUN=N: clusters apart only by single letters in runs of N or more are one (0: never).
     if (const char* run = std::getenv("PGPHASE_PLEGMA_NOISE_RUN")) options.noiseRun(std::atoi(run));
     // PGPHASE_PLEGMA_TWO_DB=X: dB two homopolymer lengths must gain over one to stay apart.
@@ -315,7 +321,8 @@ int plegma_msa_cons(const Options& opts, const std::vector<int>& read_ids,
     remember_inputs("clustered", in, nullptr);
     plegma::Clustering got;
     try {
-        got = plegma::clusteredConsensus(in.reads, model(), options_of(opts), std::min(max_n_cons, 2),
+        got = plegma::clusteredConsensus(in.reads, model(), options_of(opts, kClusteredTwoLengthsDb),
+                                         std::min(max_n_cons, 2),
                                          static_cast<float>(opts.min_af));
     } catch (const std::runtime_error& e) {
         if (opts.verbose >= 1) std::fprintf(stderr, "plegma MSA: %s\n", e.what());
