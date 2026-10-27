@@ -544,17 +544,22 @@ static CandidateTable graph_chunks_to_candidate_table(
     // The same physical variant can come from a catalog snarl and a verified
     // injected BAM row. Retain its phased heterozygote when the other copy is
     // an unphased repeat call; coverage alone would discard the injected
-    // phase whenever the graph row had a few more observations.
-    const auto phased_het = [](const CandidateVariant& candidate) {
+    // phase whenever the graph row had a few more observations. Next, a het
+    // written unphased (the union EM's MSA-genotyped het its reads cannot
+    // phase): a repeat call of the same deletion with more reads would
+    // otherwise drop it from the VCF (chr12:5,924,102, 86 truth hets on
+    // chr12 alone).
+    const auto het_rank = [](const CandidateVariant& candidate) {
         const auto category = candidate.counts.category;
-        return candidate.phase_set > 0 &&
-            candidate.hap_to_cons_alle[1] >= 0 &&
+        const bool het = candidate.hap_to_cons_alle[1] >= 0 &&
             candidate.hap_to_cons_alle[2] >= 0 &&
             candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2] &&
             (category == VariantCategory::CleanHetSnp ||
              category == VariantCategory::CleanHetIndel ||
              (category == VariantCategory::NoisyCandHet &&
               candidate.msa_verified && candidate.alignment_verified));
+        if (!het) return 0;
+        return candidate.phase_set > 0 ? 2 : candidate.vcf_unphased ? 1 : 0;
     };
     if (!result.empty()) {
         size_t write = 0;
@@ -567,10 +572,10 @@ static CandidateTable graph_chunks_to_candidate_table(
                     result[write].hap_alt != result[read].hap_alt) {
                     ++hap_conflicts;
                 }
-                const bool write_phased = phased_het(result[write]);
-                const bool read_phased = phased_het(result[read]);
-                if ((read_phased && !write_phased) ||
-                    (read_phased == write_phased &&
+                const int write_rank = het_rank(result[write]);
+                const int read_rank = het_rank(result[read]);
+                if (read_rank > write_rank ||
+                    (read_rank == write_rank &&
                      result[read].counts.total_cov >
                          result[write].counts.total_cov)) {
                     result[write] = std::move(result[read]);

@@ -2138,6 +2138,19 @@ takes them), with these differences:
 On HG002 HiFi (chr12, chr18, chr20; the union pipeline, `--bam`) against the truth, noisy-region het regions: true
 27,636 -> 28,507, false 1,321 -> 216, wrong 2,324 -> 1,962; the run 10% faster (chr20: 44.3 -> 39.9 s).
 
+Two rules downstream of the MSA, for either backend:
+
+- **An MSA allele the graph does not have replaces the graph rows it overlaps** (`select_sites`, decision
+  `replaces`). An MSA-verified het overlapping catalog rows joins as a hidden complement site only when one row, or
+  two together, spells the same haplotype (`spelled_by_rows`); otherwise it is the sample's own allele, which the
+  graph's reads were forced onto the nearest path for (chr20:509,755: a 4 bp deletion the catalog has only as the
+  SNP beside it), and it is written while the rows it overlaps keep voting but write no record (unless an MSA
+  call reproduces one exactly). plegma: true 28,507 -> 28,997, wrong 1,962 -> 1,480, false unchanged; abPOA alike.
+  Treating calls apart from a row only by run lengths as the row's cost 290 true hets and is not done.
+- **The duplicate collapse keeps an unphased het over a non-het copy** (`het_rank`): the union EM's MSA-genotyped
+  het written unphased was dropped for a deeper repeat call of the same variant (chr12:5,924,102). Missed
+  856 -> 712, true 28,997 -> 29,146, false 216 -> 233.
+
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 
 The clean-site k-means pass (Step 3.2) assigns each read a `hap` (1 or 2) and a `phase_set`. Step 4 uses those assignments directly — it does **not** re-run clustering from scratch inside the noisy region.
