@@ -2129,7 +2129,9 @@ takes them), with these differences:
   regions +43, missed -34, wrong -17, false -20, arm reads +122 correct, -34 discordant.
 - **No-PS path:** `plegma_clustered_consensus` (at most two clusters, `min_freq` = `--min-af`): reads clustered on
   the MSA columns where they disagree, moved to the consensus they align to more cheaply, clusters apart only by
-  homopolymer lengths merged unless the model finds two lengths (the same 5 dB test).
+  homopolymer lengths merged unless the model finds two lengths (the same 5 dB test), and clusters apart only by
+  one unit of a 2-6 letter tandem repeat merged when the smaller holds under 30% of the reads (plegma 0c2d018: such
+  splits were 1 true het to 25 false; false 243 -> 219, true 29,457 -> 29,455).
 - **Homopolymer model:** every run's length is the one the reads make most likely under a model of how they
   report run lengths: built in for HiFi (HG002) and for ONT R10.4.1 (`--ont`, shasta2's), none for short reads,
   or `--msa-model FILE` ([`models/README.md`](../models/README.md)). Runs longer than the model's rows keep the
