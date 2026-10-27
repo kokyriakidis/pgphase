@@ -64,7 +64,8 @@ Requirements:
 - [vg](https://github.com/vgteam/vg), only to build site catalogs
 - [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
 - [pixi](https://pixi.sh), to build plegma, the noisy-region MSA (it fetches plegma's Mojo toolchain); without it,
-  `make PLEGMA=0` builds pgphase with abPOA alone
+  `make PLEGMA=0` builds pgphase with abPOA alone. plegma (`third_party/plegma`) is a private repository for now:
+  without access to it, the recursive clone skips it and `make PLEGMA=0` builds the rest
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git

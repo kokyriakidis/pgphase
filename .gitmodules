@@ -7,3 +7,6 @@
 [submodule "third_party/edlib"]
 	path = third_party/edlib
 	url = https://github.com/Martinsos/edlib.git
+[submodule "third_party/plegma"]
+	path = third_party/plegma
+	url = https://github.com/kokyriakidis/plegma.git

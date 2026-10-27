@@ -7,10 +7,41 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    env:
+      # plegma (third_party/plegma, with its submodule sporos) is private: a token that can read both
+      # (repository secret PLEGMA_TOKEN) builds and tests pgphase's default MSA; without it, abPOA alone.
+      HAS_PLEGMA_TOKEN: ${{ secrets.PLEGMA_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Public submodules
+        run: git submodule update --init --recursive third_party/WFA2-lib third_party/abPOA third_party/edlib
+
+      - name: plegma's pinned commit
+        id: plegma
+        run: |
+          echo "sha=$(git ls-tree HEAD third_party/plegma | awk '{print $3}')" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_PLEGMA_TOKEN" = true ]; then
+            echo "PLEGMA=1" >> "$GITHUB_ENV"
+          else
+            echo "PLEGMA=0" >> "$GITHUB_ENV"
+            echo "::warning::PLEGMA_TOKEN is not set: plegma, pgphase's default MSA, is not built or tested (abPOA only)"
+          fi
+
+      - uses: actions/checkout@v5
+        if: env.HAS_PLEGMA_TOKEN == 'true'
         with:
+          repository: kokyriakidis/plegma
+          ref: ${{ steps.plegma.outputs.sha }}
+          path: third_party/plegma
           submodules: recursive
+          token: ${{ secrets.PLEGMA_TOKEN }}
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        if: env.HAS_PLEGMA_TOKEN == 'true'
+        with:
+          manifest-path: third_party/plegma/pixi.toml
+          cache: true
 
       - name: Install dependencies
         run: |
