@@ -14,6 +14,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace pgphase_collect {
@@ -24,6 +25,10 @@ bool use_plegma_msa();
 /// Whether the MSA's het calls stand without the reads' phasing (CandidateVariant::msa_genotyped): plegma with a
 /// homopolymer model (PGPHASE_PLEGMA_MODEL).
 bool msa_genotypes_alone();
+
+/// With PGPHASE_MSA_DUMP_READS set: the inputs of this thread's last plegma call ("clustered" or "phased", then per
+/// read letters:anchor:strand:haplotype, tab-separated), cleared; empty otherwise.
+std::string take_plegma_inputs();
 
 /// A read's alignment to its cluster's consensus as an MSA would show the two: equal-length rows, codes 0-4, 5 a gap.
 struct PlegmaRows {

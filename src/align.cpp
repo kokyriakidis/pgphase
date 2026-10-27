@@ -2013,6 +2013,17 @@ static void dump_msa_call(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t en
         std::fputs(line.c_str(), out);
         std::fclose(out);
     }
+    // PGPHASE_MSA_DUMP_READS=FILE: plegma's inputs for the same call (contig index, region, branch, then
+    // take_plegma_inputs), to replay it.
+    static const char* const reads_path = std::getenv("PGPHASE_MSA_DUMP_READS");
+    const std::string inputs = take_plegma_inputs();
+    if (reads_path != nullptr && !inputs.empty()) {
+        if (FILE* out = std::fopen(reads_path, "a")) {
+            std::fprintf(out, "%d\t%lld\t%lld\t%s\t%s\n", chunk.region.tid, static_cast<long long>(beg),
+                         static_cast<long long>(end), ps > 0 ? "Hap" : "NoHap", inputs.c_str());
+            std::fclose(out);
+        }
+    }
 }
 
 int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,

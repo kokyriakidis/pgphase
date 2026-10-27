@@ -156,6 +156,23 @@ void input_of(const std::vector<uint8_t*>& read_seqs, const std::vector<int>& re
     }
 }
 
+/// PGPHASE_MSA_DUMP_READS: this thread's last call's inputs, for dump_msa_call to write beside its region.
+thread_local std::string last_inputs;
+
+/// The call's kind, then per read its letters, anchor, strand and haplotype (-1: none), colon-separated.
+void remember_inputs(const char* kind, const PlegmaInput& in, const std::vector<int>* haps) {
+    static const bool on = std::getenv("PGPHASE_MSA_DUMP_READS") != nullptr;
+    if (!on) return;
+    last_inputs = kind;
+    for (std::size_t r = 0; r < in.reads.size(); ++r) {
+        last_inputs += '\t';
+        last_inputs += in.letters[r];
+        last_inputs += ':' + std::to_string(static_cast<int>(in.reads[r].anchor)) + ':' +
+                       std::to_string(static_cast<int>(in.reads[r].strand)) + ':' +
+                       std::to_string(haps != nullptr && r < haps->size() ? (*haps)[r] : -1);
+    }
+}
+
 /// pgphase's scoring and the PGPHASE_PLEGMA_* knobs as plegma's options.
 plegma::Options options_of(const Options& opts) {
     plegma::Options options = plegma::Options()
@@ -218,6 +235,7 @@ int plegma_msa_cons(const Options& opts, const std::vector<int>& read_ids,
 #ifdef PGPHASE_PLEGMA
     PlegmaInput in;
     input_of(read_seqs, read_lens, read_covers, read_strands, in);
+    remember_inputs("clustered", in, nullptr);
     plegma::Clustering got;
     try {
         got = plegma::clusteredConsensus(in.reads, model(), options_of(opts), std::min(max_n_cons, 2),
@@ -245,6 +263,7 @@ int plegma_phased_msa_cons(const Options& opts, const std::vector<int>& read_ids
 #ifdef PGPHASE_PLEGMA
     PlegmaInput in;
     input_of(read_seqs, read_lens, read_covers, read_strands, in);
+    remember_inputs("phased", in, &read_haps);
     plegma::Clustering got;
     try {
         got = plegma::phasedConsensus(in.reads, read_haps, model(), options_of(opts));
@@ -262,6 +281,16 @@ int plegma_phased_msa_cons(const Options& opts, const std::vector<int>& read_ids
     (void)opts; (void)read_ids; (void)read_seqs; (void)read_lens; (void)read_covers; (void)read_strands;
     (void)read_haps; (void)cons_seqs; (void)clu_n_seqs; (void)clu_read_ids; (void)rows;
     return 0;
+#endif
+}
+
+std::string take_plegma_inputs() {
+#ifdef PGPHASE_PLEGMA
+    std::string out;
+    out.swap(last_inputs);
+    return out;
+#else
+    return {};
 #endif
 }
 
