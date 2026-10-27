@@ -121,6 +121,15 @@ const plegma::Model* model() {
 }  // namespace
 #endif
 
+bool msa_genotypes_alone() {
+#ifdef PGPHASE_PLEGMA
+    static const bool on = use_plegma_msa() && model() != nullptr;
+    return on;
+#else
+    return false;
+#endif
+}
+
 #ifdef PGPHASE_PLEGMA
 namespace {
 

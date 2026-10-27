@@ -393,7 +393,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                 const bool verified_injected_het = mcand.bam_injected &&
                     mcand.counts.category == VariantCategory::NoisyCandHet &&
                     mcand.msa_verified && mcand.alignment_verified &&
-                    mcand.phase_set > 0 && het_by_consensus;
+                    (mcand.phase_set > 0 || mcand.vcf_unphased) && het_by_consensus;
                 if (verified_injected_het) {
                     cand.counts.category = mcand.counts.category;
                     cand.counts.candvarcate_initial =

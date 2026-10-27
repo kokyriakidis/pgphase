@@ -12,6 +12,7 @@
  */
 
 #include "collect_phase_noisy.hpp"
+#include "plegma_msa.hpp"
 #include <map>
 #include "collect_phase.hpp" // assign_hap_based_on_germline_het_vars_kmeans, kCandGermlineVarCate
 #include "collect_var.hpp"   // exact_comp_cand_var, exact_comp_var_site
@@ -181,6 +182,7 @@ CandidateVariant make_noisy_candidate(const PhasingChunk& chunk,
     var.alt_ref_base = type == VariantType::Snp ? static_cast<uint8_t>(4) : alt_ref_base;
     var.is_homopolymer_indel = is_homopolymer_indel;
     var.msa_verified = true;
+    var.msa_genotyped = msa_genotypes_alone();
     var.counts.n_uniq_alles = 2;
     var.counts.alle_covs.assign(2, 0);
     var.counts.category = VariantCategory::NoisyCandHom;

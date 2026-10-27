@@ -788,6 +788,15 @@ private:
             if (err_[k] >= (join_excluded_[k] ? kEmUnverifiedReportError : kEmUnreliableError)) {
                 c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
                 c.hap_alt = c.hap_ref = 0;
+                // An MSA-genotyped het the reads cannot phase is still a het: its two haplotype consensus
+                // sequences say so, the reads only fail to tell which is which (a long homopolymer that
+                // HiFi reads one short as often as not: chr12:953,298, A24/A25, error 0.33). Written
+                // unphased, with no phase set, so it labels, joins and rephases nothing. HG002 HiFi
+                // chr12/18/20, plegma: +267 true het regions, -282 missed, +11 false; reads unchanged.
+                if (!join_excluded_[k] && c.msa_genotyped && err_[k] < kEmMaxError) {
+                    set_site_phase(c, kUnsetCandidatePhaseSet, sites_[k].x, sites_[k].y);
+                    c.vcf_unphased = true;
+                }
                 continue;
             }
             const int hap1 = phase_[k] == 0 ? sites_[k].x : sites_[k].y;

@@ -21,6 +21,10 @@ namespace pgphase_collect {
 /// Whether the noisy-region MSA is plegma's: built with it and PGPHASE_MSA=plegma.
 bool use_plegma_msa();
 
+/// Whether the MSA's het calls stand without the reads' phasing (CandidateVariant::msa_genotyped): plegma with a
+/// homopolymer model (PGPHASE_PLEGMA_MODEL).
+bool msa_genotypes_alone();
+
 /// A read's alignment to its cluster's consensus as an MSA would show the two: equal-length rows, codes 0-4, 5 a gap.
 struct PlegmaRows {
     std::vector<uint8_t> cons;

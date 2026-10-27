@@ -584,6 +584,11 @@ struct CandidateVariant {
     bool is_homopolymer_indel = false;
     // True when the site was independently recovered from an MSA consensus.
     bool msa_verified = false;
+    // An MSA-verified site whose het genotype the MSA establishes alone (plegma with a homopolymer model, which
+    // decides run lengths from both haplotypes' reads): written unphased even where its reads are too noisy to
+    // phase it (union EM). abPOA's hets need the reads: written so, they added 420 false hets for 150 true
+    // (HG002 HiFi chr12/18/20).
+    bool msa_genotyped = false;
     // An MSA-verified het the union injection keeps out of the solve (too few
     // confidently mapped reads, or the depth gate): it enters only as an
     // island site, never as an EM site (no germline bits, no VCF record).

@@ -159,6 +159,43 @@ static void test_em_leaves_noise_unphased() {
     check(chunk.candidates[0].hap_to_cons_alle[1] >= 0, "EM: clean sites stay phased");
 }
 
+static void test_em_writes_unphasable_msa_het_unphased() {
+    // An MSA-genotyped het (plegma: its two haplotype consensus sequences differ) whose reads call the allele wrong
+    // a third of the time -- a long homopolymer HiFi reads one short as often as not -- is too noisy to phase, yet a
+    // het: written unphased, with both alleles and no phase set. One the MSA verified but did not genotype alone
+    // (abPOA) is left out, as before.
+    PhasingChunk chunk;
+    for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    CandidateVariant msa = snp(850, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    msa.msa_verified = true;
+    msa.msa_genotyped = true;
+    chunk.candidates.push_back(msa);
+    msa.key.pos = 860;
+    msa.msa_genotyped = false;
+    chunk.candidates.push_back(msa);
+    std::vector<int> truth;
+    for (int rep = 0; rep < 8; ++rep) add_tiled_reads(chunk, truth, 0, 7, 8);
+    for (size_t r = 0; r < chunk.read_var_profile.size(); ++r) {
+        ReadVariantProfile& p = chunk.read_var_profile[r];
+        for (int site = 8; site <= 9; ++site) {
+            p.alleles.push_back(hap_allele(truth[r], 8) ^ static_cast<int>(r % 3 == 0));
+            p.alt_qi.push_back(0);
+        }
+        p.end_var_idx = 9;
+    }
+    finish_chunk(chunk);
+    phase_chunk_by_global_em(chunk);
+    check(chunk.candidates[9].hap_to_cons_alle[1] == -1 && !chunk.candidates[9].vcf_unphased,
+          "EM: unphasable MSA het not genotyped by the MSA alone left out");
+    const CandidateVariant& c = chunk.candidates[8];
+    check(c.vcf_unphased && c.phase_set == kUnsetCandidatePhaseSet,
+          "EM: unphasable MSA het written unphased, no phase set");
+    check(c.hap_to_cons_alle[1] >= 0 && c.hap_to_cons_alle[2] >= 0 && c.hap_to_cons_alle[1] != c.hap_to_cons_alle[2],
+          "EM: unphasable MSA het keeps both alleles");
+    check(chunk.candidates[0].hap_to_cons_alle[1] >= 0 && chunk.candidates[0].phase_set > 0,
+          "EM: clean sites stay phased");
+}
+
 static void test_em_recovers_from_switched_start() {
     PhasingChunk chunk;
     for (int k = 0; k < 12; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
@@ -985,6 +1022,7 @@ int main() {
     test_em_phases_one_block();
     test_em_cuts_unlinked_blocks();
     test_em_leaves_noise_unphased();
+    test_em_writes_unphasable_msa_het_unphased();
     test_em_recovers_from_switched_start();
     test_em_labels_low_mapq_reads();
     test_em_window_links_blocks();
