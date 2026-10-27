@@ -43,12 +43,20 @@ SOURCES_CXX = src/main.cpp \
 	src/union_reads.cpp
 SOURCES_C = src/sdust.c src/cgranges.c src/kalloc.c
 
-OBJS = $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o)
+OBJS = $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) src/plegma_msa.o
 UNION_OBJS = src/union_phase.o src/union_inject.o src/union_em.o src/union_windows.o src/union_reads.o
 EDLIB_OBJ = src/edlib.o
 OBJS += $(EDLIB_OBJ)
 
 LDFLAGS ?= -lhts -lzstd -lm -lz -lpthread
+
+# Optional plegma noisy-region MSA (PGPHASE_MSA=plegma at run time; abPOA otherwise): make PLEGMA_DIR=<plegma
+# checkout>, built with `pixi run build-capi` there.
+ifneq ($(PLEGMA_DIR),)
+PLEGMA_CPPFLAGS = -DPGPHASE_PLEGMA -I$(PLEGMA_DIR)/capi
+ALIGN_CPPFLAGS += $(PLEGMA_CPPFLAGS)
+LDFLAGS += -L$(PLEGMA_DIR)/build -lplegma -Wl,-rpath,$(PLEGMA_DIR)/build -Wl,-rpath,$(PLEGMA_DIR)/.pixi/envs/default/lib
+endif
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
@@ -113,6 +121,9 @@ release-strict: pgphase
 src/align.o: src/align.cpp
 	$(CXX) $(CXXFLAGS) $(ALIGN_CPPFLAGS) -c $< -o $@
 
+src/plegma_msa.o: src/plegma_msa.cpp src/plegma_msa.hpp
+	$(CXX) $(CXXFLAGS) $(ALIGN_CPPFLAGS) -c $< -o $@
+
 src/graph_collect.o: src/graph_collect.cpp
 	$(CXX) $(CXXFLAGS) $(EDLIB_CPPFLAGS) -c $< -o $@
 
@@ -161,29 +172,29 @@ test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
-test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o src/plegma_msa.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_union_phase: src/test_union_phase.cpp $(UNION_OBJS) src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_union_phase: src/test_union_phase.cpp $(UNION_OBJS) src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o src/plegma_msa.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o src/plegma_msa.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Catch2 v2 is a single vendored header; -O1 keeps its compile time tolerable.
-test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
-	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
+test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 
 clean:
 	rm -f pgphase pgcat test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity src/*.o src/*.d
 	rm -rf $(UPSTREAM_PHASE_DIR) tools/pgcat/target
 
-test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
-	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) -Wl,--gc-sections $(LDFLAGS)
+test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) -Wl,--gc-sections $(LDFLAGS)
 
-test_port_parity: src/test_port_parity.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
-	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
+test_port_parity: src/test_port_parity.cpp third_party/catch2/catch.hpp src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o src/plegma_msa.o src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
 # The paper: tools/paper/ renders paper/ (an Overleaf project) and build/paper/; paper-sync pushes the
 # committed paper/ to the Overleaf remote (tools/paper/sync-overleaf.sh; FORCE=1 the first time).

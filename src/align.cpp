@@ -8,9 +8,11 @@
  */
 
 #include "align.hpp"
+#include "plegma_msa.hpp"
 #include "bam_digar.hpp"
 
 #include <algorithm>
+#include <mutex>
 #include <cassert>
 #include <climits>
 #include <iostream>
@@ -1641,9 +1643,22 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
     std::array<std::vector<std::vector<uint8_t>>, 2> msa_seqs;
 
     const int n_full = static_cast<int>(full_ids.size());
-    int n_cons = abpoa_aln_msa_cons(opts, n_full, full_ids, full_seqs, full_lens,
+    // plegma (PGPHASE_MSA=plegma): each read its own rows against its cluster's consensus.
+    const bool by_plegma = use_plegma_msa();
+    std::array<std::vector<PlegmaRows>, 2> plegma_rows;
+    int n_cons = 0;
+    if (by_plegma) {
+        std::vector<uint8_t> full_strands;
+        for (int id : full_ids) full_strands.push_back(info.strands[static_cast<size_t>(id)]);
+        n_cons = plegma_msa_cons(opts, full_ids, full_seqs, full_lens, full_covers, full_strands, 2, cons_seqs,
+                                 clu_n_seqs, clu_read_ids, plegma_rows);
+        cons_lens.resize(cons_seqs.size());
+        for (std::size_t ci = 0; ci < cons_seqs.size(); ++ci) cons_lens[ci] = static_cast<int>(cons_seqs[ci].size());
+    } else {
+        n_cons = abpoa_aln_msa_cons(opts, n_full, full_ids, full_seqs, full_lens,
                                     2, cons_lens, cons_seqs, clu_n_seqs, clu_read_ids,
                                     msa_seq_lens, msa_seqs);
+    }
     if (n_cons == 0) return 0;
     if (opts.verbose >= 2) std::fprintf(stderr, "n_cons: %d\n", n_cons);
 
@@ -1662,10 +1677,11 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
             const int read_i = clu_read_ids[static_cast<size_t>(ci)][static_cast<size_t>(k)];
             const int read_id = info.noisy_read_ids[static_cast<size_t>(read_i)];
             clu_read_ids[static_cast<size_t>(ci)][static_cast<size_t>(k)] = read_id;
-            const int msa_len  = msa_seq_lens[static_cast<size_t>(ci)];
-            const uint8_t* cons_row = msa_seqs[static_cast<size_t>(ci)]
+            const PlegmaRows* own = by_plegma ? &plegma_rows[static_cast<size_t>(ci)][static_cast<size_t>(k)] : nullptr;
+            const int msa_len  = own ? static_cast<int>(own->cons.size()) : msa_seq_lens[static_cast<size_t>(ci)];
+            const uint8_t* cons_row = own ? own->cons.data() : msa_seqs[static_cast<size_t>(ci)]
                                                [static_cast<size_t>(clu_n_seqs[static_cast<size_t>(ci)])].data();
-            const uint8_t* read_row = msa_seqs[static_cast<size_t>(ci)]
+            const uint8_t* read_row = own ? own->read.data() : msa_seqs[static_cast<size_t>(ci)]
                                                [static_cast<size_t>(k)].data();
             // cons-vs-read aln: slot (k+1)*2 - 1.
             const size_t cons_read_slot = static_cast<size_t>((k + 1) * 2 - 1);
@@ -1726,8 +1742,41 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
     std::array<int, 2>                           cons_lens{0, 0};
     std::array<std::vector<std::vector<uint8_t>>, 2> msa_seqs{};
     std::array<int, 2>                           msa_seq_lens{0, 0};
+    std::array<std::vector<PlegmaRows>, 2>       plegma_rows{};
 
-    for (int hap = 1; hap <= 2; ++hap) {
+    // plegma (PGPHASE_MSA=plegma): both haplotypes in one call, which decides homopolymer lengths on both.
+    if (use_plegma_msa()) {
+        std::vector<int>      ps_ids;
+        std::vector<uint8_t*> ps_seqs;
+        std::vector<int>      ps_lens;
+        std::vector<int>      ps_covers;
+        std::vector<uint8_t>  ps_strands;
+        std::vector<int>      ps_haps;
+        for (int hap = 1; hap <= 2; ++hap) {
+            for (int i = 0; i < n; ++i) {
+                if (info.lens[static_cast<size_t>(i)] <= 0) continue;
+                if (info.phase_sets[static_cast<size_t>(i)] != ps) continue;
+                if (info.haps[static_cast<size_t>(i)] != hap) continue;
+                if (!use_non_full && !noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)])) continue;
+                ps_ids    .push_back(info.noisy_read_ids[static_cast<size_t>(i)]);
+                ps_seqs   .push_back(info.seqs [static_cast<size_t>(i)].data());
+                ps_lens   .push_back(info.lens [static_cast<size_t>(i)]);
+                ps_covers .push_back(info.fully_covers[static_cast<size_t>(i)]);
+                ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
+                ps_haps   .push_back(hap - 1);
+            }
+        }
+        bool long_hap = false;
+        for (int l : ps_lens) long_hap = long_hap || l >= opts.max_noisy_reg_len;
+        if (!ps_ids.empty() && !long_hap &&
+            plegma_phased_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, ps_haps, cons_seqs,
+                                   clu_n_seqs, clu_read_ids, plegma_rows) == 2 &&
+            clu_n_seqs[0] > 0 && clu_n_seqs[1] > 0) {
+            cons_lens = {static_cast<int>(cons_seqs[0].size()), static_cast<int>(cons_seqs[1].size())};
+            n_cons = 2;
+        }
+    }
+    for (int hap = 1; hap <= 2 && !use_plegma_msa(); ++hap) {
         const int ci = hap - 1;
         // Collect reads for this haplotype.
         std::vector<int>      ps_ids;
@@ -1735,6 +1784,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         std::vector<uint8_t*> ps_quals;
         std::vector<int>      ps_lens;
         std::vector<int>      ps_covers;
+        std::vector<uint8_t>  ps_strands;
 
         for (int i = 0; i < n; ++i) {
             if (info.lens[static_cast<size_t>(i)] <= 0) continue;
@@ -1747,6 +1797,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             ps_quals .push_back(info.quals[static_cast<size_t>(i)].data());
             ps_lens  .push_back(info.lens [static_cast<size_t>(i)]);
             ps_covers.push_back(info.fully_covers[static_cast<size_t>(i)]);
+            ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
         }
         if (ps_ids.empty()) continue;
         if (ps_lens[0] >= opts.max_noisy_reg_len) break;
@@ -1759,12 +1810,29 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         const int n_ps = static_cast<int>(ps_ids.size());
         // Pass global read ids into abPOA, not 0..n_ps-1.
         // This matters because abPOA cluster read-ids are propagated downstream.
-        int ret = abpoa_partial_aln_msa_cons(opts, sampling_reads, n_ps,
+        int ret = 0;
+        if (use_plegma_msa()) {
+            std::vector<std::vector<uint8_t>> one;
+            std::array<int, 2> n_one{};
+            std::array<std::vector<int>, 2> ids_one;
+            std::array<std::vector<PlegmaRows>, 2> rows_one;
+            ret = plegma_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, 1, one, n_one, ids_one,
+                                  rows_one);
+            if (ret) {
+                cons_seqs[static_cast<size_t>(ci)] = one[0];
+                cons_lens[static_cast<size_t>(ci)] = static_cast<int>(one[0].size());
+                out_clu_n = n_one[0];
+                out_clu_ids = ids_one[0];
+                plegma_rows[static_cast<size_t>(ci)] = std::move(rows_one[0]);
+            }
+        } else {
+            ret = abpoa_partial_aln_msa_cons(opts, sampling_reads, n_ps,
                                              ps_ids, ps_seqs, ps_quals, ps_lens, ps_covers,
                                              1,
                                              cons_lens[static_cast<size_t>(ci)], cons_seqs[static_cast<size_t>(ci)],
                                              out_clu_n, out_clu_ids,
                                              out_msa_len, out_msa);
+        }
         if (ret) {
             clu_n_seqs  [static_cast<size_t>(ci)] = out_clu_n;
             clu_read_ids[static_cast<size_t>(ci)] = out_clu_ids;
@@ -1797,10 +1865,11 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             if (info.haps[static_cast<size_t>(i)] != hap) continue;
             if (!use_non_full && !noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)])) continue;
 
-            const int msa_len = msa_seq_lens[static_cast<size_t>(ci)];
-            const uint8_t* cons_row = msa_seqs[static_cast<size_t>(ci)]
+            const PlegmaRows* own = use_plegma_msa() ? &plegma_rows[static_cast<size_t>(ci)][static_cast<size_t>(k_out)] : nullptr;
+            const int msa_len = own ? static_cast<int>(own->cons.size()) : msa_seq_lens[static_cast<size_t>(ci)];
+            const uint8_t* cons_row = own ? own->cons.data() : msa_seqs[static_cast<size_t>(ci)]
                                                [static_cast<size_t>(clu_n_seqs[static_cast<size_t>(ci)])].data();
-            const uint8_t* read_row = msa_seqs[static_cast<size_t>(ci)]
+            const uint8_t* read_row = own ? own->read.data() : msa_seqs[static_cast<size_t>(ci)]
                                                [static_cast<size_t>(k_out)].data();
             const size_t cons_read_slot = static_cast<size_t>((k_out + 1) * 2 - 1);
             make_cons_read_aln_str(cons_row, read_row, msa_len,
@@ -1924,6 +1993,45 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
 // Top-level noisy-region alignment: collect reads, align, build consensus.
 // ════════════════════════════════════════════════════════════════════════════
 
+// PGPHASE_MSA_DUMP=FILE: every noisy-region MSA call appended to FILE as one tab-separated line (contig index,
+// region begin and end, 1-based inclusive, the branch, the region's reference, the number of consensus sequences,
+// then per one its letters and its reads' name:cover-flag pairs, comma-separated), to score either backend against a truth.
+static void dump_msa_call(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end, hts_pos_t ps,
+                          const std::vector<uint8_t>& ref_seq, int n_cons,
+                          const std::array<int, 2>& clu_n_seqs,
+                          const std::array<std::vector<int>, 2>& clu_read_ids,
+                          const std::array<std::vector<AlnStr>, 2>& aln_strs,
+                          const std::vector<int>& cover_of) {
+    static const char* const path = std::getenv("PGPHASE_MSA_DUMP");
+    if (path == nullptr) return;
+    std::string line = std::to_string(chunk.region.tid) + "\t" + std::to_string(beg) + "\t" + std::to_string(end) +
+                       "\t" + (ps > 0 ? "Hap" : "NoHap") + "\t";
+    for (uint8_t c : ref_seq) line += "ACGTN"[std::min<int>(c, 4)];
+    line += "\t" + std::to_string(n_cons);
+    for (int ci = 0; ci < n_cons && ci < 2; ++ci) {
+        line += "\t";
+        if (!aln_strs[static_cast<size_t>(ci)].empty()) {
+            for (uint8_t c : aln_strs[static_cast<size_t>(ci)][0].query_aln) {
+                if (c < 5) line += "ACGTN"[c];
+            }
+        }
+        line += "\t";
+        for (int k = 0; k < clu_n_seqs[static_cast<size_t>(ci)]; ++k) {
+            if (k > 0) line += ",";
+            const int id = clu_read_ids[static_cast<size_t>(ci)][static_cast<size_t>(k)];
+            line += chunk.reads[static_cast<size_t>(id)].qname;
+            line += ":" + std::to_string(id < static_cast<int>(cover_of.size()) ? cover_of[static_cast<size_t>(id)] : -1);
+        }
+    }
+    line += "\n";
+    static std::mutex lock;
+    std::lock_guard<std::mutex> hold(lock);
+    if (FILE* out = std::fopen(path, "a")) {
+        std::fputs(line.c_str(), out);
+        std::fclose(out);
+    }
+}
+
 int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                                 hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
                                 const std::vector<int>& noisy_read_ids,
@@ -1986,6 +2094,9 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
             opts, info, ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,
             clu_n_seqs, clu_read_ids, aln_strs);
     }
+
+    dump_msa_call(chunk, noisy_reg_beg, noisy_reg_end, ps, ref_seq_vec, n_cons, clu_n_seqs, clu_read_ids, aln_strs,
+                  info.read_id_to_full_covers);
 
     // Update digars from MSA consensus when phased-BAM output is requested.
     if (n_cons > 0 && opts.refine_aln && !opts.output_aln.empty()) {
