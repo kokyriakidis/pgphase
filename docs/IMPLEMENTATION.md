@@ -2133,7 +2133,13 @@ takes them), with these differences:
 - **MSA-genotyped hets** (`CandidateVariant::msa_genotyped`): a het plegma made with a model stands without the
   reads' phasing. Where its reads call the allele wrong 30% of the time or more (a long homopolymer HiFi reads one
   short as often as not), the union EM writes it unphased rather than dropping it (`write_site_phases`); abPOA's
-  hets are dropped there as before.
+  hets are dropped there as before. One whose reads split too unevenly to be an EM site at all (the minor allele
+  under 25% of their calls: chr20:2,060,967, T22 against T24, the MSA's clusters 49 and 28 reads, the reads' calls
+  48 REF to 13 ALT) is written unphased too when the MSA's own reads are at least half the chunk's median site
+  depth (`write_skewed_msa_hets`); an MSA of fewer, the few reads one phase set held (chr20:15,363,779: 8 of 79),
+  is mostly a false het. True 29,146 -> 29,298, missed 712 -> 556, wrong 1,475 -> 1,399, false 233 -> 261; reads
+  unchanged. Without the depth rule +154 true for +83 false; island-only MSA hets (depth gate, few confident
+  reads) written the same way add 112 true for 175 false and 71 wrong, and are not.
 
 On HG002 HiFi (chr12, chr18, chr20; the union pipeline, `--bam`) against the truth, noisy-region het regions: true
 27,636 -> 28,507, false 1,321 -> 216, wrong 2,324 -> 1,962; the run 10% faster (chr20: 44.3 -> 39.9 s).

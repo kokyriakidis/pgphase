@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <numeric>
 
 namespace pgphase_collect {
 
@@ -110,6 +111,11 @@ constexpr int kEmMinStrongJoinReads = 4;
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
 constexpr double kEmMinMinorAlleleFraction = 0.25;
+// An MSA-genotyped het such a split keeps out is written unphased when the MSA's reads are at least this fraction
+// of the chunk's median site depth (write_skewed_msa_hets). HG002 HiFi chr12/18/20, plegma: +152 true het regions,
+// -156 missed, -76 wrong, +28 false; reads unchanged. Without the depth rule +154 true for +83 false; a floor on
+// the minor allele's share (5-20%) on top of it changes nothing.
+constexpr double kEmMinMsaReadsFraction = 0.5;
 // Echo sites: a site within kEmEchoMaxGap bp after another whose shared reads
 // (at least kEmEchoMinShare of the larger site's callers) split the same way
 // (kEmEchoMinConcordance of them) repeats that site's evidence. One event
@@ -807,6 +813,42 @@ private:
             // (chr18:79.877 Mb, six switches over 32 correctly phased reads).
             c.vcf_unphased = c.unresolved_noisy ||
                              err_[k] >= (c.key.type == VariantType::Snp ? kEmVcfMaxSnpError : kEmVcfMaxIndelError);
+        }
+        write_skewed_msa_hets();
+    }
+
+    // An MSA-genotyped het whose reads split too unevenly to be a site (kEmMinMinorAlleleFraction) is still a
+    // het: the reads call a long homopolymer one short as often as not (chr20:2,060,967, T22 against T24, the MSA's
+    // clusters of 49 and 28 reads, the reads' calls 48 REF to 13 ALT). Written unphased, as an unphasable one above,
+    // when the reads the MSA genotyped it from are at least kEmMinMsaReadsFraction of the chunk's median site
+    // depth; fewer is an MSA of a handful of phased reads (chr20:15,363,779, 8 of 79), mostly a false het.
+    void write_skewed_msa_hets() {
+        std::vector<int> depths;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) continue;
+            int n = 0;
+            for (const auto& [a, m] : allele_counts_[sites_[k].ci]) n += m;
+            depths.push_back(n);
+        }
+        if (depths.empty()) return;
+        std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
+        const double min_reads = kEmMinMsaReadsFraction * depths[depths.size() / 2];
+        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
+            CandidateVariant& c = chunk_.candidates[ci];
+            if (site_of_[ci] >= 0 || !c.msa_genotyped || c.island_only || c.low_mapq_only || c.unresolved_noisy ||
+                (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0)
+                continue;
+            const std::vector<int>& covs = c.counts.alle_covs;
+            const int msa_reads = covs.empty() ? c.counts.ref_cov + c.counts.alt_cov
+                                               : std::accumulate(covs.begin(), covs.end(), 0);
+            if (msa_reads < min_reads) continue;
+            std::vector<std::pair<int, int>> by_count;
+            for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
+            std::sort(by_count.rbegin(), by_count.rend());
+            const int x = by_count.size() >= 2 ? by_count[0].second : 0;
+            const int y = by_count.size() >= 2 ? by_count[1].second : 1;
+            set_site_phase(c, kUnsetCandidatePhaseSet, x, y);
+            c.vcf_unphased = true;
         }
     }
 

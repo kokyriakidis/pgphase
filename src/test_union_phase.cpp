@@ -196,6 +196,43 @@ static void test_em_writes_unphasable_msa_het_unphased() {
           "EM: clean sites stay phased");
 }
 
+static void test_em_writes_skewed_msa_het_unphased() {
+    // An MSA-genotyped het whose reads call its ALT an eighth of the time (a long homopolymer read one short) is no
+    // EM site, yet a het: written unphased when the MSA's own reads (alle_covs) are at least half the median site
+    // depth, left out when the MSA saw a handful of them.
+    PhasingChunk chunk;
+    for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    CandidateVariant msa = snp(850, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+    msa.msa_verified = true;
+    msa.msa_genotyped = true;
+    msa.counts.alle_covs = {18, 12};
+    chunk.candidates.push_back(msa);
+    msa.key.pos = 860;
+    msa.counts.alle_covs = {5, 3};
+    chunk.candidates.push_back(msa);
+    std::vector<int> truth;
+    for (int rep = 0; rep < 8; ++rep) add_tiled_reads(chunk, truth, 0, 7, 8);
+    for (size_t r = 0; r < chunk.read_var_profile.size(); ++r) {
+        ReadVariantProfile& p = chunk.read_var_profile[r];
+        for (int site = 8; site <= 9; ++site) {
+            p.alleles.push_back(static_cast<int>(r % 8 == 0));
+            p.alt_qi.push_back(0);
+        }
+        p.end_var_idx = 9;
+    }
+    finish_chunk(chunk);
+    phase_chunk_by_global_em(chunk);
+    const CandidateVariant& c = chunk.candidates[8];
+    check(c.vcf_unphased && c.phase_set == kUnsetCandidatePhaseSet,
+          "EM: skewed MSA het written unphased, no phase set");
+    check(c.hap_to_cons_alle[1] >= 0 && c.hap_to_cons_alle[2] >= 0 && c.hap_to_cons_alle[1] != c.hap_to_cons_alle[2],
+          "EM: skewed MSA het keeps both alleles");
+    check(chunk.candidates[9].hap_to_cons_alle[1] == -1 && !chunk.candidates[9].vcf_unphased,
+          "EM: skewed MSA het from a handful of the reads left out");
+    check(chunk.candidates[0].hap_to_cons_alle[1] >= 0 && chunk.candidates[0].phase_set > 0,
+          "EM: clean sites stay phased");
+}
+
 static void test_em_recovers_from_switched_start() {
     PhasingChunk chunk;
     for (int k = 0; k < 12; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
@@ -1092,6 +1129,7 @@ int main() {
     test_em_cuts_unlinked_blocks();
     test_em_leaves_noise_unphased();
     test_em_writes_unphasable_msa_het_unphased();
+    test_em_writes_skewed_msa_het_unphased();
     test_em_recovers_from_switched_start();
     test_em_labels_low_mapq_reads();
     test_em_window_links_blocks();
