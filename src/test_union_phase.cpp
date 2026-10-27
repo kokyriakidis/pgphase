@@ -820,6 +820,45 @@ static void test_inject_msa_allele_replaces_graph_row() {
     check(row_written && call_hidden, "replace: an MSA call spelling the row's allele stays a hidden complement");
 }
 
+static void test_inject_rows_msa_reads_as_reference() {
+    // Two catalog SNPs inside a region the MSA resolved, at 300 and 320; its consensus sequences differ from the
+    // reference only at 320. The row at 300, an allele the region's reads do not carry, writes no record but keeps
+    // its REF (its reads' calls); the row at 320 and a row outside the region are written.
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 500;
+    graph.ref_seq = ref;
+    for (const hts_pos_t pos : {300, 320, 400}) {
+        graph.candidates.push_back(clean_snp(pos));
+        GraphSiteMeta meta;
+        meta.chrom = "chr1";
+        meta.pos = pos;
+        meta.ref = std::string(1, ref[static_cast<size_t>(pos - 1)]);
+        meta.alts = {"T"};
+        gc.site_meta.push_back(meta);
+        gc.site_ids.push_back("s" + std::to_string(pos));
+        gc.site_allele_orig_idx.push_back({0, 1});
+    }
+    for (int r = 0; r < 6; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {r % 2, r % 2, r % 2}));
+    }
+    finish_chunk(graph);
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 500;
+    bam.ref_seq = ref;
+    bam.msa_regions.push_back(PhasingChunk::MsaRegion{280, 340, {Interval{320, 320, 0}}});
+    inject_alignment_sites(gc, bam, "chr1");
+    check(gc.site_meta[0].no_record && !gc.site_meta[0].ref.empty(),
+          "msa reference: the row the region's consensus sequences read as reference writes no record, REF kept");
+    check(!gc.site_meta[1].no_record, "msa reference: the row where a consensus differs is written");
+    check(!gc.site_meta[2].no_record, "msa reference: a row outside the region is written");
+}
+
 static void test_inject_low_mapq_clean_het() {
     // A clean het read only at low MAPQ is injected as an ordinary site (the
     // confident-read rule binds MSA-verified hets only); an MSA het read the
@@ -1146,6 +1185,7 @@ int main() {
     test_inject_island_only_sites();
     test_inject_low_mapq_clean_het();
     test_inject_msa_allele_replaces_graph_row();
+    test_inject_rows_msa_reads_as_reference();
     test_em_island_blocks();
     test_em_deferred_labels();
     test_em_echo_sites();

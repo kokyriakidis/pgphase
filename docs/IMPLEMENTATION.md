@@ -2160,6 +2160,12 @@ Two rules downstream of the MSA, for either backend:
   SNP beside it), and it is written while the rows it overlaps keep voting but write no record (unless an MSA
   call reproduces one exactly). plegma: true 28,507 -> 28,997, wrong 1,962 -> 1,480, false unchanged; abPOA alike.
   Treating calls apart from a row only by run lengths as the row's cost 290 true hets and is not done.
+- **Catalog rows the MSA reads as reference write no record** (`suppress_rows_msa_reads_as_reference`): a row
+  inside a region plegma resolved (`PhasingChunk::msa_regions`, where its consensus sequences differ from the
+  reference) that touches none of those differences is an allele the graph's reads took and the region's reads do
+  not carry (chr12:7,225,347, a 6-letter catalog allele a base before the MSA's SNP at 7,225,350). It keeps voting
+  and serving the reads' calls (`GraphSiteMeta::no_record`, not an empty REF, which cost 36 discordant arm reads).
+  True 29,446 -> 29,702, wrong 1,265 -> 1,014, false 205 -> 184, missed 533 -> 539; reads unchanged.
 - **The duplicate collapse keeps an unphased het over a non-het copy** (`het_rank`): the union EM's MSA-genotyped
   het written unphased was dropped for a deeper repeat call of the same variant (chr12:5,924,102). Missed
   856 -> 712, true 28,997 -> 29,146, false 216 -> 233.

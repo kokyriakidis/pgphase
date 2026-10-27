@@ -315,6 +315,7 @@ struct Selection {
     std::set<size_t> low_mapq_only;  // clean hets admitted by the exemption
     std::unordered_map<size_t, std::vector<size_t>> complement_rows;  // bam candidate -> graph rows it overlaps
     std::set<size_t> replaced_rows;  // graph rows an MSA call of an allele they do not spell replaces in the VCF
+    std::set<size_t> unwritten_rows;  // graph rows inside an MSA region its consensus sequences read as reference
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
 
@@ -464,6 +465,29 @@ void write_injection_diagnostics(const char* diag_dir, const GraphChunkBuildResu
     }
 }
 
+// Catalog rows inside a region the MSA resolved where neither of its consensus sequences differs from the reference:
+// the graph's reads put there an allele the region's own reads, aligned as the MSA aligns them, do not carry
+// (chr12:5,090,686, a SNP of 37 against 26 graph reads, 7 bp from the MSA's insertion, no truth variant;
+// chr12:7,225,347, a 6-letter catalog allele ending a base before the MSA's SNP at 7,225,350). Written no record
+// (GraphSiteMeta::no_record), still voting and serving the reads' calls. HG002 HiFi chr12/18/20, plegma: true het
+// regions 29,446 -> 29,702, wrong 1,265 -> 1,014, false 205 -> 184, missed 533 -> 539; reads unchanged. Clearing
+// the rows' REF instead, as replaced rows are, cost 36 discordant arm reads (their read calls went too).
+void suppress_rows_msa_reads_as_reference(const PhasingChunk& graph, const PhasingChunk& bam, Selection& sel) {
+    if (bam.msa_regions.empty()) return;
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const CandidateVariant& c = graph.candidates[ci];
+        const hts_pos_t lo = c.key.pos - 1;
+        const hts_pos_t hi = c.key.pos + std::max(1, c.key.ref_len);
+        for (const PhasingChunk::MsaRegion& region : bam.msa_regions) {
+            if (lo <= region.beg || hi >= region.end) continue;
+            bool differs = false;
+            for (const Interval& d : region.differs) differs = differs || (d.beg <= hi && lo <= d.end);
+            if (!differs) sel.unwritten_rows.insert(ci);
+            break;
+        }
+    }
+}
+
 // One site per left-aligned allele: other placements become aliases whose
 // read calls fold into the canonical row. Regular sites come first: an
 // island-only call never absorbs one, and one at an allele a regular site
@@ -492,6 +516,9 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     const AlignmentSupport support(bam);
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
     Selection sel = select_sites(graph, bam, support, voting, graph_chunk.site_meta, contig_name, diag_dir != nullptr);
+    suppress_rows_msa_reads_as_reference(graph, bam, sel);
+    for (const size_t ci : sel.unwritten_rows)
+        if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;
     if (diag_dir != nullptr) write_injection_diagnostics(diag_dir, graph_chunk, bam, support, sel);
     if (sel.selected.empty()) return 0;
     const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);

@@ -715,6 +715,10 @@ struct PhasingChunk {
     std::vector<hts_pos_t> island_phase_sets;
     std::vector<IslandSite> island_sites;
     std::vector<ReadVariantProfile> read_var_profile;
+    /// A noisy region the MSA resolved (plegma), and where its consensus sequences differ from the reference
+    /// (1-based, inclusive; an insertion as the two letters either side of it).
+    struct MsaRegion { hts_pos_t beg; hts_pos_t end; std::vector<Interval> differs; };
+    std::vector<MsaRegion> msa_regions;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;
     CandidateTable candidates;

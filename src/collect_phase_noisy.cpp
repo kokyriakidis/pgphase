@@ -1991,6 +1991,30 @@ void restrict_msa_observations_to_read_coverage(
     for (CandidateVariant& var : vars) update_variant_depth_fields(var);
 }
 
+// The region and where each consensus differs from the reference, from its alignment to it (target the reference,
+// query the consensus).
+static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end, int n_cons,
+                              const std::array<std::vector<AlnStr>, 2>& aln_strs) {
+    PhasingChunk::MsaRegion region{beg, end, {}};
+    for (int c = 0; c < n_cons && c < 2; ++c) {
+        if (aln_strs[static_cast<size_t>(c)].empty()) return;
+        const AlnStr& aln = aln_strs[static_cast<size_t>(c)][0];
+        hts_pos_t ref_pos = beg;
+        for (int i = 0; i < aln.aln_len; ++i) {
+            const uint8_t r = aln.target_aln[static_cast<size_t>(i)];
+            const uint8_t q = aln.query_aln[static_cast<size_t>(i)];
+            if (r == kGapBase && q == kGapBase) continue;
+            if (r == kGapBase) {
+                region.differs.push_back(Interval{ref_pos - 1, ref_pos, 0});
+                continue;
+            }
+            if (q != r) region.differs.push_back(Interval{ref_pos, ref_pos, 0});
+            ++ref_pos;
+        }
+    }
+    chunk.msa_regions.push_back(std::move(region));
+}
+
 int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
                         const VariantKeySet* site_whitelist) {
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
@@ -2047,6 +2071,8 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     // outer loop leaves this region undone and may retry if another region makes progress.
     if (n_cons == 0)
         return -1;
+
+    if (use_plegma_msa()) record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs);
 
     std::vector<CandidateVariant>    noisy_vars;
     std::vector<VariantCategory>     noisy_var_cate;

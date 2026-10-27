@@ -227,7 +227,7 @@ static CandidateTable graph_chunks_to_candidate_table(
 
             if (ci >= graph_chunk.site_meta.size()) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-            if (meta.bam_alt_deletion_no_ref) continue;
+            if (meta.bam_alt_deletion_no_ref || meta.no_record) continue;
 
             // A site injected by union gap phasing (no catalog id) is
             // written only when it carries phase information. The alignment's

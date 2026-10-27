@@ -59,6 +59,8 @@ struct GraphSiteMeta {
     std::vector<std::string> alts;
     bool bam_alt_deletion_no_ref = false;
     bool bam_low_fraction_snp = false;
+    // Written no record; its alleles still serve the reads' calls (unlike an empty REF).
+    bool no_record = false;
 };
 
 struct CandidateAlleleContrast {
