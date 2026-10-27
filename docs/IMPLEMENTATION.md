@@ -2122,7 +2122,11 @@ takes them), with these differences:
   haplotype. Where the two haplotypes' consensus sequences differ only by homopolymer run lengths, each such run is
   decided on both haplotypes' reads: their own lengths only when that explains the reads 5 dB better than one
   length for both (`two_lengths_db`; the adapter's default, chosen on HG002 HiFi chr12/18/20), else that one length
-  in both.
+  in both. It runs only when the phase set holds at least 30% of the region's spanning reads
+  (`kMinPhaseSetReadFraction`); longcallD's rule alone takes a phase set with one spanning read per haplotype, and
+  where most reads are unphased (a stretch between the BAM solve's blocks) the call was made from a handful of them
+  (chr20:15,363,779: 8 of 80, a false het of 5 reads against 3). Below it the no-PS path clusters them all: true het
+  regions +43, missed -34, wrong -17, false -20, arm reads +122 correct, -34 discordant.
 - **No-PS path:** `plegma_clustered_consensus` (at most two clusters, `min_freq` = `--min-af`): reads clustered on
   the MSA columns where they disagree, moved to the consensus they align to more cheaply, clusters apart only by
   homopolymer lengths merged unless the model finds two lengths (the same 5 dB test).

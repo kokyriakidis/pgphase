@@ -2026,6 +2026,9 @@ static void dump_msa_call(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t en
     }
 }
 
+// The share of a region's spanning reads its phase set must hold for plegma's PS-aware path.
+constexpr double kMinPhaseSetReadFraction = 0.3;
+
 int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                                 hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
                                 const std::vector<int>& noisy_read_ids,
@@ -2048,13 +2051,26 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
     sort_noisy_region_reads(info, sampling);
 
     // 3. Find phase set with reads from both haplotypes.
-    const hts_pos_t ps = collect_phase_set_with_both_haps(info,
-                                                           opts.min_hap_full_reads,
-                                                           opts.min_hap_reads);
+    hts_pos_t ps = collect_phase_set_with_both_haps(info,
+                                                     opts.min_hap_full_reads,
+                                                     opts.min_hap_reads);
 
     int n_full_reads = 0;
     for (int i = 0; i < info.n_reads; ++i)
         if (noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)])) ++n_full_reads;
+    // plegma: a phase set holding few of the spanning reads gives the PS-aware path a handful of them (one per
+    // haplotype is enough above); clustered, all of them decide (chr20:15,363,779, a phase set starting 17 kb later
+    // held 8 of 80, the rest unphased: a false het from 5 reads against 3). HG002 HiFi chr12/18/20 at 30%: true het
+    // regions +43, missed -34, wrong -17, false -20; arm reads +122 correct, -34 discordant, -88 unphased, one arm
+    // switch more (chr18:68,437,471, the region's allele now the truth's, at the end of its block).
+    if (ps > 0 && use_plegma_msa()) {
+        int n_ps_full = 0;
+        for (int i = 0; i < info.n_reads; ++i)
+            if (info.phase_sets[static_cast<size_t>(i)] == ps && info.haps[static_cast<size_t>(i)] > 0 &&
+                noisyIsBothCover(info.fully_covers[static_cast<size_t>(i)]))
+                ++n_ps_full;
+        if (n_ps_full < kMinPhaseSetReadFraction * n_full_reads) ps = -1;
+    }
 
     int n_cons = 0;
     if (opts.verbose >= 1) {
