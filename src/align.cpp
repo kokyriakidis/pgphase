@@ -1649,7 +1649,9 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
     int n_cons = 0;
     if (by_plegma) {
         std::vector<uint8_t> full_strands;
-        for (int id : full_ids) full_strands.push_back(info.strands[static_cast<size_t>(id)]);
+        // Strands may be absent (a caller filling NoisyReadInfo by hand): plegma then takes them as unknown.
+        if (!info.strands.empty())
+            for (int id : full_ids) full_strands.push_back(info.strands[static_cast<size_t>(id)]);
         n_cons = plegma_msa_cons(opts, full_ids, full_seqs, full_lens, full_covers, full_strands, 2, cons_seqs,
                                  clu_n_seqs, clu_read_ids, plegma_rows);
         cons_lens.resize(cons_seqs.size());
@@ -1762,8 +1764,8 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                 ps_seqs   .push_back(info.seqs [static_cast<size_t>(i)].data());
                 ps_lens   .push_back(info.lens [static_cast<size_t>(i)]);
                 ps_covers .push_back(info.fully_covers[static_cast<size_t>(i)]);
-                ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
                 ps_haps   .push_back(hap - 1);
+                if (!info.strands.empty()) ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
             }
         }
         bool long_hap = false;
@@ -1784,7 +1786,6 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         std::vector<uint8_t*> ps_quals;
         std::vector<int>      ps_lens;
         std::vector<int>      ps_covers;
-        std::vector<uint8_t>  ps_strands;
 
         for (int i = 0; i < n; ++i) {
             if (info.lens[static_cast<size_t>(i)] <= 0) continue;
@@ -1797,7 +1798,6 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             ps_quals .push_back(info.quals[static_cast<size_t>(i)].data());
             ps_lens  .push_back(info.lens [static_cast<size_t>(i)]);
             ps_covers.push_back(info.fully_covers[static_cast<size_t>(i)]);
-            ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
         }
         if (ps_ids.empty()) continue;
         if (ps_lens[0] >= opts.max_noisy_reg_len) break;
@@ -1810,29 +1810,12 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         const int n_ps = static_cast<int>(ps_ids.size());
         // Pass global read ids into abPOA, not 0..n_ps-1.
         // This matters because abPOA cluster read-ids are propagated downstream.
-        int ret = 0;
-        if (use_plegma_msa()) {
-            std::vector<std::vector<uint8_t>> one;
-            std::array<int, 2> n_one{};
-            std::array<std::vector<int>, 2> ids_one;
-            std::array<std::vector<PlegmaRows>, 2> rows_one;
-            ret = plegma_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, 1, one, n_one, ids_one,
-                                  rows_one);
-            if (ret) {
-                cons_seqs[static_cast<size_t>(ci)] = one[0];
-                cons_lens[static_cast<size_t>(ci)] = static_cast<int>(one[0].size());
-                out_clu_n = n_one[0];
-                out_clu_ids = ids_one[0];
-                plegma_rows[static_cast<size_t>(ci)] = std::move(rows_one[0]);
-            }
-        } else {
-            ret = abpoa_partial_aln_msa_cons(opts, sampling_reads, n_ps,
+        int ret = abpoa_partial_aln_msa_cons(opts, sampling_reads, n_ps,
                                              ps_ids, ps_seqs, ps_quals, ps_lens, ps_covers,
                                              1,
                                              cons_lens[static_cast<size_t>(ci)], cons_seqs[static_cast<size_t>(ci)],
                                              out_clu_n, out_clu_ids,
                                              out_msa_len, out_msa);
-        }
         if (ret) {
             clu_n_seqs  [static_cast<size_t>(ci)] = out_clu_n;
             clu_read_ids[static_cast<size_t>(ci)] = out_clu_ids;
