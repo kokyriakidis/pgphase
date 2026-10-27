@@ -161,6 +161,10 @@ struct Options {
     int noisy_reg_merge_dis = kNoisyRegMergeDis;
     int min_sv_len = kLongcalldMinSvLen;
     ReadTechnology read_technology = ReadTechnology::Hifi;
+    /// Noisy-region MSA: "plegma", "abpoa" (longcallD's), or "" (plegma when built with it, else abPOA).
+    std::string msa;
+    /// plegma's homopolymer model: "" the built-in one for read_technology, "none", or a shasta2 csv.
+    std::string msa_model;
     double strand_bias_pval = kDefaultStrandBiasPvalOnt;
     int noisy_reg_max_xgaps = kDefaultNoisyRegMaxXgaps;
     /// Merge co-located MSA alleles into one multiallelic record.

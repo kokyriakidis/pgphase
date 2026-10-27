@@ -2109,6 +2109,35 @@ phasing").
 
 A region returns `-1` when `collect_phase_set_with_both_haps` cannot find a phase set with sufficient reads on both haplotypes — the clean-site assignments did not reach this region with enough depth. Once another region succeeds and its new candidates trigger a k-means re-run, some previously-unphased reads may acquire hap assignments. The retry then finds enough phased reads to run the MSA. This handles dependency chains where adjacent noisy regions cannot bootstrap independently but together resolve each other.
 
+###### The MSA: plegma by default, abPOA with `--msa abpoa`
+
+The noisy-region MSA is [plegma](https://github.com/kokyriakidis/plegma) (`src/plegma_msa.cpp`, over plegma's C
+API) unless `--msa abpoa` chooses longcallD's abPOA, whose two paths the next sections describe. `configure_msa`
+chooses once per run, before any worker thread; `PGPHASE_MSA` and `PGPHASE_PLEGMA_MODEL` override `--msa` and
+`--msa-model` for the development loop. plegma takes the same reads and gives the same outputs (each cluster's
+consensus, its reads, and each read's row against it, base codes 0-4 and 5 for a gap, as `make_cons_read_aln_str`
+takes them), with these differences:
+
+- **PS-aware path:** one `plegma_phased_consensus` call over both haplotypes' reads instead of one abPOA call per
+  haplotype. Where the two haplotypes' consensus sequences differ only by homopolymer run lengths, each such run is
+  decided on both haplotypes' reads: their own lengths only when that explains the reads 5 dB better than one
+  length for both (`two_lengths_db`; the adapter's default, chosen on HG002 HiFi chr12/18/20), else that one length
+  in both.
+- **No-PS path:** `plegma_clustered_consensus` (at most two clusters, `min_freq` = `--min-af`): reads clustered on
+  the MSA columns where they disagree, moved to the consensus they align to more cheaply, clusters apart only by
+  homopolymer lengths merged unless the model finds two lengths (the same 5 dB test).
+- **Homopolymer model:** every run's length is the one the reads make most likely under a model of how they
+  report run lengths: built in for HiFi (HG002) and for ONT R10.4.1 (`--ont`, shasta2's), none for short reads,
+  or `--msa-model FILE` ([`models/README.md`](../models/README.md)). Runs longer than the model's rows keep the
+  reads' own consensus length.
+- **MSA-genotyped hets** (`CandidateVariant::msa_genotyped`): a het plegma made with a model stands without the
+  reads' phasing. Where its reads call the allele wrong 30% of the time or more (a long homopolymer HiFi reads one
+  short as often as not), the union EM writes it unphased rather than dropping it (`write_site_phases`); abPOA's
+  hets are dropped there as before.
+
+On HG002 HiFi (chr12, chr18, chr20; the union pipeline, `--bam`) against the truth, noisy-region het regions: true
+27,636 -> 28,507, false 1,321 -> 216, wrong 2,324 -> 1,962; the run 10% faster (chr20: 44.3 -> 39.9 s).
+
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 
 The clean-site k-means pass (Step 3.2) assigns each read a `hap` (1 or 2) and a `phase_set`. Step 4 uses those assignments directly — it does **not** re-run clustering from scratch inside the noisy region.

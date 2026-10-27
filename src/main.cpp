@@ -5,6 +5,7 @@
 #include "collect_pipeline.hpp"
 #include "graph_collect.hpp"
 #include "pgcat_command.hpp"
+#include "plegma_msa.hpp"
 #include "version.hpp"
 
 namespace {
@@ -25,7 +26,8 @@ void print_main_help() {
 int main(int argc, char* argv[]) {
     try {
         if (argc > 1 && (std::string(argv[1]) == "--version" || std::string(argv[1]) == "version")) {
-            std::cout << "pgphase " PGPHASE_VERSION "\n";
+            std::cout << "pgphase " PGPHASE_VERSION "\n"
+                      << "noisy-region MSA: " << pgphase_collect::msa_backends() << "\n";
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "collect-bam-variation") {

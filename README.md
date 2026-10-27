@@ -63,17 +63,21 @@ Requirements:
 - [Rust](https://rustup.rs) (cargo), to build `pgcat`, which builds the site catalogs and indexes alignments
 - [vg](https://github.com/vgteam/vg), only to build site catalogs
 - [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
+- [pixi](https://pixi.sh), to build plegma, the noisy-region MSA (it fetches plegma's Mojo toolchain); without it,
+  `make PLEGMA=0` builds pgphase with abPOA alone
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
-make third-party-libs   # WFA2-lib and abPOA
+make third-party-libs   # WFA2-lib, abPOA and plegma
 make -j"$(nproc)"       # pgphase
 make pgcat              # placed beside pgphase, which finds it there (then on PATH; PGCAT=PATH overrides)
 ./pgphase --version
 ```
 
 `make portable-bundle` writes a self-contained binary with its shared libraries to `dist/pgphase-<os>-<arch>/`.
+plegma's library and the Mojo runtime it needs are a few MB in `third_party/plegma/build/` (glibc 2.35 and the
+libstdc++ of GCC 12 or newer); the bundle carries them.
 
 ## Quick start
 
@@ -186,6 +190,8 @@ The read tags can be copied onto an aligned BAM by read name, for example for ha
 | `--chunk-size INT` | Region chunk size | 500000 (1000000 with `--bam`) |
 | `-r STR` / `--region-file FILE` | Restrict to regions | whole genome |
 | `--hifi` / `--ont` | Read technology | `--hifi` |
+| `--msa NAME` | Noisy-region MSA: `plegma`, or `abpoa` (longcallD's) | `plegma` |
+| `--msa-model FILE` | plegma's homopolymer model (shasta2 csv), or `none` | built in: HiFi; ONT R10.4.1 with `--ont` |
 
 `pgphase <command> --help` lists every option, including diagnostic outputs.
 
@@ -202,8 +208,10 @@ pgphase collect-bam-variation --ref ref.fa --bam reads.bam --hifi \
    alignment takes, observed without calling. The catalog's clean sites are phased first by k-means clustering of
    the reads, as in longcallD.
 2. **The sample's own variants.** With `--bam`, each chunk is also solved from the linear alignments: candidate
-   variants, and noisy regions resolved by partial-order multiple sequence alignment. Its heterozygous variants
-   join the catalog's sites.
+   variants, and noisy regions resolved by partial-order multiple sequence alignment
+   ([plegma](https://github.com/kokyriakidis/plegma), one consensus per haplotype, homopolymer lengths decided by
+   a model of how the reads report them; [`models/`](models/README.md)). Its heterozygous variants join the
+   catalog's sites.
 3. **One expectation-maximization over all sites** learns each site's phase and error rate, shrunk toward the
    error of sites of the same kind.
 4. **Joins the reads verify.** Two blocks are joined only when several reads carry evidence on both sides at
@@ -236,8 +244,12 @@ make unit-tests       # unit tests
 make predicate-tests  # phasing, repeat and stitching predicates
 make parity-tests     # ported functions against longcallD's semantics
 make pgcat-tests      # pgcat unit tests
-make check            # end-to-end golden tests on test_data/, at 1 and 4 threads
+make check            # end-to-end golden tests on test_data/, at 1 and 4 threads, per MSA
 ```
+
+`make check` runs each golden test once with plegma (`test_data/expected/plegma/`) and once with `--msa abpoa`
+against longcallD's outputs (`test_data/expected/`); `UPDATE_GOLDEN=plegma make check` rewrites plegma's goldens
+after an intended change.
 
 `make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD` compiles longcallD's original C and checks the
 ported phasing functions against it.
@@ -259,6 +271,7 @@ If you use pgphase, please cite it (see [`CITATION.cff`](CITATION.cff)):
 
 MIT; see [`LICENSE`](LICENSE). pgphase's alignment pipeline is derived from
 [longcallD](https://github.com/yangao07/longcallD) (MIT). It uses [htslib](https://github.com/samtools/htslib),
-[abPOA](https://github.com/yangao07/abPOA), [WFA2-lib](https://github.com/smarco/WFA2-lib),
+[plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA),
+[WFA2-lib](https://github.com/smarco/WFA2-lib),
 [edlib](https://github.com/Martinsos/edlib) and, in pgcat, the [gbz](https://github.com/jltsiren/gbz) library;
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them with their licences.

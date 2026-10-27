@@ -7,6 +7,7 @@
  * all candidates in memory.
  */
 
+#include "plegma_msa.hpp"
 #include "collect_pipeline.hpp"
 
 #include "allele_identity.hpp"
@@ -590,6 +591,8 @@ static std::vector<PhasingChunk> collect_chunk_batch_parallel(const Options& opt
  * @param opts Output paths, reference, BAM list, and threading configuration.
  */
 void run_collect_bam_variation(const Options& opts) {
+    configure_msa(opts);
+    if (opts.verbose >= 1) std::fprintf(stderr, "[pgphase] noisy-region MSA: %s\n", msa_description().c_str());
 
     std::unique_ptr<faidx_t, FaiDeleter> fai(load_reference_index(opts.ref_fasta));
 
@@ -816,7 +819,8 @@ enum LongOption {
     kRefOption,
     kBamOption,
     kPhaseMatrixDumpOption,
-
+    kMsaOption,
+    kMsaModelOption,
 };
 
 /**
@@ -890,6 +894,9 @@ static void print_collect_help() {
         << "      --short-reads             Short-read mode: 25 bp noisy window (no ONT Fisher strand test)\n"
         << "      --strand-bias-pval FLOAT  max p-value for ONT strand filter [0.01]\n"
         << "      --noisy-max-xgaps INT     max indel len (bp) for STR/homopolymer flags [5]\n"
+        << "      --msa NAME                Noisy-region MSA: plegma or abpoa (longcallD's) [plegma]\n"
+        << "      --msa-model FILE          plegma's homopolymer model (shasta2 csv), or none\n"
+        << "                                [built in: HiFi; ONT R10.4.1 with --ont]\n"
         << "  -V, --verbose INT            Verbosity level; 2 prints noisy-region diagnostic logs [0]\n"
         << "\n"
         << "Examples:\n"
@@ -975,6 +982,8 @@ int collect_bam_variation(int argc, char* argv[]) {
         {"short-reads",               no_argument,       nullptr, kShortReadsOption},
         {"strand-bias-pval",          required_argument, nullptr, kStrandBiasPvalOption},
         {"noisy-max-xgaps",           required_argument, nullptr, kNoisyMaxXgapsOption},
+        {"msa",                       required_argument, nullptr, kMsaOption},
+        {"msa-model",                 required_argument, nullptr, kMsaModelOption},
         {"ref",                       required_argument, nullptr, kRefOption},
         {"bam",                       required_argument, nullptr, kBamOption},
         {"verbose",                  required_argument, nullptr, 'V'},
@@ -1042,6 +1051,8 @@ int collect_bam_variation(int argc, char* argv[]) {
             case kShortReadsOption:     set_read_technology(ReadTechnology::ShortReads); break;
             case kStrandBiasPvalOption: opts.strand_bias_pval = parse_double_arg(optarg, "--strand-bias-pval"); break;
             case kNoisyMaxXgapsOption:  opts.noisy_reg_max_xgaps = parse_int_arg(optarg, "--noisy-max-xgaps"); break;
+            case kMsaOption:            opts.msa = optarg; break;
+            case kMsaModelOption:       opts.msa_model = optarg; break;
             case kRefOption:            opts.ref_fasta = optarg; break;
             case kBamOption:            opts.bam_files.push_back(optarg); break;
             case 'V': opts.verbose = parse_int_arg(optarg, "--verbose"); break;

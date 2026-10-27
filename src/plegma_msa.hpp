@@ -4,10 +4,11 @@
  * @file plegma_msa.hpp
  * @brief plegma as the noisy-region MSA (optional; abPOA stays the default).
  *
- * Built only with `make PLEGMA_DIR=<plegma checkout>` (its build/libplegma.so from `pixi run build-capi`), which
- * defines PGPHASE_PLEGMA; chosen at run time with PGPHASE_MSA=plegma. Where abPOA gives one MSA per cluster, plegma
- * gives each read's own alignment to its cluster's consensus, as two rows of one length (base codes 0-4, 5 a gap),
- * the pair `make_cons_read_aln_str` takes.
+ * The default noisy-region MSA. Built with plegma unless `make PLEGMA=0` (third_party/plegma's build/libplegma.so,
+ * from `pixi run build-capi`; PGPHASE_PLEGMA defined), chosen per run by --msa (abpoa: longcallD's abPOA). With
+ * plegma, a homopolymer model decides run lengths: built in for HiFi and ONT R10.4.1 reads, or --msa-model FILE.
+ * Where abPOA gives one MSA per cluster, plegma gives each read's own alignment to its cluster's consensus, as two
+ * rows of one length (base codes 0-4, 5 a gap), the pair `make_cons_read_aln_str` takes.
  */
 
 #include "align.hpp"
@@ -19,8 +20,23 @@
 
 namespace pgphase_collect {
 
-/// Whether the noisy-region MSA is plegma's: built with it and PGPHASE_MSA=plegma.
+/// Whether this pgphase was built with plegma.
+bool plegma_built();
+
+/// The run's noisy-region MSA from opts.msa ("": plegma when built with it, else abPOA) and, with plegma, its
+/// homopolymer model from opts.msa_model ("": the built-in one for the read technology, none for short reads; "none";
+/// or a shasta2 csv). PGPHASE_MSA and PGPHASE_PLEGMA_MODEL override both. Called once, before any worker thread;
+/// without it, the first use takes the defaults. Throws std::runtime_error on a bad choice or model.
+void configure_msa(const Options& opts);
+
+/// Whether the run's noisy-region MSA is plegma's.
 bool use_plegma_msa();
+
+/// The run's MSA as a line for logs: "plegma 0.3.0, homopolymer model ..." or "abPOA".
+std::string msa_description();
+
+/// The MSAs this build has, for --version: "plegma 0.3.0 (default), abPOA" or "abPOA (built without plegma)".
+std::string msa_backends();
 
 /// Whether the MSA's het calls stand without the reads' phasing (CandidateVariant::msa_genotyped): plegma with a
 /// homopolymer model (PGPHASE_PLEGMA_MODEL).

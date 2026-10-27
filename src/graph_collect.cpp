@@ -1,4 +1,5 @@
 #include <tuple>
+#include "plegma_msa.hpp"
 #include "graph_collect.hpp"
 #include "collect_pipeline.hpp"
 
@@ -961,6 +962,8 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 }
 
 void run_collect_graph_variation(const Options& opts) {
+    configure_msa(opts);
+    if (opts.verbose >= 1) std::fprintf(stderr, "[pgphase] noisy-region MSA: %s\n", msa_description().c_str());
     // The GAF must be bgzip-compressed and tabix-indexed on index-gaf's
     // coordinate columns, so each chunk reads only its own region.
     require_indexed_gaf(opts.gaf_file);
@@ -1352,6 +1355,9 @@ static void print_graph_collect_help() {
         << "      --hifi                    HiFi read mode [default]\n"
         << "      --ont                     ONT read mode (enables strand-bias filter)\n"
         << "      --strand-bias-pval FLOAT  Max p-value for ONT strand-bias filter [0.01]\n"
+        << "      --msa NAME                Noisy-region MSA: plegma or abpoa (longcallD's) [plegma]\n"
+        << "      --msa-model FILE          plegma's homopolymer model (shasta2 csv), or none\n"
+        << "                                [built in: HiFi; ONT R10.4.1 with --ont]\n"
         << "  -V, --verbose INT             Verbosity level [0]\n"
         << "  -h, --help                    Print this help\n"
         << "\n"
@@ -1393,6 +1399,8 @@ enum GraphCollectOption {
     kGcPhaseSitesOut,
     kGcPhaseReadsOut,
     kGcPhaseMatrixDump,
+    kGcMsa,
+    kGcMsaModel,
 };
 
 } // namespace
@@ -1441,6 +1449,8 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"hifi",              no_argument,       nullptr, kGcHifi},
         {"ont",               no_argument,       nullptr, kGcOnt},
         {"strand-bias-pval",  required_argument, nullptr, kGcStrandBiasPval},
+        {"msa",               required_argument, nullptr, kGcMsa},
+        {"msa-model",         required_argument, nullptr, kGcMsaModel},
         {"ref",               required_argument, nullptr, kGcRef},
         {"sites",             required_argument, nullptr, kGcSites},
         {"verbose",           required_argument, nullptr, 'V'},
@@ -1485,6 +1495,8 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcHifi:         opts.read_technology = ReadTechnology::Hifi; break;
             case kGcOnt:          opts.read_technology = ReadTechnology::Ont; break;
             case kGcStrandBiasPval: opts.strand_bias_pval = parse_double_arg(optarg, "--strand-bias-pval"); break;
+            case kGcMsa:          opts.msa = optarg; break;
+            case kGcMsaModel:     opts.msa_model = optarg; break;
             case kGcRef:          opts.ref_fasta = optarg; break;
             case kGcSites:        opts.graph_sites = optarg; break;
             case 'V': opts.verbose = parse_int_arg(optarg, "--verbose"); break;

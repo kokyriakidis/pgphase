@@ -29,10 +29,18 @@ Functions that keep their upstream names cite the upstream source location.
 |---|---|---|
 | `WFA2-lib` | WFA2-lib, Copyright (c) 2017 Santiago Marco-Sola | `third_party/WFA2-lib/LICENSE` |
 | `abPOA` | abPOA, Copyright (c) 2020 Yan Gao | `third_party/abPOA/LICENSE` |
+| `plegma` | plegma, Copyright (c) 2026 Konstantinos Kyriakidis (MIT); with its submodules karan and sporos | `third_party/plegma/LICENSE` |
 | `edlib` | edlib, Copyright (c) 2014 Martin Šošić | `third_party/edlib/LICENSE` |
 | `catch2` | Catch2 (tests only), Boost Software License 1.0 | upstream |
 
 Each submodule's licence travels with its source.
+
+## Homopolymer models in `models/`
+
+`homopolymer-ont-r10.4.1-sup5.0.0.csv` is shasta2's
+`conf/HomopolymerModel-ONT-R10.4.1-sup5.0.0-2026-09-28.csv` (<https://github.com/paoloshasta/shasta2>), MIT
+licence: Copyright (c) 2025-2026 Paolo Carnevali; portions from Shasta, Copyright (c) 2023-2025 Paolo Carnevali and
+Copyright (c) 2018-2022 Chan Zuckerberg Initiative. `homopolymer-hifi-hg002.csv` is pgphase's own, in the same format.
 
 ## pgcat (`tools/pgcat`)
 

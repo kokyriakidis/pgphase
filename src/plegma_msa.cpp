@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 
@@ -19,16 +20,106 @@
 
 namespace pgphase_collect {
 
-bool use_plegma_msa() {
 #ifdef PGPHASE_PLEGMA
-    static const bool on = [] {
-        const char* msa = std::getenv("PGPHASE_MSA");
-        return msa != nullptr && std::strcmp(msa, "plegma") == 0;
-    }();
-    return on;
+// The homopolymer models built in (src/msa_models.cpp, generated from models/ by make).
+extern const char kHifiHomopolymerModel[];
+extern const std::size_t kHifiHomopolymerModelSize;
+extern const char kOntHomopolymerModel[];
+extern const std::size_t kOntHomopolymerModelSize;
+#endif
+
+namespace {
+
+/// The noisy-region MSA of this run, chosen once by configure_msa (or on first use, with the defaults).
+struct MsaChoice {
+    bool plegma = false;
+    std::string model_name;
+#ifdef PGPHASE_PLEGMA
+    std::unique_ptr<plegma::Model> model;
+#endif
+};
+
+MsaChoice& msa_choice() {
+    static MsaChoice choice;
+    return choice;
+}
+
+std::once_flag msa_defaults;
+bool msa_configured = false;
+
+void choose_msa(const Options& opts) {
+    MsaChoice& choice = msa_choice();
+    std::string msa = opts.msa;
+    // PGPHASE_MSA and PGPHASE_PLEGMA_MODEL override the options (the development loop sets them).
+    if (const char* env = std::getenv("PGPHASE_MSA"); env != nullptr && *env != 0) msa = env;
+    if (msa.empty()) msa = plegma_built() ? "plegma" : "abpoa";
+    if (msa != "plegma" && msa != "abpoa") throw std::runtime_error("--msa " + msa + ": not plegma or abpoa");
+    if (msa == "plegma" && !plegma_built())
+        throw std::runtime_error("--msa plegma: this pgphase was built without plegma (make PLEGMA=0); rebuild with it, or use --msa abpoa");
+    choice.plegma = msa == "plegma";
+    choice.model_name.clear();
+#ifdef PGPHASE_PLEGMA
+    choice.model.reset();
+    if (!choice.plegma) return;
+    std::string path = opts.msa_model;
+    if (const char* env = std::getenv("PGPHASE_PLEGMA_MODEL"); env != nullptr && *env != 0) path = env;
+    if (path == "none") return;
+    if (!path.empty()) {
+        choice.model = std::make_unique<plegma::Model>(plegma::Model::load(path));
+        choice.model_name = path;
+    } else if (opts.is_ont()) {
+        choice.model = std::make_unique<plegma::Model>(
+            plegma::Model::parse(std::string_view(kOntHomopolymerModel, kOntHomopolymerModelSize)));
+        choice.model_name = "built-in ONT R10.4.1 sup 5.0.0 (shasta2)";
+    } else if (!opts.is_short_reads()) {
+        choice.model = std::make_unique<plegma::Model>(
+            plegma::Model::parse(std::string_view(kHifiHomopolymerModel, kHifiHomopolymerModelSize)));
+        choice.model_name = "built-in HiFi (HG002)";
+    }
+#endif
+}
+
+const MsaChoice& current_msa() {
+    std::call_once(msa_defaults, [] {
+        if (!msa_configured) choose_msa(Options{});
+    });
+    return msa_choice();
+}
+
+}  // namespace
+
+bool plegma_built() {
+#ifdef PGPHASE_PLEGMA
+    return true;
 #else
     return false;
 #endif
+}
+
+void configure_msa(const Options& opts) {
+    msa_configured = true;
+    choose_msa(opts);
+}
+
+bool use_plegma_msa() { return current_msa().plegma; }
+
+std::string msa_backends() {
+#ifdef PGPHASE_PLEGMA
+    return "plegma " + plegma::version() + " (default), abPOA";
+#else
+    return "abPOA (built without plegma)";
+#endif
+}
+
+std::string msa_description() {
+    const MsaChoice& choice = current_msa();
+    if (!choice.plegma) return "abPOA";
+    std::string out = "plegma";
+#ifdef PGPHASE_PLEGMA
+    out += " " + plegma::version();
+#endif
+    out += choice.model_name.empty() ? ", no homopolymer model" : ", homopolymer model " + choice.model_name;
+    return out;
 }
 
 #ifdef PGPHASE_PLEGMA
@@ -102,29 +193,15 @@ PlegmaRows rows_of(const std::vector<uint8_t>& cons, const uint8_t* read, int re
     return out;
 }
 
-/// The homopolymer model PGPHASE_PLEGMA_MODEL names (shasta2's csv), loaded once; none when unset.
-const plegma::Model* model() {
-    static const std::unique_ptr<plegma::Model> loaded = []() -> std::unique_ptr<plegma::Model> {
-        const char* path = std::getenv("PGPHASE_PLEGMA_MODEL");
-        if (path == nullptr || *path == 0) return nullptr;
-        try {
-            return std::make_unique<plegma::Model>(plegma::Model::load(path));
-        } catch (const std::runtime_error& e) {
-            // A model asked for and not loaded is a broken run, not one without the model.
-            std::fprintf(stderr, "pgphase: PGPHASE_PLEGMA_MODEL: %s\n", e.what());
-            std::exit(1);
-        }
-    }();
-    return loaded.get();
-}
+/// The run's homopolymer model (configure_msa), or none.
+const plegma::Model* model() { return current_msa().model.get(); }
 
 }  // namespace
 #endif
 
 bool msa_genotypes_alone() {
 #ifdef PGPHASE_PLEGMA
-    static const bool on = use_plegma_msa() && model() != nullptr;
-    return on;
+    return use_plegma_msa() && model() != nullptr;
 #else
     return false;
 #endif
