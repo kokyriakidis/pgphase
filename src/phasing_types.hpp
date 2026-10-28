@@ -607,6 +607,9 @@ struct CandidateVariant {
     // A catalog repeat indel (RepeatHetIndel, never an EM site) its allele window phased (union EM pass 2): written
     // with the window's genotype and block.
     bool window_phased = false;
+    // One ALT of a multi-allelic site written as its own record (graph output rebuild): its depth counts the site's
+    // other alleles, which its REF count does not.
+    bool split_allele = false;
     // A clean het the union injection admits although its alleles lack
     // confidently mapped reads (the confident-read exemption): phased like an
     // unverified call (unresolved_noisy) -- it joins no blocks and labels

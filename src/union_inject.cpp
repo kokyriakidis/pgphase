@@ -294,9 +294,16 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     const auto decide = [&](size_t bi, const char* why) {
         if (record_decisions) sel.decision[bi] = why;
+        if (!pgphase_trace::on()) return;
+        std::string observed;
+        for (const auto& [a, n] : support.observed[bi]) {
+            const auto it = support.confident[bi].find(a);
+            observed += (observed.empty() ? " reads=" : ",") + std::to_string(a) + ":" + std::to_string(n) + "/" +
+                        std::to_string(it == support.confident[bi].end() ? 0 : it->second);
+        }
         pgphase_trace::candidate("inject", "decision", bam.candidates[bi], why,
                                  "cat=" + std::to_string(static_cast<int>(bam.candidates[bi].counts.category)) +
-                                 (bam.candidates[bi].msa_verified ? " msa" : ""));
+                                 (bam.candidates[bi].msa_verified ? " msa" : "") + observed);
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];

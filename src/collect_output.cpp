@@ -563,8 +563,11 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
     core.ad_ref = counts.ref_cov;
     core.ad_alt = counts.alt_cov;
     core.qual = cal_var_QUAL1(core.ad_ref, core.ad_alt);
-    // The existing biallelic GQ model does not assess a two-ALT genotype.
-    core.gq = candidate.msa_insertion_alts.empty() ? cal_sample_GQ(core.ad_ref, core.ad_alt) : 0;
+    // The existing biallelic GQ model does not assess a two-ALT genotype. One ALT of a 1/2 site written as its own
+    // record weighs every read not carrying it against it, not REF's alone: with REF's few reads (1 against 13 at
+    // chr20:25,008,190, the other ALT's 17 aside) its 0|1 read as 1/1 and was given GQ 12.
+    const int not_alt = candidate.split_allele ? std::max(core.ad_ref, counts.total_cov - core.ad_alt) : core.ad_ref;
+    core.gq = candidate.msa_insertion_alts.empty() ? cal_sample_GQ(not_alt, core.ad_alt) : 0;
     return core;
 }
 } // namespace

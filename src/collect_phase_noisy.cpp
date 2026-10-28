@@ -1151,7 +1151,10 @@ static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<Ca
         std::string kept = span.substr(0, gap) + span.substr(gap + static_cast<size_t>(inner.key.ref_len));
         if (inner.alt_ref_base < 4) kept[gap - 1] = "ACGT"[inner.alt_ref_base];
         pgphase_trace::candidate("msa", "merge", inner, "two_allele_nested_deletion", "into " +
-                                 pgphase_trace::key_text(outer.key));
+                                 pgphase_trace::key_text(outer.key) + " inner_alt=" +
+                                 std::to_string(inner.counts.alle_covs.size() > 1 ? inner.counts.alle_covs[1] : -1) +
+                                 " inner_ref=" + std::to_string(inner.counts.alle_covs.empty() ? -1 : inner.counts.alle_covs[0]) +
+                                 " outer_alt=" + std::to_string(outer.counts.alle_covs.size() > 1 ? outer.counts.alle_covs[1] : -1));
         outer.msa_insertion_alts = {std::string(), kept};
         outer.msa_insertion_anchors = {outer.alt_ref_base, 4};
         outer.counts.alle_covs.assign(3, 0);
