@@ -6,6 +6,7 @@
  * for SQ names may throw `std::runtime_error` on I/O failure.
  */
 
+#include "trace.hpp"
 #include "collect_output.hpp"
 
 #include "collect_phase.hpp"
@@ -402,8 +403,17 @@ static std::vector<const CandidateVariant*> project_vcf_candidates(
     std::vector<const CandidateVariant*> projected;
     projected.reserve(variants.size());
     for (const CandidateVariant& candidate : variants) {
-        if (!is_germline_output_category(candidate.counts.category)) continue;
-        if (require_alt_genotype && !is_alt_genotype(candidate)) continue;
+        if (!is_germline_output_category(candidate.counts.category)) {
+            if (require_alt_genotype)
+                pgphase_trace::candidate("writer", "drop", candidate, "category_not_written",
+                                         pgphase_trace::genotype_text(candidate));
+            continue;
+        }
+        if (require_alt_genotype && !is_alt_genotype(candidate)) {
+            pgphase_trace::candidate("writer", "drop", candidate, "no_alt_genotype",
+                                     pgphase_trace::genotype_text(candidate));
+            continue;
+        }
         if (!candidate.lcd_make_variants_region_pass) continue;
         projected.push_back(&candidate);
     }

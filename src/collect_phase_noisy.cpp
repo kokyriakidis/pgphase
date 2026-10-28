@@ -11,6 +11,7 @@
  * update, old/new candidate merge, and iterative k-means trigger.
  */
 
+#include "trace.hpp"
 #include "collect_phase_noisy.hpp"
 #include "plegma_msa.hpp"
 #include <map>
@@ -221,6 +222,10 @@ std::vector<CandidateVariant> make_cand_vars_from_baln0(const Options& opts,
                 vars.push_back(make_noisy_candidate(chunk, ref_pos, VariantType::Snp, 1,
                                                     ref_base, std::string(1, nt4_to_base(cons_base)),
                                                     4, false));
+            } else if (pgphase_trace::on()) {
+                // The mismatch is left to the gap beside it, which carries it as its anchor letter (alt_ref_base).
+                pgphase_trace::emit("msa", "skip", ref_pos, ref_pos,
+                                    std::string("S:1:") + nt4_to_base(cons_base), "mismatch_beside_gap");
             }
             ++i;
             ++ref_pos;
@@ -1001,6 +1006,8 @@ static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
             first.key.pos != second.key.pos || first.key.alt == second.key.alt ||
             first.counts.category != VariantCategory::NoisyCandHet ||
             second.counts.category != VariantCategory::NoisyCandHet) continue;
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion", "into " +
+                                 pgphase_trace::key_text(first.key));
         first.msa_insertion_alts = {first.key.alt, second.key.alt};
         // Each allele after its own consensus's letter: at chr12:247,663 the haplotype inserting one A has C>A on the
         // base before it (CC + 26 A against CCC + 24 A), the one inserting AA does not. Its letter dropped, the SNP
@@ -1073,6 +1080,8 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         // writer emits anchor + retained sequence for each allele.
         const int long_len = std::max(first.key.ref_len, second.key.ref_len);
         const int short_len = std::min(first.key.ref_len, second.key.ref_len);
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_deletion", "into " +
+                                 pgphase_trace::key_text(first.key));
         const bool first_is_long = first.key.ref_len == long_len;
         const size_t tail_beg = static_cast<size_t>(first.key.pos - chunk.ref_beg) +
                                 static_cast<size_t>(short_len);
@@ -1375,6 +1384,8 @@ int merge_var_profile(PhasingChunk& chunk,
                 continue;
             }
             set_noisy_category(new_vars[new_i], new_cats[new_i]);
+            pgphase_trace::candidate("msa", "call", new_vars[new_i], "admitted",
+                                     "cat=" + std::to_string(static_cast<int>(new_cats[new_i])));
             new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
             merged_vars.push_back(std::move(new_vars[new_i++]));
             ++admitted;
@@ -1428,6 +1439,9 @@ int merge_var_profile(PhasingChunk& chunk,
             if (replace_repeat || replace_selected || replace_pruned ||
                 replace_single_allele) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
+                pgphase_trace::candidate("msa", "call", new_vars[new_i], "replaced_existing",
+                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old cat=" +
+                                         std::to_string(static_cast<int>(old_vars[old_i].counts.category)));
                 new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =
                     old_vars[old_i].counts.candvarcate_initial;
@@ -1435,6 +1449,9 @@ int merge_var_profile(PhasingChunk& chunk,
                 merged_vars.push_back(std::move(new_vars[new_i]));
                 ++admitted;
             } else {
+                pgphase_trace::candidate("msa", "drop", new_vars[new_i], "existing_candidate_kept",
+                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old cat=" +
+                                         std::to_string(static_cast<int>(old_vars[old_i].counts.category)));
                 old_to_merged[old_i] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
                 merged_vars.push_back(std::move(old_vars[old_i]));
             }
@@ -2047,23 +2064,30 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     }
 
     // Skip regions longer than max_noisy_reg_len (return 0 = done, no vars).
-    if (noisy_reg_end - noisy_reg_beg + 1 > static_cast<hts_pos_t>(opts.max_noisy_reg_len))
+    if (noisy_reg_end - noisy_reg_beg + 1 > static_cast<hts_pos_t>(opts.max_noisy_reg_len)) {
+        pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "too_long_for_msa");
         return 0;
+    }
 
     // First clip beg/end via collect_reg_ref_bseq, then collect reads on the
     // finalized region bounds.
     std::vector<uint8_t> ref_seq =
         collect_reg_ref_bseq(chunk, noisy_reg_beg, noisy_reg_end);
-    if (ref_seq.empty())
+    if (ref_seq.empty()) {
+        pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_reference");
         return 0;
+    }
 
     const std::vector<int> read_ids =
         collect_noisy_reg_reads(chunk, noisy_reg_beg, noisy_reg_end);
     const int n_noisy_reads = static_cast<int>(read_ids.size());
 
     // Skip regions with more than max_noisy_reg_cov reads.
-    if (n_noisy_reads > opts.max_noisy_reg_cov)
+    if (n_noisy_reads > opts.max_noisy_reg_cov) {
+        pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "too_many_reads",
+                            std::to_string(n_noisy_reads));
         return 0;
+    }
 
     // MSA + consensus via WFA2-lib / abPOA (align.cpp).
     std::array<int, 2> clu_n_seqs{};
@@ -2081,8 +2105,15 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
-    if (n_cons == 0)
+    if (n_cons == 0) {
+        pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_consensus",
+                            std::to_string(n_noisy_reads) + " reads");
         return -1;
+    }
+    if (pgphase_trace::on())
+        pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "resolved",
+                            std::to_string(n_cons) + " consensus, clusters " + std::to_string(clu_n_seqs[0]) + "/" +
+                            std::to_string(clu_n_seqs[1]) + ", " + std::to_string(n_noisy_reads) + " reads");
 
     if (use_plegma_msa()) record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs);
 

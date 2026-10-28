@@ -4,6 +4,7 @@
 #include "union_internal.hpp"
 
 #include "noise_filter.hpp"
+#include "trace.hpp"
 
 #include <algorithm>
 #include <set>
@@ -108,6 +109,7 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
     if (alts.empty() && usable) alts.push_back(written_alt);
     GraphSiteMeta meta;
     meta.chrom = contig_name != nullptr ? contig_name : std::string();
+    if (!usable || alts.empty()) pgphase_trace::candidate("inject", "drop", cand, "unusable_vcf_meta");
     if (usable && !alts.empty()) {
         meta.pos = vcf_pos;
         meta.ref = vcf_ref;
@@ -266,6 +268,7 @@ struct Selection {
     std::set<size_t> unwritten_rows;  // graph rows whose allele the consensus sequences of their MSA region lack
     std::set<size_t> hom_rows;        // graph rows both consensus sequences of their MSA region carry: written 1/1
     std::set<size_t> hom_records;     // MSA homozygous calls in a het MSA region: written 1/1, no vote
+    std::unordered_map<size_t, const char*> row_reason;  // why a graph row is unwritten or 1/1 (stage trace)
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
 
@@ -296,6 +299,9 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     const auto decide = [&](size_t bi, const char* why) {
         if (record_decisions) sel.decision[bi] = why;
+        pgphase_trace::candidate("inject", "decision", bam.candidates[bi], why,
+                                 "cat=" + std::to_string(static_cast<int>(bam.candidates[bi].counts.category)) +
+                                 (bam.candidates[bi].msa_verified ? " msa" : ""));
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
@@ -481,7 +487,7 @@ void suppress_rows_msa_reads_as_reference(const PhasingChunk& graph, const Phasi
             if (lo <= region.beg || hi >= region.end) continue;
             bool differs = false;
             for (const Interval& d : region.differs) differs = differs || (d.beg <= hi && lo <= d.end);
-            if (!differs) sel.unwritten_rows.insert(ci);
+            if (!differs && sel.unwritten_rows.insert(ci).second) sel.row_reason[ci] = "msa_reads_as_reference";
             break;
         }
     }
@@ -532,8 +538,11 @@ void genotype_substitution_rows(const GraphChunkBuildResult& graph_chunk, const 
             else if (n == 2 && region->het()) ++by_both;
         }
         if (changed == 0) continue;
-        if (by_none > 0) sel.unwritten_rows.insert(ci);
-        else if (by_both == changed) sel.hom_rows.insert(ci);
+        if (by_none > 0) {
+            if (sel.unwritten_rows.insert(ci).second) sel.row_reason[ci] = "msa_lacks_change";
+        } else if (by_both == changed && sel.hom_rows.insert(ci).second) {
+            sel.row_reason[ci] = "msa_homozygous";
+        }
     }
 }
 
@@ -549,8 +558,16 @@ std::unordered_map<size_t, size_t> fold_aliases(Selection& sel, const PhasingChu
                           [&](size_t bi) { return sel.island_only.count(bi) == 0; });
     for (const size_t bi : sel.selected) {
         const auto [it, inserted] = canonical.emplace(left_aligned_indel_key(bam.candidates[bi], bam), bi);
-        if (inserted) kept.push_back(bi);
-        else if (sel.island_only.count(bi) == 0) alias_of.emplace(bi, it->second);
+        if (inserted) {
+            kept.push_back(bi);
+        } else if (sel.island_only.count(bi) == 0) {
+            alias_of.emplace(bi, it->second);
+            pgphase_trace::candidate("inject", "merge", bam.candidates[bi], "alias_folded",
+                                     "into " + pgphase_trace::key_text(bam.candidates[it->second].key));
+        } else {
+            pgphase_trace::candidate("inject", "drop", bam.candidates[bi], "island_duplicate_dropped",
+                                     "of " + pgphase_trace::key_text(bam.candidates[it->second].key));
+        }
     }
     sel.selected = std::move(kept);
     return alias_of;
@@ -572,6 +589,17 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;
     for (const size_t ci : sel.hom_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].msa_hom = true;
+    if (pgphase_trace::on() && graph_chunk.site_meta.size() == graph.candidates.size()) {
+        const auto row = [&](size_t ci, std::string_view event, std::string_view reason) {
+            const GraphSiteMeta& m = graph_chunk.site_meta[ci];
+            std::string key = m.ref + ">";
+            for (size_t i = 0; i < m.alts.size(); ++i) key += (i ? "," : "") + m.alts[i].substr(0, 60);
+            pgphase_trace::emit("inject", event, m.pos, m.pos + std::max<hts_pos_t>(1, m.ref.size()) - 1, key, reason,
+                                ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string());
+        };
+        for (const auto& [ci, reason] : sel.row_reason) row(ci, sel.hom_rows.count(ci) ? "regenotype" : "drop", reason);
+        for (const size_t ci : sel.replaced_rows) row(ci, "drop", "row_replaced_by_msa_call");
+    }
     if (diag_dir != nullptr) write_injection_diagnostics(diag_dir, graph_chunk, bam, support, sel);
     if (sel.selected.empty()) return 0;
     const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);

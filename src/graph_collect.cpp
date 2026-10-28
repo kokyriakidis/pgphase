@@ -14,6 +14,7 @@
 #include "graph_sites.hpp"
 #include "noise_filter.hpp"
 #include "union_phase.hpp"
+#include "trace.hpp"
 
 #include "edlib.h"
 
@@ -227,7 +228,25 @@ static CandidateTable graph_chunks_to_candidate_table(
 
             if (ci >= graph_chunk.site_meta.size()) continue;
             const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-            if (meta.bam_alt_deletion_no_ref || meta.no_record) continue;
+            // A row the rebuild writes nothing for, by reason (stage trace).
+            const auto skip = [&](std::string_view reason, std::string detail = {}) {
+                if (!pgphase_trace::on()) return;
+                const hts_pos_t beg = meta.pos > 0 ? meta.pos : mcand.key.pos;
+                std::string key = meta.ref.empty() ? pgphase_trace::key_text(mcand.key) : meta.ref + ">";
+                for (size_t i = 0; !meta.ref.empty() && i < meta.alts.size(); ++i)
+                    key += (i ? "," : "") + meta.alts[i].substr(0, 60);
+                pgphase_trace::emit("output", "skip", beg, beg + std::max<hts_pos_t>(1, meta.ref.size()) - 1, key,
+                                    reason, detail + (detail.empty() ? "" : " ") + pgphase_trace::genotype_text(mcand) +
+                                    (mcand.bam_injected ? " injected" : " catalog"));
+            };
+            if (rephase.count(ci) != 0)
+                pgphase_trace::candidate("output", "rephase", chunk.candidates[ci], "lone_het_rephased",
+                                         pgphase_trace::genotype_text(chunk.candidates[ci]) + " -> " +
+                                         pgphase_trace::genotype_text(mcand));
+            if (meta.bam_alt_deletion_no_ref || meta.no_record) {
+                skip(meta.no_record ? (meta.msa_hom ? "no_record" : "no_record") : "bam_alt_deletion_no_ref");
+                continue;
+            }
 
             // A site injected by union gap phasing (no catalog id) is
             // written only when it carries phase information. The alignment's
@@ -254,8 +273,10 @@ static CandidateTable graph_chunks_to_candidate_table(
                 // 1|1 -- 186 of them on chr20, carrying hap_to_cons_alle (2,1) or
                 // (1,2).
                 if (h.size() < 3 || h[1] < 0 || h[2] < 0 || h[1] >= n_alleles ||
-                    h[2] >= n_alleles || (h[1] == h[2] && !meta.msa_hom))
+                    h[2] >= n_alleles || (h[1] == h[2] && !meta.msa_hom)) {
+                    skip("injected_no_het_consensus");
                     continue;
+                }
             }
 
             auto tid_it = contig_to_tid.find(meta.chrom);
@@ -279,11 +300,20 @@ static CandidateTable graph_chunks_to_candidate_table(
 
                 // orig_walk_idx: 0 = ref walk, 1 = first alt walk → meta.alts[0], etc.
                 const int alt_idx = orig_walk_idx - 1;
-                if (alt_idx < 0 || alt_idx >= static_cast<int>(meta.alts.size())) continue;
+                if (alt_idx < 0 || alt_idx >= static_cast<int>(meta.alts.size())) {
+                    skip(meta.alts.empty() ? "no_meta" : "allele_index_out_of_range", "allele=" + std::to_string(new_a));
+                    continue;
+                }
                 const std::string& raw_alt = meta.alts[static_cast<size_t>(alt_idx)];
-                if (raw_alt.empty() || raw_alt == "*") continue;
+                if (raw_alt.empty() || raw_alt == "*") {
+                    skip("allele_empty_or_star", "allele=" + std::to_string(new_a));
+                    continue;
+                }
 
-                if (meta.ref.empty()) continue;
+                if (meta.ref.empty()) {
+                    skip("no_ref", "allele=" + std::to_string(new_a));
+                    continue;
+                }
 
                 // Normalize to minimal VCF form before deriving the key. Catalog
                 // alleles carry flanking repeat context on both sides; an equal-
@@ -478,8 +508,11 @@ static CandidateTable graph_chunks_to_candidate_table(
                     const VariantCategory c = cand.counts.category;
                     if (c != VariantCategory::CleanHetSnp &&
                         c != VariantCategory::CleanHetIndel &&
-                        c != VariantCategory::NoisyCandHet)
+                        c != VariantCategory::NoisyCandHet) {
+                        pgphase_trace::candidate("output", "skip", cand, "injected_not_het_category",
+                                                 pgphase_trace::genotype_text(cand));
                         continue;
+                    }
                 }
 
                 // An equal-length multi-base substitution (an MNP: a catalog walk
@@ -499,10 +532,14 @@ static CandidateTable graph_chunks_to_candidate_table(
                         snp.key.pos = cand.key.pos + i;
                         snp.key.alt = std::string(1, cand.key.alt[static_cast<size_t>(i)]);
                         snp.key.ref_len = 1;
+                        pgphase_trace::candidate("output", "record", snp, "mnp_split",
+                                                 pgphase_trace::genotype_text(snp) + (meta.msa_hom ? " msa_hom" : ""));
                         result.push_back(std::move(snp));
                     }
                     continue;
                 }
+                pgphase_trace::candidate("output", "record", cand, cand.bam_injected ? "injected" : "catalog",
+                                         pgphase_trace::genotype_text(cand) + (meta.msa_hom ? " msa_hom" : ""));
                 result.push_back(std::move(cand));
             }
         }
@@ -585,12 +622,17 @@ static CandidateTable graph_chunks_to_candidate_table(
                 }
                 const int write_rank = het_rank(result[write]);
                 const int read_rank = het_rank(result[read]);
-                if (read_rank > write_rank ||
-                    (read_rank == write_rank &&
-                     result[read].counts.total_cov >
-                         result[write].counts.total_cov)) {
-                    result[write] = std::move(result[read]);
-                }
+                const bool replace = read_rank > write_rank ||
+                    (read_rank == write_rank && result[read].counts.total_cov > result[write].counts.total_cov);
+                const CandidateVariant& loser = replace ? result[write] : result[read];
+                const CandidateVariant& winner = replace ? result[read] : result[write];
+                if (pgphase_trace::on())
+                    pgphase_trace::candidate("output", "drop", loser, "duplicate_collapsed",
+                                             pgphase_trace::genotype_text(loser) + " rank=" +
+                                             std::to_string(het_rank(loser)) + " kept " +
+                                             pgphase_trace::genotype_text(winner) + " rank=" +
+                                             std::to_string(het_rank(winner)));
+                if (replace) result[write] = std::move(result[read]);
             } else {
                 ++write;
                 if (write != read) result[write] = std::move(result[read]);
@@ -1277,7 +1319,11 @@ void run_collect_graph_variation(const Options& opts) {
                 return n;
             };
             for (CandidateVariant& c : variants)
-                if (phased_het(c) && loci(positions[c.phase_set]) <= 1) c.vcf_unphased = true;
+                if (phased_het(c) && loci(positions[c.phase_set]) <= 1) {
+                    c.vcf_unphased = true;
+                    pgphase_trace::candidate("output", "regenotype", c, "lone_locus_unphased",
+                                             pgphase_trace::genotype_text(c));
+                }
         }
 
         n_variants += variants.size();

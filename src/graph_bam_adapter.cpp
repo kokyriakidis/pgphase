@@ -1,3 +1,4 @@
+#include "trace.hpp"
 #include "collect_var.hpp"
 #include <map>
 #include "graph_bam_adapter.hpp"
@@ -368,6 +369,12 @@ void apply_graph_noise_filter(GraphChunkBuildResult& result,
             }
         }
         if (noisy) {
+            if (pgphase_trace::on() && cand.counts.category != VariantCategory::RepeatHetIndel)
+                pgphase_trace::emit("graph", "regenotype", meta.pos,
+                                    meta.pos + std::max<hts_pos_t>(1, meta.ref.size()) - 1,
+                                    meta.ref + ">" + (meta.alts.empty() ? "?" : meta.alts[0].substr(0, 60)),
+                                    "repeat_het_indel_not_phased",
+                                    "cat=" + std::to_string(static_cast<int>(cand.counts.category)));
             cand.counts.category = VariantCategory::RepeatHetIndel;
             cand.counts.candvarcate_initial = VariantCategory::RepeatHetIndel;
             cand.lcd_var_i_to_cate = kLongcalldRepHetVar;
@@ -826,6 +833,14 @@ private:
                     drop_reason = "low_af";
                 }
                 if (!drop_reason.empty()) {
+                    if (pgphase_trace::on()) {
+                        const GraphSiteMeta& m = out_.site_meta[i];
+                        const size_t ai = static_cast<size_t>(orig_alt - 1);
+                        pgphase_trace::emit("graph", "drop", m.pos, m.pos + std::max<hts_pos_t>(1, m.ref.size()) - 1,
+                                            m.ref + ">" + (ai < m.alts.size() ? m.alts[ai].substr(0, 60) : "?"),
+                                            "pair_" + drop_reason,
+                                            pair_id + " " + std::to_string(pair_ref_c) + "/" + std::to_string(alt_c));
+                    }
                     out_.filtered_sites.push_back({pair_id, meta_chrom, meta_pos,
                                                    pair_ref_c, alt_c, total_c, af, std::move(drop_reason)});
                     continue;
@@ -851,6 +866,11 @@ private:
                     if (e.old_i != i && e.id == identity) { canon = e.new_idx; break; }
                 }
                 if (canon >= 0) {
+                    if (pgphase_trace::on())
+                        pgphase_trace::emit("graph", "merge", meta.pos,
+                                            meta.pos + std::max<hts_pos_t>(1, meta.ref.size()) - 1,
+                                            meta.ref + ">" + id_alt_src.substr(0, 60), "duplicate_snarl_routed",
+                                            pair_id);
                     // Duplicate variant from an overlapping snarl: route this
                     // snarl's observations to the canonical anchor so the variant
                     // is not double-counted in k-means, but keep the canonical

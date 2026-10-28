@@ -1,6 +1,7 @@
 // Union gap phasing: the global EM over the read x site matrix, with block
 // cuts and the weak-bridge guard.
 
+#include "trace.hpp"
 #include "union_internal.hpp"
 
 #include <array>
@@ -265,7 +266,11 @@ private:
                 std::vector<std::pair<int, int>> by_count;
                 for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
                 std::sort(by_count.rbegin(), by_count.rend());
-                if (by_count.size() < 2) continue;
+                if (by_count.size() < 2) {
+                    pgphase_trace::candidate("em", "not_site", c, "one_allele_called",
+                                             pgphase_trace::genotype_text(c));
+                    continue;
+                }
                 x = by_count[0].second;
                 y = by_count[1].second;
             }
@@ -274,7 +279,13 @@ private:
                 return it == allele_counts_[ci].end() ? 0 : it->second;
             };
             const int nx = count_of(x), ny = count_of(y);
-            if (nx + ny == 0 || std::min(nx, ny) < kEmMinMinorAlleleFraction * (nx + ny)) continue;
+            if (nx + ny == 0 || std::min(nx, ny) < kEmMinMinorAlleleFraction * (nx + ny)) {
+                if (pgphase_trace::on())
+                    pgphase_trace::candidate("em", "not_site", c, "minor_allele_below_fraction",
+                                             "alleles " + std::to_string(x) + ":" + std::to_string(nx) + " " +
+                                             std::to_string(y) + ":" + std::to_string(ny));
+                continue;
+            }
             sites_.push_back(EmSite{-1, ci, x, y, c.key.sort_pos()});
         }
         for (size_t li = 0; li < n_locus_; ++li)
@@ -808,6 +819,10 @@ private:
                     set_site_phase(c, kUnsetCandidatePhaseSet, sites_[k].x, sites_[k].y);
                     c.vcf_unphased = true;
                 }
+                if (pgphase_trace::on())
+                    pgphase_trace::candidate("em", "site", c, c.vcf_unphased ? "msa_het_unphasable" : "unreliable",
+                                             "err=" + std::to_string(err_[k]).substr(0, 5) +
+                                             (join_excluded_[k] ? " join_excluded" : ""));
                 continue;
             }
             const int hap1 = phase_[k] == 0 ? sites_[k].x : sites_[k].y;
@@ -818,6 +833,11 @@ private:
             // (chr18:79.877 Mb, six switches over 32 correctly phased reads).
             c.vcf_unphased = c.unresolved_noisy ||
                              err_[k] >= (c.key.type == VariantType::Snp ? kEmVcfMaxSnpError : kEmVcfMaxIndelError);
+            if (pgphase_trace::on())
+                pgphase_trace::candidate("em", "site", c, c.vcf_unphased ? "phased_written_unphased" : "phased",
+                                         "block=" + std::to_string(block_[k]) + " err=" +
+                                         std::to_string(err_[k]).substr(0, 5) + " " + pgphase_trace::genotype_text(c) +
+                                         (c.unresolved_noisy ? " unresolved_noisy" : ""));
         }
         write_skewed_msa_hets();
     }
@@ -855,6 +875,7 @@ private:
             const int y = two_alts ? 2 : by_count.size() >= 2 ? by_count[1].second : 1;
             set_site_phase(c, kUnsetCandidatePhaseSet, x, y);
             c.vcf_unphased = true;
+            pgphase_trace::candidate("em", "site", c, "skewed_msa_het_unphased", pgphase_trace::genotype_text(c));
         }
     }
 
