@@ -710,6 +710,10 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         cand.bam_injected = true;
         {
             const auto& h = cand.hap_to_cons_alle;
+            if (cand.phase_set > 0 && h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2]) {
+                cand.aln_phase_set = cand.phase_set;
+                cand.aln_hap1_allele = h[1];
+            }
             if (cand.msa_verified && h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2])
                 for (size_t r = 0; r < bam.msa_regions.size(); ++r)
                     if (bam.msa_regions[r].het() && bam.msa_regions[r].beg < cand.key.pos &&

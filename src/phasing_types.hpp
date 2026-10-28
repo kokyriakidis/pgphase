@@ -615,6 +615,9 @@ struct CandidateVariant {
     // through these as the MSA's consensus sequences do: cis when the same side carries both ALTs.
     int msa_region = -1;
     int msa_hap1_allele = -1;
+    // An injected call the alignment solve phased: its phase set there and the allele on its haplotype 1 (-1 none).
+    hts_pos_t aln_phase_set = 0;
+    int aln_hap1_allele = -1;
     // A clean het the union injection admits although its alleles lack
     // confidently mapped reads (the confident-read exemption): phased like an
     // unverified call (unresolved_noisy) -- it joins no blocks and labels

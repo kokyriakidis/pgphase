@@ -2266,6 +2266,11 @@ Two rules downstream of the MSA, for either backend:
   takes its phase from the MSA where its region holds sites the EM phased, all in one block and implying one
   orientation (`phase_unphasable_by_msa`): arm truth hets phased 281,416 -> 281,737, unphased 4,122 -> 3,803;
   switches, flips, false hets and reads unchanged.
+  An injected het still written unphased then relates, the same way, to the injected calls the EM phased within 5 kb
+  in the same phase set of the alignment solve that called them, through that solve's haplotypes
+  (`phase_by_alignment_solve`; `aln_phase_set`, `aln_hap1_allele`): a region's lone MSA call has no MSA neighbour
+  (chr20:782,916, a homopolymer insertion at error 0.32). Arm truth hets phased 281,737 -> 282,827, unphased 3,803
+  -> 2,712; switches, flips and false hets unchanged; arm reads +2 / +6 / -8.
 - **Catalog repeat indels their allele window phases are written** (see "Allele windows"): the windows phased them
   in the EM's second pass and the result was dropped, the rows being never written. HG002 HiFi chr12/18/20 against
   c836382: truth hets on the arms phased 280,072 -> 280,150, missed 15,249 -> 15,164, other alleles 7,216 -> 7,208;

@@ -60,6 +60,9 @@ constexpr double kEmUnverifiedReportError = 0.1;
 // Written unphased: switches 24 -> 17, flips 61 -> 36, phased truth hets
 // -1,660 (0.6%), reads unchanged.
 constexpr double kEmVcfMaxSnpError = 0.1;
+// How far an injected call the EM phased may lie from an unphased one it phases through the alignment solve's
+// haplotypes (phase_by_alignment_solve).
+constexpr hts_pos_t kEmAlignmentAnchorSpan = 5000;
 constexpr double kEmVcfMaxIndelError = 0.25;
 constexpr int kEmIterations = 15;
 constexpr int kEmSwitchRounds = 30;
@@ -842,6 +845,54 @@ private:
         confirm_phase_by_msa();
         write_skewed_msa_hets();
         phase_unphasable_by_msa();
+        phase_by_alignment_solve();
+    }
+
+    // What phase_unphasable_by_msa and confirm_phase_by_msa do within an MSA region, by the alignment solve's phase
+    // instead, for an injected het still written unphased (the region's lone call: chr20:782,916, a homopolymer
+    // insertion at error 0.32 with no other call in its region): the injected calls the EM phased within
+    // kEmAlignmentAnchorSpan of it in the same alignment phase set relate to it as that solve's haplotypes do. Phased
+    // when every such call implies one orientation in one block (and, if the EM phased it, the EM's own).
+    void phase_by_alignment_solve() {
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        const auto usable = [](const CandidateVariant& c) {
+            const auto& h = c.hap_to_cons_alle;
+            return c.aln_phase_set > 0 && c.aln_hap1_allele >= 0 && c.msa_insertion_alts.empty() && h.size() > 2 &&
+                   h[1] >= 0 && h[2] >= 0 && h[1] != h[2] && h[1] <= 1 && h[2] <= 1;
+        };
+        std::vector<size_t> anchors;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) continue;
+            const CandidateVariant& d = chunk_.candidates[sites_[k].ci];
+            if (usable(d) && d.phase_set > 0 && !d.vcf_unphased) anchors.push_back(sites_[k].ci);
+        }
+        if (anchors.empty()) return;
+        for (CandidateVariant& c : chunk_.candidates) {
+            if (!c.bam_injected || !usable(c) || !c.vcf_unphased || c.unresolved_noisy) continue;
+            hts_pos_t ps = 0;
+            int implied = -1;
+            bool consistent = true;
+            for (const size_t di : anchors) {
+                const CandidateVariant& d = chunk_.candidates[di];
+                if (d.aln_phase_set != c.aln_phase_set || std::abs(d.key.pos - c.key.pos) > kEmAlignmentAnchorSpan)
+                    continue;
+                const bool cis = (c.aln_hap1_allele > 0) == (d.aln_hap1_allele > 0);
+                const int here = cis == alt_on_hap1(d) ? 1 : 0;
+                consistent = consistent && (ps == 0 || ps == d.phase_set) && (implied < 0 || implied == here);
+                ps = d.phase_set;
+                implied = here;
+            }
+            if (implied < 0 || !consistent) continue;
+            if (c.phase_set > 0) {
+                if (c.phase_set != ps || (alt_on_hap1(c) ? 1 : 0) != implied) continue;
+            } else {
+                c.hap_to_cons_alle[1] = implied;
+                c.hap_to_cons_alle[2] = 1 - implied;
+                c.phase_set = ps;
+            }
+            c.vcf_unphased = false;
+            pgphase_trace::candidate("em", "site", c, "phased_by_alignment_solve", pgphase_trace::genotype_text(c));
+        }
     }
 
     // An MSA het written unphased with no phase set -- the EM could not phase it (msa_het_unphasable), or its reads
