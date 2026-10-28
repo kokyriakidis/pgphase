@@ -98,6 +98,7 @@ static CandidateTable graph_chunks_to_candidate_table(
         // hets (+366 when 80% of the reads had to sit in one phase set),
         // switches, flips and reads unchanged.
         std::unordered_map<size_t, std::tuple<hts_pos_t, int, int>> rephase;
+        std::unordered_map<size_t, std::string> rephase_votes;  // trace: the vote behind each placement
         {
             const auto phased_het = [](const CandidateVariant& c) {
                 const auto& h = c.hap_to_cons_alle;
@@ -190,6 +191,16 @@ static CandidateTable graph_chunks_to_candidate_table(
                 }
                 if (!ok || alle[1] == alle[2]) continue;
                 rephase[ci] = {best, alle[1], alle[2]};
+                if (pgphase_trace::on()) {
+                    std::string v = "votes";
+                    for (int hh = 1; hh <= 2; ++hh) {
+                        int tot = 0, top = 0;
+                        for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; top = std::max(top, c); }
+                        v += " h" + std::to_string(hh) + "=" + std::to_string(top) + "/" + std::to_string(tot);
+                    }
+                    v += " ps_n=" + std::to_string(by_ps.size()) + " labelled=" + std::to_string(labelled[ci]);
+                    rephase_votes[ci] = v;
+                }
             }
             // Each ALT goes on the haplotype holding 80% of its labelled
             // carriers, in the phase set holding most of them (at least 3);
@@ -242,7 +253,8 @@ static CandidateTable graph_chunks_to_candidate_table(
             if (rephase.count(ci) != 0)
                 pgphase_trace::candidate("output", "rephase", chunk.candidates[ci], "lone_het_rephased",
                                          pgphase_trace::genotype_text(chunk.candidates[ci]) + " -> " +
-                                         pgphase_trace::genotype_text(mcand));
+                                         pgphase_trace::genotype_text(mcand) +
+                                         (rephase_votes.count(ci) ? " " + rephase_votes[ci] : ""));
             if (meta.bam_alt_deletion_no_ref || meta.no_record) {
                 skip(meta.no_record ? (meta.msa_hom ? "no_record" : "no_record") : "bam_alt_deletion_no_ref");
                 continue;

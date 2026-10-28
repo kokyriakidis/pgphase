@@ -1834,8 +1834,25 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         const int n_hap = clu_n_seqs[static_cast<size_t>(ci)];
         aln_strs[static_cast<size_t>(ci)].resize(static_cast<size_t>(1 + n_hap * 2));
 
-        // [0] = ref-vs-cons.
-        wfa_collect_aln_str(opts, ref_seq, ref_seq_len,
+        // [0] = ref-vs-cons, scored as minimap2's asm5 preset (in WFA's match-0 form: mismatch 2(1+19), gaps
+        // 2*39 + 2(3+0.5)/base and 2*81 + 2(1+0.5)/base), the scoring an assembly-to-reference call set such as
+        // dipcall's writes variants with. The read-alignment penalties make a mismatch about as costly as a 1 bp
+        // gap, so a consensus whose repeat sits a few bases shifted was written as a run of SNPs alternating
+        // between the haplotypes plus small indels where the assembly call writes one long indel
+        // (chr17:5,611,549-5,611,618, TTTC repeat): the same haplotypes, but records that match the truth one by
+        // one land on the other haplotype, and every step downstream (merges, catalog rows, EM sites) works from
+        // the pieces. HG002 HiFi chr12/18/20 (chr17/19/21 held out): per-record switches 18 -> 7 (30 -> 17),
+        // flips 35 -> 28 (18 -> 12); true het loci phased +393 (+320), wrong-allele loci -288 (-271); reads -206
+        // correct, +103 confident discordant, most at one collapsed-duplication block start, chr12:10.31 Mb (held
+        // out -29 / +3). asm10 and asm20 scoring gain less and lose as many reads. plegma only: abPOA keeps
+        // longcallD's scoring (its port parity).
+        Options ref_opts = opts;
+        if (use_plegma_msa()) {
+            ref_opts.mismatch = 40;
+            ref_opts.gap_open1 = 78, ref_opts.gap_ext1 = 7;
+            ref_opts.gap_open2 = 162, ref_opts.gap_ext2 = 3;
+        }
+        wfa_collect_aln_str(ref_opts, ref_seq, ref_seq_len,
                             cons_seqs[static_cast<size_t>(ci)].data(),
                             cons_lens[static_cast<size_t>(ci)],
                             kNoisyBothCover, kWfaNoHeuristic, kWfaAffine2p,

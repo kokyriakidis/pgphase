@@ -855,7 +855,7 @@ private:
                 pgphase_trace::candidate("em", "site", c, c.vcf_unphased ? "phased_written_unphased" : "phased",
                                          "block=" + std::to_string(block_[k]) + " err=" +
                                          std::to_string(err_[k]).substr(0, 5) + " " + pgphase_trace::genotype_text(c) +
-                                         (c.unresolved_noisy ? " unresolved_noisy" : ""));
+                                         (c.unresolved_noisy ? " unresolved_noisy" : "") + (join_deep_[k] ? " join_deep" : ""));
         }
         confirm_phase_by_msa();
         write_skewed_msa_hets();
