@@ -864,7 +864,7 @@ private:
     }
 
     // What phase_unphasable_by_msa and confirm_phase_by_msa do within an MSA region, by the alignment solve's phase
-    // instead, for an injected het still written unphased (the region's lone call: chr20:782,916, a homopolymer
+    // instead, for an injected het (or a catalog row its complement call describes) still written unphased (the region's lone call: chr20:782,916, a homopolymer
     // insertion at error 0.32 with no other call in its region): the injected calls the EM phased within
     // kEmAlignmentAnchorSpan of it in the same alignment phase set relate to it as that solve's haplotypes do. Phased
     // when every such call implies one orientation in one block (and, if the EM phased it, the EM's own).
@@ -882,7 +882,7 @@ private:
         }
         if (anchors.empty()) return;
         for (CandidateVariant& c : chunk_.candidates) {
-            if (!c.bam_injected || !usable(c) || !c.vcf_unphased || c.unresolved_noisy) continue;
+            if (!usable(c) || !c.vcf_unphased || c.unresolved_noisy) continue;
             hts_pos_t ps = 0;
             int implied = -1;
             bool consistent = true;

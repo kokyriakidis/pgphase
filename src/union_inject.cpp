@@ -667,6 +667,37 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     if (sel.selected.empty()) return 0;
     const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);
 
+    // A catalog row its complement call describes exactly (the call's VCF allele the row's ALT) takes the call's phase
+    // in its alignment solve, as an injected call keeps its own (CandidateVariant::aln_phase_set): what
+    // phase_by_alignment_solve relates sites by. Catalog SNPs the EM phases at error 0.1-0.3 are written unphased
+    // (chr20:1,388,819 G>T at 0.12, its complement call phased by the alignment solve beside the insertion at 816).
+    std::unordered_map<size_t, std::pair<hts_pos_t, int>> row_aln_phase;
+    if (graph_chunk.site_meta.size() == graph.candidates.size() &&
+        graph_chunk.site_allele_orig_idx.size() == graph.candidates.size()) {
+        const auto base = [&bam](hts_pos_t pos) -> char {
+            const hts_pos_t off = pos - bam.ref_beg;
+            if (off < 0 || static_cast<size_t>(off) >= bam.ref_seq.size()) return 'N';
+            return static_cast<char>(std::toupper(static_cast<unsigned char>(bam.ref_seq[static_cast<size_t>(off)])));
+        };
+        for (const auto& [bi, rows] : sel.complement_rows) {
+            if (rows.size() != 1) continue;
+            const CandidateVariant& c = bam.candidates[bi];
+            const auto& h = c.hap_to_cons_alle;
+            if (c.phase_set <= 0 || !c.msa_insertion_alts.empty() || h[1] < 0 || h[2] < 0 || h[1] + h[2] != 1) continue;
+            std::string call_ref;
+            for (int i = 0; i < c.key.ref_len; ++i) call_ref.push_back(base(c.key.pos + i));
+            const auto call = normalize_candidate_identity(c.key.pos, call_ref, c.key.alt, base);
+            const size_t r = rows[0];
+            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
+            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
+            if (!call || meta.ref.empty() || orig.size() < 2 || orig[0] != 0 || orig[1] < 1 ||
+                static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
+            const auto row = normalize_candidate_identity(meta.pos, meta.ref, meta.alts[static_cast<size_t>(orig[1]) - 1],
+                                                          base);
+            if (row && *row == *call) row_aln_phase.emplace(r, std::make_pair(c.phase_set, h[1]));
+        }
+    }
+
     // Merge in key order; every index-parallel array is rebuilt with the table.
     struct Slot { CandKey key; long graph_index; long bam_index; };
     std::vector<Slot> slots;
@@ -693,6 +724,10 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             const size_t ci = static_cast<size_t>(slot.graph_index);
             graph_to_new[ci] = static_cast<long>(ni);
             merged.push_back(graph.candidates[ci]);
+            if (const auto it = row_aln_phase.find(ci); it != row_aln_phase.end()) {
+                merged.back().aln_phase_set = it->second.first;
+                merged.back().aln_hap1_allele = it->second.second;
+            }
             merged_ids.push_back(ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string());
             merged_meta.push_back(had_meta ? graph_chunk.site_meta[ci] : GraphSiteMeta{});
             if (sel.replaced_rows.count(ci) != 0) {
