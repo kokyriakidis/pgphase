@@ -2388,6 +2388,69 @@ static std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> records_by_vcf_p
     return by_pos;
 }
 
+// The MSA's consensus-to-reference alignment can describe a replacement as a deletion and an insertion side by side
+// (chr18:830,100, TTTG deleted then AAAAAA inserted after it, the catalog's TTTTG>TAAAAAA; chr20:30,110,228). Written
+// apart, the insertion's padding base is the deletion's last deleted base: the two records claim one reference base on
+// one haplotype, so no reader can apply both, and with the insertion before the deletion the two share a POS and the
+// conflict rule below dropped one. Merged only where both are surely on one haplotype: phased in one phase set with
+// the same genotype, or both 1/1.
+size_t merge_adjacent_deletion_insertion(CandidateTable& result) {
+    const auto same_haplotype = [](const CandidateVariant& a, const CandidateVariant& b) {
+        const auto& ha = a.hap_to_cons_alle;
+        const auto& hb = b.hap_to_cons_alle;
+        if (ha[1] != hb[1] || ha[2] != hb[2] || (ha[1] <= 0 && ha[2] <= 0)) return false;
+        if (ha[1] > 0 && ha[2] > 0) return true;
+        return a.phase_set > 0 && a.phase_set == b.phase_set && !a.vcf_unphased && !b.vcf_unphased;
+    };
+    const auto plain_deletion = [](const CandidateVariant& c) {
+        return c.key.type == VariantType::Deletion && c.key.ref_len > 0 && c.key.alt.empty() &&
+               c.msa_insertion_alts.empty();
+    };
+    const auto plain_insertion = [](const CandidateVariant& c) {
+        return c.key.type == VariantType::Insertion && c.key.ref_len == 0 && !c.key.alt.empty() &&
+               c.msa_insertion_alts.empty();
+    };
+    std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> insertions;
+    for (size_t i = 0; i < result.size(); ++i)
+        if (plain_insertion(result[i])) insertions[{result[i].key.tid, result[i].key.pos}].push_back(i);
+    std::vector<char> drop(result.size(), 0);
+    size_t merged = 0;
+    for (size_t d = 0; d < result.size(); ++d) {
+        CandidateVariant& del = result[d];
+        if (!plain_deletion(del)) continue;
+        // An insertion right after the deleted bases, else right before them.
+        for (const hts_pos_t at : {del.key.pos + del.key.ref_len, del.key.pos}) {
+            const auto it = insertions.find({del.key.tid, at});
+            if (it == insertions.end()) continue;
+            size_t found = result.size();
+            for (const size_t i : it->second)
+                if (!drop[i] && same_haplotype(del, result[i])) {
+                    if (found != result.size()) { found = result.size() + 1; break; }  // two candidates: leave them
+                    found = i;
+                }
+            if (found >= result.size()) continue;
+            const CandidateVariant& ins = result[found];
+            pgphase_trace::candidate("output", "merge", ins, "deletion_insertion_one_haplotype",
+                                     "into " + pgphase_trace::key_text(del.key));
+            del.key.alt = ins.key.alt;
+            if (del.key.alt.size() > static_cast<size_t>(del.key.ref_len)) del.key.type = VariantType::Insertion;
+            drop[found] = 1;
+            ++merged;
+            break;
+        }
+    }
+    if (merged > 0) {
+        size_t write = 0;
+        for (size_t i = 0; i < result.size(); ++i)
+            if (!drop[i]) {
+                if (write != i) result[write] = std::move(result[i]);
+                ++write;
+            }
+        result.resize(write);
+    }
+    return merged;
+}
+
 size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
     const auto by_pos = records_by_vcf_pos(result);
     // A BAM-discovered candidate carries its depths in ref_cov/alt_cov and

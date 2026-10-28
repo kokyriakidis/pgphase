@@ -794,6 +794,41 @@ TEST_CASE("a co-located pair ignores uncalled copies and moves its unphased reco
     CHECK(t[1].hap_to_cons_alle[2] == 1);
 }
 
+TEST_CASE("a deletion and an insertion side by side on one haplotype are one record",
+          "[conflict]") {
+    // chr18:830,100: the MSA's TTTG deleted, then AAAAAA inserted after it, both 0|1 in one phase set. Written apart,
+    // the insertion's padding base is the deletion's last deleted base.
+    using pgphase_collect::VariantType;
+    auto del = conflict_record(830100, 4, "", 2, 20, VariantType::Deletion);
+    auto ins = conflict_record(830104, 0, "AAAAAA", 2, 20, VariantType::Insertion);
+    del.phase_set = ins.phase_set = 641367;
+    pgphase_collect::CandidateTable t{del, ins};
+    CHECK(pgphase_collect::merge_adjacent_deletion_insertion(t) == 1);
+    REQUIRE(t.size() == 1);
+    CHECK(t[0].key.pos == 830100);
+    CHECK(t[0].key.ref_len == 4);
+    CHECK(t[0].key.alt == "AAAAAA");
+    CHECK(t[0].key.type == VariantType::Insertion);
+    // The insertion before the deleted bases (one POS) merges too; a shorter result stays a deletion.
+    auto del2 = conflict_record(200, 5, "", 1, 20, VariantType::Deletion);
+    auto ins2 = conflict_record(200, 0, "TC", 1, 20, VariantType::Insertion);
+    del2.phase_set = ins2.phase_set = 100;
+    pgphase_collect::CandidateTable t2{ins2, del2};
+    CHECK(pgphase_collect::merge_adjacent_deletion_insertion(t2) == 1);
+    REQUIRE(t2.size() == 1);
+    CHECK(t2[0].key.alt == "TC");
+    CHECK(t2[0].key.type == VariantType::Deletion);
+    // Other haplotypes, another phase set, or unphased: not known to be one haplotype's.
+    auto other_hap = conflict_record(830104, 0, "AAAAAA", 1, 20, VariantType::Insertion);
+    other_hap.phase_set = 641367;
+    pgphase_collect::CandidateTable t3{del, other_hap};
+    CHECK(pgphase_collect::merge_adjacent_deletion_insertion(t3) == 0);
+    auto unphased = ins;
+    unphased.vcf_unphased = true;
+    pgphase_collect::CandidateTable t4{del, unphased};
+    CHECK(pgphase_collect::merge_adjacent_deletion_insertion(t4) == 0);
+}
+
 TEST_CASE("a SNP nested in a longer substitution is not moved to the other haplotype",
           "[conflict]") {
     // chr12:1,069,108: a 280 bp catalog record whose first base is the SNP's

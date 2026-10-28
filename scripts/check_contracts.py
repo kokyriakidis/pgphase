@@ -11,8 +11,9 @@ a disagreement with a truth set:
   ref_match    every REF is the reference's bases at POS
   hap_overlap  no two records whose REF spans overlap put ALT alleles on one haplotype (1/1 beside another ALT; two
                phased records of one phase set on the same haplotype)
-  msa_spell    (--msa-dump, PGPHASE_MSA_DUMP) inside each noisy region the MSA resolved, the records spell its
-               consensus sequences: where the two differ, exactly that pair; where they agree, no het. With --trace
+  msa_spell    (--msa-dump, PGPHASE_MSA_DUMP) inside each noisy region the MSA resolved (widened over a tandem
+               repeat at its edges, where the writer may left-align an indel), the records spell its consensus
+               sequences: where the two differ, exactly that pair; where they agree, no het. With --trace
                (PGPHASE_TRACE), each violation is given a cause from the region's injection decisions: a policy that
                keeps the MSA het out on purpose, no MSA het candidate, or unexplained.
 
@@ -228,7 +229,25 @@ def check_overlap(records):
     return out
 
 
-def check_msa(records, regions, decisions):
+def repeat_flanks(seq, beg, end, max_period=8, cap=500):
+    """[beg, end] (1-based) widened over the tandem repeat at each edge: the writer left-aligns an indel, so one the
+    MSA placed inside a region can be written where its repeat tract starts, outside it."""
+    def reach(x0, step):
+        best = 0
+        for p in range(1, max_period + 1):
+            n = 0
+            while n < cap:
+                x = x0 + step * n
+                y = x - step * p
+                if not (1 <= x <= len(seq) and 1 <= y <= len(seq)) or seq[x - 1] != seq[y - 1]:
+                    break
+                n += 1
+            best = max(best, n)
+        return best
+    return beg - reach(beg - 1, -1), end + reach(end + 1, 1)
+
+
+def check_msa(records, regions, decisions, fasta):
     out, checked = [], 0
     by_chrom = collections.defaultdict(list)
     for r in records:
@@ -239,15 +258,26 @@ def check_msa(records, regions, decisions):
         if not reg.consensus:
             continue
         rs, ps = by_chrom.get(reg.chrom, []), starts.get(reg.chrom, [])
-        # From the base before the region (an insertion anchors there) to its end; a record reaching past either
-        # edge leaves the region unchecked.
-        near = [r for r in rs[bisect.bisect_left(ps, reg.beg - 2000):bisect.bisect_right(ps, reg.end)]
-                if end(r) >= reg.beg - 1]
-        if any(r.pos < reg.beg or end(r) > reg.end for r in near):
+        seq = fasta.get(reg.chrom, "")
+
+        def around(b, e):
+            # From the base before (an insertion anchors there) to the end.
+            return [r for r in rs[bisect.bisect_left(ps, b - 2000):bisect.bisect_right(ps, e)] if end(r) >= b - 1]
+        beg, end_ = repeat_flanks(seq, reg.beg, reg.end) if seq else (reg.beg, reg.end)
+        near = around(beg, end_)
+        # Only an indel is moved into a flank; any other record there is the flank's own variant.
+        if any((r.pos < reg.beg or end(r) > reg.end) and
+               any(len(r.alleles[a]) == len(r.ref) for a in set(carried(r)) if a > 0) for r in near):
+            beg, end_ = reg.beg, reg.end
+            near = around(beg, end_)
+        left, right = seq[beg - 1:reg.beg - 1], seq[reg.end:end_]
+        # A record reaching past either edge leaves the region unchecked.
+        if any(r.pos < beg or end(r) > end_ for r in near):
             continue
         checked += 1
         het_region = len(reg.consensus) == 2 and reg.consensus[0] != reg.consensus[1]
-        cands = [d for d in decisions[bisect.bisect_left(dpos, reg.beg):bisect.bisect_right(dpos, reg.end)]
+        # From the base before the region: an insertion at its first base is traced at its padding base.
+        cands = [d for d in decisions[bisect.bisect_left(dpos, beg - 1):bisect.bisect_right(dpos, end_)]
                  if d[3] in (6, 7)]
         het_ds = [d[2] for d in cands if d[3] == 6]
         if not decisions:
@@ -262,7 +292,7 @@ def check_msa(records, regions, decisions):
             cause = "unexplained"
         where = f"{reg.chrom}:{reg.beg}-{reg.end}"
         if het_region:
-            got, ok = spells(reg.beg, reg.ref, near, reg.consensus)
+            got, ok = spells(beg, left + reg.ref + right, near, [left + c + right for c in reg.consensus])
             if ok:
                 continue
             if got is None:
@@ -292,7 +322,7 @@ def main():
     checked = 0
     if a.msa_dump:
         msa, checked = check_msa(records, read_msa_dump(a.msa_dump, vcf_contigs(a.vcf)),
-                                 read_injection_decisions(a.trace) if a.trace else [])
+                                 read_injection_decisions(a.trace) if a.trace else [], fasta)
         found += msa
     counts = collections.Counter(c for c, _ in found)
     print(f"contracts: {len(records)} records" + (f", {checked} MSA regions" if a.msa_dump else ""))

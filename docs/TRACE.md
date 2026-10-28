@@ -21,10 +21,10 @@ The union EM runs twice per chunk: a later `em` event for a candidate supersedes
 | msa | skip | `mismatch_beside_gap` | `make_cand_vars_from_baln0` | a consensus mismatch beside a gap, left to the gap as its anchor letter |
 | msa | call | `admitted`, `replaced_existing` | `merge_var_profile` | an MSA call entering the chunk, alone or in place of a candidate with its key |
 | msa | drop | `existing_candidate_kept` | same | an MSA call dropped for an existing candidate with its key |
-| msa | merge | `two_allele_insertion`, `two_allele_deletion`, `two_allele_insertion_deletion` | `merge_msa_insertion_alleles`, `merge_msa_colocated_deletions`, `merge_msa_colocated_insertion_and_deletion` | two co-located MSA alleles merged into one two-allele record |
+| msa | merge | `two_allele_insertion`, `two_allele_deletion`, `two_allele_insertion_deletion`, `two_allele_nested_deletion` | `merge_msa_insertion_alleles`, `merge_msa_colocated_deletions`, `merge_msa_colocated_insertion_and_deletion`, `merge_msa_nested_deletions` | two co-located MSA alleles merged into one two-allele record |
 | msa | drop | `superseded_by_two_allele_record` | collect_var.cpp `drop_superseded_colocated_records` | a single-allele record describing an allele of a merged two-allele record |
 | inject | decision | `injected`, `complement`, `replaces`, `promoted`, `hom`, `island:*`, `depth_gate`, `few_confident_reads`, `category`, `not_germline`, `outside_chunk` | union_inject.cpp `select_sites` | each alignment candidate's injection decision (as the `inj` dump) |
-| inject | drop | `msa_reads_as_reference`, `msa_lacks_change` | `suppress_rows_msa_reads_as_reference`, `genotype_substitution_rows` | a catalog row written no record: the MSA region reads it as reference, or no consensus carries its change |
+| inject | drop | `msa_reads_as_reference`, `msa_lacks_change`, `msa_lacks_indel` | `suppress_rows_msa_reads_as_reference`, `genotype_substitution_rows`, `unwrite_indel_rows_msa_lacks` | a catalog row written no record: the MSA region reads it as reference, or no consensus carries its change (an indel: anywhere along its repeat tract) |
 | inject | regenotype | `msa_homozygous` | `genotype_substitution_rows` | a catalog row written 1/1: both consensus sequences carry it |
 | inject | drop | `row_replaced_by_msa_call` | `select_sites` | a catalog row an MSA het replaces (its REF cleared) |
 | inject | merge / drop | `alias_folded` / `island_duplicate_dropped` | `fold_aliases` | a selection describing an allele another already does |
@@ -38,6 +38,7 @@ The union EM runs twice per chunk: a later `em` event for a candidate supersedes
 | output | skip | `injected_not_het_category` | same | an injected allele whose re-derived category is not a het's |
 | output | drop | `duplicate_collapsed` | same | the losing copy of two records with one key (the kept one in the detail) |
 | output | regenotype | `colocated_moved_to_other_hap`, `colocated_split_both_none` | collect_var.cpp `make_colocated_alleles_complementary` | a co-located record moved to the other haplotype |
+| output | merge | `deletion_insertion_one_haplotype` | collect_var.cpp `merge_adjacent_deletion_insertion` | an insertion beside a deletion on one haplotype, written as one record with it |
 | output | drop | `conflict_contained`, `conflict_weaker` | `drop_conflicting_haplotype_alleles` | a record dropped for another on its haplotype at its POS |
 | output | regenotype | `lone_locus_unphased` | `run_collect_graph_variation` | a phase set of one locus: its hets written unphased |
 | writer | drop | `category_not_written`, `no_alt_genotype` | collect_output.cpp `project_vcf_candidates` | a record the VCF writer leaves out |

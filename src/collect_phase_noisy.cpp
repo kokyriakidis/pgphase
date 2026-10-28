@@ -1120,6 +1120,73 @@ static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk
     }
 }
 
+// A deletion inside another, from the other consensus (one haplotype deletes ATATTTTTTT, the other TTTT within it:
+// chr20:592,280; the truth 1|2, the inner allele written "*" on the outer's haplotype) is the site's other allele, as
+// a shorter deletion at the same position is (merge_msa_colocated_deletions). Emitted apart, the inner one counted
+// the outer's reads as neither allele and failed injection's confident-read rule; the MSA had the pair right and the
+// inner deletion was not written (chr20's arms: 80 loci, most of the 305 truth hets "msa right, written ALLELE"). Merged:
+// REF the outer span, allele 1 deleting it all, allele 2 the bases the inner deletion keeps (its consensus letter
+// before the gap included); a read's allele by record order.
+static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<CandidateVariant>& vars,
+                                       std::vector<VariantCategory>& categories,
+                                       std::vector<ReadVariantProfile>& profiles) {
+    for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        CandidateVariant& outer = vars[i];
+        const CandidateVariant& inner = vars[i + 1];
+        const auto noisy = [](const CandidateVariant& v) {
+            return v.counts.category == VariantCategory::NoisyCandHet || v.counts.category == VariantCategory::NoisyCandHom;
+        };
+        if (outer.key.type != VariantType::Deletion || inner.key.type != VariantType::Deletion ||
+            !outer.key.alt.empty() || !inner.key.alt.empty() || inner.key.pos <= outer.key.pos ||
+            inner.key.pos + inner.key.ref_len > outer.key.pos + outer.key.ref_len ||
+            !outer.msa_insertion_alts.empty() || !inner.msa_insertion_alts.empty() || !noisy(outer) || !noisy(inner) ||
+            (outer.counts.category != VariantCategory::NoisyCandHet &&
+             inner.counts.category != VariantCategory::NoisyCandHet)) continue;
+        const hts_pos_t off = outer.key.pos - chunk.ref_beg;
+        if (outer.key.pos < chunk.ref_beg ||
+            static_cast<size_t>(off) + static_cast<size_t>(outer.key.ref_len) > chunk.ref_seq.size()) continue;
+        std::string span = chunk.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(outer.key.ref_len));
+        for (char& ch : span) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        const size_t gap = static_cast<size_t>(inner.key.pos - outer.key.pos);
+        std::string kept = span.substr(0, gap) + span.substr(gap + static_cast<size_t>(inner.key.ref_len));
+        if (inner.alt_ref_base < 4) kept[gap - 1] = "ACGT"[inner.alt_ref_base];
+        pgphase_trace::candidate("msa", "merge", inner, "two_allele_nested_deletion", "into " +
+                                 pgphase_trace::key_text(outer.key));
+        outer.msa_insertion_alts = {std::string(), kept};
+        outer.msa_insertion_anchors = {outer.alt_ref_base, 4};
+        outer.counts.alle_covs.assign(3, 0);
+        outer.counts.total_cov = 0;
+        for (auto& profile : profiles) {
+            if (profile.start_var_idx < 0) continue;
+            const auto allele_at = [&](int index) {
+                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
+                       profile.alleles[index - profile.start_var_idx];
+            };
+            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
+            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
+            ReadVariantProfile merged;
+            merged.read_id = profile.read_id;
+            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
+                if (vi == static_cast<int>(i + 1)) {
+                    if (profile.start_var_idx == vi)
+                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+                    continue;
+                }
+                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
+                    vi == static_cast<int>(i) ? allele : allele_at(vi),
+                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
+            }
+            profile = std::move(merged);
+            if (allele >= 0) ++outer.counts.alle_covs[allele];
+        }
+        update_variant_depth_fields(outer);
+        if (outer.counts.category != VariantCategory::NoisyCandHet) set_noisy_category(outer, VariantCategory::NoisyCandHet);
+        categories[i] = VariantCategory::NoisyCandHet;
+        vars.erase(vars.begin() + i + 1);
+        categories.erase(categories.begin() + i + 1);
+    }
+}
+
 static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
     std::vector<CandidateVariant>& vars,
     std::vector<VariantCategory>& categories, std::vector<ReadVariantProfile>& profiles) {
@@ -1368,6 +1435,8 @@ int make_vars_from_msa_cons_aln(
         merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)
         merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_nested_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)
         merge_msa_colocated_insertion_and_deletion(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster

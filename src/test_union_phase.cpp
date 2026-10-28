@@ -851,8 +851,10 @@ static void test_inject_msa_allele_replaces_graph_row() {
         if (c.bam_injected) call_written = !reproduced.site_meta[ci].ref.empty();
         else row_written = !reproduced.site_meta[ci].ref.empty();
     }
-    check(row_written && call_written,
-          "replace: an MSA call reproducing the row's allele is written, the row too (the writer keeps one)");
+    // Every row an MSA het overlaps is replaced, one with the call's own allele too: kept beside the call, it made a
+    // co-located copy that left 162 truth hets on chr12/18/20 unphased.
+    check(!row_written && call_written,
+          "replace: an MSA call reproducing the row's allele is written, the row not");
 }
 
 static void test_inject_rows_msa_reads_as_reference() {

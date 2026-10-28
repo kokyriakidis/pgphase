@@ -2229,6 +2229,25 @@ Two rules downstream of the MSA, for either backend:
   1,036,854 / 4,409 / 1,042 -> 1,036,730 / 4,515 / 1,060 (one paralogous SNP at chr12:10,315,097, not in the truth,
   phased the other way in a block; the EM's join depth guard at 1.5x instead of 2x cost 138 phased hets and did not
   restore it).
+- **A deletion nested inside another is the site's other allele** (`merge_msa_nested_deletions`): one consensus
+  deletes ATATTTTTTT, the other TTTT within it (chr20:592,280, the truth 1|2). Emitted apart, the inner deletion
+  counted the outer one's reads as neither allele and failed injection's confident-read rule, and was not written.
+  Merged as co-located deletions are: REF the outer span, allele 1 deleting it all, allele 2 the bases the inner
+  deletion keeps.
+- **Catalog indel rows the MSA lacks write no record** (`unwrite_indel_rows_msa_lacks`), as substitution rows already
+  did: a row whose haplotype, over every place in the repeat tract its indel can sit, neither consensus spells
+  (chr20:14,371,298 GA>G, phased, in a region whose two consensus sequences delete nothing there).
+- **A deletion and an insertion side by side on one haplotype are one record** (`merge_adjacent_deletion_insertion`,
+  output): the MSA's alignment can describe a replacement as the two (chr18:830,100, TTTG deleted then AAAAAA
+  inserted). Written apart, the insertion's padding base was the deletion's last deleted base. Merged only where both
+  are surely on one haplotype (one phase set and genotype, or both 1/1).
+- Every catalog row an MSA het overlaps is replaced. A check meant to keep a row an MSA call reproduces compared the
+  row's key (a catalog site id) with allele sequences and never matched; comparing VCF alleles instead left 162 truth
+  hets unphased beside the call's co-located copy, so it is gone.
+  These, HG002 HiFi chr12/18/20, plegma, against 2611c5a: truth hets on the arms phased 279,159 -> 280,072, unphased
+  5,289 -> 5,114, other alleles 7,951 -> 7,216, missed 15,227 -> 15,249 (a merged 1|2 whose inner allele has under two
+  confidently mapped reads now fails the confident-read rule where the outer deletion alone passed); MSA regions the
+  records do not spell 1,631 -> 1,337; false hets, switches, flips and reads unchanged (arm reads -4 / +3 / +1).
 
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 

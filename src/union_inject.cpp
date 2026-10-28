@@ -291,11 +291,6 @@ static bool in_het_msa_region(const PhasingChunk& bam, const CandidateVariant& c
 void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
                   const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta, bool record_decisions,
                   Selection& sel) {
-    // Graph rows an MSA call reproduces exactly stay written: a real variant beside the replaced allele.
-    std::set<CandKey> msa_keys;
-    for (const CandidateVariant& c : bam.candidates)
-        if (c.counts.category == VariantCategory::NoisyCandHet && c.msa_verified)
-            msa_keys.insert(left_aligned_indel_key(c, bam));
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     const auto decide = [&](size_t bi, const char* why) {
         if (record_decisions) sel.decision[bi] = why;
@@ -353,16 +348,16 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             continue;
         }
         if (msa && !rows.empty() && graph_meta.size() == graph.candidates.size()) {
-            // An MSA het over catalog rows is written itself, the rows (still voting) not, unless an MSA call
-            // reproduces one exactly: the MSA's haplotypes are the region's reads' own, the rows' alleles what the
-            // graph's reads were forced onto (chr20:509,755, a 4 bp deletion the catalog describes only as a SNP beside
-            // it) or genotyped from them (chr12:6,797,743, the MSA's het T>A, 33 against 31 reads, under a catalog row
+            // An MSA het over catalog rows is written itself, the rows (still voting) not: the MSA's haplotypes are
+            // the region's reads' own, the rows' alleles what the graph's reads were forced onto (chr20:509,755, a
+            // 4 bp deletion the catalog describes only as a SNP beside it) or genotyped from them (chr12:6,797,743, the MSA's het T>A, 33 against 31 reads, under a catalog row
             // the graph's reads called 14 against 50 and wrote 1/1). Hiding a call whose allele the rows spelled, as a
             // complement site beside them, left these written wrong: HG002 HiFi chr12/18/20 true het regions
             // 29,870 -> 29,979, wrong 795 -> 681, missed 539 -> 531; arm reads +25 discordant.
             decide(bi, "replaces");
-            for (const size_t r : rows)
-                if (msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0) sel.replaced_rows.insert(r);
+            // Every row: keeping one an MSA call reproduces (by VCF allele) put a co-located copy beside the call and
+            // left 162 truth hets on chr12/18/20 unphased.
+            sel.replaced_rows.insert(rows.begin(), rows.end());
             if (!confident) sel.low_mapq_only.insert(bi);
             sel.selected.push_back(bi);
             continue;
@@ -391,9 +386,7 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             }
             decide(it->first, "promoted");
             for (const size_t r : it->second)
-                if (sel.unwritten_rows.count(r) == 0 &&
-                    msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0 &&
-                    sel.replaced_rows.insert(r).second)
+                if (sel.unwritten_rows.count(r) == 0 && sel.replaced_rows.insert(r).second)
                     changed = true;
             it = sel.complement_rows.erase(it);
         }
@@ -546,6 +539,68 @@ void genotype_substitution_rows(const GraphChunkBuildResult& graph_chunk, const 
     }
 }
 
+// Catalog indel rows against the MSA's consensus sequences, as genotype_substitution_rows checks substitutions: a row
+// whose haplotype, over every place in the repeat tract its indel can sit, neither consensus spells is no haplotype of
+// the region's reads; written no record, still voting. The SNP check alone left such rows written beside the MSA's
+// own calls (chr20:14,371,298 GA>G, phased, in a region whose two consensus sequences carry no deletion there).
+void unwrite_indel_rows_msa_lacks(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    if (bam.msa_regions.empty() || graph_chunk.site_meta.size() != graph.candidates.size()) return;
+    const auto upper = [](char c) { return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); };
+    const auto base = [&](hts_pos_t pos) -> char {
+        const hts_pos_t off = pos - bam.ref_beg;
+        if (off < 0 || static_cast<size_t>(off) >= bam.ref_seq.size()) return 'N';
+        return upper(bam.ref_seq[static_cast<size_t>(off)]);
+    };
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        if (graph.candidates[ci].counts.alle_covs.size() != 2 || meta.ref.empty() || sel.unwritten_rows.count(ci) != 0)
+            continue;
+        const std::vector<int>* orig =
+            ci < graph_chunk.site_allele_orig_idx.size() ? &graph_chunk.site_allele_orig_idx[ci] : nullptr;
+        const int alt_i = (orig != nullptr && orig->size() > 1 ? (*orig)[1] : 1) - 1;
+        if (alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
+        hts_pos_t pos = meta.pos;
+        std::string ref = meta.ref, alt = meta.alts[static_cast<size_t>(alt_i)];
+        for (char& ch : ref) ch = upper(ch);
+        for (char& ch : alt) ch = upper(ch);
+        trim_to_minimal_vcf(pos, ref, alt);
+        // A simple indel after its padding base.
+        if (ref.size() == alt.size() || std::min(ref.size(), alt.size()) != 1 || ref[0] != alt[0]) continue;
+        const bool deletion = ref.size() > alt.size();
+        std::string unit = deletion ? ref.substr(1) : alt.substr(1);
+        const hts_pos_t len = deletion ? static_cast<hts_pos_t>(unit.size()) : 0;
+        // Its leftmost and rightmost placements (q: the first deleted base, or the base the insertion precedes).
+        hts_pos_t lq = pos + 1, rq = pos + 1;
+        std::string left_unit = unit;
+        while (base(lq - 1) != 'N' && base(lq - 1) == left_unit.back()) {
+            left_unit = std::string(1, left_unit.back()) + left_unit.substr(0, left_unit.size() - 1);
+            --lq;
+        }
+        for (std::string u = unit; base(rq + len) != 'N' && base(rq + (deletion ? len : 0)) == u.front();) {
+            u = u.substr(1) + u.front();
+            ++rq;
+        }
+        // The window: the padding base of the leftmost placement to the last base the rightmost one touches.
+        const hts_pos_t w0 = lq - 1, w1 = deletion ? rq + len - 1 : rq - 1;
+        const PhasingChunk::MsaRegion* region = nullptr;
+        for (const PhasingChunk::MsaRegion& r : bam.msa_regions)
+            if (r.beg < w0 && w1 < r.end && !r.spelled.empty()) { region = &r; break; }
+        if (region == nullptr) continue;
+        std::string row(1, base(w0));
+        if (!deletion) row += left_unit;
+        for (hts_pos_t x = deletion ? lq + len : lq; x <= w1; ++x) row.push_back(base(x));
+        bool carried = false;
+        for (const std::vector<std::string>& cons : region->spelled) {
+            std::string seq;
+            for (hts_pos_t x = w0; x <= w1; ++x) seq += cons[static_cast<size_t>(x - region->beg)];
+            for (char& ch : seq) ch = upper(ch);
+            carried = carried || seq == row;
+        }
+        if (!carried && sel.unwritten_rows.insert(ci).second) sel.row_reason[ci] = "msa_lacks_indel";
+    }
+}
+
 // One site per left-aligned allele: other placements become aliases whose
 // read calls fold into the canonical row. Regular sites come first: an
 // island-only call never absorbs one, and one at an allele a regular site
@@ -584,6 +639,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     Selection sel;
     suppress_rows_msa_reads_as_reference(graph, bam, sel);
     genotype_substitution_rows(graph_chunk, bam, sel);
+    unwrite_indel_rows_msa_lacks(graph_chunk, bam, sel);
     select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr, sel);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;

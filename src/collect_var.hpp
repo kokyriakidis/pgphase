@@ -29,6 +29,10 @@ size_t make_colocated_alleles_complementary(CandidateTable& records, int min_alt
 
 void drop_conflicting_haplotype_alleles(CandidateTable& records);
 
+/// A deletion and an insertion side by side on one haplotype (the insertion right after the deleted bases, or right
+/// before them) written as one record: the deletion's, its ALT the inserted bases. Returns the number merged.
+size_t merge_adjacent_deletion_insertion(CandidateTable& records);
+
 // Move-only RAII owner for heap-allocated cgranges_t.
 struct CrangesOwner {
     cgranges_t* cr = nullptr;
