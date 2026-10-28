@@ -1722,6 +1722,9 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
 // WFA2 alignment of noisy-region reads with per-haplotype separation.
 // ════════════════════════════════════════════════════════════════════════════
 
+// The longest read segment plegma's PS-aware path takes: the main pipeline's region cap (Options::max_noisy_reg_len).
+constexpr int kPlegmaMaxReadSegment = 50000;
+
 int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_reads,
                                            NoisyReadInfo& info,
                                            hts_pos_t ps,
@@ -1768,8 +1771,16 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                 if (!info.strands.empty()) ps_strands.push_back(info.strands[static_cast<size_t>(i)]);
             }
         }
+        // A read segment is refused at kPlegmaMaxReadSegment, not at the region cap: the union alignment solve
+        // caps regions at 2 kb of reference (kUnionMsaMaxRegionLength), and a haplotype carrying an expansion
+        // there spans more -- chr18:80,195,529-80,197,336, a 1,808 bp VNTR whose longer haplotype's reads span
+        // 2,632 bp, got no MSA, and the catalog's sites inside it were phased as called (false hets, the block's
+        // last true SNP flipped). HG002 HiFi chr12/18/20 (chr17/19/21 held out): regions without consensus 741
+        // -> 491 (1,150 -> 790); arm reads +111 correct, -116 discordant, -89 confident discordant (+29, -40,
+        // +3); arm switches 3 -> 1 (7 -> 7), flips 13 -> 12 (9 -> 8); true het loci phased +607 (+359), false
+        // het loci -108 (-53). A 5 kb cap gained about half as much.
         bool long_hap = false;
-        for (int l : ps_lens) long_hap = long_hap || l >= opts.max_noisy_reg_len;
+        for (int l : ps_lens) long_hap = long_hap || l >= kPlegmaMaxReadSegment;
         if (!ps_ids.empty() && !long_hap &&
             plegma_phased_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, ps_haps, cons_seqs,
                                    clu_n_seqs, clu_read_ids, plegma_rows) == 2 &&
