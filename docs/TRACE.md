@@ -30,7 +30,7 @@ The union EM runs twice per chunk: a later `em` event for a candidate supersedes
 | inject | merge / drop | `alias_folded` / `island_duplicate_dropped` | `fold_aliases` | a selection describing an allele another already does |
 | inject | drop | `unusable_vcf_meta` | `synthesize_alignment_site_meta` | an alignment call whose VCF form does not round-trip: no record |
 | em | not_site | `one_allele_called`, `minor_allele_below_fraction` | union_em.cpp `select_sites` | a germline candidate the EM does not phase |
-| em | site | `phased`, `phased_written_unphased`, `unreliable`, `msa_het_unphasable`, `phased_msa_confirmed` | `write_site_phases`, `confirm_phase_by_msa` | an EM site's outcome, with its block and learned error |
+| em | site | `phased`, `phased_written_unphased`, `unreliable`, `msa_het_unphasable`, `phased_msa_confirmed`, `phased_by_msa` | `write_site_phases`, `confirm_phase_by_msa`, `phase_unphasable_by_msa` | an EM site's outcome, with its block and learned error |
 | em | window | `repeat_indel_window_phased` | union_phase.cpp `phase_chunk_with_alignment_sites` | a catalog repeat indel written with the genotype and block its allele window was phased with |
 | em | site | `skewed_msa_het_unphased` | `write_skewed_msa_hets` | an MSA het its reads split too unevenly to phase, written unphased |
 | output | rephase | `lone_het_rephased` | graph_collect.cpp `graph_chunks_to_candidate_table` | a lone het moved into the phase set holding most of its labelled reads |

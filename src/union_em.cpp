@@ -841,6 +841,48 @@ private:
         }
         confirm_phase_by_msa();
         write_skewed_msa_hets();
+        phase_unphasable_by_msa();
+    }
+
+    // An MSA het written unphased with no phase set -- the EM could not phase it (msa_het_unphasable), or its reads
+    // split too unevenly to be a site (write_skewed_msa_hets) -- takes its phase from the MSA where its het region holds
+    // sites the EM phased: the MSA's consensus sequences say whether it is cis or trans to each. Only when every such
+    // site is in one block and implies one orientation.
+    void phase_unphasable_by_msa() {
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        const auto usable = [](const CandidateVariant& c) {
+            const auto& h = c.hap_to_cons_alle;
+            return c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.msa_insertion_alts.empty() && h.size() > 2 &&
+                   h[1] >= 0 && h[2] >= 0 && h[1] != h[2] && h[1] <= 1 && h[2] <= 1;
+        };
+        std::vector<size_t> anchors;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) continue;
+            const CandidateVariant& d = chunk_.candidates[sites_[k].ci];
+            if (usable(d) && d.phase_set > 0 && !d.vcf_unphased) anchors.push_back(sites_[k].ci);
+        }
+        if (anchors.empty()) return;
+        for (CandidateVariant& c : chunk_.candidates) {
+            if (!usable(c) || !c.vcf_unphased || c.phase_set > 0 || c.unresolved_noisy) continue;
+            hts_pos_t ps = 0;
+            int implied = -1;
+            bool consistent = true;
+            for (const size_t di : anchors) {
+                const CandidateVariant& d = chunk_.candidates[di];
+                if (d.msa_region != c.msa_region) continue;
+                const bool msa_cis = (c.msa_hap1_allele > 0) == (d.msa_hap1_allele > 0);
+                const int here = msa_cis == alt_on_hap1(d) ? 1 : 0;
+                consistent = consistent && (ps == 0 || ps == d.phase_set) && (implied < 0 || implied == here);
+                ps = d.phase_set;
+                implied = here;
+            }
+            if (implied < 0 || !consistent) continue;
+            c.hap_to_cons_alle[1] = implied;
+            c.hap_to_cons_alle[2] = 1 - implied;
+            c.phase_set = ps;
+            c.vcf_unphased = false;
+            pgphase_trace::candidate("em", "site", c, "phased_by_msa", pgphase_trace::genotype_text(c));
+        }
     }
 
     // A site written unphased for its learned error (kEmVcfMaxSnpError, kEmVcfMaxIndelError) whose orientation

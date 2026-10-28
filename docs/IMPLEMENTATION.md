@@ -2262,6 +2262,10 @@ Two rules downstream of the MSA, for either backend:
   (`msa_region`, `msa_hap1_allele`). chr20:15,508,905 T>A at error 0.14 beside 15,508,906 T>A at 0.01, one consensus
   carrying both, the truth 1|0 1|0. HG002 HiFi chr12/18/20 against 2f10a85: truth hets on the arms phased 280,416 ->
   281,416, unphased 5,122 -> 4,122; switches, flips, false hets and reads unchanged.
+  An MSA het the EM cannot phase (`msa_het_unphasable`, `skewed_msa_het_unphased`: written unphased, no phase set)
+  takes its phase from the MSA where its region holds sites the EM phased, all in one block and implying one
+  orientation (`phase_unphasable_by_msa`): arm truth hets phased 281,416 -> 281,737, unphased 4,122 -> 3,803;
+  switches, flips, false hets and reads unchanged.
 - **Catalog repeat indels their allele window phases are written** (see "Allele windows"): the windows phased them
   in the EM's second pass and the result was dropped, the rows being never written. HG002 HiFi chr12/18/20 against
   c836382: truth hets on the arms phased 280,072 -> 280,150, missed 15,249 -> 15,164, other alleles 7,216 -> 7,208;
