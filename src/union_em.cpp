@@ -184,6 +184,21 @@ struct EmObs { int s; int b; double e; };
 // with switch moves, block cuts, read labels and the last-resort labels
 // (deferred, unverified, one-edit windows, islands), applied in that order by
 // run().
+// A het whose orientation the MSA or alignment-solve passes below can read and set: REF and ALT (alleles 0 and 1), or
+// a 1/2 site's two ALTs. Its "first" allele is allele 1 either way; its orientation, whether haplotype 1 carries it.
+static bool phaseable_het(const std::array<int, 3>& h) {
+    const int lo = std::min(h[1], h[2]), hi = std::max(h[1], h[2]);
+    return (lo == 0 && hi == 1) || (lo == 1 && hi == 2);
+}
+
+static bool first_allele_on_hap1(const CandidateVariant& c) { return c.hap_to_cons_alle[1] == 1; }
+
+static void set_first_allele_side(CandidateVariant& c, int on_hap1) {
+    const int other = std::max(c.hap_to_cons_alle[1], c.hap_to_cons_alle[2]) == 2 ? 2 : 0;
+    c.hap_to_cons_alle[1] = on_hap1 ? 1 : other;
+    c.hap_to_cons_alle[2] = on_hap1 ? other : 1;
+}
+
 class GlobalEm {
 public:
     GlobalEm(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci, const std::vector<char>* bridge_weak,
@@ -854,11 +869,10 @@ private:
     // kEmAlignmentAnchorSpan of it in the same alignment phase set relate to it as that solve's haplotypes do. Phased
     // when every such call implies one orientation in one block (and, if the EM phased it, the EM's own).
     void phase_by_alignment_solve() {
-        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return first_allele_on_hap1(c); };
         const auto usable = [](const CandidateVariant& c) {
             const auto& h = c.hap_to_cons_alle;
-            return c.aln_phase_set > 0 && c.aln_hap1_allele >= 0 && c.msa_insertion_alts.empty() && h.size() > 2 &&
-                   h[1] >= 0 && h[2] >= 0 && h[1] != h[2] && h[1] <= 1 && h[2] <= 1;
+            return c.aln_phase_set > 0 && c.aln_hap1_allele >= 0 && h.size() > 2 && phaseable_het(h);
         };
         std::vector<size_t> anchors;
         for (size_t k = 0; k < n_; ++k) {
@@ -876,7 +890,7 @@ private:
                 const CandidateVariant& d = chunk_.candidates[di];
                 if (d.aln_phase_set != c.aln_phase_set || std::abs(d.key.pos - c.key.pos) > kEmAlignmentAnchorSpan)
                     continue;
-                const bool cis = (c.aln_hap1_allele > 0) == (d.aln_hap1_allele > 0);
+                const bool cis = (c.aln_hap1_allele == 1) == (d.aln_hap1_allele == 1);
                 const int here = cis == alt_on_hap1(d) ? 1 : 0;
                 consistent = consistent && (ps == 0 || ps == d.phase_set) && (implied < 0 || implied == here);
                 ps = d.phase_set;
@@ -886,8 +900,7 @@ private:
             if (c.phase_set > 0) {
                 if (c.phase_set != ps || (alt_on_hap1(c) ? 1 : 0) != implied) continue;
             } else {
-                c.hap_to_cons_alle[1] = implied;
-                c.hap_to_cons_alle[2] = 1 - implied;
+                set_first_allele_side(c, implied);
                 c.phase_set = ps;
             }
             c.vcf_unphased = false;
@@ -900,11 +913,10 @@ private:
     // sites the EM phased: the MSA's consensus sequences say whether it is cis or trans to each. Only when every such
     // site is in one block and implies one orientation.
     void phase_unphasable_by_msa() {
-        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return first_allele_on_hap1(c); };
         const auto usable = [](const CandidateVariant& c) {
             const auto& h = c.hap_to_cons_alle;
-            return c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.msa_insertion_alts.empty() && h.size() > 2 &&
-                   h[1] >= 0 && h[2] >= 0 && h[1] != h[2] && h[1] <= 1 && h[2] <= 1;
+            return c.msa_region >= 0 && c.msa_hap1_allele >= 0 && h.size() > 2 && phaseable_het(h);
         };
         std::vector<size_t> anchors;
         for (size_t k = 0; k < n_; ++k) {
@@ -921,15 +933,14 @@ private:
             for (const size_t di : anchors) {
                 const CandidateVariant& d = chunk_.candidates[di];
                 if (d.msa_region != c.msa_region) continue;
-                const bool msa_cis = (c.msa_hap1_allele > 0) == (d.msa_hap1_allele > 0);
+                const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
                 const int here = msa_cis == alt_on_hap1(d) ? 1 : 0;
                 consistent = consistent && (ps == 0 || ps == d.phase_set) && (implied < 0 || implied == here);
                 ps = d.phase_set;
                 implied = here;
             }
             if (implied < 0 || !consistent) continue;
-            c.hap_to_cons_alle[1] = implied;
-            c.hap_to_cons_alle[2] = 1 - implied;
+            set_first_allele_side(c, implied);
             c.phase_set = ps;
             c.vcf_unphased = false;
             pgphase_trace::candidate("em", "site", c, "phased_by_msa", pgphase_trace::genotype_text(c));
@@ -946,10 +957,10 @@ private:
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) continue;
             const CandidateVariant& c = chunk_.candidates[sites_[k].ci];
-            if (c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.phase_set > 0 && c.msa_insertion_alts.empty())
+            if (c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.phase_set > 0 && phaseable_het(c.hap_to_cons_alle))
                 by_region.push_back(sites_[k].ci);
         }
-        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return first_allele_on_hap1(c); };
         for (const size_t ci : by_region) {
             CandidateVariant& c = chunk_.candidates[ci];
             if (!c.vcf_unphased || c.unresolved_noisy) continue;
@@ -958,7 +969,7 @@ private:
                 const CandidateVariant& d = chunk_.candidates[di];
                 if (di == ci || d.vcf_unphased || d.msa_region != c.msa_region || d.phase_set != c.phase_set) continue;
                 const bool em_cis = alt_on_hap1(c) == alt_on_hap1(d);
-                const bool msa_cis = (c.msa_hap1_allele > 0) == (d.msa_hap1_allele > 0);
+                const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
                 ++(em_cis == msa_cis ? agree : disagree);
             }
             if (agree == 0 || disagree > 0) continue;
