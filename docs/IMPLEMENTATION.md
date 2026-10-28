@@ -2237,7 +2237,10 @@ Two rules downstream of the MSA, for either backend:
   deletes ATATTTTTTT, the other TTTT within it (chr20:592,280, the truth 1|2). Emitted apart, the inner deletion
   counted the outer one's reads as neither allele and failed injection's confident-read rule, and was not written.
   Merged as co-located deletions are: REF the outer span, allele 1 deleting it all, allele 2 the bases the inner
-  deletion keeps.
+  haplotype keeps there, with the SNPs inside the span (the inner haplotype's: the outer one has no base there)
+  folded in. Left records of their own, those SNPs made the inner reads match neither allele in the refresh of
+  assigned reads (chr20:1,180,618 T>A beside the T deleted at 616) and the merged site was not written; folding them
+  in, against e436ede: arm truth hets phased 280,150 -> 280,385, other alleles 7,208 -> 6,991; reads unchanged.
 - **Catalog indel rows the MSA lacks write no record** (`unwrite_indel_rows_msa_lacks`), as substitution rows already
   did: a row whose haplotype, over every place in the repeat tract its indel can sit, neither consensus spells
   (chr20:14,371,298 GA>G, phased, in a region whose two consensus sequences delete nothing there).

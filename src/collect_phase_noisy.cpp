@@ -1125,29 +1125,55 @@ static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk
 // a shorter deletion at the same position is (merge_msa_colocated_deletions). Emitted apart, the inner one counted
 // the outer's reads as neither allele and failed injection's confident-read rule; the MSA had the pair right and the
 // inner deletion was not written (chr20's arms: 80 loci, most of the 305 truth hets "msa right, written ALLELE"). Merged:
-// REF the outer span, allele 1 deleting it all, allele 2 the bases the inner deletion keeps (its consensus letter
-// before the gap included); a read's allele by record order.
+// REF the outer span, allele 1 deleting it all, allele 2 the bases the inner haplotype keeps there (its consensus
+// letter before the gap included); a read's allele by record order. A SNP strictly inside the outer span is the inner
+// haplotype's (the outer one has no base there) and is part of allele 2: left a record of its own, the refresh of
+// assigned reads found the inner reads matching neither allele (chr20:1,180,618 T>A beside the T deleted at 616: 22
+// of 27 reads no call) and the merged site was not written.
 static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<CandidateVariant>& vars,
                                        std::vector<VariantCategory>& categories,
                                        std::vector<ReadVariantProfile>& profiles) {
+    const auto noisy = [](const CandidateVariant& v) {
+        return v.counts.category == VariantCategory::NoisyCandHet || v.counts.category == VariantCategory::NoisyCandHom;
+    };
+    const auto plain_deletion = [](const CandidateVariant& v) {
+        return v.key.type == VariantType::Deletion && v.key.alt.empty() && v.msa_insertion_alts.empty();
+    };
     for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        if (!plain_deletion(vars[i]) || !noisy(vars[i])) continue;
+        const hts_pos_t span_beg = vars[i].key.pos, span_end = vars[i].key.pos + vars[i].key.ref_len;
+        // What lies inside the outer span: one deletion, and SNPs.
+        size_t inner_i = vars.size();
+        std::vector<size_t> snps;
+        bool simple = true;
+        for (size_t j = i + 1; j < vars.size() && vars[j].key.pos < span_end; ++j) {
+            const CandidateVariant& v = vars[j];
+            if (plain_deletion(v) && v.key.pos > span_beg && v.key.pos + v.key.ref_len <= span_end &&
+                inner_i == vars.size())
+                inner_i = j;
+            else if (v.key.type == VariantType::Snp && v.key.ref_len == 1 && v.key.alt.size() == 1 && v.key.pos > span_beg)
+                snps.push_back(j);
+            else
+                simple = false;
+        }
+        if (!simple || inner_i == vars.size()) continue;
         CandidateVariant& outer = vars[i];
-        const CandidateVariant& inner = vars[i + 1];
-        const auto noisy = [](const CandidateVariant& v) {
-            return v.counts.category == VariantCategory::NoisyCandHet || v.counts.category == VariantCategory::NoisyCandHom;
-        };
-        if (outer.key.type != VariantType::Deletion || inner.key.type != VariantType::Deletion ||
-            !outer.key.alt.empty() || !inner.key.alt.empty() || inner.key.pos <= outer.key.pos ||
-            inner.key.pos + inner.key.ref_len > outer.key.pos + outer.key.ref_len ||
-            !outer.msa_insertion_alts.empty() || !inner.msa_insertion_alts.empty() || !noisy(outer) || !noisy(inner) ||
-            (outer.counts.category != VariantCategory::NoisyCandHet &&
-             inner.counts.category != VariantCategory::NoisyCandHet)) continue;
-        const hts_pos_t off = outer.key.pos - chunk.ref_beg;
-        if (outer.key.pos < chunk.ref_beg ||
+        const CandidateVariant& inner = vars[inner_i];
+        if (!noisy(inner) || (outer.counts.category != VariantCategory::NoisyCandHet &&
+                              inner.counts.category != VariantCategory::NoisyCandHet)) continue;
+        const hts_pos_t off = span_beg - chunk.ref_beg;
+        if (span_beg < chunk.ref_beg ||
             static_cast<size_t>(off) + static_cast<size_t>(outer.key.ref_len) > chunk.ref_seq.size()) continue;
         std::string span = chunk.ref_seq.substr(static_cast<size_t>(off), static_cast<size_t>(outer.key.ref_len));
         for (char& ch : span) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-        const size_t gap = static_cast<size_t>(inner.key.pos - outer.key.pos);
+        const size_t gap = static_cast<size_t>(inner.key.pos - span_beg);
+        bool snp_in_gap = false;
+        for (const size_t j : snps) {
+            const size_t at = static_cast<size_t>(vars[j].key.pos - span_beg);
+            snp_in_gap = snp_in_gap || (at >= gap && at < gap + static_cast<size_t>(inner.key.ref_len));
+            span[at] = static_cast<char>(std::toupper(static_cast<unsigned char>(vars[j].key.alt[0])));
+        }
+        if (snp_in_gap) continue;
         std::string kept = span.substr(0, gap) + span.substr(gap + static_cast<size_t>(inner.key.ref_len));
         if (inner.alt_ref_base < 4) kept[gap - 1] = "ACGT"[inner.alt_ref_base];
         pgphase_trace::candidate("msa", "merge", inner, "two_allele_nested_deletion", "into " +
@@ -1155,38 +1181,51 @@ static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<Ca
                                  std::to_string(inner.counts.alle_covs.size() > 1 ? inner.counts.alle_covs[1] : -1) +
                                  " inner_ref=" + std::to_string(inner.counts.alle_covs.empty() ? -1 : inner.counts.alle_covs[0]) +
                                  " outer_alt=" + std::to_string(outer.counts.alle_covs.size() > 1 ? outer.counts.alle_covs[1] : -1));
+        for (const size_t j : snps)
+            pgphase_trace::candidate("msa", "merge", vars[j], "two_allele_nested_deletion",
+                                     "into " + pgphase_trace::key_text(outer.key) + " allele 2");
         outer.msa_insertion_alts = {std::string(), kept};
         outer.msa_insertion_anchors = {outer.alt_ref_base, 4};
         outer.counts.alle_covs.assign(3, 0);
         outer.counts.total_cov = 0;
+        // The records folded into the merged one, by index; a profile's later indices shift down past them.
+        std::vector<size_t> gone = snps;
+        gone.push_back(inner_i);
+        std::sort(gone.begin(), gone.end());
+        const auto shifted = [&gone](int vi) {
+            return vi - static_cast<int>(std::lower_bound(gone.begin(), gone.end(), static_cast<size_t>(vi)) - gone.begin());
+        };
         for (auto& profile : profiles) {
             if (profile.start_var_idx < 0) continue;
             const auto allele_at = [&](int index) {
                 return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
                        profile.alleles[index - profile.start_var_idx];
             };
-            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
+            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(inner_i));
             const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
+            const bool covers = profile.start_var_idx <= static_cast<int>(inner_i) && profile.end_var_idx >= static_cast<int>(i);
             ReadVariantProfile merged;
             merged.read_id = profile.read_id;
-            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
-                if (vi == static_cast<int>(i + 1)) {
-                    if (profile.start_var_idx == vi)
-                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+            for (int vi = std::min(profile.start_var_idx, static_cast<int>(i)); vi <= profile.end_var_idx; ++vi) {
+                if (vi == static_cast<int>(i)) {
+                    if (covers) update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
                     continue;
                 }
-                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
-                    vi == static_cast<int>(i) ? allele : allele_at(vi),
-                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
+                if (vi < profile.start_var_idx || std::binary_search(gone.begin(), gone.end(), static_cast<size_t>(vi)))
+                    continue;
+                update_read_var_profile_with_allele(shifted(vi), allele_at(vi), profile.alt_qi[vi - profile.start_var_idx],
+                                                    merged);
             }
             profile = std::move(merged);
-            if (allele >= 0) ++outer.counts.alle_covs[allele];
+            if (covers && allele >= 0) ++outer.counts.alle_covs[allele];
         }
         update_variant_depth_fields(outer);
         if (outer.counts.category != VariantCategory::NoisyCandHet) set_noisy_category(outer, VariantCategory::NoisyCandHet);
         categories[i] = VariantCategory::NoisyCandHet;
-        vars.erase(vars.begin() + i + 1);
-        categories.erase(categories.begin() + i + 1);
+        for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
+            vars.erase(vars.begin() + static_cast<long>(*it));
+            categories.erase(categories.begin() + static_cast<long>(*it));
+        }
     }
 }
 
