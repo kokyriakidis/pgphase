@@ -268,7 +268,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     // voting rows and fall under `busy`.
     // Each candidate is a reference span [p0, p0 + ref_len) and the two allele
     // sequences that replace it on the two haplotypes.
-    struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; };
+    struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; long catalog_row = -1; };
     std::vector<Allele> alleles;
     // A collapsed duplication's calls: injection's depth gate keeps them out of the EM, and a window over them joined
     // blocks through paralogous copies the same way (chr12:10.30-10.31 Mb, a block carried across the duplication by
@@ -356,7 +356,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             std::string s0 = *a0, s1 = *a1;
             for (char& ch : s0) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             for (char& ch : s1) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1)});
+            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci)});
         }
     }
     std::sort(alleles.begin(), alleles.end(), [](const Allele& a, const Allele& b) { return a.p0 < b.p0; });
@@ -374,7 +374,9 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         LocusWindowSite site;
         site.pos = w0 + 1;
         site.end = w1;
+        site.catalog_row = al.catalog_row;
         int n0 = 0, n1 = 0;
+        std::vector<int> edits[2];
         // The two-edit margin is kept although the alleles are exact: for a
         // one-base indel it assigns no read, so no window is built there, and
         // that is the better outcome measured -- a one-edit margin (HiFi length
@@ -385,11 +387,16 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             if (std::abs(d0 - d1) < kLocusMinMargin) continue;
             const int side = d0 < d1 ? 0 : 1;
             (side == 0 ? n0 : n1)++;
+            edits[side].push_back(side == 0 ? d0 : d1);
             site.observations.emplace_back(
                 ri, side, static_cast<float>(std::min(kLocusMaxObsError, 0.5 * std::exp(-std::abs(d0 - d1)))));
         }
         const int called = n0 + n1;
         if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) continue;
+        for (int s = 0; s < 2; ++s) {
+            std::nth_element(edits[s].begin(), edits[s].begin() + static_cast<long>(edits[s].size() / 2), edits[s].end());
+            site.median_edits[s] = edits[s][edits[s].size() / 2];
+        }
         last_end = w1;
         out.push_back(std::move(site));
     }

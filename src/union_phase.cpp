@@ -5,8 +5,15 @@
 // See docs/IMPLEMENTATION.md, "Union gap phasing".
 
 #include "union_internal.hpp"
+#include "noise_filter.hpp"
+#include "trace.hpp"
 
 namespace pgphase_collect {
+
+// The learned error up to which a catalog repeat indel its allele window phases is written (union EM pass 2).
+constexpr double kWindowWriteMaxError = 0.3;
+// The median edit distance of each side's reads to its allele's window sequence for that write.
+constexpr int kWindowWriteMaxMedianEdits = 1;
 
 std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam) {
     const PhasingChunk& chunk = graph_chunk.chunk;
@@ -97,6 +104,35 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
         loci.insert(loci.end(), std::make_move_iterator(lengths.begin()), std::make_move_iterator(lengths.end()));
     }
     phase_chunk_by_global_em(chunk, &loci, weak_ptr, &errors);
+    // A catalog repeat indel is never an EM site, so never written; its allele window, the reads realigned to the
+    // row's two exact alleles, is. A window the solve phases reliably gives the row its genotype and block.
+    for (const LocusWindowSite& w : loci) {
+        if (w.catalog_row < 0 || static_cast<size_t>(w.catalog_row) >= chunk.candidates.size()) continue;
+        if (w.phase < 0 || w.block <= 0 || w.error >= kWindowWriteMaxError) continue;
+        // Each side's reads carry its allele, not merely one nearer to it than the other: at chr20:20,393,257 the
+        // reads inserting TGGATGGA sat 4 edits from the catalog's TGGA, closer than to REF, and TGGA was written.
+        if (w.median_edits[0] > kWindowWriteMaxMedianEdits || w.median_edits[1] > kWindowWriteMaxMedianEdits) continue;
+        CandidateVariant& c = chunk.candidates[static_cast<size_t>(w.catalog_row)];
+        if (c.counts.category != VariantCategory::RepeatHetIndel) continue;
+        // A simple insertion or deletion only: a catalog walk (a long replacement) the window phases as a whole
+        // contradicted the SNPs written inside it (chr20:20,415,921, 41 bases over a SNP on its haplotype).
+        if (static_cast<size_t>(w.catalog_row) >= graph_chunk.site_meta.size() ||
+            static_cast<size_t>(w.catalog_row) >= graph_chunk.site_allele_orig_idx.size()) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[static_cast<size_t>(w.catalog_row)];
+        const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[static_cast<size_t>(w.catalog_row)];
+        if (orig.size() < 2 || orig[0] != 0 || orig[1] < 1 || static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
+        hts_pos_t vpos = meta.pos;
+        std::string vref = meta.ref, valt = meta.alts[static_cast<size_t>(orig[1]) - 1];
+        trim_to_minimal_vcf(vpos, vref, valt);
+        if (vref.size() == valt.size() || std::min(vref.size(), valt.size()) != 1 || vref[0] != valt[0]) continue;
+        c.hap_to_cons_alle[1] = w.phase;
+        c.hap_to_cons_alle[2] = 1 - w.phase;
+        c.phase_set = w.block;
+        c.vcf_unphased = false;
+        c.window_phased = true;
+        pgphase_trace::candidate("em", "window", c, "repeat_indel_window_phased",
+                                 "err=" + std::to_string(w.error) + " block=" + std::to_string(w.block));
+    }
 }
 
 } // namespace pgphase_collect

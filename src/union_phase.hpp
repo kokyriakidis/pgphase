@@ -45,6 +45,12 @@ struct LocusWindowSite {
     // An island-only window is never an EM site: it can only phase reads the
     // solve leaves unlabelled, in a block of its own (see island blocks).
     bool island_only = false;
+    // An allele window over one catalog repeat-indel row (build_allele_window_sites): the row, its side 0 the row's
+    // allele 0 and side 1 its allele 1. -1 for every other window.
+    long catalog_row = -1;
+    // The reads' median edit distance to each side's sequence (catalog-row windows): a read nearer the ALT than the
+    // REF need not carry that ALT (another length of the repeat).
+    int median_edits[2] = {0, 0};
     // Written by phase_chunk_by_global_em: which side haplotype 1 carries
     // (-1 when not phased), the block, and the learned error.
     mutable int phase = -1;

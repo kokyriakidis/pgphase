@@ -604,6 +604,9 @@ struct CandidateVariant {
     // unverified call, or a learned error above kEmVcfMaxSnpError /
     // kEmVcfMaxIndelError).
     bool vcf_unphased = false;
+    // A catalog repeat indel (RepeatHetIndel, never an EM site) its allele window phased (union EM pass 2): written
+    // with the window's genotype and block.
+    bool window_phased = false;
     // A clean het the union injection admits although its alleles lack
     // confidently mapped reads (the confident-read exemption): phased like an
     // unverified call (unresolved_noisy) -- it joins no blocks and labels

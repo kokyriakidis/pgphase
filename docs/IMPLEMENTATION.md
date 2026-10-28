@@ -602,6 +602,10 @@ Per chunk, in order:
      reference carrying one with the reference carrying the other.
    - *Overlaps.* Windows that overlap a haplotype window or a voting indel row
      are skipped.
+   - *Written.* A window over one catalog repeat-indel row (a simple insertion or deletion) that pass 2 phases at a
+     learned error under 0.3, each side's reads a median of at most one edit from that side's sequence, writes the
+     row with that genotype and block (`window_phased`; CAT stays REP_HET_INDEL). Without the edit limit, reads of
+     another repeat length (TGGATGGA against the row's TGGA, chr20:20,393,257) put the wrong length in the VCF.
    - *Collapsed duplications.* Candidates above injection's depth gate
      (`kUnionMaxDepthRatio` times the chunk's median) get no window: their two
      alleles separate paralogous copies (`collapsed_duplication_sites`).
@@ -2248,6 +2252,11 @@ Two rules downstream of the MSA, for either backend:
   5,289 -> 5,114, other alleles 7,951 -> 7,216, missed 15,227 -> 15,249 (a merged 1|2 whose inner allele has under two
   confidently mapped reads now fails the confident-read rule where the outer deletion alone passed); MSA regions the
   records do not spell 1,631 -> 1,337; false hets, switches, flips and reads unchanged (arm reads -4 / +3 / +1).
+- **Catalog repeat indels their allele window phases are written** (see "Allele windows"): the windows phased them
+  in the EM's second pass and the result was dropped, the rows being never written. HG002 HiFi chr12/18/20 against
+  c836382: truth hets on the arms phased 280,072 -> 280,150, missed 15,249 -> 15,164, other alleles 7,216 -> 7,208;
+  false het loci 1,752 -> 1,757 (chr20's 32.2 Mb satellite); arm reads 1,036,726 / 4,518 / 1,061 -> 1,036,716 /
+  4,533 / 1,056.
 
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 

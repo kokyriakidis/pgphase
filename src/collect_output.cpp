@@ -403,7 +403,7 @@ static std::vector<const CandidateVariant*> project_vcf_candidates(
     std::vector<const CandidateVariant*> projected;
     projected.reserve(variants.size());
     for (const CandidateVariant& candidate : variants) {
-        if (!is_germline_output_category(candidate.counts.category)) {
+        if (!is_germline_output_category(candidate.counts.category) && !candidate.window_phased) {
             if (require_alt_genotype)
                 pgphase_trace::candidate("writer", "drop", candidate, "category_not_written",
                                          pgphase_trace::genotype_text(candidate));
