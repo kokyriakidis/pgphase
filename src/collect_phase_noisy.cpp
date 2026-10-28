@@ -997,6 +997,61 @@ std::vector<uint8_t> collect_reg_ref_bseq(const PhasingChunk& chunk,
 // make_vars_from_msa_cons_aln
 // ════════════════════════════════════════════════════════════════════════════
 
+// Folds the records at `gone` (sorted, `second` among them) into the merged record at i: each read's allele there by
+// the two merged records' calls (1 for i's ALT alone, 2 for second's, 0 for REF at both), its calls at `gone` dropped
+// and later indices shifted down past them; the merged record's allele counts recounted.
+static void fold_merged_profiles(size_t i, size_t second, const std::vector<size_t>& gone, CandidateVariant& merged_var,
+                                 std::vector<ReadVariantProfile>& profiles) {
+    const auto shifted = [&gone](int vi) {
+        return vi - static_cast<int>(std::lower_bound(gone.begin(), gone.end(), static_cast<size_t>(vi)) - gone.begin());
+    };
+    for (auto& profile : profiles) {
+        if (profile.start_var_idx < 0) continue;
+        const auto allele_at = [&](int index) {
+            return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
+                   profile.alleles[index - profile.start_var_idx];
+        };
+        const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(second));
+        const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
+        const bool covers = profile.start_var_idx <= static_cast<int>(second) && profile.end_var_idx >= static_cast<int>(i);
+        ReadVariantProfile merged;
+        merged.read_id = profile.read_id;
+        for (int vi = std::min(profile.start_var_idx, static_cast<int>(i)); vi <= profile.end_var_idx; ++vi) {
+            if (vi == static_cast<int>(i)) {
+                if (covers) update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+                continue;
+            }
+            if (vi < profile.start_var_idx || std::binary_search(gone.begin(), gone.end(), static_cast<size_t>(vi)))
+                continue;
+            update_read_var_profile_with_allele(shifted(vi), allele_at(vi), profile.alt_qi[vi - profile.start_var_idx],
+                                                merged);
+        }
+        profile = std::move(merged);
+        if (covers && allele >= 0) ++merged_var.counts.alle_covs[static_cast<size_t>(allele)];
+    }
+}
+
+static void erase_folded(const std::vector<size_t>& gone, std::vector<CandidateVariant>& vars,
+                         std::vector<VariantCategory>& categories) {
+    for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
+        vars.erase(vars.begin() + static_cast<long>(*it));
+        categories.erase(categories.begin() + static_cast<long>(*it));
+    }
+}
+
+// The SNPs among vars[from..] inside [beg, end) of the reference: the indices, applied to `bases` (the reference over
+// [beg, end)); false when another kind of record lies there.
+static bool fold_snps(const std::vector<CandidateVariant>& vars, size_t from, hts_pos_t beg, hts_pos_t end,
+                      std::string& bases, std::vector<size_t>& snps) {
+    for (size_t j = from; j < vars.size() && vars[j].key.pos < end; ++j) {
+        const CandidateVariant& v = vars[j];
+        if (v.key.type != VariantType::Snp || v.key.ref_len != 1 || v.key.alt.size() != 1 || v.key.pos < beg) return false;
+        bases[static_cast<size_t>(v.key.pos - beg)] = static_cast<char>(std::toupper(static_cast<unsigned char>(v.key.alt[0])));
+        snps.push_back(j);
+    }
+    return true;
+}
+
 static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
     std::vector<VariantCategory>& categories, std::vector<ReadVariantProfile>& profiles) {
     for (size_t i = 0; i + 1 < vars.size(); ++i) {
@@ -1071,11 +1126,18 @@ static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk
         const CandidateVariant& ins = ins_del ? first : second;
         const size_t off = static_cast<size_t>(del.key.pos - chunk.ref_beg);
         if (del.key.pos < chunk.ref_beg || off + static_cast<size_t>(del.key.ref_len) > chunk.ref_seq.size()) continue;
-        const std::string deleted = chunk.ref_seq.substr(off, static_cast<size_t>(del.key.ref_len));
+        std::string deleted = chunk.ref_seq.substr(off, static_cast<size_t>(del.key.ref_len));
+        for (char& ch : deleted) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        // A SNP in the deleted bases is the insertion's haplotype's (the other has none there): part of its allele.
+        std::vector<size_t> gone{i + 1};
+        if (!fold_snps(vars, i + 2, del.key.pos, del.key.pos + del.key.ref_len, deleted, gone)) continue;
         std::string ins_allele = ins.key.alt + deleted;
         for (char& ch : ins_allele) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
         pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion_deletion", "into " +
                                  pgphase_trace::key_text(first.key));
+        for (size_t g = 1; g < gone.size(); ++g)
+            pgphase_trace::candidate("msa", "merge", vars[gone[g]], "two_allele_insertion_deletion",
+                                     "into " + pgphase_trace::key_text(first.key) + " insertion allele");
         const std::vector<std::string> alts = ins_del ? std::vector<std::string>{ins_allele, std::string()}
                                                       : std::vector<std::string>{std::string(), ins_allele};
         const std::vector<uint8_t> anchors = {first.alt_ref_base, second.alt_ref_base};
@@ -1089,34 +1151,11 @@ static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk
         first.msa_insertion_anchors = anchors;
         first.counts.alle_covs.assign(3, 0);
         first.counts.total_cov = 0;
-        for (auto& profile : profiles) {
-            if (profile.start_var_idx < 0) continue;
-            const auto allele_at = [&](int index) {
-                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
-                       profile.alleles[index - profile.start_var_idx];
-            };
-            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
-            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
-            ReadVariantProfile merged;
-            merged.read_id = profile.read_id;
-            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
-                if (vi == static_cast<int>(i + 1)) {
-                    if (profile.start_var_idx == vi)
-                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
-                    continue;
-                }
-                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
-                    vi == static_cast<int>(i) ? allele : allele_at(vi),
-                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
-            }
-            profile = std::move(merged);
-            if (allele >= 0) ++first.counts.alle_covs[allele];
-        }
+        fold_merged_profiles(i, i + 1, gone, first, profiles);
         update_variant_depth_fields(first);
         if (first.counts.category != VariantCategory::NoisyCandHet) set_noisy_category(first, VariantCategory::NoisyCandHet);
         categories[i] = VariantCategory::NoisyCandHet;
-        vars.erase(vars.begin() + i + 1);
-        categories.erase(categories.begin() + i + 1);
+        erase_folded(gone, vars, categories);
     }
 }
 
@@ -1188,44 +1227,14 @@ static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<Ca
         outer.msa_insertion_anchors = {outer.alt_ref_base, 4};
         outer.counts.alle_covs.assign(3, 0);
         outer.counts.total_cov = 0;
-        // The records folded into the merged one, by index; a profile's later indices shift down past them.
         std::vector<size_t> gone = snps;
         gone.push_back(inner_i);
         std::sort(gone.begin(), gone.end());
-        const auto shifted = [&gone](int vi) {
-            return vi - static_cast<int>(std::lower_bound(gone.begin(), gone.end(), static_cast<size_t>(vi)) - gone.begin());
-        };
-        for (auto& profile : profiles) {
-            if (profile.start_var_idx < 0) continue;
-            const auto allele_at = [&](int index) {
-                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
-                       profile.alleles[index - profile.start_var_idx];
-            };
-            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(inner_i));
-            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
-            const bool covers = profile.start_var_idx <= static_cast<int>(inner_i) && profile.end_var_idx >= static_cast<int>(i);
-            ReadVariantProfile merged;
-            merged.read_id = profile.read_id;
-            for (int vi = std::min(profile.start_var_idx, static_cast<int>(i)); vi <= profile.end_var_idx; ++vi) {
-                if (vi == static_cast<int>(i)) {
-                    if (covers) update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
-                    continue;
-                }
-                if (vi < profile.start_var_idx || std::binary_search(gone.begin(), gone.end(), static_cast<size_t>(vi)))
-                    continue;
-                update_read_var_profile_with_allele(shifted(vi), allele_at(vi), profile.alt_qi[vi - profile.start_var_idx],
-                                                    merged);
-            }
-            profile = std::move(merged);
-            if (covers && allele >= 0) ++outer.counts.alle_covs[allele];
-        }
+        fold_merged_profiles(i, inner_i, gone, outer, profiles);
         update_variant_depth_fields(outer);
         if (outer.counts.category != VariantCategory::NoisyCandHet) set_noisy_category(outer, VariantCategory::NoisyCandHet);
         categories[i] = VariantCategory::NoisyCandHet;
-        for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
-            vars.erase(vars.begin() + static_cast<long>(*it));
-            categories.erase(categories.begin() + static_cast<long>(*it));
-        }
+        erase_folded(gone, vars, categories);
     }
 }
 
@@ -1273,20 +1282,9 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         // A SNP in the bases the shorter deletion keeps is that haplotype's (the longer one has none there): part of
         // its allele, as merge_msa_nested_deletions folds them; left a record of its own, the refresh of assigned
         // reads found that haplotype's reads matching neither allele.
-        std::vector<size_t> gone;
-        bool simple = true;
-        for (size_t j = i + 2; j < vars.size() && vars[j].key.pos < first.key.pos + long_len; ++j) {
-            const CandidateVariant& v = vars[j];
-            if (v.key.type == VariantType::Snp && v.key.ref_len == 1 && v.key.alt.size() == 1 &&
-                v.key.pos >= first.key.pos + short_len) {
-                retained[static_cast<size_t>(v.key.pos - first.key.pos - short_len)] = v.key.alt[0];
-                gone.push_back(j);
-            } else {
-                simple = false;
-            }
-        }
-        if (!simple) continue;
         for (char& ch : retained) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        std::vector<size_t> gone;
+        if (!fold_snps(vars, i + 2, first.key.pos + short_len, first.key.pos + long_len, retained, gone)) continue;
         pgphase_trace::candidate("msa", "merge", second, "two_allele_deletion", "into " +
                                  pgphase_trace::key_text(first.key));
         for (const size_t j : gone)
@@ -1302,39 +1300,9 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         first.msa_insertion_anchors = {first.alt_ref_base, second.alt_ref_base};
         first.counts.alle_covs.assign(3, 0);
         first.counts.total_cov = 0;
-        for (auto& profile : profiles) {
-            if (profile.start_var_idx < 0) continue;
-            const auto allele_at = [&](int index) {
-                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
-                       profile.alleles[index - profile.start_var_idx];
-            };
-            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
-            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 :
-                               a == 0 && b == 0 ? 0 : -1;
-            const bool covers = profile.start_var_idx <= static_cast<int>(i + 1) && profile.end_var_idx >= static_cast<int>(i);
-            const auto shifted = [&gone](int vi) {
-                return vi - static_cast<int>(std::lower_bound(gone.begin(), gone.end(), static_cast<size_t>(vi)) - gone.begin());
-            };
-            ReadVariantProfile merged;
-            merged.read_id = profile.read_id;
-            for (int vi = std::min(profile.start_var_idx, static_cast<int>(i)); vi <= profile.end_var_idx; ++vi) {
-                if (vi == static_cast<int>(i)) {
-                    if (covers) update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
-                    continue;
-                }
-                if (vi < profile.start_var_idx || std::binary_search(gone.begin(), gone.end(), static_cast<size_t>(vi)))
-                    continue;
-                update_read_var_profile_with_allele(shifted(vi), allele_at(vi), profile.alt_qi[vi - profile.start_var_idx],
-                                                    merged);
-            }
-            profile = std::move(merged);
-            if (covers && allele >= 0) ++first.counts.alle_covs[allele];
-        }
+        fold_merged_profiles(i, i + 1, gone, first, profiles);
         update_variant_depth_fields(first);
-        for (auto it = gone.rbegin(); it != gone.rend(); ++it) {
-            vars.erase(vars.begin() + static_cast<long>(*it));
-            categories.erase(categories.begin() + static_cast<long>(*it));
-        }
+        erase_folded(gone, vars, categories);
         // A third co-located deletion can remain, and it duplicates an allele the
         // merged record now carries. Left in place it is classified from its own
         // double-counted evidence and emitted as a second record at the same
