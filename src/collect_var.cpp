@@ -2367,10 +2367,18 @@ static bool nested_substitutions(const CandidateVariant& a, const CandidateVaria
     return longer.compare(0, shorter.size(), shorter) == 0;
 }
 
-size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
+// Records by the POS they are written at (vcf_record_pos): the two rules below compare alleles that start at one
+// reference base. Grouped by key.sort_pos() instead, a replacement (written unpadded at key.pos) sat with a SNP on
+// the base before it, and the SNP, its ALT a prefix of the replacement's, was dropped as the contained form: chr20:
+// 6,670,080 T>G beside T>GAGGAGGA at 6,670,081, chr12:18,697,237 G>C beside G>CT at 238, each the MSA's haplotype.
+static std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> records_by_vcf_pos(const CandidateTable& result) {
     std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
-    for (size_t i = 0; i < result.size(); ++i)
-        by_pos[{result[i].key.tid, result[i].key.sort_pos()}].push_back(i);
+    for (size_t i = 0; i < result.size(); ++i) by_pos[{result[i].key.tid, vcf_record_pos(result[i])}].push_back(i);
+    return by_pos;
+}
+
+size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
+    const auto by_pos = records_by_vcf_pos(result);
     // A BAM-discovered candidate carries its depths in ref_cov/alt_cov and
     // leaves alle_covs empty -- 662 such candidates per megabase on chr20 --
     // so reading alle_covs[1] alone returned 0 and the min_alt_support test
@@ -2464,9 +2472,7 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
 }
 
 void drop_conflicting_haplotype_alleles(CandidateTable& result) {
-    std::map<std::pair<int, hts_pos_t>, std::vector<size_t>> by_pos;
-    for (size_t i = 0; i < result.size(); ++i)
-        by_pos[{result[i].key.tid, result[i].key.sort_pos()}].push_back(i);
+    const auto by_pos = records_by_vcf_pos(result);
     std::vector<bool> drop(result.size(), false);
     for (const auto& group : by_pos) {
         if (group.second.size() < 2) continue;

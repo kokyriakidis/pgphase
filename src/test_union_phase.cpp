@@ -965,6 +965,141 @@ static void test_inject_promotes_orphaned_complement_and_writes_the_consensus_an
           "anchor: the consensus's letter leads the MSA insertion's ALT, got " + ins_alt);
 }
 
+static void test_inject_writes_what_both_msa_consensus_sequences_carry() {
+    // An MSA region [280, 340] whose two consensus sequences differ at 320 (one of them only) and both carry X at 300
+    // and GG inserted after 310. The catalog SNP at 300 is written 1/1, the one at 320 is not touched; the MSA's
+    // homozygous insertion is injected written 1/1, with no vote and no read calls; the same kind of call outside any
+    // region is not. A catalog MNP over 338-341, past the region's end, whose change at 338 neither consensus carries
+    // writes no record. A two-allele MSA insertion after 360, its first allele after a SNP on its own haplotype, leads
+    // each ALT with its own consensus's letter.
+    std::string ref;
+    for (int i = 0; i < 500; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    const auto other = [](char c) { return c == 'A' ? 'C' : 'A'; };
+    const char x = other(ref[299]), y = other(ref[319]);
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 500;
+    graph.ref_seq = ref;
+    for (const auto& [pos, alt] : std::vector<std::pair<hts_pos_t, char>>{{300, x}, {320, y}}) {
+        CandidateVariant row = clean_snp(pos);
+        row.key.alt = std::string(1, alt);
+        row.counts.alle_covs = {14, 16};
+        graph.candidates.push_back(row);
+        GraphSiteMeta meta;
+        meta.chrom = "chr1";
+        meta.pos = pos;
+        meta.ref = std::string(1, ref[static_cast<size_t>(pos - 1)]);
+        meta.alts = {std::string(1, alt)};
+        gc.site_meta.push_back(meta);
+        gc.site_ids.push_back("s" + std::to_string(pos));
+        gc.site_allele_orig_idx.push_back({0, 1});
+    }
+    {
+        std::string mnp_alt = ref.substr(337, 4);
+        mnp_alt[0] = other(mnp_alt[0]);
+        mnp_alt[3] = other(mnp_alt[3]);
+        CandidateVariant row = clean_snp(338);
+        row.key.ref_len = 4;
+        row.key.alt = mnp_alt;
+        row.counts.alle_covs = {12, 4};
+        graph.candidates.push_back(row);
+        GraphSiteMeta meta;
+        meta.chrom = "chr1";
+        meta.pos = 338;
+        meta.ref = ref.substr(337, 4);
+        meta.alts = {mnp_alt};
+        gc.site_meta.push_back(meta);
+        gc.site_ids.push_back("s338");
+        gc.site_allele_orig_idx.push_back({0, 1});
+    }
+    for (int r = 0; r < 6; ++r) {
+        graph.reads.push_back(read_named("r" + std::to_string(r), 60));
+        graph.read_var_profile.push_back(profile(r, 0, {r % 2, r % 2, r % 2}));
+    }
+    finish_chunk(graph);
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 500;
+    bam.ref_seq = ref;
+    PhasingChunk::MsaRegion region{280, 340, {Interval{300, 300, 0}, Interval{310, 311, 0}, Interval{320, 320, 0}}};
+    for (int c = 0; c < 2; ++c) {
+        std::vector<std::string> spelled;
+        for (hts_pos_t p = 280; p <= 340; ++p) spelled.push_back(std::string(1, ref[static_cast<size_t>(p - 1)]));
+        spelled[300 - 280] = std::string(1, x);
+        spelled[310 - 280] += "GG";
+        if (c == 1) spelled[320 - 280] = std::string(1, y);
+        region.spelled.push_back(std::move(spelled));
+    }
+    bam.msa_regions.push_back(region);
+    const auto hom_insertion = [](hts_pos_t pos) {
+        CandidateVariant c;
+        c.key.tid = 0;
+        c.key.pos = pos;
+        c.key.type = VariantType::Insertion;
+        c.key.ref_len = 0;
+        c.key.alt = "GG";
+        c.counts.category = VariantCategory::NoisyCandHom;
+        c.lcd_var_i_to_cate = kCandNoisyCandHom;
+        c.msa_verified = true;
+        c.counts.alle_covs = {0, 6};
+        return c;
+    };
+    bam.candidates.push_back(hom_insertion(311));
+    CandidateVariant two;
+    two.key.tid = 0;
+    two.key.pos = 361;
+    two.key.type = VariantType::Insertion;
+    two.key.ref_len = 0;
+    two.key.alt = "A";
+    two.counts.category = VariantCategory::NoisyCandHet;
+    two.lcd_var_i_to_cate = kCandNoisyCandHet;
+    two.msa_verified = true;
+    two.msa_insertion_alts = {"A", "AA"};
+    const uint8_t snp_letter = ref[359] == 'A' ? 1 : 0;  // the first allele's haplotype changes 360 to C (or A)
+    two.alt_ref_base = snp_letter;
+    two.msa_insertion_anchors = {snp_letter, static_cast<uint8_t>(4)};
+    two.counts.alle_covs = {0, 3, 3};
+    bam.candidates.push_back(two);
+    bam.candidates.push_back(hom_insertion(451));
+    for (int r = 0; r < 6; ++r) {
+        bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {1, 1 + r % 2, 1}));
+    }
+    inject_alignment_sites(gc, bam, "chr1");
+    bool row300 = false, row320 = true, hom_written = false, hom_votes = true, outside = false, mnp_written = true;
+    size_t hom_i = gc.chunk.candidates.size();
+    std::vector<std::string> two_alts;
+    for (size_t ci = 0; ci < gc.chunk.candidates.size(); ++ci) {
+        const CandidateVariant& c = gc.chunk.candidates[ci];
+        const GraphSiteMeta& meta = gc.site_meta[ci];
+        if (!c.bam_injected && c.key.pos == 300) row300 = meta.msa_hom;
+        if (!c.bam_injected && c.key.pos == 320) row320 = meta.msa_hom || meta.no_record;
+        if (!c.bam_injected && c.key.pos == 338) mnp_written = !meta.no_record;
+        if (c.bam_injected && c.key.pos == 311) {
+            hom_i = ci;
+            hom_written = meta.msa_hom && !meta.ref.empty() && c.hap_to_cons_alle[1] == 1 && c.hap_to_cons_alle[2] == 1;
+            hom_votes = (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+        }
+        if (c.bam_injected && c.key.pos == 451) outside = true;
+        if (c.bam_injected && c.key.pos == 361) two_alts = meta.alts;
+    }
+    bool hom_read_calls = false;
+    for (const ReadVariantProfile& prof : gc.chunk.read_var_profile)
+        for (size_t k = 0; prof.start_var_idx >= 0 && k < prof.alleles.size(); ++k)
+            hom_read_calls = hom_read_calls ||
+                (static_cast<size_t>(prof.start_var_idx) + k == hom_i && prof.alleles[k] >= 0);
+    check(row300, "msa hom: the catalog SNP both consensus sequences carry is written 1/1");
+    check(!row320, "msa hom: the catalog SNP one consensus sequence carries is left as it is");
+    check(!mnp_written, "msa rows: a catalog MNP whose change in the region no consensus carries writes no record");
+    check(hom_written, "msa hom: the MSA's homozygous call in a het region is injected, written 1/1");
+    check(!hom_votes && !hom_read_calls, "msa hom: it neither votes nor carries read calls");
+    check(!outside, "msa hom: one outside any MSA region is not injected");
+    const std::string pad(1, ref[359]);
+    check(two_alts == std::vector<std::string>{std::string(1, "ACGT"[snp_letter]) + "A", pad + "AA"},
+          "anchor: each allele of a two-allele MSA insertion leads with its own consensus letter");
+}
+
 static void test_inject_low_mapq_clean_het() {
     // A clean het read only at low MAPQ is injected as an ordinary site (the
     // confident-read rule binds MSA-verified hets only); an MSA het read the
@@ -1294,6 +1429,7 @@ int main() {
     test_inject_msa_allele_replaces_graph_row();
     test_inject_rows_msa_reads_as_reference();
     test_inject_promotes_orphaned_complement_and_writes_the_consensus_anchor();
+    test_inject_writes_what_both_msa_consensus_sequences_carry();
     test_em_island_blocks();
     test_em_deferred_labels();
     test_em_echo_sites();

@@ -3,6 +3,8 @@
 
 #include "union_internal.hpp"
 
+#include "noise_filter.hpp"
+
 #include <algorithm>
 #include <set>
 
@@ -93,9 +95,13 @@ static std::pair<GraphSiteMeta, std::vector<int>> synthesize_alignment_site_meta
     }
     std::vector<std::string> alts;
     if (cand.msa_insertion_alts.size() >= 2) {
-        for (const std::string& allele : cand.msa_insertion_alts) {
-            const std::string a = anchored(allele);
+        for (size_t ai = 0; ai < cand.msa_insertion_alts.size(); ++ai) {
+            std::string a = anchored(cand.msa_insertion_alts[ai]);
             if (a.empty()) { alts.clear(); break; }
+            // Each allele's own consensus letter leads it, as for a single ALT above.
+            const uint8_t anchor = msa_allele_anchor(cand, ai);
+            if (key.type != VariantType::Snp && !(key.type == VariantType::Insertion && key.ref_len != 0) && anchor < 4)
+                a[0] = "ACGT"[anchor];
             alts.push_back(a);
         }
     }
@@ -257,16 +263,31 @@ struct Selection {
     std::set<size_t> low_mapq_only;  // clean hets admitted by the exemption
     std::unordered_map<size_t, std::vector<size_t>> complement_rows;  // bam candidate -> graph rows it overlaps
     std::set<size_t> replaced_rows;  // graph rows an MSA call of an allele they do not spell replaces in the VCF
-    std::set<size_t> unwritten_rows;  // graph rows inside an MSA region its consensus sequences read as reference
+    std::set<size_t> unwritten_rows;  // graph rows whose allele the consensus sequences of their MSA region lack
+    std::set<size_t> hom_rows;        // graph rows both consensus sequences of their MSA region carry: written 1/1
+    std::set<size_t> hom_records;     // MSA homozygous calls in a het MSA region: written 1/1, no vote
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
 
+// Whether an alignment candidate lies strictly inside a region the MSA resolved into two different consensus
+// sequences (MsaRegion::het).
+static bool in_het_msa_region(const PhasingChunk& bam, const CandidateVariant& c) {
+    const hts_pos_t lo = c.key.pos - 1;
+    const hts_pos_t hi = c.key.pos + std::max(1, c.key.ref_len);
+    for (const PhasingChunk::MsaRegion& region : bam.msa_regions)
+        if (region.het() && region.beg < lo && hi < region.end) return true;
+    return false;
+}
+
 // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
-// alignment's own category bits.
-Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
-                       const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta,
-                       bool record_decisions) {
-    Selection sel;
+// alignment's own category bits. And the MSA's homozygous calls inside a region whose two consensus sequences differ:
+// the haplotypes there are spelled only with them. Union phasing otherwise writes no injected homozygous call (an
+// alignment-discovered subset of the genome's), and at chr12:17,633,561 the region's consensus sequences (+ATCT, and
+// a T run one letter apart) came out as the run lengths alone, both haplotypes missing the insertion.
+// The rows the MSA regions already genotyped (sel.unwritten_rows, sel.hom_rows) come in set.
+void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
+                  const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta, bool record_decisions,
+                  Selection& sel) {
     // Graph rows an MSA call reproduces exactly stay written: a real variant beside the replaced allele.
     std::set<CandKey> msa_keys;
     for (const CandidateVariant& c : bam.candidates)
@@ -281,6 +302,13 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
         const VariantCategory cat = c.counts.category;
         const bool clean = cat == VariantCategory::CleanHetSnp || cat == VariantCategory::CleanHetIndel;
         const bool msa = cat == VariantCategory::NoisyCandHet && c.msa_verified;
+        if (cat == VariantCategory::NoisyCandHom && c.msa_verified && in_het_msa_region(bam, c) &&
+            c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end) {
+            decide(bi, "hom");
+            sel.hom_records.insert(bi);
+            sel.selected.push_back(bi);
+            continue;
+        }
         if (!clean && !msa) { decide(bi, "category"); continue; }
         if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) { decide(bi, "not_germline"); continue; }
         if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) { decide(bi, "outside_chunk"); continue; }
@@ -318,7 +346,7 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
             }
             continue;
         }
-        if (msa && !rows.empty() && c.msa_insertion_alts.empty() && graph_meta.size() == graph.candidates.size()) {
+        if (msa && !rows.empty() && graph_meta.size() == graph.candidates.size()) {
             // An MSA het over catalog rows is written itself, the rows (still voting) not, unless an MSA call
             // reproduces one exactly: the MSA's haplotypes are the region's reads' own, the rows' alleles what the
             // graph's reads were forced onto (chr20:509,755, a 4 bp deletion the catalog describes only as a SNP beside
@@ -338,29 +366,32 @@ Selection select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const
         if (!confident) sel.low_mapq_only.insert(bi);
         sel.selected.push_back(bi);
     }
-    // A complement whose rows another MSA call replaced: no row writes it any longer, so it is written itself, its
-    // rows replaced as a replacing call's are. Repeated: each promotion can replace rows another complement leans on
+    // A complement whose rows another MSA call replaced, or that write no record (unwritten_rows): no row writes it
+    // any longer, so it is written itself, its rows replaced as a replacing call's are (an unwritten one keeps its
+    // REF, and its reads' calls). Repeated: each promotion can replace rows another complement leans on
     // (chr12:322,418-419, C>G and T>G under one catalog row; the MSA's 322,418 replaced the row and its 322,419,
     // hidden behind that row, went unwritten). HG002 HiFi chr12/18/20: true het regions 29,702 -> 29,870, wrong
-    // 1,014 -> 795; reads unchanged.
+    // 1,014 -> 795; reads unchanged. An unwritten row: chr20:5,460,922, the MSA's 1/2 deletion of TT and T under a
+    // catalog SNP neither consensus carries.
     for (bool changed = true; changed;) {
         changed = false;
         for (auto it = sel.complement_rows.begin(); it != sel.complement_rows.end();) {
             bool orphaned = false;
-            for (const size_t r : it->second) orphaned = orphaned || sel.replaced_rows.count(r) != 0;
+            for (const size_t r : it->second)
+                orphaned = orphaned || sel.replaced_rows.count(r) != 0 || sel.unwritten_rows.count(r) != 0;
             if (!orphaned) {
                 ++it;
                 continue;
             }
             decide(it->first, "promoted");
             for (const size_t r : it->second)
-                if (msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0 &&
+                if (sel.unwritten_rows.count(r) == 0 &&
+                    msa_keys.count(left_aligned_indel_key(graph.candidates[r], bam)) == 0 &&
                     sel.replaced_rows.insert(r).second)
                     changed = true;
             it = sel.complement_rows.erase(it);
         }
     }
-    return sel;
 }
 
 // Diagnostic, off by default: PGPHASE_DIAG=DIR writes each alignment
@@ -456,6 +487,56 @@ void suppress_rows_msa_reads_as_reference(const PhasingChunk& graph, const Phasi
     }
 }
 
+// Catalog substitution rows (a SNP, or an MNP the writer splits into its SNPs) against what the MSA's consensus
+// sequences carry at each base the row changes strictly inside a resolved region (MsaRegion::spelled). A change no
+// consensus carries: the row is no haplotype of the region's reads, written no record and still voting, as
+// suppress_rows_msa_reads_as_reference does for rows inside a region read as reference -- here also rows that run
+// past the region and rows where a consensus differs otherwise (chr12:8,726,713-753, a 41 bp catalog walk with 4 of
+// 16 graph reads written as 27 het SNPs, its first 11 bases the region's, reference in both consensus sequences).
+// Every change carried by both consensus sequences of a region whose two differ (MsaRegion::het): written 1/1, still
+// voting. The graph's reads, forced onto the catalog's walks beside an indel, call such a site het (chr12:15,541,161
+// A>T, 41 against 32 graph reads, 79 against 8 alignments, the truth 1|1; chr18:8,187,001 A>G, 23 against 54 and 35
+// against 0). Only in a het region: the MSA's other homozygous calls are written there too (select_sites), and a SNP
+// alone can be half of an indel's alignment (chr20:40,719,136 C>T, the truth's deletion of that C, aligned as the
+// mismatch and a T deleted further along the run).
+void genotype_substitution_rows(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    if (bam.msa_regions.empty() || graph_chunk.site_meta.size() != graph.candidates.size()) return;
+    const auto region_at = [&bam](hts_pos_t p) -> const PhasingChunk::MsaRegion* {
+        for (const PhasingChunk::MsaRegion& region : bam.msa_regions)
+            if (region.beg < p && p < region.end && !region.spelled.empty()) return &region;
+        return nullptr;
+    };
+    const auto upper = [](char c) { return static_cast<char>(std::toupper(static_cast<unsigned char>(c))); };
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        if (graph.candidates[ci].counts.alle_covs.size() != 2 || meta.ref.empty() || sel.unwritten_rows.count(ci) != 0)
+            continue;
+        const std::vector<int>* orig =
+            ci < graph_chunk.site_allele_orig_idx.size() ? &graph_chunk.site_allele_orig_idx[ci] : nullptr;
+        const int alt_i = (orig != nullptr && orig->size() > 1 ? (*orig)[1] : 1) - 1;
+        if (alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
+        hts_pos_t pos = meta.pos;
+        std::string ref = meta.ref, alt = meta.alts[static_cast<size_t>(alt_i)];
+        trim_to_minimal_vcf(pos, ref, alt);
+        if (ref.size() != alt.size() || ref == alt) continue;
+        int changed = 0, by_none = 0, by_both = 0;
+        for (size_t i = 0; i < ref.size(); ++i) {
+            if (upper(ref[i]) == upper(alt[i])) continue;
+            const hts_pos_t p = pos + static_cast<hts_pos_t>(i);
+            const PhasingChunk::MsaRegion* region = region_at(p);
+            if (region == nullptr) continue;
+            ++changed;
+            const int n = region->carriers_of_snp(p, upper(alt[i]));
+            if (n == 0) ++by_none;
+            else if (n == 2 && region->het()) ++by_both;
+        }
+        if (changed == 0) continue;
+        if (by_none > 0) sel.unwritten_rows.insert(ci);
+        else if (by_both == changed) sel.hom_rows.insert(ci);
+    }
+}
+
 // One site per left-aligned allele: other placements become aliases whose
 // read calls fold into the canonical row. Regular sites come first: an
 // island-only call never absorbs one, and one at an allele a regular site
@@ -483,10 +564,14 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     const VotingRows voting(graph);
     const AlignmentSupport support(bam);
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    Selection sel = select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr);
+    Selection sel;
     suppress_rows_msa_reads_as_reference(graph, bam, sel);
+    genotype_substitution_rows(graph_chunk, bam, sel);
+    select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr, sel);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;
+    for (const size_t ci : sel.hom_rows)
+        if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].msa_hom = true;
     if (diag_dir != nullptr) write_injection_diagnostics(diag_dir, graph_chunk, bam, support, sel);
     if (sel.selected.empty()) return 0;
     const std::unordered_map<size_t, size_t> alias_of = fold_aliases(sel, bam);
@@ -547,6 +632,12 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             cand.island_only = true;
             cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
         }
+        if (sel.hom_records.count(bi) != 0) {
+            cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
+            cand.hap_to_cons_alle[1] = 1;
+            cand.hap_to_cons_alle[2] = 1;
+            meta.msa_hom = true;
+        }
         if (sel.complement_rows.count(bi) != 0 || sel.island_only.count(bi) != 0) {
             meta = GraphSiteMeta{};  // empty REF: the writer emits no record
             meta.chrom = contig_name != nullptr ? contig_name : std::string();
@@ -582,6 +673,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             if (alias != alias_of.end()) source_i = alias->second;
             const auto found = bam_to_new.find(source_i);
             if (found == bam_to_new.end()) continue;
+            if (sel.hom_records.count(source_i) != 0) continue;  // written 1/1, no read calls
             const int qi = k < profile.alt_qi.size() ? profile.alt_qi[k] : 0;
             // An alias and its canonical row describe one allele: ALT wins.
             const auto prior = std::find_if(calls.begin(), calls.end(),

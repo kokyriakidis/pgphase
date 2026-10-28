@@ -1002,6 +1002,10 @@ static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
             first.counts.category != VariantCategory::NoisyCandHet ||
             second.counts.category != VariantCategory::NoisyCandHet) continue;
         first.msa_insertion_alts = {first.key.alt, second.key.alt};
+        // Each allele after its own consensus's letter: at chr12:247,663 the haplotype inserting one A has C>A on the
+        // base before it (CC + 26 A against CCC + 24 A), the one inserting AA does not. Its letter dropped, the SNP
+        // was lost (C>CA written for C>AA).
+        first.msa_insertion_anchors = {first.alt_ref_base, second.alt_ref_base};
         first.counts.alle_covs.assign(3, 0);
         first.counts.total_cov = 0;
         for (auto& profile : profiles) {
@@ -1081,6 +1085,7 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         first.msa_insertion_alts = first_is_long
             ? std::vector<std::string>{std::string(), retained}
             : std::vector<std::string>{retained, std::string()};
+        first.msa_insertion_anchors = {first.alt_ref_base, second.alt_ref_base};
         first.counts.alle_covs.assign(3, 0);
         first.counts.total_cov = 0;
         for (auto& profile : profiles) {
@@ -1999,6 +2004,8 @@ static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end,
     for (int c = 0; c < n_cons && c < 2; ++c) {
         if (aln_strs[static_cast<size_t>(c)].empty()) return;
         const AlnStr& aln = aln_strs[static_cast<size_t>(c)][0];
+        std::vector<std::string> spelled(static_cast<size_t>(end - beg + 1));
+        const auto letter = [](uint8_t q) { return q < 4 ? "ACGT"[q] : 'N'; };
         hts_pos_t ref_pos = beg;
         for (int i = 0; i < aln.aln_len; ++i) {
             const uint8_t r = aln.target_aln[static_cast<size_t>(i)];
@@ -2006,11 +2013,16 @@ static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end,
             if (r == kGapBase && q == kGapBase) continue;
             if (r == kGapBase) {
                 region.differs.push_back(Interval{ref_pos - 1, ref_pos, 0});
+                if (ref_pos > beg && ref_pos - 1 - beg < static_cast<hts_pos_t>(spelled.size()))
+                    spelled[static_cast<size_t>(ref_pos - 1 - beg)] += letter(q);
                 continue;
             }
             if (q != r) region.differs.push_back(Interval{ref_pos, ref_pos, 0});
+            if (q != kGapBase && ref_pos - beg < static_cast<hts_pos_t>(spelled.size()))
+                spelled[static_cast<size_t>(ref_pos - beg)] += letter(q);
             ++ref_pos;
         }
+        region.spelled.push_back(std::move(spelled));
     }
     chunk.msa_regions.push_back(std::move(region));
 }

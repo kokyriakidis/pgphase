@@ -744,6 +744,29 @@ TEST_CASE("equal depth breaks towards the shorter allele, deterministically",
     CHECK(alts_of(t) == std::vector<std::string>{"G"});
 }
 
+TEST_CASE("a SNP on the base before a replacement is not its contained form",
+          "[conflict]") {
+    // chr20:6,670,080 T>G and the replacement T>GAGGAGGA written unpadded at 6,670,081, both the MSA's haplotype 2:
+    // two records on two bases. key.sort_pos() puts both at 6,670,080, and the SNP's ALT is the replacement's first
+    // letter.
+    pgphase_collect::CandidateTable t{conflict_record(6670080, 1, "G", 2, 30),
+                                      conflict_record(6670081, 1, "GAGGAGGA", 2, 30,
+                                                      pgphase_collect::VariantType::Insertion)};
+    CHECK(pgphase_collect::make_colocated_alleles_complementary(t, 2) == 0);
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    CHECK(alts_of(t) == std::vector<std::string>{"G", "GAGGAGGA"});
+}
+
+TEST_CASE("a SNP on an insertion's padding base still conflicts with it",
+          "[conflict]") {
+    // An insertion after 500 (key.pos 501, padded at 500) and a SNP changing 500, one haplotype: one record each
+    // at POS 500, settled by depth.
+    pgphase_collect::CandidateTable t{conflict_record(500, 1, "G", 1, 5),
+                                      conflict_record(501, 0, "TT", 1, 10, pgphase_collect::VariantType::Insertion)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    CHECK(alts_of(t) == std::vector<std::string>{"TT"});
+}
+
 TEST_CASE("a SNP nested in a longer substitution is not moved to the other haplotype",
           "[conflict]") {
     // chr12:1,069,108: a 280 bp catalog record whose first base is the SNP's

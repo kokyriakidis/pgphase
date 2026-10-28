@@ -579,6 +579,9 @@ struct CandidateVariant {
     VariantCounts counts;
     // Alternate insertion sequences for one MSA site; index 0 remains genomic reference.
     std::vector<std::string> msa_insertion_alts = {};
+    // The consensus letter before each of msa_insertion_alts (alt_ref_base's encoding), each allele's own: a merged
+    // allele can follow a SNP the other does not have (msa_allele_anchor).
+    std::vector<uint8_t> msa_insertion_anchors = {};
     uint8_t ref_base = 4;     // 0-3=ACGT, 4=unknown; SNPs only
     uint8_t alt_ref_base = 4; // INS/DEL anchor base: 0-3=ACGT consensus, 4=use ref, >3=gap (skip VCF)
     hts_pos_t phase_set = kUnsetCandidatePhaseSet;
@@ -655,6 +658,28 @@ struct CandidateVariant {
 /** @brief Ordered list of candidates for one chunk or merged batch. */
 using CandidateTable = std::vector<CandidateVariant>;
 
+/// The anchor letter of a multi-allelic MSA site's allele i (msa_insertion_alts[i]): its consensus's, else the
+/// site's alt_ref_base. 0-3 = ACGT, 4 = the reference's.
+inline uint8_t msa_allele_anchor(const CandidateVariant& c, size_t i) {
+    return c.msa_insertion_anchors.size() == c.msa_insertion_alts.size() && i < c.msa_insertion_anchors.size()
+               ? c.msa_insertion_anchors[i]
+               : c.alt_ref_base;
+}
+
+/// Whether an insertion or deletion is written as a replacement with no padding base: REF the bases it consumes and
+/// ALT its own sequence (key.alt), both from key.pos. Every other indel leads with a padding base at key.pos - 1.
+inline bool written_unpadded(const CandidateVariant& c) {
+    return c.key.type != VariantType::Snp && !c.key.alt.empty() && c.alt_ref_base == 4 &&
+           c.msa_insertion_alts.empty() && (c.key.type == VariantType::Deletion || c.key.ref_len > 0);
+}
+
+/// POS of the candidate's VCF record (collect_output.cpp build_vcf_record_core). Not key.sort_pos(): a replacement
+/// sorts a base before the first base it writes.
+inline hts_pos_t vcf_record_pos(const CandidateVariant& c) {
+    if (c.key.type == VariantType::Snp || written_unpadded(c)) return c.key.pos;
+    return c.key.pos > 1 ? c.key.pos - 1 : 1;
+}
+
 struct ReadVariantProfile {
     int read_id = -1;
     int start_var_idx = -1;
@@ -716,8 +741,28 @@ struct PhasingChunk {
     std::vector<IslandSite> island_sites;
     std::vector<ReadVariantProfile> read_var_profile;
     /// A noisy region the MSA resolved (plegma), and where its consensus sequences differ from the reference
-    /// (1-based, inclusive; an insertion as the two letters either side of it).
-    struct MsaRegion { hts_pos_t beg; hts_pos_t end; std::vector<Interval> differs; };
+    /// (1-based, inclusive; an insertion as the two letters either side of it). `spelled` holds each consensus (two
+    /// for a het region, one for a hom one) along the reference: at [p - beg] the letter it aligns to p (none for a
+    /// deletion), then any it inserts before p + 1.
+    struct MsaRegion {
+        hts_pos_t beg;
+        hts_pos_t end;
+        std::vector<Interval> differs;
+        std::vector<std::vector<std::string>> spelled = {};
+
+        // Two consensus sequences, not the same: the region's haplotypes differ.
+        bool het() const { return spelled.size() == 2 && spelled[0] != spelled[1]; }
+        // Consensus sequences carrying `alt` (one letter) at p, a base strictly inside the region.
+        int carriers_of_snp(hts_pos_t p, char alt) const {
+            if (p <= beg || p >= end) return -1;
+            int n = 0;
+            for (const auto& cons : spelled) {
+                const std::string& at = cons[static_cast<size_t>(p - beg)];
+                n += !at.empty() && at[0] == alt;
+            }
+            return n;
+        }
+    };
     std::vector<MsaRegion> msa_regions;
     /** Interval tree [start_var_idx, end_var_idx+1) → read_i, built by `collect_read_var_profile`. */
     std::unique_ptr<cgranges_t, CgrangesDeleter> read_var_cr;

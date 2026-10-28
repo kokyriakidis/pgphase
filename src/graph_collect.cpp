@@ -236,7 +236,13 @@ static CandidateTable graph_chunks_to_candidate_table(
             // whose extra content is alignment-discovered calls appearing ONLY
             // where the alignment solve found sites, which is a biased subset of
             // the genome. The output is the catalog's sites plus what union
-            // phasing phased, not a variant call set.
+            // phasing phased, not a variant call set. The exception is the MSA's
+            // homozygous calls inside a region whose two consensus sequences
+            // differ (GraphSiteMeta::msa_hom): without them the region's
+            // haplotypes are spelled wrong (chr12:17,633,561, the insertion both
+            // carry beside the het T run). With the catalog rows the MSA does not
+            // carry now unwritten, records over HG002 HiFi chr20 99,721 -> 98,837,
+            // chr12 167,368 -> 167,866, chr18 100,853 -> 100,592.
             if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty()) {
                 const auto& h = mcand.hap_to_cons_alle;
                 const int n_alleles = static_cast<int>(mcand.counts.alle_covs.size());
@@ -248,7 +254,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                 // 1|1 -- 186 of them on chr20, carrying hap_to_cons_alle (2,1) or
                 // (1,2).
                 if (h.size() < 3 || h[1] < 0 || h[2] < 0 || h[1] >= n_alleles ||
-                    h[2] >= n_alleles || h[1] == h[2])
+                    h[2] >= n_alleles || (h[1] == h[2] && !meta.msa_hom))
                     continue;
             }
 
@@ -385,8 +391,8 @@ static CandidateTable graph_chunks_to_candidate_table(
                 const bool validated_hom_alt =
                     mcand.counts.category == VariantCategory::CleanHom &&
                     hcons.size() > 2 && hcons[1] == new_a && hcons[2] == new_a;
-                const bool is_hom_alt = !het_by_consensus &&
-                    ((ref_cov == 0 && alt_cov >= opts.min_alt_depth) || validated_hom_alt);
+                const bool is_hom_alt = meta.msa_hom || (!het_by_consensus &&
+                    ((ref_cov == 0 && alt_cov >= opts.min_alt_depth) || validated_hom_alt));
                 // Recovery already classified an MSA heterozygote from its
                 // own reads and haplotype consensus. Its REF/ALT depth can be
                 // very uneven; reapplying graph discovery thresholds here
@@ -395,7 +401,7 @@ static CandidateTable graph_chunks_to_candidate_table(
                     mcand.counts.category == VariantCategory::NoisyCandHet &&
                     mcand.msa_verified && mcand.alignment_verified &&
                     (mcand.phase_set > 0 || mcand.vcf_unphased) && het_by_consensus;
-                if (verified_injected_het) {
+                if (verified_injected_het && !meta.msa_hom) {
                     cand.counts.category = mcand.counts.category;
                     cand.counts.candvarcate_initial =
                         mcand.counts.candvarcate_initial;
@@ -466,8 +472,9 @@ static CandidateTable graph_chunks_to_candidate_table(
                 // a hom site carries no phase information in any case, so a VCF
                 // whose contract is the catalog's sites plus what union phasing
                 // phased has no reason to gain hom calls that appear only where
-                // the alignment solve found sites.
-                if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty()) {
+                // the alignment solve found sites -- save the MSA's, which spell
+                // the het region they sit in (msa_hom, above).
+                if (ci < graph_chunk.site_ids.size() && graph_chunk.site_ids[ci].empty() && !meta.msa_hom) {
                     const VariantCategory c = cand.counts.category;
                     if (c != VariantCategory::CleanHetSnp &&
                         c != VariantCategory::CleanHetIndel &&
@@ -548,18 +555,22 @@ static CandidateTable graph_chunks_to_candidate_table(
     // written unphased (the union EM's MSA-genotyped het its reads cannot
     // phase): a repeat call of the same deletion with more reads would
     // otherwise drop it from the VCF (chr12:5,924,102, 86 truth hets on
-    // chr12 alone).
+    // chr12 alone). Then any copy with an ALT genotype over one with none,
+    // which writes no record: an uncalled catalog repeat row with more reads
+    // dropped the MSA's 1/1 insertion at chr20:9,664,305.
     const auto het_rank = [](const CandidateVariant& candidate) {
         const auto category = candidate.counts.category;
-        const bool het = candidate.hap_to_cons_alle[1] >= 0 &&
-            candidate.hap_to_cons_alle[2] >= 0 &&
-            candidate.hap_to_cons_alle[1] != candidate.hap_to_cons_alle[2] &&
+        const auto& h = candidate.hap_to_cons_alle;
+        const bool het = h[1] >= 0 && h[2] >= 0 && h[1] != h[2] &&
             (category == VariantCategory::CleanHetSnp ||
              category == VariantCategory::CleanHetIndel ||
              (category == VariantCategory::NoisyCandHet &&
               candidate.msa_verified && candidate.alignment_verified));
-        if (!het) return 0;
-        return candidate.phase_set > 0 ? 2 : candidate.vcf_unphased ? 1 : 0;
+        if (het) return candidate.phase_set > 0 ? 3 : candidate.vcf_unphased ? 2 : 1;
+        const bool written_category = category == VariantCategory::CleanHetSnp ||
+            category == VariantCategory::CleanHetIndel || category == VariantCategory::CleanHom ||
+            category == VariantCategory::NoisyCandHet || category == VariantCategory::NoisyCandHom;
+        return written_category && (h[1] > 0 || h[2] > 0) ? 1 : 0;
     };
     if (!result.empty()) {
         size_t write = 0;

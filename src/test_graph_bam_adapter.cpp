@@ -1193,6 +1193,36 @@ int main(int argc, char** argv) {
                             insertion_vcf.str().find("SVLEN=1") !=
                                 std::string::npos,
                             "insertion writer: a replacement is written unpadded, its net length reported");
+
+                // Records in key.sort_pos() order, the replacement at 3 first: written in POS order.
+                CandidateVariant snp2 = candidate;
+                snp2.key.type = VariantType::Snp;
+                snp2.key.pos = 2;
+                snp2.key.alt = "C";
+                snp2.counts.category = VariantCategory::CleanHetSnp;
+                std::ostringstream order_vcf;
+                write_phased_variants_vcf_records(
+                    order_vcf, replacement_opts, header.get(), ref, {candidate, snp2});
+                const size_t at2 = order_vcf.str().find("	2	.	T	C	");
+                const size_t at3 = order_vcf.str().find("	3	.	G	AA	");
+                ok &= check(at2 != std::string::npos && at3 != std::string::npos && at2 < at3,
+                            "writer: records in POS order, a SNP before the replacement on the next base");
+
+                // A two-allele insertion after 3, its first allele after a SNP (G>C) on its own haplotype.
+                candidate.key.pos = 4;
+                candidate.key.ref_len = 0;
+                candidate.key.alt = "A";
+                candidate.counts.category = VariantCategory::NoisyCandHet;
+                candidate.msa_insertion_alts = {"A", "AA"};
+                candidate.alt_ref_base = 1;
+                candidate.msa_insertion_anchors = {1, 4};
+                candidate.counts.alle_covs = {0, 5, 5};
+                candidate.hap_to_cons_alle = {-1, 1, 2};
+                std::ostringstream two_vcf;
+                write_phased_variants_vcf_records(
+                    two_vcf, replacement_opts, header.get(), ref, {candidate});
+                ok &= check(two_vcf.str().find("	3	.	G	CA,GAA	") != std::string::npos,
+                            "two-allele insertion writer: each ALT leads with its own consensus letter");
             }
             std::remove(fasta_path);
             std::remove((std::string(fasta_path) + ".fai").c_str());

@@ -19,7 +19,7 @@ extern "C" {
 namespace pgphase_collect {
 
 /// Drop records that put two DIFFERENT alleles on the SAME haplotype at one
-/// position. Contained alleles lose to the complete one (a SNP against the
+/// position (the POS each is written at, vcf_record_pos). Contained alleles lose to the complete one (a SNP against the
 /// insertion containing it); when neither contains the other, the better
 /// supported by allele depth wins, ties going to the shorter allele.
 /// Make two co-located records claiming one haplotype complementary, one allele

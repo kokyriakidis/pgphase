@@ -2179,6 +2179,28 @@ Two rules downstream of the MSA, for either backend:
 - **The duplicate collapse keeps an unphased het over a non-het copy** (`het_rank`): the union EM's MSA-genotyped
   het written unphased was dropped for a deeper repeat call of the same variant (chr12:5,924,102). Missed
   856 -> 712, true 28,997 -> 29,146, false 216 -> 233.
+- **Co-located alleles are those written at one POS** (`vcf_record_pos`, `written_unpadded`): the rules that make
+  two co-located records complementary and drop conflicting ones grouped records by `key.sort_pos()`, a base before
+  where a replacement (an unpadded complex record) is written. A SNP on the base before one sat in its group, and
+  when its ALT was the replacement's first letter it was dropped as the contained form (chr20:6,670,080 T>G beside
+  T>GAGGAGGA at 6,670,081; chr12:18,697,237 G>C beside G>CT). The writer sorts records by the same position: the
+  table's order had put 7 records over chr12/18/20 out of VCF order.
+- **The MSA region's homozygous variants are written** (`MsaRegion::spelled`, `GraphSiteMeta::msa_hom`): plegma's
+  regions keep each consensus sequence along the reference. Where the two differ, the MSA's homozygous calls are
+  injected written 1/1, with no vote and no read calls (chr12:17,633,561: +ATCT in both consensus sequences beside
+  a het T run, written as the run lengths alone), and a catalog SNP or MNP row is checked base by base
+  (`genotype_substitution_rows`): every change carried by both consensus sequences, written 1/1 (chr12:15,541,161
+  A>T, 41 against 32 graph reads, 79 against 8 alignments, the truth 1|1); a change neither carries, no record
+  (chr12:8,726,713-753, a 41 bp catalog walk written as 27 het SNPs). A complement behind a row that writes no
+  record is promoted as for a replaced one (chr20:5,460,922), and a two-allele MSA het replaces rows as a
+  single-allele one does. The duplicate collapse ranks a copy with an ALT genotype over one with none (an uncalled
+  catalog repeat row dropped the MSA's 1/1 insertion at chr20:9,664,305).
+- **Each allele of a two-allele MSA site keeps its own anchor letter** (`msa_insertion_anchors`): merged
+  insertions or deletions took the first allele's `alt_ref_base` for both (chr12:247,663: C>A then an inserted A on
+  one haplotype, AA on the other; written C>CA for C>AA).
+  These four, HG002 HiFi chr12/18/20, plegma (scored with the run's 1/1 records, `calls_truth.py`): true het regions
+  35,038 -> 35,160, wrong 679 -> 555, false 190 -> 172, missed 527 -> 538; the ledger's wrong hets the MSA had right
+  244 -> 122; arm reads 1,036,841 / 4,416 / 1,048 -> 1,036,854 / 4,408 / 1,043 (correct / discordant / unphased).
 
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 

@@ -407,6 +407,11 @@ static std::vector<const CandidateVariant*> project_vcf_candidates(
         if (!candidate.lcd_make_variants_region_pass) continue;
         projected.push_back(&candidate);
     }
+    // The table is in key.sort_pos() order, a base before where a replacement is written: a SNP on the base before
+    // one would follow it (chr20:6,670,081 T>GAGGAGGA, then 6,670,080 T>G).
+    std::stable_sort(projected.begin(), projected.end(), [](const CandidateVariant* a, const CandidateVariant* b) {
+        return std::make_pair(a->key.tid, vcf_record_pos(*a)) < std::make_pair(b->key.tid, vcf_record_pos(*b));
+    });
     return projected;
 }
 
@@ -453,16 +458,18 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         // claims the letter before it, and a SNP there on the same haplotype was dropped as conflicting
         // (chr12:18,697,237 G>C beside G>CT at 238, written GG>GCT). HG002 HiFi chr12/18/20: true het regions
         // 30,200 -> 30,211; reads unchanged.
-        if (key.ref_len > 0 && !key.alt.empty() && candidate.alt_ref_base == 4) {
+        if (written_unpadded(candidate)) {
             core.pos = key.pos;
             core.ref_seq = core.ref_seq.substr(1);
             core.alt_seq = key.alt;
         }
         if (!candidate.msa_insertion_alts.empty()) {
             core.alt_seq.clear();
-            for (const auto& allele : candidate.msa_insertion_alts) {
+            for (size_t ai = 0; ai < candidate.msa_insertion_alts.size(); ++ai) {
                 if (!core.alt_seq.empty()) core.alt_seq += ',';
-                core.alt_seq += std::string(1, alt_anchor_base) + allele;
+                const uint8_t anchor = msa_allele_anchor(candidate, ai);
+                core.alt_seq += std::string(1, anchor < 4 ? "ACGT"[anchor] : anchor_base) +
+                                candidate.msa_insertion_alts[ai];
             }
         }
     } else { // Deletion
@@ -479,7 +486,7 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         // span. Pure deletions have an empty key.alt and keep the anchor alone.
         core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
         // The same for a length-decreasing replacement (deleted bases and an ALT of its own).
-        if (!key.alt.empty() && candidate.alt_ref_base == 4 && candidate.msa_insertion_alts.empty()) {
+        if (written_unpadded(candidate)) {
             core.pos = key.pos;
             core.ref_seq = del_seq;
             core.alt_seq = key.alt;
@@ -489,9 +496,11 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
             // the bases that allele retains, so REF spans the longest deletion
             // and each ALT is the anchor plus what that allele leaves behind.
             core.alt_seq.clear();
-            for (const auto& allele : candidate.msa_insertion_alts) {
+            for (size_t ai = 0; ai < candidate.msa_insertion_alts.size(); ++ai) {
                 if (!core.alt_seq.empty()) core.alt_seq += ',';
-                core.alt_seq += std::string(1, alt_anchor_base) + allele;
+                const uint8_t anchor = msa_allele_anchor(candidate, ai);
+                core.alt_seq += std::string(1, anchor < 4 ? "ACGT"[anchor] : anchor_base) +
+                                candidate.msa_insertion_alts[ai];
             }
         }
     }
