@@ -270,7 +270,13 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     // sequences that replace it on the two haplotypes.
     struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; };
     std::vector<Allele> alleles;
-    for (const CandidateVariant& c : bam.candidates) {
+    // A collapsed duplication's calls: injection's depth gate keeps them out of the EM, and a window over them joined
+    // blocks through paralogous copies the same way (chr12:10.30-10.31 Mb, a block carried across the duplication by
+    // windows over its gated indels, 1,283 arm reads discordant).
+    const std::vector<char> collapsed = collapsed_duplication_sites(bam);
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        const CandidateVariant& c = bam.candidates[bi];
+        if (collapsed[bi]) continue;
         if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
         const VariantCategory cat = c.counts.category;
         if (cat != VariantCategory::RepeatHetIndel && cat != VariantCategory::NoisyCandHet) continue;
@@ -286,7 +292,9 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     {
         struct Lone { hts_pos_t p0; int ref_len; std::string alt; int reads; hts_pos_t w0; hts_pos_t w1; };
         std::vector<Lone> lone;
-        for (const CandidateVariant& c : bam.candidates) {
+        for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+            const CandidateVariant& c = bam.candidates[bi];
+            if (collapsed[bi]) continue;
             if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
             if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
             const int alt_reads = c.counts.alt_cov, ref_reads = c.counts.ref_cov;

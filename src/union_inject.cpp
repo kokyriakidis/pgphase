@@ -819,4 +819,12 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     return sel.selected.size();
 }
 
+std::vector<char> collapsed_duplication_sites(const PhasingChunk& bam) {
+    const AlignmentSupport support(bam);
+    std::vector<char> out(bam.candidates.size(), 0);
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi)
+        out[bi] = support.median_depth > 0.0 && support.depth[bi] > kUnionMaxDepthRatio * support.median_depth;
+    return out;
+}
+
 } // namespace pgphase_collect

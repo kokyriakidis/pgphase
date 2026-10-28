@@ -2399,10 +2399,17 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
         return c.counts.alt_cov;
     };
     size_t flipped = 0;
-    for (const auto& group : by_pos) {
-        if (group.second.size() != 2) continue;
-        CandidateVariant& a = result[group.second[0]];
-        CandidateVariant& b = result[group.second[1]];
+    for (const auto& all : by_pos) {
+        // Records with no ALT on either haplotype (an uncalled catalog copy) write nothing: they do not make a pair a
+        // crowd (chr20:43,522,037, two uncalled repeat rows beside the MSA's insertion and deletion).
+        std::vector<size_t> group;
+        for (const size_t i : all.second) {
+            const auto& h = result[i].hap_to_cons_alle;
+            if (h.size() < 3 || h[1] > 0 || h[2] > 0) group.push_back(i);
+        }
+        if (group.size() != 2) continue;
+        CandidateVariant& a = result[group[0]];
+        CandidateVariant& b = result[group[1]];
         if (a.hap_to_cons_alle.size() < 3 || b.hap_to_cons_alle.size() < 3) continue;
         if (a.key.alt == b.key.alt) continue;         // same allele twice: not this rule
         if (nested_substitutions(a, b)) continue;     // one event described twice
@@ -2476,7 +2483,11 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
             ++flipped;
             continue;
         }
-        CandidateVariant& weaker = alt_depth(a) <= alt_depth(b) ? a : b;
+        // A record written unphased says nothing of its haplotype; the phased one's comes from its reads. Move the
+        // unphased one, whatever their depths.
+        const auto phased = [](const CandidateVariant& c) { return c.phase_set > 0 && !c.vcf_unphased; };
+        CandidateVariant& weaker = phased(a) != phased(b) ? (phased(a) ? b : a)
+                                 : alt_depth(a) <= alt_depth(b) ? a : b;
         const int other = hap == 1 ? 2 : 1;
         pgphase_trace::candidate("output", "regenotype", weaker, "colocated_moved_to_other_hap",
                                  pgphase_trace::genotype_text(weaker) + " hap " + std::to_string(hap) + "->" +
@@ -2517,9 +2528,12 @@ void drop_conflicting_haplotype_alleles(CandidateTable& result) {
             // longest one contains is the contained form and is dropped.
             const std::string& longest = result[carriers.back()].key.alt;
             bool resolved = false;
+            // A deletion's ALT is empty, a prefix of every allele: containment holds only between alleles of one type
+            // (chr20:43,522,037, the MSA's 3 bp deletion dropped as "contained" in the insertion beside it).
+            const VariantType longest_type = result[carriers.back()].key.type;
             for (size_t k = 0; k + 1 < carriers.size(); ++k) {
                 const std::string& other = result[carriers[k]].key.alt;
-                if (other.size() < longest.size() &&
+                if (!other.empty() && result[carriers[k]].key.type == longest_type && other.size() < longest.size() &&
                     longest.compare(0, other.size(), other) == 0) {
                     if (!drop[carriers[k]])
                         pgphase_trace::candidate("output", "drop", result[carriers[k]], "conflict_contained",

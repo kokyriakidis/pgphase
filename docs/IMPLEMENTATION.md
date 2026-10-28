@@ -602,6 +602,9 @@ Per chunk, in order:
      reference carrying one with the reference carrying the other.
    - *Overlaps.* Windows that overlap a haplotype window or a voting indel row
      are skipped.
+   - *Collapsed duplications.* Candidates above injection's depth gate
+     (`kUnionMaxDepthRatio` times the chunk's median) get no window: their two
+     alleles separate paralogous copies (`collapsed_duplication_sites`).
 9. **Global EM, pass 2.** The same solve with both kinds of windows added as
    locus-level sites carrying per-read errors.
    - *Length windows* (`build_length_window_sites`), island-only. At every
@@ -673,6 +676,11 @@ and parsing them, once per overlapping chunk, was 11% of a chr20 run.
   homopolymer/repeat and stitch-orientation predicates.
 - `make parity-tests` runs `test_port_parity` (Catch2), which pins functions
   ported from longcallD against the semantics of their upstream definitions.
+- `make check` (`scripts/validate_collect_gates.sh`) compares each command's outputs on `test_data/` with committed
+  goldens, per MSA, at 1 and 4 threads. On the union run it also checks the truth-free contracts
+  (`scripts/check_contracts.py`, from the run's stage trace and MSA dump): records in VCF order and REF the
+  reference's bases, always; records overlapping on one haplotype and MSA regions the records do not spell, only those
+  listed in `union_chr20_contracts.tsv` beside the goldens. A new violation fails the check.
 - `make upstream-parity-tests` runs `test_upstream_phase`, compiled against
   longcallD's original C source (`LONGCALLD_ROOT`, default `../longcallD`), so
   the expected results cannot drift with a hand-copied reference.
@@ -2201,6 +2209,26 @@ Two rules downstream of the MSA, for either backend:
   These four, HG002 HiFi chr12/18/20, plegma (scored with the run's 1/1 records, `calls_truth.py`): true het regions
   35,038 -> 35,160, wrong 679 -> 555, false 190 -> 172, missed 527 -> 538; the ledger's wrong hets the MSA had right
   244 -> 122; arm reads 1,036,841 / 4,416 / 1,048 -> 1,036,854 / 4,408 / 1,043 (correct / discordant / unphased).
+- **An MSA insertion and deletion at one position are one two-allele site**
+  (`merge_msa_colocated_insertion_and_deletion`): one consensus a run longer, the other shorter (chr20:43,522,037, +T
+  against -TTT). Emitted separately, each scored the other haplotype's reads as its reference: the insertion fell
+  under the EM's minor-allele floor and was lost, or was written unphased beside the phased deletion. Merged as two
+  deletions are: REF the deleted bases, each allele after its own consensus letter.
+- **Containment is between alleles of one type** (`drop_conflicting_haplotype_alleles`): a deletion's ALT is empty,
+  a prefix of every allele, so a deletion beside an insertion on one haplotype was dropped as its contained form.
+- **A co-located pair is the records that write an ALT** (`make_colocated_alleles_complementary`): an uncalled
+  catalog copy at the position made the pair a crowd and the rule skipped it; and of a phased and an unphased
+  record, the unphased one moves to the other haplotype, whatever their depths.
+- **Allele windows skip collapsed duplications** (`collapsed_duplication_sites`, injection's depth gate): windows
+  over gated indels carried a block across chr12:10.30-10.31 Mb (1,283 arm reads discordant once the merge above
+  admitted more indels there).
+  These four, HG002 HiFi chr12/18/20, plegma, against the stage-trace build (7e343ff): noisy-region het regions true
+  35,179 -> 35,294, wrong 548 -> 542, missed 526 -> 529, false 172 -> 172; truth hets on the arms (harness, by locus)
+  phased 278,982 -> 279,159, unphased 5,451 -> 5,289, in records that overlap on a haplotype 512 -> 410; MSA regions
+  the records do not spell for no known reason 226 -> 187, contradictory overlapping records 50 -> 38; arm reads
+  1,036,854 / 4,409 / 1,042 -> 1,036,730 / 4,515 / 1,060 (one paralogous SNP at chr12:10,315,097, not in the truth,
+  phased the other way in a block; the EM's join depth guard at 1.5x instead of 2x cost 138 phased hets and did not
+  restore it).
 
 ###### How Reads Are Split Before abPOA (`collect_phase_set_with_both_haps`)
 

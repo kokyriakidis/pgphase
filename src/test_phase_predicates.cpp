@@ -767,6 +767,33 @@ TEST_CASE("a SNP on an insertion's padding base still conflicts with it",
     CHECK(alts_of(t) == std::vector<std::string>{"TT"});
 }
 
+TEST_CASE("a deletion is not the contained form of an insertion at its position",
+          "[conflict]") {
+    // chr20:43,522,037: the MSA's 3 bp deletion and its insertion of a T, both claiming haplotype 2 (the insertion
+    // written unphased). A deletion's ALT is empty, a prefix of every allele: it was dropped as "contained".
+    pgphase_collect::CandidateTable t{conflict_record(43522038, 0, "T", 2, 16, pgphase_collect::VariantType::Insertion),
+                                      conflict_record(43522038, 3, "", 2, 30, pgphase_collect::VariantType::Deletion)};
+    pgphase_collect::drop_conflicting_haplotype_alleles(t);
+    REQUIRE(t.size() == 1);
+    CHECK(t[0].key.type == pgphase_collect::VariantType::Deletion);  // the better supported one, by depth
+}
+
+TEST_CASE("a co-located pair ignores uncalled copies and moves its unphased record",
+          "[conflict]") {
+    // The MSA's insertion written unphased and its deletion phased on haplotype 2, beside an uncalled catalog copy
+    // (no ALT on either haplotype): the two are a pair, and the unphased one goes to haplotype 1 whatever the depths.
+    auto ins = conflict_record(43522038, 0, "T", 2, 30, pgphase_collect::VariantType::Insertion);
+    auto del = conflict_record(43522038, 3, "", 2, 16, pgphase_collect::VariantType::Deletion);
+    del.phase_set = 42537780;
+    auto uncalled = conflict_record(43522038, 2, "", 1, 9, pgphase_collect::VariantType::Deletion);
+    uncalled.hap_to_cons_alle = {0, 0, 0};
+    pgphase_collect::CandidateTable t{ins, del, uncalled};
+    CHECK(pgphase_collect::make_colocated_alleles_complementary(t, 2) == 1);
+    CHECK(t[0].hap_to_cons_alle[1] == 1);
+    CHECK(t[0].hap_to_cons_alle[2] == 0);
+    CHECK(t[1].hap_to_cons_alle[2] == 1);
+}
+
 TEST_CASE("a SNP nested in a longer substitution is not moved to the other haplotype",
           "[conflict]") {
     // chr12:1,069,108: a 280 bp catalog record whose first base is the SNP's
@@ -833,7 +860,9 @@ TEST_CASE("an indel anchors one base earlier, and still groups with its SNP",
         conflict_record(701, 0, "GA", 1, 9, pgphase_collect::VariantType::Insertion)};
     pgphase_collect::drop_conflicting_haplotype_alleles(t);
     REQUIRE(t.size() == 1);
-    CHECK(alts_of(t) == std::vector<std::string>{"GA"});
+    // The insertions ALT is the inserted letters, not its anchor: that it starts with the SNPs letter is chance, so
+    // neither contains the other and depth decides (12 against 9).
+    CHECK(alts_of(t) == std::vector<std::string>{"G"});
 }
 
 namespace {

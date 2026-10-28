@@ -250,7 +250,10 @@ make check            # end-to-end golden tests on test_data/, at 1 and 4 thread
 
 `make check` runs each golden test once with plegma (`test_data/expected/plegma/`) and once with `--msa abpoa`
 against longcallD's outputs (`test_data/expected/`); `UPDATE_GOLDEN=plegma make check` rewrites plegma's goldens
-after an intended change.
+after an intended change. On the union fixture it also checks contracts that need no truth set
+(`scripts/check_contracts.py`): VCF order, REF bases, no two records on one haplotype over the same bases, and every
+MSA region's consensus pair spelled by the records; a violation not already listed in `union_chr20_contracts.tsv`
+fails.
 
 `make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD` compiles longcallD's original C and checks the
 ported phasing functions against it.

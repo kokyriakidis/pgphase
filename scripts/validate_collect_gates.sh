@@ -157,11 +157,35 @@ bam_gates() {
   fi
 }
 
+# The truth-free contracts of the union run's phased VCF (scripts/check_contracts.py): VCF order and REF bases must
+# hold; overlapping records on one haplotype and MSA regions the records do not spell must be among the accepted ones
+# ($dir/union_chr20_contracts.tsv, rewritten with the goldens by UPDATE_GOLDEN).
+union_contracts() {
+  local msa="$1" dir="$2" diag="$3"
+  local args=(--vcf "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" --ref "$CHR20_DIR/ref.fa.gz"
+    --msa-dump "$diag/msa_dump.tsv" --trace "$diag/trace.tsv")
+  if [[ "${UPDATE_GOLDEN:-}" == "$msa" ]]; then
+    python3 "$ROOT/scripts/check_contracts.py" "${args[@]}" --write-known "$dir/union_chr20_contracts.tsv"
+    echo "updated: $msa union contracts ($dir/union_chr20_contracts.tsv)"
+    return
+  fi
+  if ! python3 "$ROOT/scripts/check_contracts.py" "${args[@]}" --known "$dir/union_chr20_contracts.tsv"; then
+    echo "error: $msa union contracts: a violation not in $dir/union_chr20_contracts.tsv" >&2
+    exit 1
+  fi
+  echo "ok: $msa union contracts"
+}
+
 # Union gap phasing (collect-graph-variation --bam) on the chr20:25.0-25.5 Mb slice, 1 and 4 threads, with one MSA.
 union_gates() {
   local msa="$1" dir="$2" t count_u
+  local diag="$TMPDIR/pgphase_validate_${msa}_union_diag"
+  rm -rf "$diag"
+  mkdir -p "$diag"
   for t in 1 4; do
-    count_u="$(run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
+    # The 1-thread run also writes its stage trace and MSA dump, for the contracts below.
+    count_u="$(if [[ "$t" == 1 ]]; then export PGPHASE_TRACE="$diag" PGPHASE_MSA_DUMP="$diag/msa_dump.tsv"; fi
+      run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
       --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
       -o "$TMPDIR/pgphase_validate_${msa}_union_t$t.tsv" \
       --phased-vcf-out "$TMPDIR/pgphase_validate_${msa}_union_t$t.phased.vcf")"
@@ -170,6 +194,7 @@ union_gates() {
         "$dir/union_chr20_expected.tsv" hash_file "$msa"
       check_golden "$msa union phased VCF" "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
         "$dir/union_chr20_expected.phased.vcf" hash_vcf_stable "$msa"
+      union_contracts "$msa" "$dir" "$diag"
     fi
   done
   same_output "$msa union TSV, 1 and 4 threads," "$TMPDIR/pgphase_validate_${msa}_union_t1.tsv" \

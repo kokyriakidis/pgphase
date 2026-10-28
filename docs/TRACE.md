@@ -21,7 +21,7 @@ The union EM runs twice per chunk: a later `em` event for a candidate supersedes
 | msa | skip | `mismatch_beside_gap` | `make_cand_vars_from_baln0` | a consensus mismatch beside a gap, left to the gap as its anchor letter |
 | msa | call | `admitted`, `replaced_existing` | `merge_var_profile` | an MSA call entering the chunk, alone or in place of a candidate with its key |
 | msa | drop | `existing_candidate_kept` | same | an MSA call dropped for an existing candidate with its key |
-| msa | merge | `two_allele_insertion`, `two_allele_deletion` | `merge_msa_insertion_alleles`, `merge_msa_colocated_deletions` | two co-located MSA alleles merged into one two-allele record |
+| msa | merge | `two_allele_insertion`, `two_allele_deletion`, `two_allele_insertion_deletion` | `merge_msa_insertion_alleles`, `merge_msa_colocated_deletions`, `merge_msa_colocated_insertion_and_deletion` | two co-located MSA alleles merged into one two-allele record |
 | msa | drop | `superseded_by_two_allele_record` | collect_var.cpp `drop_superseded_colocated_records` | a single-allele record describing an allele of a merged two-allele record |
 | inject | decision | `injected`, `complement`, `replaces`, `promoted`, `hom`, `island:*`, `depth_gate`, `few_confident_reads`, `category`, `not_germline`, `outside_chunk` | union_inject.cpp `select_sites` | each alignment candidate's injection decision (as the `inj` dump) |
 | inject | drop | `msa_reads_as_reference`, `msa_lacks_change` | `suppress_rows_msa_reads_as_reference`, `genotype_substitution_rows` | a catalog row written no record: the MSA region reads it as reference, or no consensus carries its change |

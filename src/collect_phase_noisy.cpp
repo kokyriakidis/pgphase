@@ -1045,6 +1045,81 @@ static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
     }
 }
 
+// An MSA insertion and an MSA deletion at one position (one consensus a run longer, the other shorter: chr20:43,522,037,
+// +T against -TTT; chr20:37,240,473, +A against -AA) are the two alleles of one site, as two insertions or two deletions
+// are (merge_msa_insertion_alleles, merge_msa_colocated_deletions). Emitted separately, each scored the other
+// haplotype's reads as its reference: the insertion fell under the EM's minor-allele floor (10 of 52 reads) and was
+// lost, or was written unphased beside the phased deletion and dropped as conflicting with it. Merged the way two
+// deletions are: REF the deleted bases, the deletion's allele retaining none, the insertion's its letters then all of
+// them, each after its own consensus letter (msa_insertion_anchors); a read's allele 1 or 2 by record order.
+static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk, std::vector<CandidateVariant>& vars,
+                                                        std::vector<VariantCategory>& categories,
+                                                        std::vector<ReadVariantProfile>& profiles) {
+    for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        CandidateVariant& first = vars[i];
+        const CandidateVariant& second = vars[i + 1];
+        const bool ins_del = first.key.type == VariantType::Insertion && second.key.type == VariantType::Deletion;
+        const bool del_ins = first.key.type == VariantType::Deletion && second.key.type == VariantType::Insertion;
+        const auto noisy = [](const CandidateVariant& v) {
+            return v.counts.category == VariantCategory::NoisyCandHet || v.counts.category == VariantCategory::NoisyCandHom;
+        };
+        if ((!ins_del && !del_ins) || first.key.pos != second.key.pos || !first.msa_insertion_alts.empty() ||
+            !second.msa_insertion_alts.empty() || !noisy(first) || !noisy(second) ||
+            (first.counts.category != VariantCategory::NoisyCandHet &&
+             second.counts.category != VariantCategory::NoisyCandHet)) continue;
+        const CandidateVariant& del = ins_del ? second : first;
+        const CandidateVariant& ins = ins_del ? first : second;
+        const size_t off = static_cast<size_t>(del.key.pos - chunk.ref_beg);
+        if (del.key.pos < chunk.ref_beg || off + static_cast<size_t>(del.key.ref_len) > chunk.ref_seq.size()) continue;
+        const std::string deleted = chunk.ref_seq.substr(off, static_cast<size_t>(del.key.ref_len));
+        std::string ins_allele = ins.key.alt + deleted;
+        for (char& ch : ins_allele) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion_deletion", "into " +
+                                 pgphase_trace::key_text(first.key));
+        const std::vector<std::string> alts = ins_del ? std::vector<std::string>{ins_allele, std::string()}
+                                                      : std::vector<std::string>{std::string(), ins_allele};
+        const std::vector<uint8_t> anchors = {first.alt_ref_base, second.alt_ref_base};
+        const int ref_len = del.key.ref_len;
+        const bool del_hp = del.is_homopolymer_indel;
+        first.key.type = VariantType::Deletion;
+        first.key.ref_len = ref_len;
+        first.key.alt.clear();
+        first.is_homopolymer_indel = del_hp;
+        first.msa_insertion_alts = alts;
+        first.msa_insertion_anchors = anchors;
+        first.counts.alle_covs.assign(3, 0);
+        first.counts.total_cov = 0;
+        for (auto& profile : profiles) {
+            if (profile.start_var_idx < 0) continue;
+            const auto allele_at = [&](int index) {
+                return index < profile.start_var_idx || index > profile.end_var_idx ? -1 :
+                       profile.alleles[index - profile.start_var_idx];
+            };
+            const int a = allele_at(static_cast<int>(i)), b = allele_at(static_cast<int>(i + 1));
+            const int allele = a == 1 && b != 1 ? 1 : b == 1 && a != 1 ? 2 : a == 0 && b == 0 ? 0 : -1;
+            ReadVariantProfile merged;
+            merged.read_id = profile.read_id;
+            for (int vi = profile.start_var_idx; vi <= profile.end_var_idx; ++vi) {
+                if (vi == static_cast<int>(i + 1)) {
+                    if (profile.start_var_idx == vi)
+                        update_read_var_profile_with_allele(static_cast<int>(i), allele, -1, merged);
+                    continue;
+                }
+                update_read_var_profile_with_allele(vi > static_cast<int>(i) ? vi - 1 : vi,
+                    vi == static_cast<int>(i) ? allele : allele_at(vi),
+                    vi == static_cast<int>(i) ? -1 : profile.alt_qi[vi - profile.start_var_idx], merged);
+            }
+            profile = std::move(merged);
+            if (allele >= 0) ++first.counts.alle_covs[allele];
+        }
+        update_variant_depth_fields(first);
+        if (first.counts.category != VariantCategory::NoisyCandHet) set_noisy_category(first, VariantCategory::NoisyCandHet);
+        categories[i] = VariantCategory::NoisyCandHet;
+        vars.erase(vars.begin() + i + 1);
+        categories.erase(categories.begin() + i + 1);
+    }
+}
+
 static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
     std::vector<CandidateVariant>& vars,
     std::vector<VariantCategory>& categories, std::vector<ReadVariantProfile>& profiles) {
@@ -1293,6 +1368,8 @@ int make_vars_from_msa_cons_aln(
         merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)
         merge_msa_colocated_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_colocated_insertion_and_deletion(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster
     // alignment, in every arm: these counts describe the reads. While this
     // refresh was gated on the recovery pass, the alignment-only channel was

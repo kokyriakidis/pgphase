@@ -67,6 +67,11 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
 /// non-voting repeat indels (alleles from their VCF-form metadata). Each spanning read is realigned to the window's two exact allele
 /// sequences, reference context with REF and with ALT, and joins the closer
 /// one. Windows overlapping `taken` windows or voting indel rows are skipped.
+/// Alignment candidates read by more than kUnionMaxDepthRatio times their chunk's median depth: a collapsed
+/// duplication, whose two "alleles" separate paralogous copies, not haplotypes (union_inject.cpp). Injection keeps
+/// them out of the EM; the allele windows must too.
+std::vector<char> collapsed_duplication_sites(const PhasingChunk& bam);
+
 std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
                                                        const GraphChunkBuildResult& graph_chunk,
                                                        const std::vector<LocusWindowSite>& taken);
