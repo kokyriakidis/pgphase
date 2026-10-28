@@ -233,6 +233,40 @@ static void test_em_writes_skewed_msa_het_unphased() {
           "EM: clean sites stay phased");
 }
 
+static void test_em_takes_an_msa_two_allele_site_s_alleles() {
+    // An MSA-genotyped 1/2 of two insertion alleles whose reads call the shorter one mostly as the reference (a run
+    // one letter longer): its alleles are the MSA's, 1 and 2, not the two its reads call most (0 and 2).
+    PhasingChunk chunk;
+    for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    CandidateVariant ins;
+    ins.key.tid = 0;
+    ins.key.pos = 851;
+    ins.key.type = VariantType::Insertion;
+    ins.key.alt = "T";
+    ins.msa_insertion_alts = {"T", "TTTTTTTTTTTTTTT"};
+    ins.counts.category = VariantCategory::NoisyCandHet;
+    ins.lcd_var_i_to_cate = kCandNoisyCandHet;
+    ins.msa_verified = true;
+    ins.msa_genotyped = true;
+    ins.counts.alle_covs = {0, 16, 16};
+    chunk.candidates.push_back(ins);
+    std::vector<int> truth;
+    for (int rep = 0; rep < 8; ++rep) add_tiled_reads(chunk, truth, 0, 7, 8);
+    for (size_t r = 0; r < chunk.read_var_profile.size(); ++r) {
+        ReadVariantProfile& p = chunk.read_var_profile[r];
+        // haplotype 0 carries the long insertion; haplotype 1 the short one, read as REF three times in four
+        p.alleles.push_back(truth[r] == 0 ? 2 : (r % 4 == 1 ? 1 : 0));
+        p.alt_qi.push_back(0);
+        p.end_var_idx = 8;
+    }
+    finish_chunk(chunk);
+    phase_chunk_by_global_em(chunk);
+    const CandidateVariant& c = chunk.candidates[8];
+    const int a = c.hap_to_cons_alle[1], b = c.hap_to_cons_alle[2];
+    check((a == 1 && b == 2) || (a == 2 && b == 1),
+          "EM: an MSA 1/2's alleles are the MSA's, got " + std::to_string(a) + "/" + std::to_string(b));
+}
+
 static void test_em_recovers_from_switched_start() {
     PhasingChunk chunk;
     for (int k = 0; k < 12; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
@@ -1241,6 +1275,7 @@ int main() {
     test_em_leaves_noise_unphased();
     test_em_writes_unphasable_msa_het_unphased();
     test_em_writes_skewed_msa_het_unphased();
+    test_em_takes_an_msa_two_allele_site_s_alleles();
     test_em_recovers_from_switched_start();
     test_em_labels_low_mapq_reads();
     test_em_window_links_blocks();

@@ -256,6 +256,11 @@ private:
             const CandidateVariant& c = chunk_.candidates[ci];
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
             int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
+            // An MSA-genotyped site of two insertion alleles (a 1/2): its alleles are the MSA's, not the two its reads
+            // call most -- reads call one letter more in a long run as the reference allele as often as not
+            // (chr12:20,069,335, T+1 and T+15: written as the T+15 het alone). HG002 HiFi chr12/18/20, plegma: true
+            // het regions +39, wrong -35, missed -4; arm reads +38 correct, -37 discordant.
+            if (c.msa_genotyped && c.msa_insertion_alts.size() == 2) x = 1, y = 2;
             if (x < 0 || y < 0 || x == y) {
                 std::vector<std::pair<int, int>> by_count;
                 for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
@@ -845,8 +850,9 @@ private:
             std::vector<std::pair<int, int>> by_count;
             for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
             std::sort(by_count.rbegin(), by_count.rend());
-            const int x = by_count.size() >= 2 ? by_count[0].second : 0;
-            const int y = by_count.size() >= 2 ? by_count[1].second : 1;
+            const bool two_alts = c.msa_insertion_alts.size() == 2;  // its alleles the MSA's, as in select_sites
+            const int x = two_alts ? 1 : by_count.size() >= 2 ? by_count[0].second : 0;
+            const int y = two_alts ? 2 : by_count.size() >= 2 ? by_count[1].second : 1;
             set_site_phase(c, kUnsetCandidatePhaseSet, x, y);
             c.vcf_unphased = true;
         }
