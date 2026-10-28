@@ -449,6 +449,15 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         for (int consumed = 0; consumed < key.ref_len; ++consumed)
             core.ref_seq += ref.base(key.tid, key.pos + consumed, header);
         core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
+        // A replacement (REF bases consumed, an ALT of its own) needs no padding base: written with one, its REF
+        // claims the letter before it, and a SNP there on the same haplotype was dropped as conflicting
+        // (chr12:18,697,237 G>C beside G>CT at 238, written GG>GCT). HG002 HiFi chr12/18/20: true het regions
+        // 30,200 -> 30,211; reads unchanged.
+        if (key.ref_len > 0 && !key.alt.empty() && candidate.alt_ref_base == 4) {
+            core.pos = key.pos;
+            core.ref_seq = core.ref_seq.substr(1);
+            core.alt_seq = key.alt;
+        }
         if (!candidate.msa_insertion_alts.empty()) {
             core.alt_seq.clear();
             for (const auto& allele : candidate.msa_insertion_alts) {
@@ -469,6 +478,12 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
         // A length-decreasing replacement retains key.alt after the deleted
         // span. Pure deletions have an empty key.alt and keep the anchor alone.
         core.alt_seq = std::string(1, alt_anchor_base) + key.alt;
+        // The same for a length-decreasing replacement (deleted bases and an ALT of its own).
+        if (!key.alt.empty() && candidate.alt_ref_base == 4 && candidate.msa_insertion_alts.empty()) {
+            core.pos = key.pos;
+            core.ref_seq = del_seq;
+            core.alt_seq = key.alt;
+        }
         if (!candidate.msa_insertion_alts.empty()) {
             // A merged co-located deletion carries one entry per allele holding
             // the bases that allele retains, so REF spans the longest deletion

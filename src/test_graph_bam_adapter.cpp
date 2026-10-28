@@ -1176,11 +1176,11 @@ int main(int argc, char** argv) {
                 std::ostringstream deletion_vcf;
                 write_phased_variants_vcf_records(
                     deletion_vcf, replacement_opts, header.get(), ref, {candidate});
-                ok &= check(deletion_vcf.str().find("\t2\t.\tTGC\tTA\t") !=
+                ok &= check(deletion_vcf.str().find("\t3\t.\tGC\tA\t") !=
                                 std::string::npos &&
                             deletion_vcf.str().find("SVLEN=-1") !=
                                 std::string::npos,
-                            "deletion writer: replacement ALT and net length survive");
+                            "deletion writer: a replacement is written unpadded, its net length kept");
 
                 candidate.key.type = VariantType::Insertion;
                 candidate.key.ref_len = 1;
@@ -1188,11 +1188,11 @@ int main(int argc, char** argv) {
                 std::ostringstream insertion_vcf;
                 write_phased_variants_vcf_records(
                     insertion_vcf, replacement_opts, header.get(), ref, {candidate});
-                ok &= check(insertion_vcf.str().find("\t2\t.\tTG\tTAA\t") !=
+                ok &= check(insertion_vcf.str().find("\t3\t.\tG\tAA\t") !=
                                 std::string::npos &&
                             insertion_vcf.str().find("SVLEN=1") !=
                                 std::string::npos,
-                            "insertion writer: replacement net length is reported");
+                            "insertion writer: a replacement is written unpadded, its net length reported");
             }
             std::remove(fasta_path);
             std::remove((std::string(fasta_path) + ".fai").c_str());
