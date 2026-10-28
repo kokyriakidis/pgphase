@@ -839,7 +839,40 @@ private:
                                          std::to_string(err_[k]).substr(0, 5) + " " + pgphase_trace::genotype_text(c) +
                                          (c.unresolved_noisy ? " unresolved_noisy" : ""));
         }
+        confirm_phase_by_msa();
         write_skewed_msa_hets();
+    }
+
+    // A site written unphased for its learned error (kEmVcfMaxSnpError, kEmVcfMaxIndelError) whose orientation
+    // against every site of its het MSA region phased in its block is the MSA's own (cis when one consensus carries
+    // both ALTs, trans otherwise) is written phased: the MSA's consensus sequences, built from the region's reads,
+    // confirm what the EM learned less surely (chr20:15,508,905 T>A at error 0.14 beside 15,508,906 T>A at 0.01, one
+    // consensus carrying both, the truth 1|0 1|0).
+    void confirm_phase_by_msa() {
+        std::vector<size_t> by_region;
+        for (size_t k = 0; k < n_; ++k) {
+            if (sites_[k].locus >= 0) continue;
+            const CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+            if (c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.phase_set > 0 && c.msa_insertion_alts.empty())
+                by_region.push_back(sites_[k].ci);
+        }
+        const auto alt_on_hap1 = [](const CandidateVariant& c) { return c.hap_to_cons_alle[1] > 0; };
+        for (const size_t ci : by_region) {
+            CandidateVariant& c = chunk_.candidates[ci];
+            if (!c.vcf_unphased || c.unresolved_noisy) continue;
+            int agree = 0, disagree = 0;
+            for (const size_t di : by_region) {
+                const CandidateVariant& d = chunk_.candidates[di];
+                if (di == ci || d.vcf_unphased || d.msa_region != c.msa_region || d.phase_set != c.phase_set) continue;
+                const bool em_cis = alt_on_hap1(c) == alt_on_hap1(d);
+                const bool msa_cis = (c.msa_hap1_allele > 0) == (d.msa_hap1_allele > 0);
+                ++(em_cis == msa_cis ? agree : disagree);
+            }
+            if (agree == 0 || disagree > 0) continue;
+            c.vcf_unphased = false;
+            pgphase_trace::candidate("em", "site", c, "phased_msa_confirmed",
+                                     "agree=" + std::to_string(agree) + " " + pgphase_trace::genotype_text(c));
+        }
     }
 
     // An MSA-genotyped het whose reads split too unevenly to be a site (kEmMinMinorAlleleFraction) is still a

@@ -708,6 +708,17 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
         CandidateVariant cand = bam.candidates[bi];
         cand.key.tid = graph.region.tid;
         cand.bam_injected = true;
+        {
+            const auto& h = cand.hap_to_cons_alle;
+            if (cand.msa_verified && h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2])
+                for (size_t r = 0; r < bam.msa_regions.size(); ++r)
+                    if (bam.msa_regions[r].het() && bam.msa_regions[r].beg < cand.key.pos &&
+                        cand.key.pos < bam.msa_regions[r].end) {
+                        cand.msa_region = static_cast<int>(r);
+                        cand.msa_hap1_allele = h[1];
+                        break;
+                    }
+        }
         cand.alignment_verified = true;
         // Phase comes from the union's own solve, not the alignment's gauge.
         cand.phase_set = kUnsetCandidatePhaseSet;

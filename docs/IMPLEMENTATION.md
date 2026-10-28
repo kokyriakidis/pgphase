@@ -2255,6 +2255,13 @@ Two rules downstream of the MSA, for either backend:
   5,289 -> 5,114, other alleles 7,951 -> 7,216, missed 15,227 -> 15,249 (a merged 1|2 whose inner allele has under two
   confidently mapped reads now fails the confident-read rule where the outer deletion alone passed); MSA regions the
   records do not spell 1,631 -> 1,337; false hets, switches, flips and reads unchanged (arm reads -4 / +3 / +1).
+- **An MSA het's phase the MSA confirms is written** (`confirm_phase_by_msa`): a site written unphased only for its
+  learned error (`kEmVcfMaxSnpError` 0.1, `kEmVcfMaxIndelError` 0.25) is written phased when, against every site of
+  its het MSA region the EM phased in its block, its orientation is the MSA's own (cis when one consensus carries both
+  ALTs). Injection keeps each MSA het's region and the allele its alignment solve put on haplotype 1
+  (`msa_region`, `msa_hap1_allele`). chr20:15,508,905 T>A at error 0.14 beside 15,508,906 T>A at 0.01, one consensus
+  carrying both, the truth 1|0 1|0. HG002 HiFi chr12/18/20 against 2f10a85: truth hets on the arms phased 280,416 ->
+  281,416, unphased 5,122 -> 4,122; switches, flips, false hets and reads unchanged.
 - **Catalog repeat indels their allele window phases are written** (see "Allele windows"): the windows phased them
   in the EM's second pass and the result was dropped, the rows being never written. HG002 HiFi chr12/18/20 against
   c836382: truth hets on the arms phased 280,072 -> 280,150, missed 15,249 -> 15,164, other alleles 7,216 -> 7,208;

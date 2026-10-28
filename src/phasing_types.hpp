@@ -610,6 +610,11 @@ struct CandidateVariant {
     // One ALT of a multi-allelic site written as its own record (graph output rebuild): its depth counts the site's
     // other alleles, which its REF count does not.
     bool split_allele = false;
+    // An injected MSA het (union): the index of the het MSA region it lies in (PhasingChunk::msa_regions of its
+    // alignment solve) and the allele that solve put on its haplotype 1, -1 when none. Two calls of one region relate
+    // through these as the MSA's consensus sequences do: cis when the same side carries both ALTs.
+    int msa_region = -1;
+    int msa_hap1_allele = -1;
     // A clean het the union injection admits although its alleles lack
     // confidently mapped reads (the confident-read exemption): phased like an
     // unverified call (unresolved_noisy) -- it joins no blocks and labels
