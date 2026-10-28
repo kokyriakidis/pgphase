@@ -651,6 +651,9 @@ static CandidateTable graph_chunks_to_candidate_table(
     merge_adjacent_deletion_insertion(result);
     make_colocated_alleles_complementary(result, opts.min_alt_depth);
     drop_conflicting_haplotype_alleles(result);
+    drop_contradicted_walks(result, [&reference, header](int tid, hts_pos_t pos) {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(reference.base(tid, pos, header))));
+    });
 
     return result;
 }

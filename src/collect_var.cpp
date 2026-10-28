@@ -2451,6 +2451,77 @@ size_t merge_adjacent_deletion_insertion(CandidateTable& result) {
     return merged;
 }
 
+// A catalog walk -- a deletion or replacement longer than kWalkMinLength, the snarl's path spelled whole -- and a
+// record inside it on one haplotype of a phase set describe that haplotype twice; where the inner record changes a base
+// the walk deletes or keeps as reference, the two cannot both hold. Against the truth (HG002, chr12/17/18/19/20/21) the
+// walk was wrong in 88 of 94 such pairs (the inner record right in 48): the graph's reads are forced onto a walk where
+// the sample's haplotype is none of the snarl's (chr19:842,288, a 219-base deletion over two true 120-base insertions).
+// The walk is dropped: over chr12/17/18/19/20/21, 11 walks, 16 contradictory overlaps fewer; truth hets unchanged.
+static constexpr int kWalkMinLength = 10;
+
+size_t drop_contradicted_walks(CandidateTable& result, const std::function<char(int, hts_pos_t)>& ref_base) {
+    const auto phased_hap = [](const CandidateVariant& c, int h) {
+        return c.phase_set > 0 && !c.vcf_unphased && c.hap_to_cons_alle.size() > 2 && c.hap_to_cons_alle[h] > 0;
+    };
+    std::vector<size_t> order(result.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(),
+              [&](size_t a, size_t b) { return vcf_record_pos(result[a]) < vcf_record_pos(result[b]); });
+    std::vector<hts_pos_t> starts;
+    for (const size_t i : order) starts.push_back(vcf_record_pos(result[i]));
+    std::vector<char> drop(result.size(), 0);
+    size_t dropped = 0;
+    for (size_t w = 0; w < result.size(); ++w) {
+        const CandidateVariant& walk = result[w];
+        if (!walk.msa_insertion_alts.empty() || walk.bam_injected || walk.key.type == VariantType::Snp) continue;
+        // The bases the walk replaces (from key.pos) and what it writes there (key.alt; its padding base aside).
+        const hts_pos_t beg = walk.key.pos;
+        const int ref_len = walk.key.ref_len;
+        const std::string& alt = walk.key.alt;
+        if (ref_len <= kWalkMinLength && static_cast<int>(alt.size()) <= kWalkMinLength) continue;
+        if (ref_len < 1) continue;
+        std::string ref;
+        for (int i = 0; i < ref_len; ++i) ref.push_back(ref_base(walk.key.tid, beg + i));
+        // Where an inner record's change contradicts the walk: a base the walk deletes (a pure deletion), or one it
+        // keeps -- its common prefix and suffix with REF. Inside a replacement's changed core the two may agree.
+        size_t prefix = 0, suffix = 0;
+        while (prefix < ref.size() && prefix < alt.size() && ref[prefix] == alt[prefix]) ++prefix;
+        while (suffix + prefix < ref.size() && suffix + prefix < alt.size() &&
+               ref[ref.size() - 1 - suffix] == alt[alt.size() - 1 - suffix]) ++suffix;
+        const auto contradicts_at = [&](size_t off) {
+            if (alt.empty()) return true;
+            if (ref.size() == alt.size()) return ref[off] == alt[off];
+            return off < prefix || off >= ref.size() - suffix;
+        };
+        for (size_t k = std::lower_bound(starts.begin(), starts.end(), beg) - starts.begin();
+             k < order.size() && starts[k] < beg + ref_len; ++k) {
+            const size_t i = order[k];
+            if (i == w) continue;
+            const CandidateVariant& inner = result[i];
+            if (inner.phase_set != walk.phase_set) continue;
+            bool same_hap = false;
+            for (int h = 1; h <= 2; ++h) same_hap = same_hap || (phased_hap(walk, h) && phased_hap(inner, h));
+            if (!same_hap || !contradicts_at(static_cast<size_t>(starts[k] - beg))) continue;
+            drop[w] = 1;
+            break;
+        }
+        if (drop[w]) {
+            ++dropped;
+            pgphase_trace::candidate("output", "drop", walk, "walk_contradicted", pgphase_trace::genotype_text(walk));
+        }
+    }
+    if (dropped > 0) {
+        size_t write = 0;
+        for (size_t i = 0; i < result.size(); ++i)
+            if (!drop[i]) {
+                if (write != i) result[write] = std::move(result[i]);
+                ++write;
+            }
+        result.resize(write);
+    }
+    return dropped;
+}
+
 size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_support) {
     const auto by_pos = records_by_vcf_pos(result);
     // A BAM-discovered candidate carries its depths in ref_cov/alt_cov and

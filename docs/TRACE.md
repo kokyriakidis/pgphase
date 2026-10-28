@@ -40,6 +40,7 @@ The union EM runs twice per chunk: a later `em` event for a candidate supersedes
 | output | drop | `duplicate_collapsed` | same | the losing copy of two records with one key (the kept one in the detail) |
 | output | regenotype | `colocated_moved_to_other_hap`, `colocated_split_both_none` | collect_var.cpp `make_colocated_alleles_complementary` | a co-located record moved to the other haplotype |
 | output | merge | `deletion_insertion_one_haplotype` | collect_var.cpp `merge_adjacent_deletion_insertion` | an insertion beside a deletion on one haplotype, written as one record with it |
+| output | drop | `walk_contradicted` | collect_var.cpp `drop_contradicted_walks` | a catalog walk (deletion or replacement over 10 bases) a record inside it contradicts on one haplotype |
 | output | drop | `conflict_contained`, `conflict_weaker` | `drop_conflicting_haplotype_alleles` | a record dropped for another on its haplotype at its POS |
 | output | regenotype | `lone_locus_unphased` | `run_collect_graph_variation` | a phase set of one locus: its hets written unphased |
 | writer | drop | `category_not_written`, `no_alt_genotype` | collect_output.cpp `project_vcf_candidates` | a record the VCF writer leaves out |

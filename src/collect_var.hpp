@@ -9,6 +9,7 @@
 
 #include "collect_types.hpp"
 
+#include <functional>
 #include <set>
 #include <vector>
 
@@ -32,6 +33,10 @@ void drop_conflicting_haplotype_alleles(CandidateTable& records);
 /// A deletion and an insertion side by side on one haplotype (the insertion right after the deleted bases, or right
 /// before them) written as one record: the deletion's, its ALT the inserted bases. Returns the number merged.
 size_t merge_adjacent_deletion_insertion(CandidateTable& records);
+
+/// A long deletion or replacement (a catalog walk) a record inside it contradicts on one haplotype of a phase set -- it
+/// changes a base the walk deletes or keeps -- is dropped. Returns the number dropped.
+size_t drop_contradicted_walks(CandidateTable& records, const std::function<char(int, hts_pos_t)>& ref_base);
 
 // Move-only RAII owner for heap-allocated cgranges_t.
 struct CrangesOwner {

@@ -829,6 +829,29 @@ TEST_CASE("a deletion and an insertion side by side on one haplotype are one rec
     CHECK(pgphase_collect::merge_adjacent_deletion_insertion(t4) == 0);
 }
 
+TEST_CASE("a long deletion a record inside it contradicts on one haplotype is dropped", "[conflict]") {
+    // chr19:842,288: a catalog deletion over bases where an insertion sits on the same haplotype of one phase set.
+    using pgphase_collect::VariantType;
+    auto walk = conflict_record(1000, 30, "", 1, 20, VariantType::Deletion);
+    auto inside = conflict_record(1011, 0, "CCC", 1, 20, VariantType::Insertion);
+    walk.phase_set = inside.phase_set = 900;
+    const auto ref = [](int, hts_pos_t) { return 'A'; };
+    pgphase_collect::CandidateTable t{walk, inside};
+    CHECK(pgphase_collect::drop_contradicted_walks(t, ref) == 1);
+    REQUIRE(t.size() == 1);
+    CHECK(t[0].key.type == VariantType::Insertion);
+    // On the other haplotype, or a short deletion: both stay.
+    auto other = inside;
+    other.hap_to_cons_alle = {0, 1, 0};
+    walk.hap_to_cons_alle = {0, 0, 1};
+    pgphase_collect::CandidateTable t2{walk, other};
+    CHECK(pgphase_collect::drop_contradicted_walks(t2, ref) == 0);
+    auto short_del = conflict_record(1000, 3, "", 1, 20, VariantType::Deletion);
+    short_del.phase_set = 900;
+    pgphase_collect::CandidateTable t3{short_del, inside};
+    CHECK(pgphase_collect::drop_contradicted_walks(t3, ref) == 0);
+}
+
 TEST_CASE("a SNP nested in a longer substitution is not moved to the other haplotype",
           "[conflict]") {
     // chr12:1,069,108: a 280 bp catalog record whose first base is the SNP's

@@ -2271,6 +2271,11 @@ Two rules downstream of the MSA, for either backend:
   (`phase_by_alignment_solve`; `aln_phase_set`, `aln_hap1_allele`): a region's lone MSA call has no MSA neighbour
   (chr20:782,916, a homopolymer insertion at error 0.32). Arm truth hets phased 281,737 -> 282,827, unphased 3,803
   -> 2,712; switches, flips and false hets unchanged; arm reads +2 / +6 / -8.
+- **A catalog walk a record inside it contradicts is dropped** (`drop_contradicted_walks`): a deletion or replacement
+  over 10 bases and a record inside it on one haplotype of a phase set, the inner record changing a base the walk
+  deletes or keeps. The walk was wrong in 88 of 94 such pairs against the truth (chr19:842,288, a 219-base deletion
+  over two true 120-base insertions). 11 walks over chr12/17/18/19/20/21; contradictory overlaps 96 -> 80; truth hets
+  unchanged.
 - **Catalog repeat indels their allele window phases are written** (see "Allele windows"): the windows phased them
   in the EM's second pass and the result was dropped, the rows being never written. HG002 HiFi chr12/18/20 against
   c836382: truth hets on the arms phased 280,072 -> 280,150, missed 15,249 -> 15,164, other alleles 7,216 -> 7,208;
