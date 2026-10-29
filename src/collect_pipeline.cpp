@@ -750,9 +750,18 @@ namespace {
 
 // Alignment solve: reads from MAPQ 1 contribute evidence; MSA runs only on noisy
 // regions up to this length (longer ones -- satellites -- cost most of the time
-// and phased no reads in the chr20 evaluation).
+// and phased no reads in the chr20 evaluation). 10 kb rather than 2 kb lets the
+// MSA call VNTRs and segmental repeats whose sites were otherwise written as the
+// catalog called them. HG002 HiFi chr12/18/20 (chr17/19/21 held out): true het
+// loci phased +1,743 (+1,447), wrong-allele loci -1,099 (-751), false het loci
+// -502 (-476); arm switches 1 -> 1 (7 -> 7); arm reads -35 correct (+63), confident
+// discordant +4 (-34) -- with allele windows kept out of resolved MSA regions
+// (build_allele_window_sites), without which a stutter window joined 279 reads
+// the wrong way at chr17:6.32 Mb. Runtime 1.3x (2.7x), peak memory 16.5 GB
+// (20.8 GB) from 12.6 (13.9). A 50 kb cap brought wrong-allele loci back (+297)
+// for 2.2x the time of 10 kb.
 constexpr int kUnionAlignmentMinMapq = 1;
-constexpr int kUnionMsaMaxRegionLength = 2000;
+constexpr int kUnionMsaMaxRegionLength = 10000;
 
 static Options union_alignment_options(const Options& opts) {
     Options sub = opts;

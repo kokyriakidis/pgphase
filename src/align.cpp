@@ -1641,7 +1641,8 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
         note_msa_failure("no_full_reads");
         return 0;
     }
-    if (full_lens[0] >= opts.max_noisy_reg_len) {
+    // plegma as on the PS-aware path (kPlegmaMaxReadSegment); abPOA keeps longcallD's rule.
+    if (full_lens[0] >= (use_plegma_msa() ? kPlegmaMaxReadSegment : opts.max_noisy_reg_len)) {
         note_msa_failure("read_segment_too_long " + std::to_string(full_lens[0]));
         return 0;
     }
@@ -1782,7 +1783,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
             }
         }
         // A read segment is refused at kPlegmaMaxReadSegment, not at the region cap: the union alignment solve
-        // caps regions at 2 kb of reference (kUnionMsaMaxRegionLength), and a haplotype carrying an expansion
+        // caps regions (kUnionMsaMaxRegionLength; 2 kb when this was measured), and a haplotype carrying an expansion
         // there spans more -- chr18:80,195,529-80,197,336, a 1,808 bp VNTR whose longer haplotype's reads span
         // 2,632 bp, got no MSA, and the catalog's sites inside it were phased as called (false hets, the block's
         // last true SNP flipped). HG002 HiFi chr12/18/20 (chr17/19/21 held out): regions without consensus 741

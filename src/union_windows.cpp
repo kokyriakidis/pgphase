@@ -274,10 +274,28 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     // blocks through paralogous copies the same way (chr12:10.30-10.31 Mb, a block carried across the duplication by
     // windows over its gated indels, 1,283 arm reads discordant).
     const std::vector<char> collapsed = collapsed_duplication_sites(bam);
+    // A noisy region the MSA resolved: its consensus sequences, from every read there, are the call (one consensus,
+    // homozygous; two, MSA hets that vote in the EM themselves). The alignment's own indels inside it are read noise
+    // the MSA outvoted: at chr17:6,320,523 the MSA called the T run's one-base deletion homozygous from 69 reads, a
+    // window contrasting the alignment's one- and two-base deletions split 26 reads by stutter (learned error 0.11)
+    // and was the only bridge over a 21 kb homozygous stretch, joining 279 reads in the wrong orientation.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> resolved;
+    for (const PhasingChunk::MsaRegion& r : bam.msa_regions)
+        if (!r.spelled.empty()) resolved.emplace_back(r.beg - 1, r.end);
+    std::sort(resolved.begin(), resolved.end());
+    hts_pos_t widest_resolved = 0;
+    for (const auto& r : resolved) widest_resolved = std::max(widest_resolved, r.second - r.first);
+    const auto in_resolved_msa = [&](hts_pos_t a, hts_pos_t b) {
+        auto it = std::lower_bound(resolved.begin(), resolved.end(), std::make_pair(a - widest_resolved, hts_pos_t{0}));
+        for (; it != resolved.end() && it->first < std::max(b, a + 1); ++it)
+            if (it->second > a) return true;
+        return false;
+    };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
         if (collapsed[bi]) continue;
         if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
+        if (in_resolved_msa(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len)) continue;
         const VariantCategory cat = c.counts.category;
         if (cat != VariantCategory::RepeatHetIndel && cat != VariantCategory::NoisyCandHet) continue;
         if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
@@ -296,6 +314,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             const CandidateVariant& c = bam.candidates[bi];
             if (collapsed[bi]) continue;
             if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
+            if (in_resolved_msa(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len)) continue;
             if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
             const int alt_reads = c.counts.alt_cov, ref_reads = c.counts.ref_cov;
             if (alt_reads < kLocusMinSide || ref_reads > kPairMaxRefFraction * (alt_reads + ref_reads)) continue;
