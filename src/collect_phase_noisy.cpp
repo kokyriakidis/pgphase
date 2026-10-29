@@ -2288,9 +2288,10 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
+    const std::string why_none = take_msa_failure();
     if (n_cons == 0) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_consensus",
-                            std::to_string(n_noisy_reads) + " reads");
+                            std::to_string(n_noisy_reads) + " reads" + (why_none.empty() ? "" : ": " + why_none));
         return -1;
     }
     if (pgphase_trace::on())

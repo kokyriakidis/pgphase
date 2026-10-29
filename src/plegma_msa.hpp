@@ -46,6 +46,11 @@ bool msa_genotypes_alone();
 /// read letters:anchor:strand:haplotype, tab-separated), cleared; empty otherwise.
 std::string take_plegma_inputs();
 
+/// Why this thread's last noisy-region MSA call gave no consensus (`too_few_full_reads`, `read_segment_too_long`,
+/// `plegma_clusters`, `plegma_error: ...`, ...), for the stage trace's `no_consensus` line; take_msa_failure clears it.
+void note_msa_failure(std::string why);
+std::string take_msa_failure();
+
 /// A read's alignment to its cluster's consensus as an MSA would show the two: equal-length rows, codes 0-4, 5 a gap.
 struct PlegmaRows {
     std::vector<uint8_t> cons;

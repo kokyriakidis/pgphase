@@ -1612,6 +1612,10 @@ int abpoa_partial_aln_msa_cons(const Options& opts, int sampling_reads,
 // Partial-cover reads are therefore not used by this branch. Measured on the two
 // panel windows: the branch runs 12 and 6 times against the sibling's 262 and
 // 255, leaving 8 and 2 partial reads unused in total.
+// The longest read segment plegma takes: the main pipeline's region cap (Options::max_noisy_reg_len), also where the
+// union alignment solve caps regions at 2 kb (see wfa_collect_noisy_aln_str_with_ps_hap).
+constexpr int kPlegmaMaxReadSegment = 50000;
+
 int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info,
                                          const uint8_t* ref_seq, int ref_seq_len,
                                          bool collect_ref_read_aln_str,
@@ -1633,8 +1637,14 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
         full_lens  .push_back(info.lens[static_cast<size_t>(i)]);
         full_covers.push_back(info.fully_covers[static_cast<size_t>(i)]);
     }
-    if (full_ids.empty()) return 0;
-    if (full_lens[0] >= opts.max_noisy_reg_len) return 0;
+    if (full_ids.empty()) {
+        note_msa_failure("no_full_reads");
+        return 0;
+    }
+    if (full_lens[0] >= opts.max_noisy_reg_len) {
+        note_msa_failure("read_segment_too_long " + std::to_string(full_lens[0]));
+        return 0;
+    }
 
     // Run de-novo abPOA.
     std::vector<int>                           cons_lens;
@@ -1661,7 +1671,10 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                     2, cons_lens, cons_seqs, clu_n_seqs, clu_read_ids,
                                     msa_seq_lens, msa_seqs);
     }
-    if (n_cons == 0) return 0;
+    if (n_cons == 0) {
+        if (!by_plegma) note_msa_failure("abpoa_clusters 0");
+        return 0;
+    }
     if (opts.verbose >= 2) std::fprintf(stderr, "n_cons: %d\n", n_cons);
 
     for (int ci = 0; ci < n_cons; ++ci) {
@@ -1722,9 +1735,6 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
 // WFA2 alignment of noisy-region reads with per-haplotype separation.
 // ════════════════════════════════════════════════════════════════════════════
 
-// The longest read segment plegma's PS-aware path takes: the main pipeline's region cap (Options::max_noisy_reg_len).
-constexpr int kPlegmaMaxReadSegment = 50000;
-
 int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_reads,
                                            NoisyReadInfo& info,
                                            hts_pos_t ps,
@@ -1781,12 +1791,18 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         // het loci -108 (-53). A 5 kb cap gained about half as much.
         bool long_hap = false;
         for (int l : ps_lens) long_hap = long_hap || l >= kPlegmaMaxReadSegment;
-        if (!ps_ids.empty() && !long_hap &&
-            plegma_phased_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, ps_haps, cons_seqs,
-                                   clu_n_seqs, clu_read_ids, plegma_rows) == 2 &&
-            clu_n_seqs[0] > 0 && clu_n_seqs[1] > 0) {
-            cons_lens = {static_cast<int>(cons_seqs[0].size()), static_cast<int>(cons_seqs[1].size())};
-            n_cons = 2;
+        if (ps_ids.empty()) {
+            note_msa_failure("no_phased_reads");
+        } else if (long_hap) {
+            note_msa_failure("read_segment_too_long " + std::to_string(*std::max_element(ps_lens.begin(), ps_lens.end())));
+        } else if (plegma_phased_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, ps_haps, cons_seqs,
+                                          clu_n_seqs, clu_read_ids, plegma_rows) == 2) {
+            if (clu_n_seqs[0] > 0 && clu_n_seqs[1] > 0) {
+                cons_lens = {static_cast<int>(cons_seqs[0].size()), static_cast<int>(cons_seqs[1].size())};
+                n_cons = 2;
+            } else {
+                note_msa_failure("plegma_empty_cluster");
+            }
         }
     }
     for (int hap = 1; hap <= 2 && !use_plegma_msa(); ++hap) {
@@ -1836,7 +1852,10 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         }
     }
 
-    if (n_cons != 2) return 0;
+    if (n_cons != 2) {
+        if (!use_plegma_msa()) note_msa_failure("abpoa_clusters " + std::to_string(n_cons));
+        return 0;
+    }
 
     // Build alignment strings for each haplotype.
     std::vector<bool> placed(static_cast<size_t>(n), false);
@@ -2065,7 +2084,10 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                                 std::array<std::vector<int>, 2>& clu_read_ids,
                                 std::array<std::vector<AlnStr>, 2>& aln_strs,
                                 std::vector<UnassignedMsaRead>* unassigned) {
-    if (noisy_read_ids.empty()) return 0;
+    if (noisy_read_ids.empty()) {
+        note_msa_failure("no_reads");
+        return 0;
+    }
     const int ref_seq_len = static_cast<int>(ref_seq_vec.size());
 
     // 1. Extract per-read sequences / cover info.
@@ -2131,6 +2153,9 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
         n_cons = wfa_collect_noisy_aln_str_no_ps_hap(
             opts, info, ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,
             clu_n_seqs, clu_read_ids, aln_strs);
+    } else {
+        note_msa_failure("too_few_full_reads " + std::to_string(n_full_reads) + " of " + std::to_string(info.n_reads) +
+                         " (min " + std::to_string(opts.min_depth) + ")");
     }
 
     dump_msa_call(chunk, noisy_reg_beg, noisy_reg_end, ps, ref_seq_vec, n_cons, clu_n_seqs, clu_read_ids, aln_strs,

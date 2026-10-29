@@ -961,6 +961,24 @@ private:
                 by_region.push_back(sites_[k].ci);
         }
         const auto alt_on_hap1 = [](const CandidateVariant& c) { return first_allele_on_hap1(c); };
+        if (pgphase_trace::on())
+            for (const size_t ci : by_region) {
+                const CandidateVariant& c = chunk_.candidates[ci];
+                if (c.vcf_unphased || c.unresolved_noisy) continue;
+                int agree = 0, disagree = 0;
+                for (const size_t di : by_region) {
+                    const CandidateVariant& d = chunk_.candidates[di];
+                    if (di == ci || d.vcf_unphased || d.msa_region != c.msa_region || d.phase_set != c.phase_set) continue;
+                    const bool em_cis = alt_on_hap1(c) == alt_on_hap1(d);
+                    const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
+                    ++(em_cis == msa_cis ? agree : disagree);
+                }
+                if (agree + disagree > 0)
+                    pgphase_trace::candidate("em", "msa_check", c, disagree > 0 ? "disagrees" : "agrees",
+                                             "agree=" + std::to_string(agree) + " disagree=" + std::to_string(disagree) +
+                                             " err=" + std::to_string(err_[static_cast<size_t>(site_of_[ci])]).substr(0, 5) +
+                                             " " + pgphase_trace::genotype_text(c));
+            }
         for (const size_t ci : by_region) {
             CandidateVariant& c = chunk_.candidates[ci];
             if (!c.vcf_unphased || c.unresolved_noisy) continue;
