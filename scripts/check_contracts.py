@@ -96,13 +96,14 @@ def read_msa_dump(path, contigs):
 
 
 def read_injection_decisions(path):
-    """Sorted (pos, type, decision, category): each alignment candidate's last injection decision. The trace names
-    no contig: a run with --msa-dump and --trace is checked on one contig."""
+    """Sorted (pos, type, decision, category): each alignment candidate's last injection decision. A run with
+    --msa-dump and --trace is checked on one contig. Reads the trace with or without its leading contig, chunk and
+    pass columns (docs/TRACE.md)."""
     last = {}
     with open_text(path) as f:
-        next(f)
+        skip = 3 if f.readline().startswith("contig\t") else 0
         for line in f:
-            c = line.rstrip("\n").split("\t")
+            c = line.rstrip("\n").split("\t")[skip:]
             if len(c) >= 7 and c[0] == "inject" and c[1] == "decision":
                 cat = c[6].split()[0].split("=")[1] if c[6].startswith("cat=") else "-1"
                 last[(int(c[2]), c[4])] = (int(c[2]), c[4][0], c[5], int(cat))

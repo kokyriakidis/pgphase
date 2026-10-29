@@ -625,10 +625,10 @@ std::unordered_map<size_t, size_t> fold_aliases(Selection& sel, const PhasingChu
         } else if (sel.island_only.count(bi) == 0) {
             alias_of.emplace(bi, it->second);
             pgphase_trace::candidate("inject", "merge", bam.candidates[bi], "alias_folded",
-                                     "into " + pgphase_trace::key_text(bam.candidates[it->second].key));
+                                     "into=" + pgphase_trace::key_text(bam.candidates[it->second].key));
         } else {
             pgphase_trace::candidate("inject", "drop", bam.candidates[bi], "island_duplicate_dropped",
-                                     "of " + pgphase_trace::key_text(bam.candidates[it->second].key));
+                                     "of=" + pgphase_trace::key_text(bam.candidates[it->second].key));
         }
     }
     sel.selected = std::move(kept);
@@ -658,7 +658,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             std::string key = m.ref + ">";
             for (size_t i = 0; i < m.alts.size(); ++i) key += (i ? "," : "") + m.alts[i].substr(0, 60);
             pgphase_trace::emit("inject", event, m.pos, m.pos + std::max<hts_pos_t>(1, m.ref.size()) - 1, key, reason,
-                                ci < graph_chunk.site_ids.size() ? graph_chunk.site_ids[ci] : std::string());
+                                ci < graph_chunk.site_ids.size() ? "site=" + graph_chunk.site_ids[ci] : std::string());
         };
         for (const auto& [ci, reason] : sel.row_reason) row(ci, sel.hom_rows.count(ci) ? "regenotype" : "drop", reason);
         for (const size_t ci : sel.replaced_rows) row(ci, "drop", "row_replaced_by_msa_call");

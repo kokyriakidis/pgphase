@@ -2186,7 +2186,7 @@ static void drop_superseded_colocated_records(PhasingChunk& chunk) {
                 other.hap_to_cons_alle[1] != other.hap_to_cons_alle[2])
                 continue;
             pgphase_trace::candidate("msa", "drop", other, "superseded_by_two_allele_record",
-                                     pgphase_trace::key_text(merged.key));
+                                     "by=" + pgphase_trace::key_text(merged.key));
             other.counts.category = VariantCategory::LowCoverage;
             other.lcd_var_i_to_cate = 0;
         }
@@ -2431,7 +2431,7 @@ size_t merge_adjacent_deletion_insertion(CandidateTable& result) {
             if (found >= result.size()) continue;
             const CandidateVariant& ins = result[found];
             pgphase_trace::candidate("output", "merge", ins, "deletion_insertion_one_haplotype",
-                                     "into " + pgphase_trace::key_text(del.key));
+                                     "into=" + pgphase_trace::key_text(del.key));
             del.key.alt = ins.key.alt;
             if (del.key.alt.size() > static_cast<size_t>(del.key.ref_len)) del.key.type = VariantType::Insertion;
             drop[found] = 1;
@@ -2624,7 +2624,7 @@ size_t make_colocated_alleles_complementary(CandidateTable& result, int min_alt_
                                  : alt_depth(a) <= alt_depth(b) ? a : b;
         const int other = hap == 1 ? 2 : 1;
         pgphase_trace::candidate("output", "regenotype", weaker, "colocated_moved_to_other_hap",
-                                 pgphase_trace::genotype_text(weaker) + " hap " + std::to_string(hap) + "->" +
+                                 pgphase_trace::genotype_text(weaker) + " hap=" + std::to_string(hap) + " to_hap=" +
                                  std::to_string(other));
         weaker.hap_to_cons_alle[hap] = 0;
         weaker.hap_to_cons_alle[other] = 1;
@@ -2671,8 +2671,8 @@ void drop_conflicting_haplotype_alleles(CandidateTable& result) {
                     longest.compare(0, other.size(), other) == 0) {
                     if (!drop[carriers[k]])
                         pgphase_trace::candidate("output", "drop", result[carriers[k]], "conflict_contained",
-                                                 pgphase_trace::genotype_text(result[carriers[k]]) + " hap " +
-                                                 std::to_string(hap) + " in " +
+                                                 pgphase_trace::genotype_text(result[carriers[k]]) + " hap=" +
+                                                 std::to_string(hap) + " in=" +
                                                  pgphase_trace::key_text(result[carriers.back()].key));
                     drop[carriers[k]] = true;
                     resolved = true;
@@ -2700,8 +2700,8 @@ void drop_conflicting_haplotype_alleles(CandidateTable& result) {
                 if (i == best) continue;
                 if (!drop[i])
                     pgphase_trace::candidate("output", "drop", result[i], "conflict_weaker",
-                                             pgphase_trace::genotype_text(result[i]) + " hap " + std::to_string(hap) +
-                                             " kept " + pgphase_trace::key_text(result[best].key));
+                                             pgphase_trace::genotype_text(result[i]) + " hap=" + std::to_string(hap) +
+                                             " kept=" + pgphase_trace::key_text(result[best].key));
                 drop[i] = true;
             }
         }

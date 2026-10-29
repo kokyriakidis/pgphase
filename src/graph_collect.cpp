@@ -88,6 +88,7 @@ static CandidateTable graph_chunks_to_candidate_table(
 
     for (const GraphChunkBuildResult& graph_chunk : graph_chunks) {
         const PhasingChunk& chunk = graph_chunk.chunk;
+        const pgphase_trace::Scope trace_scope(chunk.region.chunk_id);
         // A phased het alone in its phase set phases nothing on its own. It is
         // written in the phase set holding most of its labelled reads (at least
         // 3) when they split there by allele on both haplotypes (80% each),
@@ -192,13 +193,13 @@ static CandidateTable graph_chunks_to_candidate_table(
                 if (!ok || alle[1] == alle[2]) continue;
                 rephase[ci] = {best, alle[1], alle[2]};
                 if (pgphase_trace::on()) {
-                    std::string v = "votes";
+                    std::string v;
                     for (int hh = 1; hh <= 2; ++hh) {
                         int tot = 0, top = 0;
                         for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; top = std::max(top, c); }
-                        v += " h" + std::to_string(hh) + "=" + std::to_string(top) + "/" + std::to_string(tot);
+                        v += "votes_h" + std::to_string(hh) + "=" + std::to_string(top) + "/" + std::to_string(tot) + " ";
                     }
-                    v += " ps_n=" + std::to_string(by_ps.size()) + " labelled=" + std::to_string(labelled[ci]);
+                    v += "ps_n=" + std::to_string(by_ps.size()) + " labelled=" + std::to_string(labelled[ci]);
                     rephase_votes[ci] = v;
                 }
             }
@@ -248,12 +249,12 @@ static CandidateTable graph_chunks_to_candidate_table(
                     key += (i ? "," : "") + meta.alts[i].substr(0, 60);
                 pgphase_trace::emit("output", "skip", beg, beg + std::max<hts_pos_t>(1, meta.ref.size()) - 1, key,
                                     reason, detail + (detail.empty() ? "" : " ") + pgphase_trace::genotype_text(mcand) +
-                                    (mcand.bam_injected ? " injected" : " catalog"));
+                                    (mcand.bam_injected ? " source=injected" : " source=catalog"));
             };
             if (rephase.count(ci) != 0)
                 pgphase_trace::candidate("output", "rephase", chunk.candidates[ci], "lone_het_rephased",
-                                         pgphase_trace::genotype_text(chunk.candidates[ci]) + " -> " +
-                                         pgphase_trace::genotype_text(mcand) +
+                                         pgphase_trace::genotype_text(chunk.candidates[ci]) + " " +
+                                         pgphase_trace::genotype_text(mcand, "to_") +
                                          (rephase_votes.count(ci) ? " " + rephase_votes[ci] : ""));
             if (meta.bam_alt_deletion_no_ref || meta.no_record) {
                 skip(meta.no_record ? (meta.msa_hom ? "no_record" : "no_record") : "bam_alt_deletion_no_ref");
@@ -643,8 +644,8 @@ static CandidateTable graph_chunks_to_candidate_table(
                 if (pgphase_trace::on())
                     pgphase_trace::candidate("output", "drop", loser, "duplicate_collapsed",
                                              pgphase_trace::genotype_text(loser) + " rank=" +
-                                             std::to_string(het_rank(loser)) + " kept " +
-                                             pgphase_trace::genotype_text(winner) + " rank=" +
+                                             std::to_string(het_rank(loser)) + " " +
+                                             pgphase_trace::genotype_text(winner, "kept_") + " kept_rank=" +
                                              std::to_string(het_rank(winner)));
                 if (replace) result[write] = std::move(result[read]);
             } else {
@@ -849,6 +850,7 @@ static void process_graph_chunk(GraphChunkBuildResult& out,
                                 const std::unordered_map<std::string, std::string>& chrom_remap,
                                 const Options& opts,
                                 const ChunkRowFetcher& fetch_rows) {
+    const pgphase_trace::Scope trace_scope(contig, region.chunk_id);
     static const bool timing = std::getenv("PGPHASE_TIMING") != nullptr;
     using Clock = std::chrono::steady_clock;
     std::vector<double> stage_s;
@@ -994,6 +996,7 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     stitch_chunk_haps(phasing_chunks, &opts);
     for (size_t i = 0; i < batch_size; ++i) {
         graph_chunks[i].chunk = std::move(phasing_chunks[i]);
+        const pgphase_trace::Scope trace_scope(graph_chunks[i].chunk.region.chunk_id);
         rescue_unphased_graph_reads(graph_chunks[i].chunk);
         apply_island_labels(graph_chunks[i].chunk);
     }
@@ -1254,6 +1257,7 @@ void run_collect_graph_variation(const Options& opts) {
             ++batch_end;
         }
 
+        const pgphase_trace::Scope trace_scope(header->target_name[chunks[batch_begin].tid], -1);
         std::vector<GraphChunkBuildResult> graph_chunks = process_graph_chunk_batch_indexed_gaf(
             opts.graph_sites, max_span, chunks, batch_begin, batch_end, header.get(), opts.gaf_file,
             opts.min_mapq, fai_full_to_suffix, chrom_remap, opts);

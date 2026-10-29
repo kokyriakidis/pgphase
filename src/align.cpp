@@ -1643,7 +1643,7 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
     }
     // plegma as on the PS-aware path (kPlegmaMaxReadSegment); abPOA keeps longcallD's rule.
     if (full_lens[0] >= (use_plegma_msa() ? kPlegmaMaxReadSegment : opts.max_noisy_reg_len)) {
-        note_msa_failure("read_segment_too_long " + std::to_string(full_lens[0]));
+        note_msa_failure("read_segment_too_long length=" + std::to_string(full_lens[0]));
         return 0;
     }
 
@@ -1673,7 +1673,7 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                     msa_seq_lens, msa_seqs);
     }
     if (n_cons == 0) {
-        if (!by_plegma) note_msa_failure("abpoa_clusters 0");
+        if (!by_plegma) note_msa_failure("abpoa_clusters clusters=0");
         return 0;
     }
     if (opts.verbose >= 2) std::fprintf(stderr, "n_cons: %d\n", n_cons);
@@ -1795,7 +1795,8 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
         if (ps_ids.empty()) {
             note_msa_failure("no_phased_reads");
         } else if (long_hap) {
-            note_msa_failure("read_segment_too_long " + std::to_string(*std::max_element(ps_lens.begin(), ps_lens.end())));
+            note_msa_failure("read_segment_too_long length=" +
+                             std::to_string(*std::max_element(ps_lens.begin(), ps_lens.end())));
         } else if (plegma_phased_msa_cons(opts, ps_ids, ps_seqs, ps_lens, ps_covers, ps_strands, ps_haps, cons_seqs,
                                           clu_n_seqs, clu_read_ids, plegma_rows) == 2) {
             if (clu_n_seqs[0] > 0 && clu_n_seqs[1] > 0) {
@@ -1854,7 +1855,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
     }
 
     if (n_cons != 2) {
-        if (!use_plegma_msa()) note_msa_failure("abpoa_clusters " + std::to_string(n_cons));
+        if (!use_plegma_msa()) note_msa_failure("abpoa_clusters clusters=" + std::to_string(n_cons));
         return 0;
     }
 
@@ -2155,8 +2156,8 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
             opts, info, ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,
             clu_n_seqs, clu_read_ids, aln_strs);
     } else {
-        note_msa_failure("too_few_full_reads " + std::to_string(n_full_reads) + " of " + std::to_string(info.n_reads) +
-                         " (min " + std::to_string(opts.min_depth) + ")");
+        note_msa_failure("too_few_full_reads full=" + std::to_string(n_full_reads) + " of=" +
+                         std::to_string(info.n_reads) + " min=" + std::to_string(opts.min_depth));
     }
 
     dump_msa_call(chunk, noisy_reg_beg, noisy_reg_end, ps, ref_seq_vec, n_cons, clu_n_seqs, clu_read_ids, aln_strs,

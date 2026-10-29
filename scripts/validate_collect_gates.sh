@@ -195,6 +195,12 @@ union_gates() {
       check_golden "$msa union phased VCF" "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
         "$dir/union_chr20_expected.phased.vcf" hash_vcf_stable "$msa"
       union_contracts "$msa" "$dir" "$diag"
+      # The trace's own contract: columns, documented reasons, parseable details (scripts/check_trace.py).
+      if ! python3 "$ROOT/scripts/check_trace.py" --trace "$diag" --doc "$ROOT/docs/TRACE.md"; then
+        echo "error: $msa union trace: see scripts/check_trace.py and docs/TRACE.md" >&2
+        exit 1
+      fi
+      echo "ok: $msa union trace"
     fi
   done
   same_output "$msa union TSV, 1 and 4 threads," "$TMPDIR/pgphase_validate_${msa}_union_t1.tsv" \

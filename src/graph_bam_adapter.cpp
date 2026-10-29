@@ -839,7 +839,8 @@ private:
                         pgphase_trace::emit("graph", "drop", m.pos, m.pos + std::max<hts_pos_t>(1, m.ref.size()) - 1,
                                             m.ref + ">" + (ai < m.alts.size() ? m.alts[ai].substr(0, 60) : "?"),
                                             "pair_" + drop_reason,
-                                            pair_id + " " + std::to_string(pair_ref_c) + "/" + std::to_string(alt_c));
+                                            "pair=" + pair_id + " ref_alt=" + std::to_string(pair_ref_c) + "/" +
+                                                std::to_string(alt_c));
                     }
                     out_.filtered_sites.push_back({pair_id, meta_chrom, meta_pos,
                                                    pair_ref_c, alt_c, total_c, af, std::move(drop_reason)});
@@ -870,7 +871,7 @@ private:
                         pgphase_trace::emit("graph", "merge", meta.pos,
                                             meta.pos + std::max<hts_pos_t>(1, meta.ref.size()) - 1,
                                             meta.ref + ">" + id_alt_src.substr(0, 60), "duplicate_snarl_routed",
-                                            pair_id);
+                                            "pair=" + pair_id);
                     // Duplicate variant from an overlapping snarl: route this
                     // snarl's observations to the canonical anchor so the variant
                     // is not double-counted in k-means, but keep the canonical
@@ -1844,6 +1845,11 @@ static size_t rescue_unphased_graph_read_layer(
         chunk.gap_from_bam_observation[read_i] =
             use_bam_observations;
         ++rescued;
+        if (pgphase_trace::on())
+            pgphase_trace::read_trace(chunk, read_i)->fill =
+                std::string("rescue obs=") + (use_bam_observations ? "alignment" : "graph") +
+                " hap=" + std::to_string(best_hap) + " block=" + std::to_string(best_phase_set) +
+                " margin=" + std::to_string(best_margin) + " votes=" + std::to_string(best_total);
     }
     return rescued;
 }
@@ -1881,6 +1887,10 @@ void merge_graph_chunk_into_read_rows(
         const ReadRecord& read = chunk.reads[read_i];
         PhaseReadOutputRow& row = rows_by_read[read.qname];
         if (row.read_name.empty()) row.read_name = read.qname;
+        if (pgphase_trace::on()) {
+            row.beg = row.beg == 0 ? read.beg : std::min(row.beg, read.beg);
+            row.end = std::max(row.end, read.end);
+        }
 
         int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
         hts_pos_t phase_set =
@@ -1918,6 +1928,14 @@ void merge_graph_chunk_into_read_rows(
             chunk.gap_from_bam_observation[read_i];
         merge_phase_read_assignment(row, chunk.region.chunk_id, hap, phase_set,
                                     is_primary, fill_only);
+        if (pgphase_trace::on()) {
+            row.trace += (row.trace.empty() ? "" : " | ") + std::string("chunk=") +
+                         std::to_string(chunk.region.chunk_id) + " hap=" + std::to_string(hap) +
+                         " ps=" + std::to_string(phase_set) +
+                         (is_primary ? " primary" : hap != 0 ? (fill_only ? " fill_only" : " fill") : " none") +
+                         ": " + (read_i < chunk.read_trace.size()
+                                     ? pgphase_trace::describe_read(chunk.read_trace[read_i]) : std::string("-"));
+        }
     }
 }
 
@@ -1999,6 +2017,11 @@ void flush_graph_phase_bam_after_merge(
               [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& kv : drained) {
         emitted_read_names.insert(kv.first);
+        if (pgphase_trace::on())
+            pgphase_trace::emit_read(kv.second.beg, kv.second.end, kv.first,
+                                     kv.second.has_phased_assignment ? kv.second.hap : 0,
+                                     kv.second.has_phased_assignment ? kv.second.phase_set : -1, kv.second.copies,
+                                     kv.second.trace);
         if (phase_bam_out && phase_bam_hdr) {
             const int hap =
                 kv.second.has_phased_assignment ? kv.second.hap : 0;

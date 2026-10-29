@@ -1061,7 +1061,7 @@ static void merge_msa_insertion_alleles(std::vector<CandidateVariant>& vars,
             first.key.pos != second.key.pos || first.key.alt == second.key.alt ||
             first.counts.category != VariantCategory::NoisyCandHet ||
             second.counts.category != VariantCategory::NoisyCandHet) continue;
-        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion", "into " +
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion", "into=" +
                                  pgphase_trace::key_text(first.key));
         first.msa_insertion_alts = {first.key.alt, second.key.alt};
         // Each allele after its own consensus's letter: at chr12:247,663 the haplotype inserting one A has C>A on the
@@ -1133,11 +1133,11 @@ static void merge_msa_colocated_insertion_and_deletion(const PhasingChunk& chunk
         if (!fold_snps(vars, i + 2, del.key.pos, del.key.pos + del.key.ref_len, deleted, gone)) continue;
         std::string ins_allele = ins.key.alt + deleted;
         for (char& ch : ins_allele) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion_deletion", "into " +
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_insertion_deletion", "into=" +
                                  pgphase_trace::key_text(first.key));
         for (size_t g = 1; g < gone.size(); ++g)
             pgphase_trace::candidate("msa", "merge", vars[gone[g]], "two_allele_insertion_deletion",
-                                     "into " + pgphase_trace::key_text(first.key) + " insertion allele");
+                                     "into=" + pgphase_trace::key_text(first.key) + " allele=insertion");
         const std::vector<std::string> alts = ins_del ? std::vector<std::string>{ins_allele, std::string()}
                                                       : std::vector<std::string>{std::string(), ins_allele};
         const std::vector<uint8_t> anchors = {first.alt_ref_base, second.alt_ref_base};
@@ -1215,14 +1215,14 @@ static void merge_msa_nested_deletions(const PhasingChunk& chunk, std::vector<Ca
         if (snp_in_gap) continue;
         std::string kept = span.substr(0, gap) + span.substr(gap + static_cast<size_t>(inner.key.ref_len));
         if (inner.alt_ref_base < 4) kept[gap - 1] = "ACGT"[inner.alt_ref_base];
-        pgphase_trace::candidate("msa", "merge", inner, "two_allele_nested_deletion", "into " +
+        pgphase_trace::candidate("msa", "merge", inner, "two_allele_nested_deletion", "into=" +
                                  pgphase_trace::key_text(outer.key) + " inner_alt=" +
                                  std::to_string(inner.counts.alle_covs.size() > 1 ? inner.counts.alle_covs[1] : -1) +
                                  " inner_ref=" + std::to_string(inner.counts.alle_covs.empty() ? -1 : inner.counts.alle_covs[0]) +
                                  " outer_alt=" + std::to_string(outer.counts.alle_covs.size() > 1 ? outer.counts.alle_covs[1] : -1));
         for (const size_t j : snps)
             pgphase_trace::candidate("msa", "merge", vars[j], "two_allele_nested_deletion",
-                                     "into " + pgphase_trace::key_text(outer.key) + " allele 2");
+                                     "into=" + pgphase_trace::key_text(outer.key) + " allele=2");
         outer.msa_insertion_alts = {std::string(), kept};
         outer.msa_insertion_anchors = {outer.alt_ref_base, 4};
         outer.counts.alle_covs.assign(3, 0);
@@ -1285,11 +1285,11 @@ static void merge_msa_colocated_deletions(const PhasingChunk& chunk,
         for (char& ch : retained) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
         std::vector<size_t> gone;
         if (!fold_snps(vars, i + 2, first.key.pos + short_len, first.key.pos + long_len, retained, gone)) continue;
-        pgphase_trace::candidate("msa", "merge", second, "two_allele_deletion", "into " +
+        pgphase_trace::candidate("msa", "merge", second, "two_allele_deletion", "into=" +
                                  pgphase_trace::key_text(first.key));
         for (const size_t j : gone)
             pgphase_trace::candidate("msa", "merge", vars[j], "two_allele_deletion",
-                                     "into " + pgphase_trace::key_text(first.key) + " shorter allele");
+                                     "into=" + pgphase_trace::key_text(first.key) + " allele=shorter");
         gone.insert(gone.begin(), i + 1);
         // Allele order follows record order, so a read's existing vote at each
         // record maps onto the merged allele without re-deriving it.
@@ -1623,7 +1623,7 @@ int merge_var_profile(PhasingChunk& chunk,
                 replace_single_allele) {
                 set_noisy_category(new_vars[new_i], new_cats[new_i]);
                 pgphase_trace::candidate("msa", "call", new_vars[new_i], "replaced_existing",
-                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old cat=" +
+                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old_cat=" +
                                          std::to_string(static_cast<int>(old_vars[old_i].counts.category)));
                 new_vars[new_i].graph_site |= old_vars[old_i].graph_site;
                 new_vars[new_i].counts.candvarcate_initial =
@@ -1633,7 +1633,7 @@ int merge_var_profile(PhasingChunk& chunk,
                 ++admitted;
             } else {
                 pgphase_trace::candidate("msa", "drop", new_vars[new_i], "existing_candidate_kept",
-                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old cat=" +
+                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])) + " old_cat=" +
                                          std::to_string(static_cast<int>(old_vars[old_i].counts.category)));
                 old_to_merged[old_i] = old_key_to_merged[old_i] = static_cast<int>(merged_vars.size());
                 merged_vars.push_back(std::move(old_vars[old_i]));
@@ -2268,7 +2268,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     // Skip regions with more than max_noisy_reg_cov reads.
     if (n_noisy_reads > opts.max_noisy_reg_cov) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "too_many_reads",
-                            std::to_string(n_noisy_reads));
+                            "reads=" + std::to_string(n_noisy_reads));
         return 0;
     }
 
@@ -2291,13 +2291,13 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     const std::string why_none = take_msa_failure();
     if (n_cons == 0) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_consensus",
-                            std::to_string(n_noisy_reads) + " reads" + (why_none.empty() ? "" : ": " + why_none));
+                            "reads=" + std::to_string(n_noisy_reads) + (why_none.empty() ? "" : " why=" + why_none));
         return -1;
     }
     if (pgphase_trace::on())
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "resolved",
-                            std::to_string(n_cons) + " consensus, clusters " + std::to_string(clu_n_seqs[0]) + "/" +
-                            std::to_string(clu_n_seqs[1]) + ", " + std::to_string(n_noisy_reads) + " reads");
+                            "consensus=" + std::to_string(n_cons) + " clusters=" + std::to_string(clu_n_seqs[0]) + "/" +
+                            std::to_string(clu_n_seqs[1]) + " reads=" + std::to_string(n_noisy_reads));
 
     if (use_plegma_msa()) record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs);
 

@@ -753,6 +753,18 @@ struct PhasingChunk {
     std::vector<int> island_haps;
     std::vector<hts_pos_t> island_phase_sets;
     std::vector<IslandSite> island_sites;
+    // Trace only (PGPHASE_TRACE; empty otherwise): per read of this chunk, how its calls and its label came about,
+    // written to DIR/reads.tsv with the read's phased BAM row (pgphase_trace::read_trace).
+    struct ReadTrace {
+        bool alignment_only = false;  // added from the alignment solve (add_alignment_only_reads)
+        int realigned = 0;            // calls realignment set at injected indels (realign_indel_observations)
+        int graded = 0;               // MSA calls realignment graded there
+        int filled = 0;               // calls given to an alignment-only read (fill_missing_observations)
+        int snp_replaced = 0;         // graph SNP calls the alignment's base replaced (confirm_catalog_snp_calls)
+        std::string label;            // the EM's label or why none, then deferred / island labels (union_em.cpp)
+        std::string fill;             // a fill label applied after stitching (rescue, deferred or island)
+    };
+    std::vector<ReadTrace> read_trace;
     std::vector<ReadVariantProfile> read_var_profile;
     /// A noisy region the MSA resolved (plegma), and where its consensus sequences differ from the reference
     /// (1-based, inclusive; an insertion as the two letters either side of it). `spelled` holds each consensus (two

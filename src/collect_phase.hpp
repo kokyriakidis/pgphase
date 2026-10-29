@@ -77,10 +77,23 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts = 
 /// kStitchMinShare of them; do_flip when it is the crossed one.
 bool select_stitch_orientation(const std::array<int, 4>& votes, bool& do_flip);
 
+/// One het's link in the phase-set builder's last pass (iter_update_var_hap_cons_phase_set), for the trace: the
+/// candidate, the earlier het it linked to (-1: none), the spanning reads agreeing and conflicting with that link,
+/// the phase set it took and whether its orientation was flipped.
+struct AlnLinkTrace {
+    int vi = -1;
+    int to_vi = -1;
+    int agree = 0;
+    int conflict = 0;
+    hts_pos_t phase_set = 0;
+    int parity = 0;
+};
+
 /// Update block links and orient candidate alleles for one k-means iteration.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                       const std::vector<int>& valid_var_idx,
-                                      const Options& opts);
+                                      const Options& opts,
+                                       std::vector<AlnLinkTrace>* links = nullptr);
 
 // Assign haplotypes and phase sets to reads via iterative k-means clustering.
 //

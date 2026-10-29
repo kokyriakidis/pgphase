@@ -36,6 +36,8 @@ struct PhaseReadOutputRow {
     bool has_primary_assignment = false;
     int copies = 0;             // number of chunks that observed this read
     std::unordered_map<std::string, int> allele_by_site;  // site_id → allele
+    std::string trace;          // PGPHASE_TRACE only: each chunk's label and how it came about (reads.tsv)
+    hts_pos_t beg = 0, end = 0;  // PGPHASE_TRACE only: the span of the sites the read was called at
 };
 
 // Record for a site that was dropped during depth/AF filtering (Phase 1-2).

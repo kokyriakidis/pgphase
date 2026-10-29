@@ -207,6 +207,7 @@ public:
           n_locus_(loci != nullptr ? loci->size() : 0) {}
 
     size_t run() {
+        const pgphase_trace::Scope trace_pass = pgphase_trace::Scope::pass(loci_ != nullptr ? 2 : 1);
         select_sites();
         n_ = sites_.size();
         if (n_ < 2) return 0;
@@ -300,7 +301,7 @@ private:
             if (nx + ny == 0 || std::min(nx, ny) < kEmMinMinorAlleleFraction * (nx + ny)) {
                 if (pgphase_trace::on())
                     pgphase_trace::candidate("em", "not_site", c, "minor_allele_below_fraction",
-                                             "alleles " + std::to_string(x) + ":" + std::to_string(nx) + " " +
+                                             "alleles=" + std::to_string(x) + ":" + std::to_string(nx) + "," +
                                              std::to_string(y) + ":" + std::to_string(ny));
                 continue;
             }
@@ -815,7 +816,7 @@ private:
     }
 
     // A block cut, or a join a weak bridge carries, between sites k and k + 1: the rule that cut it, the margins and
-    // the reads behind them. The first solve has no locus windows (solve=sites), the second has (solve=windows).
+    // the reads behind them (the trace's pass: 1, the first solve without locus windows, or 2).
     void trace_boundary(size_t k, bool cut, bool hinge) const {
         const char* why = !cut                                     ? "weak_bridge_joined"
                           : delta_[k] < kEmBlockCutLogLikelihood   ? "margin"
@@ -823,9 +824,8 @@ private:
                           : hinge                                  ? "hinge"
                                                                    : "weak_bridge";
         char detail[160];
-        std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d solve=%s",
-                      delta_[k], delta_strong_[k], spanning_[k], spanning_strong_[k],
-                      loci_ != nullptr ? "windows" : "sites");
+        std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d", delta_[k],
+                      delta_strong_[k], spanning_[k], spanning_strong_[k]);
         pgphase_trace::emit("em", cut ? "cut" : "join", sites_[k].pos, sites_[k + 1].pos, "-", why, detail);
     }
 
@@ -1104,6 +1104,7 @@ private:
                 chunk_.haps[ri] = p1 >= 0.5 ? 1 : 2;
                 chunk_.phase_sets[ri] = ps;
             }
+            if (pgphase_trace::on()) trace_label(ri, per_block, directions);
             if (chunk_.haps[ri] != 0 || loci_ == nullptr) continue;
             // Deferred: all of the read's calls in a block point one way.
             double weak_best = 0.0;
@@ -1119,8 +1120,10 @@ private:
                 weak_hap = p1 >= 0.5 ? 1 : 2;
                 weak_ps = ps;
             }
+            const char* weak_kind = "deferred";
             // Failing that, its unverified calls.
             if (weak_hap == 0) {
+                weak_kind = "unverified";
                 std::map<hts_pos_t, std::array<double, 2>> unverified;
                 for (const EmObs& o : robs_[ri]) {
                     const size_t k = static_cast<size_t>(o.s);
@@ -1139,8 +1142,37 @@ private:
                     weak_ps = ps;
                 }
             }
-            if (weak_hap != 0) defer_label(ri, weak_hap, weak_ps);
+            if (weak_hap != 0) {
+                defer_label(ri, weak_hap, weak_ps);
+                if (pgphase_trace::on())
+                    pgphase_trace::read_trace(chunk_, ri)->label +=
+                        std::string("; ") + weak_kind + " hap=" + std::to_string(weak_hap) +
+                        " block=" + std::to_string(weak_ps);
+            }
         }
+    }
+
+    // Trace: the read's label in the final solve (first solve: overwritten) -- the block it went to and its
+    // posterior, or why none: the best block's posterior, and the blocks its calls point to both ways.
+    void trace_label(size_t ri, const std::map<hts_pos_t, std::array<double, 2>>& per_block,
+                     std::map<hts_pos_t, std::array<int, 2>>& directions) {
+        double best_p = 0.5;
+        hts_pos_t best_ps = 0;
+        int mixed = 0;
+        for (const auto& [ps, l] : per_block) {
+            const double p1 = hap1_posterior(l[0] - l[1]);
+            if (std::max(p1, 1.0 - p1) > best_p) best_p = std::max(p1, 1.0 - p1), best_ps = ps;
+            const auto& d = directions[ps];
+            mixed += d[0] != 0 && d[1] != 0;
+        }
+        char text[160];
+        if (chunk_.haps[ri] != 0)
+            std::snprintf(text, sizeof(text), "em hap=%d block=%lld p=%.3f blocks=%zu calls=%zu", chunk_.haps[ri],
+                          static_cast<long long>(chunk_.phase_sets[ri]), best_p, per_block.size(), robs_[ri].size());
+        else
+            std::snprintf(text, sizeof(text), "unlabelled best_p=%.3f block=%lld blocks=%zu mixed_blocks=%d calls=%zu",
+                          best_p, static_cast<long long>(best_ps), per_block.size(), mixed, robs_[ri].size());
+        pgphase_trace::read_trace(chunk_, ri)->label = text;
     }
 
     // Island blocks. A read the solve leaves unlabelled is phased locally by
@@ -1294,6 +1326,12 @@ private:
             if (pick_cand[ri] < 0) continue;
             const size_t ic = static_cast<size_t>(pick_cand[ri]);
             defer_label(ri, pick_side[ri] == cands[ic].phase ? 1 : 2, ps_of(ic));
+            if (pgphase_trace::on()) {
+                char text[96];
+                std::snprintf(text, sizeof(text), "; island kind=%c site=%lld err=%.3f", cands[ic].kind,
+                              static_cast<long long>(cands[ic].pos), cands[ic].err);
+                pgphase_trace::read_trace(chunk_, ri)->label += text;
+            }
         }
         chunk_.island_sites.clear();
         for (const auto& [ic, ps] : island_ps) {
@@ -1508,6 +1546,7 @@ size_t apply_island_labels(PhasingChunk& chunk) {
         chunk.gap_phase_sets[ri] = chunk.island_phase_sets[ri] + kGapFillPsOffset;
         chunk.gap_from_bam_observation[ri] = true;  // fill only: never replaces another chunk's label
         ++labelled;
+        if (pgphase_trace::on()) pgphase_trace::read_trace(chunk, ri)->fill = "deferred_or_island";
     }
     for (const PhasingChunk::IslandSite& s : chunk.island_sites) {
         if (s.candidate >= chunk.candidates.size()) continue;

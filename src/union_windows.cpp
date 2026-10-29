@@ -4,8 +4,10 @@
 #include <unordered_map>
 #include <string_view>
 #include "union_internal.hpp"
+#include "trace.hpp"
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <cmath>
 #include <map>
 
@@ -137,6 +139,15 @@ std::vector<LocusWindowSite> build_locus_window_sites(const PhasingChunk& bam,
                            std::to_string(graph.region.beg) + ".tsv").c_str(), "w");
     const auto note = [&](hts_pos_t l0, hts_pos_t l1, size_t nseg, size_t s1, size_t s2, int dh, int n0, int n1,
                           const char* why) {
+        // Trace (PGPHASE_TRACE): every locus considered, built ("window") or not and why, with the spanning
+        // reads, the seeded reads per side, the two haplotypes' edit distance and the reads assigned per side.
+        if (pgphase_trace::on()) {
+            char detail[128];
+            std::snprintf(detail, sizeof(detail), "reads=%zu seeds=%zu/%zu hap_edits=%d sides=%d/%d", nseg, s1, s2,
+                          dh, n0, n1);
+            pgphase_trace::emit("window", "locus", l0 + 1, l1, "-", std::strcmp(why, "window") == 0 ? "built" : why,
+                                detail);
+        }
         if (diag != nullptr)
             std::fprintf(diag, "%lld\t%lld\t%zu\t%zu\t%zu\t%d\t%d\t%d\t%s\n", static_cast<long long>(l0 + 1),
                          static_cast<long long>(l1), nseg, s1, s2, dh, n0, n1, why);
@@ -268,7 +279,14 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     // voting rows and fall under `busy`.
     // Each candidate is a reference span [p0, p0 + ref_len) and the two allele
     // sequences that replace it on the two haplotypes.
-    struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; long catalog_row = -1; };
+    struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; long catalog_row = -1;
+                    const char* source = "alignment"; };
+    // Trace (PGPHASE_TRACE): every allele window considered, built or not and why.
+    const auto trace_allele = [](hts_pos_t a, hts_pos_t b, const char* source, const char* why,
+                                 const std::string& detail) {
+        // An insertion spans no reference base: traced at the base before it.
+        if (pgphase_trace::on()) pgphase_trace::emit("window", "allele", a + 1, std::max(b, a + 1), source, why, detail);
+    };
     std::vector<Allele> alleles;
     // A collapsed duplication's calls: injection's depth gate keeps them out of the EM, and a window over them joined
     // blocks through paralogous copies the same way (chr12:10.30-10.31 Mb, a block carried across the duplication by
@@ -293,11 +311,19 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
-        if (collapsed[bi]) continue;
         if (c.key.type == VariantType::Snp || !c.msa_insertion_alts.empty()) continue;
-        if (in_resolved_msa(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len)) continue;
         const VariantCategory cat = c.counts.category;
         if (cat != VariantCategory::RepeatHetIndel && cat != VariantCategory::NoisyCandHet) continue;
+        if (collapsed[bi]) {
+            trace_allele(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len, "alignment", "collapsed_duplication",
+                         "allele=" + pgphase_trace::key_text(c.key));
+            continue;
+        }
+        if (in_resolved_msa(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len)) {
+            trace_allele(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len, "alignment", "in_resolved_msa",
+                         "allele=" + pgphase_trace::key_text(c.key));
+            continue;
+        }
         if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
         alleles.push_back(Allele{c.key.pos - 1, c.key.ref_len, ref.slice(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len),
                                  c.key.alt});
@@ -345,7 +371,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             for (char& ch : seq_a) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             for (char& ch : seq_b) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             if (seq_a == seq_b) continue;
-            alleles.push_back(Allele{lo, static_cast<int>(hi - lo), std::move(seq_a), std::move(seq_b)});
+            alleles.push_back(Allele{lo, static_cast<int>(hi - lo), std::move(seq_a), std::move(seq_b), -1, "pair"});
         }
     }
     // The catalog's non-voting repeat indels, from their VCF-form alleles.
@@ -375,7 +401,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             std::string s0 = *a0, s1 = *a1;
             for (char& ch : s0) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             for (char& ch : s1) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci)});
+            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci), "catalog"});
         }
     }
     std::sort(alleles.begin(), alleles.end(), [](const Allele& a, const Allele& b) { return a.p0 < b.p0; });
@@ -385,11 +411,18 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         const hts_pos_t end0 = al.p0 + al.ref_len;
         const hts_pos_t w0 = std::max<hts_pos_t>(0, al.p0 - ref.repeat_left(al.p0) - kAlleleWindowFlank);
         const hts_pos_t w1 = end0 + ref.repeat_right(end0) + kAlleleWindowFlank;
-        if (w1 - w0 > kLocusMaxLength || w0 < last_end || overlaps_busy(w0, w1)) continue;
+        const std::string what = "allele=" + std::to_string(al.p0 + 1) + ":" + std::to_string(al.ref_len) + ":" +
+                                 al.seq1.substr(0, 40);
+        if (w1 - w0 > kLocusMaxLength) { trace_allele(w0, w1, al.source, "too_long", what); continue; }
+        if (w0 < last_end) { trace_allele(w0, w1, al.source, "overlaps_previous_window", what); continue; }
+        if (overlaps_busy(w0, w1)) { trace_allele(w0, w1, al.source, "observed_by_em", what); continue; }
         const std::string left = ref.slice(w0, al.p0), right = ref.slice(end0, w1);
         const std::string hap_ref = left + al.seq0 + right;
         const std::string hap_alt = left + al.seq1 + right;
-        if (hap_ref == hap_alt || hap_ref.find('N') != std::string::npos) continue;
+        if (hap_ref == hap_alt || hap_ref.find('N') != std::string::npos) {
+            trace_allele(w0, w1, al.source, "same_or_n_haplotypes", what);
+            continue;
+        }
         LocusWindowSite site;
         site.pos = w0 + 1;
         site.end = w1;
@@ -411,7 +444,12 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
                 ri, side, static_cast<float>(std::min(kLocusMaxObsError, 0.5 * std::exp(-std::abs(d0 - d1)))));
         }
         const int called = n0 + n1;
-        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) continue;
+        const std::string sides = what + " sides=" + std::to_string(n0) + "/" + std::to_string(n1);
+        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) {
+            trace_allele(w0, w1, al.source, "one_sided", sides);
+            continue;
+        }
+        trace_allele(w0, w1, al.source, "built", sides);
         for (int s = 0; s < 2; ++s) {
             std::nth_element(edits[s].begin(), edits[s].begin() + static_cast<long>(edits[s].size() / 2), edits[s].end());
             site.median_edits[s] = edits[s][edits[s].size() / 2];
@@ -498,13 +536,19 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
     const SpanningReadIndex index(bam, graph);
     struct Locus { hts_pos_t w0; hts_pos_t w1; int period; hts_pos_t tract; std::vector<std::pair<size_t, int>> reads; };
     std::vector<Locus> loci;
+    // Trace (PGPHASE_TRACE): every repeat tract considered, built (island-only) or not and why.
+    const auto trace_length = [](hts_pos_t a, hts_pos_t b, const char* why, const std::string& detail) {
+        if (pgphase_trace::on()) pgphase_trace::emit("window", "length", a + 1, b, "-", why, detail);
+    };
     for (const Tract& t : merged) {
         const hts_pos_t w0 = std::max<hts_pos_t>(0, t.t0 - kAlleleWindowFlank), w1 = t.t1 + kAlleleWindowFlank;
-        if (w1 - w0 > kLocusMaxLength || overlaps_busy(w0, w1)) continue;
+        if (w1 - w0 > kLocusMaxLength) { trace_length(w0, w1, "too_long", ""); continue; }
+        if (overlaps_busy(w0, w1)) { trace_length(w0, w1, "observed_by_em", ""); continue; }
         Locus l{w0, w1, t.period, t.t1 - t.t0, {}};
         for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads))
             l.reads.emplace_back(ri, static_cast<int>(seq.size()) - static_cast<int>(w1 - w0));
         if (static_cast<int>(l.reads.size()) >= kLengthMinReads) loci.push_back(std::move(l));
+        else trace_length(w0, w1, "few_reads", "reads=" + std::to_string(l.reads.size()));
     }
     if (loci.empty()) return out;
     // Stutter: deviation from each locus's most common length, by tract bucket.
@@ -567,7 +611,10 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
                 if (s > ll2) { ll2 = s; c1 = x; c2 = y; }
             }
         }
-        if (ll2 - ll1 < kLengthMinHetLLR) continue;
+        char lengths[96];
+        std::snprintf(lengths, sizeof(lengths), "period=%d tract=%lld lengths=%d/%d het_llr=%.1f", l.period,
+                      static_cast<long long>(l.tract), c1, c2, ll2 - ll1);
+        if (ll2 - ll1 < kLengthMinHetLLR) { trace_length(l.w0, l.w1, "one_length", lengths); continue; }
         LocusWindowSite site;
         site.pos = l.w0 + 1;
         site.end = l.w1;
@@ -580,7 +627,12 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
             site.observations.emplace_back(
                 ri, side, static_cast<float>(std::min(kLocusMaxObsError, 1.0 / (1.0 + std::exp(std::abs(r))))));
         }
-        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * (n0 + n1)) continue;
+        const std::string sides = std::string(lengths) + " sides=" + std::to_string(n0) + "/" + std::to_string(n1);
+        if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * (n0 + n1)) {
+            trace_length(l.w0, l.w1, "one_sided", sides);
+            continue;
+        }
+        trace_length(l.w0, l.w1, "built", sides);
         if (dump != nullptr) {
             std::fprintf(dump, "%lld\t%lld\t%d\t%lld\t%d\t%d\t%.2f\t%d\t%d\t%d", static_cast<long long>(site.pos),
                          static_cast<long long>(site.end), l.period, static_cast<long long>(l.tract), c1, c2,

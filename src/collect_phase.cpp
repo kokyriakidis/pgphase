@@ -4,6 +4,7 @@
  */
 
 #include "collect_phase.hpp"
+#include "trace.hpp"
 
 #include <stdexcept>
 
@@ -574,7 +575,8 @@ using DiploidLinkCounts = std::array<std::array<int, 2>, 2>;
 // Iter_update_var_hap_cons_phase_set.
 int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
                                                const std::vector<int>& valid_var_idx,
-                                               const Options& opts) {
+                                               const Options& opts,
+                                       std::vector<AlnLinkTrace>* links) {
     const int n = (int)valid_var_idx.size();
     // Collect het var positions (indices into valid_var_idx).
     std::vector<int> het_var_idx;
@@ -699,6 +701,13 @@ int iter_update_var_hap_cons_phase_set(PhasingChunk& chunk,
             parity[hi] = parity[hj] ^ ((link_conflict[hi] > link_agree[hi]) ? 1 : 0);
             het_ps[hi] = het_ps[hj];
         }
+    }
+    if (links != nullptr) {
+        links->clear();
+        for (int hi = 0; hi < n_het; ++hi)
+            links->push_back(AlnLinkTrace{valid_var_idx[het_var_idx[hi]],
+                                          link_h[hi] >= 0 ? valid_var_idx[het_var_idx[link_h[hi]]] : -1,
+                                          link_agree[hi], link_conflict[hi], het_ps[hi], parity[hi]});
     }
 
 
@@ -991,11 +1000,31 @@ void assign_hap_based_on_germline_het_vars_kmeans(PhasingChunk& chunk,
     }
 
     // Phase 2: iterative k-means (up to 10 rounds, stop on convergence).
+    std::vector<AlnLinkTrace> links;
     for (int iter = 0; iter < 10; ++iter) {
-        const int c1 = iter_update_var_hap_cons_phase_set(chunk, valid_var_idx, opts);
+        const int c1 = iter_update_var_hap_cons_phase_set(chunk, valid_var_idx, opts,
+                                                          pgphase_trace::on() ? &links : nullptr);
         const int c2 = iter_update_var_hap_to_cons_alle(chunk, is_ont, valid_var_idx, flags, opts,
                                         any_pinned && !pinned.empty() ? &pinned : nullptr);
         if (c1 == 0 && c2 == 0) break;
+    }
+
+    // Trace: each het's link in the last pass -- the phase sets the alignment solve gives the union (aln_phase_set)
+    // come from these. `flags` tells the rounds of one solve apart (clean hets, then with noisy calls).
+    for (const AlnLinkTrace& l : links) {
+        const CandidateVariant& v = chunk.candidates[static_cast<size_t>(l.vi)];
+        const int support = std::max(l.agree, l.conflict);
+        const char* reason = l.to_vi < 0 && l.phase_set == v.key.sort_pos() ? "first_or_no_link"
+                             : l.phase_set == v.key.sort_pos()               ? "break"
+                             : l.conflict > l.agree                          ? "linked_flipped"
+                                                                             : "linked";
+        const auto [beg, end] = pgphase_trace::span(v);
+        pgphase_trace::emit("aln", "link", beg, end, pgphase_trace::key_text(v.key), reason,
+                            "to=" + (l.to_vi >= 0 ? std::to_string(chunk.candidates[static_cast<size_t>(l.to_vi)].key.sort_pos())
+                                                  : std::string("-")) +
+                                " agree=" + std::to_string(l.agree) + " conflict=" + std::to_string(l.conflict) +
+                                " support=" + std::to_string(support) + " ps=" + std::to_string(l.phase_set) +
+                                " parity=" + std::to_string(l.parity) + " flags=" + std::to_string(flags));
     }
 
     // Phase 3: report HP in its own phase set, using the final consensus.
@@ -1136,8 +1165,19 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_rea
     if (n_cur_ovlp_reads != n_pre_ovlp_reads) {
         throw std::runtime_error("overlap read count mismatch between adjacent chunks");
     }
-    if (n_cur_ovlp_reads <= 0) return false;
-    if (pre.candidates.empty() || cur.candidates.empty()) return false;
+    // Trace (PGPHASE_TRACE): the chunk boundary, the overlap between the two chunks.
+    const auto trace_stitch = [&](const char* reason, const std::string& detail) {
+        if (pgphase_trace::on())
+            pgphase_trace::emit("stitch", "boundary", std::min(cur.region.beg, pre.region.end), std::max(cur.region.beg, pre.region.end), "-", reason, detail);
+    };
+    if (n_cur_ovlp_reads <= 0) {
+        trace_stitch("no_overlap_reads", "");
+        return false;
+    }
+    if (pre.candidates.empty() || cur.candidates.empty()) {
+        trace_stitch("no_candidates", "overlap_reads=" + std::to_string(n_cur_ovlp_reads));
+        return false;
+    }
 
     hts_pos_t max_pre_read_ps = -1;
     hts_pos_t min_cur_read_ps = INT64_MAX;
@@ -1205,9 +1245,24 @@ static bool flip_chunk_hap(PhasingChunk& pre, PhasingChunk& cur, bool update_rea
 
     bool do_flip = false;
     const bool merge = select_stitch_orientation({n11, n12, n21, n22}, do_flip);
+    if (pgphase_trace::on()) {
+        // The votes of the block pair chosen (same: 1-1 and 2-2, crossed: 1-2 and 2-1), the blocks, and how many
+        // block pairs the overlap reads linked.
+        trace_stitch(merge ? (do_flip ? "merged_flipped" : "merged") : "not_merged",
+                     "same=" + std::to_string(n11 + n22) + " crossed=" + std::to_string(n12 + n21) +
+                         " pre_ps=" + std::to_string(max_pre_read_ps) + " cur_ps=" + std::to_string(min_cur_read_ps) +
+                         " block_pairs=" + std::to_string(by_pair.size()) +
+                         " overlap_reads=" + std::to_string(n_cur_ovlp_reads));
+    }
 
     if (!merge) return false;
     *merged_ps = max_pre_read_ps;
+    // The downstream block takes the upstream block's id: with the colliding_block_id renames, these map every
+    // block the EM made (chunk, block) to the phase set written.
+    if (pgphase_trace::on())
+        pgphase_trace::emit("stitch", "rename", std::min(cur.region.beg, pre.region.end), std::max(cur.region.beg, pre.region.end), "-", "merged_block",
+                            "from=" + std::to_string(min_cur_read_ps) + " to=" + std::to_string(max_pre_read_ps) +
+                                (do_flip ? " flipped" : ""));
 
     apply_chunk_flip_and_merge(cur,
                                do_flip,
@@ -1248,6 +1303,9 @@ static void propagate_overlap_read_phase_to_output_owner(PhasingChunk& pre, cons
             if (cur_hap == 0 || cur_ps <= 0) continue;
             pre.haps[static_cast<size_t>(pre_read_i)] = cur_hap;
             pre.phase_sets[static_cast<size_t>(pre_read_i)] = cur_ps;
+            if (pgphase_trace::on())
+                pgphase_trace::read_trace(pre, static_cast<size_t>(pre_read_i))->label +=
+                    "; from_next_chunk hap=" + std::to_string(cur_hap) + " ps=" + std::to_string(cur_ps);
         }
     }
 }
@@ -1271,6 +1329,10 @@ static void separate_colliding_blocks(const PhasingChunk& pre, PhasingChunk& cur
         rename[id] = fresh;
     }
     if (rename.empty()) return;
+    if (pgphase_trace::on())
+        for (const auto& [from, to] : rename)
+            pgphase_trace::emit("stitch", "rename", std::min(cur.region.beg, pre.region.end), std::max(cur.region.beg, pre.region.end), "-", "colliding_block_id",
+                                "from=" + std::to_string(from) + " to=" + std::to_string(to));
     const auto apply = [&](hts_pos_t& ps) {
         const auto it = rename.find(ps);
         if (it != rename.end()) ps = it->second;
@@ -1288,6 +1350,7 @@ void stitch_chunk_haps(std::vector<PhasingChunk>& chunks, const Options* opts) {
     const bool update_reads = opts == nullptr || !opts->upstream_assign_hap ||
                               !opts->output_aln.empty();
     for (size_t ii = 1; ii < chunks.size(); ++ii) {
+        const pgphase_trace::Scope trace_scope(chunks[ii].region.chunk_id);
         hts_pos_t merged_ps = -1;
         const bool stitched = flip_chunk_hap(chunks[ii - 1], chunks[ii], update_reads, &merged_ps);
         if (stitched) pair_stitched[ii] = true;

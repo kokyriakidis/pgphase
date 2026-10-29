@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <string_view>
 #include "union_internal.hpp"
+#include "trace.hpp"
 
 namespace pgphase_collect {
 
@@ -207,6 +208,9 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
     // Every read spanning the site's window is re-called there, its range
     // widened if its other calls stop short of the site.
     size_t changed = 0;
+    // Trace: per site, calls set (the MSA left the read uncalled) and MSA calls graded agreeing, undecided or
+    // contradicted.
+    std::map<size_t, std::array<int, 4>> site_tally;
     for (const auto& [ri, list] : calls) {
         ReadVariantProfile* prof = profile_of[ri];
         int lo = prof->start_var_idx, hi = prof->end_var_idx;
@@ -231,12 +235,30 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
                 if (errors != nullptr && mg != margins.end())
                     (*errors)[observation_key(ri, ci)] =
                         a < 0 ? kMsaUndecidedError : a != slot ? kMsaContradictedError : margin_error(mg->second);
+                if (pgphase_trace::on() && errors != nullptr && mg != margins.end()) {
+                    ++site_tally[ci][a < 0 ? 2 : a != slot ? 3 : 1];
+                    ++pgphase_trace::read_trace(chunk, ri)->graded;
+                }
                 continue;
             }
-            if (slot != a) { slot = a; ++changed; }
+            if (slot != a) {
+                slot = a;
+                ++changed;
+                if (pgphase_trace::on()) {
+                    ++site_tally[ci][0];
+                    ++pgphase_trace::read_trace(chunk, ri)->realigned;
+                }
+            }
             if (errors != nullptr && a >= 0 && mg != margins.end())
                 (*errors)[observation_key(ri, ci)] = margin_error(mg->second);
         }
+    }
+    for (const auto& [ci, n] : site_tally) {
+        const auto [beg, end] = pgphase_trace::span(chunk.candidates[ci]);
+        pgphase_trace::emit("reads", "realign", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
+                            "calls_rewritten",
+                            "set=" + std::to_string(n[0]) + " graded_agree=" + std::to_string(n[1]) +
+                                " undecided=" + std::to_string(n[2]) + " contradicted=" + std::to_string(n[3]));
     }
     if (changed > 0) rebuild_read_var_cr(chunk);
     return changed;
@@ -345,6 +367,7 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
     }
     // Write the calls, widening a profile's index range where needed.
     size_t added = 0;
+    std::map<size_t, int> site_fills;  // trace: calls given per site
     for (auto& [ri, calls] : fills) {
         ReadVariantProfile* p = profile_of[ri];
         if (p == nullptr) continue;
@@ -357,7 +380,16 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
         for (const auto& [ci, a] : calls) {
             p->alleles[ci - static_cast<size_t>(lo)] = a;
             ++added;
+            if (pgphase_trace::on()) {
+                ++site_fills[ci];
+                ++pgphase_trace::read_trace(chunk, ri)->filled;
+            }
         }
+    }
+    for (const auto& [ci, n] : site_fills) {
+        const auto [beg, end] = pgphase_trace::span(chunk.candidates[ci]);
+        pgphase_trace::emit("reads", "fill", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
+                            "alignment_only_reads_called", "n=" + std::to_string(n));
     }
     if (added > 0) rebuild_read_var_cr(chunk);
     return added;
@@ -388,7 +420,11 @@ std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChu
         present.insert(chunk.reads.back().qname);
         is_added.push_back(1);
         ++added;
+        if (pgphase_trace::on()) pgphase_trace::read_trace(chunk, chunk.reads.size() - 1)->alignment_only = true;
     }
+    if (pgphase_trace::on() && added > 0)
+        pgphase_trace::emit("reads", "chunk", chunk.region.beg, chunk.region.end, "-", "alignment_only_reads_added",
+                            "n=" + std::to_string(added));
     chunk.haps.resize(chunk.reads.size(), 0);
     chunk.phase_sets.resize(chunk.reads.size(), kUnphasedReadPhaseSet);
     if (added > 0) rebuild_read_var_cr(chunk);
@@ -418,6 +454,7 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
             bam_profile.emplace(bam.reads[static_cast<size_t>(p.read_id)].qname, &p);
     const auto upper = [](char b) { return static_cast<char>(std::toupper(static_cast<unsigned char>(b))); };
     size_t changed = 0;
+    std::map<size_t, std::array<int, 2>> site_tally;  // trace: calls replaced, graph-only calls down-weighted
     for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
         ReadVariantProfile& prof = chunk.read_var_profile[ri];
         if (prof.start_var_idx < 0 || prof.read_id < 0) continue;
@@ -449,6 +486,7 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
                 if (errors != nullptr) {
                     double& e = (*errors)[observation_key(ri, ci)];
                     e = std::max(e, kGraphOnlyCallError);
+                    if (pgphase_trace::on()) ++site_tally[ci][1];
                 }
                 continue;
             }
@@ -465,7 +503,17 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
                 if (carries(j)) { replacement = static_cast<int>(j); break; }
             prof.alleles[k] = replacement;
             ++changed;
+            if (pgphase_trace::on()) {
+                ++site_tally[ci][0];
+                ++pgphase_trace::read_trace(chunk, static_cast<size_t>(prof.read_id))->snp_replaced;
+            }
         }
+    }
+    for (const auto& [ci, n] : site_tally) {
+        const auto [beg, end] = pgphase_trace::span(chunk.candidates[ci]);
+        pgphase_trace::emit("reads", "snp_call", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
+                            "graph_call_vs_alignment",
+                            "replaced=" + std::to_string(n[0]) + " graph_only_downweighted=" + std::to_string(n[1]));
     }
     return changed;
 }

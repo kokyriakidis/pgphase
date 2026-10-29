@@ -20,6 +20,8 @@
 
 namespace pgphase_collect {
 
+static std::string error_token(std::string text);
+
 #ifdef PGPHASE_PLEGMA
 // The homopolymer models built in (src/msa_models.cpp, generated from models/ by make).
 extern const char kHifiHomopolymerModel[];
@@ -326,11 +328,11 @@ int plegma_msa_cons(const Options& opts, const std::vector<int>& read_ids,
                                          static_cast<float>(opts.min_af));
     } catch (const std::runtime_error& e) {
         if (opts.verbose >= 1) std::fprintf(stderr, "plegma MSA: %s\n", e.what());
-        note_msa_failure(std::string("plegma_error: ") + e.what());
+        note_msa_failure(std::string("plegma_error message=") + error_token(e.what()));
         return 0;
     }
     const int n_cons = outputs_of(got, read_ids, read_seqs, read_lens, cons_seqs, clu_n_seqs, clu_read_ids, rows);
-    if (n_cons == 0) note_msa_failure("plegma_clusters 0");
+    if (n_cons == 0) note_msa_failure("plegma_clusters clusters=0");
     return n_cons;
 #else
     (void)opts; (void)read_ids; (void)read_seqs; (void)read_lens; (void)read_covers; (void)read_strands; (void)max_n_cons;
@@ -356,13 +358,13 @@ int plegma_phased_msa_cons(const Options& opts, const std::vector<int>& read_ids
         got = plegma::phasedConsensus(in.reads, read_haps, model(), options_of(opts));
     } catch (const std::runtime_error& e) {
         if (opts.verbose >= 1) std::fprintf(stderr, "plegma MSA: %s\n", e.what());
-        note_msa_failure(std::string("plegma_error: ") + e.what());
+        note_msa_failure(std::string("plegma_error message=") + error_token(e.what()));
         return 0;
     }
     std::vector<std::vector<uint8_t>> cons;
     const int n_cons = outputs_of(got, read_ids, read_seqs, read_lens, cons, clu_n_seqs, clu_read_ids, rows);
     if (n_cons != 2) {
-        note_msa_failure("plegma_clusters " + std::to_string(n_cons));
+        note_msa_failure("plegma_clusters clusters=" + std::to_string(n_cons));
         return 0;
     }
     cons_seqs[0] = std::move(cons[0]);
@@ -377,6 +379,13 @@ int plegma_phased_msa_cons(const Options& opts, const std::vector<int>& read_ids
 
 namespace {
 thread_local std::string msa_failure;
+}
+
+// An error message as one trace token (spaces and tabs to underscores).
+static std::string error_token(std::string text) {
+    for (char& ch : text)
+        if (ch == ' ' || ch == '\t' || ch == '\n') ch = '_';
+    return text;
 }
 
 void note_msa_failure(std::string why) { msa_failure = std::move(why); }

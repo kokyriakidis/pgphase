@@ -1,4 +1,5 @@
 #include "graph_query.hpp"
+#include "trace.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -7,9 +8,11 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <atomic>
 #include <htslib/hts.h>
@@ -391,6 +394,16 @@ int match_compact_site_on_read(
 //
 // Templated on the emitter to allow the compiler to inline the callback,
 // avoiding std::function virtual dispatch overhead on the hot path.
+// Per-site walk outcomes of one chunk's scan, for the trace (PGPHASE_TRACE): reads whose walk between the site's
+// boundary nodes matched an allele, matched several, or matched none; a few read names of the last; and the
+// alignments below the GAF MAPQ floor.
+struct GafScanTally {
+    std::vector<std::array<int, 3>> outcome;  // matched, ambiguous, unmatched (both boundaries on the walk)
+    std::vector<std::vector<std::string>> unmatched_reads;
+    int low_mapq = 0;
+};
+constexpr size_t kGafTraceExampleReads = 3;
+
 template <typename EmitFn>
 size_t scan_gaf_line_compact(std::string_view line,
                              int first_gaf_column,
@@ -402,12 +415,16 @@ size_t scan_gaf_line_compact(std::string_view line,
                              std::vector<size_t>& candidates,
                              std::vector<uint32_t>& site_marks,
                              uint32_t& mark_stamp,
-                             EmitFn&& emit) {
+                             EmitFn&& emit,
+                             GafScanTally* tally = nullptr) {
     if (line.empty() || line[0] == '#') return 0;
 
     GafCoreFields fields;
     if (!parse_gaf_core_fields_from_column(line, first_gaf_column, fields)) return 0;
-    if (fields.mapq < min_mapq) return 0;
+    if (fields.mapq < min_mapq) {
+        if (tally != nullptr) ++tally->low_mapq;
+        return 0;
+    }
     if (!parse_gaf_path_compact(fields.walk, read_walk) || read_walk.empty()) return 0;
 
     candidates.clear();
@@ -467,6 +484,16 @@ size_t scan_gaf_line_compact(std::string_view line,
             if (allele >= 0) g_span_matched.fetch_add(1, std::memory_order_relaxed);
             else if (spanned) g_span_unmatched.fetch_add(1, std::memory_order_relaxed);
             else g_not_spanned.fetch_add(1, std::memory_order_relaxed);
+            if (tally != nullptr) {
+                std::array<int, 3>& o = tally->outcome[compact_site_index];
+                if (allele >= 0) ++o[0];
+                else if (allele == kGraphAlleleAmbiguous) ++o[1];
+                else if (spanned) {
+                    ++o[2];
+                    std::vector<std::string>& names = tally->unmatched_reads[compact_site_index];
+                    if (names.size() < kGafTraceExampleReads) names.push_back(read_name);
+                }
+            }
         }
         if (allele < 0) continue;
         emit(worker_id, GraphReadAllele{
@@ -624,11 +651,36 @@ scan_indexed_gaf_chunk(IndexedGafHandle& handle,
         ~KStringGuard() { if (line != nullptr) ks_free(line); }
     } line_guard{&line};
 
+    std::unique_ptr<GafScanTally> tally;
+    if (pgphase_trace::on()) {
+        tally = std::make_unique<GafScanTally>();
+        tally->outcome.assign(compact_index.sites.size(), {0, 0, 0});
+        tally->unmatched_reads.resize(compact_index.sites.size());
+    }
     while (tbx_itr_next(handle.fp, handle.tbx, raw_itr, &line) >= 0) {
         scan_gaf_line_compact(
             std::string_view(line.s, line.l), 3, compact_index, min_mapq, 0,
             read_walk, boundary_positions, candidates, site_marks, mark_stamp,
-            [&](size_t, GraphReadAllele&& row) { rows.push_back(std::move(row)); });
+            [&](size_t, GraphReadAllele&& row) { rows.push_back(std::move(row)); }, tally.get());
+    }
+    // Trace: each site some read crossed (both boundary nodes on its walk) without matching exactly one allele
+    // walk -- that read gives the site no call -- and the chunk's alignments under the MAPQ floor. A site over a
+    // chunk edge is scanned, and traced, by both chunks.
+    if (tally != nullptr) {
+        for (size_t i = 0; i < compact_index.sites.size(); ++i) {
+            const std::array<int, 3>& o = tally->outcome[i];
+            if (o[1] == 0 && o[2] == 0) continue;
+            const CompactGraphSite& site = compact_index.sites[i];
+            std::string detail = "matched=" + std::to_string(o[0]) + " ambiguous=" + std::to_string(o[1]) +
+                                 " unmatched=" + std::to_string(o[2]);
+            for (size_t k = 0; k < tally->unmatched_reads[i].size(); ++k)
+                detail += (k == 0 ? " examples=" : ",") + tally->unmatched_reads[i][k];
+            pgphase_trace::emit("gaf", "site", site.pos, site.pos, site.site_id,
+                                o[2] > 0 ? "walk_matches_no_allele" : "walk_matches_several_alleles", detail);
+        }
+        if (tally->low_mapq > 0)
+            pgphase_trace::emit("gaf", "chunk", beg + 1, end, "-", "alignments_below_mapq",
+                                "n=" + std::to_string(tally->low_mapq) + " min_mapq=" + std::to_string(min_mapq));
     }
 
     return rows;
