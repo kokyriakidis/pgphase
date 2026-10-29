@@ -19,6 +19,7 @@
 #include "collect_var.hpp"   // exact_comp_cand_var, exact_comp_var_site
 
 #include <algorithm>
+#include <cstring>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -1336,6 +1337,82 @@ static void refresh_assigned_msa_observations(const Options& opts,
     const std::array<std::vector<AlnStr>, 2>& alignments, hts_pos_t ref_beg,
     std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles);
 
+// A SNP from one consensus on the base a deletion of the other consensus is anchored on, with a letter other than
+// the reference's (alt_ref_base: make_cand_vars_from_msa folds a SNP right before a gap into it), are the two alleles
+// of one site: chr12:617,060, one haplotype TTT + A10 (A>T), the other TTT + A9 (the same A>T, the next A deleted:
+// AA>T). Emitted apart, every read was the SNP's alt -- the other haplotype's letter there is the same -- so it had no
+// REF reads, failed injection's confident-read rule and was never written: AA>T alone, the SNP's haplotype left the
+// reference. Merged into one record from the SNP's base, REF that base and the deleted ones, each allele its
+// haplotype's sequence there (the SNP's letter and the bases it keeps; the deletion's letter), as
+// merge_msa_colocated_insertion_and_deletion writes its alleles; a read's allele by record order. Starting at the
+// deleted bases instead, the alleles differed only in a letter before the site, and the SNP's reads were called REF.
+// Not an insertion so anchored (chr12:112,961,569, G>T against G>TT): a site's read slice ends at its last reference
+// base, so the inserted allele was read in 5 of 67 reads and the EM phased it on noise (chr12 arm flips 7 -> 21).
+static void merge_msa_snp_and_anchored_deletion(const PhasingChunk& chunk, std::vector<CandidateVariant>& vars,
+                                               std::vector<VariantCategory>& categories,
+                                               std::vector<ReadVariantProfile>& profiles) {
+    const auto noisy = [](const CandidateVariant& v) {
+        return v.counts.category == VariantCategory::NoisyCandHet || v.counts.category == VariantCategory::NoisyCandHom;
+    };
+    const auto upper = [](char ch) { return static_cast<char>(std::toupper(static_cast<unsigned char>(ch))); };
+    for (size_t d = 0; d < vars.size(); ++d) {
+        const CandidateVariant& indel = vars[d];
+        if (indel.key.type != VariantType::Deletion || !indel.key.alt.empty() || !indel.msa_insertion_alts.empty() ||
+            indel.alt_ref_base >= 4 || !noisy(indel)) continue;
+        const hts_pos_t at = indel.key.pos - 1;
+        // A consensus letter the reference's is no SNP: the haplotypes differ by the SNP and a plain deletion, which
+        // their two records express (chr12:1,760,898, C>T against C>CAT).
+        if (at < chunk.ref_beg || static_cast<size_t>(at - chunk.ref_beg) >= chunk.ref_seq.size() ||
+            upper(chunk.ref_seq[static_cast<size_t>(at - chunk.ref_beg)]) == "ACGT"[indel.alt_ref_base]) continue;
+        size_t snp = vars.size();
+        for (size_t j = d >= 2 ? d - 2 : 0; j < vars.size() && j <= d + 2; ++j) {
+            const CandidateVariant& v = vars[j];
+            if (j != d && v.key.type == VariantType::Snp && v.key.pos == at && v.key.ref_len == 1 &&
+                v.key.alt.size() == 1 && std::strchr("ACGT", upper(v.key.alt[0])) != nullptr &&
+                v.msa_insertion_alts.empty() && noisy(v))
+                snp = j;
+        }
+        if (snp == vars.size() || (vars[snp].counts.category != VariantCategory::NoisyCandHet &&
+                                   indel.counts.category != VariantCategory::NoisyCandHet)) continue;
+        const int ref_len = 1 + indel.key.ref_len;
+        const size_t off = static_cast<size_t>(at - chunk.ref_beg);
+        if (at < chunk.ref_beg || off + static_cast<size_t>(ref_len) > chunk.ref_seq.size()) continue;
+        std::string snp_allele = chunk.ref_seq.substr(off, static_cast<size_t>(ref_len));
+        for (char& ch : snp_allele) ch = upper(ch);
+        snp_allele[0] = upper(vars[snp].key.alt[0]);
+        const size_t first = std::min(snp, d), second = std::max(snp, d);
+        // A SNP in the deleted bases is the SNP's haplotype's (the other has none there): part of its allele.
+        std::string kept = snp_allele.substr(1);
+        std::vector<size_t> gone;
+        if (!fold_snps(vars, second + 1, indel.key.pos, indel.key.pos + indel.key.ref_len, kept, gone)) continue;
+        snp_allele = snp_allele.substr(0, 1) + kept;
+        const std::string indel_allele(1, "ACGT"[indel.alt_ref_base]);
+        pgphase_trace::candidate("msa", "merge", vars[snp], "two_allele_snp_deletion",
+                                 "into=" + pgphase_trace::key_text(indel.key));
+        for (const size_t j : gone)
+            pgphase_trace::candidate("msa", "merge", vars[j], "two_allele_snp_deletion",
+                                     "into=" + pgphase_trace::key_text(indel.key) + " allele=snp");
+        gone.insert(gone.begin(), second);
+        CandidateVariant merged = indel;
+        merged.key.pos = at;
+        merged.key.ref_len = ref_len;
+        merged.alt_ref_base = 4;
+        merged.msa_insertion_alts = snp < d ? std::vector<std::string>{snp_allele, indel_allele}
+                                            : std::vector<std::string>{indel_allele, snp_allele};
+        merged.msa_insertion_anchors = {4, 4};
+        merged.counts.alle_covs.assign(3, 0);
+        merged.counts.total_cov = 0;
+        vars[first] = std::move(merged);
+        fold_merged_profiles(first, second, gone, vars[first], profiles);
+        update_variant_depth_fields(vars[first]);
+        if (vars[first].counts.category != VariantCategory::NoisyCandHet)
+            set_noisy_category(vars[first], VariantCategory::NoisyCandHet);
+        categories[first] = VariantCategory::NoisyCandHet;
+        erase_folded(gone, vars, categories);
+        d = first;
+    }
+}
+
 // Diagnostic (Options::diag_dir): every variant a noisy-region MSA calls
 // (msa.TID.BEG.tsv, appended per region). A line is the region's first
 // reference position and length; reads in the two clusters; per cluster
@@ -1476,6 +1553,8 @@ int make_vars_from_msa_cons_aln(
         merge_msa_nested_deletions(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)
         merge_msa_colocated_insertion_and_deletion(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_snp_and_anchored_deletion(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     // An assigned read's allele at an MSA site is read from its own cluster
     // alignment, in every arm: these counts describe the reads. While this
     // refresh was gated on the recovery pass, the alignment-only channel was
@@ -1484,6 +1563,17 @@ int make_vars_from_msa_cons_aln(
     // without the refresh it was counted 3 ref / 1 alt. It is also why eight of
     // the seventy-six candidates shared with the hybrid arm on
     // chr20:48,176,830-48,229,446 carried different counts.
+    // Each call's allele on each consensus: whether that consensus's own variants carry it (a merged two-allele record
+    // is neither's own and keeps -1). Not what each cluster's reads call: at a long homopolymer they disagree as often
+    // as the reads at large (chr12:953,298).
+    const auto carries = [](const std::vector<CandidateVariant>& own, const CandidateVariant& v) -> int8_t {
+        for (const CandidateVariant& h : own)
+            if (h.key.pos == v.key.pos && h.key.type == v.key.type && h.key.ref_len == v.key.ref_len &&
+                h.key.alt == v.key.alt) return 1;
+        return 0;
+    };
+    for (CandidateVariant& v : noisy_vars)
+        if (v.msa_insertion_alts.empty()) v.msa_cons_allele = {carries(hap1_vars, v), carries(hap2_vars, v)};
     std::vector<ReadVariantProfile> before_refresh;
     if (!opts.diag_dir.empty()) before_refresh = noisy_rvp;
     if (opts.refresh_msa_observations && !aln_strs[0].empty() && !aln_strs[1].empty())
@@ -2199,7 +2289,8 @@ void restrict_msa_observations_to_read_coverage(
 // The region and where each consensus differs from the reference, from its alignment to it (target the reference,
 // query the consensus).
 static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end, int n_cons,
-                              const std::array<std::vector<AlnStr>, 2>& aln_strs) {
+                              const std::array<std::vector<AlnStr>, 2>& aln_strs, const std::array<int, 2>& clu_n_seqs,
+                              const std::array<std::vector<int>, 2>& clu_read_ids) {
     PhasingChunk::MsaRegion region{beg, end, {}};
     for (int c = 0; c < n_cons && c < 2; ++c) {
         if (aln_strs[static_cast<size_t>(c)].empty()) return;
@@ -2223,6 +2314,9 @@ static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end,
             ++ref_pos;
         }
         region.spelled.push_back(std::move(spelled));
+        const auto& ids = clu_read_ids[static_cast<size_t>(c)];
+        region.cluster_reads[static_cast<size_t>(c)].assign(
+            ids.begin(), ids.begin() + std::min<long>(static_cast<long>(ids.size()), clu_n_seqs[static_cast<size_t>(c)]));
     }
     chunk.msa_regions.push_back(std::move(region));
 }
@@ -2299,7 +2393,8 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
                             "consensus=" + std::to_string(n_cons) + " clusters=" + std::to_string(clu_n_seqs[0]) + "/" +
                             std::to_string(clu_n_seqs[1]) + " reads=" + std::to_string(n_noisy_reads));
 
-    if (use_plegma_msa()) record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs);
+    if (use_plegma_msa())
+        record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs, clu_n_seqs, clu_read_ids);
 
     std::vector<CandidateVariant>    noisy_vars;
     std::vector<VariantCategory>     noisy_var_cate;

@@ -600,6 +600,9 @@ struct CandidateVariant {
     // reads it was genotyped from); 0 for any other candidate.
     int msa_region_reads = 0;
     int msa_cluster_reads = 0;
+    // An MSA call's allele on each of the two consensus sequences (1: among that consensus's own variants), -1 for a
+    // merged two-allele record or a region with one consensus.
+    std::array<int8_t, 2> msa_cons_allele = {-1, -1};
     // An MSA-verified het the union injection keeps out of the solve (too few
     // confidently mapped reads, or the depth gate): it enters only as an
     // island site, never as an EM site (no germline bits, no VCF record).
@@ -781,6 +784,8 @@ struct PhasingChunk {
         hts_pos_t end;
         std::vector<Interval> differs;
         std::vector<std::vector<std::string>> spelled = {};
+        // The reads of each consensus sequence's cluster (chunk read indices).
+        std::array<std::vector<int>, 2> cluster_reads = {};
 
         // Two consensus sequences, not the same: the region's haplotypes differ.
         bool het() const { return spelled.size() == 2 && spelled[0] != spelled[1]; }

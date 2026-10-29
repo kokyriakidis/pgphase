@@ -7,6 +7,7 @@
 #include "trace.hpp"
 
 #include <algorithm>
+#include <map>
 #include <set>
 
 namespace pgphase_collect {
@@ -290,6 +291,48 @@ static bool in_het_msa_region(const PhasingChunk& bam, const CandidateVariant& c
     for (const PhasingChunk::MsaRegion& region : bam.msa_regions)
         if (region.het() && region.beg < lo && hi < region.end) return true;
     return false;
+}
+
+// An MSA het the alignment solve left unphased -- its reads too noisy to phase it, a long homopolymer read one
+// short as often as not (chr12:953,298, C>CA in A24, the reads' calls 30 REF to 12 ALT where the clusters are 23 and
+// 18) -- still lies on that solve's haplotypes: its two consensus sequences are two clusters of reads, and those
+// reads' labels in the solve say which haplotype of which phase set each is. Its phase set and haplotype-1 allele
+// from them (aln_phase_set, aln_hap1_allele), for phase_by_alignment_solve; nothing when the call is not one allele
+// per consensus, or the clusters do not lie on the two haplotypes of one phase set, kMsaClusterMinReads reads each,
+// at most kMsaClusterMaxStray of them on the other.
+constexpr int kMsaClusterMinReads = 3;
+constexpr double kMsaClusterMaxStray = 0.2;
+static void aln_phase_from_msa_clusters(const PhasingChunk& bam, CandidateVariant& cand) {
+    const std::array<int8_t, 2>& allele = cand.msa_cons_allele;
+    if (allele[0] < 0 || allele[1] < 0 || allele[0] + allele[1] != 1) return;
+    for (const PhasingChunk::MsaRegion& region : bam.msa_regions) {
+        if (!region.het() || region.beg >= cand.key.pos || cand.key.pos >= region.end) continue;
+        // Per phase set, each cluster's reads on haplotype 1 and 2.
+        std::map<hts_pos_t, std::array<std::array<int, 3>, 2>> on;
+        for (size_t c = 0; c < 2; ++c)
+            for (const int rid : region.cluster_reads[c]) {
+                const size_t r = static_cast<size_t>(rid);
+                if (rid < 0 || r >= bam.haps.size() || r >= bam.phase_sets.size()) continue;
+                const int hap = bam.haps[r];
+                if (bam.phase_sets[r] > 0 && (hap == 1 || hap == 2)) ++on[bam.phase_sets[r]][c][static_cast<size_t>(hap)];
+            }
+        hts_pos_t ps = 0;
+        int most = 0;
+        for (const auto& [set, n] : on) {
+            const int total = n[0][1] + n[0][2] + n[1][1] + n[1][2];
+            if (total > most) most = total, ps = set;
+        }
+        if (ps == 0) return;
+        const auto& n = on[ps];
+        const auto lies_on = [&n](size_t c, size_t hap) {
+            return n[c][hap] >= kMsaClusterMinReads && n[c][3 - hap] <= kMsaClusterMaxStray * (n[c][1] + n[c][2]);
+        };
+        const bool first_on_hap1 = lies_on(0, 1) && lies_on(1, 2);
+        if (!first_on_hap1 && !(lies_on(0, 2) && lies_on(1, 1))) return;
+        cand.aln_phase_set = ps;
+        cand.aln_hap1_allele = allele[first_on_hap1 ? 0 : 1];
+        return;
+    }
 }
 
 // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
@@ -758,6 +801,8 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             if (cand.phase_set > 0 && h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2]) {
                 cand.aln_phase_set = cand.phase_set;
                 cand.aln_hap1_allele = h[1];
+            } else if (cand.msa_verified) {
+                aln_phase_from_msa_clusters(bam, cand);
             }
             if (cand.msa_verified && h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2])
                 for (size_t r = 0; r < bam.msa_regions.size(); ++r)
