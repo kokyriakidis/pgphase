@@ -167,6 +167,7 @@ to disk beyond `--memory` (a quarter of the machine's memory). chr20 of HG002 Hi
 | `--phased-bam-out FILE` | One unaligned record per read seen, with `HP` and `PS` tags when phased |
 | `--out-bam FILE` | The `--bam` records of the regions processed, each phased read with `HP` and `PS`, sorted and indexed (`--out-cram`, `--out-sam` alike) |
 | `--refine-aln` | With `--out-bam`: each read's alignment in the noisy regions the MSA resolved rewritten from its alignment to their consensus, as longcallD's `--refine-aln` (`NM`, `MD` and `cs` recomputed); for haplotype-aware tools such as DeepVariant |
+| `--left-align` | With `--out-bam`: every record's insertions and deletions left-aligned, as minimap2 and pbmm2 place them; with `--refine-aln`, the input DeepVariant called best from (chr20 HG002 HiFi, Q100 truth: indel F1 0.9589 -> 0.9739, SNP 0.9942 -> 0.9954) |
 | `-o FILE` | Every candidate site with its allele counts, category and phase |
 | `-v FILE` | The candidate sites as a VCF |
 

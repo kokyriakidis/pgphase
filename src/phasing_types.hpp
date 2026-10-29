@@ -368,6 +368,8 @@ struct Options {
      *  also changes how stitching labels reads (stitch_chunk_haps). */
     std::string output_union_aln;
     OutputAlignmentFormat output_union_aln_format = OutputAlignmentFormat::None;
+    /** In that output, every record's insertions and deletions left-aligned (--left-align). */
+    bool left_align_aln = false;
 
     /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;

@@ -177,8 +177,8 @@ union_contracts() {
 }
 
 # Union gap phasing (collect-graph-variation --bam) on the chr20:25.0-25.5 Mb slice, 1 and 4 threads, with one MSA.
-# The 1-thread run also writes the aligned output with --refine-aln, the 4-thread run without: the TSV and VCF must not
-# change, and the two alignments must hold the same records and labels (scripts/check_aligned_output.py).
+# The 1-thread run also writes the aligned output with --refine-aln --left-align, the 4-thread run without: the TSV and
+# VCF must not change, and the two alignments must hold the same records and labels (scripts/check_aligned_output.py).
 union_gates() {
   local msa="$1" dir="$2" t count_u
   local diag="$TMPDIR/pgphase_validate_${msa}_union_diag"
@@ -187,7 +187,7 @@ union_gates() {
   for t in 1 4; do
     # The 1-thread run also writes its stage trace and MSA dump, for the contracts below.
     local refine=()
-    [[ "$t" == 1 ]] && refine=(--refine-aln)
+    [[ "$t" == 1 ]] && refine=(--refine-aln --left-align)
     count_u="$(if [[ "$t" == 1 ]]; then export PGPHASE_TRACE="$diag" PGPHASE_MSA_DUMP="$diag/msa_dump.tsv"; fi
       run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
       --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
@@ -213,7 +213,7 @@ union_gates() {
   same_output "$msa union phased VCF, 1 and 4 threads," "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
     "$TMPDIR/pgphase_validate_${msa}_union_t4.phased.vcf" hash_vcf_stable
   if ! python3 "$ROOT/scripts/check_aligned_output.py" --refined "$TMPDIR/pgphase_validate_${msa}_union_t1.sam" \
-      --plain "$TMPDIR/pgphase_validate_${msa}_union_t4.sam" --ref "$CHR20_DIR/ref.fa.gz"; then
+      --plain "$TMPDIR/pgphase_validate_${msa}_union_t4.sam" --ref "$CHR20_DIR/ref.fa.gz" --left-aligned; then
     echo "error: $msa union aligned output (--refine-aln): see scripts/check_aligned_output.py" >&2
     exit 1
   fi

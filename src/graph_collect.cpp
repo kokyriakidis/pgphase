@@ -1467,7 +1467,8 @@ void run_collect_graph_variation(const Options& opts) {
         if (aligned_pending.valid()) aligned_pending.get();
         aligned_out->finish();
         std::cerr << "Wrote " << aligned_out->records() << " alignment records ("
-                  << aligned_out->refined() << " refined) to " << opts.output_union_aln << "\n";
+                  << aligned_out->refined() << " refined, " << aligned_out->left_aligned() << " left-aligned) to "
+                  << opts.output_union_aln << "\n";
     }
 }
 
@@ -1501,6 +1502,8 @@ static void print_graph_collect_help() {
         << "      --refine-aln              In that output, rewrite each read's alignment in the noisy\n"
         << "                                regions the MSA resolved from its alignment to their\n"
         << "                                consensus (longcallD's --refine-aln)\n"
+        << "      --left-align              In that output, left-align every record's insertions and\n"
+        << "                                deletions, as minimap2 and pbmm2 place them (for DeepVariant)\n"
         << "\n"
         << "Options:\n"
         << "  -t, --threads INT             Worker threads [all cores]\n"
@@ -1567,6 +1570,7 @@ enum GraphCollectOption {
     kGcOutCram,
     kGcOutSam,
     kGcRefineAln,
+    kGcLeftAlign,
 };
 
 } // namespace
@@ -1598,6 +1602,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"out-cram",         required_argument, nullptr, kGcOutCram},
         {"out-sam",          required_argument, nullptr, kGcOutSam},
         {"refine-aln",       no_argument,       nullptr, kGcRefineAln},
+        {"left-align",       no_argument,       nullptr, kGcLeftAlign},
         {"bam",              required_argument, nullptr, kGcBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1649,6 +1654,7 @@ int collect_graph_variation(int argc, char* argv[]) {
                 opts.output_union_aln_format = OutputAlignmentFormat::Sam;
                 break;
             case kGcRefineAln:    opts.refine_aln = true; break;
+            case kGcLeftAlign:    opts.left_align_aln = true; break;
             // Union gap phasing: alignment-only sites and reads join each
             // chunk's graph solve.
             case kGcBam:  opts.bam_files.push_back(optarg); break;
@@ -1709,8 +1715,8 @@ int collect_graph_variation(int argc, char* argv[]) {
         std::cerr << "Error: --out-bam/--out-cram/--out-sam write the records of one --bam\n";
         return 1;
     }
-    if (opts.refine_aln && opts.output_union_aln.empty()) {
-        std::cerr << "Error: --refine-aln needs --out-bam, --out-cram or --out-sam\n";
+    if ((opts.refine_aln || opts.left_align_aln) && opts.output_union_aln.empty()) {
+        std::cerr << "Error: --refine-aln and --left-align need --out-bam, --out-cram or --out-sam\n";
         return 1;
     }
     opts.refine_msa_digars = opts.refine_aln && !opts.output_union_aln.empty();

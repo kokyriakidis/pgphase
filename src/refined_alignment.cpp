@@ -205,6 +205,54 @@ bool alignment_tags(const bam1_t* b, const char* ref, hts_pos_t ref_len, int& nm
     return true;
 }
 
+// Each insertion and deletion moved left while the base before it is its last one (a deletion: the reference's; an
+// insertion: the read's), so no base changes its match status (minimap2 and pbmm2 place gaps so; vg's surjected
+// alignments do not, and DeepVariant, trained on pbmm2's, called 276 more easy chr20 SNPs NoCall from them). A gap
+// keeps one aligned base before it: the start does not move, and no gap meets another or a clip. ref holds the
+// reference from 0-based position 0.
+bool left_align_cigar(std::vector<uint32_t>& cigar, const uint8_t* seq, hts_pos_t pos, const std::string& ref) {
+    bool moved = false;
+    hts_pos_t rp = pos;
+    int qp = 0;
+    const auto matching = [](uint32_t op) { return op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF; };
+    for (size_t k = 0; k < cigar.size(); ++k) {
+        const uint32_t op = bam_cigar_op(cigar[k]);
+        const int n = static_cast<int>(bam_cigar_oplen(cigar[k]));
+        if ((op == BAM_CDEL || op == BAM_CINS) && k > 0 && matching(bam_cigar_op(cigar[k - 1]))) {
+            const int before = static_cast<int>(bam_cigar_oplen(cigar[k - 1]));
+            int s = 0;
+            while (s < before - 1) {
+                bool same;
+                if (op == BAM_CDEL) {
+                    const hts_pos_t a = rp - 1 - s, b = rp + n - 1 - s;
+                    same = a >= 0 && b < static_cast<hts_pos_t>(ref.size()) &&
+                           ref[static_cast<size_t>(a)] == ref[static_cast<size_t>(b)];
+                } else {
+                    const int a = qp - 1 - s, b = qp + n - 1 - s;
+                    same = a >= 0 && bam_seqi(seq, a) == bam_seqi(seq, b);
+                }
+                if (!same) break;
+                ++s;
+            }
+            if (s > 0) {
+                moved = true;
+                const uint32_t prev = bam_cigar_op(cigar[k - 1]);
+                cigar[k - 1] = bam_cigar_gen(static_cast<uint32_t>(before - s), prev);
+                // The bases moved past the gap keep their op (= or X stay what they were).
+                if (k + 1 < cigar.size() && bam_cigar_op(cigar[k + 1]) == prev)
+                    cigar[k + 1] = bam_cigar_gen(bam_cigar_oplen(cigar[k + 1]) + static_cast<uint32_t>(s), prev);
+                else
+                    cigar.insert(cigar.begin() + static_cast<long>(k) + 1, bam_cigar_gen(static_cast<uint32_t>(s), prev));
+                rp -= s;
+                qp -= s;
+            }
+        }
+        if (consumes_reference(op)) rp += n;
+        if (consumes_query(op)) qp += n;
+    }
+    return moved;
+}
+
 // The record's HP/PS: its read's union label, or none.
 void set_label_tags(bam1_t* b, int hap, hts_pos_t ps) {
     if (uint8_t* t = bam_aux_get(b, "HP")) bam_aux_del(b, t);
@@ -288,23 +336,49 @@ void AlignedReadWriter::check_region_order(
     }
 }
 
-void AlignedReadWriter::apply(bam1_t* b, const RefinedAlignment& r, const std::string& contig) {
+const std::string& AlignedReadWriter::contig_sequence(int tid, const std::string& contig) {
+    if (tid != contig_seq_tid_) {
+        hts_pos_t len = 0;
+        char* seq = faidx_fetch_seq64(fai_.get(), contig.c_str(), 0, HTS_POS_MAX, &len);
+        if (seq == nullptr || len <= 0) {
+            std::free(seq);
+            throw std::runtime_error("aligned output: cannot read " + contig + " from " + opts_.ref_fasta);
+        }
+        contig_seq_.assign(seq, static_cast<size_t>(len));
+        std::free(seq);
+        for (char& c : contig_seq_) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        contig_seq_tid_ = tid;
+    }
+    return contig_seq_;
+}
+
+void AlignedReadWriter::apply(bam1_t* b, const RefinedAlignment& r) {
     replace_cigar(b, r.cigar);
     b->core.pos = r.pos;
-    const hts_pos_t end = bam_endpos(b);
-    b->core.bin = static_cast<uint16_t>(hts_reg2bin(b->core.pos, end, 14, 5));
+    b->core.bin = static_cast<uint16_t>(hts_reg2bin(b->core.pos, bam_endpos(b), 14, 5));
+    ++n_refined_;
+}
+
+bool AlignedReadWriter::left_align(bam1_t* b) {
+    const uint32_t* in = bam_get_cigar(b);
+    std::vector<uint32_t> cigar(in, in + b->core.n_cigar);
+    if (!left_align_cigar(cigar, bam_get_seq(b), b->core.pos, contig_seq_)) return false;
+    replace_cigar(b, cigar);
+    ++n_left_aligned_;
+    return true;
+}
+
+void AlignedReadWriter::update_tags(bam1_t* b) {
     uint8_t* nm_tag = bam_aux_get(b, "NM");
     uint8_t* md_tag = bam_aux_get(b, "MD");
     uint8_t* cs_tag = bam_aux_get(b, "cs");
-    ++n_refined_;
     if (nm_tag == nullptr && md_tag == nullptr && cs_tag == nullptr) return;
-    hts_pos_t len = 0;
-    char* ref = faidx_fetch_seq64(fai_.get(), contig.c_str(), b->core.pos, end - 1, &len);
+    const hts_pos_t end = bam_endpos(b);
     int nm = 0;
     std::string md, cs;
     bool cs_ok = false;
-    const bool ok = ref != nullptr && alignment_tags(b, ref, len, nm, md, cs, cs_ok);
-    std::free(ref);
+    const bool ok = b->core.pos >= 0 && end <= static_cast<hts_pos_t>(contig_seq_.size()) &&
+                    alignment_tags(b, contig_seq_.data() + b->core.pos, end - b->core.pos, nm, md, cs, cs_ok);
     // Tags that would no longer describe the alignment are dropped rather than left stale.
     if (nm_tag != nullptr) {
         if (ok) bam_aux_update_int(b, "NM", nm);
@@ -352,6 +426,7 @@ void AlignedReadWriter::write_contig(const std::string& contig,
         contig_tid_ = tid;
         written_to_ = 0;
     }
+    contig_sequence(tid, contig);
     const auto later = [](const Held& x, const Held& y) { return x.pos != y.pos ? x.pos > y.pos : x.order > y.order; };
     std::unique_ptr<bam1_t, AlignmentDeleter> rec(bam_init1());
     for (const auto& [beg, end] : spans) {
@@ -363,15 +438,22 @@ void AlignedReadWriter::write_contig(const std::string& contig,
             const hts_pos_t input_pos = rec->core.pos;
             std::unique_ptr<bam1_t, AlignmentDeleter> b(bam_dup1(rec.get()));
             if (!b) throw std::bad_alloc();
+            bool rewritten = false;
             if ((b->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY | BAM_FUNMAP)) == 0) {
                 const std::string qname = bam_get_qname(b.get());
                 const auto it = refined.find(qname);
-                if (it != refined.end() && it->second->orig_pos == b->core.pos) apply(b.get(), *it->second, contig);
+                if (it != refined.end() && it->second->orig_pos == b->core.pos) {
+                    apply(b.get(), *it->second);
+                    rewritten = true;
+                }
                 const auto [hap, ps] = label(qname);
                 set_label_tags(b.get(), hap, ps);
             } else {
                 set_label_tags(b.get(), 0, 0);
             }
+            if (opts_.left_align_aln && (b->core.flag & BAM_FUNMAP) == 0 && b->core.n_cigar > 0 && b->core.l_qseq > 0)
+                rewritten = left_align(b.get()) || rewritten;
+            if (rewritten) update_tags(b.get());
             const hts_pos_t pos = b->core.pos;
             held_.push_back(Held{pos, order_++, std::move(b)});
             std::push_heap(held_.begin(), held_.end(), later);

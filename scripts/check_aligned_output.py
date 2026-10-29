@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """collect-graph-variation's aligned output (--out-sam), with --refine-aln against without (stdlib only).
 
-  check_aligned_output.py --refined REFINED.sam --plain PLAIN.sam [--ref REF.fa[.gz]]
+  check_aligned_output.py --refined REFINED.sam --plain PLAIN.sam [--ref REF.fa[.gz]] [--left-aligned]
 
 Both are sorted and hold the same records (by name, flag and, unmapped, position) with the same SEQ, QUAL and HP/PS;
 the refined one rewrites some primaries' alignments and no other record's, each with a CIGAR as long as its SEQ and,
-with --ref, NM and MD (where present) those of the new alignment. Exit status 1 on any failure.
+with --ref, NM and MD (where present) those of the new alignment. With --left-aligned (and --ref), no mapped
+record has a gap that could move further left, and a rewritten record that is not a primary keeps its start and edit
+distance (left-alignment alone moved it). Exit status 1 on any failure.
 """
 import argparse
 import collections
@@ -80,11 +82,47 @@ def nm_md(r, ref):
     return nm, md + str(run)
 
 
+def edit_distance(r, ref):
+    rp, qp, d = r["pos"] - 1, 0, 0
+    seq = r["seq"].upper()
+    for n, op in ops(r["cigar"]):
+        if op in "M=X":
+            d += sum(1 for j in range(n) if rp + j >= len(ref) or ref[rp + j] != seq[qp + j])
+            rp, qp = rp + n, qp + n
+        elif op in "ID":
+            d += n
+            rp, qp = rp + (n if op == "D" else 0), qp + (n if op == "I" else 0)
+        elif op == "N":
+            rp += n
+        elif op == "S":
+            qp += n
+    return d
+
+
+def movable_gap(r, ref):
+    """A gap that could move left with one aligned base kept before it."""
+    rp, qp = r["pos"] - 1, 0
+    seq = r["seq"].upper()
+    cig = ops(r["cigar"])
+    for k, (n, op) in enumerate(cig):
+        if op in "ID" and k > 0 and cig[k - 1][1] in "M=X" and cig[k - 1][0] > 1:
+            if op == "D" and rp + n - 1 < len(ref) and ref[rp - 1] == ref[rp + n - 1]:
+                return True
+            if op == "I" and seq[qp - 1] == seq[qp + n - 1]:
+                return True
+        if op in "M=XDN":
+            rp += n
+        if op in "M=XIS":
+            qp += n
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--refined", required=True)
     ap.add_argument("--plain", required=True)
     ap.add_argument("--ref")
+    ap.add_argument("--left-aligned", action="store_true")
     a = ap.parse_args()
     fail = []
     sams = {}
@@ -118,8 +156,12 @@ def main():
         if (r["pos"], r["cigar"]) == (p["pos"], p["cigar"]):
             continue
         rewritten += 1
-        if r["flag"] & (0x100 | 0x800 | 0x4):
-            fail.append(f"{r['qname']}: a non-primary record rewritten")
+        if r["flag"] & 0x4:
+            fail.append(f"{r['qname']}: an unmapped record rewritten")
+        elif r["flag"] & (0x100 | 0x800):
+            if not (a.left_aligned and ref is not None and r["pos"] == p["pos"] and
+                    edit_distance(r, ref[r["rname"]]) == edit_distance(p, ref[p["rname"]])):
+                fail.append(f"{r['qname']}: a non-primary record rewritten beyond left-alignment")
         if r["seq"] != "*" and query_len(r["cigar"]) != len(r["seq"]):
             fail.append(f"{r['qname']}: CIGAR {query_len(r['cigar'])} long, SEQ {len(r['seq'])}")
         if ref is not None and ("NM" in r["tags"] or "MD" in r["tags"]):
@@ -128,6 +170,11 @@ def main():
                 fail.append(f"{r['qname']}: NM/MD not the new alignment's")
     if rewritten == 0:
         fail.append("no alignment refined")
+    if a.left_aligned and ref is not None:
+        still = [r["qname"] for r in sams["refined"] if not r["flag"] & 0x4 and r["seq"] != "*" and r["rname"] in ref
+                 and movable_gap(r, ref[r["rname"]])]
+        if still:
+            fail.append(f"{len(still)} records with a gap left-alignment would still move, e.g. {still[0]}")
     for f in fail[:20]:
         print(f"  {f}", file=sys.stderr)
     print(f"aligned output: {len(refined)} records, {tagged} with HP/PS, {rewritten} refined"

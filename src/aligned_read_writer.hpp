@@ -47,6 +47,7 @@ public:
 
     std::size_t records() const { return n_records_; }
     std::size_t refined() const { return n_refined_; }
+    std::size_t left_aligned() const { return n_left_aligned_; }
 
 private:
     struct Held {
@@ -54,7 +55,10 @@ private:
         std::size_t order;
         std::unique_ptr<bam1_t, AlignmentDeleter> b;
     };
-    void apply(bam1_t* b, const RefinedAlignment& r, const std::string& contig);
+    void apply(bam1_t* b, const RefinedAlignment& r);
+    bool left_align(bam1_t* b);
+    void update_tags(bam1_t* b);
+    const std::string& contig_sequence(int tid, const std::string& contig);
     void write_held_before(hts_pos_t pos);
     void emit(bam1_t* b);
 
@@ -65,6 +69,9 @@ private:
     std::unique_ptr<faidx_t, FaiDeleter> fai_;
     samFile* out_ = nullptr;
     std::unique_ptr<bam_hdr_t, HeaderDeleter> out_header_;
+    // The reference of the contig being written, uppercase (0-based), for left-alignment and tags.
+    std::string contig_seq_;
+    int contig_seq_tid_ = -1;
     // Records held until no later input record can be written before them (a min-heap by position).
     std::vector<Held> held_;
     std::size_t order_ = 0;
@@ -74,6 +81,7 @@ private:
     hts_pos_t last_pos_ = -1;
     std::size_t n_records_ = 0;
     std::size_t n_refined_ = 0;
+    std::size_t n_left_aligned_ = 0;
     bool finished_ = false;
 };
 
