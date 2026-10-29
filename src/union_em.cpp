@@ -803,12 +803,30 @@ private:
         blocks_ = 1;
         for (size_t k = 0; k < n_; ++k) {
             block_[k] = current;
-            if (k + 1 < n_ && (delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
-                               (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k])) {
+            if (k + 1 >= n_) continue;
+            const bool cut = delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
+                             (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
+            if (pgphase_trace::on() && (cut || weak_bridge_[k])) trace_boundary(k, cut, hinge_cut[k]);
+            if (cut) {
                 current = sites_[k + 1].pos;
                 ++blocks_;
             }
         }
+    }
+
+    // A block cut, or a join a weak bridge carries, between sites k and k + 1: the rule that cut it, the margins and
+    // the reads behind them. The first solve has no locus windows (solve=sites), the second has (solve=windows).
+    void trace_boundary(size_t k, bool cut, bool hinge) const {
+        const char* why = !cut                                     ? "weak_bridge_joined"
+                          : delta_[k] < kEmBlockCutLogLikelihood   ? "margin"
+                          : spanning_[k] < kEmMinJoinReads         ? "few_spanning_reads"
+                          : hinge                                  ? "hinge"
+                                                                   : "weak_bridge";
+        char detail[160];
+        std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d solve=%s",
+                      delta_[k], delta_strong_[k], spanning_[k], spanning_strong_[k],
+                      loci_ != nullptr ? "windows" : "sites");
+        pgphase_trace::emit("em", cut ? "cut" : "join", sites_[k].pos, sites_[k + 1].pos, "-", why, detail);
     }
 
     // Each site's phase and block onto its candidate (or locus window); an
@@ -822,6 +840,13 @@ private:
                 w.phase = phase_[k];
                 w.block = block_[k];
                 w.error = err_[k];
+                if (pgphase_trace::on()) {
+                    char detail[96];
+                    std::snprintf(detail, sizeof(detail), "err=%.3f block=%lld reads=%zu", err_[k],
+                                  static_cast<long long>(block_[k]), w.observations.size());
+                    pgphase_trace::emit("em", "locus_window", w.pos, w.end, w.catalog_row >= 0 ? "allele" : "locus",
+                                        err_[k] >= kEmUnreliableError ? "unreliable" : "phased", detail);
+                }
                 continue;
             }
             CandidateVariant& c = chunk_.candidates[sites_[k].ci];
