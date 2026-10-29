@@ -1,4 +1,5 @@
 #include <tuple>
+#include "aligned_read_writer.hpp"
 #include "plegma_msa.hpp"
 #include "graph_collect.hpp"
 #include "collect_pipeline.hpp"
@@ -40,6 +41,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <future>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -1003,6 +1005,50 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     return graph_chunks;
 }
 
+// One contig's batch for the aligned output, owning what it needs once the batch is gone: its chunks' spans, their
+// refined alignments (each read's from the chunk whose span holds its start, the first chunk that has one otherwise:
+// a read starting before the regions) and the reads' union labels.
+struct AlignedContigJob {
+    std::string contig;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> chunk_spans;  // each chunk's, parallel to refined
+    std::vector<std::vector<RefinedAlignment>> refined;
+    std::unordered_map<std::string, std::pair<int, hts_pos_t>> labels;
+
+    void write(AlignedReadWriter& out) const {
+        std::unordered_map<std::string, const RefinedAlignment*> by_read;
+        for (size_t i = 0; i < refined.size(); ++i)
+            for (const RefinedAlignment& r : refined[i]) {
+                const auto [it, added] = by_read.emplace(r.qname, &r);
+                if (!added && r.orig_pos + 1 >= chunk_spans[i].first && r.orig_pos + 1 <= chunk_spans[i].second)
+                    it->second = &r;
+            }
+        out.write_contig(contig, spans, by_read, [this](const std::string& qname) -> std::pair<int, hts_pos_t> {
+            const auto it = labels.find(qname);
+            return it == labels.end() ? std::pair<int, hts_pos_t>{0, 0} : it->second;
+        });
+    }
+};
+
+static AlignedContigJob aligned_contig_job(const std::string& contig, std::vector<GraphChunkBuildResult>& graph_chunks,
+                                           const std::unordered_map<std::string, PhaseReadOutputRow>& rows) {
+    AlignedContigJob job;
+    job.contig = contig;
+    for (GraphChunkBuildResult& gc : graph_chunks) {
+        const hts_pos_t beg = gc.chunk.region.beg, end = gc.chunk.region.end;
+        if (!job.spans.empty() && beg <= job.spans.back().second + 1)
+            job.spans.back().second = std::max(job.spans.back().second, end);
+        else
+            job.spans.emplace_back(beg, end);
+        job.chunk_spans.emplace_back(beg, end);
+        job.refined.push_back(std::move(gc.refined_alignments));
+    }
+    job.labels.reserve(rows.size());
+    for (const auto& [qname, row] : rows)
+        if (row.has_phased_assignment && row.hap != 0) job.labels.emplace(qname, std::make_pair(row.hap, row.phase_set));
+    return job;
+}
+
 // The pangenome contig a FAI contig is queried under (its suffix in a PanSN
 // name), or the contig itself.
 static std::string query_contig_of(const std::string& contig,
@@ -1209,6 +1255,16 @@ void run_collect_graph_variation(const Options& opts) {
             throw std::runtime_error("failed to write phased BAM header");
     }
 
+    // Aligned output: the --bam records of the regions, contig by contig after each batch.
+    std::unique_ptr<AlignedReadWriter> aligned_out;
+    if (!opts.output_union_aln.empty()) {
+        aligned_out = std::make_unique<AlignedReadWriter>(opts);
+        std::vector<std::pair<std::string, std::pair<hts_pos_t, hts_pos_t>>> regions;
+        for (const RegionChunk& c : chunks) regions.push_back({header->target_name[c.tid], {c.beg, c.end}});
+        aligned_out->check_region_order(regions);
+    }
+    std::future<void> aligned_pending;
+
     // 10. Process chunks in reg_chunk_i batches (one contig per batch), streaming output.
     //     Mirrors run_collect_bam_variation's batch loop exactly.
     size_t n_variants = 0;
@@ -1357,10 +1413,21 @@ void run_collect_graph_variation(const Options& opts) {
 
         // Phased BAM: accumulate post-stitch read assignments, then flush.
         // Batches are per-contig so cross-batch read overlap is impossible;
-        // flush everything after each batch.
-        if (emit_phased_bam) {
+        // flush everything after each batch. The aligned output takes its
+        // labels from the same rows, before they are flushed.
+        if (emit_phased_bam || aligned_out) {
             for (const GraphChunkBuildResult& gc : graph_chunks)
                 merge_graph_chunk_into_read_rows(phased_bam_rows, gc);
+            // The contig's alignments are written while the next contig is processed: one at a time, in order.
+            if (aligned_out) {
+                if (aligned_pending.valid()) aligned_pending.get();
+                aligned_pending = std::async(
+                    std::launch::async,
+                    [&out = *aligned_out, job = aligned_contig_job(header->target_name[chunks[batch_begin].tid],
+                                                                   graph_chunks, phased_bam_rows)]() {
+                        job.write(out);
+                    });
+            }
             flush_graph_phase_bam_after_merge(
                 phased_bam_fp.get(), phased_bam_hdr.get(),
                 phased_bam_rows, nullptr, phased_bam_emitted);
@@ -1396,6 +1463,12 @@ void run_collect_graph_variation(const Options& opts) {
         std::cerr << "Wrote retained graph sites to " << opts.output_phase_sites << "\n";
     if (emit_phased_bam)
         std::cerr << "Wrote phased BAM to " << opts.output_phased_bam << "\n";
+    if (aligned_out) {
+        if (aligned_pending.valid()) aligned_pending.get();
+        aligned_out->finish();
+        std::cerr << "Wrote " << aligned_out->records() << " alignment records ("
+                  << aligned_out->refined() << " refined) to " << opts.output_union_aln << "\n";
+    }
 }
 
 static void print_graph_collect_help() {
@@ -1423,6 +1496,11 @@ static void print_graph_collect_help() {
         << "  -v, --vcf-output FILE         Candidate VCF\n"
         << "      --phased-vcf-out FILE     Phased VCF with GT:DP:AD:VAF:GQ:PS\n"
         << "      --phased-bam-out FILE     Unaligned BAM with HP/PS tags per read\n"
+        << "      --out-bam FILE            The --bam records of the regions processed, each read with\n"
+        << "                                HP/PS, sorted and indexed (--out-cram, --out-sam alike)\n"
+        << "      --refine-aln              In that output, rewrite each read's alignment in the noisy\n"
+        << "                                regions the MSA resolved from its alignment to their\n"
+        << "                                consensus (longcallD's --refine-aln)\n"
         << "\n"
         << "Options:\n"
         << "  -t, --threads INT             Worker threads [all cores]\n"
@@ -1485,6 +1563,10 @@ enum GraphCollectOption {
     kGcPhaseMatrixDump,
     kGcMsa,
     kGcMsaModel,
+    kGcOutBam,
+    kGcOutCram,
+    kGcOutSam,
+    kGcRefineAln,
 };
 
 } // namespace
@@ -1512,6 +1594,10 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"vcf-output",        required_argument, nullptr, 'v'},
         {"phased-vcf-out",    required_argument, nullptr, kGcPhasedVcf},
         {"phased-bam-out",   required_argument, nullptr, kGcPhasedBam},
+        {"out-bam",          required_argument, nullptr, kGcOutBam},
+        {"out-cram",         required_argument, nullptr, kGcOutCram},
+        {"out-sam",          required_argument, nullptr, kGcOutSam},
+        {"refine-aln",       no_argument,       nullptr, kGcRefineAln},
         {"bam",              required_argument, nullptr, kGcBam},
         {"filtered-sites-out", required_argument, nullptr, kGcFilteredSitesOut},
         {"phase-sites-out",   required_argument, nullptr, kGcPhaseSitesOut},
@@ -1550,6 +1636,19 @@ int collect_graph_variation(int argc, char* argv[]) {
             case 'v': opts.output_vcf = optarg; break;
             case kGcPhasedVcf:    opts.output_phased_vcf = optarg; break;
             case kGcPhasedBam:    opts.output_phased_bam = optarg; break;
+            case kGcOutBam:
+                opts.output_union_aln = optarg;
+                opts.output_union_aln_format = OutputAlignmentFormat::Bam;
+                break;
+            case kGcOutCram:
+                opts.output_union_aln = optarg;
+                opts.output_union_aln_format = OutputAlignmentFormat::Cram;
+                break;
+            case kGcOutSam:
+                opts.output_union_aln = optarg;
+                opts.output_union_aln_format = OutputAlignmentFormat::Sam;
+                break;
+            case kGcRefineAln:    opts.refine_aln = true; break;
             // Union gap phasing: alignment-only sites and reads join each
             // chunk's graph solve.
             case kGcBam:  opts.bam_files.push_back(optarg); break;
@@ -1605,6 +1704,16 @@ int collect_graph_variation(int argc, char* argv[]) {
         print_graph_collect_help();
         return 1;
     }
+
+    if (!opts.output_union_aln.empty() && opts.bam_files.size() != 1) {
+        std::cerr << "Error: --out-bam/--out-cram/--out-sam write the records of one --bam\n";
+        return 1;
+    }
+    if (opts.refine_aln && opts.output_union_aln.empty()) {
+        std::cerr << "Error: --refine-aln needs --out-bam, --out-cram or --out-sam\n";
+        return 1;
+    }
+    opts.refine_msa_digars = opts.refine_aln && !opts.output_union_aln.empty();
 
     // With --bam, every read the EM can place is labelled; low-MAPQ reads are
     // labelled but do not shape the model.

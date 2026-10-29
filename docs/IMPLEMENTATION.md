@@ -3009,21 +3009,14 @@ bash scripts/compare_phased_vcf.sh chr11 --ont
 
 The script passes the selected mode flag through to `pgphase` and keys same-position multi-allelic records by ALT for non-SVLEN records, avoiding false diffs from key collapse.
 
-For phased BAM parity validation, the development tooling has two helper scripts:
+The phased-BAM parity scripts this section described (`verify_refine_bam_parity.sh`,
+`verify_refine_regression.sh`) are no longer in the repository. On HG002 HiFi chr20:10-12 Mb (9,116 reads) the
+`--refine-aln` output of `PGPHASE_MSA=abpoa collect-bam-variation` held the same alignment as longcallD's for every
+read (5,697 rewritten), and the same `HP` for 9,114 (2026-10-29). `collect-graph-variation --out-sam --refine-aln` is
+checked in `make check` (`scripts/check_aligned_output.py`).
 
-```text
-bash scripts/verify_refine_bam_parity.sh
-  Runs pgPhase + longcallD in normal and --refine-aln modes,
-  diffs sorted SAM output, and reports pass/fail.
-
-bash scripts/verify_refine_regression.sh
-  Runs pgPhase only (no longcallD dependency),
-  compares sorted SAM SHA-256 hashes against pinned known-good values
-  for normal and --refine-aln fixtures.
-```
-
-`verify_refine_regression.sh` also prints offending unified-diff lines when a hash mismatch is
-detected (first 200 lines for normal/refine), and preserves temp artifacts for inspection on fail.
+`collect-bam-variation --refine-aln` keeps a primary's hard clips: longcallD turns them into soft clips, with no
+bases in SEQ to soften (a CIGAR longer than its SEQ).
 
 ##### 25. Non-Goals and Current Boundaries
 

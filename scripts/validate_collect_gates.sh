@@ -177,6 +177,8 @@ union_contracts() {
 }
 
 # Union gap phasing (collect-graph-variation --bam) on the chr20:25.0-25.5 Mb slice, 1 and 4 threads, with one MSA.
+# The 1-thread run also writes the aligned output with --refine-aln, the 4-thread run without: the TSV and VCF must not
+# change, and the two alignments must hold the same records and labels (scripts/check_aligned_output.py).
 union_gates() {
   local msa="$1" dir="$2" t count_u
   local diag="$TMPDIR/pgphase_validate_${msa}_union_diag"
@@ -184,11 +186,14 @@ union_gates() {
   mkdir -p "$diag"
   for t in 1 4; do
     # The 1-thread run also writes its stage trace and MSA dump, for the contracts below.
+    local refine=()
+    [[ "$t" == 1 ]] && refine=(--refine-aln)
     count_u="$(if [[ "$t" == 1 ]]; then export PGPHASE_TRACE="$diag" PGPHASE_MSA_DUMP="$diag/msa_dump.tsv"; fi
       run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
       --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
       -o "$TMPDIR/pgphase_validate_${msa}_union_t$t.tsv" \
-      --phased-vcf-out "$TMPDIR/pgphase_validate_${msa}_union_t$t.phased.vcf")"
+      --phased-vcf-out "$TMPDIR/pgphase_validate_${msa}_union_t$t.phased.vcf" \
+      --out-sam "$TMPDIR/pgphase_validate_${msa}_union_t$t.sam" "${refine[@]}")"
     if [[ "$t" == 1 ]]; then
       check_golden "$msa union TSV (sites=$count_u)" "$TMPDIR/pgphase_validate_${msa}_union_t1.tsv" \
         "$dir/union_chr20_expected.tsv" hash_file "$msa"
@@ -207,6 +212,12 @@ union_gates() {
     "$TMPDIR/pgphase_validate_${msa}_union_t4.tsv" hash_file
   same_output "$msa union phased VCF, 1 and 4 threads," "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
     "$TMPDIR/pgphase_validate_${msa}_union_t4.phased.vcf" hash_vcf_stable
+  if ! python3 "$ROOT/scripts/check_aligned_output.py" --refined "$TMPDIR/pgphase_validate_${msa}_union_t1.sam" \
+      --plain "$TMPDIR/pgphase_validate_${msa}_union_t4.sam" --ref "$CHR20_DIR/ref.fa.gz"; then
+    echo "error: $msa union aligned output (--refine-aln): see scripts/check_aligned_output.py" >&2
+    exit 1
+  fi
+  echo "ok: $msa union aligned output"
 }
 
 EXPECTED_DIR="${EXPECTED_DIR:-$ROOT/test_data/expected}"

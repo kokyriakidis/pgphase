@@ -259,14 +259,8 @@ inline int refine_bam1(const ReadRecord& read,
             new_cigar[new_n_cigar++] = bam_cigar_gen(static_cast<uint32_t>(d.len), op);
         }
     }
-    if (!(b->core.flag & BAM_FSUPPLEMENTARY) && new_n_cigar > 0) {
-        if ((new_cigar[0] & BAM_CIGAR_MASK) == BAM_CHARD_CLIP) {
-            new_cigar[0] = (new_cigar[0] & ~BAM_CIGAR_MASK) | BAM_CSOFT_CLIP;
-        }
-        if ((new_cigar[new_n_cigar - 1] & BAM_CIGAR_MASK) == BAM_CHARD_CLIP) {
-            new_cigar[new_n_cigar - 1] = (new_cigar[new_n_cigar - 1] & ~BAM_CIGAR_MASK) | BAM_CSOFT_CLIP;
-        }
-    }
+    // longcallD turns a primary's hard clips into soft ones here, but SEQ holds no clipped bases to soften: the
+    // record's CIGAR would be longer than its SEQ (invalid). Its hard clips are kept.
 
     uint32_t* old_cigar = bam_get_cigar(b);
     int old_n_cigar = b->core.n_cigar;

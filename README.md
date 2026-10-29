@@ -165,10 +165,14 @@ to disk beyond `--memory` (a quarter of the machine's memory). chr20 of HG002 Hi
 |---|---|
 | `--phased-vcf-out FILE` | Heterozygous calls, phased (`GT:DP:AD:VAF:GQ:PS`) |
 | `--phased-bam-out FILE` | One unaligned record per read seen, with `HP` and `PS` tags when phased |
+| `--out-bam FILE` | The `--bam` records of the regions processed, each phased read with `HP` and `PS`, sorted and indexed (`--out-cram`, `--out-sam` alike) |
+| `--refine-aln` | With `--out-bam`: each read's alignment in the noisy regions the MSA resolved rewritten from its alignment to their consensus, as longcallD's `--refine-aln` (`NM`, `MD` and `cs` recomputed); for haplotype-aware tools such as DeepVariant |
 | `-o FILE` | Every candidate site with its allele counts, category and phase |
 | `-v FILE` | The candidate sites as a VCF |
 
-The read tags can be copied onto an aligned BAM by read name, for example for haplotype-aware analyses.
+`--out-bam` takes one `--bam`, and the regions in its header's contig order. A refined alignment is checked against the
+read's bases and the reference before it is written; one that fails, a read with a hard clip or a mate, keeps its
+input alignment. The phased VCF is the same with or without these outputs.
 
 ## Commands and options
 

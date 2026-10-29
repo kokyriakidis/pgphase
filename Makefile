@@ -32,6 +32,7 @@ SOURCES_CXX = src/main.cpp \
 	src/collect_phase_noisy.cpp \
 	src/align.cpp \
 	src/collect_bam_output.cpp \
+	src/refined_alignment.cpp \
 	src/collect_output.cpp \
 	src/graph_bam_adapter.cpp \
 	src/graph_sites.cpp \

@@ -8,6 +8,7 @@
 // applying parent-snarl gating, multi-allelic→biallelic decomposition, and
 // three-phase depth/AF filtering along the way.
 
+#include "refined_alignment.hpp"
 #include "collect_types.hpp"
 #include "allele_identity.hpp"
 #include "graph_query.hpp"
@@ -89,6 +90,8 @@ struct GraphChunkBuildResult {
     std::vector<std::vector<int>> site_allele_orig_idx;
     // Sites that survived Phase 1 but were dropped in Phase 2.
     std::vector<FilteredGraphSite> filtered_sites;
+    // --refine-aln: the reads' alignments the alignment solve's MSA rewrote (aligned output).
+    std::vector<RefinedAlignment> refined_alignments;
 };
 
 /// Group complete biallelic REF/ALT descriptions without combining their contracts.

@@ -360,6 +360,14 @@ struct Options {
     OutputAlignmentFormat output_aln_format = OutputAlignmentFormat::None;
     /** If true, refine phased read alignments from per-read digars before writing output alignment. */
     bool refine_aln = false;
+    /** The noisy-region MSA rewrites each clustered read's digars from its alignment to the region's consensus, and
+     *  phasing keeps the digars for the output: refine_aln with an aligned output (output_aln, or the union's). */
+    bool refine_msa_digars = false;
+    /** collect-graph-variation's aligned output (--out-bam/--out-cram/--out-sam): the --bam records of the regions
+     *  processed with their reads' union labels, and with refine_aln their refined alignments. Not output_aln, which
+     *  also changes how stitching labels reads (stitch_chunk_haps). */
+    std::string output_union_aln;
+    OutputAlignmentFormat output_union_aln_format = OutputAlignmentFormat::None;
 
     /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;

@@ -7,6 +7,7 @@
  * all candidates in memory.
  */
 
+#include "refined_alignment.hpp"
 #include "plegma_msa.hpp"
 #include "trace.hpp"
 #include "collect_pipeline.hpp"
@@ -423,7 +424,7 @@ static void load_and_prepare_chunk(PhasingChunk& chunk, const Options& opts, Wor
 // and overlap indices (all needed by stitching and VCF emission).
 static void mid_free_chunk(PhasingChunk& chunk, const Options& opts) {
     // Per-read digar ops, base quals, and noisy sub-intervals.
-    const bool keep_digars_for_refine = !opts.output_aln.empty() && opts.refine_aln;
+    const bool keep_digars_for_refine = opts.refine_msa_digars;
     if (!keep_digars_for_refine) {
         for (ReadRecord& r : chunk.reads) {
             r.digars.clear();
@@ -803,6 +804,15 @@ size_t inject_alignment_private_sites(GraphChunkBuildResult& graph_chunk,
             t->aln_ps = i < bam->phase_sets.size() ? bam->phase_sets[i] : 0;
         }
     }
+    // --refine-aln: the alignments the MSA rewrote, for the aligned output; the digars kept for them go with them.
+    if (opts.refine_msa_digars) {
+        RefineCounts counts;
+        graph_chunk.refined_alignments = take_refined_alignments(*bam, counts);
+        if (pgphase_trace::on())
+            pgphase_trace::emit("refine", "chunk", graph.ref_beg, graph.ref_end, "-", "msa_alignments",
+                                "refined=" + std::to_string(counts.refined) + " unchanged=" +
+                                    std::to_string(counts.unchanged) + " rejected=" + std::to_string(counts.rejected));
+    }
     const size_t added = inject_alignment_sites(graph_chunk, *bam, contig_name);
     if (keep_alignment_chunk != nullptr) *keep_alignment_chunk = std::move(bam);
     return added;
@@ -1118,6 +1128,8 @@ int collect_bam_variation(int argc, char* argv[]) {
         print_collect_help();
         return 1;
     }
+
+    opts.refine_msa_digars = opts.refine_aln && !opts.output_aln.empty();
 
     // Use longcallD's BAM phasing and MSA behavior. These assignments override
     // shared defaults used by the graph path; see Options for each gate.

@@ -2181,9 +2181,8 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                      static_cast<int64_t>(noisy_reg_end - noisy_reg_beg + 1),
                      info.n_reads, n_full_reads, static_cast<int64_t>(ps));
     }
-    // Build ref-vs-read alignment strings when phased-BAM output is requested.
-    const bool collect_ref_read_aln_str =
-        (opts.refine_aln && !opts.output_aln.empty());
+    // Build ref-vs-read alignment strings when refined alignments are written (refine_msa_digars).
+    const bool collect_ref_read_aln_str = opts.refine_msa_digars;
 
     if (ps > 0) {
         n_cons = wfa_collect_noisy_aln_str_with_ps_hap(
@@ -2207,8 +2206,8 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                         ps > 0 ? "hap" : n_full_reads >= opts.min_depth ? "nohap" : "skipped", ps, n_full_reads,
                         sampling, n_cons, clu_n_seqs, clu_read_ids);
 
-    // Update digars from MSA consensus when phased-BAM output is requested.
-    if (n_cons > 0 && opts.refine_aln && !opts.output_aln.empty()) {
+    // Update digars from MSA consensus when refined alignments are written.
+    if (n_cons > 0 && opts.refine_msa_digars) {
         update_digars_from_aln_str(chunk, noisy_reg_beg, noisy_reg_end,
                                    info.read_id_to_full_covers,
                                    info.read_reg_beg, info.read_reg_end,
