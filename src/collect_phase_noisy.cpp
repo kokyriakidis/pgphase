@@ -2310,6 +2310,10 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         n_noisy_reads, read_ids, noisy_reg_beg,
         n_cons, clu_n_seqs, clu_read_ids, aln_strs,
         noisy_vars, noisy_var_cate, noisy_rvp);
+    for (CandidateVariant& v : noisy_vars) {
+        v.msa_region_reads = n_noisy_reads;
+        v.msa_cluster_reads = clu_n_seqs[0] + (n_cons > 1 ? clu_n_seqs[1] : 0);
+    }
 
     // A real neighboring variant is valid flank sequence, not alignment noise.
     std::array<AlnStr, 2> consensuses;

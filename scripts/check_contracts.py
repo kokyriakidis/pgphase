@@ -264,7 +264,11 @@ def check_msa(records, regions, decisions, fasta):
         def around(b, e):
             # From the base before (an insertion anchors there) to the end.
             return [r for r in rs[bisect.bisect_left(ps, b - 2000):bisect.bisect_right(ps, e)] if end(r) >= b - 1]
-        beg, end_ = repeat_flanks(seq, reg.beg, reg.end) if seq else (reg.beg, reg.end)
+        # Widened by repeats of the region's own indel length at most (at least 8, at most 64): the writer left-aligns
+        # an indel by its own unit, so a 44-base tandem duplication at chr20:17,542,141 is written 45 bases before the
+        # region; a wider unit everywhere let neighbouring regions' indels into the window.
+        period = min(64, max([8] + [abs(len(c) - len(reg.ref)) for c in reg.consensus]))
+        beg, end_ = repeat_flanks(seq, reg.beg, reg.end, period) if seq else (reg.beg, reg.end)
         near = around(beg, end_)
         # Only an indel is moved into a flank; any other record there is the flank's own variant.
         if any((r.pos < reg.beg or end(r) > reg.end) and

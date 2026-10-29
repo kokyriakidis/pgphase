@@ -131,6 +131,16 @@ static CandKey left_aligned_indel_key(const CandidateVariant& c, const PhasingCh
         return static_cast<char>(std::toupper(static_cast<unsigned char>(source.ref_seq[static_cast<size_t>(off)])));
     };
     if (!c.msa_insertion_alts.empty()) return cand_key_of(c);
+    // An indel whose anchor letter is not the reference's (alt_ref_base: a SNP right before it, written as one
+    // complex record) is another allele than the plain indel it would left-align onto: keyed with its letter, it is
+    // never folded into one. chr20:9,869,936: one consensus deleted a T of T8 with the T>G before it as its anchor,
+    // the other the plain T; folded, the SNP was lost and AT>A written het where the truth has it homozygous beside
+    // T>G.
+    if (k.type != VariantType::Snp && c.alt_ref_base < 4 && "ACGT"[c.alt_ref_base] != base(k.pos - 1)) {
+        CandKey key = cand_key_of(c);
+        key.alt = std::string("^") + "ACGT"[c.alt_ref_base] + key.alt;
+        return key;
+    }
     if (k.type == VariantType::Insertion && k.ref_len == 0 && !k.alt.empty()) {
         // The inserted bases sit after pos - 1; shift while the base before
         // the insertion point equals the last inserted base.

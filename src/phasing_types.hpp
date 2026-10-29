@@ -596,6 +596,10 @@ struct CandidateVariant {
     // phase it (union EM). abPOA's hets need the reads: written so, they added 420 false hets for 150 true
     // (HG002 HiFi chr12/18/20).
     bool msa_genotyped = false;
+    // An MSA call: the reads its noisy region saw (spanning it or not), and those its consensus clusters took (the
+    // reads it was genotyped from); 0 for any other candidate.
+    int msa_region_reads = 0;
+    int msa_cluster_reads = 0;
     // An MSA-verified het the union injection keeps out of the solve (too few
     // confidently mapped reads, or the depth gate): it enters only as an
     // island site, never as an EM site (no germline bits, no VCF record).

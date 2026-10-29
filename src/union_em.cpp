@@ -1026,7 +1026,13 @@ private:
     // het: the reads call a long homopolymer one short as often as not (chr20:2,060,967, T22 against T24, the MSA's
     // clusters of 49 and 28 reads, the reads' calls 48 REF to 13 ALT). Written unphased, as an unphasable one above,
     // when the reads the MSA genotyped it from are at least kEmMinMsaReadsFraction of the chunk's median site
-    // depth; fewer is an MSA of a handful of phased reads (chr20:15,363,779, 8 of 79), mostly a false het.
+    // depth, or of the reads its region saw where those are fewer; fewer is an MSA of a handful of phased reads
+    // (chr20:15,363,779, 8 of 79), mostly a false het. The reads it was genotyped from are its consensus clusters'
+    // (msa_cluster_reads), not those realignment later calls it in: chr20:18,395,482, a 1/2 indel in T28 (-4 / +2,
+    // the truth's), clusters of 20 and 30, called in 21 reads. And a long region is spanned by fewer reads than a site
+    // is: chr20:863,515-866,542 (3 kb, its deletions of 455 and 457 bases the truth's) saw 18 reads, the MSA used 17,
+    // and against the chunk's median of about 60 its deletions were left unwritten, the SNPs inside them written
+    // alone.
     void write_skewed_msa_hets() {
         std::vector<int> depths;
         for (size_t k = 0; k < n_; ++k) {
@@ -1044,9 +1050,13 @@ private:
                 (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0)
                 continue;
             const std::vector<int>& covs = c.counts.alle_covs;
-            const int msa_reads = covs.empty() ? c.counts.ref_cov + c.counts.alt_cov
-                                               : std::accumulate(covs.begin(), covs.end(), 0);
-            if (msa_reads < min_reads) continue;
+            const int msa_reads = c.msa_cluster_reads > 0 ? c.msa_cluster_reads
+                                  : covs.empty() ? c.counts.ref_cov + c.counts.alt_cov
+                                                 : std::accumulate(covs.begin(), covs.end(), 0);
+            const double need = c.msa_region_reads > 0
+                                    ? std::min(min_reads, kEmMinMsaReadsFraction * c.msa_region_reads)
+                                    : min_reads;
+            if (msa_reads < need) continue;
             std::vector<std::pair<int, int>> by_count;
             for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
             std::sort(by_count.rbegin(), by_count.rend());
