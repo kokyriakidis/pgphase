@@ -40,6 +40,7 @@ of the sites the read was called at, 1-based inclusive), `read`, `hap` (0 unphas
 | `; alignment_only filled=` | added from the alignment solve, with the calls realignment gave it |
 | `; realigned= graded=` | calls realignment set at injected indels, and MSA calls it graded |
 | `; snp_replaced=` | graph SNP calls the alignment's base replaced |
+| `; aln hap= ps=` | its label in the alignment solve (k-means haplotype, 0 none, and phase set) |
 
 | stage | event | reason | where | meaning |
 |---|---|---|---|---|
@@ -48,6 +49,7 @@ of the sites the read was called at, 1-based inclusive), `read`, `hap` (0 unphas
 | graph | regenotype | `repeat_het_indel_not_phased` | `apply_graph_noise_filter` | a catalog indel in a homopolymer or repeat demoted to RepeatHetIndel: never phased, never written |
 | bam | drop | `pruned_category` | collect_var.cpp `prune_not_candidate_variants` | an alignment candidate deleted as LowCoverage, StrandBias or NonVariant (LowCoverage traced with 3+ ALT reads only) |
 | msa | region | `resolved`, `no_consensus`, `too_long_for_msa`, `too_many_reads`, `no_reference` | collect_phase_noisy.cpp `collect_noisy_vars1` | a noisy region's MSA outcome (`no_consensus` repeats while it is retried, with why: `too_few_full_reads N of M (min K)`, `no_full_reads`, `no_phased_reads`, `read_segment_too_long L`, `plegma_clusters N`, `plegma_empty_cluster`, `plegma_error: ...`, `abpoa_clusters N`, `no_reads`) |
+| msa | reads | `hap`, `nohap`, `skipped` | align.cpp `collect_noisy_reg_aln_strs` | the reads one MSA call saw and which its clusters took: the branch (hap: the PS-aware path; nohap: clustered without a phase set; skipped: too few spanning reads), `reads`, `spanning` (both ends), `sampled`, the phase set and its reads per haplotype (`ps_hap1`, `ps_hap2`, `ps_unlabelled`), `cluster1`/`cluster2` sizes, `unclustered` and up to 20 `unclustered_reads` (name:cover, cover 3 spanning both ends); the clusters' own reads are in the MSA dump |
 | msa | skip | `mismatch_beside_gap` | `make_cand_vars_from_baln0` | a consensus mismatch beside a gap, left to the gap as its anchor letter |
 | msa | call | `admitted`, `replaced_existing` | `merge_var_profile` | an MSA call entering the chunk, alone or in place of a candidate with its key |
 | msa | drop | `existing_candidate_kept` | same | an MSA call dropped for an existing candidate with its key |

@@ -8,6 +8,7 @@
  */
 
 #include "plegma_msa.hpp"
+#include "trace.hpp"
 #include "collect_pipeline.hpp"
 
 #include "allele_identity.hpp"
@@ -790,6 +791,18 @@ size_t inject_alignment_private_sites(GraphChunkBuildResult& graph_chunk,
     region.beg = graph.ref_beg;
     region.end = graph.ref_end;
     auto bam = std::make_unique<PhasingChunk>(process_chunk(region, union_alignment_options(opts), context));
+    // Trace: each graph read's label in the alignment solve (its k-means haplotype and phase set).
+    if (pgphase_trace::on()) {
+        std::unordered_map<std::string_view, size_t> graph_read;
+        for (size_t i = 0; i < graph_chunk.chunk.reads.size(); ++i) graph_read.emplace(graph_chunk.chunk.reads[i].qname, i);
+        for (size_t i = 0; i < bam->reads.size() && i < bam->haps.size(); ++i) {
+            const auto it = graph_read.find(bam->reads[i].qname);
+            if (it == graph_read.end()) continue;
+            PhasingChunk::ReadTrace* t = pgphase_trace::read_trace(graph_chunk.chunk, it->second);
+            t->aln_hap = bam->haps[i];
+            t->aln_ps = i < bam->phase_sets.size() ? bam->phase_sets[i] : 0;
+        }
+    }
     const size_t added = inject_alignment_sites(graph_chunk, *bam, contig_name);
     if (keep_alignment_chunk != nullptr) *keep_alignment_chunk = std::move(bam);
     return added;

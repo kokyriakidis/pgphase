@@ -420,7 +420,13 @@ std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChu
         present.insert(chunk.reads.back().qname);
         is_added.push_back(1);
         ++added;
-        if (pgphase_trace::on()) pgphase_trace::read_trace(chunk, chunk.reads.size() - 1)->alignment_only = true;
+        if (pgphase_trace::on()) {
+            PhasingChunk::ReadTrace* t = pgphase_trace::read_trace(chunk, chunk.reads.size() - 1);
+            t->alignment_only = true;
+            const size_t si = static_cast<size_t>(&source - bam.reads.data());
+            t->aln_hap = si < bam.haps.size() ? bam.haps[si] : -1;
+            t->aln_ps = si < bam.phase_sets.size() ? bam.phase_sets[si] : 0;
+        }
     }
     if (pgphase_trace::on() && added > 0)
         pgphase_trace::emit("reads", "chunk", chunk.region.beg, chunk.region.end, "-", "alignment_only_reads_added",

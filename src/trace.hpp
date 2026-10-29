@@ -111,6 +111,7 @@ inline std::string describe_read(const pgphase_collect::PhasingChunk::ReadTrace&
     if (t.realigned != 0 || t.graded != 0) out += "; realigned=" + std::to_string(t.realigned) +
                                                   " graded=" + std::to_string(t.graded);
     if (t.snp_replaced != 0) out += "; snp_replaced=" + std::to_string(t.snp_replaced);
+    if (t.aln_hap >= 0) out += "; aln hap=" + std::to_string(t.aln_hap) + " ps=" + std::to_string(t.aln_ps);
     return out;
 }
 

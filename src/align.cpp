@@ -10,6 +10,7 @@
 #include "align.hpp"
 #include "plegma_msa.hpp"
 #include "bam_digar.hpp"
+#include "trace.hpp"
 
 #include <algorithm>
 #include <mutex>
@@ -2075,6 +2076,45 @@ static void dump_msa_call(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t en
     }
 }
 
+// Trace (PGPHASE_TRACE): the reads one MSA call saw and which its clusters took -- the branch (hap: the PS-aware
+// path, nohap: clustered, skipped: too few spanning reads; the msa region line says whether a consensus came out), the reads, those spanning the region, the phase set and
+// its reads per haplotype, the cluster sizes, and the reads no cluster took (name:cover, cover 3 spanning both ends,
+// at most kTraceMsaUnclusteredNames of them named). The clusters' own reads are in the MSA dump.
+constexpr size_t kTraceMsaUnclusteredNames = 20;
+
+static void trace_msa_reads(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end, const NoisyReadInfo& info,
+                            const char* branch, hts_pos_t ps, int n_full_reads, bool sampling, int n_cons,
+                            const std::array<int, 2>& clu_n_seqs, const std::array<std::vector<int>, 2>& clu_read_ids) {
+    std::vector<char> clustered(chunk.reads.size(), 0);
+    for (int c = 0; c < 2; ++c)
+        for (int k = 0; k < clu_n_seqs[static_cast<size_t>(c)] &&
+                        k < static_cast<int>(clu_read_ids[static_cast<size_t>(c)].size()); ++k) {
+            const int id = clu_read_ids[static_cast<size_t>(c)][static_cast<size_t>(k)];
+            if (id >= 0 && static_cast<size_t>(id) < clustered.size()) clustered[static_cast<size_t>(id)] = 1;
+        }
+    int ps_haps[3] = {0, 0, 0};
+    std::string names;
+    size_t unclustered = 0;
+    for (int i = 0; i < info.n_reads; ++i) {
+        const size_t id = static_cast<size_t>(info.noisy_read_ids[static_cast<size_t>(i)]);
+        if (ps > 0 && info.phase_sets[static_cast<size_t>(i)] == ps)
+            ++ps_haps[std::clamp(info.haps[static_cast<size_t>(i)], 0, 2)];
+        if (id < clustered.size() && clustered[id]) continue;
+        if (unclustered++ < kTraceMsaUnclusteredNames)
+            names += (names.empty() ? "" : ",") + chunk.reads[id].qname + ":" +
+                     std::to_string(info.fully_covers[static_cast<size_t>(i)]);
+    }
+    std::string detail = "reads=" + std::to_string(info.n_reads) + " spanning=" + std::to_string(n_full_reads) +
+                         " sampled=" + std::to_string(sampling ? 1 : 0) + " ps=" + std::to_string(ps) +
+                         " ps_hap1=" + std::to_string(ps_haps[1]) + " ps_hap2=" + std::to_string(ps_haps[2]) +
+                         " ps_unlabelled=" + std::to_string(ps_haps[0]) +
+                         " cluster1=" + std::to_string(n_cons > 0 ? clu_n_seqs[0] : 0) +
+                         " cluster2=" + std::to_string(n_cons > 1 ? clu_n_seqs[1] : 0) +
+                         " unclustered=" + std::to_string(unclustered);
+    if (!names.empty()) detail += " unclustered_reads=" + names;
+    pgphase_trace::emit("msa", "reads", beg, end, "-", branch, detail);
+}
+
 // The share of a region's spanning reads its phase set must hold for plegma's PS-aware path.
 constexpr double kMinPhaseSetReadFraction = 0.3;
 
@@ -2162,6 +2202,10 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
 
     dump_msa_call(chunk, noisy_reg_beg, noisy_reg_end, ps, ref_seq_vec, n_cons, clu_n_seqs, clu_read_ids, aln_strs,
                   info.read_id_to_full_covers);
+    if (pgphase_trace::on())
+        trace_msa_reads(chunk, noisy_reg_beg, noisy_reg_end, info,
+                        ps > 0 ? "hap" : n_full_reads >= opts.min_depth ? "nohap" : "skipped", ps, n_full_reads,
+                        sampling, n_cons, clu_n_seqs, clu_read_ids);
 
     // Update digars from MSA consensus when phased-BAM output is requested.
     if (n_cons > 0 && opts.refine_aln && !opts.output_aln.empty()) {

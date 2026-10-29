@@ -763,6 +763,8 @@ struct PhasingChunk {
         int snp_replaced = 0;         // graph SNP calls the alignment's base replaced (confirm_catalog_snp_calls)
         std::string label;            // the EM's label or why none, then deferred / island labels (union_em.cpp)
         std::string fill;             // a fill label applied after stitching (rescue, deferred or island)
+        int aln_hap = -1;             // the alignment solve's k-means label (-1: not in that solve)
+        hts_pos_t aln_ps = 0;         // and its phase set there
     };
     std::vector<ReadTrace> read_trace;
     std::vector<ReadVariantProfile> read_var_profile;
