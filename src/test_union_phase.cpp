@@ -1069,7 +1069,8 @@ static void test_inject_writes_what_both_msa_consensus_sequences_carry() {
         bam.read_var_profile.push_back(profile(r, 0, {1, 1 + r % 2, 1}));
     }
     inject_alignment_sites(gc, bam, "chr1");
-    bool row300 = false, row320 = true, hom_written = false, hom_votes = true, outside = false, mnp_written = true;
+    bool row300 = false, row320 = true, hom_written = false, hom_votes = true, outside = false, outside_votes = true;
+    bool mnp_written = true;
     size_t hom_i = gc.chunk.candidates.size();
     std::vector<std::string> two_alts;
     for (size_t ci = 0; ci < gc.chunk.candidates.size(); ++ci) {
@@ -1083,7 +1084,10 @@ static void test_inject_writes_what_both_msa_consensus_sequences_carry() {
             hom_written = meta.msa_hom && !meta.ref.empty() && c.hap_to_cons_alle[1] == 1 && c.hap_to_cons_alle[2] == 1;
             hom_votes = (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
         }
-        if (c.bam_injected && c.key.pos == 451) outside = true;
+        if (c.bam_injected && c.key.pos == 451) {
+            outside = meta.msa_hom && !meta.ref.empty() && c.hap_to_cons_alle[1] == 1 && c.hap_to_cons_alle[2] == 1;
+            outside_votes = (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+        }
         if (c.bam_injected && c.key.pos == 361) two_alts = meta.alts;
     }
     bool hom_read_calls = false;
@@ -1096,7 +1100,8 @@ static void test_inject_writes_what_both_msa_consensus_sequences_carry() {
     check(!mnp_written, "msa rows: a catalog MNP whose change in the region no consensus carries writes no record");
     check(hom_written, "msa hom: the MSA's homozygous call in a het region is injected, written 1/1");
     check(!hom_votes && !hom_read_calls, "msa hom: it neither votes nor carries read calls");
-    check(!outside, "msa hom: one outside any MSA region is not injected");
+    // Outside any MSA region a hom call its confident reads carry (here 6 at MAPQ 60) is written 1/1 too.
+    check(outside && !outside_votes, "msa hom: one outside any MSA region, confident reads, is written 1/1, no vote");
     const std::string pad(1, ref[359]);
     check(two_alts == std::vector<std::string>{std::string(1, "ACGT"[snp_letter]) + "A", pad + "AA"},
           "anchor: each allele of a two-allele MSA insertion leads with its own consensus letter");
