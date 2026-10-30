@@ -623,8 +623,10 @@ static void test_bridge_weak_sites() {
 static void test_em_join_needs_strong_reads() {
     // Sites 0-3 and 4-7, each side tiled; only `crossers` reads span sites 3
     // and 4, one call per side. Two such reads clear the ordinary cut but are
-    // too few to make the join strong: it needs the weak-bridge margin.
-    const auto blocks_with = [](int crossers) {
+    // too few to make the join strong; their calls at reliable sites, agreeing,
+    // join it. With `disagreeing` of them calling the other orientation the
+    // cut stays.
+    const auto blocks_with = [](int crossers, int disagreeing = 0) {
         PhasingChunk chunk;
         std::vector<int> truth;
         for (int k = 0; k < 8; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
@@ -636,14 +638,17 @@ static void test_em_join_needs_strong_reads() {
             const int hap = c % 2;
             const int id = static_cast<int>(chunk.reads.size());
             chunk.reads.push_back(read_named("x" + std::to_string(c), 60));
-            chunk.read_var_profile.push_back(profile(id, 3, {hap_allele(hap, 3), hap_allele(hap, 4)}));
+            const int right_hap = c < disagreeing ? 1 - hap : hap;
+            chunk.read_var_profile.push_back(profile(id, 3, {hap_allele(hap, 3), hap_allele(right_hap, 4)}));
             truth.push_back(hap);
         }
         finish_chunk(chunk);
         const std::vector<char> no_weak(chunk.candidates.size(), 0);
         return phase_chunk_by_global_em(chunk, nullptr, &no_weak);
     };
-    check(blocks_with(2) == 2, "EM: two crossing reads do not make a strong join");
+    check(blocks_with(1) == 2, "EM: one crossing read does not join the blocks");
+    check(blocks_with(2) == 1, "EM: two crossing reads agreeing at reliable sites join the blocks");
+    check(blocks_with(3, 1) == 2, "EM: crossing reads that disagree do not join the blocks");
     check(blocks_with(4) == 1, "EM: four crossing reads join the blocks");
 }
 

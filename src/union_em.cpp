@@ -43,6 +43,8 @@ constexpr double kEmDupMinorFraction = 0.4;
 // arm reads, switches -2, flips -2, all reads +886 / -634 (30-50 alike;
 // muting its labels instead cost 1,832 correct reads).
 constexpr double kEmJoinMinMeanMapq = 40.0;
+// The confidently mapped sites a chunk needs for their median callers to be its depth baseline (else all sites').
+constexpr size_t kEmDepthMinConfidentSites = 50;
 constexpr double kEmMaxError = 0.45;
 constexpr double kEmCleanStartError = 0.05;
 constexpr double kEmOtherStartError = 0.2;
@@ -111,6 +113,19 @@ constexpr int kEmMinJoinReads = 2;
 // start a block there). Four: chr17 +144 correct / -144 discordant, one
 // switch fewer; chr20 -4 / +4, chr19 -1 / +1; chr12, chr18 unchanged.
 constexpr int kEmMinStrongJoinReads = 4;
+// A weak-bridge or hinge cut is undone when this many reads, all agreeing, cross it with calls at sites of learned
+// error under kEmReliableJoinError on both sides (cut_blocks).
+constexpr int kEmReliableJoinReads = 2;
+constexpr double kEmReliableJoinError = 0.05;
+
+// " join_deep=mapq+depth+dup", the reasons a site holds no join (join_deep_ bits); empty when it holds one.
+static std::string join_deep_text(char bits) {
+    if (!bits) return "";
+    std::string out;
+    for (const auto& [bit, name] : {std::pair<int, const char*>{1, "mapq"}, {2, "depth"}, {4, "dup"}})
+        if (bits & bit) out += (out.empty() ? "" : "+") + std::string(name);
+    return " join_deep=" + out;
+}
 // A site whose less observed allele carries under this fraction of its reads
 // does not take part: a skewed split is the signature of a paralog or error
 // call, and in a homozygous stretch such a site labels reads at random.
@@ -244,8 +259,9 @@ private:
     std::vector<int> start_label_;          // label the read started with (diagnostic)
     std::vector<char> learns_;              // read teaches the model (MAPQ)
     std::vector<char> echo_;
-    // Holds no join: called by > kEmJoinMaxDepthRatio x the chunk's median
-    // callers, or by reads of mean MAPQ < kEmJoinMinMeanMapq.
+    // Holds no join, with why as bits: 1 called by reads of mean MAPQ <
+    // kEmJoinMinMeanMapq, 2 by > kEmJoinMaxDepthRatio x the chunk's median
+    // callers, 4 a duplicated haplotype.
     std::vector<char> join_deep_;
     std::vector<char> site_weak_, join_weak_, join_excluded_;
     std::vector<std::vector<char>> join_skip_;
@@ -440,14 +456,24 @@ private:
                 }
             }
             for (size_t k = 0; k < n_; ++k)
-                if (callers[k] > 0 && mapq_sum[k] / callers[k] < kEmJoinMinMeanMapq) join_deep_[k] = 1;
-            std::vector<int> called;
-            for (const int c : callers) if (c > 0) called.push_back(c);
+                if (callers[k] > 0 && mapq_sum[k] / callers[k] < kEmJoinMinMeanMapq) join_deep_[k] |= 1;
+            // The depth a site is deep against: the median callers of the chunk's confidently mapped sites (mean
+            // MAPQ at least kEmJoinMinMeanMapq), where there are enough of them. A chunk mostly satellite has few
+            // reads at most sites, and against all of them ordinary sites read as deep: chr20 26-27 Mb, median 35
+            // callers against 62 on the contig, so its hets at 60-69 held no join and broke 22 blocks HiPhase joins
+            // (and 9 more in 32-33 Mb, median 23).
+            std::vector<int> called, called_confident;
+            for (size_t k = 0; k < n_; ++k) {
+                if (callers[k] <= 0) continue;
+                called.push_back(callers[k]);
+                if (mapq_sum[k] / callers[k] >= kEmJoinMinMeanMapq) called_confident.push_back(callers[k]);
+            }
+            if (called_confident.size() >= kEmDepthMinConfidentSites) called.swap(called_confident);
             if (!called.empty()) {
                 std::nth_element(called.begin(), called.begin() + static_cast<long>(called.size() / 2), called.end());
                 const double median = called[called.size() / 2];
                 for (size_t k = 0; k < n_; ++k)
-                    if (callers[k] > kEmJoinMaxDepthRatio * median) join_deep_[k] = 1;
+                    if (callers[k] > kEmJoinMaxDepthRatio * median) join_deep_[k] |= 2;
                 std::vector<std::array<int, 2>> sides(n_, {0, 0});
                 for (const std::vector<EmObs>& obs : robs_)
                     for (size_t i = 0; i < obs.size(); ++i) {
@@ -457,7 +483,7 @@ private:
                 for (size_t k = 0; k < n_; ++k) {
                     const int tot = sides[k][0] + sides[k][1];
                     if (tot > 0 && callers[k] > kEmDupDepthRatio * median &&
-                        std::min(sides[k][0], sides[k][1]) < kEmDupMinorFraction * tot) join_deep_[k] = 1;
+                        std::min(sides[k][0], sides[k][1]) < kEmDupMinorFraction * tot) join_deep_[k] |= 4;
                 }
             }
         }
@@ -800,13 +826,64 @@ private:
                 hinge_cut[delta_[k - 1] <= delta_[k] ? k - 1 : k] = 1;
             }
         }
+        // A weak-bridge or hinge cut the reads' reliable calls agree across: each read crossing it
+        // whose calls at reliable sites (learned error under kEmReliableJoinError; not weak, deep or excluded) on
+        // both sides imply one haplotype per side votes, by whether the two are the same under the solve's phases.
+        // Those reads' calls are right 99.6% of the time (chr20, against the reads' parents); at chr20's 30 such cuts
+        // two or more of them, all agreeing, joined the right way every time, where the rules counting all evidence
+        // (weak bridges, hinges) cut: the reads that misled them carried calls at high-error indels.
+        std::vector<char> reliable_join(n_, 0);
+        {
+            std::vector<size_t> want;
+            for (size_t k = 0; k + 1 < n_; ++k) {
+                const bool rule_cut = (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
+                if (rule_cut && delta_[k] >= kEmBlockCutLogLikelihood && spanning_[k] >= kEmMinJoinReads) want.push_back(k);
+            }
+            if (!want.empty()) {
+                std::vector<int> same(n_, 0), other(n_, 0);
+                for (const std::vector<EmObs>& obs : robs_) {
+                    std::vector<std::pair<int, int>> calls;  // (site, haplotype the call implies under the phases)
+                    for (const EmObs& o : obs) {
+                        const size_t k = static_cast<size_t>(o.s);
+                        if (err_[k] >= kEmReliableJoinError || join_excluded_[k] || join_deep_[k] || join_weak_[k])
+                            continue;
+                        calls.emplace_back(o.s, o.b == phase_[k] ? 0 : 1);
+                    }
+                    if (calls.size() < 2) continue;
+                    const int lo = calls.front().first, hi = calls.back().first;
+                    const auto first = std::lower_bound(want.begin(), want.end(), static_cast<size_t>(lo));
+                    for (auto it = first; it != want.end() && static_cast<int>(*it) < hi; ++it) {
+                        int left[2] = {0, 0}, right[2] = {0, 0};
+                        for (const auto& [site, h] : calls) ++(site <= static_cast<int>(*it) ? left : right)[h];
+                        if (left[0] == left[1] || right[0] == right[1] || left[0] + left[1] == 0 ||
+                            right[0] + right[1] == 0)
+                            continue;
+                        ++((left[1] > left[0]) == (right[1] > right[0]) ? same : other)[*it];
+                    }
+                }
+                for (const size_t k : want)
+                    reliable_join[k] = same[k] >= kEmReliableJoinReads && other[k] == 0;
+            }
+        }
         hts_pos_t current = sites_[0].pos;
         blocks_ = 1;
         for (size_t k = 0; k < n_; ++k) {
             block_[k] = current;
             if (k + 1 >= n_) continue;
-            const bool cut = delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
-                             (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
+            bool cut = delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
+                       (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
+            if (cut && reliable_join[k]) {
+                cut = false;
+                if (pgphase_trace::on()) {
+                    char detail[160];
+                    std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d%s",
+                                  delta_[k], delta_strong_[k], spanning_[k], spanning_strong_[k],
+                                  hinge_cut[k] ? " hinge" : "");
+                    pgphase_trace::emit("em", "join", sites_[k].pos, sites_[k + 1].pos, "-", "reliable_reads_joined",
+                                        detail);
+                }
+                continue;
+            }
             if (pgphase_trace::on() && (cut || weak_bridge_[k])) trace_boundary(k, cut, hinge_cut[k]);
             if (cut) {
                 current = sites_[k + 1].pos;
@@ -880,7 +957,7 @@ private:
                 pgphase_trace::candidate("em", "site", c, c.vcf_unphased ? "phased_written_unphased" : "phased",
                                          "block=" + std::to_string(block_[k]) + " err=" +
                                          std::to_string(err_[k]).substr(0, 5) + " " + pgphase_trace::genotype_text(c) +
-                                         (c.unresolved_noisy ? " unresolved_noisy" : "") + (join_deep_[k] ? " join_deep" : ""));
+                                         (c.unresolved_noisy ? " unresolved_noisy" : "") + join_deep_text(join_deep_[k]));
         }
         confirm_phase_by_msa();
         write_skewed_msa_hets();

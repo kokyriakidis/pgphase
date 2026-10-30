@@ -15,7 +15,7 @@ Columns:
 | `beg`, `end` | the reference span, 1-based inclusive: a record's from its VCF POS to its last REF base; a window's, a region's or a read's as named; a chunk boundary's, the two chunks' overlap (or the gap between them); a GAF site's, its position |
 | `key` | `TYPE:REF_LEN:ALT` of the candidate's key, or `REF>ALT` from a catalog row's VCF metadata (a catalog row's key holds its site id, not a sequence), a catalog site's boundary walk (`gaf`), or `-` |
 | `reason` | the reason code, one of the table's |
-| `detail` | space-separated tokens, each `key=value` (no spaces in the value) or a bare lower-case flag (`join_deep`, `msa_hom`, `flipped`); a candidate's genotype reads `gt=H1/H2 ps= cat=` (the alleles haplotypes 1 and 2 carry, -1 none), another candidate's the same with a prefix (`to_gt=`, `kept_gt=`) |
+| `detail` | space-separated tokens, each `key=value` (no spaces in the value) or a bare lower-case flag (`msa_hom`, `flipped`); a candidate's genotype reads `gt=H1/H2 ps= cat=` (the alleles haplotypes 1 and 2 carry, -1 none), another candidate's the same with a prefix (`to_gt=`, `kept_gt=`) |
 
 `scripts/check_trace.py` (part of `make check`) holds a run's trace to this: every line has the columns, every detail
 parses, every (stage, event, reason) is in a table below.
@@ -63,10 +63,10 @@ of the sites the read was called at, 1-based inclusive), `read`, `hap` (0 unphas
 | inject | merge / drop | `alias_folded` / `island_duplicate_dropped` | `fold_aliases` | a selection describing an allele another already does |
 | inject | drop | `unusable_vcf_meta` | `synthesize_alignment_site_meta` | an alignment call whose VCF form does not round-trip: no record |
 | em | not_site | `one_allele_called`, `minor_allele_below_fraction` | union_em.cpp `select_sites` | a germline candidate the EM does not phase |
-| em | site | `phased`, `phased_written_unphased`, `unreliable`, `msa_het_unphasable`, `phased_msa_confirmed`, `phased_by_msa`, `phased_by_alignment_solve` | `write_site_phases`, `confirm_phase_by_msa`, `phase_unphasable_by_msa`, `phase_by_alignment_solve` | an EM site's outcome, with its block and learned error (`join_deep`: a collapsed-duplication or poorly mapped site that holds no join) |
+| em | site | `phased`, `phased_written_unphased`, `unreliable`, `msa_het_unphasable`, `phased_msa_confirmed`, `phased_by_msa`, `phased_by_alignment_solve` | `write_site_phases`, `confirm_phase_by_msa`, `phase_unphasable_by_msa`, `phase_by_alignment_solve` | an EM site's outcome, with its block and learned error (`join_deep=`: why the site holds no join, `+`-separated: `mapq` poorly mapped, `depth` called by more reads than the chunk's confidently mapped sites, `dup` a duplicated haplotype) |
 | em | msa_check | `agrees`, `disagrees` | `confirm_phase_by_msa` | an EM-phased site of a het MSA region against the region's other sites in its block: whether the EM's cis/trans relation is the MSA consensus sequences' (`agree=`/`disagree=` counts, learned error) |
 | em | cut | `margin`, `few_spanning_reads`, `weak_bridge`, `hinge` | `cut_blocks` | a block cut between two EM sites and the rule that cut it (`delta`/`strong` margins, `spanning`/`strong_spanning` reads) |
-| em | join | `weak_bridge_joined` | `cut_blocks` | a join a weak bridge carries, with the same margins and reads |
+| em | join | `weak_bridge_joined`, `reliable_reads_joined` | `cut_blocks` | a join a weak bridge carries, or a weak-bridge or hinge cut undone by two or more crossing reads agreeing at sites of learned error under 0.05, with the same margins and reads |
 | em | locus_window | `phased`, `unreliable` | `write_site_phases` | a locus (`locus`) or catalog allele (`allele`) window of the second solve: an EM site with no VCF record of its own, with its learned error, block and reads |
 | gaf | site | `walk_matches_no_allele`, `walk_matches_several_alleles` | graph_query.cpp `scan_indexed_gaf_chunk` | a catalog site some reads crossed (both boundary nodes on the walk) without matching exactly one allele walk: those reads give it no call (`matched=`, `ambiguous=`, `unmatched=` reads and a few names) |
 | gaf | chunk | `alignments_below_mapq` | same | the chunk's GAF alignments under the MAPQ floor |
