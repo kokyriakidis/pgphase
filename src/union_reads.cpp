@@ -3,6 +3,10 @@
 
 #include <unordered_map>
 #include <string_view>
+#include <array>
+#include <map>
+#include <set>
+#include <tuple>
 #include "union_internal.hpp"
 #include "trace.hpp"
 
@@ -87,6 +91,31 @@ static std::vector<std::string> msa_allele_haplotypes(const ReferenceView& ref, 
     return haps;
 }
 
+// An MSA call's two haplotypes over its region: each consensus sequence (MsaRegion::spelled) between the reference
+// flanks, for a call that is one allele of each consensus (msa_cons_allele) in a region the two differ in, short enough
+// to realign reads over. -1 otherwise, else the region's index.
+static long msa_region_haplotypes(const ReferenceView& ref, const PhasingChunk& bam, const CandidateVariant& c,
+                                  hts_pos_t* w0, hts_pos_t* w1, std::array<std::string, 2>* haps) {
+    const std::array<int8_t, 2>& allele = c.msa_cons_allele;
+    if (!c.msa_verified || allele[0] < 0 || allele[1] < 0 || allele[0] + allele[1] != 1) return -1;
+    for (size_t i = 0; i < bam.msa_regions.size(); ++i) {
+        const PhasingChunk::MsaRegion& region = bam.msa_regions[i];
+        if (!region.het() || region.beg >= c.key.pos || c.key.pos >= region.end) continue;
+        const hts_pos_t r0 = region.beg - 1, r1 = region.end;  // 0-based, half open
+        *w0 = std::max<hts_pos_t>(0, r0 - kAlleleWindowFlank);
+        *w1 = r1 + kAlleleWindowFlank;
+        if (*w1 - *w0 > kLocusMaxLength) return -1;
+        for (size_t k = 0; k < 2; ++k) {
+            std::string seq = ref.slice(*w0, r0);
+            for (const std::string& at : region.spelled[k]) seq += at;
+            seq += ref.slice(r1, *w1);
+            (*haps)[k] = std::move(seq);
+        }
+        return (*haps)[0] != (*haps)[1] ? static_cast<long>(i) : -1;
+    }
+    return -1;
+}
+
 // Widen a read profile's candidate range to [lo, hi], keeping every channel aligned.
 static void widen_profile(ReadVariantProfile& p, int lo, int hi) {
     if (lo == p.start_var_idx && hi == p.end_var_idx) return;
@@ -148,8 +177,35 @@ size_t realign_indel_observations(PhasingChunk& chunk, const PhasingChunk& bam, 
         locus_alleles.push_back(LocusAllele{c.key.pos - 1, c.key.pos - 1 + c.key.ref_len, c.key.alt});
     }
     std::sort(locus_alleles.begin(), locus_alleles.end(), [](const LocusAllele& a, const LocusAllele& b) { return a.p0 < b.p0; });
+    // Per resolved MSA region: each spanning read's closer consensus (or -1) and its edit margin.
+    std::map<long, std::vector<std::tuple<size_t, int, int>>> region_reads;
     for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
         const CandidateVariant& c = chunk.candidates[ci];
+        // An MSA call inside a region whose two consensus sequences differ: a read the MSA did not cluster is called
+        // by the consensus it is closer to over the whole region, not by REF against this call's own allele over a
+        // window. chr20:4,022,917, A>G on one haplotype inside the other's 6 bp deletion of a CA repeat (the truth
+        // A>G,*): realigned site by site, the deletion haplotype's reads read the G of 4,022,923 (three CA units on)
+        // there, 49 ALT to 9, and the EM's minor-allele floor dropped a het the MSA had right (clusters 12 / 9).
+        if (c.bam_injected && (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) {
+            hts_pos_t w0 = 0, w1 = 0;
+            std::array<std::string, 2> haps;
+            const long region = msa_region_haplotypes(ref, bam, c, &w0, &w1, &haps);
+            if (region >= 0) {
+                auto [it, fresh] = region_reads.try_emplace(region);
+                if (fresh)
+                    for (const auto& [ri, seq] : index.segments(w0, w1, kAlleleWindowMaxReads)) {
+                        if (profile_of[ri] == nullptr) continue;
+                        const int d0 = locus_edit_distance(seq, haps[0]);
+                        const int d1 = locus_edit_distance(seq, haps[1]);
+                        it->second.emplace_back(ri, d0 == d1 ? -1 : d0 < d1 ? 0 : 1, std::abs(d0 - d1));
+                    }
+                for (const auto& [ri, k, margin] : it->second) {
+                    calls[ri].emplace_back(ci, k < 0 ? -1 : c.msa_cons_allele[static_cast<size_t>(k)]);
+                    if (errors != nullptr && k >= 0) margins[{ri, ci}] = margin;
+                }
+                continue;
+            }
+        }
         // MSA SNP calls too: they carry only the reads inside the MSA's
         // clusters (chr20:35,211,758: 4 of 55 crossing reads), and realigning
         // a read to REF and to the SNP's haplotype fills the rest the same way.
@@ -444,6 +500,39 @@ std::vector<char> add_alignment_only_reads(PhasingChunk& chunk, const PhasingChu
 // call was right 77-79% of the time, against 99.9% where the two agree.
 constexpr double kGraphOnlyCallError = 0.25;
 
+// Below it a read's base is not its call.
+constexpr int kAlignedBaseMinQuality = 10;
+
+// The read's base at 1-based reference position pos by its alignment record, upper case; 0 if the alignment does not
+// cover it (or the record is gone), deletes it, or reads it below kAlignedBaseMinQuality.
+static char aligned_base(const ReadRecord& read, hts_pos_t pos) {
+    const bam1_t* b = read.alignment.get();
+    if (b == nullptr) return 0;
+    const hts_pos_t ref_pos = pos - 1;
+    if (ref_pos < b->core.pos) return 0;
+    hts_pos_t r = b->core.pos, q = 0;
+    const uint32_t* cigar = bam_get_cigar(b);
+    for (uint32_t i = 0; i < b->core.n_cigar; ++i) {
+        const int op = bam_cigar_op(cigar[i]);
+        const hts_pos_t len = bam_cigar_oplen(cigar[i]);
+        if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
+            if (r + len > ref_pos) {
+                const hts_pos_t qi = q + (ref_pos - r);
+                if (bam_get_qual(b)[qi] < kAlignedBaseMinQuality) return 0;
+                return seq_nt16_str[bam_seqi(bam_get_seq(b), qi)];
+            }
+            r += len;
+            q += len;
+        } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
+            if (r + len > ref_pos) return 0;
+            r += len;
+        } else if (op == BAM_CINS || op == BAM_CSOFT_CLIP) {
+            q += len;
+        }
+    }
+    return 0;
+}
+
 size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
                                  ObservationErrors* errors) {
     PhasingChunk& chunk = graph_chunk.chunk;
@@ -458,13 +547,38 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
     for (const ReadVariantProfile& p : bam.read_var_profile)
         if (p.read_id >= 0 && p.start_var_idx >= 0)
             bam_profile.emplace(bam.reads[static_cast<size_t>(p.read_id)].qname, &p);
+    // A read's alignment records (a supplementary one beside the primary): its base is the primary's where that covers
+    // the position, else the covering record's that starts first -- whichever record came first in the chunk differed
+    // with the thread count.
+    std::unordered_map<std::string_view, std::vector<const ReadRecord*>> bam_read;
+    for (const ReadRecord& r : bam.reads) bam_read[r.qname].push_back(&r);
+    const auto read_base = [&bam_read](std::string_view qname, hts_pos_t pos) -> char {
+        const auto it = bam_read.find(qname);
+        if (it == bam_read.end()) return 0;
+        const ReadRecord* best = nullptr;
+        for (const ReadRecord* r : it->second) {
+            const bam1_t* b = r->alignment.get();
+            if (b == nullptr || b->core.pos > pos - 1 || bam_endpos(b) < pos) continue;
+            const bool primary = (b->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) == 0;
+            const bool best_primary = best != nullptr &&
+                                      (best->alignment->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY)) == 0;
+            if (best == nullptr || (primary && !best_primary) ||
+                (primary == best_primary && b->core.pos < best->alignment->core.pos))
+                best = r;
+        }
+        return best != nullptr ? aligned_base(*best, pos) : 0;
+    };
     const auto upper = [](char b) { return static_cast<char>(std::toupper(static_cast<unsigned char>(b))); };
     size_t changed = 0;
     std::map<size_t, std::array<int, 2>> site_tally;  // trace: calls replaced, graph-only calls down-weighted
+    std::set<size_t> recount;  // sites whose calls the alignment's replaced (below)
+    // trace, sites the alignment has no SNP at: reads absent from it, not read there, read
+    std::map<size_t, std::array<int, 3>> aligned_tally;
     for (size_t ri = 0; ri < chunk.read_var_profile.size(); ++ri) {
         ReadVariantProfile& prof = chunk.read_var_profile[ri];
         if (prof.start_var_idx < 0 || prof.read_id < 0) continue;
-        const auto found = bam_profile.find(chunk.reads[static_cast<size_t>(prof.read_id)].qname);
+        const std::string& qname = chunk.reads[static_cast<size_t>(prof.read_id)].qname;
+        const auto found = bam_profile.find(qname);
         const ReadVariantProfile* bp = found == bam_profile.end() ? nullptr : found->second;
         for (size_t k = 0; k < prof.alleles.size(); ++k) {
             const int a = prof.alleles[k];
@@ -478,10 +592,18 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
             for (const std::string& alt : meta.alts) snp_row = snp_row && alt.size() == 1;
             if (!snp_row) continue;
             const auto site = bam_snps.find(meta.pos);
-            if (site == bam_snps.end()) continue;  // the alignment has no call here at all
-            // The read's base by the alignment, when it called the read here.
+            // The read's base by the alignment, when it called the read here. Where the alignment has no SNP here at
+            // all, its reads carry one base, the reference's as a rule: the read's own aligned base then
+            // (chr20:1,012,629 C>G, 20 of 68 reads on the graph's ALT path, all 68 C in their alignments; written a
+            // false 0/1).
             char base = 0;
-            for (const size_t bi : site->second) {
+            if (site == bam_snps.end()) {
+                base = read_base(qname, meta.pos);
+                if (pgphase_trace::on())
+                    ++aligned_tally[ci][bam_read.count(qname) == 0 ? 0 : base == 0 ? 1 : 2];
+                if (base == 0) continue;
+            }
+            for (const size_t bi : site == bam_snps.end() ? std::vector<size_t>{} : site->second) {
                 const int b = bp != nullptr && static_cast<int>(bi) >= bp->start_var_idx &&
                               static_cast<int>(bi) <= bp->end_var_idx
                                   ? bp->alleles[bi - static_cast<size_t>(bp->start_var_idx)] : -1;
@@ -509,10 +631,40 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
                 if (carries(j)) { replacement = static_cast<int>(j); break; }
             prof.alleles[k] = replacement;
             ++changed;
+            recount.insert(ci);
             if (pgphase_trace::on()) {
                 ++site_tally[ci][0];
                 ++pgphase_trace::read_trace(chunk, static_cast<size_t>(prof.read_id))->snp_replaced;
             }
+        }
+    }
+    // A site whose calls the alignment's replaced is genotyped at output from its reads' calls as they now stand, not
+    // the graph's: written from the graph's counts, chr20:319,724 T>C (10 of 35 reads on the graph's REF path, all 35
+    // T>C in their alignments) was a false 0/1 beside a truth 1/1, and 1,012,629 C>G (20 of 68 on its ALT path, none
+    // in their alignments) a false 0/1.
+    if (!recount.empty()) {
+        std::map<size_t, std::vector<int>> covs;
+        for (const size_t ci : recount)
+            covs[ci].assign(std::max<size_t>(2, chunk.candidates[ci].counts.alle_covs.size()), 0);
+        for (const ReadVariantProfile& prof : chunk.read_var_profile) {
+            if (prof.start_var_idx < 0 || prof.read_id < 0) continue;
+            for (size_t k = 0; k < prof.alleles.size(); ++k) {
+                const auto it = covs.find(static_cast<size_t>(prof.start_var_idx) + k);
+                const int a = prof.alleles[k];
+                if (it != covs.end() && a >= 0 && static_cast<size_t>(a) < it->second.size()) ++it->second[a];
+            }
+        }
+        for (auto& [ci, c] : covs) {
+            VariantCounts& counts = chunk.candidates[ci].counts;
+            if (pgphase_trace::on()) {
+                std::string before, after;
+                for (const int n : counts.alle_covs) before += (before.empty() ? "" : ",") + std::to_string(n);
+                for (const int n : c) after += (after.empty() ? "" : ",") + std::to_string(n);
+                const auto [beg, end] = pgphase_trace::span(chunk.candidates[ci]);
+                pgphase_trace::emit("reads", "snp_call", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
+                                    "recounted", "before=" + before + " after=" + after);
+            }
+            counts.alle_covs = std::move(c);
         }
     }
     for (const auto& [ci, n] : site_tally) {
@@ -520,6 +672,14 @@ size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const Phasi
         pgphase_trace::emit("reads", "snp_call", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
                             "graph_call_vs_alignment",
                             "replaced=" + std::to_string(n[0]) + " graph_only_downweighted=" + std::to_string(n[1]));
+    }
+    for (const auto& [ci, n] : aligned_tally) {
+        const auto [beg, end] = pgphase_trace::span(chunk.candidates[ci]);
+        pgphase_trace::emit("reads", "snp_call", beg, end, pgphase_trace::key_text(chunk.candidates[ci].key),
+                            "graph_call_vs_read_alignment",
+                            "no_read=" + std::to_string(n[0]) + " not_read=" + std::to_string(n[1]) +
+                                " read=" + std::to_string(n[2]) +
+                                " replaced=" + std::to_string(site_tally.count(ci) ? site_tally[ci][0] : 0));
     }
     return changed;
 }

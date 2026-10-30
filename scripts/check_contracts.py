@@ -300,6 +300,20 @@ def check_msa(records, regions, decisions, fasta):
             got, ok = spells(beg, left + reg.ref + right, near, [left + c + right for c in reg.consensus])
             if ok:
                 continue
+            # An indel longer than that unit can be written further out still: the 58-base insertion of the region at
+            # chr20:41,057,588 is written at 41,057,548 (left-aligned over its tandem repeat), and the region read "het
+            # unwritten". Before a violation stands, the region is tried once more widened by twice its indel length
+            # on each side; a pair the records spell there is the MSA's, written.
+            wide = max(abs(len(c) - len(reg.ref)) for c in reg.consensus)
+            if seq and wide > 0:
+                # left-alignment moves an insertion only while the bases before repeat its tail: within its length
+                wbeg, wend = max(1, reg.beg - 2 * wide), reg.end + 2 * wide
+                wend = min(wend, len(seq))
+                wnear = around(wbeg, wend)
+                if not any(r.pos < wbeg or end(r) > wend for r in wnear):
+                    wl, wr = seq[wbeg - 1:reg.beg - 1], seq[reg.end:wend]
+                    if spells(wbeg, wl + reg.ref + wr, wnear, [wl + c + wr for c in reg.consensus])[1]:
+                        continue
             if got is None:
                 kind = "records overlap"
             elif got[0] == got[1]:

@@ -557,9 +557,32 @@ int update_cand_var_profile_from_cons_aln_str2(const Options& opts,
     noisy_var_cate.clear();
     var_from_cons_idx.reserve(hap1_vars.size() + hap2_vars.size());
 
+    // The letter an indel is anchored on: its consensus's (alt_ref_base), else the reference's.
+    const auto anchor_letter = [&chunk](const CandidateVariant& v) -> int {
+        if (v.alt_ref_base < 4) return "ACGT"[v.alt_ref_base];
+        const hts_pos_t i = v.key.pos - 1 - chunk.ref_beg;
+        if (i < 0 || i >= static_cast<hts_pos_t>(chunk.ref_seq.size())) return 'N';
+        return std::toupper(static_cast<unsigned char>(chunk.ref_seq[static_cast<size_t>(i)]));
+    };
     size_t i1 = 0, i2 = 0;
     while (i1 < hap1_vars.size() && i2 < hap2_vars.size()) {
         const int ret = exact_comp_var_site(&hap1_vars[i1].key, &hap2_vars[i2].key);
+        // One indel on both consensuses after different letters (one carries a SNP on the base it is anchored on) is
+        // an allele of each, not a homozygous call: both kept, as hets, for merge_msa_anchor_alleles (not in
+        // longcallD's BAM command, which merges no co-located alleles).
+        if (ret == 0 && opts.merge_colocated_msa_alleles && hap1_vars[i1].key.type != VariantType::Snp &&
+            anchor_letter(hap1_vars[i1]) != anchor_letter(hap2_vars[i2])) {
+            for (CandidateVariant* v : {&hap1_vars[i1], &hap2_vars[i2]}) {
+                set_noisy_category(*v, VariantCategory::NoisyCandHet);
+                noisy_var_cate.push_back(VariantCategory::NoisyCandHet);
+                noisy_vars.push_back(*v);
+            }
+            var_from_cons_idx.push_back(1);
+            var_from_cons_idx.push_back(2);
+            ++i1;
+            ++i2;
+            continue;
+        }
         if (ret < 0) {
             set_noisy_category(hap1_vars[i1], VariantCategory::NoisyCandHet);
             noisy_var_cate.push_back(VariantCategory::NoisyCandHet);
@@ -1337,6 +1360,61 @@ static void refresh_assigned_msa_observations(const Options& opts,
     const std::array<std::vector<AlnStr>, 2>& alignments, hts_pos_t ref_beg,
     std::vector<CandidateVariant>& vars, std::vector<ReadVariantProfile>& profiles);
 
+// One indel on both consensuses after different letters, kept apart by update_cand_var_profile_from_cons_aln_str2 (one
+// consensus has a SNP on the base it is anchored on, which make_cand_vars_from_msa folds into alt_ref_base): the two
+// alleles of one site. chr20:18,268,054: one haplotype C>AA (C>A and an A inserted), the other C>CA; compared by key
+// alone the pair was one insertion both carry, written C>CA 1/1, the SNP lost (the MSA right, msa_spell
+// "het unwritten"; 19,290,660, 52,212,972, 65,338,584 alike). Merged into one record from the anchor base: REF that
+// base and the bases deleted, or that base and the next one around an insertion (a site's read slice ends at its last
+// reference base, so an insertion after the anchor alone went unread), each allele its consensus's sequence there.
+static void merge_msa_anchor_alleles(const PhasingChunk& chunk, std::vector<CandidateVariant>& vars,
+                                     std::vector<VariantCategory>& categories,
+                                     std::vector<ReadVariantProfile>& profiles) {
+    const auto upper = [](char ch) { return static_cast<char>(std::toupper(static_cast<unsigned char>(ch))); };
+    const auto letter = [&chunk, &upper](const CandidateVariant& v) -> char {
+        if (v.alt_ref_base < 4) return "ACGT"[v.alt_ref_base];
+        const hts_pos_t i = v.key.pos - 1 - chunk.ref_beg;
+        if (i < 0 || i >= static_cast<hts_pos_t>(chunk.ref_seq.size())) return 'N';
+        return upper(chunk.ref_seq[static_cast<size_t>(i)]);
+    };
+    for (size_t i = 0; i + 1 < vars.size(); ++i) {
+        const CandidateVariant& a = vars[i];
+        const CandidateVariant& b = vars[i + 1];
+        const bool del = a.key.type == VariantType::Deletion && a.key.alt.empty();
+        const bool ins = a.key.type == VariantType::Insertion && a.key.ref_len == 0 && !a.key.alt.empty();
+        if ((!del && !ins) || exact_comp_var_site(&a.key, &b.key) != 0 || !a.msa_insertion_alts.empty() ||
+            !b.msa_insertion_alts.empty() || a.counts.category != VariantCategory::NoisyCandHet ||
+            b.counts.category != VariantCategory::NoisyCandHet || letter(a) == letter(b) || letter(a) == 'N' ||
+            letter(b) == 'N')
+            continue;
+        const hts_pos_t at = a.key.pos - 1;
+        const int ref_len = del ? 1 + a.key.ref_len : 2;
+        const hts_pos_t off = at - chunk.ref_beg;
+        if (off < 0 || static_cast<size_t>(off) + static_cast<size_t>(ref_len) > chunk.ref_seq.size()) continue;
+        std::string tail = del ? std::string() : a.key.alt + upper(chunk.ref_seq[static_cast<size_t>(off) + 1]);
+        for (char& ch : tail) ch = upper(ch);
+        const std::vector<std::string> alleles = {letter(a) + tail, letter(b) + tail};
+        pgphase_trace::candidate("msa", "merge", b, "two_allele_anchor", "into=" + pgphase_trace::key_text(a.key) +
+                                 " alleles=" + alleles[0] + "," + alleles[1]);
+        CandidateVariant merged = a;
+        merged.key.type = VariantType::Deletion;
+        merged.key.pos = at;
+        merged.key.ref_len = ref_len;
+        merged.key.alt.clear();
+        merged.alt_ref_base = 4;
+        merged.msa_insertion_alts = alleles;
+        merged.msa_insertion_anchors = {4, 4};
+        merged.counts.alle_covs.assign(3, 0);
+        merged.counts.total_cov = 0;
+        vars[i] = std::move(merged);
+        const std::vector<size_t> gone = {i + 1};
+        fold_merged_profiles(i, i + 1, gone, vars[i], profiles);
+        update_variant_depth_fields(vars[i]);
+        categories[i] = VariantCategory::NoisyCandHet;
+        erase_folded(gone, vars, categories);
+    }
+}
+
 // A SNP from one consensus on the base a deletion of the other consensus is anchored on, with a letter other than
 // the reference's (alt_ref_base: make_cand_vars_from_msa folds a SNP right before a gap into it), are the two alleles
 // of one site: chr12:617,060, one haplotype TTT + A10 (A>T), the other TTT + A9 (the same A>T, the next A deleted:
@@ -1545,6 +1623,8 @@ int make_vars_from_msa_cons_aln(
     // on the recovery pass it never ran by default, so the default pipeline
     // described such a locus as two competing biallelic records, each scoring
     // the other haplotype's reads against its own allele.
+    if (opts.merge_colocated_msa_alleles)
+        merge_msa_anchor_alleles(chunk, noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)
         merge_msa_insertion_alleles(noisy_vars, noisy_var_cate, noisy_rvp);
     if (opts.merge_colocated_msa_alleles)

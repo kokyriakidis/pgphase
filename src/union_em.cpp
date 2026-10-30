@@ -907,7 +907,8 @@ private:
         }
         if (anchors.empty()) return;
         for (CandidateVariant& c : chunk_.candidates) {
-            if (!usable(c) || !c.vcf_unphased || c.unresolved_noisy) continue;
+            // An island het (written unphased by injection) stays unphased: it is no site of the solve.
+            if (!usable(c) || !c.vcf_unphased || c.unresolved_noisy || c.island_only) continue;
             hts_pos_t ps = 0;
             int implied = -1;
             bool consistent = true;
@@ -951,7 +952,7 @@ private:
         }
         if (anchors.empty()) return;
         for (CandidateVariant& c : chunk_.candidates) {
-            if (!usable(c) || !c.vcf_unphased || c.phase_set > 0 || c.unresolved_noisy) continue;
+            if (!usable(c) || !c.vcf_unphased || c.phase_set > 0 || c.unresolved_noisy || c.island_only) continue;
             hts_pos_t ps = 0;
             int implied = -1;
             bool consistent = true;
