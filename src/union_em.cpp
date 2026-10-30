@@ -269,6 +269,9 @@ private:
     bool m_started_ = false;
     std::vector<double> delta_, delta_strong_;
     std::vector<int> spanning_, spanning_strong_;
+    // Traced only: per boundary, the reads with calls at any sites on both sides, and the reliable-reads vote
+    // (reliable_votes) of every boundary, not only the cuts it may undo.
+    std::vector<int> crossing_, vote_same_, vote_other_;
     std::vector<hts_pos_t> block_;
     std::vector<char> weak_bridge_;
     size_t blocks_ = 1;
@@ -834,36 +837,27 @@ private:
         // (weak bridges, hinges) cut: the reads that misled them carried calls at high-error indels.
         std::vector<char> reliable_join(n_, 0);
         {
-            std::vector<size_t> want;
+            std::vector<char> want(n_, 0);
+            std::vector<size_t> at;
             for (size_t k = 0; k + 1 < n_; ++k) {
                 const bool rule_cut = (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
-                if (rule_cut && delta_[k] >= kEmBlockCutLogLikelihood && spanning_[k] >= kEmMinJoinReads) want.push_back(k);
+                want[k] = rule_cut && delta_[k] >= kEmBlockCutLogLikelihood && spanning_[k] >= kEmMinJoinReads;
+                if (want[k] || pgphase_trace::on()) at.push_back(k);
             }
-            if (!want.empty()) {
-                std::vector<int> same(n_, 0), other(n_, 0);
-                for (const std::vector<EmObs>& obs : robs_) {
-                    std::vector<std::pair<int, int>> calls;  // (site, haplotype the call implies under the phases)
-                    for (const EmObs& o : obs) {
-                        const size_t k = static_cast<size_t>(o.s);
-                        if (err_[k] >= kEmReliableJoinError || join_excluded_[k] || join_deep_[k] || join_weak_[k])
-                            continue;
-                        calls.emplace_back(o.s, o.b == phase_[k] ? 0 : 1);
-                    }
-                    if (calls.size() < 2) continue;
-                    const int lo = calls.front().first, hi = calls.back().first;
-                    const auto first = std::lower_bound(want.begin(), want.end(), static_cast<size_t>(lo));
-                    for (auto it = first; it != want.end() && static_cast<int>(*it) < hi; ++it) {
-                        int left[2] = {0, 0}, right[2] = {0, 0};
-                        for (const auto& [site, h] : calls) ++(site <= static_cast<int>(*it) ? left : right)[h];
-                        if (left[0] == left[1] || right[0] == right[1] || left[0] + left[1] == 0 ||
-                            right[0] + right[1] == 0)
-                            continue;
-                        ++((left[1] > left[0]) == (right[1] > right[0]) ? same : other)[*it];
-                    }
-                }
-                for (const size_t k : want)
-                    reliable_join[k] = same[k] >= kEmReliableJoinReads && other[k] == 0;
+            reliable_votes(at, vote_same_, vote_other_);
+            for (size_t k = 0; k + 1 < n_; ++k)
+                reliable_join[k] = want[k] && vote_same_[k] >= kEmReliableJoinReads && vote_other_[k] == 0;
+        }
+        crossing_.assign(n_, 0);
+        if (pgphase_trace::on()) {
+            std::vector<int> diff(n_ + 1, 0);
+            for (const std::vector<EmObs>& obs : robs_) {
+                if (obs.empty() || obs.front().s == obs.back().s) continue;
+                ++diff[static_cast<size_t>(obs.front().s)];
+                --diff[static_cast<size_t>(obs.back().s)];
             }
+            int run = 0;
+            for (size_t k = 0; k < n_; ++k) crossing_[k] = run += diff[k];
         }
         hts_pos_t current = sites_[0].pos;
         blocks_ = 1;
@@ -873,15 +867,7 @@ private:
             bool cut = delta_[k] < kEmBlockCutLogLikelihood || spanning_[k] < kEmMinJoinReads ||
                        (weak_bridge_[k] && delta_[k] < kEmWeakBridgeCutLogLikelihood) || hinge_cut[k];
             if (cut && reliable_join[k]) {
-                cut = false;
-                if (pgphase_trace::on()) {
-                    char detail[160];
-                    std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d%s",
-                                  delta_[k], delta_strong_[k], spanning_[k], spanning_strong_[k],
-                                  hinge_cut[k] ? " hinge" : "");
-                    pgphase_trace::emit("em", "join", sites_[k].pos, sites_[k + 1].pos, "-", "reliable_reads_joined",
-                                        detail);
-                }
+                if (pgphase_trace::on()) trace_boundary(k, false, hinge_cut[k], true);
                 continue;
             }
             if (pgphase_trace::on() && (cut || weak_bridge_[k])) trace_boundary(k, cut, hinge_cut[k]);
@@ -892,17 +878,64 @@ private:
         }
     }
 
-    // A block cut, or a join a weak bridge carries, between sites k and k + 1: the rule that cut it, the margins and
-    // the reads behind them (the trace's pass: 1, the first solve without locus windows, or 2).
-    void trace_boundary(size_t k, bool cut, bool hinge) const {
-        const char* why = !cut                                     ? "weak_bridge_joined"
+    // Per boundary in `at` (ascending; boundary k lies between sites k and k + 1), the reads whose calls at reliable
+    // sites (learned error under kEmReliableJoinError; not weak, deep or excluded) on both sides imply one haplotype
+    // per side, by whether the two are the same under the solve's phases (`same`) or not (`other`).
+    void reliable_votes(const std::vector<size_t>& at, std::vector<int>& same, std::vector<int>& other) const {
+        same.assign(n_, 0);
+        other.assign(n_, 0);
+        if (at.empty()) return;
+        std::vector<std::pair<int, int>> calls;  // (site, haplotype the call implies under the phases)
+        for (const std::vector<EmObs>& obs : robs_) {
+            calls.clear();
+            for (const EmObs& o : obs) {
+                const size_t k = static_cast<size_t>(o.s);
+                if (err_[k] >= kEmReliableJoinError || join_excluded_[k] || join_deep_[k] || join_weak_[k]) continue;
+                calls.emplace_back(o.s, o.b == phase_[k] ? 0 : 1);
+            }
+            if (calls.size() < 2) continue;
+            int total[2] = {0, 0}, left[2] = {0, 0};
+            for (const auto& call : calls) ++total[call.second];
+            size_t i = 0;
+            const int hi = calls.back().first;
+            for (auto it = std::lower_bound(at.begin(), at.end(), static_cast<size_t>(calls.front().first));
+                 it != at.end() && static_cast<int>(*it) < hi; ++it) {
+                for (; i < calls.size() && calls[i].first <= static_cast<int>(*it); ++i) ++left[calls[i].second];
+                const int right[2] = {total[0] - left[0], total[1] - left[1]};
+                if (left[0] == left[1] || right[0] == right[1]) continue;
+                ++((left[1] > left[0]) == (right[1] > right[0]) ? same : other)[*it];
+            }
+        }
+    }
+
+    // A block cut, or a join a weak bridge or the reliable-reads vote carries, between sites k and k + 1: the rule
+    // that decided it, the margins and the reads behind them (the trace's pass: 1, the first solve without locus
+    // windows, or 2). Then what the margins stand on: the reads with calls on both sides at any sites (`crossing`;
+    // `spanning` counts only join-counted calls), the reliable-reads vote, and the run of sites around the boundary
+    // that hold no join (`held_sites`) by reason -- a cut with no spanning reads over held sites is the sites' doing.
+    void trace_boundary(size_t k, bool cut, bool hinge, bool reliable_join = false) const {
+        const char* why = reliable_join                            ? "reliable_reads_joined"
+                          : !cut                                   ? "weak_bridge_joined"
                           : delta_[k] < kEmBlockCutLogLikelihood   ? "margin"
                           : spanning_[k] < kEmMinJoinReads         ? "few_spanning_reads"
                           : hinge                                  ? "hinge"
                                                                    : "weak_bridge";
-        char detail[160];
-        std::snprintf(detail, sizeof(detail), "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d", delta_[k],
-                      delta_strong_[k], spanning_[k], spanning_strong_[k]);
+        int held = 0, held_excluded = 0, held_bits[3] = {0, 0, 0};
+        const auto is_held = [&](size_t j) { return join_excluded_[j] || join_deep_[j]; };
+        const auto tally = [&](size_t j) {
+            ++held;
+            held_excluded += join_excluded_[j] ? 1 : 0;
+            for (int b = 0; b < 3; ++b) held_bits[b] += (join_deep_[j] >> b) & 1;
+        };
+        for (size_t j = k + 1; j-- > 0 && is_held(j);) tally(j);
+        for (size_t j = k + 1; j < n_ && is_held(j); ++j) tally(j);
+        char detail[384];
+        std::snprintf(detail, sizeof(detail),
+                      "delta=%.1f strong=%.1f spanning=%d strong_spanning=%d crossing=%d reliable_same=%d "
+                      "reliable_other=%d held_sites=%d held_mapq=%d held_depth=%d held_dup=%d held_excluded=%d%s",
+                      delta_[k], delta_strong_[k], spanning_[k], spanning_strong_[k], crossing_[k], vote_same_[k],
+                      vote_other_[k], held, held_bits[0], held_bits[1], held_bits[2], held_excluded,
+                      reliable_join && hinge ? " hinge" : "");
         pgphase_trace::emit("em", cut ? "cut" : "join", sites_[k].pos, sites_[k + 1].pos, "-", why, detail);
     }
 
