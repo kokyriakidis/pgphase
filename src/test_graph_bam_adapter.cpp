@@ -1,4 +1,5 @@
 #include "graph_bam_adapter.hpp"
+#include "graph_records.hpp"
 #include "plegma_msa.hpp"
 
 #include "collect_phase.hpp"
@@ -358,6 +359,77 @@ static bool test_msa_environment() {
     return ok;
 }
 
+// graph_chunks_to_candidate_table: a catalog row's padded alleles become one minimal record in the row's phase; a row
+// written no record and an injected row without a het consensus give none.
+static bool test_graph_records() {
+    bool ok = true;
+    char fasta_path[] = "/tmp/pgphase_graph_records_XXXXXX";
+    const int fd = mkstemp(fasta_path);
+    if (!check(fd >= 0, "records: temporary reference")) return false;
+    close(fd);
+    {
+        std::ofstream fasta(fasta_path);
+        fasta << ">chr1\nATGCCATGCCATGCCATGCC\n";
+    }
+    std::unique_ptr<faidx_t, decltype(&fai_destroy)> fai(fai_build(fasta_path) == 0 ? fai_load(fasta_path) : nullptr,
+                                                         fai_destroy);
+    const char header_text[] = "@HD\tVN:1.6\n@SQ\tSN:chr1\tLN:20\n";
+    std::unique_ptr<bam_hdr_t, decltype(&sam_hdr_destroy)> header(
+        sam_hdr_parse(std::strlen(header_text), header_text), sam_hdr_destroy);
+    if (check(fai != nullptr && header != nullptr, "records: reference and header")) {
+        GraphChunkBuildResult gc;
+        const auto row = [&](const std::string& id, hts_pos_t pos, const std::string& ref, const std::string& alt,
+                             std::array<int, 3> haps) {
+            CandidateVariant c;
+            c.key.tid = 0;
+            c.key.pos = pos;
+            c.key.type = VariantType::Snp;
+            c.key.ref_len = static_cast<int>(ref.size());
+            c.key.alt = id;
+            c.counts.category = VariantCategory::CleanHetSnp;
+            c.lcd_var_i_to_cate = kCandCleanHetSnp;
+            c.counts.alle_covs = {5, 5};
+            c.counts.n_uniq_alles = 2;
+            c.counts.ref_cov = c.counts.alt_cov = 5;
+            c.counts.total_cov = 10;
+            c.counts.allele_fraction = 0.5;
+            c.hap_to_cons_alle = haps;
+            c.phase_set = haps[1] != haps[2] ? 10 : kUnsetCandidatePhaseSet;
+            gc.chunk.candidates.push_back(c);
+            gc.site_ids.push_back(id);
+            GraphSiteMeta meta;
+            meta.chrom = "chr1";
+            meta.pos = pos;
+            meta.ref = ref;
+            meta.alts = {alt};
+            gc.site_meta.push_back(meta);
+            gc.site_allele_orig_idx.push_back({0, 1});
+        };
+        row("s1", 1, "ATGCC", "ATACC", {-1, 0, 1});  // padded: G>A at 3
+        row("s2", 6, "A", "T", {-1, 1, 0});
+        gc.site_meta.back().no_record = true;       // written no record
+        row("", 9, "C", "G", {-1, 1, 1});            // injected, no het consensus
+        gc.chunk.reads.clear();
+        Options opts;
+        ReferenceCache ref(fai.get());
+        std::vector<GraphChunkBuildResult> chunks;
+        chunks.push_back(std::move(gc));
+        const CandidateTable records =
+            graph_chunks_to_candidate_table(chunks, {{"chr1", 0}}, opts, ref, header.get());
+        ok &= check(records.size() == 1, "records: one record, got " + std::to_string(records.size()));
+        if (!records.empty()) {
+            const CandidateVariant& r = records.front();
+            ok &= check(r.key.type == VariantType::Snp && r.key.pos == 3 && r.key.ref_len == 1 && r.key.alt == "A",
+                        "records: the padded row trimmed to G>A at 3");
+            ok &= check(r.phase_set == 10 && r.hap_to_cons_alle[1] == 0 && r.hap_to_cons_alle[2] == 1,
+                        "records: the row's phase kept");
+        }
+    }
+    std::remove(fasta_path);
+    std::remove((std::string(fasta_path) + ".fai").c_str());
+    return ok;
+}
+
 int main(int argc, char** argv) {
     if (argc == 2 && std::strcmp(argv[1], "--joint-loci") == 0) {
         const bool ok = test_joint_candidate_loci();
@@ -371,6 +443,7 @@ int main(int argc, char** argv) {
     ok &= test_row_alleles();
     ok &= test_place_unlinked_hets();
     ok &= test_msa_environment();
+    ok &= test_graph_records();
 
     {
         GraphSiteCatalog catalog;
