@@ -419,6 +419,11 @@ static bool test_graph_records() {
         fallback_hom(15, "CA", "C");                 // overlapped by the het: dropped
         fallback_hom(13, "G", "C");                  // overlapped by nothing written: kept
         row("s5", 13, "G", "C", {-1, 0, 0});         // the same allele, uncalled: the hom wins
+        row("s7", 8, "G", "T", {-1, 1, 0});          // a catalog het of a SNP...
+        row("", 8, "G", "T", {-1, 1, 1});            // ...the alignment's reads call hom: the hom wins
+        gc.chunk.candidates.back().counts.category = VariantCategory::CleanHom;
+        gc.chunk.candidates.back().bam_injected = true;
+        gc.site_meta.back().msa_hom = true;
         gc.chunk.reads.clear();
         Options opts;
         ReferenceCache ref(fai.get());
@@ -426,18 +431,21 @@ static bool test_graph_records() {
         chunks.push_back(std::move(gc));
         const CandidateTable records =
             graph_chunks_to_candidate_table(chunks, {{"chr1", 0}}, opts, ref, header.get());
-        ok &= check(records.size() == 3, "records: three records, got " + std::to_string(records.size()));
-        if (records.size() == 3) {
+        ok &= check(records.size() == 4, "records: four records, got " + std::to_string(records.size()));
+        if (records.size() == 4) {
             const CandidateVariant& r = records.front();
             ok &= check(r.key.type == VariantType::Snp && r.key.pos == 3 && r.key.ref_len == 1 && r.key.alt == "A",
                         "records: the padded row trimmed to G>A at 3");
             ok &= check(r.phase_set == 10 && r.hap_to_cons_alle[1] == 0 && r.hap_to_cons_alle[2] == 1,
                         "records: the row's phase kept");
-            const CandidateVariant& hom = records[1];
+            ok &= check(records[1].key.pos == 8 && records[1].hap_to_cons_alle[1] == 1 &&
+                            records[1].hap_to_cons_alle[2] == 1,
+                        "records: the alignment's hom SNP over the catalog's het copy");
+            const CandidateVariant& hom = records[2];
             ok &= check(hom.key.pos == 13 && hom.key.alt == "C" && hom.hom_fallback &&
                             hom.hap_to_cons_alle[1] == 1 && hom.hap_to_cons_alle[2] == 1,
                         "records: the fallback hom nothing overlaps kept 1/1, over its uncalled catalog copy");
-            ok &= check(records[2].key.pos == 16 && records[2].key.alt == "T",
+            ok &= check(records[3].key.pos == 16 && records[3].key.alt == "T",
                         "records: the het kept, the fallback hom it overlaps dropped");
         }
     }
