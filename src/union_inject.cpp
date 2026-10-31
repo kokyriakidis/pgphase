@@ -57,11 +57,10 @@ constexpr double kUnionHomMinConfidentShareNoRef = 0.5;
 // not; at full depth under 30% confident, 105 against 88 (paralog-specific variants of segmental duplications).
 constexpr double kUnionHomMinConfidentShareFullDepth = 0.3;
 constexpr double kUnionHomFullDepthRatio = 0.75;
-// The longest voting row an alignment call can be another description of:
-// the alignment's own noisy-region MSA covers up to 2 kb (max_noisy_reg_len).
-// A call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on
-// chr20 -- is a variant the graph does not describe at that scale, i.e.
-// sample-specific signal, and is injected as a site of its own.
+// The longest voting row an alignment call can be another description of. A
+// call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on chr20
+// -- is a variant the graph does not describe at that scale, i.e.
+// sample-specific signal, and is injected as a site of its own (VotingRows).
 constexpr hts_pos_t kUnionMaxComplementRowSpan = 2000;
 
 /// VCF-form metadata for an alignment candidate the catalog never held, in the

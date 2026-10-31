@@ -92,151 +92,17 @@ static CandidateTable graph_chunks_to_candidate_table(
     for (const GraphChunkBuildResult& graph_chunk : graph_chunks) {
         const PhasingChunk& chunk = graph_chunk.chunk;
         const pgphase_trace::Scope trace_scope(chunk.region.chunk_id);
-        // A phased het alone in its phase set phases nothing on its own. It is
-        // written in the phase set holding most of its labelled reads (at least
-        // 3) when they split there by allele on both haplotypes (80% each),
-        // with those reads' orientation; the phaser's own labels are untouched.
-        // Such a site typically sits between two blocks that were not joined,
-        // its reads labelled in either: its phase against one of them comes
-        // from that block's reads alone. Over chr12/18/20 +2,599 phased truth
-        // hets (+366 when 80% of the reads had to sit in one phase set),
-        // switches, flips and reads unchanged.
-        std::unordered_map<size_t, std::tuple<hts_pos_t, int, int>> rephase;
         std::unordered_map<size_t, std::string> rephase_votes;  // trace: the vote behind each placement
-        {
-            const auto phased_het = [](const CandidateVariant& c) {
-                const auto& h = c.hap_to_cons_alle;
-                return (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 && c.phase_set > 0 &&
-                       h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
-            };
-            // Hets per phase set by position: a catalog site and the
-            // alignment's injected copy of the same SNP are two candidates
-            // here and one record after duplicates collapse, so counting
-            // candidates skipped every lone het held twice -- chr12:10,999,331
-            // -351, four SNPs whose 86 reads split cleanly in one block.
-            std::unordered_map<hts_pos_t, int> hets;
-            {
-                std::unordered_map<hts_pos_t, std::set<hts_pos_t>> at;
-                for (const CandidateVariant& c : chunk.candidates)
-                    if (phased_het(c)) at[c.phase_set].insert(c.key.sort_pos());
-                for (const auto& [ps, positions] : at) hets[ps] = static_cast<int>(positions.size());
-            }
-            std::unordered_map<size_t, std::map<hts_pos_t, std::array<std::map<int, int>, 3>>> votes;
-            std::unordered_map<size_t, int> labelled;
-            // Two het SNPs at one position with different ALTs, both left
-            // unphased: a site with two non-reference alleles (1|2). No read
-            // carries REF there, so each record's reads carry its ALT or
-            // nothing and the phaser has no two-allele contrast to solve: the
-            // catalog site's pairs (REF vs each ALT) look 100% ALT and are
-            // dropped (high_af), and the alignment's two records each hear one
-            // allele. HLA-B (chr6:31,212,612 G>A,T and 31,212,651) was written
-            // unphased where HiPhase phases it. Each is placed below from the
-            // final labels of the reads carrying its ALT, so no label, join or
-            // block changes. Over chr12/18/20 and the MHC: 8 more truth 1|2
-            // sites phased, reads, switches and flips unchanged (the one
-            // placement against the truth VCF agrees with its read labels).
-            // Indel pairs as well: +2 switches on chr12.
-            std::unordered_map<size_t, size_t> partner;
-            std::unordered_map<size_t, std::map<hts_pos_t, std::array<int, 3>>> alt_votes;
-            {
-                const auto unphased_het = [](const CandidateVariant& c) {
-                    return (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 && c.phase_set <= 0;
-                };
-                std::map<hts_pos_t, std::vector<size_t>> at;
-                for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
-                    const CandidateVariant& c = chunk.candidates[ci];
-                    if (!unphased_het(c)) continue;
-                    if (!(c.key.type == VariantType::Snp && c.key.ref_len == 1 && c.key.alt.size() == 1)) continue;
-                    at[c.key.pos].push_back(ci);
-                }
-                for (const auto& [pos, cis] : at)
-                    if (cis.size() == 2 && chunk.candidates[cis[0]].key.alt != chunk.candidates[cis[1]].key.alt)
-                        partner[cis[0]] = cis[1], partner[cis[1]] = cis[0];
-            }
-            for (const ReadVariantProfile& prof : chunk.read_var_profile) {
-                if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
-                const size_t ri = static_cast<size_t>(prof.read_id);
-                int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
-                hts_pos_t ps = ri < chunk.phase_sets.size() ? chunk.phase_sets[ri] : 0;
-                if (!((hap == 1 || hap == 2) && ps > 0) && ri < chunk.gap_haps.size() && ri < chunk.gap_phase_sets.size() &&
-                    (chunk.gap_haps[ri] == 1 || chunk.gap_haps[ri] == 2) && chunk.gap_phase_sets[ri] > kGapFillPsOffset) {
-                    hap = chunk.gap_haps[ri];
-                    ps = chunk.gap_phase_sets[ri] - kGapFillPsOffset;
-                }
-                if (!((hap == 1 || hap == 2) && ps > 0)) continue;
-                for (size_t k = 0; k < prof.alleles.size(); ++k) {
-                    const int a = prof.alleles[k];
-                    if (a < 0) continue;
-                    const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
-                    if (a == 1 && partner.count(ci) != 0) ++alt_votes[ci][ps][static_cast<size_t>(hap)];
-                    if (ci >= chunk.candidates.size() || !phased_het(chunk.candidates[ci]) ||
-                        hets[chunk.candidates[ci].phase_set] != 1) continue;
-                    ++votes[ci][ps][static_cast<size_t>(hap)][a];
-                    ++labelled[ci];
-                }
-            }
-            for (const auto& [ci, by_ps] : votes) {
-                hts_pos_t best = 0;
-                int best_n = 0;
-                for (const auto& [ps, h] : by_ps) {
-                    int n = 0;
-                    for (int hh = 1; hh <= 2; ++hh) for (const auto& [a, c] : h[static_cast<size_t>(hh)]) n += c;
-                    if (n > best_n) best_n = n, best = ps;
-                }
-                if (best == chunk.candidates[ci].phase_set || best_n < 3) continue;
-                const auto& h = by_ps.at(best);
-                int alle[3] = {-1, -1, -1};
-                bool ok = true;
-                for (int hh = 1; hh <= 2 && ok; ++hh) {
-                    int tot = 0, top = 0, top_a = -1;
-                    for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; if (c > top) top = c, top_a = a; }
-                    ok = tot >= 2 && top >= 0.8 * tot;
-                    alle[hh] = top_a;
-                }
-                if (!ok || alle[1] == alle[2]) continue;
-                rephase[ci] = {best, alle[1], alle[2]};
-                if (pgphase_trace::on()) {
-                    std::string v;
-                    for (int hh = 1; hh <= 2; ++hh) {
-                        int tot = 0, top = 0;
-                        for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; top = std::max(top, c); }
-                        v += "votes_h" + std::to_string(hh) + "=" + std::to_string(top) + "/" + std::to_string(tot) + " ";
-                    }
-                    v += "ps_n=" + std::to_string(by_ps.size()) + " labelled=" + std::to_string(labelled[ci]);
-                    rephase_votes[ci] = v;
-                }
-            }
-            // Each ALT goes on the haplotype holding 80% of its labelled
-            // carriers, in the phase set holding most of them (at least 3);
-            // both in one phase set, on opposite haplotypes.
-            const auto place = [&](size_t ci, hts_pos_t& ps, int& hap) {
-                const auto it = alt_votes.find(ci);
-                if (it == alt_votes.end()) return false;
-                int best_n = 0;
-                for (const auto& [p, h] : it->second)
-                    if (h[1] + h[2] > best_n) best_n = h[1] + h[2], ps = p;
-                if (best_n < 3) return false;
-                const auto& h = it->second.at(ps);
-                hap = h[1] >= h[2] ? 1 : 2;
-                return h[static_cast<size_t>(hap)] >= 0.8 * best_n;
-            };
-            for (const auto& [a, b] : partner) {
-                if (a > b) continue;
-                hts_pos_t ps_a = 0, ps_b = 0;
-                int hap_a = 0, hap_b = 0;
-                if (!place(a, ps_a, hap_a) || !place(b, ps_b, hap_b) || ps_a != ps_b || hap_a == hap_b) continue;
-                rephase[a] = {ps_a, hap_a == 1 ? 1 : 0, hap_a == 2 ? 1 : 0};
-                rephase[b] = {ps_b, hap_b == 1 ? 1 : 0, hap_b == 2 ? 1 : 0};
-            }
-        }
+        const std::unordered_map<size_t, UnlinkedHetPlacement> rephase =
+            place_unlinked_hets(chunk, pgphase_trace::on() ? &rephase_votes : nullptr);
         for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
             CandidateVariant rephased;
             const CandidateVariant* mp = &chunk.candidates[ci];
             if (const auto it = rephase.find(ci); it != rephase.end()) {
                 rephased = chunk.candidates[ci];
-                rephased.phase_set = std::get<0>(it->second);
-                rephased.hap_to_cons_alle[1] = std::get<1>(it->second);
-                rephased.hap_to_cons_alle[2] = std::get<2>(it->second);
+                rephased.phase_set = it->second.phase_set;
+                rephased.hap_to_cons_alle[1] = it->second.hap1_allele;
+                rephased.hap_to_cons_alle[2] = it->second.hap2_allele;
                 mp = &rephased;
             }
             const CandidateVariant& mcand = *mp;
@@ -679,7 +545,9 @@ static CandidateTable graph_chunks_to_candidate_table(
 // graph's REF/ALT labels then give the wrong read orientation. Check only
 // graph-clean, biallelic SNPs and require decisive physical evidence before
 // reclassifying homozygous ALT or excluding an ALT/deletion contrast. This uses the existing per-thread BAM
-// handles and scans each chunk once rather than seeking for every site.
+// handles and scans each chunk once rather than seeking for every site. True when a site was made ineligible, the only
+// flag the chunk builder reads; the others (bam_homozygous_alt, bam_alt_deletion_no_ref, bam_low_fraction_snp) are
+// applied to the built chunk after the clean solve (reclassify_physically_validated_graph_snps).
 static bool exclude_ref_absent_graph_snps(
         GraphSiteCatalog& catalog, const GraphChunkBuildResult& built,
         const RegionChunk& region, const std::string& contig,
@@ -791,7 +659,7 @@ static bool exclude_ref_absent_graph_snps(
 
     const size_t ref_absence_sites = static_cast<size_t>(std::count_if(sites.begin(), sites.end(),
         [](const SiteEvidence& site) { return site.ref_absence_eligible; }));
-    bool excluded = false;
+    bool excluded = false;  // a site made ineligible: the chunk is built again without it
     for (const SiteEvidence& site : sites) {
         const bool padded = catalog.sites[site.catalog_index].ref.size() > 1;
         GraphSite& physical_site = catalog.sites[site.catalog_index];
@@ -807,7 +675,6 @@ static bool exclude_ref_absent_graph_snps(
                 site.ref_count, site.alt_count, site.deletion_count, site.other_count,
                 opts.min_af, sites.size())) {
             physical_site.bam_low_fraction_snp = true;
-            excluded = true;
             continue;
         }
         if (!site.ref_absence_eligible) continue;
@@ -825,8 +692,8 @@ static bool exclude_ref_absent_graph_snps(
         } else {
             graph_site.eligible = false;
             graph_site.skip_reason = "bam_alt_deletion_no_ref";
+            excluded = true;
         }
-        excluded = true;
         if (opts.verbose)
             std::cerr << "graph: validated REF-absent SNP " << contig << ':' << site.pos
                       << " (REF " << site.ref_count << ", ALT " << site.alt_count

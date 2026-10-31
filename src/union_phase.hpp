@@ -53,9 +53,9 @@ struct LocusWindowSite {
     int median_edits[2] = {0, 0};
     // Written by phase_chunk_by_global_em: which side haplotype 1 carries
     // (-1 when not phased), the block, and the learned error.
-    mutable int phase = -1;
-    mutable hts_pos_t block = 0;
-    mutable double error = 1.0;
+    int phase = -1;
+    hts_pos_t block = 0;
+    double error = 1.0;
 };
 
 /// Local haplotype windows over the alignment's noisy-region loci.
@@ -140,7 +140,7 @@ size_t apply_island_labels(PhasingChunk& chunk);
 /// are left unphased; a read is labelled in the block where its evidence is
 /// strongest. Returns the number of phase blocks.
 size_t phase_chunk_by_global_em(PhasingChunk& chunk,
-                                const std::vector<LocusWindowSite>* loci = nullptr,
+                                std::vector<LocusWindowSite>* loci = nullptr,
                                 const std::vector<char>* bridge_weak = nullptr,
                                 const ObservationErrors* errors = nullptr);
 

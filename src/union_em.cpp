@@ -216,7 +216,7 @@ static void set_first_allele_side(CandidateVariant& c, int on_hap1) {
 
 class GlobalEm {
 public:
-    GlobalEm(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci, const std::vector<char>* bridge_weak,
+    GlobalEm(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, const std::vector<char>* bridge_weak,
              const ObservationErrors* errors)
         : chunk_(chunk), loci_(loci), bridge_weak_(bridge_weak), errors_(errors),
           n_locus_(loci != nullptr ? loci->size() : 0) {}
@@ -240,7 +240,7 @@ public:
 
 private:
     PhasingChunk& chunk_;
-    const std::vector<LocusWindowSite>* loci_;
+    std::vector<LocusWindowSite>* loci_;  // windows: their phase, block and error written back
     const std::vector<char>* bridge_weak_;
     const ObservationErrors* errors_;
     const size_t n_locus_;
@@ -946,7 +946,7 @@ private:
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet, c.vcf_unphased = false;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) {
-                const LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
+                LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
                 w.phase = phase_[k];
                 w.block = block_[k];
                 w.error = err_[k];
@@ -1644,7 +1644,7 @@ private:
 
 }  // namespace
 
-size_t phase_chunk_by_global_em(PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
+size_t phase_chunk_by_global_em(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci,
                                 const std::vector<char>* bridge_weak,
                                 const ObservationErrors* errors) {
     return GlobalEm(chunk, loci, bridge_weak, errors).run();

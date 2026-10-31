@@ -18,6 +18,7 @@
 #include <iterator>
 #include <limits>
 #include <numeric>
+#include <set>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -1258,6 +1259,143 @@ const std::string* selected_graph_candidate_alt(
     return allele->alt->empty() || *allele->alt == "*" ? nullptr : allele->alt;
 }
 
+ChunkReadLabel read_label(const PhasingChunk& chunk, size_t ri) {
+    const int hap = ri < chunk.haps.size() ? chunk.haps[ri] : 0;
+    const hts_pos_t ps = ri < chunk.phase_sets.size() ? chunk.phase_sets[ri] : kUnphasedReadPhaseSet;
+    if ((hap == 1 || hap == 2) && ps > 0) return ChunkReadLabel{hap, ps, true};
+    const int gap = ri < chunk.gap_haps.size() ? chunk.gap_haps[ri] : 0;
+    const hts_pos_t gap_ps = ri < chunk.gap_phase_sets.size() ? chunk.gap_phase_sets[ri] : 0;
+    if ((gap == 1 || gap == 2) && gap_ps > kGapFillPsOffset)
+        return ChunkReadLabel{gap, gap_ps - kGapFillPsOffset, false};
+    return ChunkReadLabel{};
+}
+
+std::unordered_map<size_t, UnlinkedHetPlacement> place_unlinked_hets(
+        const PhasingChunk& chunk, std::unordered_map<size_t, std::string>* trace_votes) {
+    std::unordered_map<size_t, UnlinkedHetPlacement> placements;
+    const auto phased_het = [](const CandidateVariant& c) {
+        const auto& h = c.hap_to_cons_alle;
+        return (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0 && c.phase_set > 0 &&
+               h.size() > 2 && h[1] >= 0 && h[2] >= 0 && h[1] != h[2];
+    };
+    // Hets per phase set by position: a catalog site and the
+    // alignment's injected copy of the same SNP are two candidates
+    // here and one record after duplicates collapse, so counting
+    // candidates skipped every lone het held twice -- chr12:10,999,331
+    // -351, four SNPs whose 86 reads split cleanly in one block.
+    std::unordered_map<hts_pos_t, int> hets;
+    {
+        std::unordered_map<hts_pos_t, std::set<hts_pos_t>> at;
+        for (const CandidateVariant& c : chunk.candidates)
+            if (phased_het(c)) at[c.phase_set].insert(c.key.sort_pos());
+        for (const auto& [ps, positions] : at) hets[ps] = static_cast<int>(positions.size());
+    }
+    std::unordered_map<size_t, std::map<hts_pos_t, std::array<std::map<int, int>, 3>>> votes;
+    std::unordered_map<size_t, int> labelled;
+    // Two het SNPs at one position with different ALTs, both left
+    // unphased: a site with two non-reference alleles (1|2). No read
+    // carries REF there, so each record's reads carry its ALT or
+    // nothing and the phaser has no two-allele contrast to solve: the
+    // catalog site's pairs (REF vs each ALT) look 100% ALT and are
+    // dropped (high_af), and the alignment's two records each hear one
+    // allele. HLA-B (chr6:31,212,612 G>A,T and 31,212,651) was written
+    // unphased where HiPhase phases it. Each is placed below from the
+    // final labels of the reads carrying its ALT, so no label, join or
+    // block changes. Over chr12/18/20 and the MHC: 8 more truth 1|2
+    // sites phased, reads, switches and flips unchanged (the one
+    // placement against the truth VCF agrees with its read labels).
+    // Indel pairs as well: +2 switches on chr12.
+    std::unordered_map<size_t, size_t> partner;
+    std::unordered_map<size_t, std::map<hts_pos_t, std::array<int, 3>>> alt_votes;
+    {
+        const auto unphased_het = [](const CandidateVariant& c) {
+            return (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 && c.phase_set <= 0;
+        };
+        std::map<hts_pos_t, std::vector<size_t>> at;
+        for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
+            const CandidateVariant& c = chunk.candidates[ci];
+            if (!unphased_het(c)) continue;
+            if (!(c.key.type == VariantType::Snp && c.key.ref_len == 1 && c.key.alt.size() == 1)) continue;
+            at[c.key.pos].push_back(ci);
+        }
+        for (const auto& [pos, cis] : at)
+            if (cis.size() == 2 && chunk.candidates[cis[0]].key.alt != chunk.candidates[cis[1]].key.alt)
+                partner[cis[0]] = cis[1], partner[cis[1]] = cis[0];
+    }
+    for (const ReadVariantProfile& prof : chunk.read_var_profile) {
+        if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
+        const ChunkReadLabel label = read_label(chunk, static_cast<size_t>(prof.read_id));
+        const int hap = label.hap;
+        const hts_pos_t ps = label.phase_set;
+        if (hap == 0) continue;
+        for (size_t k = 0; k < prof.alleles.size(); ++k) {
+            const int a = prof.alleles[k];
+            if (a < 0) continue;
+            const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
+            if (a == 1 && partner.count(ci) != 0) ++alt_votes[ci][ps][static_cast<size_t>(hap)];
+            if (ci >= chunk.candidates.size() || !phased_het(chunk.candidates[ci]) ||
+                hets[chunk.candidates[ci].phase_set] != 1) continue;
+            ++votes[ci][ps][static_cast<size_t>(hap)][a];
+            ++labelled[ci];
+        }
+    }
+    for (const auto& [ci, by_ps] : votes) {
+        hts_pos_t best = 0;
+        int best_n = 0;
+        for (const auto& [ps, h] : by_ps) {
+            int n = 0;
+            for (int hh = 1; hh <= 2; ++hh) for (const auto& [a, c] : h[static_cast<size_t>(hh)]) n += c;
+            if (n > best_n) best_n = n, best = ps;
+        }
+        if (best == chunk.candidates[ci].phase_set || best_n < 3) continue;
+        const auto& h = by_ps.at(best);
+        int alle[3] = {-1, -1, -1};
+        bool ok = true;
+        for (int hh = 1; hh <= 2 && ok; ++hh) {
+            int tot = 0, top = 0, top_a = -1;
+            for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; if (c > top) top = c, top_a = a; }
+            ok = tot >= 2 && top >= 0.8 * tot;
+            alle[hh] = top_a;
+        }
+        if (!ok || alle[1] == alle[2]) continue;
+        placements[ci] = UnlinkedHetPlacement{best, alle[1], alle[2]};
+        if (trace_votes != nullptr) {
+            std::string v;
+            for (int hh = 1; hh <= 2; ++hh) {
+                int tot = 0, top = 0;
+                for (const auto& [a, c] : h[static_cast<size_t>(hh)]) { tot += c; top = std::max(top, c); }
+                v += "votes_h" + std::to_string(hh) + "=" + std::to_string(top) + "/" + std::to_string(tot) + " ";
+            }
+            v += "ps_n=" + std::to_string(by_ps.size()) + " labelled=" + std::to_string(labelled[ci]);
+            (*trace_votes)[ci] = v;
+        }
+    }
+    // Each ALT goes on the haplotype holding 80% of its labelled
+    // carriers, in the phase set holding most of them (at least 3);
+    // both in one phase set, on opposite haplotypes.
+    const auto place = [&](size_t ci, hts_pos_t& ps, int& hap) {
+        const auto it = alt_votes.find(ci);
+        if (it == alt_votes.end()) return false;
+        int best_n = 0;
+        for (const auto& [p, h] : it->second)
+            if (h[1] + h[2] > best_n) best_n = h[1] + h[2], ps = p;
+        if (best_n < 3) return false;
+        const auto& h = it->second.at(ps);
+        hap = h[1] >= h[2] ? 1 : 2;
+        return h[static_cast<size_t>(hap)] >= 0.8 * best_n;
+    };
+    for (const auto& [a, b] : partner) {
+        if (a > b) continue;
+        hts_pos_t ps_a = 0, ps_b = 0;
+        int hap_a = 0, hap_b = 0;
+        if (!place(a, ps_a, hap_a) || !place(b, ps_b, hap_b) || ps_a != ps_b || hap_a == hap_b) continue;
+        placements[a] = UnlinkedHetPlacement{ps_a, hap_a == 1 ? 1 : 0, hap_a == 2 ? 1 : 0};
+        placements[b] = UnlinkedHetPlacement{ps_b, hap_b == 1 ? 1 : 0, hap_b == 2 ? 1 : 0};
+    }
+    return placements;
+}
+
+
 const std::string* row_allele_seq(const GraphChunkBuildResult& graph_chunk, size_t ci, size_t k) {
     if (ci >= graph_chunk.site_meta.size() || ci >= graph_chunk.site_allele_orig_idx.size()) return nullptr;
     const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
@@ -1616,16 +1754,11 @@ static size_t rescue_unphased_graph_read_layer(
             continue;
         }
         const size_t read_i = static_cast<size_t>(profile.read_id);
-        int hap = chunk.haps[read_i];
-        hts_pos_t phase_set = chunk.phase_sets[read_i];
-        const bool primary_assignment =
-            (hap == 1 || hap == 2) && phase_set > 0;
-        if ((hap != 1 && hap != 2) &&
-            (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2)) {
-            hap = chunk.gap_haps[read_i];
-            phase_set = chunk.gap_phase_sets[read_i] - kGapFillPsOffset;
-        }
-        if ((hap != 1 && hap != 2) || phase_set <= 0) continue;
+        const ChunkReadLabel label = read_label(chunk, read_i);
+        const int hap = label.hap;
+        const hts_pos_t phase_set = label.phase_set;
+        const bool primary_assignment = label.primary;
+        if (hap == 0) continue;
 
         for (int site_i = profile.start_var_idx;
              site_i <= profile.end_var_idx; ++site_i) {
@@ -1916,25 +2049,13 @@ void merge_graph_chunk_into_read_rows(
             row.end = std::max(row.end, read.end);
         }
 
-        int hap = read_i < chunk.haps.size() ? chunk.haps[read_i] : 0;
-        hts_pos_t phase_set =
-            read_i < chunk.phase_sets.size()
-                ? chunk.phase_sets[read_i]
-                : kUnphasedReadPhaseSet;
-        bool is_primary = (hap == 1 || hap == 2) && phase_set > 0;
-        if (!is_primary && read_i < chunk.gap_haps.size() &&
-            read_i < chunk.gap_phase_sets.size() &&
-            (chunk.gap_haps[read_i] == 1 || chunk.gap_haps[read_i] == 2) &&
-            chunk.gap_phase_sets[read_i] > 0) {
-            hap = chunk.gap_haps[read_i];
-            // The read is phased in its block's gauge (rescue markers, the
-            // EM's block, an island's site): it is written under that block's
-            // PS. kGapFillPsOffset only keeps fill labels apart internally;
-            // written out, each block's fill reads formed a phase set of their
-            // own, oriented on their own -- over chr12/18/20 it hid 261 arm
-            // reads phased against their block.
-            phase_set = chunk.gap_phase_sets[read_i] - kGapFillPsOffset;
-        }
+        // A fill label is written in its block's gauge (rescue markers, the EM's block, an island's site), under that
+        // block's PS: written with kGapFillPsOffset, each block's fill reads formed a phase set of their own, oriented
+        // on their own -- over chr12/18/20 it hid 261 arm reads phased against their block.
+        const ChunkReadLabel label = read_label(chunk, read_i);
+        const int hap = label.hap;
+        const hts_pos_t phase_set = label.phase_set;
+        const bool is_primary = label.primary;
 
         for (int site_i = profile.start_var_idx; site_i <= profile.end_var_idx; ++site_i) {
             const int offset = site_i - profile.start_var_idx;

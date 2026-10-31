@@ -715,7 +715,8 @@ void run_collect_bam_variation(const Options& opts) {
 namespace pgphase_collect {
 
 
-// Both the BAM command and the --bam alignment solve use these longcallD settings.
+// The BAM command's longcallD settings. The graph command's --bam alignment solve keeps the graph defaults
+// (union_alignment_options): anchored stage 2, MSA observations from reads the clustering left unplaced, and so on.
 static void use_longcalld_bam_options(Options& opts) {
     opts.anchored_stage2 = false;
     opts.merge_colocated_msa_alleles = false;

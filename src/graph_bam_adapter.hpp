@@ -117,6 +117,35 @@ void rebuild_read_var_cr(PhasingChunk& chunk);
 const std::string* selected_graph_candidate_alt(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
 
+/// A read's haplotype label in its chunk: the solve's (haps, phase_sets) where it phased the read, else a fill
+/// label's (gap_haps, gap_phase_sets: rescue markers, the EM's island blocks) in its block's gauge, without
+/// kGapFillPsOffset. hap 0 where the read has neither.
+struct ChunkReadLabel {
+    int hap = 0;
+    hts_pos_t phase_set = kUnphasedReadPhaseSet;
+    bool primary = false;  // the solve's own label
+};
+ChunkReadLabel read_label(const PhasingChunk& chunk, size_t ri);
+
+/// A phased het alone in its phase set phases nothing on its own. It is
+/// written in the phase set holding most of its labelled reads (at least
+/// 3) when they split there by allele on both haplotypes (80% each),
+/// with those reads' orientation; the phaser's own labels are untouched.
+/// Such a site typically sits between two blocks that were not joined,
+/// its reads labelled in either: its phase against one of them comes
+/// from that block's reads alone. Over chr12/18/20 +2,599 phased truth
+/// hets (+366 when 80% of the reads had to sit in one phase set),
+/// switches, flips and reads unchanged.
+/// Two het SNPs at one position with different ALTs, both left unphased (a 1|2 site), are placed the same way from
+/// the labels of the reads carrying each ALT, on opposite haplotypes of one phase set. Neither changes a read label or
+/// a join; the VCF writer applies them (graph_collect.cpp).
+struct UnlinkedHetPlacement {
+    hts_pos_t phase_set = 0;
+    int hap1_allele = -1, hap2_allele = -1;
+};
+std::unordered_map<size_t, UnlinkedHetPlacement> place_unlinked_hets(
+    const PhasingChunk& chunk, std::unordered_map<size_t, std::string>* trace_votes = nullptr);
+
 /// The sequence of a row's allele `k` (its profile's allele index) over its site: the site's REF for the reference
 /// walk, else that walk's ALT (site_allele_orig_idx). Catalog alleles carry the site's full flanks, so each replaces
 /// all of REF. Null where the row has no allele k or no meta (a row the writer skips has an empty REF).

@@ -288,6 +288,50 @@ static bool test_row_alleles() {
     return ok;
 }
 
+// place_unlinked_hets: a het alone in its phase set goes to the phase set holding its reads' labels, oriented by
+// them; the reads' labels are untouched.
+static bool test_place_unlinked_hets() {
+    bool ok = true;
+    PhasingChunk chunk;
+    const auto het = [](hts_pos_t pos, hts_pos_t ps, int hap1) {
+        CandidateVariant c;
+        c.key.pos = pos;
+        c.key.type = VariantType::Snp;
+        c.key.ref_len = 1;
+        c.key.alt = "A";
+        c.lcd_var_i_to_cate = kCandCleanHetSnp;
+        c.phase_set = ps;
+        c.hap_to_cons_alle = {-1, hap1, 1 - hap1};
+        return c;
+    };
+    chunk.candidates = {het(10, 200, 0), het(20, 200, 1), het(30, 300, 0)};
+    for (int r = 0; r < 8; ++r) {
+        ReadVariantProfile p;
+        p.read_id = r;
+        p.start_var_idx = 2;
+        p.end_var_idx = 2;
+        p.alleles = {r < 4 ? 1 : 0};
+        chunk.read_var_profile.push_back(p);
+        chunk.haps.push_back(r < 4 ? 1 : 2);
+        chunk.phase_sets.push_back(200);
+    }
+    chunk.reads.resize(8);
+    std::unordered_map<size_t, std::string> votes;
+    const auto placed = place_unlinked_hets(chunk, &votes);
+    ok &= check(placed.size() == 1 && placed.count(2) == 1, "place_unlinked_hets: only the lone het moves");
+    if (placed.count(2) != 0) {
+        const UnlinkedHetPlacement& p = placed.at(2);
+        ok &= check(p.phase_set == 200 && p.hap1_allele == 1 && p.hap2_allele == 0,
+                    "place_unlinked_hets: into its reads' phase set, oriented by them");
+    }
+    ok &= check(votes.count(2) == 1 && chunk.haps[0] == 1, "place_unlinked_hets: traced; labels untouched");
+    // Fewer than 3 labelled reads: no placement.
+    chunk.phase_sets.assign(8, kUnphasedReadPhaseSet);
+    chunk.phase_sets[0] = chunk.phase_sets[4] = 200;
+    ok &= check(place_unlinked_hets(chunk).empty(), "place_unlinked_hets: too few labelled reads");
+    return ok;
+}
+
 int main(int argc, char** argv) {
     if (argc == 2 && std::strcmp(argv[1], "--joint-loci") == 0) {
         const bool ok = test_joint_candidate_loci();
@@ -299,6 +343,7 @@ int main(int argc, char** argv) {
     ok &= test_joint_candidate_loci();
     ok &= test_chunk_overlap_pairs_appended_reads();
     ok &= test_row_alleles();
+    ok &= test_place_unlinked_hets();
 
     {
         GraphSiteCatalog catalog;

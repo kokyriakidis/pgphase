@@ -1,6 +1,7 @@
 // Unit tests for union gap phasing: site injection, global EM, local windows.
 
 #include "union_phase.hpp"
+#include "union_internal.hpp"
 
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
@@ -416,6 +417,34 @@ static std::unique_ptr<bam1_t, AlignmentDeleter> make_alignment(const std::strin
     bam_set1(b.get(), name.size(), name.c_str(), 0, 0, 0, 60, cigar.size(), cigar.data(), -1, -1, 0,
              seq.size(), seq.c_str(), qual.c_str(), 0);
     return b;
+}
+
+// query_at: a read's 3S 4M 2D 3M 1I 2M over reference 0..10 (soft clip, match, deletion, match, insertion, match).
+static void test_query_at() {
+    const auto b = make_alignment("r", "NNNACGTCATTGC",
+                                  {bam_cigar_gen(3, BAM_CSOFT_CLIP), bam_cigar_gen(4, BAM_CMATCH),
+                                   bam_cigar_gen(2, BAM_CDEL), bam_cigar_gen(3, BAM_CMATCH),
+                                   bam_cigar_gen(1, BAM_CINS), bam_cigar_gen(2, BAM_CMATCH)});
+    const auto at = [&](hts_pos_t r) { return query_at(b.get(), r); };
+    check(at(0).q == 3 && !at(0).deleted && at(3).q == 6, "query_at: the first aligned base, after the soft clip");
+    check(at(4).q == 7 && at(4).deleted && at(5).q == 7 && at(5).deleted, "query_at: in a deletion, the base after it");
+    check(at(6).q == 7 && !at(6).deleted && at(8).q == 9, "query_at: after the deletion");
+    check(at(9).q == 11 && at(10).q == 12, "query_at: after the insertion");
+    check(at(11).q == -1 && query_at(b.get(), -1).q == -1, "query_at: outside the alignment");
+}
+
+// read_label: the solve's label, else a fill label in its block's gauge, else none.
+static void test_read_label() {
+    PhasingChunk chunk;
+    chunk.haps = {1, 0, 2, 0, 1};
+    chunk.phase_sets = {100, kUnphasedReadPhaseSet, 0, kUnphasedReadPhaseSet, 100};
+    chunk.gap_haps = {2, 2, 1, 0, 0};
+    chunk.gap_phase_sets = {kGapFillPsOffset + 7, kGapFillPsOffset + 300, kGapFillPsOffset + 9, 0, 0};
+    const ChunkReadLabel a = read_label(chunk, 0), b = read_label(chunk, 1), c = read_label(chunk, 2);
+    check(a.hap == 1 && a.phase_set == 100 && a.primary, "read_label: the solve's own label first");
+    check(b.hap == 2 && b.phase_set == 300 && !b.primary, "read_label: a fill label, without the offset");
+    check(c.hap == 1 && c.phase_set == 9 && !c.primary, "read_label: a haplotype without a block is no label");
+    check(read_label(chunk, 3).hap == 0 && read_label(chunk, 9).hap == 0, "read_label: none");
 }
 
 static void window_case(bool heterozygous, bool seeded = true) {
@@ -1193,7 +1222,7 @@ static void test_em_island_blocks() {
         }
     }
     finish_chunk(chunk);
-    const std::vector<LocusWindowSite> no_loci;
+    std::vector<LocusWindowSite> no_loci;
     phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
     for (size_t r = first_lone; r < chunk.reads.size(); ++r)
         check(chunk.haps[r] == 0, "islands: the solve leaves lone read " + std::to_string(r) + " unlabelled");
@@ -1248,7 +1277,7 @@ static void test_em_deferred_labels() {
     errors[observation_key(weak, 2)] = 0.25;
     errors[observation_key(torn, 2)] = 0.25;
     errors[observation_key(torn, 3)] = 0.25;
-    const std::vector<LocusWindowSite> no_loci;
+    std::vector<LocusWindowSite> no_loci;
     phase_chunk_by_global_em(chunk, &no_loci, nullptr, &errors);
     check(chunk.haps[weak] == 0 && chunk.haps[torn] == 0, "deferred: both reads stay below the label posterior");
     check(chunk.island_haps.size() == chunk.reads.size(), "deferred: labels recorded");
@@ -1281,7 +1310,7 @@ static void test_em_echo_sites() {
         profile(static_cast<int>(odd), 1, {hap_allele(0, 1), hap_allele(1, 2), hap_allele(1, 3), hap_allele(0, 4)}));
     truth.push_back(0);
     finish_chunk(chunk);
-    const std::vector<LocusWindowSite> no_loci;
+    std::vector<LocusWindowSite> no_loci;
     phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
     size_t mate = 0;
     while (mate < odd && !(truth[mate] == 0 && chunk.haps[mate] != 0 && chunk.phase_sets[mate] == chunk.phase_sets[0]))
@@ -1313,7 +1342,7 @@ static void test_em_unverified_fallback(bool low_mapq) {
     chunk.read_var_profile.push_back(profile(static_cast<int>(lone), 4, {hap_allele(0, 4), hap_allele(0, 5)}));
     truth.push_back(0);
     finish_chunk(chunk);
-    const std::vector<LocusWindowSite> no_loci;
+    std::vector<LocusWindowSite> no_loci;
     phase_chunk_by_global_em(chunk, &no_loci, nullptr, nullptr);
     check(chunk.haps[lone] == 0, "unverified: the solve leaves the read unlabelled");
     size_t mate = 0;
@@ -1402,7 +1431,7 @@ static void test_em_length_window_islands() {
     w.end = 940;
     w.island_only = true;
     for (int r = 0; r < 4; ++r) w.observations.emplace_back(first_lone + static_cast<size_t>(r), r % 2, 0.05f);
-    const std::vector<LocusWindowSite> loci{w};
+    std::vector<LocusWindowSite> loci{w};
     phase_chunk_by_global_em(chunk, &loci, nullptr, nullptr);
     check(chunk.island_haps.size() == chunk.reads.size(), "length islands: island labels recorded");
     if (chunk.island_haps.size() != chunk.reads.size()) return;
@@ -1427,6 +1456,8 @@ int main() {
     test_em_labels_low_mapq_reads();
     test_em_window_links_blocks();
     test_inject_selects_private_sites();
+    test_query_at();
+    test_read_label();
     window_case(true);
     window_case(false);
     window_case(true, false);

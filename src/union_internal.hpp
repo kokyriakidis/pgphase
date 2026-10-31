@@ -64,8 +64,17 @@ constexpr double kLocusMaxObsError = 0.45;
 constexpr int kSeedLabelMinMargin = 2;
 constexpr double kSeedLabelMinAgreement = 0.9;
 
+// Where a 0-based reference position falls in a read's alignment: the query index of the base aligned to it, or,
+// inside a deletion (or a reference skip), of the base after it, `deleted` set. q = -1 outside the alignment (the walk
+// ends at the read's end).
+struct QueryAt {
+    hts_pos_t q = -1;
+    bool deleted = false;
+};
+QueryAt query_at(const bam1_t* b, hts_pos_t ref_pos);
+
 // Query index aligned at (or, inside a deletion, after) a 0-based reference position.
-hts_pos_t locus_query_index(const bam1_t* b, hts_pos_t ref_pos);
+inline hts_pos_t locus_query_index(const bam1_t* b, hts_pos_t ref_pos) { return query_at(b, ref_pos).q; }
 
 int locus_edit_distance(const std::string& a, const std::string& b);
 

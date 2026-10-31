@@ -15,27 +15,25 @@
 
 namespace pgphase_collect {
 
-// Query index aligned at (or, inside a deletion, after) a 0-based reference
-// position; -1 outside the alignment (the walk itself ends at the read's end).
-hts_pos_t locus_query_index(const bam1_t* b, hts_pos_t ref_pos) {
-    if (ref_pos < b->core.pos) return -1;
+QueryAt query_at(const bam1_t* b, hts_pos_t ref_pos) {
+    if (ref_pos < b->core.pos) return {};
     hts_pos_t r = b->core.pos, q = 0;
     const uint32_t* cigar = bam_get_cigar(b);
     for (uint32_t i = 0; i < b->core.n_cigar; ++i) {
         const int op = bam_cigar_op(cigar[i]);
         const hts_pos_t len = bam_cigar_oplen(cigar[i]);
         if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-            if (r + len > ref_pos) return q + (ref_pos - r);
+            if (r + len > ref_pos) return {q + (ref_pos - r), false};
             r += len;
             q += len;
         } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
-            if (r + len > ref_pos) return q;
+            if (r + len > ref_pos) return {q, true};
             r += len;
         } else if (op == BAM_CINS || op == BAM_CSOFT_CLIP) {
             q += len;
         }
     }
-    return -1;
+    return {};
 }
 
 int locus_edit_distance(const std::string& a, const std::string& b) {

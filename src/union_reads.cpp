@@ -499,29 +499,9 @@ constexpr int kAlignedBaseMinQuality = 10;
 static char aligned_base(const ReadRecord& read, hts_pos_t pos) {
     const bam1_t* b = read.alignment.get();
     if (b == nullptr) return 0;
-    const hts_pos_t ref_pos = pos - 1;
-    if (ref_pos < b->core.pos) return 0;
-    hts_pos_t r = b->core.pos, q = 0;
-    const uint32_t* cigar = bam_get_cigar(b);
-    for (uint32_t i = 0; i < b->core.n_cigar; ++i) {
-        const int op = bam_cigar_op(cigar[i]);
-        const hts_pos_t len = bam_cigar_oplen(cigar[i]);
-        if (op == BAM_CMATCH || op == BAM_CEQUAL || op == BAM_CDIFF) {
-            if (r + len > ref_pos) {
-                const hts_pos_t qi = q + (ref_pos - r);
-                if (bam_get_qual(b)[qi] < kAlignedBaseMinQuality) return 0;
-                return seq_nt16_str[bam_seqi(bam_get_seq(b), qi)];
-            }
-            r += len;
-            q += len;
-        } else if (op == BAM_CDEL || op == BAM_CREF_SKIP) {
-            if (r + len > ref_pos) return 0;
-            r += len;
-        } else if (op == BAM_CINS || op == BAM_CSOFT_CLIP) {
-            q += len;
-        }
-    }
-    return 0;
+    const QueryAt at = query_at(b, pos - 1);
+    if (at.q < 0 || at.deleted || bam_get_qual(b)[at.q] < kAlignedBaseMinQuality) return 0;
+    return seq_nt16_str[bam_seqi(bam_get_seq(b), at.q)];
 }
 
 size_t confirm_catalog_snp_calls(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
