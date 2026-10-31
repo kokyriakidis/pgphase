@@ -102,6 +102,35 @@ static bool reads_consistent(const PhasingChunk& chunk, const std::vector<int>& 
     return true;
 }
 
+// solve_global_em reads the chunk and changes nothing; applying its result is phase_chunk_by_global_em.
+static void test_em_solve_is_read_only() {
+    PhasingChunk chunk;
+    for (int k = 0; k < 12; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
+    std::vector<int> truth;
+    add_tiled_reads(chunk, truth, 0, 11, 4);
+    finish_chunk(chunk);
+    const std::vector<int> haps = chunk.haps;
+    const std::vector<hts_pos_t> phase_sets = chunk.phase_sets;
+    EmResult result = solve_global_em(chunk);
+    bool untouched = chunk.haps == haps && chunk.phase_sets == phase_sets;
+    for (const CandidateVariant& c : chunk.candidates) untouched = untouched && c.phase_set <= 0;
+    check(untouched, "EM solve: the chunk unchanged");
+    check(result.blocks == 1 && result.candidates.size() == 12 && result.candidates[0].phase_set > 0,
+          "EM solve: one block, its sites phased in the result");
+    PhasingChunk twin;
+    for (int k = 0; k < 12; ++k) twin.candidates.push_back(clean_snp(100 + 100 * k));
+    std::vector<int> twin_truth;
+    add_tiled_reads(twin, twin_truth, 0, 11, 4);
+    finish_chunk(twin);
+    phase_chunk_by_global_em(twin);
+    apply_em_result(chunk, nullptr, std::move(result));
+    bool same = chunk.haps == twin.haps && chunk.phase_sets == twin.phase_sets;
+    for (size_t k = 0; k < chunk.candidates.size(); ++k)
+        same = same && chunk.candidates[k].phase_set == twin.candidates[k].phase_set &&
+               chunk.candidates[k].hap_to_cons_alle == twin.candidates[k].hap_to_cons_alle;
+    check(same, "EM solve: applied, the chunk phase_chunk_by_global_em gives");
+}
+
 static void test_em_phases_one_block() {
     PhasingChunk chunk;
     for (int k = 0; k < 12; ++k) chunk.candidates.push_back(clean_snp(100 + 100 * k));
@@ -1458,6 +1487,7 @@ static void test_em_length_window_islands() {
 
 int main() {
     test_em_phases_one_block();
+    test_em_solve_is_read_only();
     test_em_cuts_unlinked_blocks();
     test_em_leaves_noise_unphased();
     test_em_writes_unphasable_msa_het_unphased();

@@ -130,6 +130,33 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
 /// reads labelled.
 size_t apply_island_labels(PhasingChunk& chunk);
 
+/// What one global EM solve decides for a chunk, apart from the chunk: its candidates with each site's phase written,
+/// the reads' labels, the island labels and sites, each window's phase, block and error, and (PGPHASE_TRACE) the reads'
+/// traces. apply_em_result writes it back.
+struct EmResult {
+    struct Window {
+        int phase = -1;
+        hts_pos_t block = 0;
+        double error = 1.0;
+    };
+    size_t blocks = 0;
+    std::vector<CandidateVariant> candidates;
+    std::vector<int> haps;
+    std::vector<hts_pos_t> phase_sets;
+    std::vector<int> island_haps;
+    std::vector<hts_pos_t> island_phase_sets;
+    std::vector<PhasingChunk::IslandSite> island_sites;
+    std::vector<Window> windows;  // per window of loci
+    std::vector<PhasingChunk::ReadTrace> read_trace;
+};
+
+/// The global EM over a chunk's sites (and loci, as extra sites), read-only: phase_chunk_by_global_em's solve.
+EmResult solve_global_em(const PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci = nullptr,
+                         const std::vector<char>* bridge_weak = nullptr, const ObservationErrors* errors = nullptr);
+
+/// Writes a solve's result into its chunk and windows.
+void apply_em_result(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, EmResult&& result);
+
 /// Phase a chunk by EM over its whole read x site matrix.
 ///
 /// Every voting site carrying two observed alleles gets a phase and its own

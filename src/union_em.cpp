@@ -216,9 +216,9 @@ static void set_first_allele_side(CandidateVariant& c, int on_hap1) {
 
 class GlobalEm {
 public:
-    GlobalEm(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, const std::vector<char>* bridge_weak,
-             const ObservationErrors* errors)
-        : chunk_(chunk), loci_(loci), bridge_weak_(bridge_weak), errors_(errors),
+    GlobalEm(const PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
+             const std::vector<char>* bridge_weak, const ObservationErrors* errors, EmResult& out)
+        : chunk_(chunk), out_(out), cands_(out.candidates), loci_(loci), bridge_weak_(bridge_weak), errors_(errors),
           n_locus_(loci != nullptr ? loci->size() : 0) {}
 
     size_t run() {
@@ -239,8 +239,17 @@ public:
     }
 
 private:
-    PhasingChunk& chunk_;
-    std::vector<LocusWindowSite>* loci_;  // windows: their phase, block and error written back
+    const PhasingChunk& chunk_;
+    EmResult& out_;  // what the solve decides: the candidates' phases, the read and island labels, the windows'
+    std::vector<CandidateVariant>& cands_;  // out_.candidates: the chunk's, phased here
+    const std::vector<LocusWindowSite>* loci_;
+
+    // The read's trace entry (PGPHASE_TRACE), in the result's copy.
+    PhasingChunk::ReadTrace* trace_of(size_t ri) {
+        if (!pgphase_trace::on()) return nullptr;
+        if (out_.read_trace.size() <= ri) out_.read_trace.resize(std::max(chunk_.reads.size(), ri + 1));
+        return &out_.read_trace[ri];
+    }
     const std::vector<char>* bridge_weak_;
     const ObservationErrors* errors_;
     const size_t n_locus_;
@@ -279,8 +288,8 @@ private:
     // Sites in position order with their two-allele contrast; a locus window
     // contrasts its two local haplotype sequences (0 and 1).
     void select_sites() {
-        allele_counts_.assign(chunk_.candidates.size(), {});
-        undecided_.assign(chunk_.candidates.size(), 0);
+        allele_counts_.assign(cands_.size(), {});
+        undecided_.assign(cands_.size(), 0);
         for (size_t ri = 0; ri < chunk_.read_var_profile.size(); ++ri) {
             const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
             if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
@@ -291,8 +300,8 @@ private:
                     ++undecided_[static_cast<size_t>(prof.start_var_idx) + k];
             }
         }
-        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
-            const CandidateVariant& c = chunk_.candidates[ci];
+        for (size_t ci = 0; ci < cands_.size(); ++ci) {
+            const CandidateVariant& c = cands_[ci];
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
             int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
             // An MSA-genotyped site of two insertion alleles (a 1/2): its alleles are the MSA's, not the two its reads
@@ -335,7 +344,7 @@ private:
     // Read observations as (site, side, own error) in site order; each read's
     // starting posterior from its incoming label.
     void collect_observations() {
-        site_of_.assign(chunk_.candidates.size(), -1);
+        site_of_.assign(cands_.size(), -1);
         locus_site_.assign(n_locus_, -1);
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) locus_site_[static_cast<size_t>(sites_[k].locus)] = static_cast<int>(k);
@@ -345,7 +354,7 @@ private:
         err_.assign(n_, 0.0);
         for (size_t k = 0; k < n_; ++k) {
             const bool clean = sites_[k].locus < 0 &&
-                (chunk_.candidates[sites_[k].ci].lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0;
+                (cands_[sites_[k].ci].lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0;
             err_[k] = clean ? kEmCleanStartError : kEmOtherStartError;
         }
         refresh_site_logs();
@@ -377,7 +386,7 @@ private:
         for (size_t ri = 0; ri < robs_.size(); ++ri) {
             std::sort(robs_[ri].begin(), robs_[ri].end(),
                       [](const EmObs& a, const EmObs& b) { return a.s < b.s; });
-            const int hap = ri < chunk_.haps.size() ? chunk_.haps[ri] : 0;
+            const int hap = ri < out_.haps.size() ? out_.haps[ri] : 0;
             post_[ri] = hap == 1 ? 0.95 : hap == 2 ? 0.05 : 0.5;
             if (ri < start_label_.size()) start_label_[ri] = hap;
             learns_[ri] = chunk_.reads[ri].mapq >= kEmLearnMinMapq;
@@ -442,8 +451,8 @@ private:
         // 34.64 Mb, chr20 32.25 Mb) for three correct reads.
         join_excluded_.assign(n_, 0);
         for (size_t k = 0; k < n_; ++k)
-            if (sites_[k].locus < 0 && (chunk_.candidates[sites_[k].ci].unresolved_noisy ||
-                                        chunk_.candidates[sites_[k].ci].low_mapq_only)) join_excluded_[k] = 1;
+            if (sites_[k].locus < 0 && (cands_[sites_[k].ci].unresolved_noisy ||
+                                        cands_[sites_[k].ci].low_mapq_only)) join_excluded_[k] = 1;
         // Sites in collapsed duplications or poorly mapped reads hold no join
         // (kEmJoinMaxDepthRatio, kEmJoinMinMeanMapq).
         join_deep_.assign(n_, 0);
@@ -529,7 +538,7 @@ private:
         for (size_t k = 0; k < n_; ++k) {
             int kind = 3;
             if (sites_[k].locus < 0) {
-                const CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+                const CandidateVariant& c = cands_[sites_[k].ci];
                 kind = c.unresolved_noisy ? 4
                      : c.bam_injected ? 2
                      : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 0 : 1;
@@ -942,14 +951,12 @@ private:
     // Each site's phase and block onto its candidate (or locus window); an
     // unreliable site is left unphased.
     void write_site_phases() {
-        for (CandidateVariant& c : chunk_.candidates)
+        for (CandidateVariant& c : cands_)
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) c.phase_set = kUnsetCandidatePhaseSet, c.vcf_unphased = false;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) {
-                LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
-                w.phase = phase_[k];
-                w.block = block_[k];
-                w.error = err_[k];
+                const LocusWindowSite& w = (*loci_)[static_cast<size_t>(sites_[k].locus)];
+                out_.windows[static_cast<size_t>(sites_[k].locus)] = EmResult::Window{phase_[k], block_[k], err_[k]};
                 if (pgphase_trace::on()) {
                     char detail[96];
                     std::snprintf(detail, sizeof(detail), "err=%.3f block=%lld reads=%zu", err_[k],
@@ -959,7 +966,7 @@ private:
                 }
                 continue;
             }
-            CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+            CandidateVariant& c = cands_[sites_[k].ci];
             if (err_[k] >= (join_excluded_[k] ? kEmUnverifiedReportError : kEmUnreliableError)) {
                 c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
                 c.hap_alt = c.hap_ref = 0;
@@ -1012,18 +1019,18 @@ private:
         std::vector<size_t> anchors;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) continue;
-            const CandidateVariant& d = chunk_.candidates[sites_[k].ci];
+            const CandidateVariant& d = cands_[sites_[k].ci];
             if (usable(d) && d.phase_set > 0 && !d.vcf_unphased) anchors.push_back(sites_[k].ci);
         }
         if (anchors.empty()) return;
-        for (CandidateVariant& c : chunk_.candidates) {
+        for (CandidateVariant& c : cands_) {
             // An island het (written unphased by injection) stays unphased: it is no site of the solve.
             if (!usable(c) || !c.vcf_unphased || c.unresolved_noisy || c.island_only) continue;
             hts_pos_t ps = 0;
             int implied = -1;
             bool consistent = true;
             for (const size_t di : anchors) {
-                const CandidateVariant& d = chunk_.candidates[di];
+                const CandidateVariant& d = cands_[di];
                 if (d.aln_phase_set != c.aln_phase_set || std::abs(d.key.pos - c.key.pos) > kEmAlignmentAnchorSpan)
                     continue;
                 const bool cis = (c.aln_hap1_allele == 1) == (d.aln_hap1_allele == 1);
@@ -1057,17 +1064,17 @@ private:
         std::vector<size_t> anchors;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) continue;
-            const CandidateVariant& d = chunk_.candidates[sites_[k].ci];
+            const CandidateVariant& d = cands_[sites_[k].ci];
             if (usable(d) && d.phase_set > 0 && !d.vcf_unphased) anchors.push_back(sites_[k].ci);
         }
         if (anchors.empty()) return;
-        for (CandidateVariant& c : chunk_.candidates) {
+        for (CandidateVariant& c : cands_) {
             if (!usable(c) || !c.vcf_unphased || c.phase_set > 0 || c.unresolved_noisy || c.island_only) continue;
             hts_pos_t ps = 0;
             int implied = -1;
             bool consistent = true;
             for (const size_t di : anchors) {
-                const CandidateVariant& d = chunk_.candidates[di];
+                const CandidateVariant& d = cands_[di];
                 if (d.msa_region != c.msa_region) continue;
                 const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
                 const int here = msa_cis == alt_on_hap1(d) ? 1 : 0;
@@ -1092,18 +1099,18 @@ private:
         std::vector<size_t> by_region;
         for (size_t k = 0; k < n_; ++k) {
             if (sites_[k].locus >= 0) continue;
-            const CandidateVariant& c = chunk_.candidates[sites_[k].ci];
+            const CandidateVariant& c = cands_[sites_[k].ci];
             if (c.msa_region >= 0 && c.msa_hap1_allele >= 0 && c.phase_set > 0 && phaseable_het(c.hap_to_cons_alle))
                 by_region.push_back(sites_[k].ci);
         }
         const auto alt_on_hap1 = [](const CandidateVariant& c) { return first_allele_on_hap1(c); };
         if (pgphase_trace::on())
             for (const size_t ci : by_region) {
-                const CandidateVariant& c = chunk_.candidates[ci];
+                const CandidateVariant& c = cands_[ci];
                 if (c.vcf_unphased || c.unresolved_noisy) continue;
                 int agree = 0, disagree = 0;
                 for (const size_t di : by_region) {
-                    const CandidateVariant& d = chunk_.candidates[di];
+                    const CandidateVariant& d = cands_[di];
                     if (di == ci || d.vcf_unphased || d.msa_region != c.msa_region || d.phase_set != c.phase_set) continue;
                     const bool em_cis = alt_on_hap1(c) == alt_on_hap1(d);
                     const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
@@ -1116,11 +1123,11 @@ private:
                                              " " + pgphase_trace::genotype_text(c));
             }
         for (const size_t ci : by_region) {
-            CandidateVariant& c = chunk_.candidates[ci];
+            CandidateVariant& c = cands_[ci];
             if (!c.vcf_unphased || c.unresolved_noisy) continue;
             int agree = 0, disagree = 0;
             for (const size_t di : by_region) {
-                const CandidateVariant& d = chunk_.candidates[di];
+                const CandidateVariant& d = cands_[di];
                 if (di == ci || d.vcf_unphased || d.msa_region != c.msa_region || d.phase_set != c.phase_set) continue;
                 const bool em_cis = alt_on_hap1(c) == alt_on_hap1(d);
                 const bool msa_cis = (c.msa_hap1_allele == 1) == (d.msa_hap1_allele == 1);
@@ -1155,8 +1162,8 @@ private:
         if (depths.empty()) return;
         std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
         const double min_reads = kEmMinMsaReadsFraction * depths[depths.size() / 2];
-        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
-            CandidateVariant& c = chunk_.candidates[ci];
+        for (size_t ci = 0; ci < cands_.size(); ++ci) {
+            CandidateVariant& c = cands_[ci];
             if (site_of_[ci] >= 0 || !c.msa_genotyped || c.island_only || c.low_mapq_only || c.unresolved_noisy ||
                 (c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0)
                 continue;
@@ -1183,12 +1190,12 @@ private:
     // A last-resort label: applied after stitching and the rescue, fill-only
     // (apply_island_labels), so it steers no window, stitch or rescue.
     void defer_label(size_t ri, int hap, hts_pos_t ps) {
-        if (chunk_.island_haps.size() < chunk_.reads.size()) {
-            chunk_.island_haps.resize(chunk_.reads.size(), 0);
-            chunk_.island_phase_sets.resize(chunk_.reads.size(), 0);
+        if (out_.island_haps.size() < chunk_.reads.size()) {
+            out_.island_haps.resize(chunk_.reads.size(), 0);
+            out_.island_phase_sets.resize(chunk_.reads.size(), 0);
         }
-        chunk_.island_haps[ri] = hap;
-        chunk_.island_phase_sets[ri] = ps;
+        out_.island_haps[ri] = hap;
+        out_.island_phase_sets[ri] = ps;
     }
 
     // Reads: label in the block where their own evidence is strongest. A read
@@ -1198,9 +1205,9 @@ private:
     // came after these until fill labels were written under their block's PS:
     // scored so they were +6 correct / +16 discordant, and were removed.
     void label_reads() {
-        for (size_t ri = 0; ri < robs_.size() && ri < chunk_.haps.size(); ++ri) {
-            chunk_.haps[ri] = 0;
-            chunk_.phase_sets[ri] = kUnphasedReadPhaseSet;
+        for (size_t ri = 0; ri < robs_.size() && ri < out_.haps.size(); ++ri) {
+            out_.haps[ri] = 0;
+            out_.phase_sets[ri] = kUnphasedReadPhaseSet;
             std::map<hts_pos_t, std::array<int, 2>> directions;  // calls favouring hap 1 / hap 2
             std::map<hts_pos_t, std::array<double, 2>> per_block;
             for (const EmObs& o : robs_[ri]) {
@@ -1222,11 +1229,11 @@ private:
                 const double p1 = hap1_posterior(margin);
                 if (std::max(p1, 1.0 - p1) < kEmReadLabelPosterior || std::abs(margin) <= best) continue;
                 best = std::abs(margin);
-                chunk_.haps[ri] = p1 >= 0.5 ? 1 : 2;
-                chunk_.phase_sets[ri] = ps;
+                out_.haps[ri] = p1 >= 0.5 ? 1 : 2;
+                out_.phase_sets[ri] = ps;
             }
             if (pgphase_trace::on()) trace_label(ri, per_block, directions);
-            if (chunk_.haps[ri] != 0 || loci_ == nullptr) continue;
+            if (out_.haps[ri] != 0 || loci_ == nullptr) continue;
             // Deferred: all of the read's calls in a block point one way.
             double weak_best = 0.0;
             int weak_hap = 0;
@@ -1266,7 +1273,7 @@ private:
             if (weak_hap != 0) {
                 defer_label(ri, weak_hap, weak_ps);
                 if (pgphase_trace::on())
-                    pgphase_trace::read_trace(chunk_, ri)->label +=
+                    trace_of(ri)->label +=
                         std::string("; ") + weak_kind + " hap=" + std::to_string(weak_hap) +
                         " block=" + std::to_string(weak_ps);
             }
@@ -1287,13 +1294,13 @@ private:
             mixed += d[0] != 0 && d[1] != 0;
         }
         char text[160];
-        if (chunk_.haps[ri] != 0)
-            std::snprintf(text, sizeof(text), "em hap=%d block=%lld p=%.3f blocks=%zu calls=%zu", chunk_.haps[ri],
-                          static_cast<long long>(chunk_.phase_sets[ri]), best_p, per_block.size(), robs_[ri].size());
+        if (out_.haps[ri] != 0)
+            std::snprintf(text, sizeof(text), "em hap=%d block=%lld p=%.3f blocks=%zu calls=%zu", out_.haps[ri],
+                          static_cast<long long>(out_.phase_sets[ri]), best_p, per_block.size(), robs_[ri].size());
         else
             std::snprintf(text, sizeof(text), "unlabelled best_p=%.3f block=%lld blocks=%zu mixed_blocks=%d calls=%zu",
                           best_p, static_cast<long long>(best_ps), per_block.size(), mixed, robs_[ri].size());
-        pgphase_trace::read_trace(chunk_, ri)->label = text;
+        trace_of(ri)->label = text;
     }
 
     // Island blocks. A read the solve leaves unlabelled is phased locally by
@@ -1319,9 +1326,9 @@ private:
             cands.push_back(IslandCand{sites_[k].ci, sites_[k].x, sites_[k].y, sites_[k].pos, static_cast<int>(k),
                                        err_[k], phase_[k], 'E'});
         }
-        std::vector<int> cand_of_ci(chunk_.candidates.size(), -1);
-        for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
-            const CandidateVariant& c = chunk_.candidates[ci];
+        std::vector<int> cand_of_ci(cands_.size(), -1);
+        for (size_t ci = 0; ci < cands_.size(); ++ci) {
+            const CandidateVariant& c = cands_[ci];
             if ((c.counts.category != VariantCategory::RepeatHetIndel && !c.island_only) || site_of_[ci] >= 0) continue;
             std::vector<std::pair<int, int>> by_count;
             for (const auto& [al, cnt] : allele_counts_[ci]) by_count.emplace_back(cnt, al);
@@ -1346,8 +1353,8 @@ private:
         // unreliable cut.
         {
             std::vector<std::map<hts_pos_t, std::array<int, 2>>> agree(cands.size());
-            for (size_t ri = 0; ri < chunk_.read_var_profile.size() && ri < chunk_.haps.size(); ++ri) {
-                const int hap = chunk_.haps[ri];
+            for (size_t ri = 0; ri < chunk_.read_var_profile.size() && ri < out_.haps.size(); ++ri) {
+                const int hap = out_.haps[ri];
                 if (hap != 1 && hap != 2) continue;
                 const ReadVariantProfile& prof = chunk_.read_var_profile[ri];
                 if (prof.start_var_idx < 0 || chunk_.reads[ri].is_skipped) continue;
@@ -1357,17 +1364,17 @@ private:
                     const int al = prof.alleles[j];
                     const IslandCand& cand = cands[static_cast<size_t>(ic)];
                     if (al != cand.x && al != cand.y) continue;
-                    ++agree[static_cast<size_t>(ic)][chunk_.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
+                    ++agree[static_cast<size_t>(ic)][out_.phase_sets[ri]][((al == cand.x) == (hap == 1)) ? 0 : 1];
                 }
             }
             for (size_t li = 0; li < n_locus_; ++li) {
                 const int ic = cand_of_locus[li];
                 if (ic < 0) continue;
                 for (const auto& [ri, side, e] : (*loci_)[li].observations) {
-                    if (ri >= chunk_.haps.size()) continue;
-                    const int hap = chunk_.haps[ri];
+                    if (ri >= out_.haps.size()) continue;
+                    const int hap = out_.haps[ri];
                     if (hap != 1 && hap != 2) continue;
-                    ++agree[static_cast<size_t>(ic)][chunk_.phase_sets[ri]][((side == 0) == (hap == 1)) ? 0 : 1];
+                    ++agree[static_cast<size_t>(ic)][out_.phase_sets[ri]][((side == 0) == (hap == 1)) ? 0 : 1];
                 }
             }
             for (size_t ic = 0; ic < cands.size(); ++ic) {
@@ -1386,9 +1393,9 @@ private:
         };
         // Each unlabelled read's calls at the candidates.
         std::vector<std::vector<std::pair<int, int>>> iobs(robs_.size());
-        for (size_t ri = 0; ri < robs_.size() && ri < chunk_.haps.size(); ++ri) {
-            if (chunk_.haps[ri] != 0) continue;
-            if (ri < chunk_.island_haps.size() && chunk_.island_haps[ri] != 0) continue;  // deferred block label
+        for (size_t ri = 0; ri < robs_.size() && ri < out_.haps.size(); ++ri) {
+            if (out_.haps[ri] != 0) continue;
+            if (ri < out_.island_haps.size() && out_.island_haps[ri] != 0) continue;  // deferred block label
             for (const EmObs& o : robs_[ri])
                 if (cand_of_site[static_cast<size_t>(o.s)] >= 0)
                     iobs[ri].emplace_back(cand_of_site[static_cast<size_t>(o.s)], o.b);
@@ -1407,8 +1414,8 @@ private:
             const int ic = cand_of_locus[li];
             if (ic < 0 || !usable(static_cast<size_t>(ic))) continue;
             for (const auto& [ri, side, e] : (*loci_)[li].observations) {
-                if (ri >= iobs.size() || ri >= chunk_.haps.size() || chunk_.haps[ri] != 0) continue;
-                if (ri < chunk_.island_haps.size() && chunk_.island_haps[ri] != 0) continue;
+                if (ri >= iobs.size() || ri >= out_.haps.size() || out_.haps[ri] != 0) continue;
+                if (ri < out_.island_haps.size() && out_.island_haps[ri] != 0) continue;
                 iobs[ri].emplace_back(ic, side);
             }
         }
@@ -1451,16 +1458,16 @@ private:
                 char text[96];
                 std::snprintf(text, sizeof(text), "; island kind=%c site=%lld err=%.3f", cands[ic].kind,
                               static_cast<long long>(cands[ic].pos), cands[ic].err);
-                pgphase_trace::read_trace(chunk_, ri)->label += text;
+                trace_of(ri)->label += text;
             }
         }
-        chunk_.island_sites.clear();
+        out_.island_sites.clear();
         for (const auto& [ic, ps] : island_ps) {
             const IslandCand& c = cands[ic];
             if (c.kind == 'W') continue;  // a window writes no VCF record
             const int hap1 = c.phase == 0 ? c.x : c.y;
             const int hap2 = c.phase == 0 ? c.y : c.x;
-            chunk_.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
+            out_.island_sites.push_back(PhasingChunk::IslandSite{c.ci, ps, hap1, hap2});
         }
         // Diagnostic, off by default: PGPHASE_DIAG=DIR writes every read an
         // island claims (islands.TID.BEG.tsv): read, site position, island PS,
@@ -1478,7 +1485,7 @@ private:
             const int own = cands[static_cast<size_t>(pick_cand[ri])].k;
             for (const EmObs& o : robs_[ri]) {
                 const size_t k = static_cast<size_t>(o.s);
-                if (o.s == own || sites_[k].locus >= 0 || chunk_.candidates[sites_[k].ci].unresolved_noisy) continue;
+                if (o.s == own || sites_[k].locus >= 0 || cands_[sites_[k].ci].unresolved_noisy) continue;
                 int& c = ++shared[{pick_cand[ri], o.s}];
                 int& m = linked_reads[static_cast<size_t>(pick_cand[ri])];
                 m = std::max(m, c);
@@ -1517,8 +1524,8 @@ private:
             const std::string path = std::string(diag_dir) + "/emsites." + std::to_string(chunk_.region.tid) + "." +
                                      std::to_string(chunk_.region.beg) + ".tsv";
             if (FILE* fh = std::fopen(path.c_str(), "w")) {
-                for (size_t ci = 0; ci < chunk_.candidates.size(); ++ci) {
-                    const CandidateVariant& c = chunk_.candidates[ci];
+                for (size_t ci = 0; ci < cands_.size(); ++ci) {
+                    const CandidateVariant& c = cands_[ci];
                     if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
                     const char type = c.key.type == VariantType::Snp ? 'S' : c.key.type == VariantType::Insertion ? 'I' : 'D';
                     const char origin = c.unresolved_noisy ? 'U' : c.bam_injected ? 'I'
@@ -1563,8 +1570,8 @@ private:
                     }
                     for (size_t k = 0; k < prof->alleles.size(); ++k) {
                         const size_t ci = static_cast<size_t>(prof->start_var_idx) + k;
-                        if (ci >= chunk_.candidates.size()) break;
-                        std::fprintf(fh, "\t%lld:%d", static_cast<long long>(chunk_.candidates[ci].key.sort_pos()),
+                        if (ci >= cands_.size()) break;
+                        std::fprintf(fh, "\t%lld:%d", static_cast<long long>(cands_[ci].key.sort_pos()),
                                      prof->alleles[k]);
                     }
                     std::fputc('\n', fh);
@@ -1608,8 +1615,8 @@ private:
         if (fh == nullptr) return;
         for (size_t ri = 0; ri < chunk_.reads.size() && ri < robs_.size(); ++ri) {
             const ReadRecord& r = chunk_.reads[ri];
-            std::fprintf(fh, "%s\t%d\t%d\t%lld\t", r.qname.c_str(), r.mapq, chunk_.haps[ri],
-                         static_cast<long long>(chunk_.phase_sets[ri]));
+            std::fprintf(fh, "%s\t%d\t%d\t%lld\t", r.qname.c_str(), r.mapq, out_.haps[ri],
+                         static_cast<long long>(out_.phase_sets[ri]));
             std::map<hts_pos_t, double> margin;
             for (const EmObs& o : robs_[ri]) {
                 if (err_[static_cast<size_t>(o.s)] >= kEmUnreliableError) continue;
@@ -1627,7 +1634,7 @@ private:
                 const EmSite& site = sites_[static_cast<size_t>(o.s)];
                 char kind = 'L';
                 if (site.locus < 0) {
-                    const CandidateVariant& c = chunk_.candidates[site.ci];
+                    const CandidateVariant& c = cands_[site.ci];
                     kind = c.unresolved_noisy ? 'U'
                          : c.bam_injected ? 'I'
                          : (c.lcd_var_i_to_cate & (kCandCleanHetSnp | kCandCleanHetIndel)) != 0 ? 'C' : 'O';
@@ -1644,10 +1651,47 @@ private:
 
 }  // namespace
 
+EmResult solve_global_em(const PhasingChunk& chunk, const std::vector<LocusWindowSite>* loci,
+                         const std::vector<char>* bridge_weak, const ObservationErrors* errors) {
+    EmResult out;
+    out.candidates = chunk.candidates;
+    out.haps = chunk.haps;
+    out.phase_sets = chunk.phase_sets;
+    out.island_haps = chunk.island_haps;
+    out.island_phase_sets = chunk.island_phase_sets;
+    out.island_sites = chunk.island_sites;
+    if (pgphase_trace::on()) out.read_trace = chunk.read_trace;
+    if (loci != nullptr) {
+        out.windows.reserve(loci->size());
+        for (const LocusWindowSite& w : *loci) out.windows.push_back(EmResult::Window{w.phase, w.block, w.error});
+    }
+    out.blocks = GlobalEm(chunk, loci, bridge_weak, errors, out).run();
+    return out;
+}
+
+void apply_em_result(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, EmResult&& result) {
+    chunk.candidates = std::move(result.candidates);
+    chunk.haps = std::move(result.haps);
+    chunk.phase_sets = std::move(result.phase_sets);
+    chunk.island_haps = std::move(result.island_haps);
+    chunk.island_phase_sets = std::move(result.island_phase_sets);
+    chunk.island_sites = std::move(result.island_sites);
+    if (pgphase_trace::on()) chunk.read_trace = std::move(result.read_trace);
+    if (loci != nullptr)
+        for (size_t li = 0; li < loci->size() && li < result.windows.size(); ++li) {
+            (*loci)[li].phase = result.windows[li].phase;
+            (*loci)[li].block = result.windows[li].block;
+            (*loci)[li].error = result.windows[li].error;
+        }
+}
+
 size_t phase_chunk_by_global_em(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci,
                                 const std::vector<char>* bridge_weak,
                                 const ObservationErrors* errors) {
-    return GlobalEm(chunk, loci, bridge_weak, errors).run();
+    EmResult result = solve_global_em(chunk, loci, bridge_weak, errors);
+    const size_t blocks = result.blocks;
+    apply_em_result(chunk, loci, std::move(result));
+    return blocks;
 }
 
 // ── Island labels ───────────────────────────────────────────────────────────
