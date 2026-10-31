@@ -25,9 +25,15 @@ bool plegma_built();
 
 /// The run's noisy-region MSA from opts.msa ("": plegma when built with it, else abPOA) and, with plegma, its
 /// homopolymer model from opts.msa_model ("": the built-in one for the read technology, none for short reads; "none";
-/// or a shasta2 csv). PGPHASE_MSA and PGPHASE_PLEGMA_MODEL override both. Called once, before any worker thread;
-/// without it, the first use takes the defaults. Throws std::runtime_error on a bad choice or model.
+/// or a shasta2 csv). Called once, before any worker thread; without it, the first use takes the defaults. Throws
+/// std::runtime_error on a bad choice or model.
 void configure_msa(const Options& opts);
+
+/// The development loop's MSA settings, read once by each command before it runs: PGPHASE_MSA and
+/// PGPHASE_PLEGMA_MODEL override opts.msa and opts.msa_model; PGPHASE_PLEGMA_NOISE_RUN=N, PGPHASE_PLEGMA_TWO_DB=X and
+/// PGPHASE_PLEGMA_ROUNDS=E[,L] set the Options::plegma_* tuning. Nothing below the command reads the environment for
+/// a setting, so a test sets these through Options.
+void apply_msa_environment(Options& opts);
 
 /// Whether the run's noisy-region MSA is plegma's.
 bool use_plegma_msa();

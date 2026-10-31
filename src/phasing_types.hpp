@@ -172,6 +172,14 @@ struct Options {
     std::string msa;
     /// plegma's homopolymer model: "" the built-in one for read_technology, "none", or a shasta2 csv.
     std::string msa_model;
+    /// plegma's tuning (development: PGPHASE_PLEGMA_NOISE_RUN, _TWO_DB and _ROUNDS set them, apply_msa_environment).
+    /// Clusters apart only by single letters in runs of this many or more are one (0: never; -1: plegma's default).
+    int plegma_noise_run = -1;
+    /// dB two homopolymer lengths must gain over one to stay apart (< 0: each path's own, 5 or 8 dB).
+    float plegma_two_lengths_db = -1.0f;
+    /// Polishing rounds by edit distance, then by likelihood (plegma poa -P; < 0: plegma's defaults).
+    int plegma_edit_rounds = -1;
+    int plegma_likely_rounds = -1;
     double strand_bias_pval = kDefaultStrandBiasPvalOnt;
     int noisy_reg_max_xgaps = kDefaultNoisyRegMaxXgaps;
     /// Merge co-located MSA alleles into one multiallelic record.

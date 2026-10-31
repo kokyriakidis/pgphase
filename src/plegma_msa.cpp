@@ -52,8 +52,6 @@ bool msa_configured = false;
 void choose_msa(const Options& opts) {
     MsaChoice& choice = msa_choice();
     std::string msa = opts.msa;
-    // PGPHASE_MSA and PGPHASE_PLEGMA_MODEL override the options (the development loop sets them).
-    if (const char* env = std::getenv("PGPHASE_MSA"); env != nullptr && *env != 0) msa = env;
     if (msa.empty()) msa = plegma_built() ? "plegma" : "abpoa";
     if (msa != "plegma" && msa != "abpoa") throw std::runtime_error("--msa " + msa + ": not plegma or abpoa");
     if (msa == "plegma" && !plegma_built())
@@ -63,8 +61,7 @@ void choose_msa(const Options& opts) {
 #ifdef PGPHASE_PLEGMA
     choice.model.reset();
     if (!choice.plegma) return;
-    std::string path = opts.msa_model;
-    if (const char* env = std::getenv("PGPHASE_PLEGMA_MODEL"); env != nullptr && *env != 0) path = env;
+    const std::string& path = opts.msa_model;
     if (path == "none") return;
     if (!path.empty()) {
         choice.model = std::make_unique<plegma::Model>(plegma::Model::load(path));
@@ -96,6 +93,21 @@ bool plegma_built() {
 #else
     return false;
 #endif
+}
+
+void apply_msa_environment(Options& opts) {
+    if (const char* env = std::getenv("PGPHASE_MSA"); env != nullptr && *env != 0) opts.msa = env;
+    if (const char* env = std::getenv("PGPHASE_PLEGMA_MODEL"); env != nullptr && *env != 0) opts.msa_model = env;
+    if (const char* run = std::getenv("PGPHASE_PLEGMA_NOISE_RUN")) opts.plegma_noise_run = std::atoi(run);
+    if (const char* db = std::getenv("PGPHASE_PLEGMA_TWO_DB"))
+        opts.plegma_two_lengths_db = static_cast<float>(std::atof(db));
+    if (const char* rounds = std::getenv("PGPHASE_PLEGMA_ROUNDS")) {
+        int edit = 50, likely = 20;
+        if (std::sscanf(rounds, "%d,%d", &edit, &likely) >= 1) {
+            opts.plegma_edit_rounds = edit;
+            opts.plegma_likely_rounds = likely;
+        }
+    }
 }
 
 void configure_msa(const Options& opts) {
@@ -257,8 +269,8 @@ void remember_inputs(const char* kind, const PlegmaInput& in, const std::vector<
 /// 29,450 -> 29,446, arm reads +38 correct, -24 discordant; 12 dB 197 false for 29,441 true, 20 dB 186 for 29,430.
 constexpr float kClusteredTwoLengthsDb = 8.0f;
 
-/// pgphase's scoring and the PGPHASE_PLEGMA_* knobs as plegma's options; `two_lengths_db` the PS-aware path's 5 dB
-/// unless given (the no-PS path's is kClusteredTwoLengthsDb).
+/// pgphase's scoring and plegma's tuning (Options::plegma_*) as plegma's options; `two_lengths_db` the PS-aware path's
+/// 5 dB unless given (the no-PS path's is kClusteredTwoLengthsDb).
 plegma::Options options_of(const Options& opts, float two_lengths_db = 5.0f) {
     plegma::Options options = plegma::Options()
                                   .pinned(false)
@@ -267,15 +279,10 @@ plegma::Options options_of(const Options& opts, float two_lengths_db = 5.0f) {
                                   // On HG002 HiFi chr12, 18 and 20, 5 dB against plegma's 15: 22 fewer true hets of
                                   // 28,259 for 77 fewer false of 282, the phasing as good.
                                   .twoLengthsDb(two_lengths_db);
-    // PGPHASE_PLEGMA_NOISE_RUN=N: clusters apart only by single letters in runs of N or more are one (0: never).
-    if (const char* run = std::getenv("PGPHASE_PLEGMA_NOISE_RUN")) options.noiseRun(std::atoi(run));
-    // PGPHASE_PLEGMA_TWO_DB=X: dB two homopolymer lengths must gain over one to stay apart.
-    if (const char* db = std::getenv("PGPHASE_PLEGMA_TWO_DB")) options.twoLengthsDb(static_cast<float>(std::atof(db)));
-    // PGPHASE_PLEGMA_ROUNDS=E,L: polishing rounds by edit distance, then by likelihood (plegma poa -P).
-    if (const char* rounds = std::getenv("PGPHASE_PLEGMA_ROUNDS")) {
-        int edit = 50, likely = 20;
-        if (std::sscanf(rounds, "%d,%d", &edit, &likely) >= 1) options.polishRounds(edit).likelyRounds(likely);
-    }
+    if (opts.plegma_noise_run >= 0) options.noiseRun(opts.plegma_noise_run);
+    if (opts.plegma_two_lengths_db >= 0.0f) options.twoLengthsDb(opts.plegma_two_lengths_db);
+    if (opts.plegma_edit_rounds >= 0)
+        options.polishRounds(opts.plegma_edit_rounds).likelyRounds(opts.plegma_likely_rounds);
     return options;
 }
 

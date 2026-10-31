@@ -1135,6 +1135,7 @@ int collect_bam_variation(int argc, char* argv[]) {
     // Use longcallD's BAM phasing and MSA behavior. These assignments override
     // shared defaults used by the graph path; see Options for each gate.
     use_longcalld_bam_options(opts);
+    apply_msa_environment(opts);
 
     try {
         run_collect_bam_variation(opts);

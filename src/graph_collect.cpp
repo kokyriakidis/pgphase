@@ -1613,6 +1613,7 @@ int collect_graph_variation(int argc, char* argv[]) {
         return 1;
     }
 
+    apply_msa_environment(opts);
     try {
         run_collect_graph_variation(opts);
     } catch (const std::exception& e) {
