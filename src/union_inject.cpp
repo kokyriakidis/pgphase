@@ -892,9 +892,10 @@ void find_additive_calls(const GraphChunkBuildResult& graph_chunk, const Phasing
         const hts_pos_t c0 = c.key.pos - 1, c1 = c0 + c.key.ref_len;
         for (const size_t r : voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len))) {
             if (graph.candidates[r].counts.alle_covs.size() != 2) continue;
-            const std::optional<RowAllele> allele = row_allele(graph_chunk, r);
+            const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, r);
             if (!allele) continue;
-            const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
+            const std::string& row_ref = allele->ref;
+            const std::string& row_alt = allele->alt;
             // A substitution row: its bases one for one.
             if (row_ref.size() != row_alt.size() || row_alt.find_first_not_of("ACGT") != std::string::npos) continue;
             const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
@@ -989,9 +990,10 @@ void unwrite_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, const Pha
             // As select_sites: a SNP beside a row SNP is not another description of it.
             if (c.key.type == VariantType::Snp && rk.type == VariantType::Snp &&
                 (rk.pos + rk.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= rk.pos)) continue;
-            const std::optional<RowAllele> allele = row_allele(graph_chunk, r);
+            const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, r);
             if (!allele) continue;
-            const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
+            const std::string& row_ref = allele->ref;
+            const std::string& row_alt = allele->alt;
             const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
             if (!is_acgt(row_alt) || ref.slice(r0, r1) != row_ref || in_msa_region(r0, r1)) continue;
             const hts_pos_t lo = std::min(r0, c0), hi = std::max(r1, c1);
@@ -1062,9 +1064,10 @@ void unwrite_edge_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, cons
         const CandidateVariant& row = graph.candidates[ci];
         if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0 || row.counts.alle_covs.size() != 2 ||
             sel.unwritten_rows.count(ci) != 0) continue;
-        const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+        const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, ci);
         if (!allele) continue;
-        const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
+        const std::string& row_ref = allele->ref;
+        const std::string& row_alt = allele->alt;
         const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
         bool edge = false;
         for (const PhasingChunk::MsaRegion& region : bam.msa_regions)

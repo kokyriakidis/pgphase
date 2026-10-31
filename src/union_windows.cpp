@@ -380,14 +380,12 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) continue;
             if (c.counts.category != VariantCategory::RepeatHetIndel &&
                 c.counts.category != VariantCategory::NoisyCandHet) continue;
-            const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
-            if (!allele || !is_acgt(*allele->ref) || !is_acgt(*allele->alt) || *allele->ref == *allele->alt) continue;
+            const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, ci);
+            if (!allele || !is_acgt(allele->ref) || !is_acgt(allele->alt) || allele->ref == allele->alt) continue;
             const hts_pos_t p0 = allele->pos - 1;
-            const int ref_len = static_cast<int>(allele->ref->size());
-            std::string s0 = *allele->ref, s1 = *allele->alt;
-            for (char& ch : s0) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            const int ref_len = static_cast<int>(allele->ref.size());
+            std::string s0 = allele->ref, s1 = allele->alt;
             if (ref.slice(p0, p0 + ref_len) != s0) continue;
-            for (char& ch : s1) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci), "catalog"});
         }
     }

@@ -380,13 +380,13 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
             seq1 = upper(c.key.alt);
         } else {
             if (!have_meta) continue;
-            const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
-            if (!allele || !is_acgt(*allele->ref) || !is_acgt(*allele->alt)) continue;
+            const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, ci);
+            if (!allele || !is_acgt(allele->ref) || !is_acgt(allele->alt)) continue;
             p0 = allele->pos - 1;
-            ref_len = static_cast<int>(allele->ref->size());
-            seq0 = upper(*allele->ref);
+            ref_len = static_cast<int>(allele->ref.size());
+            seq0 = allele->ref;
             if (ref.slice(p0, p0 + ref_len) != seq0) continue;
-            seq1 = upper(*allele->alt);
+            seq1 = allele->alt;
         }
         if (seq0 == seq1) continue;
         const hts_pos_t end0 = p0 + ref_len;
