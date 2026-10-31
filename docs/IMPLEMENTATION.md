@@ -263,8 +263,8 @@ output byte for byte the same.
 
 With `--bam`, the alignment's sample-specific sites join the catalog's sites
 **before** phasing, and one solve phases them all.
-The model is in `src/union_*.cpp`, one file per stage (`union_inject`,
-`union_reads`, `union_em`, `union_windows`; `union_phase` is the driver); `collect_pipeline.cpp` runs the
+The model is in `src/union_*.cpp`, one file per stage (`union_select`, the injection plan, and `union_inject`,
+which applies it; `union_reads`, `union_em`, `union_windows`; `union_phase` is the driver); `collect_pipeline.cpp` runs the
 alignment solve (`inject_alignment_private_sites`); `graph_collect.cpp` wires it
 per chunk. Chunk stitching and read rescue run after the batch, then the EM's
 island labels (step 10) for reads still unphased. `--min-mapq` defaults to 1 and `--chunk-size` to 1000000 with

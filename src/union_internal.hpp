@@ -28,6 +28,17 @@
 
 namespace pgphase_collect {
 
+// Which of the alignment solve's reads take part in what, by MAPQ. Its records are primary alignments only
+// (bam_digar drops secondary and supplementary ones as it loads them); a read with too many variants is marked
+// is_skipped and makes no call, gives no allele support and no EM observation.
+//   >= 1   kUnionAlignmentMinMapq (collect_pipeline.cpp): loaded into the alignment solve, its calls and its MSA.
+//   >= 5   kLocusMinMapq: spells windows (SpanningReadIndex; skipped reads too: leaving them out gained nothing).
+//   >= 20  kAddedReadMinMapq: added to the graph chunk where the GAF lacks it (add_alignment_only_reads).
+//   >= 20  kEmLearnMinMapq (union_em.cpp): the EM learns its sites' error rates from it.
+//   >= 30  kConfidentReadMinMapq: confident allele support at injection (AlignmentSupport, union_select.cpp).
+//   >= 30  kMinPhysicalValidationMapq (graph_collect.cpp; --min-mapq if higher): physical evidence for a catalog SNP.
+constexpr int kConfidentReadMinMapq = kDefaultMinMapq;
+
 // Noisy calls closer than this merge into one locus; padding; the longest
 // window; the MAPQ a read needs to take part; reads per window; seed sample
 // per side; minimum reads per side and minor fraction; the edit-distance margin

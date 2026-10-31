@@ -39,13 +39,14 @@ SOURCES_CXX = src/main.cpp \
 	src/graph_query.cpp \
 	src/union_phase.cpp \
 	src/union_inject.cpp \
+	src/union_select.cpp \
 	src/union_em.cpp \
 	src/union_windows.cpp \
 	src/union_reads.cpp
 SOURCES_C = src/sdust.c src/cgranges.c src/kalloc.c
 
 OBJS = $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(PLEGMA_OBJS)
-UNION_OBJS = src/union_phase.o src/union_inject.o src/union_em.o src/union_windows.o src/union_reads.o
+UNION_OBJS = src/union_phase.o src/union_inject.o src/union_select.o src/union_em.o src/union_windows.o src/union_reads.o
 EDLIB_OBJ = src/edlib.o
 OBJS += $(EDLIB_OBJ)
 

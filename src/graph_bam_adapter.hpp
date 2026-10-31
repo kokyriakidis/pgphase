@@ -64,7 +64,7 @@ struct GraphSiteMeta {
     bool bam_low_fraction_snp = false;
     // Written no record; its alleles still serve the reads' calls (unlike an empty REF).
     bool no_record = false;
-    // Written 1/1: both consensus sequences of the MSA region it lies in carry its allele (union_inject.cpp).
+    // Written 1/1: both consensus sequences of the MSA region it lies in carry its allele (union_select.cpp).
     bool msa_hom = false;
 };
 

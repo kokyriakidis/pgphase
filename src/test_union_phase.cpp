@@ -2,6 +2,7 @@
 
 #include "union_phase.hpp"
 #include "union_internal.hpp"
+#include "union_select.hpp"
 
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
@@ -378,6 +379,16 @@ static void test_inject_selects_private_sites() {
     bam.read_var_profile.push_back(profile(7, 2, {1}));
     bam.reads.push_back(read_named("x8", 60));
     bam.read_var_profile.push_back(profile(8, 1, {1}));
+
+    // The plan alone (union_select.cpp): what enters and as what, the chunk untouched.
+    const Selection plan = plan_injection(gc, bam, false);
+    const std::set<size_t> planned(plan.selected.begin(), plan.selected.end());
+    check(graph.candidates.size() == 1 && gc.site_meta.size() == 1, "plan: the graph chunk unchanged");
+    check(planned.count(0) == 1 && planned.count(1) == 1, "plan: SNP 100 and SNP 200 selected");
+    check(planned.count(2) == 0 && planned.count(3) == 0, "plan: the low-MAPQ hom and the unverified het are not");
+    check(planned.count(4) + planned.count(5) >= 1, "plan: the homopolymer insertion selected");
+    check(plan.complement_rows.count(0) == 1 && plan.complement_rows.count(1) == 0,
+          "plan: SNP 100 describes the voting graph row (its complement), SNP 200 none");
 
     const size_t added = inject_alignment_sites(gc, bam, "chr1");
     // SNP 100 overlaps the voting graph row: it joins as a hidden complement
