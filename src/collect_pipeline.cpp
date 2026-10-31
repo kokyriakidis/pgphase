@@ -792,7 +792,18 @@ size_t inject_alignment_private_sites(GraphChunkBuildResult& graph_chunk,
     region.tid = solve_tid;
     region.beg = graph.ref_beg;
     region.end = graph.ref_end;
-    auto bam = std::make_unique<PhasingChunk>(process_chunk(region, union_alignment_options(opts), context));
+    // The catalog's alleles, for the solve's noisy regions where the pileup describes a locus otherwise.
+    std::vector<CatalogLocus> catalog_loci;
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        if (!is_catalog_row(graph.candidates[ci])) continue;
+        const std::optional<VcfAllele> a = row_vcf_allele(graph_chunk, ci);
+        if (!a || a->ref == a->alt) continue;
+        catalog_loci.push_back(CatalogLocus{a->pos, a->pos + static_cast<hts_pos_t>(a->ref.size()) - 1,
+                                            vcf_to_variant_key(solve_tid, a->pos, a->ref, a->alt)});
+    }
+    Options solve_opts = union_alignment_options(opts);
+    solve_opts.catalog_loci = &catalog_loci;
+    auto bam = std::make_unique<PhasingChunk>(process_chunk(region, solve_opts, context));
     // Trace: each graph read's label in the alignment solve (its k-means haplotype and phase set).
     if (pgphase_trace::on()) {
         std::unordered_map<std::string_view, size_t> graph_read;

@@ -133,6 +133,8 @@ enum class OutputAlignmentFormat : uint8_t {
 /**
  * @brief Parsed CLI state for collect-bam-variation (threads, thresholds, paths, regions).
  */
+struct CatalogLocus;
+
 struct Options {
     int threads = 1;
     int min_mapq = kDefaultMinMapq;
@@ -404,6 +406,9 @@ struct Options {
     /// Not a setting: the task pool of the batch's workers (run_graph_chunk_batch), on which a chunk's noisy-region
     /// MSAs run at once; null, one at a time.
     TaskPool* tasks = nullptr;
+    /// The graph chunk's catalog alleles, for the --bam alignment solve (union gap phasing; not a setting): where one
+    /// and a different pileup call lie close together, the locus is a noisy region its MSA resolves.
+    const std::vector<CatalogLocus>* catalog_loci = nullptr;
 
     /**
      * @brief The first BAM path; empty when there is none.
@@ -477,6 +482,14 @@ struct VariantKey {
     hts_pos_t sort_pos() const {
         return type == VariantType::Snp ? pos : pos - 1;
     }
+};
+
+/// A catalog row's allele in minimal VCF form, as the alignment solve sees it: its key (vcf_to_variant_key) and the
+/// 1-based reference span [beg, end] it replaces.
+struct CatalogLocus {
+    hts_pos_t beg = 0;
+    hts_pos_t end = 0;
+    VariantKey key;
 };
 
 /**

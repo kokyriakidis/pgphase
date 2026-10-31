@@ -27,6 +27,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace pgphase_collect {
@@ -1903,6 +1904,49 @@ static void classify_cand_vars_pgphase(PhasingChunk& chunk, const Options& opts)
 
     std::free(ovlp_b);
     cr_destroy(var_pos_cr);
+
+    // A catalog allele with a pileup call within kCatalogPileupGap bp of it that no catalog allele is: two descriptions
+    // of one locus, resolved by the region's MSA (union gap phasing's alignment solve).
+    if (opts.catalog_loci != nullptr && !opts.catalog_loci->empty()) {
+        constexpr hts_pos_t kCatalogPileupGap = 10;
+        constexpr hts_pos_t kMaxPileupSpan = 1000;  // a longer pileup call starting further back is not looked for
+        using KeyTuple = std::tuple<VariantType, hts_pos_t, int, std::string>;
+        const auto tuple_of = [](const VariantKey& k) { return KeyTuple{k.type, k.pos, k.ref_len, k.alt}; };
+        std::vector<KeyTuple> catalog_keys;
+        for (const CatalogLocus& locus : *opts.catalog_loci)
+            if (locus.end >= reg_beg && locus.beg <= reg_end) catalog_keys.push_back(tuple_of(locus.key));
+        std::sort(catalog_keys.begin(), catalog_keys.end());
+        std::vector<std::pair<hts_pos_t, size_t>> by_pos;  // pileup candidates by start
+        for (size_t i = 0; i < variants.size(); ++i) {
+            if (cats[i] == VariantCategory::LowCoverage || cats[i] == VariantCategory::NonVariant ||
+                cats[i] == VariantCategory::StrandBias) continue;
+            if (std::binary_search(catalog_keys.begin(), catalog_keys.end(), tuple_of(variants[i].key))) continue;
+            by_pos.emplace_back(variants[i].key.pos, i);
+        }
+        std::sort(by_pos.begin(), by_pos.end());
+        for (const CatalogLocus& locus : *opts.catalog_loci) {
+            if (locus.end < reg_beg || locus.beg > reg_end) continue;
+            hts_pos_t lo = locus.beg, hi = locus.end;
+            bool differs = false;
+            for (auto it = std::lower_bound(by_pos.begin(), by_pos.end(),
+                                            std::make_pair(locus.beg - kCatalogPileupGap - kMaxPileupSpan, size_t{0}));
+                 it != by_pos.end() && it->first <= locus.end + kCatalogPileupGap; ++it) {
+                const VariantKey& k = variants[it->second].key;
+                hts_pos_t vs = 0, ve = 0;
+                variant_genomic_span(k, vs, ve);
+                if (ve < locus.beg - kCatalogPileupGap) continue;
+                differs = true;
+                lo = std::min(lo, vs);
+                hi = std::max(hi, ve);
+            }
+            if (!differs) continue;
+            VariantKey span;
+            span.type = VariantType::Deletion;
+            span.pos = lo;
+            span.ref_len = static_cast<int>(hi - lo + 1);
+            cr_add_var_to_noisy_cr(noisy_var_cr, low_comp, span, chunk, false, opts);
+        }
+    }
 
     if (noisy_var_cr->n_r > 0) {
         cr_index(noisy_var_cr);
