@@ -564,6 +564,19 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
         const int dev = d - len;
         return std::abs(dev) <= kLengthMaxDev ? logp[b][dev + kLengthMaxDev] : floor;
     };
+    // A read's term under two lengths depends only on its deviation from each (within kLengthMaxDev, or beyond: the
+    // floor), so it is tabulated per bucket: the same values, where computing them per read and per pair of lengths
+    // (two exp and a log each) was 45% of a pericentromeric chunk's union solve (chr20:27 Mb, graph-native BAM).
+    constexpr int kOut = 2 * kLengthMaxDev + 1;
+    const auto dev_index = [](int dev) { return std::abs(dev) <= kLengthMaxDev ? dev + kLengthMaxDev : kOut; };
+    std::vector<std::array<std::array<double, kOut + 1>, kOut + 1>> mix(nb);
+    for (int b = 0; b < nb; ++b)
+        for (int i = 0; i <= kOut; ++i)
+            for (int j = 0; j <= kOut; ++j) {
+                const double a = i == kOut ? floor : logp[b][i], bb = j == kOut ? floor : logp[b][j];
+                const double m = std::max(a, bb);
+                mix[b][i][j] = m + std::log(0.5 * std::exp(a - m) + 0.5 * std::exp(bb - m));
+            }
     // Diagnostic, off by default: PGPHASE_DIAG=DIR writes every length window
     // (lengthwin.TID.BEG.tsv): 1-based window start and end, repeat period,
     // tract bp, the two lengths (change from the reference), het score,
@@ -588,11 +601,7 @@ std::vector<LocusWindowSite> build_length_window_sites(const PhasingChunk& bam,
         for (int x = lo - 1; x <= hi + 1; ++x) {
             for (int y = x + 1; y <= hi + 1; ++y) {
                 double s = 0.0;
-                for (const auto& [ri, d] : l.reads) {
-                    const double a = lp(b, d, x), bb = lp(b, d, y);
-                    const double m = std::max(a, bb);
-                    s += m + std::log(0.5 * std::exp(a - m) + 0.5 * std::exp(bb - m));
-                }
+                for (const auto& [ri, d] : l.reads) s += mix[b][dev_index(d - x)][dev_index(d - y)];
                 if (s > ll2) { ll2 = s; c1 = x; c2 = y; }
             }
         }
