@@ -54,16 +54,10 @@ std::vector<char> bridge_weak_sites(const GraphChunkBuildResult& graph_chunk, co
             continue;
         }
         if (have_meta && !c.bam_injected) {
-            const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-            // The row's two alleles (orig[0] is REF unless it is a 1/2 row).
-            const auto allele_len = [&](int a) -> long {
-                return a == 0 ? static_cast<long>(meta.ref.size())
-                              : static_cast<long>(meta.alts[static_cast<size_t>(a) - 1].size());
-            };
-            if (orig.size() < 2 || orig[0] < 0 || orig[1] < 1 || static_cast<size_t>(orig[0]) > meta.alts.size() ||
-                static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
-            if (std::abs(allele_len(orig[1]) - allele_len(orig[0])) == 1) weak[ci] = 1;
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+            if (!allele) continue;
+            if (std::abs(static_cast<long>(allele->alt->size()) - static_cast<long>(allele->ref->size())) == 1)
+                weak[ci] = 1;
         }
     }
     return weak;
@@ -116,14 +110,10 @@ void phase_chunk_with_alignment_sites(GraphChunkBuildResult& graph_chunk, const 
         if (c.counts.category != VariantCategory::RepeatHetIndel) continue;
         // A simple insertion or deletion only: a catalog walk (a long replacement) the window phases as a whole
         // contradicted the SNPs written inside it (chr20:20,415,921, 41 bases over a SNP on its haplotype).
-        if (static_cast<size_t>(w.catalog_row) >= graph_chunk.site_meta.size() ||
-            static_cast<size_t>(w.catalog_row) >= graph_chunk.site_allele_orig_idx.size()) continue;
-        const GraphSiteMeta& meta = graph_chunk.site_meta[static_cast<size_t>(w.catalog_row)];
-        const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[static_cast<size_t>(w.catalog_row)];
-        if (orig.size() < 2 || orig[0] != 0 || orig[1] < 1 || static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
-        hts_pos_t vpos = meta.pos;
-        std::string vref = meta.ref, valt = meta.alts[static_cast<size_t>(orig[1]) - 1];
-        trim_to_minimal_vcf(vpos, vref, valt);
+        const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, static_cast<size_t>(w.catalog_row));
+        if (!allele) continue;
+        const std::string& vref = allele->ref;
+        const std::string& valt = allele->alt;
         if (vref.size() == valt.size() || std::min(vref.size(), valt.size()) != 1 || vref[0] != valt[0]) continue;
         c.hap_to_cons_alle[1] = w.phase;
         c.hap_to_cons_alle[2] = 1 - w.phase;

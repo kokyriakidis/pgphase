@@ -117,6 +117,29 @@ void rebuild_read_var_cr(PhasingChunk& chunk);
 const std::string* selected_graph_candidate_alt(
     const GraphChunkBuildResult& graph_chunk, size_t candidate_index);
 
+/// The sequence of a row's allele `k` (its profile's allele index) over its site: the site's REF for the reference
+/// walk, else that walk's ALT (site_allele_orig_idx). Catalog alleles carry the site's full flanks, so each replaces
+/// all of REF. Null where the row has no allele k or no meta (a row the writer skips has an empty REF).
+const std::string* row_allele_seq(const GraphChunkBuildResult& graph_chunk, size_t ci, size_t k);
+
+/// A row's change as its site holds it: the site's REF to the row's allele 1. A row's allele 0 is its site's REF
+/// (Phase 2 splits every site into REF/ALT rows; an injected row's alleles are 0, 1[, 2]).
+struct RowAllele {
+    hts_pos_t pos = 0;  // 1-based, of ref[0]
+    const std::string* ref = nullptr;  // the site's whole REF: a 13-allele site's is 753 bp (chr20:23,847,472)
+    const std::string* alt = nullptr;
+};
+std::optional<RowAllele> row_allele(const GraphChunkBuildResult& graph_chunk, size_t ci);
+
+/// The row's change in minimal VCF form (upper case, trim_to_minimal_vcf): the reference the row's allele itself
+/// replaces, [pos - 1, pos - 1 + ref.size()) 0-based. Of that 753 bp REF one row's allele replaces 702 bp, another's
+/// one base.
+struct VcfAllele {
+    hts_pos_t pos = 0;  // 1-based
+    std::string ref, alt;
+};
+std::optional<VcfAllele> row_vcf_allele(const GraphChunkBuildResult& graph_chunk, size_t ci);
+
 /// Fill missing phased SNP observations from unique, identical catalog branches.
 /// Keeps the original candidate counts, genotypes, PS labels and read gauges;
 /// conflicting source observations, repeated branches and gated children abstain.

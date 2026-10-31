@@ -382,24 +382,13 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0) continue;
             if (c.counts.category != VariantCategory::RepeatHetIndel &&
                 c.counts.category != VariantCategory::NoisyCandHet) continue;
-            const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-            if (meta.pos <= 0 || meta.ref.empty() || orig.size() < 2) continue;
-            const auto allele_seq = [&meta](int k) -> const std::string* {
-                if (k == 0) return &meta.ref;
-                return k >= 1 && static_cast<size_t>(k) <= meta.alts.size() ? &meta.alts[static_cast<size_t>(k) - 1]
-                                                                            : nullptr;
-            };
-            const std::string* a0 = allele_seq(orig[0]);
-            const std::string* a1 = allele_seq(orig[1]);
-            if (a0 == nullptr || a1 == nullptr || !is_acgt(*a0) || !is_acgt(*a1) || *a0 == *a1) continue;
-            const hts_pos_t p0 = meta.pos - 1;
-            const int ref_len = static_cast<int>(meta.ref.size());
-            std::string expected = meta.ref;
-            for (char& ch : expected) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-            if (ref.slice(p0, p0 + ref_len) != expected) continue;
-            std::string s0 = *a0, s1 = *a1;
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+            if (!allele || !is_acgt(*allele->ref) || !is_acgt(*allele->alt) || *allele->ref == *allele->alt) continue;
+            const hts_pos_t p0 = allele->pos - 1;
+            const int ref_len = static_cast<int>(allele->ref->size());
+            std::string s0 = *allele->ref, s1 = *allele->alt;
             for (char& ch : s0) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+            if (ref.slice(p0, p0 + ref_len) != s0) continue;
             for (char& ch : s1) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci), "catalog"});
         }

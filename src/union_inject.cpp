@@ -182,25 +182,6 @@ static CandKey left_aligned_indel_key(const CandidateVariant& c, const PhasingCh
 
 namespace {
 
-// A graph row's own catalog allele, as written: the site's REF and the row's ALT (site_allele_orig_idx), both still
-// carrying the site's full flanks. Empty where the row has no usable meta.
-struct RowAllele {
-    hts_pos_t pos = 0;  // 1-based, of ref[0]
-    const std::string* ref = nullptr;
-    const std::string* alt = nullptr;
-};
-
-std::optional<RowAllele> row_allele(const GraphChunkBuildResult& graph_chunk, size_t r) {
-    if (graph_chunk.site_meta.size() != graph_chunk.chunk.candidates.size() ||
-        graph_chunk.site_allele_orig_idx.size() != graph_chunk.chunk.candidates.size()) return std::nullopt;
-    const GraphSiteMeta& meta = graph_chunk.site_meta[r];
-    const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
-    const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
-    if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size()))
-        return std::nullopt;
-    return RowAllele{meta.pos, &meta.ref, &meta.alts[static_cast<size_t>(alt_i)]};
-}
-
 // Rows that already vote describe this locus. An alignment call overlapping
 // one is another description of it: it joins as a hidden complement site
 // (no VCF record) carrying the alignment's calls, because the graph often
@@ -224,14 +205,9 @@ public:
             // Its interior only (a base off each end): a call beside the allele, an insertion at its last base, is not
             // another description of it (chr20:23,848,189 C>CTGTT after that 702 bp walk, hidden as its complement
             // and then written by nothing when the walk lost a conflict).
-            if (const std::optional<RowAllele> a = row_allele(graph_chunk, ci)) {
-                hts_pos_t pos = a->pos;
-                std::string ref = *a->ref, alt = *a->alt;
-                trim_to_minimal_vcf(pos, ref, alt);
-                if (ref.size() > 2) {
-                    beg = std::min(beg, pos);
-                    end = std::max(end, pos - 2 + static_cast<hts_pos_t>(ref.size()));
-                }
+            if (const std::optional<VcfAllele> a = row_vcf_allele(graph_chunk, ci); a && a->ref.size() > 2) {
+                beg = std::min(beg, a->pos);
+                end = std::max(end, a->pos - 2 + static_cast<hts_pos_t>(a->ref.size()));
             }
             if (end - beg > kUnionMaxComplementRowSpan) continue;
             spans_.emplace_back(beg, end, ci);
@@ -722,13 +698,11 @@ void genotype_substitution_rows(const GraphChunkBuildResult& graph_chunk, const 
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
         if (graph.candidates[ci].counts.alle_covs.size() != 2 || meta.ref.empty() || sel.unwritten_rows.count(ci) != 0)
             continue;
-        const std::vector<int>* orig =
-            ci < graph_chunk.site_allele_orig_idx.size() ? &graph_chunk.site_allele_orig_idx[ci] : nullptr;
-        const int alt_i = (orig != nullptr && orig->size() > 1 ? (*orig)[1] : 1) - 1;
-        if (alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
-        hts_pos_t pos = meta.pos;
-        std::string ref = meta.ref, alt = meta.alts[static_cast<size_t>(alt_i)];
-        trim_to_minimal_vcf(pos, ref, alt);
+        const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, ci);
+        if (!allele) continue;
+        const hts_pos_t pos = allele->pos;
+        const std::string& ref = allele->ref;
+        const std::string& alt = allele->alt;
         if (ref.size() != alt.size() || ref == alt) continue;
         int changed = 0, by_none = 0, by_both = 0;
         for (size_t i = 0; i < ref.size(); ++i) {
@@ -767,15 +741,11 @@ void unwrite_indel_rows_msa_lacks(const GraphChunkBuildResult& graph_chunk, cons
         const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
         if (graph.candidates[ci].counts.alle_covs.size() != 2 || meta.ref.empty() || sel.unwritten_rows.count(ci) != 0)
             continue;
-        const std::vector<int>* orig =
-            ci < graph_chunk.site_allele_orig_idx.size() ? &graph_chunk.site_allele_orig_idx[ci] : nullptr;
-        const int alt_i = (orig != nullptr && orig->size() > 1 ? (*orig)[1] : 1) - 1;
-        if (alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
-        hts_pos_t pos = meta.pos;
-        std::string ref = meta.ref, alt = meta.alts[static_cast<size_t>(alt_i)];
-        for (char& ch : ref) ch = upper(ch);
-        for (char& ch : alt) ch = upper(ch);
-        trim_to_minimal_vcf(pos, ref, alt);
+        const std::optional<VcfAllele> allele = row_vcf_allele(graph_chunk, ci);
+        if (!allele) continue;
+        const hts_pos_t pos = allele->pos;
+        const std::string& ref = allele->ref;
+        const std::string& alt = allele->alt;
         // A simple indel after its padding base.
         if (ref.size() == alt.size() || std::min(ref.size(), alt.size()) != 1 || ref[0] != alt[0]) continue;
         const bool deletion = ref.size() > alt.size();
@@ -923,14 +893,12 @@ void find_additive_calls(const GraphChunkBuildResult& graph_chunk, const Phasing
         const hts_pos_t c0 = c.key.pos - 1, c1 = c0 + c.key.ref_len;
         for (const size_t r : voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len))) {
             if (graph.candidates[r].counts.alle_covs.size() != 2) continue;
-            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
-            const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
-            if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
-            const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, r);
+            if (!allele) continue;
+            const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
             // A substitution row: its bases one for one.
             if (row_ref.size() != row_alt.size() || row_alt.find_first_not_of("ACGT") != std::string::npos) continue;
-            const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+            const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
             if (ref.slice(r0, r1) != row_ref) continue;
             const hts_pos_t lo = std::min(r0, c0), hi = std::max(r1, c1);
             const hts_pos_t w0 = std::max<hts_pos_t>(0, lo - ref.repeat_left(lo) - kAlleleWindowFlank);
@@ -1095,12 +1063,10 @@ void unwrite_edge_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, cons
         const CandidateVariant& row = graph.candidates[ci];
         if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0 || row.counts.alle_covs.size() != 2 ||
             sel.unwritten_rows.count(ci) != 0) continue;
-        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-        const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-        const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
-        if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
-        const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
-        const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+        const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+        if (!allele) continue;
+        const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
+        const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
         bool edge = false;
         for (const PhasingChunk::MsaRegion& region : bam.msa_regions)
             if (region.het() && region.beg <= r1 && r0 <= region.end && (r0 <= region.beg || r1 >= region.end)) edge = true;
@@ -1200,12 +1166,9 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             for (int i = 0; i < c.key.ref_len; ++i) call_ref.push_back(base(c.key.pos + i));
             const auto call = normalize_candidate_identity(c.key.pos, call_ref, c.key.alt, base);
             const size_t r = rows[0];
-            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
-            if (!call || meta.ref.empty() || orig.size() < 2 || orig[0] != 0 || orig[1] < 1 ||
-                static_cast<size_t>(orig[1]) > meta.alts.size()) continue;
-            const auto row = normalize_candidate_identity(meta.pos, meta.ref, meta.alts[static_cast<size_t>(orig[1]) - 1],
-                                                          base);
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, r);
+            if (!call || !allele) continue;
+            const auto row = normalize_candidate_identity(allele->pos, *allele->ref, *allele->alt, base);
             if (row && *row == *call) row_aln_phase.emplace(r, std::make_pair(c.phase_set, h[1]));
         }
     }

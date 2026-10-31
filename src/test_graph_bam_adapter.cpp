@@ -246,6 +246,48 @@ static bool test_joint_candidate_loci() {
     return ok;
 }
 
+// A row's alleles over its site (row_allele_seq, row_allele, row_vcf_allele): a 13-allele-like site whose REF carries
+// the site's flanks; each row's own change is its ALT trimmed against that REF.
+static bool test_row_alleles() {
+    bool ok = true;
+    GraphChunkBuildResult gc;
+    gc.chunk.candidates.resize(5);
+    GraphSiteMeta site;
+    site.pos = 100;
+    site.ref = "ACGTTTTGCA";
+    site.alts = {"ACGTTTTGTA", "ACGTTGCA", "acgttttgca", "*"};
+    gc.site_meta.assign(5, site);
+    gc.site_allele_orig_idx = {{0, 1}, {0, 2}, {0, 3}, {0, 4}, {0, 9}};
+
+    ok &= check(row_allele_seq(gc, 0, 0) == &gc.site_meta[0].ref && row_allele_seq(gc, 1, 1) == &gc.site_meta[1].alts[1],
+                "row_allele_seq: allele 0 is the site's REF, allele 1 its walk's ALT");
+    ok &= check(row_allele_seq(gc, 0, 2) == nullptr && row_allele_seq(gc, 4, 1) == nullptr &&
+                row_allele_seq(gc, 7, 0) == nullptr, "row_allele_seq: no such allele, walk or row");
+
+    const std::optional<RowAllele> whole = row_allele(gc, 1);
+    ok &= check(whole && whole->pos == 100 && *whole->ref == "ACGTTTTGCA" && *whole->alt == "ACGTTGCA",
+                "row_allele: the site's whole REF and the row's ALT, untrimmed");
+
+    const std::optional<VcfAllele> snp = row_vcf_allele(gc, 0);
+    ok &= check(snp && snp->pos == 108 && snp->ref == "C" && snp->alt == "T", "row_vcf_allele: a SNP in the flanks");
+    const std::optional<VcfAllele> del = row_vcf_allele(gc, 1);
+    ok &= check(del && del->pos == 102 && del->ref == "GTT" && del->alt == "G",
+                "row_vcf_allele: a deletion, left-aligned on its padding base");
+    const std::optional<VcfAllele> lower = row_vcf_allele(gc, 2);
+    ok &= check(lower && lower->ref == lower->alt && lower->ref.size() == 1, "row_vcf_allele: case is not a change");
+
+    gc.site_meta[0].ref.clear();  // a row the writer skips
+    ok &= check(!row_allele(gc, 0) && row_allele_seq(gc, 0, 0) == nullptr, "row_allele: no REF, no allele");
+    gc.site_allele_orig_idx[1] = {1, 2};
+    ok &= check(!row_allele(gc, 1), "row_allele: allele 0 not the REF");
+    gc.site_meta[2].pos = 0;
+    ok &= check(!row_allele(gc, 2), "row_allele: no position");
+    gc.chunk.candidates[3].counts.n_uniq_alles = 2;
+    ok &= check(row_allele(gc, 3) && selected_graph_candidate_alt(gc, 3) == nullptr,
+                "selected_graph_candidate_alt: a spanning deletion's * is no sequence");
+    return ok;
+}
+
 int main(int argc, char** argv) {
     if (argc == 2 && std::strcmp(argv[1], "--joint-loci") == 0) {
         const bool ok = test_joint_candidate_loci();
@@ -256,6 +298,7 @@ int main(int argc, char** argv) {
     ok &= test_tandem_insertion_motif_length();
     ok &= test_joint_candidate_loci();
     ok &= test_chunk_overlap_pairs_appended_reads();
+    ok &= test_row_alleles();
 
     {
         GraphSiteCatalog catalog;

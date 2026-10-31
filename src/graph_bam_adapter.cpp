@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -1247,20 +1248,47 @@ size_t supplement_phased_snp_branches(const GraphSiteCatalogView& catalog,
 const std::string* selected_graph_candidate_alt(
         const GraphChunkBuildResult& graph_chunk, size_t candidate_index) {
     if (candidate_index >= graph_chunk.chunk.candidates.size() ||
-        candidate_index >= graph_chunk.site_meta.size() ||
+        graph_chunk.chunk.candidates[candidate_index].counts.n_uniq_alles != 2 ||
         candidate_index >= graph_chunk.site_allele_orig_idx.size() ||
-        graph_chunk.chunk.candidates[candidate_index].counts.n_uniq_alles != 2) {
+        graph_chunk.site_allele_orig_idx[candidate_index].size() != 2) {
         return nullptr;
     }
-    const GraphSiteMeta& meta = graph_chunk.site_meta[candidate_index];
-    const std::vector<int>& original =
-        graph_chunk.site_allele_orig_idx[candidate_index];
-    if (meta.ref.empty() || original.size() != 2) return nullptr;
-    const int alt_index = original[1] - 1;
-    if (alt_index < 0 || static_cast<size_t>(alt_index) >= meta.alts.size())
-        return nullptr;
-    const std::string& alt = meta.alts[static_cast<size_t>(alt_index)];
-    return alt.empty() || alt == "*" ? nullptr : &alt;
+    const std::optional<RowAllele> allele = row_allele(graph_chunk, candidate_index);
+    if (!allele) return nullptr;
+    return allele->alt->empty() || *allele->alt == "*" ? nullptr : allele->alt;
+}
+
+const std::string* row_allele_seq(const GraphChunkBuildResult& graph_chunk, size_t ci, size_t k) {
+    if (ci >= graph_chunk.site_meta.size() || ci >= graph_chunk.site_allele_orig_idx.size()) return nullptr;
+    const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+    const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
+    if (meta.ref.empty() || k >= orig.size()) return nullptr;
+    const int walk = orig[k];
+    if (walk == 0) return &meta.ref;
+    return walk > 0 && static_cast<size_t>(walk) <= meta.alts.size() ? &meta.alts[static_cast<size_t>(walk) - 1]
+                                                                     : nullptr;
+}
+
+std::optional<RowAllele> row_allele(const GraphChunkBuildResult& graph_chunk, size_t ci) {
+    if (ci >= graph_chunk.site_meta.size() || ci >= graph_chunk.site_allele_orig_idx.size()) return std::nullopt;
+    const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+    const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
+    if (meta.pos <= 0 || orig.size() < 2 || orig[0] != 0) return std::nullopt;
+    const std::string* alt = row_allele_seq(graph_chunk, ci, 1);
+    if (alt == nullptr || alt == &meta.ref) return std::nullopt;
+    return RowAllele{meta.pos, &meta.ref, alt};
+}
+
+std::optional<VcfAllele> row_vcf_allele(const GraphChunkBuildResult& graph_chunk, size_t ci) {
+    const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+    if (!allele) return std::nullopt;
+    const auto upper = [](std::string x) {
+        for (char& ch : x) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return x;
+    };
+    VcfAllele out{allele->pos, upper(*allele->ref), upper(*allele->alt)};
+    trim_to_minimal_vcf(out.pos, out.ref, out.alt);
+    return out;
 }
 
 void rebuild_joint_candidate_loci(GraphChunkBuildResult& graph_chunk,
@@ -1279,12 +1307,8 @@ void rebuild_joint_candidate_loci(GraphChunkBuildResult& graph_chunk,
             local = {0, 1};
         }
         const auto sequence = [&](int allele) -> const std::string* {
-            if (allele < 0 || allele >= row.counts.n_uniq_alles ||
-                static_cast<size_t>(allele) >= original.size()) return nullptr;
-            const int source = original[static_cast<size_t>(allele)];
-            if (source == 0) return &meta.ref;
-            return source > 0 && static_cast<size_t>(source) <= meta.alts.size()
-                ? &meta.alts[static_cast<size_t>(source - 1)] : nullptr;
+            if (allele < 0 || allele >= row.counts.n_uniq_alles) return nullptr;
+            return row_allele_seq(graph_chunk, ci, static_cast<size_t>(allele));
         };
         const std::string* first = sequence(local[0]);
         const std::string* second = sequence(local[1]);

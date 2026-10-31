@@ -380,22 +380,13 @@ size_t fill_missing_observations(GraphChunkBuildResult& graph_chunk, const Phasi
             seq1 = upper(c.key.alt);
         } else {
             if (!have_meta) continue;
-            const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
-            if (meta.pos <= 0 || meta.ref.empty() || orig.size() < 2) continue;
-            const auto allele_seq = [&meta](int k) -> const std::string* {
-                if (k == 0) return &meta.ref;
-                return k >= 1 && static_cast<size_t>(k) <= meta.alts.size() ? &meta.alts[static_cast<size_t>(k) - 1]
-                                                                            : nullptr;
-            };
-            const std::string* a0 = allele_seq(orig[0]);
-            const std::string* a1 = allele_seq(orig[1]);
-            if (a0 == nullptr || a1 == nullptr || !is_acgt(*a0) || !is_acgt(*a1)) continue;
-            p0 = meta.pos - 1;
-            ref_len = static_cast<int>(meta.ref.size());
-            if (ref.slice(p0, p0 + ref_len) != upper(meta.ref)) continue;
-            seq0 = upper(*a0);
-            seq1 = upper(*a1);
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, ci);
+            if (!allele || !is_acgt(*allele->ref) || !is_acgt(*allele->alt)) continue;
+            p0 = allele->pos - 1;
+            ref_len = static_cast<int>(allele->ref->size());
+            seq0 = upper(*allele->ref);
+            if (ref.slice(p0, p0 + ref_len) != seq0) continue;
+            seq1 = upper(*allele->alt);
         }
         if (seq0 == seq1) continue;
         const hts_pos_t end0 = p0 + ref_len;
