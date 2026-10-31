@@ -2110,8 +2110,13 @@ static void trace_msa_reads(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t 
     pgphase_trace::emit("msa", "reads", beg, end, "-", branch, detail);
 }
 
-// The share of a region's spanning reads its phase set must hold for plegma's PS-aware path.
-constexpr double kMinPhaseSetReadFraction = 0.3;
+// The share of a region's spanning reads its phase set must hold for plegma's PS-aware path: the path builds each
+// haplotype's consensus from that phase set's reads alone, the others placed but never heard. At 30%,
+// chr20:56,892,630 took a homopolymer's length from 19 of its 62 reads (the rest in another phase set) and wrote a
+// false 1 bp deletion beside the truth's SNP; 534 of chr20's 19,092 arm regions on the path heard under half their
+// reads. At 50% (HG002 HiFi chr20, vg and graph-native BAMs): arm truth hets phased +9, missed -3, wrong -2 to -3;
+// arm reads -3 correct, +2 to +3 discordant.
+constexpr double kMinPhaseSetReadFraction = 0.5;
 
 int collect_noisy_reg_aln_strs(const Options& opts, const PhasingChunk& chunk,
                                 hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
