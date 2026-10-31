@@ -52,6 +52,8 @@ public:
         context().chunk = chunk;
     }
     explicit Scope(int chunk) : saved_(context()) { context().chunk = chunk; }
+    // Another thread's context: work it hands to this one (TaskPool) traces as its own.
+    explicit Scope(const Context& other) : saved_(context()) { context() = other; }
     static Scope pass(int pass) {
         Scope s(context().chunk);
         context().pass = pass;

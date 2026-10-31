@@ -4,6 +4,7 @@
 /test_graph_sites
 /test_graph_bam_adapter
 /test_allele_identity
+/test_task_pool
 /test_noise_filter
 /dist/
 /release/

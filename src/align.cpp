@@ -685,26 +685,21 @@ static void update_digars_from_msa1(ReadRecord& read, const AlnStr& ref_read_aln
     read.digars = std::move(merged);
 }
 
-static void update_digars_from_aln_str(PhasingChunk& chunk,
-                                       hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
-                                       const std::vector<int>& read_id_to_full_covers,
-                                       const std::vector<int>& read_reg_beg,
-                                       const std::vector<int>& read_reg_end,
-                                       const std::array<std::vector<AlnStr>, 2>& aln_strs,
-                                       int n_cons,
-                                       const std::array<int, 2>& clu_n_seqs,
-                                       const std::array<std::vector<int>, 2>& clu_read_ids) {
+void update_digars_from_msa(PhasingChunk& chunk, hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
+                            const MsaReadSpans& spans, const std::array<std::vector<AlnStr>, 2>& aln_strs, int n_cons,
+                            const std::array<int, 2>& clu_n_seqs,
+                            const std::array<std::vector<int>, 2>& clu_read_ids) {
     for (int ci = 0; ci < n_cons; ++ci) {
         const int n_seqs = clu_n_seqs[static_cast<size_t>(ci)];
         for (int read_i = 0; read_i < n_seqs; ++read_i) {
             const int read_id = clu_read_ids[static_cast<size_t>(ci)][static_cast<size_t>(read_i)];
-            const int read_beg = read_reg_beg[static_cast<size_t>(read_id)];
-            const int read_end = read_reg_end[static_cast<size_t>(read_id)];
+            const int read_beg = spans.reg_beg[static_cast<size_t>(read_id)];
+            const int read_end = spans.reg_end[static_cast<size_t>(read_id)];
             const size_t ref_read_slot = static_cast<size_t>((read_i + 1) * 2);
             if (ref_read_slot >= aln_strs[static_cast<size_t>(ci)].size()) continue;
             const AlnStr& ref_read = aln_strs[static_cast<size_t>(ci)][ref_read_slot];
             update_digars_from_msa1(chunk.reads[static_cast<size_t>(read_id)], ref_read,
-                                    read_id_to_full_covers[static_cast<size_t>(read_id)],
+                                    spans.full_covers[static_cast<size_t>(read_id)],
                                     noisy_reg_beg, noisy_reg_end, read_beg, read_end);
         }
     }
@@ -2118,14 +2113,15 @@ static void trace_msa_reads(const PhasingChunk& chunk, hts_pos_t beg, hts_pos_t 
 // The share of a region's spanning reads its phase set must hold for plegma's PS-aware path.
 constexpr double kMinPhaseSetReadFraction = 0.3;
 
-int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
+int collect_noisy_reg_aln_strs(const Options& opts, const PhasingChunk& chunk,
                                 hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
                                 const std::vector<int>& noisy_read_ids,
                                 const std::vector<uint8_t>& ref_seq_vec,
                                 std::array<int, 2>& clu_n_seqs,
                                 std::array<std::vector<int>, 2>& clu_read_ids,
                                 std::array<std::vector<AlnStr>, 2>& aln_strs,
-                                std::vector<UnassignedMsaRead>* unassigned) {
+                                std::vector<UnassignedMsaRead>* unassigned,
+                                MsaReadSpans* spans) {
     if (noisy_read_ids.empty()) {
         note_msa_failure("no_reads");
         return 0;
@@ -2206,12 +2202,11 @@ int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
                         ps > 0 ? "hap" : n_full_reads >= opts.min_depth ? "nohap" : "skipped", ps, n_full_reads,
                         sampling, n_cons, clu_n_seqs, clu_read_ids);
 
-    // Update digars from MSA consensus when refined alignments are written.
-    if (n_cons > 0 && opts.refine_msa_digars) {
-        update_digars_from_aln_str(chunk, noisy_reg_beg, noisy_reg_end,
-                                   info.read_id_to_full_covers,
-                                   info.read_reg_beg, info.read_reg_end,
-                                   aln_strs, n_cons, clu_n_seqs, clu_read_ids);
+    // What the digar rewrite from the consensus needs, when refined alignments are written (update_digars_from_msa).
+    if (n_cons > 0 && opts.refine_msa_digars && spans != nullptr) {
+        spans->full_covers = std::move(info.read_id_to_full_covers);
+        spans->reg_beg = std::move(info.read_reg_beg);
+        spans->reg_end = std::move(info.read_reg_end);
     }
     return n_cons;
 }

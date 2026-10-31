@@ -14,6 +14,7 @@
 #include "trace.hpp"
 #include "collect_phase_noisy.hpp"
 #include "plegma_msa.hpp"
+#include "task_pool.hpp"
 #include <map>
 #include "collect_phase.hpp" // assign_hap_based_on_germline_het_vars_kmeans, kCandGermlineVarCate
 #include "collect_var.hpp"   // exact_comp_cand_var, exact_comp_var_site
@@ -1556,7 +1557,7 @@ static void write_msa_diag(const Options& opts, const PhasingChunk& chunk, hts_p
 }
 
 int make_vars_from_msa_cons_aln(
-    const Options& opts, PhasingChunk& chunk,
+    const Options& opts, const PhasingChunk& chunk,
     int /*n_noisy_reads*/, const std::vector<int>& /*read_ids*/,
     hts_pos_t noisy_reg_beg,
     int n_cons,
@@ -2403,8 +2404,9 @@ static void record_msa_region(PhasingChunk& chunk, hts_pos_t beg, hts_pos_t end,
     chunk.msa_regions.push_back(std::move(region));
 }
 
-int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
-                        const VariantKeySet* site_whitelist) {
+NoisyRegionCall compute_noisy_region(const PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                                     const VariantKeySet* site_whitelist) {
+    NoisyRegionCall call;
     const Interval& reg = chunk.noisy_regions[static_cast<size_t>(noisy_reg_i)];
     // Enter with noisy_reg_beg/end from the interval tree.
     hts_pos_t noisy_reg_beg = reg.beg;
@@ -2419,13 +2421,13 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
                 break;
             }
         }
-        if (!contains_whitelisted_site) return 0;
+        if (!contains_whitelisted_site) return call;
     }
 
     // Skip regions longer than max_noisy_reg_len (return 0 = done, no vars).
     if (noisy_reg_end - noisy_reg_beg + 1 > static_cast<hts_pos_t>(opts.max_noisy_reg_len)) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "too_long_for_msa");
-        return 0;
+        return call;
     }
 
     // First clip beg/end via collect_reg_ref_bseq, then collect reads on the
@@ -2434,7 +2436,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         collect_reg_ref_bseq(chunk, noisy_reg_beg, noisy_reg_end);
     if (ref_seq.empty()) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_reference");
-        return 0;
+        return call;
     }
 
     std::vector<int> read_ids =
@@ -2455,7 +2457,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
             pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "few_confident_reads",
                                 "reads=" + std::to_string(read_ids.size()) + " confident=" +
                                     std::to_string(confident.size()));
-            return 0;
+            return call;
         }
         if (collapsed && static_cast<int>(confident.size()) >= kMsaMinConfidentReads) {
             pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "confident_reads_only",
@@ -2470,13 +2472,13 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     if (n_noisy_reads > opts.max_noisy_reg_cov) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "too_many_reads",
                             "reads=" + std::to_string(n_noisy_reads));
-        return 0;
+        return call;
     }
 
     // MSA + consensus via WFA2-lib / abPOA (align.cpp).
-    std::array<int, 2> clu_n_seqs{};
-    std::array<std::vector<int>, 2> clu_read_ids{};
-    std::array<std::vector<AlnStr>, 2> aln_strs{};
+    std::array<int, 2>& clu_n_seqs = call.clu_n_seqs;
+    std::array<std::vector<int>, 2>& clu_read_ids = call.clu_read_ids;
+    std::array<std::vector<AlnStr>, 2>& aln_strs = call.aln_strs;
     std::vector<UnassignedMsaRead> unassigned;
     const bool recall_unplaced = opts.add_unplaced_msa_observations;
     const int n_cons = collect_noisy_reg_aln_strs(
@@ -2485,7 +2487,7 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         clu_n_seqs, clu_read_ids, aln_strs,
         // A broad retry may extend clusters. Local insertion recall instead
         // composes both fixed paths and defers read-local allele observations.
-        recall_unplaced ? &unassigned : nullptr);
+        recall_unplaced ? &unassigned : nullptr, &call.spans);
 
     // n_cons == 0 → MSA could not resolve; return -1 so the
     // outer loop leaves this region undone and may retry if another region makes progress.
@@ -2493,19 +2495,21 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     if (n_cons == 0) {
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "no_consensus",
                             "reads=" + std::to_string(n_noisy_reads) + (why_none.empty() ? "" : " why=" + why_none));
-        return -1;
+        call.status = -1;
+        return call;
     }
     if (pgphase_trace::on())
         pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "resolved",
                             "consensus=" + std::to_string(n_cons) + " clusters=" + std::to_string(clu_n_seqs[0]) + "/" +
                             std::to_string(clu_n_seqs[1]) + " reads=" + std::to_string(n_noisy_reads));
 
-    if (use_plegma_msa())
-        record_msa_region(chunk, noisy_reg_beg, noisy_reg_end, n_cons, aln_strs, clu_n_seqs, clu_read_ids);
-
-    std::vector<CandidateVariant>    noisy_vars;
-    std::vector<VariantCategory>     noisy_var_cate;
-    std::vector<ReadVariantProfile>  noisy_rvp;
+    call.status = 1;
+    call.beg = noisy_reg_beg;
+    call.end = noisy_reg_end;
+    call.n_cons = n_cons;
+    std::vector<CandidateVariant>&   noisy_vars = call.vars;
+    std::vector<VariantCategory>&    noisy_var_cate = call.var_cate;
+    std::vector<ReadVariantProfile>& noisy_rvp = call.rvp;
 
     make_vars_from_msa_cons_aln(
         opts, chunk,
@@ -2529,10 +2533,26 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
     if (opts.add_unplaced_msa_observations)
         restrict_msa_observations_to_read_coverage(chunk.reads, noisy_vars, noisy_rvp);
     make_colocated_deletions_exclusive(noisy_vars, noisy_rvp);
+    return call;
+}
 
+int apply_noisy_region(PhasingChunk& chunk, const Options& opts, NoisyRegionCall& call,
+                       const VariantKeySet* site_whitelist) {
+    if (call.status != 1) return call.status;
+    if (opts.refine_msa_digars && !call.spans.full_covers.empty())
+        update_digars_from_msa(chunk, call.beg, call.end, call.spans, call.aln_strs, call.n_cons, call.clu_n_seqs,
+                               call.clu_read_ids);
+    if (use_plegma_msa())
+        record_msa_region(chunk, call.beg, call.end, call.n_cons, call.aln_strs, call.clu_n_seqs, call.clu_read_ids);
     return merge_var_profile(
-        chunk, noisy_vars, noisy_var_cate, noisy_rvp, site_whitelist,
+        chunk, call.vars, call.var_cate, call.rvp, site_whitelist,
         /*admit_all_in_region=*/false);
+}
+
+int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                        const VariantKeySet* site_whitelist) {
+    NoisyRegionCall call = compute_noisy_region(chunk, opts, noisy_reg_i, site_whitelist);
+    return apply_noisy_region(chunk, opts, call, site_whitelist);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -2546,13 +2566,36 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
                            std::vector<bool>& done) {
     while (true) {
         bool any_done = false, any_new_var = false;
-        for (int reg_idx : regions) {
-            if (done[static_cast<size_t>(reg_idx)]) continue;
-            const int ret = collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist);
+        const auto settle = [&](int reg_idx, int ret) {
             if (ret >= 0) {
                 done[static_cast<size_t>(reg_idx)] = true;
                 any_done = true;
                 if (ret > 0) any_new_var = true;
+            }
+        };
+        if (opts.tasks != nullptr && !opts.refine_msa_digars) {
+            // The pass's regions computed at once on the batch's workers, then applied in order: compute_noisy_region
+            // reads nothing apply_noisy_region writes, so the chunk comes out as one at a time. Not with
+            // refine_msa_digars: a region's digar rewrite changes the reads the next one aligns.
+            std::vector<int> pending;
+            for (int reg_idx : regions)
+                if (!done[static_cast<size_t>(reg_idx)]) pending.push_back(reg_idx);
+            std::vector<NoisyRegionCall> calls(pending.size());
+            const pgphase_trace::Context trace_context = pgphase_trace::context();
+            opts.tasks->run_all(pending.size(), [&](size_t k) {
+                const pgphase_trace::Scope scope(trace_context);
+                calls[k] = compute_noisy_region(chunk, opts, pending[k], site_whitelist);
+                // Held until applied: of the reads' rows only the digar rewrite reads any (record_msa_region takes
+                // each consensus's own row).
+                for (std::vector<AlnStr>& rows : calls[k].aln_strs)
+                    if (rows.size() > 1) rows.resize(1);
+            });
+            for (size_t k = 0; k < pending.size(); ++k)
+                settle(pending[k], apply_noisy_region(chunk, opts, calls[k], site_whitelist));
+        } else {
+            for (int reg_idx : regions) {
+                if (done[static_cast<size_t>(reg_idx)]) continue;
+                settle(reg_idx, collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist));
             }
         }
         if (any_new_var) {

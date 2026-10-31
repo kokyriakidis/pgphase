@@ -114,8 +114,9 @@ $(UPSTREAM_PHASE_DIR)/collect_var.o: $(LONGCALLD_ROOT)/src/collect_var.c | $(UPS
 $(UPSTREAM_PHASE_DIR)/bridge.o: src/test_upstream_phase_bridge.c src/test_upstream_phase_bridge.h | $(UPSTREAM_PHASE_DIR)
 	$(CC) $(C_CFLAGS) -MMD -MP -Wno-unused-function $(UPSTREAM_PHASE_INCLUDES) -Isrc -c $< -o $@
 
-unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_union_phase
+unit-tests: test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_union_phase test_task_pool
 	./test_allele_identity
+	./test_task_pool
 	./test_graph_sites
 	./test_graph_bam_adapter
 	./test_noise_filter
@@ -199,6 +200,9 @@ test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
 test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
+test_task_pool: src/test_task_pool.cpp src/task_pool.hpp
+	$(CXX) $(CXXFLAGS) -o $@ $< -lpthread
+
 test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
@@ -214,7 +218,7 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase pgcat test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity src/*.o src/*.d src/msa_models.cpp
+	rm -f pgphase pgcat test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_task_pool src/*.o src/*.d src/msa_models.cpp
 	rm -rf $(UPSTREAM_PHASE_DIR) tools/pgcat/target
 
 test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o $(PLEGMA_OBJS) src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)

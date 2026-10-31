@@ -15,6 +15,7 @@
 #include "graph_sites.hpp"
 #include "noise_filter.hpp"
 #include "union_phase.hpp"
+#include "task_pool.hpp"
 #include "trace.hpp"
 
 #include "edlib.h"
@@ -953,8 +954,14 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
 {
     const size_t batch_size = batch_end - batch_begin;
     std::vector<GraphChunkBuildResult> graph_chunks(batch_size);
-    const size_t worker_count = std::min<size_t>(static_cast<size_t>(opts.threads), batch_size);
+    // Every thread, though there be fewer chunks: a worker out of chunks (or with none) runs the others' noisy-region
+    // MSAs (TaskPool) until every worker is.
+    const size_t worker_count = static_cast<size_t>(std::max(1, opts.threads));
     std::atomic<size_t> next_offset{0};
+    TaskPool tasks;
+    std::atomic<size_t> busy{worker_count};
+    Options batch_opts = opts;
+    if (worker_count > 1) batch_opts.tasks = &tasks;
     std::exception_ptr first_error;
     std::mutex error_mutex;
     std::vector<std::thread> workers;
@@ -963,26 +970,33 @@ static std::vector<GraphChunkBuildResult> run_graph_chunk_batch(
     for (size_t w = 0; w < worker_count; ++w) {
         workers.emplace_back([&]() {
             try {
-                const ChunkRowFetcher fetch_rows = open_rows();
-                SiteCatalogHandle sites_handle(sites);
-                sites_handle.max_span = max_span;
-                std::unique_ptr<faidx_t, FaiDeleter> thread_fai(load_reference_index(opts.ref_fasta));
-                // Per-thread BAM context for union gap phasing. htslib handles are
-                // not shareable, so each worker opens its own set, once per thread
-                // rather than per chunk.
-                std::unique_ptr<WorkerContext> thread_bam_ctx;
-                if (!opts.bam_files.empty()) thread_bam_ctx = std::make_unique<WorkerContext>(opts);
-                while (true) {
-                    const size_t offset = next_offset.fetch_add(1);
-                    if (offset >= batch_size) break;
-                    process_graph_chunk(graph_chunks[offset], chunks[batch_begin + offset], batch_contig,
-                                        sites_handle, thread_fai.get(), thread_bam_ctx.get(), chrom_remap, opts,
-                                        fetch_rows);
+                size_t offset = next_offset.fetch_add(1);
+                if (offset < batch_size) {
+                    const ChunkRowFetcher fetch_rows = open_rows();
+                    SiteCatalogHandle sites_handle(sites);
+                    sites_handle.max_span = max_span;
+                    std::unique_ptr<faidx_t, FaiDeleter> thread_fai(load_reference_index(opts.ref_fasta));
+                    // Per-thread BAM context for union gap phasing. htslib handles are
+                    // not shareable, so each worker opens its own set, once per thread
+                    // rather than per chunk.
+                    std::unique_ptr<WorkerContext> thread_bam_ctx;
+                    if (!opts.bam_files.empty()) thread_bam_ctx = std::make_unique<WorkerContext>(opts);
+                    while (true) {
+                        process_graph_chunk(graph_chunks[offset], chunks[batch_begin + offset], batch_contig,
+                                            sites_handle, thread_fai.get(), thread_bam_ctx.get(), chrom_remap,
+                                            batch_opts, fetch_rows);
+                        // The chunks under way first: their queued MSAs are what the batch waits on.
+                        while (tasks.help()) {}
+                        offset = next_offset.fetch_add(1);
+                        if (offset >= batch_size) break;
+                    }
                 }
             } catch (...) {
                 std::lock_guard<std::mutex> lock(error_mutex);
                 if (!first_error) first_error = std::current_exception();
             }
+            if (busy.fetch_sub(1) == 1) tasks.close();
+            tasks.serve();
         });
     }
     for (std::thread& w : workers) w.join();

@@ -21,6 +21,7 @@ extern "C" {
 
 namespace pgphase_collect {
 
+class TaskPool;  // task_pool.hpp
 
 // ════════════════════════════════════════════════════════════════════════════
 // Constants
@@ -392,6 +393,9 @@ struct Options {
     std::string diag_dir;
     /** CLI command string used for PG:CL header field in phased SAM/BAM/CRAM output. */
     std::string command_line;
+    /// Not a setting: the task pool of the batch's workers (run_graph_chunk_batch), on which a chunk's noisy-region
+    /// MSAs run at once; null, one at a time.
+    TaskPool* tasks = nullptr;
 
     /**
      * @brief The first BAM path; empty when there is none.

@@ -245,7 +245,19 @@ Neither replaces a primary assignment from any chunk. This matters for reads
 whose informative site lies in the upstream half of a chunk overlap.
 The alignment solve runs inside the chunk worker: the chunk is still the unit
 of work, so each chunk's solve is its own, needing no batching and no
-cross-chunk coordination -- the worker pool already provides the parallelism.
+cross-chunk coordination. Its noisy-region MSAs are the exception: one
+pass's regions (`run_noisy_pass`) are computed at once on the batch's
+workers (`TaskPool`, `task_pool.hpp`) and applied in their order.
+`compute_noisy_region` reads the chunk's reads, their haplotypes and phase
+sets and the reference, none of what `apply_noisy_region` writes (the MSA
+region record, the candidates and read profiles), so the chunk comes out as
+it did one region at a time. With `--refine-aln` a region's digar rewrite
+changes the reads the next one aligns, and the regions run one at a time.
+Every `--threads` worker starts; one between chunks runs queued MSAs before
+taking a chunk, and one out of chunks runs them until the batch is done.
+Without it a pericentromeric chunk's regions ran one after another while
+the other workers idled: chr20 (HG002 HiFi, 10 threads) 131 s -> 82 s, the
+output byte for byte the same.
 
 ### Union gap phasing (what `--bam` does)
 

@@ -268,20 +268,36 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
                                            std::array<std::vector<AlnStr>, 2>& aln_strs,
                                            std::vector<UnassignedMsaRead>* unassigned = nullptr);
 
+/// Where each read covers a noisy region (NoisyReadInfo's per-read maps, indexed by read id): what the digar rewrite
+/// from the region's MSA (refine_msa_digars) needs.
+struct MsaReadSpans {
+    std::vector<int> full_covers;
+    std::vector<int> reg_beg;
+    std::vector<int> reg_end;
+};
+
 /**
  * @brief Top-level entry: collect reads → sort → find phase set → MSA → fill aln_strs.
  *
  * Top-level noisy-region alignment: collect reads, align, build consensus.
- * Returns number of consensus sequences produced (0, 1, or 2).
+ * Returns number of consensus sequences produced (0, 1, or 2). Reads the chunk only, so a chunk's regions can be
+ * aligned at once; with refine_msa_digars and a consensus, `spans` receives what update_digars_from_msa needs.
  */
-int collect_noisy_reg_aln_strs(const Options& opts, PhasingChunk& chunk,
+int collect_noisy_reg_aln_strs(const Options& opts, const PhasingChunk& chunk,
                                 hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
                                 const std::vector<int>& noisy_read_ids,
                                 const std::vector<uint8_t>& ref_seq,
                                 std::array<int, 2>& clu_n_seqs,
                                 std::array<std::vector<int>, 2>& clu_read_ids,
                                 std::array<std::vector<AlnStr>, 2>& aln_strs,
-                                std::vector<UnassignedMsaRead>* unassigned = nullptr);
+                                std::vector<UnassignedMsaRead>* unassigned = nullptr,
+                                MsaReadSpans* spans = nullptr);
+
+/// Rewrites the clustered reads' digars over a noisy region from its MSA (refine_msa_digars).
+void update_digars_from_msa(PhasingChunk& chunk, hts_pos_t noisy_reg_beg, hts_pos_t noisy_reg_end,
+                            const MsaReadSpans& spans, const std::array<std::vector<AlnStr>, 2>& aln_strs, int n_cons,
+                            const std::array<int, 2>& clu_n_seqs,
+                            const std::array<std::vector<int>, 2>& clu_read_ids);
 
 } // namespace pgphase_collect
 

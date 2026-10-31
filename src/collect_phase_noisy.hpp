@@ -104,6 +104,32 @@ void make_colocated_deletions_exclusive(std::vector<CandidateVariant>& vars,
 void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
                               const VariantKeySet* site_whitelist = nullptr);
 
+/// One noisy region's MSA and the candidates it makes, before they enter the chunk (compute_noisy_region).
+struct NoisyRegionCall {
+    /// 1: resolved (the fields below are set); 0: done without an MSA (skipped); -1: no consensus, to retry.
+    int status = 0;
+    hts_pos_t beg = 0, end = 0;
+    int n_cons = 0;
+    std::array<int, 2> clu_n_seqs{};
+    std::array<std::vector<int>, 2> clu_read_ids{};
+    std::array<std::vector<AlnStr>, 2> aln_strs{};
+    MsaReadSpans spans;  // refine_msa_digars only
+    std::vector<CandidateVariant> vars;
+    std::vector<VariantCategory> var_cate;
+    std::vector<ReadVariantProfile> rvp;
+};
+
+/// Aligns the reads of noisy region `noisy_reg_i` and makes its candidates. Reads the chunk only (its reads, their
+/// haplotypes and phase sets, the reference), none of what apply_noisy_region writes, so the regions of one pass can be
+/// computed at once and applied in order with the same result as one at a time.
+NoisyRegionCall compute_noisy_region(const PhasingChunk& chunk, const Options& opts, int noisy_reg_i,
+                                     const VariantKeySet* site_whitelist = nullptr);
+
+/// Enters a computed region into the chunk: its digars (refine_msa_digars), its MSA region record (plegma) and its
+/// candidates (merge_var_profile). Returns the candidates admitted, or the call's status when it did not resolve.
+int apply_noisy_region(PhasingChunk& chunk, const Options& opts, NoisyRegionCall& call,
+                       const VariantKeySet* site_whitelist = nullptr);
+
 /**
  * @brief Align reads in one noisy region and merge MSA candidates into the chunk.
  *
@@ -173,7 +199,7 @@ std::vector<uint8_t> collect_reg_ref_bseq(const PhasingChunk& chunk,
  * @return Number of new variants produced.
  */
 int make_vars_from_msa_cons_aln(
-    const Options& opts, PhasingChunk& chunk,
+    const Options& opts, const PhasingChunk& chunk,
     int n_noisy_reads, const std::vector<int>& read_ids,
     hts_pos_t noisy_reg_beg,
     int n_cons,
