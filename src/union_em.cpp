@@ -268,6 +268,7 @@ private:
     std::vector<int> start_label_;          // label the read started with (diagnostic)
     std::vector<char> learns_;              // read teaches the model (MAPQ)
     std::vector<char> echo_;
+    std::vector<std::vector<int>> echo_of_;  // per echo site, the earlier sites it repeats
     // Holds no join, with why as bits: 1 called by reads of mean MAPQ <
     // kEmJoinMinMeanMapq, 2 by > kEmJoinMaxDepthRatio x the chunk's median
     // callers, 4 a duplicated haplotype.
@@ -303,24 +304,12 @@ private:
         for (size_t ci = 0; ci < cands_.size(); ++ci) {
             const CandidateVariant& c = cands_[ci];
             if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-            int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
-            // An MSA-genotyped site of two insertion alleles (a 1/2): its alleles are the MSA's, not the two its reads
-            // call most -- reads call one letter more in a long run as the reference allele as often as not
-            // (chr12:20,069,335, T+1 and T+15: written as the T+15 het alone). HG002 HiFi chr12/18/20, plegma: true
-            // het regions +39, wrong -35, missed -4; arm reads +38 correct, -37 discordant.
-            if (c.msa_genotyped && c.msa_insertion_alts.size() == 2) x = 1, y = 2;
-            if (x < 0 || y < 0 || x == y) {
-                std::vector<std::pair<int, int>> by_count;
-                for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
-                std::sort(by_count.rbegin(), by_count.rend());
-                if (by_count.size() < 2) {
-                    pgphase_trace::candidate("em", "not_site", c, "one_allele_called",
-                                             pgphase_trace::genotype_text(c));
-                    continue;
-                }
-                x = by_count[0].second;
-                y = by_count[1].second;
+            const std::optional<std::pair<int, int>> alleles = site_alleles(ci);
+            if (!alleles) {
+                pgphase_trace::candidate("em", "not_site", c, "one_allele_called", pgphase_trace::genotype_text(c));
+                continue;
             }
+            const auto [x, y] = *alleles;
             const auto count_of = [&](int a) {
                 const auto it = allele_counts_[ci].find(a);
                 return it == allele_counts_[ci].end() ? 0 : it->second;
@@ -393,6 +382,26 @@ private:
         }
     }
 
+    // A candidate's two alleles as a site: an MSA-genotyped site of two insertion alleles (a 1/2) has the MSA's, not
+    // the two its reads call most -- reads call one letter more in a long run as the reference allele as often as not
+    // (chr12:20,069,335, T+1 and T+15: written as the T+15 het alone; HG002 HiFi chr12/18/20, plegma: true het
+    // regions +39, wrong -35, missed -4; arm reads +38 correct, -37 discordant); else its genotype's two alleles;
+    // else the two its reads call most. None when fewer than two are called.
+    std::optional<std::pair<int, int>> site_alleles(size_t ci) const {
+        const CandidateVariant& c = cands_[ci];
+        if (c.msa_genotyped && c.msa_insertion_alts.size() == 2) return std::make_pair(1, 2);
+        const int x = c.hap_to_cons_alle[1], y = c.hap_to_cons_alle[2];
+        if (x >= 0 && y >= 0 && x != y) return std::make_pair(x, y);
+        std::pair<int, int> top{-1, -1}, second{-1, -1};  // (count, allele), descending as a sort of both would
+        for (const auto& [a, n] : allele_counts_[ci]) {
+            const std::pair<int, int> e{n, a};
+            if (e > top) second = top, top = e;
+            else if (e > second) second = e;
+        }
+        if (second.second < 0) return std::nullopt;
+        return std::make_pair(top.second, second.second);
+    }
+
     // Echo sites (see kEmEchoMaxGap): each candidate pair within the gap,
     // counted over the reads that call both.
     void find_echo_sites() {
@@ -412,12 +421,15 @@ private:
                 }
             }
         }
+        echo_of_.assign(n_, {});
         for (const auto& [kj, c] : pair_calls) {
             const int shared = c[0] + c[1];
             const int larger = std::max(callers[static_cast<size_t>(kj.first)], callers[static_cast<size_t>(kj.second)]);
             if (shared >= kEmEchoMinReads && shared >= kEmEchoMinShare * larger &&
-                std::max(c[0], c[1]) >= kEmEchoMinConcordance * shared)
+                std::max(c[0], c[1]) >= kEmEchoMinConcordance * shared) {
                 echo_[static_cast<size_t>(kj.second)] = 1;
+                echo_of_[static_cast<size_t>(kj.second)].push_back(kj.first);
+            }
         }
     }
 
@@ -578,6 +590,16 @@ private:
         return read_log_likelihoods(o);
     }
 
+    // A call's vote on its read's final label: none at an echo site whose original votes there itself.
+    std::array<double, 2> final_label_log_likelihoods(const EmObs& o) const {
+        const size_t k = static_cast<size_t>(o.s);
+        if (echo_[k])
+            for (const int j : echo_of_[k])
+                if (err_[static_cast<size_t>(j)] < kEmUnreliableError && !join_excluded_[static_cast<size_t>(j)])
+                    return {0.0, 0.0};
+        return read_log_likelihoods(o);
+    }
+
     // A site's error is its reads' disagreement rate, shrunk toward the pooled
     // rate of its class by kEmClassPriorReads pseudo-reads. Two sites that
     // share their reads and disagree are otherwise symmetric: whichever the
@@ -730,6 +752,7 @@ private:
     // with no read labelled.
     void solve() {
         e_step(/*only_unlabelled=*/true);
+        bool settled = false;
         for (int round = 0; round < kEmSwitchRounds; ++round) {
             for (int it = 0; it < kEmIterations; ++it) {
                 m_step();
@@ -739,12 +762,25 @@ private:
             size_t worst = n_;
             for (size_t k = 0; k + 1 < n_; ++k)
                 if (delta[k] < -1e-6 && (worst == n_ || delta[k] < delta[worst])) worst = k;
-            if (worst == n_) break;
+            if (worst == n_) {
+                settled = true;
+                break;
+            }
             for (size_t k = worst + 1; k < n_; ++k) phase_[k] ^= 1;
             for (size_t ri = 0; ri < robs_.size(); ++ri)
                 if (!robs_[ri].empty() && static_cast<size_t>(robs_[ri].front().s) > worst)
                     post_[ri] = 1.0 - post_[ri];
+            // The reads across the boundary re-labelled under the move: kept, their posteriors made the next M-step
+            // undo it, round after round to the limit (test_em_recovers_from_switched_start: 29 rounds, the last
+            // move standing only because the limit fell after one).
+            e_step();
         }
+        // The round limit reached right after a switch move: errors and posteriors re-estimated under it.
+        if (!settled)
+            for (int it = 0; it < kEmIterations; ++it) {
+                m_step();
+                e_step();
+            }
     }
 
     // Blocks: cut where flipping the rest would cost less than the threshold,
@@ -786,9 +822,11 @@ private:
         spanning_strong_.assign(n_, 0);
         if (bridge_weak_ != nullptr) {
             std::vector<int> diff(n_ + 1, 0);
-            for (const std::vector<EmObs>& obs : robs_) {
+            for (size_t ri = 0; ri < robs_.size(); ++ri) {
+                const std::vector<EmObs>& obs = robs_[ri];
                 int first = -1, last = -1;
-                for (const EmObs& o : obs) {
+                for (size_t i = 0; i < obs.size(); ++i) {
+                    const EmObs& o = obs[i];
                     const size_t k = static_cast<size_t>(o.s);
                     if (err_[k] >= kEmUnreliableError || join_excluded_[k] || join_weak_[k] || join_deep_[k]) continue;
                     if (first < 0) first = o.s;
@@ -881,7 +919,7 @@ private:
             }
             if (pgphase_trace::on() && (cut || weak_bridge_[k])) trace_boundary(k, cut, hinge_cut[k]);
             if (cut) {
-                current = sites_[k + 1].pos;
+                current = std::max(sites_[k + 1].pos, current + 1);  // a block's id: unique where sites share a pos
                 ++blocks_;
             }
         }
@@ -895,9 +933,11 @@ private:
         other.assign(n_, 0);
         if (at.empty()) return;
         std::vector<std::pair<int, int>> calls;  // (site, haplotype the call implies under the phases)
-        for (const std::vector<EmObs>& obs : robs_) {
+        for (size_t ri = 0; ri < robs_.size(); ++ri) {
+            const std::vector<EmObs>& obs = robs_[ri];
             calls.clear();
-            for (const EmObs& o : obs) {
+            for (size_t i = 0; i < obs.size(); ++i) {
+                const EmObs& o = obs[i];
                 const size_t k = static_cast<size_t>(o.s);
                 if (err_[k] >= kEmReliableJoinError || join_excluded_[k] || join_deep_[k] || join_weak_[k]) continue;
                 calls.emplace_back(o.s, o.b == phase_[k] ? 0 : 1);
@@ -1175,13 +1215,10 @@ private:
                                     ? std::min(min_reads, kEmMinMsaReadsFraction * c.msa_region_reads)
                                     : min_reads;
             if (msa_reads < need) continue;
-            std::vector<std::pair<int, int>> by_count;
-            for (const auto& [a, n] : allele_counts_[ci]) by_count.emplace_back(n, a);
-            std::sort(by_count.rbegin(), by_count.rend());
-            const bool two_alts = c.msa_insertion_alts.size() == 2;  // its alleles the MSA's, as in select_sites
-            const int x = two_alts ? 1 : by_count.size() >= 2 ? by_count[0].second : 0;
-            const int y = two_alts ? 2 : by_count.size() >= 2 ? by_count[1].second : 1;
-            set_site_phase(c, kUnsetCandidatePhaseSet, x, y);
+            // The site's alleles as select_sites takes them, the MSA's genotype first.
+            std::pair<int, int> xy{0, 1};
+            if (const std::optional<std::pair<int, int>> alleles = site_alleles(ci)) xy = *alleles;
+            set_site_phase(c, kUnsetCandidatePhaseSet, xy.first, xy.second);
             c.vcf_unphased = true;
             pgphase_trace::candidate("em", "site", c, "skewed_msa_het_unphased", pgphase_trace::genotype_text(c));
         }
@@ -1217,7 +1254,7 @@ private:
                 // 90, 125 and 12 reads off the discordant count and added correct
                 // ones on chr12 and chr18.
                 if (join_excluded_[static_cast<size_t>(o.s)]) continue;
-                const auto ll = label_log_likelihoods(o);
+                const auto ll = final_label_log_likelihoods(o);
                 auto& l = per_block[block_[static_cast<size_t>(o.s)]];
                 l[0] += ll[0];
                 l[1] += ll[1];
@@ -1256,7 +1293,7 @@ private:
                 for (const EmObs& o : robs_[ri]) {
                     const size_t k = static_cast<size_t>(o.s);
                     if (!join_excluded_[k] || err_[k] >= kEmUnverifiedReportError) continue;
-                    const auto ll = label_log_likelihoods(o);
+                    const auto ll = final_label_log_likelihoods(o);
                     auto& l = unverified[block_[k]];
                     l[0] += ll[0];
                     l[1] += ll[1];
