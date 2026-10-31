@@ -656,6 +656,9 @@ struct CandidateVariant {
     // A catalog repeat indel (RepeatHetIndel, never an EM site) its allele window phased (union EM pass 2): written
     // with the window's genotype and block.
     bool window_phased = false;
+    // A confident alignment hom whose locus catalog rows also describe (union): written 1/1 unless a record with an
+    // ALT genotype overlaps it (graph output rebuild, drop_covered_fallback_homs).
+    bool hom_fallback = false;
     // One ALT of a multi-allelic site written as its own record (graph output rebuild): its depth counts the site's
     // other alleles, which its REF count does not.
     bool split_allele = false;

@@ -409,6 +409,16 @@ static bool test_graph_records() {
         row("s2", 6, "A", "T", {-1, 1, 0});
         gc.site_meta.back().no_record = true;       // written no record
         row("", 9, "C", "G", {-1, 1, 1});            // injected, no het consensus
+        row("s4", 16, "A", "T", {-1, 1, 0});         // a phased het
+        const auto fallback_hom = [&](hts_pos_t pos, const std::string& ref, const std::string& alt) {
+            row("", pos, ref, alt, {-1, 1, 1});
+            gc.chunk.candidates.back().counts.category = VariantCategory::CleanHom;
+            gc.chunk.candidates.back().hom_fallback = true;
+            gc.site_meta.back().msa_hom = true;
+        };
+        fallback_hom(15, "CA", "C");                 // overlapped by the het: dropped
+        fallback_hom(13, "G", "C");                  // overlapped by nothing written: kept
+        row("s5", 13, "G", "C", {-1, 0, 0});         // the same allele, uncalled: the hom wins
         gc.chunk.reads.clear();
         Options opts;
         ReferenceCache ref(fai.get());
@@ -416,13 +426,19 @@ static bool test_graph_records() {
         chunks.push_back(std::move(gc));
         const CandidateTable records =
             graph_chunks_to_candidate_table(chunks, {{"chr1", 0}}, opts, ref, header.get());
-        ok &= check(records.size() == 1, "records: one record, got " + std::to_string(records.size()));
-        if (!records.empty()) {
+        ok &= check(records.size() == 3, "records: three records, got " + std::to_string(records.size()));
+        if (records.size() == 3) {
             const CandidateVariant& r = records.front();
             ok &= check(r.key.type == VariantType::Snp && r.key.pos == 3 && r.key.ref_len == 1 && r.key.alt == "A",
                         "records: the padded row trimmed to G>A at 3");
             ok &= check(r.phase_set == 10 && r.hap_to_cons_alle[1] == 0 && r.hap_to_cons_alle[2] == 1,
                         "records: the row's phase kept");
+            const CandidateVariant& hom = records[1];
+            ok &= check(hom.key.pos == 13 && hom.key.alt == "C" && hom.hom_fallback &&
+                            hom.hap_to_cons_alle[1] == 1 && hom.hap_to_cons_alle[2] == 1,
+                        "records: the fallback hom nothing overlaps kept 1/1, over its uncalled catalog copy");
+            ok &= check(records[2].key.pos == 16 && records[2].key.alt == "T",
+                        "records: the het kept, the fallback hom it overlaps dropped");
         }
     }
     std::remove(fasta_path);

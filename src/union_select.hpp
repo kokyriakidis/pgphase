@@ -23,6 +23,7 @@ struct Selection {
     std::set<size_t> unwritten_rows;  // graph rows whose allele the consensus sequences of their MSA region lack
     std::set<size_t> hom_rows;        // graph rows both consensus sequences of their MSA region carry: written 1/1
     std::set<size_t> hom_records;     // homozygous calls (the MSA's, the alignment's): written 1/1, no vote
+    std::set<size_t> hom_fallback;    // of them, those catalog rows also describe: written where no record is
     std::unordered_map<size_t, const char*> row_reason;  // why a graph row is unwritten or 1/1 (stage trace)
     std::set<size_t> spelled_hom;     // clean het calls no read spells the reference at (spell_homozygous_calls)
     std::set<size_t> additive;        // calls adding a change to a catalog row's haplotype (find_additive_calls)

@@ -302,6 +302,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
         }
         if (sel.hom_records.count(bi) != 0) {
+            cand.hom_fallback = sel.hom_fallback.count(bi) != 0;
             cand.lcd_var_i_to_cate &= ~kCandGermlineVarCate;
             cand.hap_to_cons_alle[1] = 1;
             cand.hap_to_cons_alle[2] = 1;

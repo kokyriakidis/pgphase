@@ -572,6 +572,11 @@ static VcfRecordCore build_vcf_record_core(const CandidateVariant& candidate,
 }
 } // namespace
 
+bool writes_alt_record(const CandidateVariant& candidate) {
+    return (is_germline_output_category(candidate.counts.category) || candidate.window_phased) &&
+           is_alt_genotype(candidate);
+}
+
 /**
  * @brief Writes VCF body records for candidate variants.
  *

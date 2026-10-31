@@ -35,6 +35,9 @@ std::string type_name(VariantType type);
  */
 std::string category_name(VariantCategory category);
 
+/// Whether the VCF writer writes the candidate as a record with an ALT genotype (its category and genotype).
+bool writes_alt_record(const CandidateVariant& candidate);
+
 /**
  * @brief Writes the main candidate-table TSV header (one line).
  * @param out Output stream.

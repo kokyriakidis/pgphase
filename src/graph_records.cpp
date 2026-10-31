@@ -22,6 +22,59 @@
 
 namespace pgphase_collect {
 
+// A fallback hom (CandidateVariant::hom_fallback) overlapped by another record the writer writes with an ALT genotype:
+// the catalog's call describes its locus, so the hom is dropped. Records are in position order.
+static void drop_covered_fallback_homs(CandidateTable& records) {
+    struct Span {
+        int tid;
+        hts_pos_t beg, end;
+        size_t i;
+    };
+    std::vector<Span> covering;
+    hts_pos_t longest = 0;
+    bool any_fallback = false;
+    for (size_t i = 0; i < records.size(); ++i) {
+        any_fallback |= records[i].hom_fallback;
+        if (records[i].hom_fallback || !writes_alt_record(records[i])) continue;
+        hts_pos_t beg = 0, end = 0;
+        variant_genomic_span(records[i].key, beg, end);
+        covering.push_back(Span{records[i].key.tid, beg, end, i});
+        longest = std::max(longest, end - beg);
+    }
+    if (!any_fallback) return;
+    std::sort(covering.begin(), covering.end(),
+              [](const Span& a, const Span& b) { return std::tie(a.tid, a.beg) < std::tie(b.tid, b.beg); });
+    std::vector<char> drop(records.size(), 0);
+    for (size_t i = 0; i < records.size(); ++i) {
+        const CandidateVariant& hom = records[i];
+        if (!hom.hom_fallback) continue;
+        hts_pos_t beg = 0, end = 0;
+        variant_genomic_span(hom.key, beg, end);
+        auto it = std::upper_bound(covering.begin(), covering.end(), std::make_pair(hom.key.tid, end),
+                                   [](const std::pair<int, hts_pos_t>& p, const Span& s) {
+                                       return std::tie(p.first, p.second) < std::tie(s.tid, s.beg);
+                                   });
+        while (it != covering.begin()) {
+            const Span& s = *--it;
+            if (s.tid != hom.key.tid || s.beg < beg - longest) break;
+            if (s.end < beg) continue;
+            drop[i] = 1;
+            if (pgphase_trace::on())
+                pgphase_trace::candidate("output", "drop", hom, "hom_fallback_covered",
+                                         pgphase_trace::genotype_text(records[s.i], "by_") + " by=" +
+                                             pgphase_trace::key_text(records[s.i].key));
+            break;
+        }
+    }
+    size_t write = 0;
+    for (size_t i = 0; i < records.size(); ++i)
+        if (!drop[i]) {
+            if (write != i) records[write] = std::move(records[i]);
+            ++write;
+        }
+    records.resize(write);
+}
+
 CandidateTable graph_chunks_to_candidate_table(
     const std::vector<GraphChunkBuildResult>& graph_chunks,
     const std::unordered_map<std::string, int>& contig_to_tid,
@@ -163,6 +216,7 @@ CandidateTable graph_chunks_to_candidate_table(
                 cand.alignment_verified = mcand.alignment_verified;
                 cand.vcf_unphased = mcand.vcf_unphased;
                 cand.window_phased = mcand.window_phased;
+                cand.hom_fallback = mcand.hom_fallback;
 
                 // Derive VariantKey from VCF-anchored alleles matching BAM-path convention:
                 //   SNP : key.pos = site.pos, key.alt = alt base, ref_len = 1
@@ -478,6 +532,7 @@ CandidateTable graph_chunks_to_candidate_table(
     drop_contradicted_walks(result, [&reference, header](int tid, hts_pos_t pos) {
         return static_cast<char>(std::toupper(static_cast<unsigned char>(reference.base(tid, pos, header))));
     });
+    drop_covered_fallback_homs(result);
 
     return result;
 }

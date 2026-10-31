@@ -311,11 +311,17 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                                        conf->second >= kUnionHomMinConfidentReads && n_confident >= share * n_reads;
             // No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it. Held back
             // by it, the truth's hom at 659 of 664 such calls on chr12/17/19/20 (no het).
-            if (!confident_alt || !voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len)).empty()) {
-                decide(bi, !confident_alt ? "hom:few_confident_reads" : "hom:graph_row");
+            if (!confident_alt) {
+                decide(bi, "hom:few_confident_reads");
                 continue;
             }
-            decide(bi, spelled_hom ? "aln_hom:spelled" : "aln_hom");
+            // Where catalog rows describe the locus, their call stands if they write one: the hom is written only
+            // where no record with an ALT genotype overlaps it, which the EM decides. Handed to the rows outright,
+            // a hom their EM leaves out (one allele: minor_allele_below_fraction) or the MSA drops went unwritten --
+            // chr20 arms, 12 truth homs on each BAM (319,724 T>C, 34 of 35 reads).
+            const bool fallback = !voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len)).empty();
+            decide(bi, fallback ? "aln_hom:fallback" : spelled_hom ? "aln_hom:spelled" : "aln_hom");
+            if (fallback) sel.hom_fallback.insert(bi);
             sel.hom_records.insert(bi);
             sel.selected.push_back(bi);
             continue;
