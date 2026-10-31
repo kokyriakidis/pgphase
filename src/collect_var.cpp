@@ -9,10 +9,12 @@
 #include "collect_phase_noisy.hpp"
 #include "fisher_exact.hpp"
 #include "noise_filter.hpp"
+#include "plegma_msa.hpp"
 
 #include "sdust.h"
 
 #include <algorithm>
+#include <cctype>
 #include <set>
 #include <map>
 #include <array>
@@ -902,6 +904,48 @@ static void collect_noisy_reg_start_end_pgphase(const cgranges_t* chunk_noisy_re
     }
 }
 
+// Perfect tandem-repeat tracts of the chunk reference: period 1-6, three copies and at least
+// kStrTractMinLen bp, at most kStrTractMaxLen bp (longer arrays are satellites, left to sdust).
+// sdust's 20 bp window misses dinucleotide and longer repeats -- a pure TG tract scores about 4.2
+// against its threshold of 5 -- yet the aligner may put an indel anywhere along such a tract. A
+// noisy region ending inside one leaves the reads that put the indel at the other end with none
+// in the MSA: at chr20:11,837,334 13 of 28 reads carrying +TG put it outside the 21 bp region
+// and the cluster consensus was decided by read order.
+static std::vector<Interval> tandem_repeat_tracts(const PhasingChunk& chunk) {
+    std::vector<Interval> out;
+    const std::string& s = chunk.ref_seq;
+    const int n = static_cast<int>(s.size());
+    const auto at = [&s](int i) { return std::toupper(static_cast<unsigned char>(s[static_cast<size_t>(i)])); };
+    for (int period = 1; period <= kStrTractMaxPeriod; ++period) {
+        int i = period;
+        while (i < n) {
+            if (at(i) == 'N' || at(i) != at(i - period)) {
+                ++i;
+                continue;
+            }
+            int j = i;
+            while (j < n && at(j) != 'N' && at(j) == at(j - period)) ++j;
+            const int len = j - i + period;  // the tract is [i - period, j)
+            // One base of padding each side: an insertion at either end of the tract (keyed at the base
+            // after it) is in the tract.
+            if (len >= kStrTractMinLen && len >= 3 * period && len <= kStrTractMaxLen)
+                out.push_back(Interval{chunk.ref_beg + i - period - 1, chunk.ref_beg + j, len});
+            i = j;
+        }
+    }
+    return out;
+}
+
+// Low-complexity sequence noisy regions extend into: sdust's intervals and, with plegma, the tandem-repeat tracts
+// (abPOA keeps longcallD's regions: its outputs are the port's parity check).
+static std::vector<Interval> noisy_extension_intervals(const PhasingChunk& chunk) {
+    std::vector<Interval> out = chunk.low_complexity_regions;
+    if (!use_plegma_msa()) return out;
+    const std::vector<Interval> tracts = tandem_repeat_tracts(chunk);
+    out.insert(out.end(), tracts.begin(), tracts.end());
+    return out;
+}
+
 /**
  * @brief Merges per-read noisy intervals into unified chunk-level regions and extends low-comp windows.
  *
@@ -928,7 +972,7 @@ void pre_process_noisy_regs_pgphase(PhasingChunk& chunk, const Options& opts) {
         return;
     }
     CrangesOwner low_own;
-    low_own.adopt(intervals_to_cr(chunk.low_complexity_regions));
+    low_own.adopt(intervals_to_cr(noisy_extension_intervals(chunk)));
 
     cr_index(noisy_own.cr);
     if (low_own.cr != nullptr) cr_index(low_own.cr);
@@ -1676,7 +1720,7 @@ static void classify_cand_vars_pgphase(PhasingChunk& chunk, const Options& opts)
     if (variants.empty()) return;
 
     CrangesOwner low_own;
-    low_own.adopt(intervals_to_cr(chunk.low_complexity_regions));
+    low_own.adopt(intervals_to_cr(noisy_extension_intervals(chunk)));
     cgranges_t* low_comp = low_own.cr;
     if (low_comp != nullptr) cr_index(low_comp);
 

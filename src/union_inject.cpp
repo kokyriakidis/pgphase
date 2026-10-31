@@ -7,6 +7,7 @@
 #include "trace.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <map>
 #include <set>
 
@@ -291,6 +292,7 @@ struct Selection {
     std::set<size_t> hom_rows;        // graph rows both consensus sequences of their MSA region carry: written 1/1
     std::set<size_t> hom_records;     // homozygous calls (the MSA's, the alignment's): written 1/1, no vote
     std::unordered_map<size_t, const char*> row_reason;  // why a graph row is unwritten or 1/1 (stage trace)
+    std::set<size_t> spelled_hom;     // clean het calls no read spells the reference at (spell_homozygous_calls)
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
 
@@ -389,8 +391,9 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
         // truth het SNPs called; written, 24,850 and SNP F1 0.999, INDEL 0.83 -> 0.99. Only where no voting row
         // describes the locus (the graph's own call stands), outside a het MSA region (its consensus sequences spell
         // it), and carried by confident reads.
+        const bool spelled_hom = sel.spelled_hom.count(bi) != 0;
         const bool hom_call = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
-                              (cat == VariantCategory::NoisyCandHom && c.msa_verified);
+                              (cat == VariantCategory::NoisyCandHom && c.msa_verified) || spelled_hom;
         if (hom_call && c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end && !in_het_msa_region(bam, c)) {
             const auto conf = support.confident[bi].find(1);
             int n_reads = 0, n_confident = 0;
@@ -414,7 +417,7 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                 decide(bi, !confident_alt ? "hom:few_confident_reads" : "hom:graph_row");
                 continue;
             }
-            decide(bi, "aln_hom");
+            decide(bi, spelled_hom ? "aln_hom:spelled" : "aln_hom");
             sel.hom_records.insert(bi);
             sel.selected.push_back(bi);
             continue;
@@ -757,6 +760,161 @@ std::unordered_map<size_t, size_t> fold_aliases(Selection& sel, const PhasingChu
     return alias_of;
 }
 
+// Clean het alignment calls no read spells the reference at, outside MSA regions: over the call's repeat tract and
+// kSpellFlank bases each side, fewer than kLocusMinSide reads spell the reference exactly and no sequence other than
+// the call's own reaches kLocusMinMinorFraction of the reads. The call is homozygous; the reads counted as REF carry
+// another spelling of the same allele, a run one letter short or the insertion placed past a mismatch, which the
+// pileup counts as REF (chr20:39,274,817 G>GC, 13 of 75 reads with the G run one short; chr20:2,930,988 C>CCT, 13 of
+// 63 with +T and T>C). Called het at AF 0.8, then dropped by the EM (minor allele below fraction) or written 0/1. An
+// MSA region, where one forms, genotypes them; where it forms depends on where the aligner put the indel. A true 1/2
+// keeps its second sequence and stays het.
+constexpr hts_pos_t kSpellFlank = 5;
+void spell_homozygous_calls(const PhasingChunk& graph, const PhasingChunk& bam, Selection& sel) {
+    if (bam.ref_seq.empty()) return;
+    const ReferenceView ref{bam};
+    std::optional<SpanningReadIndex> index;
+    const auto upper = [](std::string x) {
+        for (char& ch : x) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return x;
+    };
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        const CandidateVariant& c = bam.candidates[bi];
+        const VariantCategory cat = c.counts.category;
+        if (cat != VariantCategory::CleanHetSnp && cat != VariantCategory::CleanHetIndel) continue;
+        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) continue;
+        if (c.key.alt.find_first_not_of("ACGTacgt") != std::string::npos) continue;
+        const hts_pos_t c0 = c.key.pos - 1, c1 = c0 + c.key.ref_len;
+        bool in_msa = false;
+        for (const PhasingChunk::MsaRegion& r : bam.msa_regions) in_msa = in_msa || (r.beg <= c1 + 1 && c0 <= r.end);
+        if (in_msa) continue;
+        const hts_pos_t w0 = std::max<hts_pos_t>(0, c0 - ref.repeat_left(c0) - kSpellFlank);
+        const hts_pos_t w1 = c1 + ref.repeat_right(c1) + kSpellFlank;
+        if (w1 - w0 > kLocusMaxLength) continue;
+        const std::string hap_ref = ref.slice(w0, w1);
+        const std::string hap_call = ref.slice(w0, c0) + upper(c.key.alt) + ref.slice(c1, w1);
+        if (hap_ref.find('N') != std::string::npos || hap_call == hap_ref) continue;
+        if (!index) index.emplace(bam);
+        std::map<std::string, int> spelled;
+        int n = 0;
+        for (auto& [ri, seq] : index->segments(w0, w1, kAlleleWindowMaxReads)) {
+            ++spelled[std::move(seq)];
+            ++n;
+        }
+        const auto count = [&spelled](const std::string& x) {
+            const auto it = spelled.find(x);
+            return it == spelled.end() ? 0 : it->second;
+        };
+        int n_other = 0;
+        for (const auto& [seq, k] : spelled)
+            if (seq != hap_ref && seq != hap_call) n_other = std::max(n_other, k);
+        if (count(hap_ref) >= kLocusMinSide || count(hap_call) < kLocusMinSide ||
+            n_other >= kLocusMinMinorFraction * n) continue;
+        sel.spelled_hom.insert(bi);
+        if (pgphase_trace::on())
+            pgphase_trace::candidate("inject", "spell", c, "homozygous",
+                                     "reads=" + std::to_string(n) + " ref=" + std::to_string(count(hap_ref)) +
+                                         " call=" + std::to_string(count(hap_call)) + " other=" + std::to_string(n_other));
+    }
+}
+
+// Catalog rows a clean alignment het overlaps, outside MSA regions, that no read's aligned sequence spells: as
+// unwrite_indel_rows_msa_lacks checks rows against the MSA's consensus sequences, here against the reads. Over a window
+// around the row and the call, through the repeat tracts at its ends, the spanning reads' sequences are counted: a row
+// whose haplotype fewer than kLocusMinSide reads spell exactly, where another non-reference sequence is spelled by
+// kLocusMinSide reads and kLocusMinMinorFraction of them, is no haplotype of the reads (the graph put them on it, at
+// the nearest allele it has): written no record, still voting, and the calls hidden behind it as its complement are
+// promoted (select_sites). Where the alignment spelled a locus as the truth does and differently from the catalog, the
+// catalog's description was written and the reads' own hidden: chr20:55,942,094 CAAAT>C, one A short of the reads'
+// haplotype, written 1/0 over the truth's A>G, G>T and AATT>A the alignment called; chr20:1,573,393 A>G over the truth's
+// T>TG at 391. Not per read, nearest haplotype: the call is one of several changes on the reads' haplotype there, and
+// the row can be nearer the reads than it is. An MSA region resolves its rows itself.
+void unwrite_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
+                             const AlignmentSupport& support, const VotingRows& voting, Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    if (bam.ref_seq.empty() || graph_chunk.site_meta.size() != graph.candidates.size() ||
+        graph_chunk.site_allele_orig_idx.size() != graph.candidates.size()) return;
+    const ReferenceView ref{bam};
+    std::optional<SpanningReadIndex> index;  // built at the first pair tested
+    const auto upper = [](std::string x) {
+        for (char& ch : x) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return x;
+    };
+    const auto is_acgt = [](const std::string& x) {
+        return x.find_first_not_of("ACGTacgt") == std::string::npos;
+    };
+    const auto in_msa_region = [&bam](hts_pos_t a, hts_pos_t b) {
+        for (const PhasingChunk::MsaRegion& r : bam.msa_regions)
+            if (r.beg <= b && a <= r.end) return true;
+        return false;
+    };
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        const CandidateVariant& c = bam.candidates[bi];
+        const VariantCategory cat = c.counts.category;
+        if (cat != VariantCategory::CleanHetSnp && cat != VariantCategory::CleanHetIndel) continue;
+        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0 || !support.confidently_supported(bi)) continue;
+        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end || !is_acgt(c.key.alt)) continue;
+        const hts_pos_t c0 = c.key.pos - 1, c1 = c0 + c.key.ref_len;
+        if (in_msa_region(c0, c1 + 1)) continue;
+        for (const size_t r : voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len))) {
+            if (sel.unwritten_rows.count(r) != 0 || graph.candidates[r].counts.alle_covs.size() != 2) continue;
+            const VariantKey& rk = graph.candidates[r].key;
+            // As select_sites: a SNP beside a row SNP is not another description of it.
+            if (c.key.type == VariantType::Snp && rk.type == VariantType::Snp &&
+                (rk.pos + rk.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= rk.pos)) continue;
+            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
+            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
+            const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
+            if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
+            const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
+            const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+            if (!is_acgt(row_alt) || ref.slice(r0, r1) != row_ref || in_msa_region(r0, r1)) continue;
+            const hts_pos_t lo = std::min(r0, c0), hi = std::max(r1, c1);
+            const hts_pos_t w0 = std::max<hts_pos_t>(0, lo - ref.repeat_left(lo) - kAlleleWindowFlank);
+            const hts_pos_t w1 = hi + ref.repeat_right(hi) + kAlleleWindowFlank;
+            if (w1 - w0 > kLocusMaxLength) continue;
+            const std::string hap_ref = ref.slice(w0, w1);
+            const std::string hap_row = ref.slice(w0, r0) + row_alt + ref.slice(r1, w1);
+            if (hap_ref.find('N') != std::string::npos || hap_row == hap_ref) continue;
+            // An alignment candidate (kLocusMinSide reads) describing the row, alone or with the others inside its span,
+            // is the alignment's own spelling of it. Checked first: over a window with other variants every read
+            // spells some of them too, and none the row's change alone (chr20:47.29 Mb, catalog SNPs a few bases apart
+            // the alignment calls too, all unwritten without it).
+            bool described = false;
+            std::string combined = ref.slice(w0, w1);
+            hts_pos_t shift = 0, last_end = -1;
+            for (const CandidateVariant& o : bam.candidates) {
+                if (described) break;
+                const hts_pos_t o0 = o.key.pos - 1, o1 = o0 + o.key.ref_len;
+                if (o.counts.alt_cov < kLocusMinSide || o0 < w0 || o1 > w1) continue;
+                if (o.key.alt.find_first_not_of("ACGTacgt") != std::string::npos) continue;
+                const std::string alt = upper(o.key.alt);
+                described = ref.slice(w0, o0) + alt + ref.slice(o1, w1) == hap_row;
+                if (o0 >= r0 && o1 <= r1 && o0 >= last_end) {
+                    combined.replace(static_cast<size_t>(o0 - w0 + shift), static_cast<size_t>(o.key.ref_len), alt);
+                    shift += static_cast<hts_pos_t>(alt.size()) - o.key.ref_len;
+                    last_end = o1;
+                }
+            }
+            if (described || combined == hap_row) continue;
+            if (!index) index.emplace(bam);
+            std::map<std::string, int> spelled;
+            int n = 0;
+            for (auto& [ri, seq] : index->segments(w0, w1, kAlleleWindowMaxReads)) {
+                ++spelled[std::move(seq)];
+                ++n;
+            }
+            const auto row_it = spelled.find(hap_row);
+            if (row_it != spelled.end() && row_it->second >= kLocusMinSide) continue;
+            int n_other = 0;
+            for (const auto& [seq, k] : spelled)
+                if (seq != hap_ref) n_other = std::max(n_other, k);
+            if (n_other < kLocusMinSide || n_other < kLocusMinMinorFraction * n) continue;
+            if (sel.unwritten_rows.insert(r).second) sel.row_reason[r] = "aln_reads_lack_row";
+        }
+    }
+}
+
 }  // namespace
 
 size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
@@ -769,6 +927,8 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     suppress_rows_msa_reads_as_reference(graph, bam, sel);
     genotype_substitution_rows(graph_chunk, bam, sel);
     unwrite_indel_rows_msa_lacks(graph_chunk, bam, sel);
+    unwrite_rows_reads_lack(graph_chunk, bam, support, voting, sel);
+    spell_homozygous_calls(graph, bam, sel);
     select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr, sel);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;

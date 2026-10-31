@@ -113,16 +113,28 @@ struct SpanningReadIndex {
     std::vector<size_t> graph_index;
     hts_pos_t max_span = 0;          // longest reference span of any read
 
-    SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk& graph) {
+    SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk& graph) : SpanningReadIndex(bam, &graph) {}
+    // Every primary alignment-chunk read, by its index there: for counting what the reads spell, where no graph
+    // read is needed (at injection the graph chunk does not yet hold the reads the GAF lacks).
+    explicit SpanningReadIndex(const PhasingChunk& bam) : SpanningReadIndex(bam, nullptr) {}
+
+    SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk* graph) {
         std::unordered_map<std::string_view, size_t> graph_read;
-        graph_read.reserve(graph.reads.size());
-        for (size_t ri = 0; ri < graph.reads.size(); ++ri) graph_read.try_emplace(graph.reads[ri].qname, ri);
+        if (graph != nullptr) {
+            graph_read.reserve(graph->reads.size());
+            for (size_t ri = 0; ri < graph->reads.size(); ++ri) graph_read.try_emplace(graph->reads[ri].qname, ri);
+        }
         std::vector<std::pair<const ReadRecord*, size_t>> kept;
-        for (const ReadRecord& r : bam.reads) {
+        for (size_t bi = 0; bi < bam.reads.size(); ++bi) {
+            const ReadRecord& r = bam.reads[bi];
             if (!r.alignment) continue;
             if ((r.alignment->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY | BAM_FDUP | BAM_FUNMAP)) != 0)
                 continue;
             if (r.alignment->core.qual < kLocusMinMapq) continue;
+            if (graph == nullptr) {
+                kept.emplace_back(&r, bi);
+                continue;
+            }
             const auto g = graph_read.find(r.qname);
             if (g == graph_read.end()) continue;
             kept.emplace_back(&r, g->second);
