@@ -2114,10 +2114,25 @@ in `collect_phase_noisy.cpp`. It defaults to `false`
 
 The graph command's `--bam` alignment solve (`union_alignment_options`,
 `collect_pipeline.cpp`) still clears `skip_noisy_kmeans` explicitly, so it
-executes the ordinary BAM noisy-region loop, limited to regions up to 2 kb
-(`max_noisy_reg_len`). Its clean and MSA-verified heterozygotes, with their
+executes the ordinary BAM noisy-region loop, its regions capped at 10 kb
+(`max_noisy_reg_len`, `kUnionMsaMaxRegionLength`). Its clean and MSA-verified heterozygotes, with their
 per-read calls, are injected into the graph chunk without their phase; the union EM phases them (Part I, "Union gap
 phasing").
+
+With plegma, three rules shape that loop's regions and reads:
+
+- *Tandem-repeat tracts.* Noisy regions extend over perfect tandem-repeat tracts (period 1-6, 10-500 bp, three
+  copies; `tandem_repeat_tracts`, `noisy_extension_intervals`) as well as sdust's low-complexity intervals, whose
+  20 bp window misses dinucleotide repeats. A region ending inside a tract left the cluster consensus to read order
+  (chr20:11,837,334, +TG in 13 of 28 reads).
+- *Splitting.* A region longer than the cap is cut into pieces of at most the cap (`split_long_noisy_regions`), each
+  cut at least `kNoisySplitFlank` (30) bases from any candidate and outside the extension intervals, instead of being
+  skipped (`too_long_for_msa`) with every call in it.
+- *Confident reads.* Where fewer than half of a region's reads are placed at MAPQ 30 or more (a collapsed repeat:
+  satellites, segmental duplications), its MSA takes the confident reads alone when there are at least
+  `kMsaMinConfidentReads` (6) of them; the MSA of every read clusters by copy, not haplotype, and took chr20's
+  pericentromere from 41 s to over 14 minutes. A piece of a split region with fewer is skipped; an unsplit region
+  takes all its reads, as before.
 
 A region returns `-1` when `collect_phase_set_with_both_haps` cannot find a phase set with sufficient reads on both haplotypes — the clean-site assignments did not reach this region with enough depth. Once another region succeeds and its new candidates trigger a k-means re-run, some previously-unphased reads may acquire hap assignments. The retry then finds enough phased reads to run the MSA. This handles dependency chains where adjacent noisy regions cannot bootstrap independently but together resolve each other.
 
@@ -2244,6 +2259,27 @@ Two rules downstream of the MSA, for either backend:
 - **Catalog indel rows the MSA lacks write no record** (`unwrite_indel_rows_msa_lacks`), as substitution rows already
   did: a row whose haplotype, over every place in the repeat tract its indel can sit, neither consensus spells
   (chr20:14,371,298 GA>G, phased, in a region whose two consensus sequences delete nothing there).
+- **Reads' own spellings decide between a catalog row and the alignment's calls.**
+  - *Rows no read spells* (`unwrite_rows_reads_lack`, and `unwrite_edge_rows_reads_lack` for rows across a het MSA
+    region's edge): a row a clean alignment het overlaps, that no alignment candidate describes (alone or with the
+    others inside its span), fewer than 3 reads spell over its repeat-padded window, and another non-reference
+    sequence 3 reads and 20% of them do, writes no record; the calls hidden behind it are promoted (chr20:55,942,094
+    CAAAT>C written over the truth's A>G, G>T, AATT>A; chr20:9,231,470, a 648 bp walk one base off the reads).
+  - *Homs no read contradicts* (`spell_homozygous_calls`, `aln_hom:spelled`): a clean hom call no read spells
+    REF at, with no second haplotype, is written 1/1 past the confident-read share. Where REF has at most one read and
+    the depth is at least 0.75 times the median, the share is 0.3 (`kUnionHomMinConfidentShareFullDepth`): a hom read
+    at full depth is this copy's even at low MAPQ.
+  - *Calls adding to a row* (`find_additive_calls`, `injected:adds_to_row`) are written themselves, not hidden
+    behind it.
+  - *A call under the other consensus's deletion* needs only its own allele confidently read (that haplotype has no
+    bases there: chr20:49,575,972 and 49,576,250).
+  - *A row's span* (`VotingRows`) is its own allele trimmed to minimal VCF form, a base off each end, not its site's
+    REF: a 13-allele site at chr20:23,847,472 has a 753 bp REF, the row's allele 702 bp of it, and the C>CTGTT at its
+    last base was hidden as its complement and written by nothing.
+  With the MSA rules above (tracts, splitting, confident reads), HG002 HiFi chr20 (vg surjected BAM) against c0077c8:
+  arm truth hets phased 64,765 -> 64,819, unphased 160 -> 189, other alleles 914 -> 897, overlapping records 97 -> 5,
+  missed 382 -> 410, false het loci 80 -> 59; hap.py (Q100) SNP F1 0.9993 -> 0.9994, INDEL 0.9904 -> 0.9905; reads
+  unchanged. On the graph-native BAM (`pgcat surject`): phased 64,810, other alleles 874, false het loci 58.
 - **A deletion and an insertion side by side on one haplotype are one record** (`merge_adjacent_deletion_insertion`,
   output): the MSA's alignment can describe a replacement as the two (chr18:830,100, TTTG deleted then AAAAAA
   inserted). Written apart, the insertion's padding base was the deletion's last deleted base. Merged only where both

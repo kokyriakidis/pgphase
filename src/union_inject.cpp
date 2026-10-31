@@ -7,6 +7,7 @@
 #include "trace.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <optional>
 #include <map>
 #include <set>
@@ -49,6 +50,13 @@ constexpr int kUnionHomMinConfidentReads = 5;
 constexpr double kUnionHomMinConfidentShare = 0.9;
 // ... or this share when no read carries REF.
 constexpr double kUnionHomMinConfidentShareNoRef = 0.5;
+// ... or this share at full depth (kUnionHomFullDepthRatio of the median or more) with at most one read on REF: both
+// haplotypes' reads are there, so the call is no het with one haplotype's reads mapped elsewhere (what the shares
+// above guard against). chr20 (graph-native BAM), hom calls the two shares held back, inside the benchmark: 20 truth
+// homs, nothing else; outside it 23 more against 7 not 1/1. At half depth the same calls were 60 homs against 267
+// not; at full depth under 30% confident, 105 against 88 (paralog-specific variants of segmental duplications).
+constexpr double kUnionHomMinConfidentShareFullDepth = 0.3;
+constexpr double kUnionHomFullDepthRatio = 0.75;
 // The longest voting row an alignment call can be another description of:
 // the alignment's own noisy-region MSA covers up to 2 kb (max_noisy_reg_len).
 // A call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on
@@ -174,6 +182,25 @@ static CandKey left_aligned_indel_key(const CandidateVariant& c, const PhasingCh
 
 namespace {
 
+// A graph row's own catalog allele, as written: the site's REF and the row's ALT (site_allele_orig_idx), both still
+// carrying the site's full flanks. Empty where the row has no usable meta.
+struct RowAllele {
+    hts_pos_t pos = 0;  // 1-based, of ref[0]
+    const std::string* ref = nullptr;
+    const std::string* alt = nullptr;
+};
+
+std::optional<RowAllele> row_allele(const GraphChunkBuildResult& graph_chunk, size_t r) {
+    if (graph_chunk.site_meta.size() != graph_chunk.chunk.candidates.size() ||
+        graph_chunk.site_allele_orig_idx.size() != graph_chunk.chunk.candidates.size()) return std::nullopt;
+    const GraphSiteMeta& meta = graph_chunk.site_meta[r];
+    const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
+    const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
+    if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size()))
+        return std::nullopt;
+    return RowAllele{meta.pos, &meta.ref, &meta.alts[static_cast<size_t>(alt_i)]};
+}
+
 // Rows that already vote describe this locus. An alignment call overlapping
 // one is another description of it: it joins as a hidden complement site
 // (no VCF record) carrying the alignment's calls, because the graph often
@@ -183,12 +210,31 @@ namespace {
 // phases), and a paralog cluster then joined across the gap the wrong way.
 class VotingRows {
 public:
-    explicit VotingRows(const PhasingChunk& graph) {
+    // A row's span is the reference its catalog allele replaces, as its record is written (trimmed to minimal VCF
+    // form), where that is longer than its key's: a walk the graph keys as a one-base insertion can replace hundreds of
+    // reference bases (chr20:9,231,470, I:1 over 921 bp), and keyed so it was neither replaced by the MSA calls inside
+    // it nor hidden behind them -- written with them, the locus could not be spelled. The allele's own span, not its
+    // site's REF: a 13-allele site at chr20:23,847,472 has a 753 bp REF, and the row's allele replaces 702 bp of it.
+    explicit VotingRows(const GraphChunkBuildResult& graph_chunk) {
+        const PhasingChunk& graph = graph_chunk.chunk;
         for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
             const CandidateVariant& row = graph.candidates[ci];
             if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
-            if (std::max(1, row.key.ref_len) > kUnionMaxComplementRowSpan) continue;
-            spans_.emplace_back(row.key.pos - 1, row.key.pos + std::max(1, row.key.ref_len), ci);
+            hts_pos_t beg = row.key.pos - 1, end = row.key.pos + std::max(1, row.key.ref_len);
+            // Its interior only (a base off each end): a call beside the allele, an insertion at its last base, is not
+            // another description of it (chr20:23,848,189 C>CTGTT after that 702 bp walk, hidden as its complement
+            // and then written by nothing when the walk lost a conflict).
+            if (const std::optional<RowAllele> a = row_allele(graph_chunk, ci)) {
+                hts_pos_t pos = a->pos;
+                std::string ref = *a->ref, alt = *a->alt;
+                trim_to_minimal_vcf(pos, ref, alt);
+                if (ref.size() > 2) {
+                    beg = std::min(beg, pos);
+                    end = std::max(end, pos - 2 + static_cast<hts_pos_t>(ref.size()));
+                }
+            }
+            if (end - beg > kUnionMaxComplementRowSpan) continue;
+            spans_.emplace_back(beg, end, ci);
         }
         std::sort(spans_.begin(), spans_.end());
         for (const auto& span : spans_) widest_ = std::max(widest_, std::get<1>(span) - std::get<0>(span));
@@ -293,8 +339,24 @@ struct Selection {
     std::set<size_t> hom_records;     // homozygous calls (the MSA's, the alignment's): written 1/1, no vote
     std::unordered_map<size_t, const char*> row_reason;  // why a graph row is unwritten or 1/1 (stage trace)
     std::set<size_t> spelled_hom;     // clean het calls no read spells the reference at (spell_homozygous_calls)
+    std::set<size_t> additive;        // calls adding a change to a catalog row's haplotype (find_additive_calls)
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };
+
+// Whether an MSA call lies inside an MSA deletion of the same region carried by its other consensus only.
+static bool under_other_consensus_deletion(const PhasingChunk& bam, const CandidateVariant& c) {
+    const std::array<int8_t, 2>& own = c.msa_cons_allele;
+    if (own[0] < 0 || own[1] < 0 || own[0] + own[1] != 1) return false;
+    const hts_pos_t c0 = c.key.pos, c1 = c.key.pos + std::max(1, c.key.ref_len);
+    for (const CandidateVariant& d : bam.candidates) {
+        if (d.key.type != VariantType::Deletion || !d.msa_verified || &d == &c) continue;
+        const std::array<int8_t, 2>& other = d.msa_cons_allele;
+        if (other[0] < 0 || other[1] < 0 || other[0] == own[0] || other[1] == own[1]) continue;
+        // The deletion removes bases pos .. pos + ref_len - 1 (VCF: after the padding base at pos - 1).
+        if (d.key.pos <= c0 && c1 <= d.key.pos + d.key.ref_len) return true;
+    }
+    return false;
+}
 
 // Whether an alignment candidate lies strictly inside a region the MSA resolved into two different consensus
 // sequences (MsaRegion::het).
@@ -408,7 +470,12 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             // written 1/1.
             const auto ref = support.observed[bi].find(0);
             const bool no_ref = ref == support.observed[bi].end() || ref->second == 0;
-            const double share = no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
+            const bool full_depth = (ref == support.observed[bi].end() || ref->second <= 1) &&
+                                    support.median_depth > 0.0 &&
+                                    n_reads >= kUnionHomFullDepthRatio * support.median_depth;
+            const double share = full_depth ? std::min(kUnionHomMinConfidentShareFullDepth,
+                                                       no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare)
+                               : no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
             const bool confident_alt = conf != support.confident[bi].end() &&
                                        conf->second >= kUnionHomMinConfidentReads && n_confident >= share * n_reads;
             // No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it. Held back
@@ -443,7 +510,13 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
         // correct / -88 discordant / -67 unphased, +1,569 truth hets phased;
         // arm switches 32 -> 37 (sparse pericentromeric, satellite and VNTR
         // blocks: chr12 34.65-37.19 Mb, chr20 32.76 and 65.51 Mb).
-        const bool confident = support.confidently_supported(bi);
+        // An MSA call inside an MSA deletion its other consensus carries: that haplotype has no bases there, so REF has
+        // no reads to carry it (a few error reads at most) and the call's own allele alone needs confident support.
+        // chr20:49,575,972 and 49,576,250, deletions of 179 and 196 bp beside the other haplotype's 2,443 bp deletion
+        // (the truth's 2|1 with *): REF 3 reads, 1 of them confident, and both went unwritten.
+        const bool confident = support.confidently_supported(bi) ||
+                               (msa && under_other_consensus_deletion(bam, c) && support.confident_on_leading(bi)[0] >=
+                                                                                     kUnionMinConfidentAlleleReads);
         const char* dropped = !clean && !confident ? "few_confident_reads"
                             : (support.median_depth > 0.0 &&
                                support.depth[bi] > kUnionMaxDepthRatio * support.median_depth) ? "depth_gate"
@@ -490,6 +563,12 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             // Every row: keeping one an MSA call reproduces (by VCF allele) put a co-located copy beside the call and
             // left 162 truth hets on chr12/18/20 unphased.
             sel.replaced_rows.insert(rows.begin(), rows.end());
+            if (!confident) sel.low_mapq_only.insert(bi);
+            sel.selected.push_back(bi);
+            continue;
+        }
+        if (!rows.empty() && sel.additive.count(bi) != 0) {
+            decide(bi, "injected:adds_to_row");
             if (!confident) sel.low_mapq_only.insert(bi);
             sel.selected.push_back(bi);
             continue;
@@ -818,6 +897,87 @@ void spell_homozygous_calls(const PhasingChunk& graph, const PhasingChunk& bam, 
     }
 }
 
+// Clean alignment hets that add a change to a catalog substitution row they overlap rather than describe it again: the
+// reads spell the row's and the call's changes together (kLocusMinSide reads, more than spell the row's alone) over a
+// window through the repeat tracts at its ends. Hidden as the row's complement, such a call was written by nothing:
+// chr20:62,977,373 C>CAT inside the catalog's CAC>CAT, whose SNP the row writes (the truth's C>CAT and C>T at 375);
+// chr20:58,239,873 G>GAT. Written as an injected call, the row still written beside it.
+void find_additive_calls(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, const VotingRows& voting,
+                         Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    if (bam.ref_seq.empty() || graph_chunk.site_meta.size() != graph.candidates.size() ||
+        graph_chunk.site_allele_orig_idx.size() != graph.candidates.size()) return;
+    const ReferenceView ref{bam};
+    std::optional<SpanningReadIndex> index;
+    const auto upper = [](std::string x) {
+        for (char& ch : x) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return x;
+    };
+    for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
+        const CandidateVariant& c = bam.candidates[bi];
+        const VariantCategory cat = c.counts.category;
+        if (cat != VariantCategory::CleanHetSnp && cat != VariantCategory::CleanHetIndel) continue;
+        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) continue;
+        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) continue;
+        if (c.key.alt.find_first_not_of("ACGTacgt") != std::string::npos) continue;
+        const hts_pos_t c0 = c.key.pos - 1, c1 = c0 + c.key.ref_len;
+        for (const size_t r : voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len))) {
+            if (graph.candidates[r].counts.alle_covs.size() != 2) continue;
+            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
+            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
+            const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
+            if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
+            const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
+            // A substitution row: its bases one for one.
+            if (row_ref.size() != row_alt.size() || row_alt.find_first_not_of("ACGT") != std::string::npos) continue;
+            const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+            if (ref.slice(r0, r1) != row_ref) continue;
+            const hts_pos_t lo = std::min(r0, c0), hi = std::max(r1, c1);
+            const hts_pos_t w0 = std::max<hts_pos_t>(0, lo - ref.repeat_left(lo) - kAlleleWindowFlank);
+            const hts_pos_t w1 = hi + ref.repeat_right(hi) + kAlleleWindowFlank;
+            if (w1 - w0 > kLocusMaxLength) continue;
+            // Slots: each reference base of the window, the row's bases in place, then the call applied to bases the
+            // row leaves alone (an insertion before its base).
+            std::vector<std::string> slot;
+            for (hts_pos_t x = w0; x < w1; ++x) slot.emplace_back(1, ref.base(x));
+            std::vector<char> changed(slot.size(), 0);
+            for (hts_pos_t x = r0; x < r1; ++x) {
+                const size_t k = static_cast<size_t>(x - w0);
+                if (slot[k][0] != row_alt[static_cast<size_t>(x - r0)]) changed[k] = 1;
+                slot[k] = std::string(1, row_alt[static_cast<size_t>(x - r0)]);
+            }
+            const auto join = [](const std::vector<std::string>& v) {
+                std::string out;
+                for (const std::string& x : v) out += x;
+                return out;
+            };
+            const std::string hap_row = join(slot);
+            bool clash = false;
+            for (hts_pos_t x = c0; x < c1; ++x) clash = clash || changed[static_cast<size_t>(x - w0)];
+            if (clash) continue;
+            const std::string alt = upper(c.key.alt);
+            if (c.key.ref_len == 0) {
+                slot[static_cast<size_t>(c0 - w0)] = alt + slot[static_cast<size_t>(c0 - w0)];
+            } else {
+                for (hts_pos_t x = c0; x < c1; ++x) slot[static_cast<size_t>(x - w0)].clear();
+                slot[static_cast<size_t>(c0 - w0)] = alt;
+            }
+            const std::string hap_both = join(slot);
+            if (hap_both == hap_row) continue;
+            if (!index) index.emplace(bam);
+            int n_both = 0, n_row = 0;
+            for (const auto& [ri, seq] : index->segments(w0, w1, kAlleleWindowMaxReads)) {
+                n_both += seq == hap_both;
+                n_row += seq == hap_row;
+            }
+            if (n_both >= kLocusMinSide && n_both > n_row) {
+                sel.additive.insert(bi);
+                break;
+            }
+        }
+    }
+}
+
 // Catalog rows a clean alignment het overlaps, outside MSA regions, that no read's aligned sequence spells: as
 // unwrite_indel_rows_msa_lacks checks rows against the MSA's consensus sequences, here against the reads. Over a window
 // around the row and the call, through the repeat tracts at its ends, the spanning reads' sequences are counted: a row
@@ -862,12 +1022,10 @@ void unwrite_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, const Pha
             // As select_sites: a SNP beside a row SNP is not another description of it.
             if (c.key.type == VariantType::Snp && rk.type == VariantType::Snp &&
                 (rk.pos + rk.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= rk.pos)) continue;
-            const GraphSiteMeta& meta = graph_chunk.site_meta[r];
-            const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[r];
-            const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
-            if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
-            const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
-            const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+            const std::optional<RowAllele> allele = row_allele(graph_chunk, r);
+            if (!allele) continue;
+            const std::string row_ref = upper(*allele->ref), row_alt = upper(*allele->alt);
+            const hts_pos_t r0 = allele->pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
             if (!is_acgt(row_alt) || ref.slice(r0, r1) != row_ref || in_msa_region(r0, r1)) continue;
             const hts_pos_t lo = std::min(r0, c0), hi = std::max(r1, c1);
             const hts_pos_t w0 = std::max<hts_pos_t>(0, lo - ref.repeat_left(lo) - kAlleleWindowFlank);
@@ -915,12 +1073,82 @@ void unwrite_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, const Pha
     }
 }
 
+// Catalog rows across the edge of a region the MSA resolved, that no read spells: the MSA's row checks
+// (suppress_rows_msa_reads_as_reference, genotype_substitution_rows, unwrite_indel_rows_msa_lacks) take rows inside a
+// region only, and where the region begins depends on the alignment. Written beside the region's own calls, such a
+// row could not be spelled with them: chr20:9,231,470, a 648 bp catalog walk one base off the reads' haplotype (a T at
+// 9,231,535 that 2 of 53 reads carry), began 22 bp before the region and was written with its 18 SNPs. The test is
+// unwrite_rows_reads_lack's: no alignment candidate describes the row, fewer than kLocusMinSide reads spell it, and
+// another non-reference sequence kLocusMinSide reads and kLocusMinMinorFraction of them do. Written no record, voting.
+void unwrite_edge_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, Selection& sel) {
+    const PhasingChunk& graph = graph_chunk.chunk;
+    if (bam.ref_seq.empty() || bam.msa_regions.empty() || graph_chunk.site_meta.size() != graph.candidates.size() ||
+        graph_chunk.site_allele_orig_idx.size() != graph.candidates.size()) return;
+    const ReferenceView ref{bam};
+    std::optional<SpanningReadIndex> index;
+    const auto upper = [](std::string x) {
+        for (char& ch : x) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        return x;
+    };
+    const auto acgt = [](const std::string& x) { return x.find_first_not_of("ACGTacgt") == std::string::npos; };
+    for (size_t ci = 0; ci < graph.candidates.size(); ++ci) {
+        const CandidateVariant& row = graph.candidates[ci];
+        if ((row.lcd_var_i_to_cate & kCandGermlineVarCate) == 0 || row.counts.alle_covs.size() != 2 ||
+            sel.unwritten_rows.count(ci) != 0) continue;
+        const GraphSiteMeta& meta = graph_chunk.site_meta[ci];
+        const std::vector<int>& orig = graph_chunk.site_allele_orig_idx[ci];
+        const int alt_i = (orig.size() > 1 ? orig[1] : 1) - 1;
+        if (meta.pos <= 0 || meta.ref.empty() || alt_i < 0 || alt_i >= static_cast<int>(meta.alts.size())) continue;
+        const std::string row_ref = upper(meta.ref), row_alt = upper(meta.alts[static_cast<size_t>(alt_i)]);
+        const hts_pos_t r0 = meta.pos - 1, r1 = r0 + static_cast<hts_pos_t>(row_ref.size());
+        bool edge = false;
+        for (const PhasingChunk::MsaRegion& region : bam.msa_regions)
+            if (region.het() && region.beg <= r1 && r0 <= region.end && (r0 <= region.beg || r1 >= region.end)) edge = true;
+        if (!edge || !acgt(row_alt) || ref.slice(r0, r1) != row_ref) continue;
+        const hts_pos_t w0 = std::max<hts_pos_t>(0, r0 - ref.repeat_left(r0) - kAlleleWindowFlank);
+        const hts_pos_t w1 = r1 + ref.repeat_right(r1) + kAlleleWindowFlank;
+        if (w1 - w0 > kLocusMaxLength) continue;
+        const std::string hap_ref = ref.slice(w0, w1);
+        const std::string hap_row = ref.slice(w0, r0) + row_alt + ref.slice(r1, w1);
+        if (hap_ref.find('N') != std::string::npos || hap_row == hap_ref) continue;
+        bool described = false;
+        std::string combined = hap_ref;
+        hts_pos_t shift = 0, last_end = -1;
+        for (const CandidateVariant& o : bam.candidates) {
+            const hts_pos_t o0 = o.key.pos - 1, o1 = o0 + o.key.ref_len;
+            if (o.counts.alt_cov < kLocusMinSide || o0 < w0 || o1 > w1 || !acgt(o.key.alt)) continue;
+            const std::string alt = upper(o.key.alt);
+            described = described || ref.slice(w0, o0) + alt + ref.slice(o1, w1) == hap_row;
+            if (o0 >= r0 && o1 <= r1 && o0 >= last_end) {
+                combined.replace(static_cast<size_t>(o0 - w0 + shift), static_cast<size_t>(o.key.ref_len), alt);
+                shift += static_cast<hts_pos_t>(alt.size()) - o.key.ref_len;
+                last_end = o1;
+            }
+        }
+        if (described || combined == hap_row) continue;
+        if (!index) index.emplace(bam);
+        std::map<std::string, int> spelled;
+        int n = 0;
+        for (auto& [ri, seq] : index->segments(w0, w1, kAlleleWindowMaxReads)) {
+            ++spelled[std::move(seq)];
+            ++n;
+        }
+        const auto row_it = spelled.find(hap_row);
+        if (row_it != spelled.end() && row_it->second >= kLocusMinSide) continue;
+        int n_other = 0;
+        for (const auto& [seq, k] : spelled)
+            if (seq != hap_ref) n_other = std::max(n_other, k);
+        if (n_other < kLocusMinSide || n_other < kLocusMinMinorFraction * n) continue;
+        if (sel.unwritten_rows.insert(ci).second) sel.row_reason[ci] = "msa_edge_reads_lack_row";
+    }
+}
+
 }  // namespace
 
 size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam,
                               const char* contig_name) {
     PhasingChunk& graph = graph_chunk.chunk;
-    const VotingRows voting(graph);
+    const VotingRows voting(graph_chunk);
     const AlignmentSupport support(bam);
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
     Selection sel;
@@ -928,7 +1156,9 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
     genotype_substitution_rows(graph_chunk, bam, sel);
     unwrite_indel_rows_msa_lacks(graph_chunk, bam, sel);
     unwrite_rows_reads_lack(graph_chunk, bam, support, voting, sel);
+    unwrite_edge_rows_reads_lack(graph_chunk, bam, sel);
     spell_homozygous_calls(graph, bam, sel);
+    find_additive_calls(graph_chunk, bam, voting, sel);
     select_sites(graph, bam, support, voting, graph_chunk.site_meta, diag_dir != nullptr, sel);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;

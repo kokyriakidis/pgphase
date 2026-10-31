@@ -1733,6 +1733,7 @@ int merge_var_profile(PhasingChunk& chunk,
         } else if (ret > 0) {
             if ((site_whitelist != nullptr &&
                  site_whitelist->find(new_vars[new_i].key) == site_whitelist->end())) {
+                pgphase_trace::candidate("msa", "drop", new_vars[new_i], "not_whitelisted", "");
                 ++new_i;
                 continue;
             }
@@ -1819,6 +1820,7 @@ int merge_var_profile(PhasingChunk& chunk,
     while (new_i < new_vars.size()) {
         if ((site_whitelist != nullptr &&
              site_whitelist->find(new_vars[new_i].key) == site_whitelist->end())) {
+            pgphase_trace::candidate("msa", "drop", new_vars[new_i], "not_whitelisted", "");
             ++new_i;
             continue;
         }
@@ -2435,8 +2437,33 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
         return 0;
     }
 
-    const std::vector<int> read_ids =
+    std::vector<int> read_ids =
         collect_noisy_reg_reads(chunk, noisy_reg_beg, noisy_reg_end);
+    // A region mostly of reads placed at low MAPQ (a collapsed repeat: a satellite array, a segmental duplication) holds
+    // several copies' reads; their MSA clusters by copy, not haplotype. Its MSA takes the confidently placed reads
+    // (kDefaultMinMapq) alone, those of this copy; the others still give their calls at the sites it makes. With fewer
+    // than kMsaMinConfidentReads of them, a region takes all its reads, as before (skipped, chr20's centromere, 26-30
+    // Mb, lost 750 truth hets of 2,550, with 2,198 false het loci and 1,339 wrong alleles fewer), and a piece of a split
+    // region none (skipped whole before the split; all its reads took the centromere's four chunks from 41 s to over
+    // 14 minutes). plegma only (abPOA keeps longcallD's reads).
+    if (use_plegma_msa() && !read_ids.empty()) {
+        std::vector<int> confident;
+        for (int ri : read_ids)
+            if (chunk.reads[static_cast<size_t>(ri)].mapq >= kDefaultMinMapq) confident.push_back(ri);
+        const bool collapsed = confident.size() < kMsaMinConfidentShare * read_ids.size();
+        if (collapsed && reg.piece && static_cast<int>(confident.size()) < kMsaMinConfidentReads) {
+            pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "few_confident_reads",
+                                "reads=" + std::to_string(read_ids.size()) + " confident=" +
+                                    std::to_string(confident.size()));
+            return 0;
+        }
+        if (collapsed && static_cast<int>(confident.size()) >= kMsaMinConfidentReads) {
+            pgphase_trace::emit("msa", "region", noisy_reg_beg, noisy_reg_end, "-", "confident_reads_only",
+                                "reads=" + std::to_string(read_ids.size()) + " confident=" +
+                                    std::to_string(confident.size()));
+            read_ids = std::move(confident);
+        }
+    }
     const int n_noisy_reads = static_cast<int>(read_ids.size());
 
     // Skip regions with more than max_noisy_reg_cov reads.

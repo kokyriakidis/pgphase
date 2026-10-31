@@ -1114,6 +1114,79 @@ void post_process_noisy_regs_pgphase(PhasingChunk& chunk, const CandidateTable& 
  * @param chunk Chunk tracking the current region's evaluated candidates.
  * @note No-op when `chunk.noisy_regions` is empty.
  */
+// Noisy regions longer than the MSA takes (max_noisy_reg_len), split where the reads agree with the reference rather
+// than skipped whole (plegma; abPOA keeps longcallD's regions). A cut point lies kNoisySplitFlank or more from every
+// candidate the flanks count (category_skipped_for_noisy_flank) and from low-complexity sequence and tandem tracts;
+// each piece is cut at the last such point within the cap. A region a few bases over the cap lost every call in it:
+// chr20:50,273,460-50,283,511, 10,051 bp, its 686 bp deletion and the SNPs beside it, which a region of 9.7 kb from
+// another alignment of the same reads resolved. A stretch with no cut point within the cap stays whole (and skipped).
+// Shorter pieces are spanned by more reads, too. A piece of a collapsed repeat (a satellite) runs on its confidently
+// placed reads or not at all (collect_noisy_vars1): with all their reads, chr20's centromere (59 regions up to 165 kb,
+// pieces of up to 478 reads) took 30 minutes.
+static void split_long_noisy_regions(PhasingChunk& chunk, const Options& opts) {
+    if (!use_plegma_msa() || opts.max_noisy_reg_len <= 0) return;
+    const hts_pos_t cap = opts.max_noisy_reg_len;
+    bool any = false;
+    for (const Interval& iv : chunk.noisy_regions) any = any || iv.end - iv.beg + 1 > cap;
+    if (!any) return;
+    // Blocked: candidate spans and low-complexity intervals, padded by kNoisySplitFlank; merged.
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> blocked;
+    for (const CandidateVariant& c : chunk.candidates) {
+        if (category_skipped_for_noisy_flank(c.counts.category)) continue;
+        const hts_pos_t e = c.key.pos + std::max(1, c.key.ref_len) - 1;
+        blocked.emplace_back(c.key.pos - kNoisySplitFlank, e + kNoisySplitFlank);
+    }
+    for (const Interval& iv : noisy_extension_intervals(chunk))
+        blocked.emplace_back(iv.beg - kNoisySplitFlank, iv.end + kNoisySplitFlank);
+    std::sort(blocked.begin(), blocked.end());
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> merged;
+    for (const auto& b : blocked) {
+        if (!merged.empty() && b.first <= merged.back().second + 1)
+            merged.back().second = std::max(merged.back().second, b.second);
+        else
+            merged.push_back(b);
+    }
+    // The last free position at or before p (and after lo), or -1.
+    const auto last_free = [&merged](hts_pos_t lo, hts_pos_t p) -> hts_pos_t {
+        auto it = std::upper_bound(merged.begin(), merged.end(), std::make_pair(p, std::numeric_limits<hts_pos_t>::max()));
+        while (p > lo) {
+            if (it == merged.begin() || std::prev(it)->second < p) return p;  // p lies in no blocked interval
+            --it;
+            p = it->first - 1;  // left of this blocked interval
+        }
+        return -1;
+    };
+    const auto count_in = [&chunk](hts_pos_t a, hts_pos_t b) {
+        int n = 0;
+        for (const CandidateVariant& c : chunk.candidates)
+            n += !category_skipped_for_noisy_flank(c.counts.category) && c.key.pos >= a && c.key.pos <= b;
+        return n;
+    };
+    std::vector<Interval> out;
+    for (const Interval& iv : chunk.noisy_regions) {
+        if (iv.end - iv.beg + 1 <= cap) {
+            out.push_back(iv);
+            continue;
+        }
+        hts_pos_t seg = iv.beg;
+        int pieces = 0;
+        while (iv.end - seg + 1 > cap) {
+            const hts_pos_t cut = last_free(seg + kNoisySplitFlank, seg + cap - 1);
+            if (cut < 0) break;
+            out.push_back(Interval{seg, cut, count_in(seg, cut), true});
+            ++pieces;
+            seg = cut + 1;
+        }
+        out.push_back(Interval{seg, iv.end, count_in(seg, iv.end), pieces > 0});
+        if (pgphase_trace::on())
+            pgphase_trace::emit("msa", "region", iv.beg, iv.end, "-", "split",
+                                "pieces=" + std::to_string(pieces + 1) + " last=" + std::to_string(seg) + "-" +
+                                    std::to_string(iv.end));
+    }
+    std::sort(out.begin(), out.end(), [](const Interval& a, const Interval& b) { return a.beg < b.beg; });
+    chunk.noisy_regions = std::move(out);
+}
+
 void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len) {
     if (chunk.noisy_regions.empty()) return;
     // A span longer than the MSA's limit is never resolved, so suppressing its
@@ -2299,6 +2372,7 @@ void collect_var_classify(PhasingChunk& chunk,
     post_process_noisy_regs_pgphase(chunk, chunk.candidates);
 
     // A contained candidate is suppressed before profiles and phasing are built.
+    split_long_noisy_regions(chunk, opts);
     apply_noisy_containment_filter(chunk, opts.keep_calls_in_unresolved_noisy ? opts.max_noisy_reg_len : 0);
     if (!opts.diag_dir.empty()) write_classify_diag(chunk, opts.diag_dir);
     prune_not_candidate_variants(chunk);

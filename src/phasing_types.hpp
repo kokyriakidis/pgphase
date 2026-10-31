@@ -59,6 +59,9 @@ constexpr int kNoisyRegFlankLen = 10;
 constexpr int kStrTractMaxPeriod = 6;       // tandem-repeat tracts a noisy region extends over
 constexpr int kStrTractMinLen = 10;
 constexpr int kStrTractMaxLen = 500;
+constexpr int kNoisySplitFlank = 30;           // a long noisy region's cut point: this far from any candidate
+constexpr double kMsaMinConfidentShare = 0.5;  // below this share of confident reads, an MSA takes those alone
+constexpr int kMsaMinConfidentReads = 6;         // ... and needs this many of them
 constexpr int kLongcalldMinSvLen = 30;
 constexpr double kDefaultStrandBiasPvalOnt = 0.01;
 constexpr int kDefaultNoisyRegMaxXgaps = 5;
@@ -471,6 +474,7 @@ struct Interval {
     hts_pos_t beg = 0; // 1-based inclusive
     hts_pos_t end = 0; // 1-based inclusive
     int label = 0;
+    bool piece = false;  // a noisy region: a piece of one longer than the MSA takes (split_long_noisy_regions)
 };
 
 /**
