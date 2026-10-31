@@ -372,7 +372,11 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                                   (k.pos + k.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= k.pos);
                        }), rows.end());
         if (dropped != nullptr) {
-            if (msa && rows.empty()) {
+            // A clean het the depth gate drops, both alleles on confidently mapped reads: written unphased like the
+            // MSA's below. Dropped, it left the VCF altogether although inside chr20's benchmark every such call is the
+            // truth's (142 of 142 on either BAM; 569,101 G>A, 44 against 49 reads, all confident).
+            const bool clean_island = clean && support.confidently_supported(bi);
+            if ((msa || clean_island) && rows.empty()) {
                 decide(bi, dropped[0] == 'f' ? "island:few_confident_reads" : "island:depth_gate");
                 sel.island_only.insert(bi);
                 // The depth gate keeps a call out of the solve (a paralog run joined blocks the wrong way), not out of
