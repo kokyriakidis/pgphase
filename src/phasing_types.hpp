@@ -689,6 +689,10 @@ struct CandidateVariant {
     bool unresolved_noisy = false;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
+    /// A catalog row's site (graph_site_key_str of its GraphSite), shared by every row of a split multi-allelic site;
+    /// empty for every other candidate (is_catalog_row). key.alt holds it too, for now: a catalog row's key is its
+    /// site's (key.pos its order position, key.ref_len its padded REF), not its allele's (row_vcf_allele).
+    std::string graph_site_key{};
     // True when the variant's VCF POS falls inside the chunk's active region.
     // Used during tiling-overlap dedup: prefer the copy that passes this gate.
     bool lcd_make_variants_region_pass = true;
@@ -707,6 +711,9 @@ struct CandidateVariant {
 
 /** @brief Ordered list of candidates for one chunk or merged batch. */
 using CandidateTable = std::vector<CandidateVariant>;
+
+/// A row the graph catalog made (build_graph_chunk), not one the alignment solve added.
+inline bool is_catalog_row(const CandidateVariant& c) { return !c.graph_site_key.empty(); }
 
 /// The anchor letter of a multi-allelic MSA site's allele i (msa_insertion_alts[i]): its consensus's, else the
 /// site's alt_ref_base. 0-3 = ACGT, 4 = the reference's.

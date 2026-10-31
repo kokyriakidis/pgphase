@@ -128,6 +128,7 @@ void add_graph_candidate(GraphChunkBuildResult& out,
     candidate.key.type = VariantType::Snp;
     candidate.key.ref_len = 1;
     candidate.key.alt = key;
+    candidate.graph_site_key = key;
     candidate.counts.n_uniq_alles = static_cast<int>(allele_counts.size());
     candidate.counts.alle_covs = allele_counts;
     candidate.counts.ref_cov = allele_counts.empty() ? 0 : allele_counts[0];
@@ -1064,7 +1065,7 @@ void reclassify_physically_validated_graph_snps(
     std::unordered_set<hts_pos_t> retired_phase_sets;
     for (size_t i = 0; i < out.chunk.candidates.size(); ++i) {
         const bool ref_absent = ref_absent_sites.count(out.site_ids[i]) != 0;
-        const bool low_fraction = low_fraction_sites.count(out.chunk.candidates[i].key.alt) != 0 &&
+        const bool low_fraction = low_fraction_sites.count(out.chunk.candidates[i].graph_site_key) != 0 &&
             out.chunk.candidates[i].counts.category == VariantCategory::CleanHetSnp;
         if (!ref_absent && !low_fraction && homozygous_alt_sites.count(out.site_ids[i]) == 0) continue;
         CandidateVariant& candidate = out.chunk.candidates[i];
@@ -1314,7 +1315,8 @@ std::unordered_map<size_t, UnlinkedHetPlacement> place_unlinked_hets(
         std::map<hts_pos_t, std::vector<size_t>> at;
         for (size_t ci = 0; ci < chunk.candidates.size(); ++ci) {
             const CandidateVariant& c = chunk.candidates[ci];
-            if (!unphased_het(c)) continue;
+            // Alignment calls only: a catalog row's key is its site's, not its allele's.
+            if (!unphased_het(c) || is_catalog_row(c)) continue;
             if (!(c.key.type == VariantType::Snp && c.key.ref_len == 1 && c.key.alt.size() == 1)) continue;
             at[c.key.pos].push_back(ci);
         }

@@ -112,15 +112,15 @@ static bool exclude_ref_absent_graph_snps(
     std::unordered_map<std::string, size_t> retained_candidates;
     std::unordered_map<std::string, size_t> retained_snps;
     for (const CandidateVariant& candidate : built.chunk.candidates) {
-        ++retained_candidates[candidate.key.alt];
+        ++retained_candidates[candidate.graph_site_key];
         if (candidate.counts.category == VariantCategory::CleanHetSnp)
-            ++retained_snps[candidate.key.alt];
+            ++retained_snps[candidate.graph_site_key];
     }
     std::vector<SiteEvidence> sites;
     for (size_t i = 0; i < built.chunk.candidates.size(); ++i) {
         if (built.chunk.candidates[i].counts.category != VariantCategory::CleanHetSnp)
             continue;
-        const auto found = catalog_index.find(built.chunk.candidates[i].key.alt);
+        const auto found = catalog_index.find(built.chunk.candidates[i].graph_site_key);
         if (found == catalog_index.end()) continue;
 
         const std::string* alt = selected_graph_candidate_alt(built, i);
@@ -132,7 +132,7 @@ static bool exclude_ref_absent_graph_snps(
             key.pos < meta.pos || key.pos - meta.pos >= static_cast<hts_pos_t>(meta.ref.size())) continue;
         SiteEvidence evidence{key.pos, found->second, meta.ref[key.pos - meta.pos], key.alt[0]};
         evidence.ref_absence_eligible = built.site_ids[i] == graph_site_key_str(catalog.sites[found->second]) &&
-            retained_candidates.at(built.chunk.candidates[i].key.alt) == 1;
+            retained_candidates.at(built.chunk.candidates[i].graph_site_key) == 1;
         sites.push_back(evidence);
     }
     if (sites.empty()) return false;
