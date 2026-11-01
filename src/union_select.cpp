@@ -409,10 +409,11 @@ CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, c
     e.germline = (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
     e.in_chunk = c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end;
     e.depth_ratio = support.median_depth > 0.0 ? support.depth[bi] / support.median_depth : 0.0;
-    const bool het_region = in_het_msa_region(bam, c);
-    e.hom_in_het_region = cat == VariantCategory::NoisyCandHom && c.msa_verified && het_region && e.in_chunk;
     e.hom_like = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
                  (cat == VariantCategory::NoisyCandHom && c.msa_verified) || sel.spelled_hom.count(bi) != 0;
+    // Only a hom call's region matters, and finding it scans every MSA region of the chunk.
+    const bool het_region = e.hom_like && e.in_chunk && in_het_msa_region(bam, c);
+    e.hom_in_het_region = cat == VariantCategory::NoisyCandHom && c.msa_verified && het_region;
     e.hom_call = !e.hom_in_het_region && e.hom_like && e.in_chunk && !het_region;
     if (e.hom_call) {
         // Mostly confident reads too: where a share of them map at low MAPQ (satellites), a het with one
