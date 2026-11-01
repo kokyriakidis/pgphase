@@ -308,10 +308,13 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
             cand.hap_to_cons_alle[2] = 1;
             meta.msa_hom = true;
         }
-        // A depth-gated MSA het: written unphased with the MSA's genotype (each consensus its own allele), if any.
+        // A gated het written all the same (union_select.cpp): unphased with the MSA's genotype (each consensus its
+        // own allele), if any, or a clean het's 0/1.
         const std::array<int8_t, 2>& cons = cand.msa_cons_allele;
+        const bool clean_het = !cand.msa_verified && (cand.counts.category == VariantCategory::CleanHetSnp ||
+                                                      cand.counts.category == VariantCategory::CleanHetIndel);
         const bool island_het = sel.island_written.count(bi) != 0 &&
-                                (cand.msa_insertion_alts.size() == 2 ||
+                                (cand.msa_insertion_alts.size() == 2 || clean_het ||
                                  (cons[0] >= 0 && cons[1] >= 0 && cons[0] + cons[1] == 1));
         if (island_het) {
             cand.hap_to_cons_alle[1] = cand.msa_insertion_alts.size() == 2 ? 1 : 0;

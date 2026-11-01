@@ -33,6 +33,22 @@ constexpr double kUnionMaxDepthRatio = 1.5;
 // collapsed paralogs. In the arms of chr12/17/18/19/20/21, islands at 2x or more were 309 false het loci against 32
 // truth hets (271 of the false in chr12:10.30-10.40 Mb, the NK receptor cluster); between 1.5x and 2x, 103 against 247.
 constexpr double kIslandWriteMaxDepthRatio = 2.0;
+// (A collapsed copy's island the union EM phases badly is not written either: union_em.cpp.)
+//
+// Two islands the gates drop are written all the same (unphased) where the call's two alleles lie one on each
+// haplotype the alignment solve labelled its reads with (alleles_split_by_haplotype: kIslandSplitMinReads reads each
+// side, at most kIslandSplitMaxStray of a haplotype's reads on the other allele) and its ALT carries
+// kIslandMinAltShare-kIslandMaxAltShare of its reads:
+//   - a clean het the depth gate drops, under kIslandWriteMaxDepthRatio (taking the MSA's island path; 40aa9c5 wrote
+//     every one, and the paralog runs of chr16/chr18 came out as false hets);
+//   - an MSA het the few-confident-reads gate drops at full depth (kUnionHomFullDepthRatio to kUnionMaxDepthRatio of
+//     the median): a region giraffe maps at low MAPQ though the reads are this copy's (chr6:26.5 Mb, chr16, chr17).
+// Inside the benchmark of chr12/16/17/18/19/20/21, as an offline ledger counted them: clean depth-gated hets 61 right
+// against 2 false loci, the low-MAPQ MSA hets 280 right against 10, no chromosome losing.
+constexpr int kIslandSplitMinReads = 5;
+constexpr double kIslandSplitMaxStray = 0.05;
+constexpr double kIslandMinAltShare = 0.3;
+constexpr double kIslandMaxAltShare = 0.7;
 
 // The share of its MSA region's reads an MSA hom's clusters must take for it to be written as a fallback hom.
 constexpr double kUnionFallbackHomMinClusteredShare = 0.8;
@@ -48,6 +64,13 @@ constexpr double kUnionHomMinConfidentShareNoRef = 0.5;
 // 60 (chr17:0.93 Mb, 20.4 Mb, 44.1 Mb: KANSL1), and there the rule held back every hom -- inside the benchmark of
 // chr17 and chr19, 570 truth homs against 1 het and 4 absent, most of the SNPs DeepVariant called and pgphase did not.
 constexpr double kUnionHomFullDepthRatio = 0.75;
+// None of it either, at up to kUnionMaxDepthRatio of the median, where the alignment solve's two haplotypes each carry
+// the ALT on kUnionHomBothHaplotypesMinReads reads and at most kUnionHomBothHaplotypesMaxRef labelled reads carry REF
+// (alt_on_both_haplotypes): both haplotypes are seen to carry it, whatever the depth or the stray REF reads. Inside the
+// benchmark of chr12/16/17/18/19/20/21, as an offline ledger counted them, 165 truth homs gained against 9 false loci
+// and 14 hets written 1/1; outside it 417 against 88 and 171, no chromosome losing.
+constexpr int kUnionHomBothHaplotypesMinReads = 3;
+constexpr int kUnionHomBothHaplotypesMaxRef = 1;
 // The longest voting row an alignment call can be another description of. A
 // call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on chr20
 // -- is a variant the graph does not describe at that scale, i.e.
@@ -147,11 +170,20 @@ private:
     hts_pos_t widest_ = 0;
 };
 
+// Reads below this MAPQ are counted apart for the trace: a satellite's reads map at 0 or so, a region giraffe maps
+// ambiguously (a copy elsewhere in the graph) anywhere below kConfidentReadMinMapq.
+constexpr int kTraceNearZeroMapq = 10;
+
 // Each alignment candidate's read support: reads per allele, of them reads
 // mapped at kConfidentReadMinMapq or better, depth and the chunk's median depth.
 struct AlignmentSupport {
     std::vector<std::map<int, int>> observed;
     std::vector<std::map<int, int>> confident;
+    // Reads mapped below kTraceNearZeroMapq (trace only).
+    std::vector<int> near_zero;
+    // Per phase set, the reads the alignment solve labelled haplotype 1 or 2 carrying REF or the first ALT:
+    // {h1 REF, h1 ALT, h2 REF, h2 ALT}.
+    std::vector<std::map<hts_pos_t, std::array<int, 4>>> by_hap;
     // Diagnostic counts: reads the alignment solve labelled, and of those, the
     // ones carrying the allele the solve assigned to their haplotype.
     std::vector<std::array<int, 2>> labelled;
@@ -159,7 +191,8 @@ struct AlignmentSupport {
     double median_depth = 0.0;
 
     explicit AlignmentSupport(const PhasingChunk& bam)
-        : observed(bam.candidates.size()), confident(bam.candidates.size()),
+        : observed(bam.candidates.size()), confident(bam.candidates.size()), near_zero(bam.candidates.size(), 0),
+          by_hap(bam.candidates.size()),
           labelled(bam.candidates.size(), {0, 0}), depth(bam.candidates.size(), 0) {
         for (const ReadVariantProfile& prof : bam.read_var_profile) {
             if (prof.read_id < 0 || prof.start_var_idx < 0) continue;
@@ -173,6 +206,10 @@ struct AlignmentSupport {
                 const size_t ci = static_cast<size_t>(prof.start_var_idx) + k;
                 ++observed[ci][a];
                 if (read.mapq >= kConfidentReadMinMapq) ++confident[ci][a];
+                if (read.mapq < kTraceNearZeroMapq) ++near_zero[ci];
+                if ((hap == 1 || hap == 2) && a <= 1 && static_cast<size_t>(prof.read_id) < bam.phase_sets.size() &&
+                    bam.phase_sets[static_cast<size_t>(prof.read_id)] > 0)
+                    ++by_hap[ci][bam.phase_sets[static_cast<size_t>(prof.read_id)]][static_cast<size_t>(2 * (hap - 1) + a)];
                 if (hap == 1 || hap == 2) {
                     ++labelled[ci][0];
                     const auto& cons = bam.candidates[ci].hap_to_cons_alle;
@@ -206,6 +243,52 @@ struct AlignmentSupport {
             if (it != confident[bi].end()) conf[i] = it->second;
         }
         return conf;
+    }
+
+    // How far the call's alleles follow the haplotypes the alignment solve labelled its reads with, in the phase set
+    // labelling most of them: {reads agreeing with the better of the two allele-to-haplotype pairings, reads labelled}.
+    // A het's reads agree but for errors; a collapsed paralog's carry both copies' letters on each haplotype.
+    std::array<int, 2> hap_concordance(size_t bi) const {
+        std::array<int, 2> best{0, 0};
+        for (const auto& [ps, n] : by_hap[bi]) {
+            const int labelled_here = n[0] + n[1] + n[2] + n[3];
+            if (labelled_here > best[1]) best = {std::max(n[0] + n[3], n[1] + n[2]), labelled_here};
+        }
+        return best;
+    }
+
+    // The call's reads per haplotype in the phase set labelling most of them: {h1 REF, h1 ALT, h2 REF, h2 ALT}.
+    std::array<int, 4> on_haplotypes(size_t bi) const {
+        std::array<int, 4> best{0, 0, 0, 0};
+        int most = 0;
+        for (const auto& [ps, n] : by_hap[bi])
+            if (n[0] + n[1] + n[2] + n[3] > most) most = n[0] + n[1] + n[2] + n[3], best = n;
+        return best;
+    }
+
+    // Whether the call's REF and ALT lie one on each haplotype (on_haplotypes): kIslandSplitMinReads reads each side,
+    // at most kIslandSplitMaxStray of either haplotype's reads on the other allele.
+    bool alleles_split_by_haplotype(size_t bi) const {
+        const std::array<int, 4> n = on_haplotypes(bi);
+        const auto split = [](int own1, int stray1, int own2, int stray2) {
+            return own1 >= kIslandSplitMinReads && own2 >= kIslandSplitMinReads &&
+                   stray1 <= kIslandSplitMaxStray * (own1 + stray1) && stray2 <= kIslandSplitMaxStray * (own2 + stray2);
+        };
+        return split(n[0], n[1], n[3], n[2]) || split(n[1], n[0], n[2], n[3]);
+    }
+
+    // Whether both haplotypes carry the ALT (kUnionHomBothHaplotypesMinReads reads each) and at most
+    // kUnionHomBothHaplotypesMaxRef labelled reads REF.
+    bool alt_on_both_haplotypes(size_t bi) const {
+        const std::array<int, 4> n = on_haplotypes(bi);
+        return n[1] >= kUnionHomBothHaplotypesMinReads && n[3] >= kUnionHomBothHaplotypesMinReads &&
+               n[0] + n[2] <= kUnionHomBothHaplotypesMaxRef;
+    }
+
+    // Share of the call's reads on its first ALT.
+    double alt_share(size_t bi) const {
+        const auto it = observed[bi].find(1);
+        return depth[bi] > 0 && it != observed[bi].end() ? static_cast<double>(it->second) / depth[bi] : 0.0;
     }
 
     // Reads admitted at low MAPQ can represent a divergent haplotype but
@@ -262,9 +345,23 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             observed += (observed.empty() ? " reads=" : ",") + std::to_string(a) + ":" + std::to_string(n) + "/" +
                         std::to_string(it == support.confident[bi].end() ? 0 : it->second);
         }
-        pgphase_trace::candidate("inject", "decision", bam.candidates[bi], why,
-                                 "cat=" + std::to_string(static_cast<int>(bam.candidates[bi].counts.category)) +
-                                 (bam.candidates[bi].msa_verified ? " msa" : "") + observed);
+        // The call's depth against the chunk's median, its reads mapped near MAPQ 0, and an MSA call's region and
+        // cluster reads: what tells a collapsed copy, a satellite and a region giraffe maps ambiguously apart.
+        const CandidateVariant& c = bam.candidates[bi];
+        char features[192];
+        const std::array<int, 2> conc = support.hap_concordance(bi);
+        const std::array<int, 4> on = support.on_haplotypes(bi);
+        std::snprintf(features, sizeof features,
+                      " depth=%d median=%.0f mq_lt%d=%d hapconc=%d/%d haps=%d,%d/%d,%d", support.depth[bi],
+                      support.median_depth, kTraceNearZeroMapq, support.near_zero[bi], conc[0], conc[1], on[0], on[1],
+                      on[2], on[3]);
+        std::string msa_reads;
+        if (c.msa_verified)
+            msa_reads = " msa_region=" + std::to_string(c.msa_region_reads) + " msa_clustered=" +
+                        std::to_string(c.msa_cluster_reads);
+        pgphase_trace::candidate("inject", "decision", c, why,
+                                 "cat=" + std::to_string(static_cast<int>(c.counts.category)) +
+                                 (c.msa_verified ? " msa" : "") + observed + features + msa_reads);
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
@@ -307,9 +404,12 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                                     support.median_depth > 0.0 &&
                                     n_reads >= kUnionHomFullDepthRatio * support.median_depth;
             const double share = no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
-            const bool confident_alt = full_depth || (conf != support.confident[bi].end() &&
-                                                      conf->second >= kUnionHomMinConfidentReads &&
-                                                      n_confident >= share * n_reads);
+            const bool both_haplotypes = support.median_depth > 0.0 &&
+                                         n_reads <= kUnionMaxDepthRatio * support.median_depth &&
+                                         support.alt_on_both_haplotypes(bi);
+            const bool confident_alt = full_depth || both_haplotypes ||
+                                       (conf != support.confident[bi].end() &&
+                                        conf->second >= kUnionHomMinConfidentReads && n_confident >= share * n_reads);
             // No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it. Held back
             // by it, the truth's hom at 659 of 664 such calls on chr12/17/19/20 (no het).
             if (!confident_alt) {
@@ -382,17 +482,25 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                                   (k.pos + k.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= k.pos);
                        }), rows.end());
         if (dropped != nullptr) {
-            if (msa && rows.empty()) {
-                decide(bi, dropped[0] == 'f' ? "island:few_confident_reads" : "island:depth_gate");
+            // The depth gate keeps a call out of the solve (a paralog run joined blocks the wrong way), not out of
+            // the VCF: written unphased, as the MSA genotyped it. Kept from the VCF too, the MSA's pair was the
+            // truth's in 125 of 151 such chr20 regions (chr20:3,414,746, CT>C in T16, clusters 47 / 42). Not the
+            // few-confident-reads gate's: in satellites its MSA pairs are mostly another copy's (147 of 205
+            // wrong). Nor one at kIslandWriteMaxDepthRatio or deeper. A clean het, and the few-confident-reads
+            // gate's at full depth, only with its alleles one per haplotype (kIslandSplitMinReads above); a clean
+            // het not written stays out as before.
+            const bool depth_gated = dropped[0] != 'f';
+            const double ratio = support.median_depth > 0.0 ? support.depth[bi] / support.median_depth : 0.0;
+            const double share = support.alt_share(bi);
+            const bool split = share >= kIslandMinAltShare && share <= kIslandMaxAltShare &&
+                               support.alleles_split_by_haplotype(bi);
+            const bool written = depth_gated
+                                     ? ratio < kIslandWriteMaxDepthRatio && (msa || split)
+                                     : ratio >= kUnionHomFullDepthRatio && ratio <= kUnionMaxDepthRatio && split;
+            if ((msa || (clean && depth_gated && written)) && rows.empty()) {
+                decide(bi, depth_gated ? "island:depth_gate" : "island:few_confident_reads");
                 sel.island_only.insert(bi);
-                // The depth gate keeps a call out of the solve (a paralog run joined blocks the wrong way), not out of
-                // the VCF: written unphased, as the MSA genotyped it. Kept from the VCF too, the MSA's pair was the
-                // truth's in 125 of 151 such chr20 regions (chr20:3,414,746, CT>C in T16, clusters 47 / 42). Not the
-                // few-confident-reads gate's: in satellites its MSA pairs are mostly another copy's (147 of 205
-                // wrong). Nor one at kIslandWriteMaxDepthRatio or deeper.
-                if (dropped[0] != 'f' && support.depth[bi] < kIslandWriteMaxDepthRatio * support.median_depth) {
-                    sel.island_written.insert(bi);
-                }
+                if (written) sel.island_written.insert(bi);
                 sel.selected.push_back(bi);
             } else {
                 decide(bi, dropped);
