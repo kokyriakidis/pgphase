@@ -28,6 +28,35 @@ pub struct IndexGafOptions {
     pub tmp_dir: Option<String>,
     /// BGZF compression level.
     pub level: u32,
+    /// Where the alignments with no reference interval are written (gzip GAF, each line tagged `pu:Z:REASON`),
+    /// rather than dropped.
+    pub unplaced: Option<String>,
+}
+
+/// Why an alignment with a walk has no reference interval.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Unplaced {
+    /// No node of the aligned part of the walk lies on the reference.
+    NoAnchor,
+    /// A node of the walk is not in the graph.
+    MissingNode,
+    /// The anchors fit the reference at more than one place.
+    Ambiguous,
+    /// The anchors fit no single path in one orientation and order (an inversion, a rearrangement).
+    Inconsistent,
+}
+
+impl Unplaced {
+    const ALL: [Unplaced; 4] = [Unplaced::NoAnchor, Unplaced::MissingNode, Unplaced::Ambiguous, Unplaced::Inconsistent];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Unplaced::NoAnchor => "no_anchor",
+            Unplaced::MissingNode => "missing_node",
+            Unplaced::Ambiguous => "ambiguous",
+            Unplaced::Inconsistent => "inconsistent",
+        }
+    }
 }
 
 /// A node's place on a reference path.
@@ -116,10 +145,10 @@ impl RefMap {
     /// exactly one placement on the same path, in the same relative
     /// orientation and strictly further along it; the interval spans the
     /// anchors' aligned bases. Any node missing from the graph, or two starts
-    /// giving different intervals, leaves the alignment unplaced.
-    fn project(&self, walk: &[(usize, bool)], ts: u64, te: u64) -> Option<(u32, u64, u64)> {
+    /// giving different intervals, leaves the alignment unplaced, and why.
+    fn project(&self, walk: &[(usize, bool)], ts: u64, te: u64) -> Result<(u32, u64, u64), Unplaced> {
         if walk.is_empty() || te <= ts {
-            return None;
+            return Err(Unplaced::NoAnchor);
         }
         struct Anchor {
             node: usize,
@@ -130,9 +159,9 @@ impl RefMap {
         let mut anchors: Vec<Anchor> = Vec::new();
         let mut off = 0u64;
         for &(node, reverse) in walk {
-            let len = *self.node_len.get(node)?;
+            let len = *self.node_len.get(node).ok_or(Unplaced::MissingNode)?;
             if len == NONE {
-                return None;
+                return Err(Unplaced::MissingNode);
             }
             let len = len as u64;
             let next = off + len;
@@ -148,7 +177,7 @@ impl RefMap {
                 break;
             }
         }
-        let a0 = anchors.first()?;
+        let a0 = anchors.first().ok_or(Unplaced::NoAnchor)?;
         let interval = |a: &Anchor, p: &Placement| {
             let len = self.node_len[a.node] as u64;
             if a.reverse == p.reverse {
@@ -157,7 +186,7 @@ impl RefMap {
                 (p.start + (len - a.local_end), p.start + (len - a.local_start))
             }
         };
-        let try_from = |p0: &Placement| -> Option<(u32, u64, u64)> {
+        let try_from = |p0: &Placement| -> Result<(u32, u64, u64), Unplaced> {
             let forward = a0.reverse == p0.reverse;
             let mut prev = p0.step;
             let (mut lo, mut hi) = interval(a0, p0);
@@ -171,29 +200,32 @@ impl RefMap {
                         continue;
                     }
                     if found.is_some() {
-                        return None;
+                        return Err(Unplaced::Ambiguous);
                     }
                     found = Some(p);
                 }
-                let p = found?;
+                let p = found.ok_or(Unplaced::Inconsistent)?;
                 prev = p.step;
                 let (s, e) = interval(a, p);
                 lo = lo.min(s);
                 hi = hi.max(e);
             }
-            (lo < hi).then_some((self.path_contig[p0.path as usize], lo, hi))
+            if lo < hi { Ok((self.path_contig[p0.path as usize], lo, hi)) } else { Err(Unplaced::Inconsistent) }
         };
         let mut resolved: Option<(u32, u64, u64)> = None;
+        let mut why = Unplaced::Inconsistent;
         for p0 in self.placements_of(a0.node) {
-            if let Some(c) = try_from(p0) {
-                match resolved {
+            match try_from(p0) {
+                Ok(c) => match resolved {
                     None => resolved = Some(c),
-                    Some(r) if r != c => return None,
+                    Some(r) if r != c => return Err(Unplaced::Ambiguous),
                     _ => {}
-                }
+                },
+                Err(Unplaced::Ambiguous) => why = Unplaced::Ambiguous,
+                Err(_) => {}
             }
         }
-        resolved
+        resolved.ok_or(why)
     }
 }
 
@@ -204,6 +236,8 @@ struct Counts {
     placed: u64,
     unmapped: u64,
     unplaced: u64,
+    /// Of the unplaced, by reason (Unplaced::ALL's order).
+    why: [u64; 4],
     malformed: u64,
 }
 
@@ -213,6 +247,9 @@ impl Counts {
         self.placed += o.placed;
         self.unmapped += o.unmapped;
         self.unplaced += o.unplaced;
+        for (a, b) in self.why.iter_mut().zip(o.why) {
+            *a += b;
+        }
         self.malformed += o.malformed;
         self
     }
@@ -266,7 +303,7 @@ enum Line {
     Placed(u32, u64, u64, u64),
     Skip,
     Unmapped,
-    Unplaced,
+    Unplaced(Unplaced),
     Malformed,
 }
 
@@ -293,8 +330,8 @@ fn classify(m: &RefMap, rank: &[u32], line: &[u8], walk: &mut Vec<(usize, bool)>
         return Line::Malformed;
     }
     match m.project(walk, ts, te) {
-        Some((contig, s, e)) => Line::Placed(rank[contig as usize], s, e, te - ts),
-        None => Line::Unplaced,
+        Ok((contig, s, e)) => Line::Placed(rank[contig as usize], s, e, te - ts),
+        Err(why) => Line::Unplaced(why),
     }
 }
 
@@ -477,6 +514,13 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
     let mut counts = Counts::default();
     // The most graph bases any alignment on each contig (by rank) spans.
     let mut max_span = vec![0u64; m.contigs.len()];
+    let mut unplaced_out = match &o.unplaced {
+        Some(path) => Some(flate2::write::GzEncoder::new(
+            BufWriter::with_capacity(1 << 20, std::fs::File::create(path).map_err(|e| format!("{path}: {e}"))?),
+            flate2::Compression::new(o.level),
+        )),
+        None => None,
+    };
     let threads = rayon::current_num_threads();
     for chunk in read_chunks(&o.gaf)? {
         let chunk = chunk.map_err(|e| format!("{}: {e}", o.gaf))?;
@@ -492,12 +536,14 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
             pieces.push(&chunk[s..e]);
             s = e;
         }
-        let results: Vec<(Vec<Found>, Counts, Vec<u64>)> = pieces
+        let keep_unplaced = unplaced_out.is_some();
+        let results: Vec<(Vec<Found>, Counts, Vec<u64>, Vec<(usize, usize, Unplaced)>)> = pieces
             .par_iter()
             .map(|piece| {
                 let base = piece.as_ptr() as usize - chunk.as_ptr() as usize;
                 let mut walk = Vec::new();
                 let mut placed = Vec::new();
+                let mut dropped = Vec::new();
                 let mut c = Counts::default();
                 let mut span = vec![0u64; rank.len()];
                 let mut p = 0;
@@ -516,9 +562,13 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
                             c.lines += 1;
                             c.unmapped += 1;
                         }
-                        Line::Unplaced => {
+                        Line::Unplaced(why) => {
                             c.lines += 1;
                             c.unplaced += 1;
+                            c.why[Unplaced::ALL.iter().position(|&w| w == why).unwrap()] += 1;
+                            if keep_unplaced {
+                                dropped.push((base + p, body.len(), why));
+                            }
                         }
                         Line::Malformed => {
                             c.lines += 1;
@@ -527,10 +577,16 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
                     }
                     p += line.len();
                 }
-                (placed, c, span)
+                (placed, c, span, dropped)
             })
             .collect();
-        for (placed, c, span) in results {
+        for (placed, c, span, dropped) in results {
+            if let Some(w) = unplaced_out.as_mut() {
+                for (at, len, why) in dropped {
+                    w.write_all(&chunk[at..at + len]).map_err(|e| format!("unplaced: {e}"))?;
+                    w.write_all(format!("\tpu:Z:{}\n", why.name()).as_bytes()).map_err(|e| format!("unplaced: {e}"))?;
+                }
+            }
             counts = counts.add(c);
             for (m, s) in max_span.iter_mut().zip(span) {
                 *m = (*m).max(s);
@@ -549,9 +605,13 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
         }
     }
     sort_run(&data, &mut recs);
+    if let Some(w) = unplaced_out.take() {
+        w.finish().and_then(|mut b| b.flush()).map_err(|e| format!("unplaced: {e}"))?;
+    }
+    let why: Vec<String> = Unplaced::ALL.iter().zip(counts.why).map(|(w, n)| format!("{} {n}", w.name())).collect();
     log(&format!(
-        "{} alignments: {} placed, {} unmapped, {} without a unique reference interval, {} malformed",
-        counts.lines, counts.placed, counts.unmapped, counts.unplaced, counts.malformed
+        "{} alignments: {} placed, {} unmapped, {} without a unique reference interval ({}), {} malformed",
+        counts.lines, counts.placed, counts.unmapped, counts.unplaced, why.join(", "), counts.malformed
     ));
 
     let tmp_out = format!("{}.tmp", o.out);
@@ -637,17 +697,19 @@ mod tests {
     fn projection() {
         let m = map();
         // Forward, all three nodes, aligned from base 3 to 22 of the walk.
-        assert_eq!(m.project(&[(1, false), (2, false), (3, false)], 3, 22), Some((0, 103, 122)));
+        assert_eq!(m.project(&[(1, false), (2, false), (3, false)], 3, 22), Ok((0, 103, 122)));
         // Reverse walk <3 <2 <1: the same bases, read backwards.
-        assert_eq!(m.project(&[(3, true), (2, true), (1, true)], 3, 22), Some((0, 103, 122)));
+        assert_eq!(m.project(&[(3, true), (2, true), (1, true)], 3, 22), Ok((0, 103, 122)));
         // An off-reference node between anchors is skipped.
-        assert_eq!(m.project(&[(1, false), (4, false), (3, false)], 0, 25), Some((0, 100, 125)));
+        assert_eq!(m.project(&[(1, false), (4, false), (3, false)], 0, 25), Ok((0, 100, 125)));
         // Steps going backwards along a forward walk: no place.
-        assert_eq!(m.project(&[(3, false), (1, false)], 0, 20), None);
+        assert_eq!(m.project(&[(3, false), (1, false)], 0, 20), Err(Unplaced::Inconsistent));
+        // The orientation flipping part way (an inversion): no place.
+        assert_eq!(m.project(&[(1, false), (3, true)], 0, 20), Err(Unplaced::Inconsistent));
         // A node missing from the graph: no place.
-        assert_eq!(m.project(&[(1, false), (9, false)], 0, 12), None);
+        assert_eq!(m.project(&[(1, false), (9, false)], 0, 12), Err(Unplaced::MissingNode));
         // Only off-reference nodes: no place.
-        assert_eq!(m.project(&[(4, false)], 0, 5), None);
+        assert_eq!(m.project(&[(4, false)], 0, 5), Err(Unplaced::NoAnchor));
     }
 
     #[test]
@@ -657,9 +719,9 @@ mod tests {
         let k = m.placements.len() as u32;
         m.placements.push(Placement { path: 1, step: 0, start: 500, reverse: false });
         m.more.entry(2).or_default().push(k);
-        assert_eq!(m.project(&[(2, false)], 0, 5), None);
+        assert_eq!(m.project(&[(2, false)], 0, 5), Err(Unplaced::Ambiguous));
         // With node 1 before it, only path 0 fits.
-        assert_eq!(m.project(&[(1, false), (2, false)], 0, 15), Some((0, 100, 115)));
+        assert_eq!(m.project(&[(1, false), (2, false)], 0, 15), Ok((0, 100, 115)));
     }
 
     #[test]

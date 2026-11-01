@@ -89,12 +89,17 @@ pgcat index-gaf: index a GAF by reference position, for pgphase --gaf
                             runs to disk [a quarter of the machine's memory]
   --tmp-dir DIR             where sorted runs are spilled [the output's folder]
   --level N                 BGZF compression level, 0-9 [6]
+  --unplaced FILE           write the alignments with no reference interval to
+                            FILE (gzip GAF, each tagged pu:Z:REASON) instead of
+                            dropping them
 
 Each alignment is placed on the reference by the walk's nodes on the reference
 sample's paths and written as `contig  start  end  <GAF line>` (1-based,
 inclusive), sorted, bgzipped and tabix-indexed. Unmapped alignments, and those
-without a unique reference interval (all off the reference, or ambiguous), are
-left out and counted.
+without a unique reference interval, are left out and counted by reason:
+no_anchor (all off the reference), missing_node, ambiguous (the anchors fit more
+than one place) and inconsistent (no single path in one orientation and order:
+an inversion, a rearrangement). --unplaced keeps the latter for graph-native use.
 ";
 
 const SURJECT_USAGE: &str = "\
@@ -267,6 +272,7 @@ fn index_gaf_main(args: &[String]) {
         memory: default_memory(),
         tmp_dir: None,
         level: 6,
+        unplaced: None,
     };
     let mut i = 0;
     let value = |i: &mut usize| -> String {
@@ -288,6 +294,7 @@ fn index_gaf_main(args: &[String]) {
             "--memory" => o.memory = ((number(value(&mut i), "--memory") * (1u64 << 30) as f64) as usize).max(1 << 26),
             "--tmp-dir" => o.tmp_dir = Some(value(&mut i)),
             "--level" => o.level = (number(value(&mut i), "--level") as u32).min(9),
+            "--unplaced" => o.unplaced = Some(value(&mut i)),
             a => fail(&format!("unknown option {a}; see pgcat index-gaf --help")),
         }
         i += 1;
