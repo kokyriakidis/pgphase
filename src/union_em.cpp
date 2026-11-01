@@ -919,7 +919,7 @@ private:
             }
             if (pgphase_trace::on() && (cut || weak_bridge_[k])) trace_boundary(k, cut, hinge_cut[k]);
             if (cut) {
-                current = std::max(sites_[k + 1].pos, current + 1);  // a block's id: unique where sites share a pos
+                current = sites_[k + 1].pos;
                 ++blocks_;
             }
         }
