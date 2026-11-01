@@ -338,6 +338,7 @@ enum class CallPattern : uint8_t {
     HomFullDepth,       // full depth, at most one read on REF, any MAPQ: written
     HomBothHaplotypes,  // ALT on both of the solve's haplotypes, up to kUnionMaxDepthRatio: written
     HomLowMapq,         // none of those (a het whose other haplotype's reads went elsewhere looks so): held back
+    HomUnderHetMsaRegion,  // an alignment hom inside a het MSA region: held back (the consensus sequences spell it)
     // Calls that are no het the union admits.
     NotHet,        // neither a clean het nor an MSA-verified one
     NotGermline,   // the alignment's categories exclude it
@@ -361,6 +362,7 @@ const char* call_pattern_name(CallPattern p) {
     case CallPattern::HomFullDepth: return "hom_full_depth";
     case CallPattern::HomBothHaplotypes: return "hom_both_haplotypes";
     case CallPattern::HomLowMapq: return "hom_low_mapq";
+    case CallPattern::HomUnderHetMsaRegion: return "hom_under_het_msa_region";
     case CallPattern::NotHet: return "not_het";
     case CallPattern::NotGermline: return "not_germline";
     case CallPattern::OutsideChunk: return "outside_chunk";
@@ -380,7 +382,8 @@ const char* call_pattern_name(CallPattern p) {
 // What classify_call reads of a candidate.
 struct CallEvidence {
     bool hom_in_het_region = false;  // an MSA hom inside a het MSA region, in the chunk
-    bool hom_call = false;           // a hom call (clean, MSA or spelled) in the chunk, outside het MSA regions
+    bool hom_like = false;           // a hom call (clean, MSA or spelled), wherever it lies
+    bool hom_call = false;           // ... in the chunk, outside het MSA regions
     bool hom_confident = false;
     bool hom_full_depth = false;
     bool hom_both_haplotypes = false;
@@ -408,9 +411,9 @@ CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, c
     e.depth_ratio = support.median_depth > 0.0 ? support.depth[bi] / support.median_depth : 0.0;
     const bool het_region = in_het_msa_region(bam, c);
     e.hom_in_het_region = cat == VariantCategory::NoisyCandHom && c.msa_verified && het_region && e.in_chunk;
-    const bool hom_call = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
-                          (cat == VariantCategory::NoisyCandHom && c.msa_verified) || sel.spelled_hom.count(bi) != 0;
-    e.hom_call = !e.hom_in_het_region && hom_call && e.in_chunk && !het_region;
+    e.hom_like = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
+                 (cat == VariantCategory::NoisyCandHom && c.msa_verified) || sel.spelled_hom.count(bi) != 0;
+    e.hom_call = !e.hom_in_het_region && e.hom_like && e.in_chunk && !het_region;
     if (e.hom_call) {
         // Mostly confident reads too: where a share of them map at low MAPQ (satellites), a het with one
         // haplotype's reads elsewhere reads as a hom -- chr20, hom calls under 90% confident reads: the truth a het
@@ -487,7 +490,11 @@ CallPattern classify_call(const CallEvidence& e) {
         if (e.hom_both_haplotypes) return CallPattern::HomBothHaplotypes;
         return CallPattern::HomLowMapq;
     }
-    if (!e.clean && !e.msa) return CallPattern::NotHet;
+    // A hom call that is no het either: outside the chunk, or (in it) inside a het MSA region.
+    if (!e.clean && !e.msa)
+        return !e.hom_like ? CallPattern::NotHet
+               : e.in_chunk ? CallPattern::HomUnderHetMsaRegion
+                            : CallPattern::OutsideChunk;
     if (!e.germline) return CallPattern::NotGermline;
     if (!e.in_chunk) return CallPattern::OutsideChunk;
     if (!e.few_confident && !e.depth_gated) return e.confident ? CallPattern::Het : CallPattern::CleanHetLowMapq;
@@ -585,13 +592,15 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             continue;
         }
         case CallPattern::NotHet:
+        case CallPattern::HomUnderHetMsaRegion:
             decide(bi, "category");
             continue;
         case CallPattern::NotGermline:
             decide(bi, "not_germline");
             continue;
         case CallPattern::OutsideChunk:
-            decide(bi, "outside_chunk");
+            // A hom call outside the chunk is no het either (decided as its category before patterns).
+            decide(bi, e.clean || e.msa ? "outside_chunk" : "category");
             continue;
         case CallPattern::GatedOverRows:
             decide(bi, e.few_confident ? "few_confident_reads" : "depth_gate");
