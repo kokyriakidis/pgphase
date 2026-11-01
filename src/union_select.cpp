@@ -42,12 +42,11 @@ constexpr int kUnionHomMinConfidentReads = 5;
 constexpr double kUnionHomMinConfidentShare = 0.9;
 // ... or this share when no read carries REF.
 constexpr double kUnionHomMinConfidentShareNoRef = 0.5;
-// ... or this share at full depth (kUnionHomFullDepthRatio of the median or more) with at most one read on REF: both
-// haplotypes' reads are there, so the call is no het with one haplotype's reads mapped elsewhere (what the shares
-// above guard against). chr20 (graph-native BAM), hom calls the two shares held back, inside the benchmark: 20 truth
-// homs, nothing else; outside it 23 more against 7 not 1/1. At half depth the same calls were 60 homs against 267
-// not; at full depth under 30% confident, 105 against 88 (paralog-specific variants of segmental duplications).
-constexpr double kUnionHomMinConfidentShareFullDepth = 0.3;
+// None of that at full depth (kUnionHomFullDepthRatio of the median or more) with at most one read on REF: both
+// haplotypes' reads are there, so the call is no het with one haplotype's reads mapped elsewhere (what the rule
+// guards against), however low their MAPQ. Giraffe maps reads at MAPQ 0-29 across whole regions minimap2 maps at
+// 60 (chr17:0.93 Mb, 20.4 Mb, 44.1 Mb: KANSL1), and there the rule held back every hom -- inside the benchmark of
+// chr17 and chr19, 570 truth homs against 1 het and 4 absent, most of the SNPs DeepVariant called and pgphase did not.
 constexpr double kUnionHomFullDepthRatio = 0.75;
 // The longest voting row an alignment call can be another description of. A
 // call inside a longer row -- a snarl spanning a large SV, up to 1 Mb on chr20
@@ -307,11 +306,10 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             const bool full_depth = (ref == support.observed[bi].end() || ref->second <= 1) &&
                                     support.median_depth > 0.0 &&
                                     n_reads >= kUnionHomFullDepthRatio * support.median_depth;
-            const double share = full_depth ? std::min(kUnionHomMinConfidentShareFullDepth,
-                                                       no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare)
-                               : no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
-            const bool confident_alt = conf != support.confident[bi].end() &&
-                                       conf->second >= kUnionHomMinConfidentReads && n_confident >= share * n_reads;
+            const double share = no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
+            const bool confident_alt = full_depth || (conf != support.confident[bi].end() &&
+                                                      conf->second >= kUnionHomMinConfidentReads &&
+                                                      n_confident >= share * n_reads);
             // No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it. Held back
             // by it, the truth's hom at 659 of 664 such calls on chr12/17/19/20 (no het).
             if (!confident_alt) {
