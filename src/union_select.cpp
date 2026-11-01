@@ -33,6 +33,9 @@ constexpr double kUnionMaxDepthRatio = 1.5;
 // collapsed paralogs. In the arms of chr12/17/18/19/20/21, islands at 2x or more were 309 false het loci against 32
 // truth hets (271 of the false in chr12:10.30-10.40 Mb, the NK receptor cluster); between 1.5x and 2x, 103 against 247.
 constexpr double kIslandWriteMaxDepthRatio = 2.0;
+
+// The share of its MSA region's reads an MSA hom's clusters must take for it to be written as a fallback hom.
+constexpr double kUnionFallbackHomMinClusteredShare = 0.8;
 // Confident reads (MAPQ >= kConfidentReadMinMapq) an alignment hom call needs to be written 1/1.
 constexpr int kUnionHomMinConfidentReads = 5;
 // ... and the share of all its reads that are confident.
@@ -320,6 +323,15 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             // a hom their EM leaves out (one allele: minor_allele_below_fraction) or the MSA drops went unwritten --
             // chr20 arms, 12 truth homs on each BAM (319,724 T>C, 34 of 35 reads).
             const bool fallback = !voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len)).empty();
+            // Not an MSA's hom from a region whose clusters took under kUnionFallbackHomMinClusteredShare of its
+            // reads: the other haplotype's may not span it (a longer repeat), and its consensus is one haplotype's.
+            // chr12:130,683,984 T>A, 24 of 33 reads clustered, all ALT, the truth a het in a VNTR. Over chr12/16/17/
+            // 19/20, such fallback homs: none the truth's hom; at 90% or more, 160 right, 10 wrong.
+            if (fallback && c.msa_verified && c.msa_region_reads > 0 &&
+                c.msa_cluster_reads < kUnionFallbackHomMinClusteredShare * c.msa_region_reads) {
+                decide(bi, "hom:graph_row");
+                continue;
+            }
             decide(bi, fallback ? "aln_hom:fallback" : spelled_hom ? "aln_hom:spelled" : "aln_hom");
             if (fallback) sel.hom_fallback.insert(bi);
             sel.hom_records.insert(bi);
