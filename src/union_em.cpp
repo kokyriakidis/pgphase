@@ -1706,6 +1706,28 @@ EmResult solve_global_em(const PhasingChunk& chunk, const std::vector<LocusWindo
     return out;
 }
 
+// A gated het written unphased (an island: union_select.cpp) inside a locus window the EM phases with error
+// kEmUnverifiedReportError or more is not written: its reads' alleles do not follow the haplotypes the graph's reads
+// give there, the mark of a collapsed copy's letters (chr12:10.30-10.32 Mb, the KLR cluster: window errors 0.1-0.45,
+// written islands, all false loci). Over chr6/12/16/17/18/19/20/21, inside the benchmark, the islands so held back:
+// 142 false loci (all chr12's), 5 truth hets and 2 homs.
+static void unwrite_islands_in_unreliable_windows(PhasingChunk& chunk, const std::vector<LocusWindowSite>& loci) {
+    for (CandidateVariant& c : chunk.candidates) {
+        if (!c.island_only || !c.vcf_unphased || c.hap_to_cons_alle.size() < 3 || c.hap_to_cons_alle[1] < 0) continue;
+        for (const LocusWindowSite& w : loci) {
+            if (w.island_only || w.pos > c.key.pos || c.key.pos > w.end || w.error < kEmUnverifiedReportError) continue;
+            if (pgphase_trace::on()) {
+                char detail[48];
+                std::snprintf(detail, sizeof detail, "window_err=%.3f", w.error);
+                pgphase_trace::candidate("em", "island", c, "unreliable_window", detail);
+            }
+            c.hap_to_cons_alle[1] = c.hap_to_cons_alle[2] = -1;
+            c.vcf_unphased = false;
+            break;
+        }
+    }
+}
+
 void apply_em_result(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, EmResult&& result) {
     chunk.candidates = std::move(result.candidates);
     chunk.haps = std::move(result.haps);
@@ -1720,6 +1742,7 @@ void apply_em_result(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci, Em
             (*loci)[li].block = result.windows[li].block;
             (*loci)[li].error = result.windows[li].error;
         }
+    if (loci != nullptr) unwrite_islands_in_unreliable_windows(chunk, *loci);
 }
 
 size_t phase_chunk_by_global_em(PhasingChunk& chunk, std::vector<LocusWindowSite>* loci,
