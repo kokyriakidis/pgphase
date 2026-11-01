@@ -326,6 +326,182 @@ static bool in_het_msa_region(const PhasingChunk& bam, const CandidateVariant& c
     return false;
 }
 
+// The pattern an alignment candidate falls in, by what the solve sees of it: its category, its depth over the chunk's
+// median, its REF and ALT reads and their MAPQ, and how its reads lie on the alignment solve's haplotypes. Each pattern
+// has one handling in select_sites; a call none of the measured patterns admits is held back (the default). The trace
+// records each call's pattern (inject/decision pattern=), and pgphase-dev docs/patterns.md lists them with their
+// evidence and the errors left in each.
+enum class CallPattern : uint8_t {
+    // Homozygous calls.
+    HomInHetMsaRegion,  // an MSA hom inside a region whose consensus sequences differ: written (they spell it)
+    HomConfident,       // kUnionHomMinConfidentReads confident ALT reads, most reads confident: written
+    HomFullDepth,       // full depth, at most one read on REF, any MAPQ: written
+    HomBothHaplotypes,  // ALT on both of the solve's haplotypes, up to kUnionMaxDepthRatio: written
+    HomLowMapq,         // none of those (a het whose other haplotype's reads went elsewhere looks so): held back
+    // Calls that are no het the union admits.
+    NotHet,        // neither a clean het nor an MSA-verified one
+    NotGermline,   // the alignment's categories exclude it
+    OutsideChunk,  // beyond the graph chunk's reference span
+    // Heterozygous calls.
+    Het,                      // a clean or confidently read MSA het at ordinary depth: admitted
+    CleanHetLowMapq,          // a clean het read at low MAPQ: admitted, flagged low_mapq_only
+    GatedOverRows,            // a gated het a catalog row describes: held back (the row stands)
+    MsaHetLowMapq,            // an MSA het without confident reads on both alleles: island, not written
+    MsaHetLowMapqSplit,       // ... at full depth with its alleles one per haplotype: island, written unphased
+    MsaHetDepthGated,         // an MSA het over kUnionMaxDepthRatio: island, written unphased under 2x
+    MsaHetCollapsed,          // ... at kIslandWriteMaxDepthRatio or deeper (collapsed copies): island, not written
+    CleanHetDepthGatedSplit,  // a clean het over kUnionMaxDepthRatio, under 2x, alleles one per haplotype: written
+    CleanHetDepthGated,       // a clean het over kUnionMaxDepthRatio otherwise: held back
+};
+
+const char* call_pattern_name(CallPattern p) {
+    switch (p) {
+    case CallPattern::HomInHetMsaRegion: return "hom_in_het_msa_region";
+    case CallPattern::HomConfident: return "hom_confident";
+    case CallPattern::HomFullDepth: return "hom_full_depth";
+    case CallPattern::HomBothHaplotypes: return "hom_both_haplotypes";
+    case CallPattern::HomLowMapq: return "hom_low_mapq";
+    case CallPattern::NotHet: return "not_het";
+    case CallPattern::NotGermline: return "not_germline";
+    case CallPattern::OutsideChunk: return "outside_chunk";
+    case CallPattern::Het: return "het";
+    case CallPattern::CleanHetLowMapq: return "clean_het_low_mapq";
+    case CallPattern::GatedOverRows: return "gated_over_rows";
+    case CallPattern::MsaHetLowMapq: return "msa_het_low_mapq";
+    case CallPattern::MsaHetLowMapqSplit: return "msa_het_low_mapq_split";
+    case CallPattern::MsaHetDepthGated: return "msa_het_depth_gated";
+    case CallPattern::MsaHetCollapsed: return "msa_het_collapsed";
+    case CallPattern::CleanHetDepthGatedSplit: return "clean_het_depth_gated_split";
+    case CallPattern::CleanHetDepthGated: return "clean_het_depth_gated";
+    }
+    return "?";
+}
+
+// What classify_call reads of a candidate.
+struct CallEvidence {
+    bool hom_in_het_region = false;  // an MSA hom inside a het MSA region, in the chunk
+    bool hom_call = false;           // a hom call (clean, MSA or spelled) in the chunk, outside het MSA regions
+    bool hom_confident = false;
+    bool hom_full_depth = false;
+    bool hom_both_haplotypes = false;
+    bool clean = false;
+    bool msa = false;
+    bool germline = false;
+    bool in_chunk = false;
+    bool confident = false;      // a het's two alleles on confident reads (or the under-deletion exception)
+    bool few_confident = false;  // an MSA het without them
+    bool depth_gated = false;    // over kUnionMaxDepthRatio of the median
+    double depth_ratio = 0.0;
+    bool split = false;  // ALT share within kIslandMinAltShare-kIslandMaxAltShare, alleles one per haplotype
+    std::vector<size_t> rows;  // voting rows describing the locus (hets only)
+};
+
+CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
+                           const VotingRows& voting, const Selection& sel, size_t bi) {
+    CallEvidence e;
+    const CandidateVariant& c = bam.candidates[bi];
+    const VariantCategory cat = c.counts.category;
+    e.clean = cat == VariantCategory::CleanHetSnp || cat == VariantCategory::CleanHetIndel;
+    e.msa = cat == VariantCategory::NoisyCandHet && c.msa_verified;
+    e.germline = (c.lcd_var_i_to_cate & kCandGermlineVarCate) != 0;
+    e.in_chunk = c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end;
+    e.depth_ratio = support.median_depth > 0.0 ? support.depth[bi] / support.median_depth : 0.0;
+    const bool het_region = in_het_msa_region(bam, c);
+    e.hom_in_het_region = cat == VariantCategory::NoisyCandHom && c.msa_verified && het_region && e.in_chunk;
+    const bool hom_call = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
+                          (cat == VariantCategory::NoisyCandHom && c.msa_verified) || sel.spelled_hom.count(bi) != 0;
+    e.hom_call = !e.hom_in_het_region && hom_call && e.in_chunk && !het_region;
+    if (e.hom_call) {
+        // Mostly confident reads too: where a share of them map at low MAPQ (satellites), a het with one
+        // haplotype's reads elsewhere reads as a hom -- chr20, hom calls under 90% confident reads: the truth a het
+        // at 231, a hom at 266 (225 and 153 in satellites); at 90% or more, a het at 20, a hom at 24,224.
+        // With no read on REF, half: in segmental duplications reads map at low MAPQ around a true hom.
+        // chr17/19/20 (with the depth gate dropped below): SNP F1 0.9899 -> 0.9921 (hap.py; 1,047 fewer missed,
+        // 2 more false), INDEL 0.9815 -> 0.9826; outside the benchmark, satellites mostly, 570 truth hets more
+        // written 1/1. No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it.
+        // Held back by it, the truth's hom at 659 of 664 such calls on chr12/17/19/20 (no het).
+        const auto conf = support.confident[bi].find(1);
+        int n_reads = 0, n_confident = 0;
+        for (const auto& [a, n] : support.observed[bi]) n_reads += n;
+        for (const auto& [a, n] : support.confident[bi]) n_confident += n;
+        const auto ref = support.observed[bi].find(0);
+        const bool no_ref = ref == support.observed[bi].end() || ref->second == 0;
+        const double share = no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
+        e.hom_confident = conf != support.confident[bi].end() && conf->second >= kUnionHomMinConfidentReads &&
+                          n_confident >= share * n_reads;
+        e.hom_full_depth = (ref == support.observed[bi].end() || ref->second <= 1) && support.median_depth > 0.0 &&
+                           n_reads >= kUnionHomFullDepthRatio * support.median_depth;
+        e.hom_both_haplotypes = support.median_depth > 0.0 && n_reads <= kUnionMaxDepthRatio * support.median_depth &&
+                                support.alt_on_both_haplotypes(bi);
+        return e;
+    }
+    if (!(e.clean || e.msa) || !e.germline || !e.in_chunk) return e;
+    // An MSA call inside an MSA deletion its other consensus carries: that haplotype has no bases there, so REF has
+    // no reads to carry it (a few error reads at most) and the call's own allele alone needs confident support.
+    // chr20:49,575,972 and 49,576,250, deletions of 179 and 196 bp beside the other haplotype's 2,443 bp deletion
+    // (the truth's 2|1 with *): REF 3 reads, 1 of them confident, and both went unwritten.
+    e.confident = support.confidently_supported(bi) ||
+                  (e.msa && under_other_consensus_deletion(bam, c) &&
+                   support.confident_on_leading(bi)[0] >= kUnionMinConfidentAlleleReads);
+    e.few_confident = !e.clean && !e.confident;
+    e.depth_gated = support.median_depth > 0.0 && support.depth[bi] > kUnionMaxDepthRatio * support.median_depth;
+    const double share = support.alt_share(bi);
+    e.split = share >= kIslandMinAltShare && share <= kIslandMaxAltShare && support.alleles_split_by_haplotype(bi);
+    e.rows = voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
+    // Two SNPs overlap only at a shared base: a call beside a row SNP is not another description of it, and hidden
+    // as its complement it was never written (chr20:7,706,349 C>T, 39 against 29 reads, beside the catalog SNP at
+    // 7,706,350; both truth hets). Only for a call both of whose alleles confident reads carry: in satellites the
+    // calls beside catalog SNPs are mostly low-MAPQ paralog reads, and written they unsettled the EM there (chr20
+    // centromere -35 truth hets right, +161 genotypes wrong). An indel keeps the one-base reach: an MSA deletion
+    // whose anchor letter changes (written AA>G, chr20:51,699,469) spells the catalog SNP at its anchor.
+    if (c.key.type == VariantType::Snp && support.confidently_supported(bi))
+        e.rows.erase(std::remove_if(e.rows.begin(), e.rows.end(), [&](size_t r) {
+                         const VariantKey& k = graph.candidates[r].key;
+                         return k.type == VariantType::Snp &&
+                                (k.pos + k.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= k.pos);
+                     }), e.rows.end());
+    return e;
+}
+
+// A call's pattern from its evidence alone.
+// An MSA-verified het the confident-read rule or the depth gate drops enters as an island-only site (island_only): its
+// reads may phase locally, but it never votes or joins. Admitted as an ordinary site instead, the same calls cost
+// -1,258 correct / +1,269 discordant reads (chr12, depth gate: a paralog split joined a block the wrong way) or doubled
+// chr20's arm switches (confident-read rule). The depth gate keeps a call out of the solve, not out of the VCF: written
+// unphased, as the MSA genotyped it, the MSA's pair was the truth's in 125 of 151 such chr20 regions (chr20:3,414,746,
+// CT>C in T16, clusters 47 / 42). Not the few-confident-reads gate's: in satellites its MSA pairs are mostly another
+// copy's (147 of 205 wrong) -- but for those at full depth with their alleles one per haplotype. Nor one at
+// kIslandWriteMaxDepthRatio or deeper. A clean het is exempt from the confident-read rule: the depth gate alone screens
+// it. Where a region has a second copy elsewhere in the reference every read loses its MAPQ, yet the reads are this
+// copy's (depth at or below the median, not a collapse): at chr18:21.09-21.10 Mb six truth hets read only at MAPQ < 30
+// were dropped and 25 reads LongPhase phases stayed unphased. Such a site enters flagged low_mapq_only: phased, but it
+// joins no blocks and labels reads only as an unverified call does (union EM). Measured on chr12/18/20 with the echo
+// sites, unverified fallback and per-pair stitching: +155 correct / -88 discordant / -67 unphased, +1,569 truth hets
+// phased; arm switches 32 -> 37 (sparse pericentromeric, satellite and VNTR blocks: chr12 34.65-37.19 Mb, chr20 32.76
+// and 65.51 Mb).
+CallPattern classify_call(const CallEvidence& e) {
+    if (e.hom_in_het_region) return CallPattern::HomInHetMsaRegion;
+    if (e.hom_call) {
+        if (e.hom_confident) return CallPattern::HomConfident;
+        if (e.hom_full_depth) return CallPattern::HomFullDepth;
+        if (e.hom_both_haplotypes) return CallPattern::HomBothHaplotypes;
+        return CallPattern::HomLowMapq;
+    }
+    if (!e.clean && !e.msa) return CallPattern::NotHet;
+    if (!e.germline) return CallPattern::NotGermline;
+    if (!e.in_chunk) return CallPattern::OutsideChunk;
+    if (!e.few_confident && !e.depth_gated) return e.confident ? CallPattern::Het : CallPattern::CleanHetLowMapq;
+    if (!e.rows.empty()) return CallPattern::GatedOverRows;
+    if (e.few_confident)
+        return e.depth_ratio >= kUnionHomFullDepthRatio && e.depth_ratio <= kUnionMaxDepthRatio && e.split
+                   ? CallPattern::MsaHetLowMapqSplit
+                   : CallPattern::MsaHetLowMapq;
+    if (e.msa)
+        return e.depth_ratio < kIslandWriteMaxDepthRatio ? CallPattern::MsaHetDepthGated : CallPattern::MsaHetCollapsed;
+    return e.depth_ratio < kIslandWriteMaxDepthRatio && e.split ? CallPattern::CleanHetDepthGatedSplit
+                                                                : CallPattern::CleanHetDepthGated;
+}
+
 // Clean heterozygotes and MSA-verified noisy heterozygotes, keeping the
 // alignment's own category bits. And the MSA's homozygous calls inside a region whose two consensus sequences differ:
 // the haplotypes there are spelled only with them. Union phasing otherwise writes no injected homozygous call (an
@@ -336,6 +512,7 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                   const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta, bool record_decisions,
                   Selection& sel) {
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
+    std::vector<CallPattern> pattern(bam.candidates.size(), CallPattern::NotHet);
     const auto decide = [&](size_t bi, const char* why) {
         if (record_decisions) sel.decision[bi] = why;
         if (!pgphase_trace::on()) return;
@@ -361,61 +538,31 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                         std::to_string(c.msa_cluster_reads);
         pgphase_trace::candidate("inject", "decision", c, why,
                                  "cat=" + std::to_string(static_cast<int>(c.counts.category)) +
-                                 (c.msa_verified ? " msa" : "") + observed + features + msa_reads);
+                                 (c.msa_verified ? " msa" : "") + observed + features + msa_reads +
+                                 " pattern=" + call_pattern_name(pattern[bi]));
     };
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
-        const VariantCategory cat = c.counts.category;
-        const bool clean = cat == VariantCategory::CleanHetSnp || cat == VariantCategory::CleanHetIndel;
-        const bool msa = cat == VariantCategory::NoisyCandHet && c.msa_verified;
-        if (cat == VariantCategory::NoisyCandHom && c.msa_verified && in_het_msa_region(bam, c) &&
-            c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end) {
+        CallEvidence e = call_evidence(graph, bam, support, voting, sel, bi);
+        const CallPattern p = pattern[bi] = classify_call(e);
+        switch (p) {
+        case CallPattern::HomInHetMsaRegion:
             decide(bi, "hom");
             sel.hom_records.insert(bi);
             sel.selected.push_back(bi);
             continue;
-        }
-        // The alignment's own homozygous calls, written 1/1 as the MSA's are (no vote, no read calls), and the MSA's
-        // in a region whose two consensus sequences agree (the het regions' are above; the alignment's call there is
-        // pruned for the region's noise and re-called by the MSA: chr20:148,906 G>A, 62 of 64 reads). The graph drops
-        // its hom sites (pair_high_af), so the VCF had no hom calls but those of het MSA regions: on chr20's arms 685
-        // of the truth's 25,031 hom SNPs in the benchmark, SNP F1 0.80 (hap.py) against DeepVariant's 0.99 at more
-        // truth het SNPs called; written, 24,850 and SNP F1 0.999, INDEL 0.83 -> 0.99. Only where no voting row
-        // describes the locus (the graph's own call stands), outside a het MSA region (its consensus sequences spell
-        // it), and carried by confident reads.
-        const bool spelled_hom = sel.spelled_hom.count(bi) != 0;
-        const bool hom_call = (cat == VariantCategory::CleanHom && !c.msa_verified) ||
-                              (cat == VariantCategory::NoisyCandHom && c.msa_verified) || spelled_hom;
-        if (hom_call && c.key.pos >= graph.ref_beg && c.key.pos <= graph.ref_end && !in_het_msa_region(bam, c)) {
-            const auto conf = support.confident[bi].find(1);
-            int n_reads = 0, n_confident = 0;
-            for (const auto& [a, n] : support.observed[bi]) n_reads += n;
-            for (const auto& [a, n] : support.confident[bi]) n_confident += n;
-            // Mostly confident reads too: where a share of them map at low MAPQ (satellites), a het with one
-            // haplotype's reads elsewhere reads as a hom -- chr20, hom calls under 90% confident reads: the truth a het
-            // at 231, a hom at 266 (225 and 153 in satellites); at 90% or more, a het at 20, a hom at 24,224.
-            // With no read on REF, half: in segmental duplications reads map at low MAPQ around a true hom.
-            // chr17/19/20 (with the depth gate dropped below): SNP F1 0.9899 -> 0.9921 (hap.py; 1,047 fewer missed,
-            // 2 more false), INDEL 0.9815 -> 0.9826; outside the benchmark, satellites mostly, 570 truth hets more
-            // written 1/1.
-            const auto ref = support.observed[bi].find(0);
-            const bool no_ref = ref == support.observed[bi].end() || ref->second == 0;
-            const bool full_depth = (ref == support.observed[bi].end() || ref->second <= 1) &&
-                                    support.median_depth > 0.0 &&
-                                    n_reads >= kUnionHomFullDepthRatio * support.median_depth;
-            const double share = no_ref ? kUnionHomMinConfidentShareNoRef : kUnionHomMinConfidentShare;
-            const bool both_haplotypes = support.median_depth > 0.0 &&
-                                         n_reads <= kUnionMaxDepthRatio * support.median_depth &&
-                                         support.alt_on_both_haplotypes(bi);
-            const bool confident_alt = full_depth || both_haplotypes ||
-                                       (conf != support.confident[bi].end() &&
-                                        conf->second >= kUnionHomMinConfidentReads && n_confident >= share * n_reads);
-            // No depth gate: it keeps paralog runs out of the solve, and a hom call takes no part in it. Held back
-            // by it, the truth's hom at 659 of 664 such calls on chr12/17/19/20 (no het).
-            if (!confident_alt) {
-                decide(bi, "hom:few_confident_reads");
-                continue;
-            }
+        case CallPattern::HomLowMapq:
+            decide(bi, "hom:few_confident_reads");
+            continue;
+        case CallPattern::HomConfident:
+        case CallPattern::HomFullDepth:
+        case CallPattern::HomBothHaplotypes: {
+            // The alignment's own homozygous calls, written 1/1 as the MSA's are (no vote, no read calls), and the
+            // MSA's in a region whose two consensus sequences agree (the het regions' are above; the alignment's call
+            // there is pruned for the region's noise and re-called by the MSA: chr20:148,906 G>A, 62 of 64 reads). The
+            // graph drops its hom sites (pair_high_af), so the VCF had no hom calls but those of het MSA regions: on
+            // chr20's arms 685 of the truth's 25,031 hom SNPs in the benchmark, SNP F1 0.80 (hap.py) against
+            // DeepVariant's 0.99 at more truth het SNPs called; written, 24,850 and SNP F1 0.999, INDEL 0.83 -> 0.99.
             // Where catalog rows describe the locus, their call stands if they write one: the hom is written only
             // where no record with an ALT genotype overlaps it, which the EM decides. Handed to the rows outright,
             // a hom their EM leaves out (one allele: minor_allele_below_fraction) or the MSA drops went unwritten --
@@ -430,84 +577,45 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
                 decide(bi, "hom:graph_row");
                 continue;
             }
+            const bool spelled_hom = sel.spelled_hom.count(bi) != 0;
             decide(bi, fallback ? "aln_hom:fallback" : spelled_hom ? "aln_hom:spelled" : "aln_hom");
             if (fallback) sel.hom_fallback.insert(bi);
             sel.hom_records.insert(bi);
             sel.selected.push_back(bi);
             continue;
         }
-        if (!clean && !msa) { decide(bi, "category"); continue; }
-        if ((c.lcd_var_i_to_cate & kCandGermlineVarCate) == 0) { decide(bi, "not_germline"); continue; }
-        if (c.key.pos < graph.ref_beg || c.key.pos > graph.ref_end) { decide(bi, "outside_chunk"); continue; }
-        // An MSA-verified het these two rules drop enters as an island-only
-        // site (island_only): its reads may phase locally, but it never votes
-        // or joins. Admitted as an ordinary site instead, the same calls cost
-        // -1,258 correct / +1,269 discordant reads (chr12, depth gate: a
-        // paralog split joined a block the wrong way) or doubled chr20's arm
-        // switches (confident-read rule).
-        // A clean het is exempt from the confident-read rule: the depth gate
-        // alone screens it. Where a region has a second copy elsewhere in the
-        // reference every read loses its MAPQ, yet the reads are this copy's
-        // (depth at or below the median, not a collapse): at chr18:21.09-21.10
-        // Mb six truth hets read only at MAPQ < 30 were dropped and 25 reads
-        // LongPhase phases stayed unphased. Such a site enters flagged
-        // low_mapq_only: phased, but it joins no blocks and labels reads only
-        // as an unverified call does (union EM). Measured on chr12/18/20 with
-        // the echo sites, unverified fallback and per-pair stitching: +155
-        // correct / -88 discordant / -67 unphased, +1,569 truth hets phased;
-        // arm switches 32 -> 37 (sparse pericentromeric, satellite and VNTR
-        // blocks: chr12 34.65-37.19 Mb, chr20 32.76 and 65.51 Mb).
-        // An MSA call inside an MSA deletion its other consensus carries: that haplotype has no bases there, so REF has
-        // no reads to carry it (a few error reads at most) and the call's own allele alone needs confident support.
-        // chr20:49,575,972 and 49,576,250, deletions of 179 and 196 bp beside the other haplotype's 2,443 bp deletion
-        // (the truth's 2|1 with *): REF 3 reads, 1 of them confident, and both went unwritten.
-        const bool confident = support.confidently_supported(bi) ||
-                               (msa && under_other_consensus_deletion(bam, c) && support.confident_on_leading(bi)[0] >=
-                                                                                     kUnionMinConfidentAlleleReads);
-        const char* dropped = !clean && !confident ? "few_confident_reads"
-                            : (support.median_depth > 0.0 &&
-                               support.depth[bi] > kUnionMaxDepthRatio * support.median_depth) ? "depth_gate"
-                            : nullptr;
-        std::vector<size_t> rows = voting.over(c.key.pos - 1, c.key.pos + std::max(1, c.key.ref_len));
-        // Two SNPs overlap only at a shared base: a call beside a row SNP is not another description of it, and hidden
-        // as its complement it was never written (chr20:7,706,349 C>T, 39 against 29 reads, beside the catalog SNP at
-        // 7,706,350; both truth hets). Only for a call both of whose alleles confident reads carry: in satellites the
-        // calls beside catalog SNPs are mostly low-MAPQ paralog reads, and written they unsettled the EM there (chr20
-        // centromere -35 truth hets right, +161 genotypes wrong). An indel keeps the one-base reach: an MSA deletion
-        // whose anchor letter changes (written AA>G, chr20:51,699,469) spells the catalog SNP at its anchor.
-        if (c.key.type == VariantType::Snp && support.confidently_supported(bi))
-            rows.erase(std::remove_if(rows.begin(), rows.end(), [&](size_t r) {
-                           const VariantKey& k = graph.candidates[r].key;
-                           return k.type == VariantType::Snp &&
-                                  (k.pos + k.ref_len <= c.key.pos || c.key.pos + c.key.ref_len <= k.pos);
-                       }), rows.end());
-        if (dropped != nullptr) {
-            // The depth gate keeps a call out of the solve (a paralog run joined blocks the wrong way), not out of
-            // the VCF: written unphased, as the MSA genotyped it. Kept from the VCF too, the MSA's pair was the
-            // truth's in 125 of 151 such chr20 regions (chr20:3,414,746, CT>C in T16, clusters 47 / 42). Not the
-            // few-confident-reads gate's: in satellites its MSA pairs are mostly another copy's (147 of 205
-            // wrong). Nor one at kIslandWriteMaxDepthRatio or deeper. A clean het, and the few-confident-reads
-            // gate's at full depth, only with its alleles one per haplotype (kIslandSplitMinReads above); a clean
-            // het not written stays out as before.
-            const bool depth_gated = dropped[0] != 'f';
-            const double ratio = support.median_depth > 0.0 ? support.depth[bi] / support.median_depth : 0.0;
-            const double share = support.alt_share(bi);
-            const bool split = share >= kIslandMinAltShare && share <= kIslandMaxAltShare &&
-                               support.alleles_split_by_haplotype(bi);
-            const bool written = depth_gated
-                                     ? ratio < kIslandWriteMaxDepthRatio && (msa || split)
-                                     : ratio >= kUnionHomFullDepthRatio && ratio <= kUnionMaxDepthRatio && split;
-            if ((msa || (clean && depth_gated && written)) && rows.empty()) {
-                decide(bi, depth_gated ? "island:depth_gate" : "island:few_confident_reads");
-                sel.island_only.insert(bi);
-                if (written) sel.island_written.insert(bi);
-                sel.selected.push_back(bi);
-            } else {
-                decide(bi, dropped);
-            }
+        case CallPattern::NotHet:
+            decide(bi, "category");
             continue;
+        case CallPattern::NotGermline:
+            decide(bi, "not_germline");
+            continue;
+        case CallPattern::OutsideChunk:
+            decide(bi, "outside_chunk");
+            continue;
+        case CallPattern::GatedOverRows:
+            decide(bi, e.few_confident ? "few_confident_reads" : "depth_gate");
+            continue;
+        case CallPattern::CleanHetDepthGated:
+            decide(bi, "depth_gate");
+            continue;
+        case CallPattern::MsaHetLowMapq:
+        case CallPattern::MsaHetLowMapqSplit:
+        case CallPattern::MsaHetDepthGated:
+        case CallPattern::MsaHetCollapsed:
+        case CallPattern::CleanHetDepthGatedSplit:
+            decide(bi, e.few_confident ? "island:few_confident_reads" : "island:depth_gate");
+            sel.island_only.insert(bi);
+            if (p == CallPattern::MsaHetLowMapqSplit || p == CallPattern::MsaHetDepthGated ||
+                p == CallPattern::CleanHetDepthGatedSplit)
+                sel.island_written.insert(bi);
+            sel.selected.push_back(bi);
+            continue;
+        case CallPattern::Het:
+        case CallPattern::CleanHetLowMapq:
+            break;
         }
-        if (msa && !rows.empty() && graph_meta.size() == graph.candidates.size()) {
+        if (e.msa && !e.rows.empty() && graph_meta.size() == graph.candidates.size()) {
             // An MSA het over catalog rows is written itself, the rows (still voting) not: the MSA's haplotypes are
             // the region's reads' own, the rows' alleles what the graph's reads were forced onto (chr20:509,755, a
             // 4 bp deletion the catalog describes only as a SNP beside it) or genotyped from them (chr12:6,797,743, the MSA's het T>A, 33 against 31 reads, under a catalog row
@@ -517,20 +625,20 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             decide(bi, "replaces");
             // Every row: keeping one an MSA call reproduces (by VCF allele) put a co-located copy beside the call and
             // left 162 truth hets on chr12/18/20 unphased.
-            sel.replaced_rows.insert(rows.begin(), rows.end());
-            if (!confident) sel.low_mapq_only.insert(bi);
+            sel.replaced_rows.insert(e.rows.begin(), e.rows.end());
+            if (!e.confident) sel.low_mapq_only.insert(bi);
             sel.selected.push_back(bi);
             continue;
         }
-        if (!rows.empty() && sel.additive.count(bi) != 0) {
+        if (!e.rows.empty() && sel.additive.count(bi) != 0) {
             decide(bi, "injected:adds_to_row");
-            if (!confident) sel.low_mapq_only.insert(bi);
+            if (!e.confident) sel.low_mapq_only.insert(bi);
             sel.selected.push_back(bi);
             continue;
         }
-        decide(bi, rows.empty() ? "injected" : "complement");
-        if (!rows.empty()) sel.complement_rows.emplace(bi, std::move(rows));
-        if (!confident) sel.low_mapq_only.insert(bi);
+        decide(bi, e.rows.empty() ? "injected" : "complement");
+        if (!e.rows.empty()) sel.complement_rows.emplace(bi, std::move(e.rows));
+        if (!e.confident) sel.low_mapq_only.insert(bi);
         sel.selected.push_back(bi);
     }
     // A complement whose rows another MSA call replaced, or that write no record (unwritten_rows): no row writes it
