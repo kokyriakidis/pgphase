@@ -502,17 +502,8 @@ CandidateTable graph_chunks_to_candidate_table(
                 }
                 const int write_rank = het_rank(result[write]);
                 const int read_rank = het_rank(result[read]);
-                // An alignment hom SNP (its confident reads all ALT: union_select's hom records) over a het copy: the
-                // reads carry the base on both haplotypes, whichever row wrote it het -- a catalog MNP split into its
-                // SNPs gives each the MNP's genotype (chr20:64,561,498 A>G, 39 of 39 reads, written 1|0).
-                const auto alignment_hom_snp = [](const CandidateVariant& c) {
-                    return c.bam_injected && c.key.type == VariantType::Snp && c.key.ref_len == 1 &&
-                           c.hap_to_cons_alle[1] > 0 && c.hap_to_cons_alle[1] == c.hap_to_cons_alle[2];
-                };
-                const bool read_hom = alignment_hom_snp(result[read]), write_hom = alignment_hom_snp(result[write]);
-                const bool replace = read_hom != write_hom ? read_hom
-                    : read_rank > write_rank ||
-                      (read_rank == write_rank && result[read].counts.total_cov > result[write].counts.total_cov);
+                const bool replace = read_rank > write_rank ||
+                    (read_rank == write_rank && result[read].counts.total_cov > result[write].counts.total_cov);
                 const CandidateVariant& loser = replace ? result[write] : result[read];
                 const CandidateVariant& winner = replace ? result[read] : result[write];
                 if (pgphase_trace::on())
