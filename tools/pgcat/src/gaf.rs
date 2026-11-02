@@ -29,7 +29,9 @@ pub struct IndexGafOptions {
     /// BGZF compression level.
     pub level: u32,
     /// Where the alignments with no reference interval are written (gzip GAF, each line tagged `pu:Z:REASON`),
-    /// rather than dropped.
+    /// rather than dropped. One without anchors is also tagged with the reference beside it (RefMap::nearest):
+    /// `pb:Z:CONTIG:OFFSET:BASES` before its walk and `pa:Z:...` after, OFFSET the 0-based reference position where
+    /// the graph search joins the reference and BASES the graph bases between.
     pub unplaced: Option<String>,
 }
 
@@ -139,22 +141,10 @@ impl RefMap {
             .chain(more.into_iter().flatten().map(|&k| &self.placements[k as usize]))
     }
 
-    /// pggaf's walk_ref_interval. The anchors are the walk's nodes that overlap
-    /// the aligned part [ts, te) of the walk and lie on the reference. Starting
-    /// from each placement of the first anchor, every later anchor must have
-    /// exactly one placement on the same path, in the same relative
-    /// orientation and strictly further along it; the interval spans the
-    /// anchors' aligned bases. Any node missing from the graph, or two starts
-    /// giving different intervals, leaves the alignment unplaced, and why.
-    fn project(&self, walk: &[(usize, bool)], ts: u64, te: u64) -> Result<(u32, u64, u64), Unplaced> {
+    /// The walk's nodes that overlap the aligned part [ts, te) of the walk and lie on the reference, in walk order.
+    fn anchors(&self, walk: &[(usize, bool)], ts: u64, te: u64) -> Result<Vec<Anchor>, Unplaced> {
         if walk.is_empty() || te <= ts {
             return Err(Unplaced::NoAnchor);
-        }
-        struct Anchor {
-            node: usize,
-            reverse: bool,
-            local_start: u64,
-            local_end: u64,
         }
         let mut anchors: Vec<Anchor> = Vec::new();
         let mut off = 0u64;
@@ -177,19 +167,32 @@ impl RefMap {
                 break;
             }
         }
-        let a0 = anchors.first().ok_or(Unplaced::NoAnchor)?;
-        let interval = |a: &Anchor, p: &Placement| {
-            let len = self.node_len[a.node] as u64;
-            if a.reverse == p.reverse {
-                (p.start + a.local_start, p.start + a.local_end)
-            } else {
-                (p.start + (len - a.local_end), p.start + (len - a.local_start))
-            }
-        };
+        if anchors.is_empty() { Err(Unplaced::NoAnchor) } else { Ok(anchors) }
+    }
+
+    /// The reference bases an anchor's aligned part covers at placement p.
+    fn interval(&self, a: &Anchor, p: &Placement) -> (u64, u64) {
+        let len = self.node_len[a.node] as u64;
+        if a.reverse == p.reverse {
+            (p.start + a.local_start, p.start + a.local_end)
+        } else {
+            (p.start + (len - a.local_end), p.start + (len - a.local_start))
+        }
+    }
+
+    /// pggaf's walk_ref_interval. Starting from each placement of the first
+    /// anchor, every later anchor must have exactly one placement on the same
+    /// path, in the same relative orientation and strictly further along it;
+    /// the interval spans the anchors' aligned bases. Any node missing from the
+    /// graph, or two starts giving different intervals, leaves the alignment
+    /// unplaced, and why.
+    fn project(&self, walk: &[(usize, bool)], ts: u64, te: u64) -> Result<(u32, u64, u64), Unplaced> {
+        let anchors = self.anchors(walk, ts, te)?;
+        let a0 = &anchors[0];
         let try_from = |p0: &Placement| -> Result<(u32, u64, u64), Unplaced> {
             let forward = a0.reverse == p0.reverse;
             let mut prev = p0.step;
-            let (mut lo, mut hi) = interval(a0, p0);
+            let (mut lo, mut hi) = self.interval(a0, p0);
             for a in &anchors[1..] {
                 let mut found: Option<&Placement> = None;
                 for p in self.placements_of(a.node) {
@@ -206,7 +209,7 @@ impl RefMap {
                 }
                 let p = found.ok_or(Unplaced::Inconsistent)?;
                 prev = p.step;
-                let (s, e) = interval(a, p);
+                let (s, e) = self.interval(a, p);
                 lo = lo.min(s);
                 hi = hi.max(e);
             }
@@ -229,6 +232,53 @@ impl RefMap {
     }
 }
 
+/// How far, in graph bases, the search for a reference node next to an alignment without anchors goes from each
+/// end of its walk (RefMap::nearest), and how many nodes it visits at most.
+const NEAREST_REACH: u64 = 200_000;
+const NEAREST_NODES: usize = 200_000;
+
+impl RefMap {
+    /// The reference beside a walk with no anchor (Unplaced::NoAnchor): the graph is searched outward from each end of
+    /// the walk -- forward from its last node, and backward from its first -- for the reference node fewest graph
+    /// bases away, within NEAREST_REACH. For each side, the contig, the reference position where the search joins the
+    /// reference, and the bases between; `next(node, reverse)` is the handles that follow a handle.
+    fn nearest(&self, walk: &[(usize, bool)], next: &dyn Fn(usize, bool) -> Vec<(usize, bool)>) -> [Option<(u32, u64, u64)>; 2] {
+        let search = |from: (usize, bool)| -> Option<(u32, u64, u64)> {
+            let mut heap = BinaryHeap::new();
+            let mut seen: HashMap<(usize, bool), u64> = HashMap::new();
+            for h in next(from.0, from.1) {
+                heap.push(std::cmp::Reverse((0u64, h)));
+            }
+            while let Some(std::cmp::Reverse((d, (node, reverse)))) = heap.pop() {
+                if seen.contains_key(&(node, reverse)) || d > NEAREST_REACH || seen.len() >= NEAREST_NODES {
+                    continue;
+                }
+                seen.insert((node, reverse), d);
+                if let Some(p) = self.placements_of(node).next() {
+                    let len = self.node_len[node] as u64;
+                    let at = if reverse == p.reverse { p.start } else { p.start + len };
+                    return Some((self.path_contig[p.path as usize], at, d));
+                }
+                let len = self.node_len.get(node).copied().filter(|&l| l != NONE)? as u64;
+                for h in next(node, reverse) {
+                    heap.push(std::cmp::Reverse((d + len, h)));
+                }
+            }
+            None
+        };
+        let (Some(&first), Some(&last)) = (walk.first(), walk.last()) else { return [None, None] };
+        [search((first.0, !first.1)), search(last)]
+    }
+}
+
+/// A walk node on the reference, and the part of it the alignment covers (in walk orientation).
+struct Anchor {
+    node: usize,
+    reverse: bool,
+    local_start: u64,
+    local_end: u64,
+}
+
 /// Why an alignment has no place.
 #[derive(Default, Clone, Copy)]
 struct Counts {
@@ -238,6 +288,8 @@ struct Counts {
     unplaced: u64,
     /// Of the unplaced, by reason (Unplaced::ALL's order).
     why: [u64; 4],
+    /// Of those without anchors, written to --unplaced with the reference found beside them.
+    beside: u64,
     malformed: u64,
 }
 
@@ -247,6 +299,7 @@ impl Counts {
         self.placed += o.placed;
         self.unmapped += o.unmapped;
         self.unplaced += o.unplaced;
+        self.beside += o.beside;
         for (a, b) in self.why.iter_mut().zip(o.why) {
             *a += b;
         }
@@ -491,9 +544,14 @@ fn emit(w: &mut IndexedWriter, names: &[String], by_rank: &[u32], key: (u32, u64
 pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
     let t0 = Instant::now();
     let log = |msg: &str| eprintln!("[pgcat {:7.1}s] {msg}", t0.elapsed().as_secs_f64());
-    let m = {
-        let g: GBZ = simple_sds::serialize::load_from(&o.graph).map_err(|e| format!("{}: {e}", o.graph))?;
-        RefMap::build(&g, sample)?
+    let g: GBZ = simple_sds::serialize::load_from(&o.graph).map_err(|e| format!("{}: {e}", o.graph))?;
+    let m = RefMap::build(&g, sample)?;
+    // The graph stays loaded only to find the reference beside the unplaced alignments without anchors.
+    let g = o.unplaced.is_some().then_some(g);
+    let next = |node: usize, reverse: bool| -> Vec<(usize, bool)> {
+        let o = if reverse { Orientation::Reverse } else { Orientation::Forward };
+        let edges = g.as_ref().and_then(|g| g.successors(node, o));
+        edges.map(|it| it.map(|(n, o)| (n, o == Orientation::Reverse)).collect()).unwrap_or_default()
     };
     log(&format!("graph loaded: {} reference paths of {sample} on {} contigs", m.path_contig.len(), m.contigs.len()));
     // Output order is by contig name, then position, then the line itself.
@@ -537,7 +595,7 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
             s = e;
         }
         let keep_unplaced = unplaced_out.is_some();
-        let results: Vec<(Vec<Found>, Counts, Vec<u64>, Vec<(usize, usize, Unplaced)>)> = pieces
+        let results: Vec<(Vec<Found>, Counts, Vec<u64>, Vec<(usize, usize, Unplaced, String)>)> = pieces
             .par_iter()
             .map(|piece| {
                 let base = piece.as_ptr() as usize - chunk.as_ptr() as usize;
@@ -567,7 +625,17 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
                             c.unplaced += 1;
                             c.why[Unplaced::ALL.iter().position(|&w| w == why).unwrap()] += 1;
                             if keep_unplaced {
-                                dropped.push((base + p, body.len(), why));
+                                let mut tags = format!("\tpu:Z:{}", why.name());
+                                if why == Unplaced::NoAnchor {
+                                    let sides = m.nearest(&walk, &next);
+                                    c.beside += sides.iter().any(|x| x.is_some()) as u64;
+                                    for (tag, x) in ["pb", "pa"].iter().zip(sides) {
+                                        if let Some((contig, at, d)) = x {
+                                            tags.push_str(&format!("\t{tag}:Z:{}:{at}:{d}", m.contigs[contig as usize]));
+                                        }
+                                    }
+                                }
+                                dropped.push((base + p, body.len(), why, tags));
                             }
                         }
                         Line::Malformed => {
@@ -582,9 +650,9 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
             .collect();
         for (placed, c, span, dropped) in results {
             if let Some(w) = unplaced_out.as_mut() {
-                for (at, len, why) in dropped {
+                for (at, len, _, tags) in dropped {
                     w.write_all(&chunk[at..at + len]).map_err(|e| format!("unplaced: {e}"))?;
-                    w.write_all(format!("\tpu:Z:{}\n", why.name()).as_bytes()).map_err(|e| format!("unplaced: {e}"))?;
+                    w.write_all(tags.as_bytes()).and_then(|_| w.write_all(b"\n")).map_err(|e| format!("unplaced: {e}"))?;
                 }
             }
             counts = counts.add(c);
@@ -607,8 +675,10 @@ pub fn run(o: &IndexGafOptions, sample: &str) -> Result<(), String> {
     sort_run(&data, &mut recs);
     if let Some(w) = unplaced_out.take() {
         w.finish().and_then(|mut b| b.flush()).map_err(|e| format!("unplaced: {e}"))?;
+        log(&format!("{} of {} alignments without anchors have the reference beside them (pb/pa tags)", counts.beside, counts.why[0]));
     }
     let why: Vec<String> = Unplaced::ALL.iter().zip(counts.why).map(|(w, n)| format!("{} {n}", w.name())).collect();
+    drop(g);
     log(&format!(
         "{} alignments: {} placed, {} unmapped, {} without a unique reference interval ({}), {} malformed",
         counts.lines, counts.placed, counts.unmapped, counts.unplaced, why.join(", "), counts.malformed
@@ -710,6 +780,26 @@ mod tests {
         assert_eq!(m.project(&[(1, false), (9, false)], 0, 12), Err(Unplaced::MissingNode));
         // Only off-reference nodes: no place.
         assert_eq!(m.project(&[(4, false)], 0, 5), Err(Unplaced::NoAnchor));
+    }
+
+    #[test]
+    fn reference_beside_an_unanchored_walk() {
+        let mut m = map();
+        // Node 7 (10 bp) off the reference, on a path 1 > 4 > 7 > 3 that leaves out node 2.
+        m.node_len.extend([NONE, NONE, 10]);
+        m.first.extend([NONE, NONE, NONE]);
+        let fwd = [(1, 4), (4, 7), (7, 3)];
+        let next = |n: usize, r: bool| -> Vec<(usize, bool)> {
+            fwd.iter()
+                .filter_map(|&(a, b)| if !r && a == n { Some((b, false)) } else if r && b == n { Some((a, true)) } else { None })
+                .collect()
+        };
+        // Before the walk, node 4's 5 bp back to node 1's end; after it, straight onto node 3.
+        assert_eq!(m.nearest(&[(7, false)], &next), [Some((0, 110, 5)), Some((0, 115, 0))]);
+        // The same walk reversed: the sides swap.
+        assert_eq!(m.nearest(&[(7, true)], &next), [Some((0, 115, 0)), Some((0, 110, 5))]);
+        // No edges: nothing beside it.
+        assert_eq!(m.nearest(&[(7, false)], &|_, _| Vec::new()), [None, None]);
     }
 
     #[test]
