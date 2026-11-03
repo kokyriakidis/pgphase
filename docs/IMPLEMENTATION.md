@@ -25,8 +25,8 @@ with Part I, Part I is right and Part II is stale.
 |---|---|
 | `collect-bam-variation` | the alignment arm: candidates and phasing from a BAM alone |
 | `collect-graph-variation` | **the pipeline this Part describes**: the catalog's sites phased from GAF evidence, with `--bam` adding union gap phasing |
-| `build-snarl-catalog` | builds the site catalogs from a GBZ graph (runs `pgcat build`) |
-| `index-gaf` | indexes the reads' graph alignments by reference position for `--gaf` (runs `pgcat index-gaf`) |
+| `build-snarl-catalog` | builds the site catalogs from a GBZ graph (runs `pgcatalog build`) |
+| `index` | indexes the reads' graph alignments (GAM or GAF, `--reads`) by reference position, for `collect-graph-variation --gaf`: runs `pgcatalog ref-map` once per graph (kept beside it) and `dromos index` (github.com/kokyriakidis/dromos), which writes each alignment's 12 GAF columns, placed and sorted |
 
 `collect-graph-variation` additionally offers `--phase-reads-out`, a diagnostic
 TSV of per-read phasing evidence; the equivalent BAM-arm outputs were removed in
@@ -711,7 +711,8 @@ Off unless set; none changes the output.
 | `PGPHASE_DIAG=DIR` | Writes per-locus TSVs to DIR: union windows (`windows.*`), alignment-site injection, island blocks, the EM's reads |
 | `PGPHASE_EM_DUMP=DIR` | Writes each union EM solve's inputs (`em.TID.BEG.tsv`): sites, then every observation |
 | `PGPHASE_DEBUG_SITE=POS` | Traces, for the catalog site within 2 bp of POS, each read's boundary matching and the allele counts |
-| `PGCAT=PATH` | The pgcat that `build-snarl-catalog` and `index-gaf` run [beside pgphase, then on PATH] |
+| `PGCATALOG=PATH` | The pgcatalog that `build-snarl-catalog` and `index` run [beside pgphase, then on PATH] |
+| `DROMOS=PATH` | The dromos that `index` runs [beside pgphase, then on PATH] |
 
 ## Part II -- component reference
 
@@ -2291,7 +2292,7 @@ Two rules downstream of the MSA, for either backend:
   With the MSA rules above (tracts, splitting, confident reads), HG002 HiFi chr20 (vg surjected BAM) against c0077c8:
   arm truth hets phased 64,765 -> 64,819, unphased 160 -> 189, other alleles 914 -> 897, overlapping records 97 -> 5,
   missed 382 -> 410, false het loci 80 -> 59; hap.py (Q100) SNP F1 0.9993 -> 0.9994, INDEL 0.9904 -> 0.9905; reads
-  unchanged. On the graph-native BAM (`pgcat surject`): phased 64,810, other alleles 874, false het loci 58.
+  unchanged. On the graph-native BAM (`pgcatalog surject`): phased 64,810, other alleles 874, false het loci 58.
 - **A deletion and an insertion side by side on one haplotype are one record** (`merge_adjacent_deletion_insertion`,
   output): the MSA's alignment can describe a replacement as the two (chr18:830,100, TTTG deleted then AAAAAA
   inserted). Written apart, the insertion's padding base was the deletion's last deleted base. Merged only where both

@@ -42,10 +42,10 @@ Each submodule's licence travels with its source.
 licence: Copyright (c) 2025-2026 Paolo Carnevali; portions from Shasta, Copyright (c) 2023-2025 Paolo Carnevali and
 Copyright (c) 2018-2022 Chan Zuckerberg Initiative. `homopolymer-hifi-hg002.csv` is pgphase's own, in the same format.
 
-## pgcat (`tools/pgcat`)
+## pgcatalog (`tools/pgcatalog`)
 
-pgcat is built by cargo from these crates (versions pinned in
-`tools/pgcat/Cargo.lock`), each with its licence in its source:
+pgcatalog is built by cargo from these crates (versions pinned in
+`tools/pgcatalog/Cargo.lock`), each with its licence in its source:
 
 | Crate | Project | Licence |
 |---|---|---|
@@ -57,3 +57,13 @@ pgcat is built by cargo from these crates (versions pinned in
 
 pgphase itself links the system zstd library (BSD-3-Clause) to read `.pgsites`
 catalogs.
+
+## dromos (`tools/dromos`)
+
+dromos (<https://github.com/kokyriakidis/dromos>), which `index` runs, is a
+git submodule: Copyright (c) 2026 Konstantinos Kyriakidis, MIT
+(`tools/dromos/LICENSE`). It is built by pixi in its pinned environment
+(`tools/dromos/pixi.lock`), links the Mojo runtime libraries that environment
+holds (as plegma does; the portable bundle carries them), and loads at run time
+libdeflate (<https://github.com/ebiggers/libdeflate>, MIT), libzstd
+(<https://github.com/facebook/zstd>, BSD-3-Clause) and zlib (zlib licence).

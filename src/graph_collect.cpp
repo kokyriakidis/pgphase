@@ -511,7 +511,7 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
 void run_collect_graph_variation(const Options& opts) {
     configure_msa(opts);
     if (opts.verbose >= 1) std::fprintf(stderr, "[pgphase] noisy-region MSA: %s\n", msa_description().c_str());
-    // The GAF must be bgzip-compressed and tabix-indexed on index-gaf's
+    // The GAF must be bgzip-compressed and tabix-indexed on pgphase index's
     // coordinate columns, so each chunk reads only its own region.
     require_indexed_gaf(opts.gaf_file);
     // A site whose every allele spans more graph bases than any alignment on
@@ -907,7 +907,7 @@ static void print_graph_collect_help() {
         << "                                (<contig>.pgsites), one .pgsites file, or a bgzipped,\n"
         << "                                tabix-indexed sites VCF\n"
         << "      --gaf FILE                The reads' GAF indexed by reference position, from\n"
-        << "                                pgphase index-gaf (bgzipped + tabix-indexed)\n"
+        << "                                pgphase index (bgzipped + tabix-indexed)\n"
         << "\n"
         << "Input:\n"
         << "      --bam FILE                Indexed BAM of the same reads: alignment-only sites and\n"

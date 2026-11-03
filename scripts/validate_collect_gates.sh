@@ -244,33 +244,44 @@ count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_DIR/micb-
   --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
 check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
 
-# The same run on the .pgsites catalog folder pgcat build writes.
+# The same run on the .pgsites catalog folder pgcatalog build writes.
 GRAPH_CATALOG="$GRAPH_DIR/micb-kir3dl1.catalog"
 count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_CATALOG" \
   --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
 check_golden "graph-only TSV on .pgsites (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
 
-# pgcat rebuilds that catalog from its committed snarls (so without vg).
-PGCAT="${PGCAT:-$ROOT/pgcat}"
-if [[ -x "$PGCAT" ]]; then
+# pgcatalog rebuilds that catalog from its committed snarls (so without vg).
+PGCATALOG="${PGCATALOG:-$ROOT/pgcatalog}"
+DROMOS="${DROMOS:-$ROOT/dromos}"
+if [[ -x "$PGCATALOG" ]]; then
   cat_out="$TMPDIR/pgphase_validate_catalog"
   rm -rf "$cat_out"
   mkdir -p "$cat_out"
   cp -r "$GRAPH_CATALOG/snarls" "$cat_out/snarls"
-  "$PGCAT" build --graph "$GRAPH_DIR/micb-kir3dl1.gbz" --reference-sample CHM13 --out "$cat_out" \
+  "$PGCATALOG" build --graph "$GRAPH_DIR/micb-kir3dl1.gbz" --reference-sample CHM13 --out "$cat_out" \
     --region chr6 --region chr19 --threads 2 2>/dev/null
   for c in chr6 chr19; do
-    check_golden "pgcat $c catalog" "$cat_out/$c.pgsites" "$GRAPH_CATALOG/$c.pgsites" hash_file
+    check_golden "pgcatalog $c catalog" "$cat_out/$c.pgsites" "$GRAPH_CATALOG/$c.pgsites" hash_file
   done
-  # ... and the reference-indexed GAF from the raw alignments: the same
-  # records and index (compared decompressed).
-  "$PGCAT" index-gaf --graph "$GRAPH_DIR/micb-kir3dl1.gbz" --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.gaf" \
-    --reference-sample CHM13 --out "$cat_out/reads.coord.gaf.gz" -t 2 2>/dev/null
-  check_golden "pgcat index-gaf records" "$cat_out/reads.coord.gaf.gz" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" hash_gz
-  check_golden "pgcat index-gaf index" "$cat_out/reads.coord.gaf.gz.tbi" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz.tbi" hash_gz
 else
-  echo "skip: pgcat not built (make pgcat); catalog and GAF rebuilds not checked"
+  echo "skip: pgcatalog not built (make pgcatalog); catalog rebuilds not checked"
 fi
+
+# The reference-indexed GAF from the raw alignments (pgphase index: pgcatalog ref-map, then dromos index):
+# the same records and index (compared decompressed).
+if [[ -x "$PGCATALOG" && -x "$DROMOS" ]]; then
+  gaf_out="$TMPDIR/pgphase_validate_index"
+  rm -rf "$gaf_out"
+  mkdir -p "$gaf_out"
+  cp "$GRAPH_DIR/micb-kir3dl1.gbz" "$gaf_out/"
+  PGCATALOG="$PGCATALOG" DROMOS="$DROMOS" "$PGPHASE" index --graph "$gaf_out/micb-kir3dl1.gbz" \
+    --reads "$GRAPH_DIR/micb-kir3dl1_HG003.gaf" --reference-sample CHM13 --out "$gaf_out/reads.coord.gaf.gz" -t 2 2>/dev/null
+  check_golden "index records" "$gaf_out/reads.coord.gaf.gz" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" hash_gz
+  check_golden "index tabix index" "$gaf_out/reads.coord.gaf.gz.tbi" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz.tbi" hash_gz
+else
+  echo "skip: pgcatalog or dromos not built (make pgcatalog dromos); the GAF index is not checked"
+fi
+
 
 for msa in "${MSAS[@]}"; do
   dir="$EXPECTED_DIR"

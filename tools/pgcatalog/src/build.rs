@@ -1,4 +1,4 @@
-//! `pgcat build`: catalogs for every reference contig of a graph, for chosen
+//! `pgcatalog build`: catalogs for every reference contig of a graph, for chosen
 //! contigs, or for regions of them.
 //!
 //! 0. The reference paths come from the GBZ's path metadata, read alone.
@@ -38,7 +38,7 @@ struct Selection {
 }
 
 fn log(t0: &Instant, msg: &str) {
-    eprintln!("[pgcat {:7.1}s] {msg}", t0.elapsed().as_secs_f64());
+    eprintln!("[pgcatalog {:7.1}s] {msg}", t0.elapsed().as_secs_f64());
 }
 
 /// `chr20`, `chr20:10,000,000-12,000,000` or `CHM13#0#chr20:...`.
@@ -95,7 +95,7 @@ const SNARLS_MEMORY_PER_BYTE: u64 = 22;
 
 /// Removes the `<prefix><pid>` work folders in `dir` of earlier runs that were
 /// killed (their process is gone), which would otherwise stay indefinitely:
-/// a build's contig graphs, an index-gaf's sorted runs. Needs /proc to tell;
+/// a build's contig graphs. Needs /proc to tell;
 /// elsewhere they are left alone.
 pub fn remove_abandoned_work(dir: &str, prefix: &str) {
     if !Path::new("/proc/self").exists() {
@@ -106,7 +106,7 @@ pub fn remove_abandoned_work(dir: &str, prefix: &str) {
         let name = e.file_name().to_string_lossy().into_owned();
         let Some(pid) = name.strip_prefix(prefix).and_then(|p| p.parse::<u32>().ok()) else { continue };
         if !Path::new(&format!("/proc/{pid}")).exists() {
-            eprintln!("[pgcat] removing {}, left by an interrupted run", e.path().display());
+            eprintln!("[pgcatalog] removing {}, left by an interrupted run", e.path().display());
             let _ = std::fs::remove_dir_all(e.path());
         }
     }
@@ -123,8 +123,8 @@ fn compute_snarls(
     contigs: &[String],
     cache: &Path,
 ) -> Result<(), String> {
-    remove_abandoned_work(&o.out, ".pgcat-work-");
-    let work = PathBuf::from(&o.out).join(format!(".pgcat-work-{}", std::process::id()));
+    remove_abandoned_work(&o.out, ".pgcatalog-work-");
+    let work = PathBuf::from(&o.out).join(format!(".pgcatalog-work-{}", std::process::id()));
     std::fs::create_dir_all(&work).map_err(|e| format!("{}: {e}", work.display()))?;
     let result = compute_snarls_in(t0, o, sample, paths, contigs, cache, &work);
     let _ = std::fs::remove_dir_all(&work);

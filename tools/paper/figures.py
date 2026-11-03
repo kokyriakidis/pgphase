@@ -38,7 +38,7 @@ BOXES = {
     "gaf": (2.95, 3.0, 2.5, 0.85, "ext", ["Graph alignments", "(vg Giraffe; GAF)"]),
     "bam": (2.95, 0.95, 2.5, 0.85, "ext", ["Linear alignments", "(BAM)"]),
     "catalog": (6.45, 4.15, 2.5, 0.85, "step", ["Site catalog", "(build-snarl-catalog)"]),
-    "index": (6.45, 3.0, 2.5, 0.85, "step", ["Indexed GAF", "(index-gaf)"]),
+    "index": (6.45, 3.0, 2.5, 0.85, "step", ["Indexed GAF", "(index)"]),
     "clean": (9.45, 3.55, 2.6, 1.05, "step", ["Catalog alleles from", "read walks; k-means"]),
     "solve": (7.9, 0.95, 2.9, 1.05, "step", ["Sample's own hets:", "candidates, MSA"]),
     "em": (12.75, 2.3, 2.6, 1.3, "step", ["Global EM:", "site errors,", "verified joins"]),

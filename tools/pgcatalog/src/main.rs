@@ -1,49 +1,51 @@
-//! pgcat: pgphase's inputs from a GBZ pangenome graph: the site catalogs
-//! (`build`) and the reads' alignments indexed by reference position
-//! (`index-gaf`).
+//! pgcatalog: pgphase's inputs from a GBZ pangenome graph: the site catalogs
+//! (`build`), and for dromos (github.com/kokyriakidis/dromos), which indexes the
+//! reads' alignments by reference position, the reference map (`ref-map`) and
+//! the node table (`node-table`).
 //!
 //! A catalog lists, for one reference contig, every snarl the reference path
 //! passes through (at every nesting level), in position order, with all its
 //! alleles: what `vg deconstruct -a` reports, minus what needs haplotype names
 //! (genotypes, AC/AF/AN/NS), which is most of its run time.
 
-mod bgzf;
 mod build;
 mod catalog;
-mod gaf;
+mod nodetable;
 mod graph;
 mod pgsites;
 mod pileup;
 mod record;
+mod refmap;
 mod reference;
 mod snarls;
 mod surject;
-mod tabix;
 
 use std::io::Write;
 
 const USAGE: &str = "\
-pgcat: pgphase's inputs from a GBZ pangenome graph
+pgcatalog: pgphase's inputs from a GBZ pangenome graph
 
-  pgcat build --graph GRAPH.gbz [options]          site catalogs
-  pgcat index-gaf --graph GRAPH.gbz --gaf READS.gaf [options]
-                                                   alignments by reference position
-  pgcat surject --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG
+  pgcatalog build --graph GRAPH.gbz [options]          site catalogs
+  pgcatalog ref-map --graph GRAPH.gbz --out FILE      the reference map dromos index
+                                                   places alignments by
+  pgcatalog node-table --graph GRAPH.gbz --out FILE   node lengths and letters, for
+                                                   dromos gam-to-gaf
+  pgcatalog surject --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG
                                                    alignments to a reference contig (SAM;
                                                    experimental: pgphase --bam without vg surject)
-  pgcat pileup --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG
+  pgcatalog pileup --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG
                                                    candidate variants from the reads' graph
                                                    edits (experimental)
-  pgcat view FILE.pgsites [CONTIG[:START-END]]     a catalog as VCF
-  pgcat reference-samples GRAPH.gbz                the graph's reference samples
+  pgcatalog view FILE.pgsites [CONTIG[:START-END]]     a catalog as VCF
+  pgcatalog reference-samples GRAPH.gbz                the graph's reference samples
 
-Run `pgcat <command> --help` for a command's options.
+Run `pgcatalog <command> --help` for a command's options.
 ";
 
 const BUILD_USAGE: &str = "\
-pgcat build: write site catalogs (DIR/<contig>.pgsites) from a GBZ graph
+pgcatalog build: write site catalogs (DIR/<contig>.pgsites) from a GBZ graph
 
-  pgcat build --graph GRAPH.gbz [options]
+  pgcatalog build --graph GRAPH.gbz [options]
 
   --graph FILE              the pangenome graph (GBZ)
   --out DIR                 where catalogs are written: <contig>.pgsites, or
@@ -68,49 +70,19 @@ pgcat build: write site catalogs (DIR/<contig>.pgsites) from a GBZ graph
   --level N                 zstd level, 1-22 [6]; higher is smaller and slower
 
 Every snarl the reference path passes through is kept, at every nesting level,
-with all its alleles. `pgcat view` prints a catalog as VCF; for a tabix-indexed
-copy: pgcat view chr20.pgsites | bgzip > chr20.sites.vcf.gz && tabix -p vcf ...
-";
-
-const INDEX_GAF_USAGE: &str = "\
-pgcat index-gaf: index a GAF by reference position, for pgphase --gaf
-
-  pgcat index-gaf --graph GRAPH.gbz --gaf READS.gaf [options]
-
-  --graph FILE              the GBZ graph the reads were aligned to
-  --gaf FILE                their alignments (GAF; plain, gzip or bgzip)
-  --out FILE                [READS.coord.gaf.gz, in the current folder], with
-                            FILE.tbi beside it
-  --reference-sample NAME   the sample whose paths give the coordinates [the
-                            graph's declared reference sample, if it declares
-                            exactly one]
-  -t, --threads N           threads [all cores]
-  --memory GB               alignments sorted in memory before spilling sorted
-                            runs to disk [a quarter of the machine's memory]
-  --tmp-dir DIR             where sorted runs are spilled [the output's folder]
-  --level N                 BGZF compression level, 0-9 [6]
-  --unplaced FILE           write the alignments with no reference interval to
-                            FILE (gzip GAF, each tagged pu:Z:REASON) instead of
-                            dropping them
-
-Each alignment is placed on the reference by the walk's nodes on the reference
-sample's paths and written as `contig  start  end  <GAF line>` (1-based,
-inclusive), sorted, bgzipped and tabix-indexed. Unmapped alignments, and those
-without a unique reference interval, are left out and counted by reason:
-no_anchor (all off the reference), missing_node, ambiguous (the anchors fit more
-than one place) and inconsistent (no single path in one orientation and order:
-an inversion, a rearrangement). --unplaced keeps the latter for graph-native use.
+with all its alleles. `pgcatalog view` prints a catalog as VCF; for a tabix-indexed
+copy: pgcatalog view chr20.pgsites | bgzip > chr20.sites.vcf.gz && tabix -p vcf ...
 ";
 
 const SURJECT_USAGE: &str = "\
-pgcat surject (experimental): a GAF's alignments as alignments to one reference
+pgcatalog surject (experimental): a GAF's alignments as alignments to one reference
 contig, from the graph alone, as SAM on standard output
 
-  pgcat surject --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG [options]
+  pgcatalog surject --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG [options]
       | samtools sort -o READS.bam && samtools index READS.bam
 
   --graph FILE              the GBZ graph the reads were aligned to
-  --gaf FILE                their alignments (GAF, or index-gaf's output; plain,
+  --gaf FILE                their alignments (GAF, or dromos index's output; plain,
                             gzip or bgzip); they need cs, and bq for qualities
   --contig NAME             the reference contig (chr20)
   --reference-sample NAME   the sample whose path is the reference [CHM13]
@@ -120,7 +92,7 @@ contig, from the graph alone, as SAM on standard output
                             (another haplotype's or copy's sequence) is not
                             aligned to it, and such read ends are clipped
   --catalog FILE            the contig's catalog (.pgsites): a read spanning one
-                            of its snarls (windows as pgcat pileup's) is aligned
+                            of its snarls (windows as pgcatalog pileup's) is aligned
                             there as its allele, its own letters between the
                             window's anchors against the reference's, spelled as
                             the truth sets spell variants (minimap2 asm5 costs)
@@ -134,11 +106,11 @@ Reads with no base on the contig are left out.
 ";
 
 const PILEUP_USAGE: &str = "\
-pgcat pileup (experimental): candidate small variants from a pileup of the reads'
+pgcatalog pileup (experimental): candidate small variants from a pileup of the reads'
 own graph edits (cs mismatches, insertions, deletions), no alignment to the
 reference; TSV on standard output
 
-  pgcat pileup --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG [options]
+  pgcatalog pileup --graph GRAPH.gbz --gaf READS.gaf --contig CONTIG [options]
 
   --graph FILE              the GBZ graph the reads were aligned to
   --gaf FILE                their alignments (GAF with cs; plain, gzip or bgzip)
@@ -195,7 +167,7 @@ fn pileup_main(args: &[String]) {
             "--catalog" => o.catalog = Some(value(&mut i)),
             "--min-alt" => o.min_alt = value(&mut i).parse().unwrap_or_else(|_| fail("--min-alt: not a number")),
             "-t" | "--threads" => threads = value(&mut i).parse::<usize>().unwrap_or_else(|_| fail("--threads: not a number")).max(1),
-            a => fail(&format!("unknown option {a}; see pgcat pileup --help")),
+            a => fail(&format!("unknown option {a}; see pgcatalog pileup --help")),
         }
         i += 1;
     }
@@ -239,7 +211,7 @@ fn surject_main(args: &[String]) {
             "--graph-placement" => o.graph_placement = true,
             "--catalog" => o.catalog = Some(value(&mut i)),
             "-t" | "--threads" => threads = value(&mut i).parse::<usize>().unwrap_or_else(|_| fail("--threads: not a number")).max(1),
-            a => fail(&format!("unknown option {a}; see pgcat surject --help")),
+            a => fail(&format!("unknown option {a}; see pgcatalog surject --help")),
         }
         i += 1;
     }
@@ -254,63 +226,76 @@ fn surject_main(args: &[String]) {
 }
 
 /// A quarter of the machine's memory, from /proc/meminfo; 4 GB elsewhere.
-fn default_memory() -> usize {
-    std::fs::read_to_string("/proc/meminfo")
-        .ok()
-        .and_then(|m| m.lines().find(|l| l.starts_with("MemTotal:")).and_then(|l| l.split_whitespace().nth(1)?.parse::<usize>().ok()))
-        .map(|kb| kb * 1024 / 4)
-        .unwrap_or(4 << 30)
-}
+const NODE_TABLE_USAGE: &str = "\
+pgcatalog node-table: a GBZ graph's node lengths and letters as the node table dromos reads GAM with
 
-fn index_gaf_main(args: &[String]) {
-    let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
-    let mut o = gaf::IndexGafOptions {
-        graph: String::new(),
-        gaf: String::new(),
-        out: String::new(),
-        reference_sample: None,
-        memory: default_memory(),
-        tmp_dir: None,
-        level: 6,
-        unplaced: None,
-    };
+usage: pgcatalog node-table --graph GRAPH.gbz --out FILE [--no-letters]
+
+  --no-letters              lengths alone (enough for GAF's columns, not for its cs)
+";
+
+fn node_table_main(args: &[String]) {
+    let (mut graph, mut out, mut letters) = (String::new(), String::new(), true);
     let mut i = 0;
     let value = |i: &mut usize| -> String {
         *i += 1;
         args.get(*i).cloned().unwrap_or_else(|| fail(&format!("{} needs a value", args[*i - 1])))
     };
-    let number = |s: String, what: &str| -> f64 { s.parse().unwrap_or_else(|_| fail(&format!("{what}: not a number: {s}"))) };
     while i < args.len() {
         match args[i].as_str() {
             "-h" | "--help" => {
-                print!("{INDEX_GAF_USAGE}");
+                print!("{NODE_TABLE_USAGE}");
                 return;
             }
-            "--graph" => o.graph = value(&mut i),
-            "--gaf" => o.gaf = value(&mut i),
-            "--out" => o.out = value(&mut i),
-            "--reference-sample" => o.reference_sample = Some(value(&mut i)),
-            "-t" | "--threads" => threads = (number(value(&mut i), "--threads") as usize).max(1),
-            "--memory" => o.memory = ((number(value(&mut i), "--memory") * (1u64 << 30) as f64) as usize).max(1 << 26),
-            "--tmp-dir" => o.tmp_dir = Some(value(&mut i)),
-            "--level" => o.level = (number(value(&mut i), "--level") as u32).min(9),
-            "--unplaced" => o.unplaced = Some(value(&mut i)),
-            a => fail(&format!("unknown option {a}; see pgcat index-gaf --help")),
+            "--graph" => graph = value(&mut i),
+            "--out" => out = value(&mut i),
+            "--no-letters" => letters = false,
+            a => fail(&format!("unknown option {a}; see pgcatalog node-table --help")),
         }
         i += 1;
     }
-    if o.graph.is_empty() || o.gaf.is_empty() {
-        eprint!("{INDEX_GAF_USAGE}");
+    if graph.is_empty() || out.is_empty() {
+        eprint!("{NODE_TABLE_USAGE}");
         std::process::exit(1);
     }
-    if o.out.is_empty() {
-        let name = std::path::Path::new(&o.gaf).file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-        let stem = name.trim_end_matches(".gz").trim_end_matches(".bgz").trim_end_matches(".gaf");
-        o.out = format!("{stem}.coord.gaf.gz");
+    let g: gbz::GBZ = simple_sds::serialize::load_from(&graph).unwrap_or_else(|e| fail(&format!("{graph}: {e}")));
+    if let Err(e) = nodetable::write(&g, &out, letters) {
+        fail(&e);
     }
-    rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
-    let sample = graph::resolve_reference_sample(&o.graph, o.reference_sample.as_deref()).unwrap_or_else(|e| fail(&e));
-    if let Err(e) = gaf::run(&o, &sample) {
+}
+
+const REF_MAP_USAGE: &str = "\
+pgcatalog ref-map: where each node of a GBZ graph lies on its reference sample's paths, saved once per graph for
+dromos index, which places alignments on the reference by it
+
+usage: pgcatalog ref-map --graph GRAPH.gbz --out FILE [--reference-sample NAME]
+";
+
+fn ref_map_main(args: &[String]) {
+    let (mut graph, mut out, mut sample) = (String::new(), String::new(), None);
+    let mut i = 0;
+    let value = |i: &mut usize| -> String {
+        *i += 1;
+        args.get(*i).cloned().unwrap_or_else(|| fail(&format!("{} needs a value", args[*i - 1])))
+    };
+    while i < args.len() {
+        match args[i].as_str() {
+            "-h" | "--help" => {
+                print!("{REF_MAP_USAGE}");
+                return;
+            }
+            "--graph" => graph = value(&mut i),
+            "--out" => out = value(&mut i),
+            "--reference-sample" => sample = Some(value(&mut i)),
+            a => fail(&format!("unknown option {a}; see pgcatalog ref-map --help")),
+        }
+        i += 1;
+    }
+    if graph.is_empty() || out.is_empty() {
+        eprint!("{REF_MAP_USAGE}");
+        std::process::exit(1);
+    }
+    if let Err(e) = refmap::save_ref_map(&graph, sample.as_deref(), &out) {
         fail(&e);
     }
 }
@@ -353,13 +338,13 @@ fn build_main(args: &[String]) {
             "--snarls-cache" => o.snarls_cache = Some(value(&mut i)),
             "--vg" => o.vg = value(&mut i),
             "--level" => o.catalog.level = (number(value(&mut i), "--level") as i32).clamp(1, 22),
-            a => fail(&format!("unknown option {a}; see pgcat build --help")),
+            a => fail(&format!("unknown option {a}; see pgcatalog build --help")),
         }
         i += 1;
     }
     if o.out.is_empty() && !o.graph.is_empty() {
         let stem = std::path::Path::new(&o.graph).file_stem().map(|s| s.to_string_lossy().into_owned());
-        o.out = format!("{}.catalog", stem.unwrap_or_else(|| "pgcat".into()));
+        o.out = format!("{}.catalog", stem.unwrap_or_else(|| "pgcatalog".into()));
     }
     if o.graph.is_empty() {
         eprint!("{BUILD_USAGE}");
@@ -384,7 +369,7 @@ fn same_contig(a: &str, b: &str) -> bool {
 /// The header, then every record (or those overlapping the region), as VCF.
 fn view_main(args: &[String]) {
     if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
-        println!("pgcat view FILE.pgsites [CONTIG[:START-END]]: print a catalog, or the records\n\
+        println!("pgcatalog view FILE.pgsites [CONTIG[:START-END]]: print a catalog, or the records\n\
                   overlapping a region (as tabix would), as VCF");
         return;
     }
@@ -424,11 +409,12 @@ fn main() {
     match args.first().map(|s| s.as_str()) {
         Some("build") => build_main(&args[1..]),
         Some("view") => view_main(&args[1..]),
-        Some("index-gaf") => index_gaf_main(&args[1..]),
+        Some("ref-map") => ref_map_main(&args[1..]),
+        Some("node-table") => node_table_main(&args[1..]),
         Some("surject") => surject_main(&args[1..]),
         Some("pileup") => pileup_main(&args[1..]),
         Some("reference-samples") => {
-            let g = args.get(1).unwrap_or_else(|| fail("usage: pgcat reference-samples GRAPH.gbz"));
+            let g = args.get(1).unwrap_or_else(|| fail("usage: pgcatalog reference-samples GRAPH.gbz"));
             for s in graph::reference_samples(g).unwrap_or_else(|e| fail(&e)) {
                 println!("{s}");
             }

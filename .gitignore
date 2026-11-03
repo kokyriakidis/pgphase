@@ -104,8 +104,9 @@ __pycache__/
 .codex
 
 # Rust / Cargo build artifacts
-/pgcat
-tools/pgcat/target/
+/pgcatalog
+/dromos
+tools/pgcatalog/target/
 
 # OS metadata
 .DS_Store

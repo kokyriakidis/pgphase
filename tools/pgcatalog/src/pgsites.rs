@@ -248,7 +248,7 @@ impl Reader {
         std::fs::File::open(path)?.read_to_end(&mut raw)?;
         let bad = |m: &str| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("{path}: {m}"));
         if raw.starts_with(b"PGSITES") && !raw.starts_with(MAGIC) {
-            return Err(bad("an older .pgsites format; rebuild it with this pgcat"));
+            return Err(bad("an older .pgsites format; rebuild it with this pgcatalog"));
         }
         if !raw.starts_with(MAGIC) || raw.len() < 24 {
             return Err(bad("not a .pgsites file"));
@@ -307,7 +307,7 @@ mod tests {
     /// window: every region query must return exactly the overlapping records.
     #[test]
     fn region_queries_return_the_overlapping_records() {
-        let path = std::env::temp_dir().join(format!("pgcat_test_{}.pgsites", std::process::id()));
+        let path = std::env::temp_dir().join(format!("pgcatalog_test_{}.pgsites", std::process::id()));
         let path = path.to_str().unwrap();
         let header = "##fileformat=VCFv4.2\n##contig=<ID=CHM13#0#chrT,length=1000000>\n#CHROM\tPOS\tID\tREF\tALT\n";
         let mut records: Vec<(usize, String)> = Vec::new();

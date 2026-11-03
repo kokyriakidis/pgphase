@@ -1,5 +1,5 @@
 [package]
-name = "pgcat"
+name = "pgcatalog"
 version = "0.2.0"
 authors = ["Konstantinos Kyriakidis"]
 edition = "2021"

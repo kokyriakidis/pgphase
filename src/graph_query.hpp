@@ -22,7 +22,7 @@ struct GraphReadAllele {
     bool reverse = false; // true when the read traverses the snarl in reverse-complement
 };
 
-// RAII handle for a reference-indexed GAF (pgphase index-gaf; bgzipped + tabix).
+// RAII handle for a reference-indexed GAF (pgphase index; bgzipped + tabix).
 // Opened once per thread, reused across chunks to avoid repeated file
 // open / tabix index load overhead.
 struct IndexedGafHandle {
@@ -40,12 +40,12 @@ struct IndexedGafHandle {
 };
 
 // The `#max_span <contig> <bases>` header lines of an indexed GAF (written by
-// pgphase index-gaf): the most graph bases any alignment on each contig spans.
+// pgphase index): the most graph bases any alignment on each contig spans.
 // Empty when the GAF has none.
 std::unordered_map<std::string, hts_pos_t> read_gaf_max_spans(const std::string& path);
 
 // Per-chunk query using a pre-opened IndexedGafHandle.
-// The GAF must have index-gaf's three leading coordinate columns (contig, start, end).
+// The GAF must have pgphase index's three leading coordinate columns (contig, start, end).
 std::vector<GraphReadAllele>
 scan_indexed_gaf_chunk(IndexedGafHandle& handle,
                        const std::string& contig,

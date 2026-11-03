@@ -1,7 +1,7 @@
 #ifndef PGPHASE_GRAPH_SITES_HPP
 #define PGPHASE_GRAPH_SITES_HPP
 
-// Snarl site catalog: reading the sites of a catalog (pgcat .pgsites files, or a
+// Snarl site catalog: reading the sites of a catalog (pgcatalog .pgsites files, or a
 // sites-only VCF in the format of `vg deconstruct -a`), validating allele
 // traversals, and providing the GraphSiteCatalog used by graph_query for allele
 // matching and graph_bam_adapter for phasing.
@@ -132,7 +132,7 @@ struct PgSitesCatalog;
 
 // RAII handle for a site catalog: a tabix-indexed sites VCF, a .pgsites file
 // (the same VCF lines in independently zstd-compressed position blocks, written
-// by pgcat), or a folder of <contig>.pgsites files (pgcat build's output), each
+// by pgcatalog), or a folder of <contig>.pgsites files (pgcatalog build's output), each
 // opened when its contig is first queried. Opened once per thread, reused
 // across chunks to avoid repeated file open / index load.
 struct SiteCatalogHandle {

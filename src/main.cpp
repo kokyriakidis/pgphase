@@ -4,7 +4,7 @@
 
 #include "collect_pipeline.hpp"
 #include "graph_collect.hpp"
-#include "pgcat_command.hpp"
+#include "pgcatalog_command.hpp"
 #include "plegma_msa.hpp"
 #include "version.hpp"
 
@@ -17,8 +17,8 @@ void print_main_help() {
               << "Commands:\n"
               << "  collect-graph-variation  Phase reads from graph alignments (GAF), optionally with a BAM\n"
               << "  collect-bam-variation    Phase reads from linear alignments (BAM/CRAM) only\n"
-              << "  build-snarl-catalog      Build the site catalogs from a GBZ graph (runs pgcat build)\n"
-              << "  index-gaf                Index graph alignments (GAF) by reference position (runs pgcat index-gaf)\n";
+              << "  build-snarl-catalog      Build the site catalogs from a GBZ graph (runs pgcatalog build)\n"
+              << "  index                    Index graph alignments (GAM or GAF) by reference position (runs dromos index)\n";
 }
 
 } // namespace
@@ -37,10 +37,10 @@ int main(int argc, char* argv[]) {
             return collect_graph_variation(argc - 1, argv + 1);
         }
         if (argc > 1 && std::string(argv[1]) == "build-snarl-catalog") {
-            return run_pgcat("build", argc - 1, argv + 1, argv[0]);
+            return run_pgcatalog("build", argc - 1, argv + 1, argv[0]);
         }
-        if (argc > 1 && std::string(argv[1]) == "index-gaf") {
-            return run_pgcat("index-gaf", argc - 1, argv + 1, argv[0]);
+        if (argc > 1 && std::string(argv[1]) == "index") {
+            return run_index(argc - 1, argv + 1, argv[0]);
         }
     } catch (const std::exception& e) {
         // Turn any uncaught error (bad CLI value, missing file, etc.) into a

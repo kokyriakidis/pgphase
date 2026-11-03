@@ -1,4 +1,4 @@
-//! `pgcat pileup` (experimental): candidate small variants from the reads' graph alignments alone -- a pileup of
+//! `pgcatalog pileup` (experimental): candidate small variants from the reads' graph alignments alone -- a pileup of
 //! each read's own edits (its `cs` mismatches, insertions and deletions) where the graph puts them, no alignment to
 //! the reference.
 //!
@@ -392,7 +392,7 @@ pub fn run(o: &PileupOptions) -> Result<(), String> {
         Some(p) => load_windows(&g, &contig, p, o.region)?,
         None => Vec::new(),
     };
-    eprintln!("pgcat pileup: {} snarl windows", windows.len());
+    eprintln!("pgcatalog pileup: {} snarl windows", windows.len());
     let mut reads: Vec<ReadEvidence> = Vec::new();
     loop {
         let batch: Vec<String> = lines.by_ref().take(20_000).filter_map(|l| l.ok()).filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
@@ -527,7 +527,7 @@ pub fn run(o: &PileupOptions) -> Result<(), String> {
     w.flush().map_err(io)?;
     let node_edits: u64 = reads.iter().map(|r| r.node_edits as u64).sum();
     let snarl = cands_all.len() - cands.len();
-    eprintln!("pgcat pileup: {} reads, {} candidates (>= {} reads; {} from snarl alleles, {} edits), {} read edits off reference nodes (not placed)", reads.len(), cands_all.len(), o.min_alt, snarl, cands.len(), node_edits);
+    eprintln!("pgcatalog pileup: {} reads, {} candidates (>= {} reads; {} from snarl alleles, {} edits), {} read edits off reference nodes (not placed)", reads.len(), cands_all.len(), o.min_alt, snarl, cands.len(), node_edits);
     Ok(())
 }
 

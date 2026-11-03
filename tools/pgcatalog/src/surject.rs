@@ -1,4 +1,4 @@
-//! `pgcat surject` (experimental): the reads' graph alignments (GAF) as alignments to one reference contig (SAM),
+//! `pgcatalog surject` (experimental): the reads' graph alignments (GAF) as alignments to one reference contig (SAM),
 //! from the graph alone -- pgphase's `--bam` without vg surject.
 //!
 //! Each read is rebuilt from its walk's node sequences and its `cs` string (qualities from `bq`). A read base aligned
@@ -27,7 +27,7 @@
 //! end longer than SMALL_BUBBLE is clipped. Substitution and small indel bubbles (the pangenome's own alleles) are
 //! placed as before.
 //!
-//! With `catalog` (--catalog, the contig's .pgsites) a read spanning one of the catalog's snarl windows (pgcat
+//! With `catalog` (--catalog, the contig's .pgsites) a read spanning one of the catalog's snarl windows (pgcatalog
 //! pileup's: a snarl's reference bases between its boundary nodes, padded, those in a repeat merged) is aligned there
 //! as its allele: its own letters between the window's two anchors against the reference's, at ASM_COSTS (the truth
 //! sets' spelling) -- whatever walk and edits the graph alignment used. Its bases are placed by the graph elsewhere.
@@ -453,6 +453,7 @@ pub fn clip_cigar(start: u64, cigar: &[(u8, u32)], head: usize, tail: usize) -> 
     (pos, runs)
 }
 
+#[cfg(test)]
 pub fn linearize(read: &[u8], blocks: &[(usize, u64, usize)], reference: &dyn Fn(u64, u64) -> Vec<u8>, ref_len: u64, graph: bool) -> Option<(u64, Vec<(u8, u32)>)> {
     linearize_windows(read, blocks, reference, ref_len, graph, &[])
 }
@@ -819,7 +820,7 @@ pub fn run(o: &SurjectOptions) -> Result<(), String> {
         None => Vec::new(),
     };
     if o.catalog.is_some() {
-        eprintln!("pgcat surject: {} snarl windows", windows.len());
+        eprintln!("pgcatalog surject: {} snarl windows", windows.len());
     }
     let file = std::fs::File::open(&o.gaf).map_err(|e| format!("{}: {e}", o.gaf))?;
     let input: Box<dyn Read> = if o.gaf.ends_with(".gz") { Box::new(flate2::read::MultiGzDecoder::new(file)) } else { Box::new(file) };
@@ -829,7 +830,7 @@ pub fn run(o: &SurjectOptions) -> Result<(), String> {
     let io = |e: std::io::Error| e.to_string();
     writeln!(w, "@HD\tVN:1.6\tSO:unsorted").map_err(io)?;
     writeln!(w, "@SQ\tSN:{sam_contig}\tLN:{}", contig.seq.len()).map_err(io)?;
-    writeln!(w, "@PG\tID:pgcat-surject\tPN:pgcat\tVN:{}", env!("CARGO_PKG_VERSION")).map_err(io)?;
+    writeln!(w, "@PG\tID:pgcatalog-surject\tPN:pgcatalog\tVN:{}", env!("CARGO_PKG_VERSION")).map_err(io)?;
     let (mut n, mut written) = (0u64, 0u64);
     loop {
         let batch: Vec<String> = lines.by_ref().take(20_000).filter_map(|l| l.ok()).filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
@@ -846,7 +847,7 @@ pub fn run(o: &SurjectOptions) -> Result<(), String> {
         }
     }
     w.flush().map_err(io)?;
-    eprintln!("pgcat surject: {n} alignments, {written} written, {} without a base on {}", n - written, o.contig);
+    eprintln!("pgcatalog surject: {n} alignments, {written} written, {} without a base on {}", n - written, o.contig);
     Ok(())
 }
 

@@ -270,7 +270,7 @@ void append_graph_site_from_vcf_data_line(const char* buf,
 }
 
 // The fewest bases any allele of a VCF data line spans, the padding base not
-// counted (alleles of unequal lengths carry one), as pgcat computes it; 0 when
+// counted (alleles of unequal lengths carry one), as pgcatalog computes it; 0 when
 // the line has no REF/ALT fields.
 hts_pos_t shortest_allele(const char* line, size_t len) {
     const char* end = line + len;
