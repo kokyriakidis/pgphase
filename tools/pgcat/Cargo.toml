@@ -9,6 +9,11 @@ repository = "https://github.com/kokyriakidis/pgphase"
 description = "pgphase inputs from a GBZ pangenome graph: site catalogs and reference-indexed GAF"
 license = "MIT"
 
+[features]
+# The rescue's alignments by karan's exact aligner (build.rs: KARAN_LIB). --rescue needs it.
+default = ["karan"]
+karan = []
+
 [dependencies]
 gbz = "=0.6.2"
 simple-sds = "=0.4.2"

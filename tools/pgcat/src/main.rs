@@ -12,10 +12,15 @@ mod build;
 mod catalog;
 mod gaf;
 mod graph;
+mod mixhash;
+mod nodetable;
+#[cfg(feature = "karan")]
+mod karan;
 mod pgsites;
 mod pileup;
 mod record;
 mod reference;
+mod rescue;
 mod snarls;
 mod surject;
 mod tabix;
@@ -92,6 +97,16 @@ pgcat index-gaf: index a GAF by reference position, for pgphase --gaf
   --unplaced FILE           write the alignments with no reference interval to
                             FILE (gzip GAF, each tagged pu:Z:REASON) instead of
                             dropping them
+  --slim                    write each alignment's 12 GAF columns and the tags
+                            pgphase reads (rq:i:, pu:Z:, rs:Z:) alone, not its
+                            cs:Z:, bq:Z: and the rest
+  --ref-map FILE            place alignments by FILE (pgcat ref-map) instead of
+                            the graph's paths, the graph not loaded (not with
+                            --unplaced or --rescue, which search the graph)
+  --rescue                  align each alignment without anchors to the
+                            reference within 1 Mb of the reference nodes beside
+                            its walk, and place it there (tagged rs:Z:, rq:i:;
+                            pgcat surject writes it as that alignment)
 
 Each alignment is placed on the reference by the walk's nodes on the reference
 sample's paths and written as `contig  start  end  <GAF line>` (1-based,
@@ -209,6 +224,79 @@ fn pileup_main(args: &[String]) {
     }
 }
 
+const NODE_TABLE_USAGE: &str = "\
+pgcat node-table: a GBZ graph's node lengths and letters as the node table dromos reads GAM with
+
+usage: pgcat node-table --graph GRAPH.gbz --out FILE [--no-letters]
+
+  --no-letters              lengths alone (enough for GAF's columns, not for its cs)
+";
+
+fn node_table_main(args: &[String]) {
+    let (mut graph, mut out, mut letters) = (String::new(), String::new(), true);
+    let mut i = 0;
+    let value = |i: &mut usize| -> String {
+        *i += 1;
+        args.get(*i).cloned().unwrap_or_else(|| fail(&format!("{} needs a value", args[*i - 1])))
+    };
+    while i < args.len() {
+        match args[i].as_str() {
+            "-h" | "--help" => {
+                print!("{NODE_TABLE_USAGE}");
+                return;
+            }
+            "--graph" => graph = value(&mut i),
+            "--out" => out = value(&mut i),
+            "--no-letters" => letters = false,
+            a => fail(&format!("unknown option {a}; see pgcat node-table --help")),
+        }
+        i += 1;
+    }
+    if graph.is_empty() || out.is_empty() {
+        eprint!("{NODE_TABLE_USAGE}");
+        std::process::exit(1);
+    }
+    let g: gbz::GBZ = simple_sds::serialize::load_from(&graph).unwrap_or_else(|e| fail(&format!("{graph}: {e}")));
+    if let Err(e) = nodetable::write(&g, &out, letters) {
+        fail(&e);
+    }
+}
+
+const REF_MAP_USAGE: &str = "\
+pgcat ref-map: where each node of a GBZ graph lies on its reference sample's paths, saved once for index-gaf --ref-map
+
+usage: pgcat ref-map --graph GRAPH.gbz --out FILE [--reference-sample NAME]
+";
+
+fn ref_map_main(args: &[String]) {
+    let (mut graph, mut out, mut sample) = (String::new(), String::new(), None);
+    let mut i = 0;
+    let value = |i: &mut usize| -> String {
+        *i += 1;
+        args.get(*i).cloned().unwrap_or_else(|| fail(&format!("{} needs a value", args[*i - 1])))
+    };
+    while i < args.len() {
+        match args[i].as_str() {
+            "-h" | "--help" => {
+                print!("{REF_MAP_USAGE}");
+                return;
+            }
+            "--graph" => graph = value(&mut i),
+            "--out" => out = value(&mut i),
+            "--reference-sample" => sample = Some(value(&mut i)),
+            a => fail(&format!("unknown option {a}; see pgcat ref-map --help")),
+        }
+        i += 1;
+    }
+    if graph.is_empty() || out.is_empty() {
+        eprint!("{REF_MAP_USAGE}");
+        std::process::exit(1);
+    }
+    if let Err(e) = gaf::save_ref_map(&graph, sample.as_deref(), &out) {
+        fail(&e);
+    }
+}
+
 fn surject_main(args: &[String]) {
     let mut threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let mut o = surject::SurjectOptions {
@@ -273,6 +361,9 @@ fn index_gaf_main(args: &[String]) {
         tmp_dir: None,
         level: 6,
         unplaced: None,
+        rescue: false,
+        slim: false,
+        ref_map: None,
     };
     let mut i = 0;
     let value = |i: &mut usize| -> String {
@@ -295,11 +386,19 @@ fn index_gaf_main(args: &[String]) {
             "--tmp-dir" => o.tmp_dir = Some(value(&mut i)),
             "--level" => o.level = (number(value(&mut i), "--level") as u32).min(9),
             "--unplaced" => o.unplaced = Some(value(&mut i)),
+            "--slim" => o.slim = true,
+            "--ref-map" => o.ref_map = Some(value(&mut i)),
+            "--rescue" => {
+                if !cfg!(feature = "karan") {
+                    fail("--rescue aligns by karan: build pgcat with its default feature `karan` (KARAN_LIB)");
+                }
+                o.rescue = true
+            }
             a => fail(&format!("unknown option {a}; see pgcat index-gaf --help")),
         }
         i += 1;
     }
-    if o.graph.is_empty() || o.gaf.is_empty() {
+    if (o.graph.is_empty() && o.ref_map.is_none()) || o.gaf.is_empty() {
         eprint!("{INDEX_GAF_USAGE}");
         std::process::exit(1);
     }
@@ -309,7 +408,11 @@ fn index_gaf_main(args: &[String]) {
         o.out = format!("{stem}.coord.gaf.gz");
     }
     rayon::ThreadPoolBuilder::new().num_threads(threads).build_global().unwrap();
-    let sample = graph::resolve_reference_sample(&o.graph, o.reference_sample.as_deref()).unwrap_or_else(|e| fail(&e));
+    // With a ref map the sample is the one it was made for (a --reference-sample given must match it).
+    let sample = match &o.ref_map {
+        Some(_) => o.reference_sample.clone().unwrap_or_default(),
+        None => graph::resolve_reference_sample(&o.graph, o.reference_sample.as_deref()).unwrap_or_else(|e| fail(&e)),
+    };
     if let Err(e) = gaf::run(&o, &sample) {
         fail(&e);
     }
@@ -425,6 +528,8 @@ fn main() {
         Some("build") => build_main(&args[1..]),
         Some("view") => view_main(&args[1..]),
         Some("index-gaf") => index_gaf_main(&args[1..]),
+        Some("node-table") => node_table_main(&args[1..]),
+        Some("ref-map") => ref_map_main(&args[1..]),
         Some("surject") => surject_main(&args[1..]),
         Some("pileup") => pileup_main(&args[1..]),
         Some("reference-samples") => {

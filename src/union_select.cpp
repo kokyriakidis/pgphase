@@ -886,7 +886,11 @@ void unwrite_indel_rows_msa_lacks(const GraphChunkBuildResult& graph_chunk, cons
 // pileup counts as REF (chr20:39,274,817 G>GC, 13 of 75 reads with the G run one short; chr20:2,930,988 C>CCT, 13 of
 // 63 with +T and T>C). Called het at AF 0.8, then dropped by the EM (minor allele below fraction) or written 0/1. An
 // MSA region, where one forms, genotypes them; where it forms depends on where the aligner put the indel. A true 1/2
-// keeps its second sequence and stays het.
+// keeps its second sequence and stays het. The reads pgcat index-gaf --rescue placed are not spelled: found because
+// the graph alignment had no anchor on the reference, they are the haplotype the reference differs from, and where
+// the other haplotype's reads map near MAPQ 0 (a copy of it lies elsewhere) they alone would spell the call
+// homozygous -- chr6:79,353,935 C>T, 42 reads REF and 21 ALT, 55 at MAPQ < 10: 2 REF and 6 rescued ALT spelled, and
+// the het went unwritten with 6 more beside it.
 constexpr hts_pos_t kSpellFlank = 5;
 void spell_homozygous_calls(const PhasingChunk& graph, const PhasingChunk& bam, Selection& sel) {
     if (bam.ref_seq.empty()) return;
@@ -913,7 +917,7 @@ void spell_homozygous_calls(const PhasingChunk& graph, const PhasingChunk& bam, 
         const std::string hap_ref = ref.slice(w0, w1);
         const std::string hap_call = ref.slice(w0, c0) + upper(c.key.alt) + ref.slice(c1, w1);
         if (hap_ref.find('N') != std::string::npos || hap_call == hap_ref) continue;
-        if (!index) index.emplace(bam);
+        if (!index) index.emplace(SpanningReadIndex::anchored_reads(bam));
         std::map<std::string, int> spelled;
         int n = 0;
         for (auto& [ri, seq] : index->segments(w0, w1, kAlleleWindowMaxReads)) {

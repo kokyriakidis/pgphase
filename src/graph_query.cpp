@@ -117,6 +117,16 @@ bool parse_gaf_core_fields_from_column(std::string_view line,
         if (*mp < '0' || *mp > '9') return false;
         mapq = mapq * 10 + (*mp - '0');
     }
+    // A line pgcat index-gaf --rescue placed (its walk has no reference node, so the read was aligned to the
+    // reference beside it) carries that alignment's mapping quality as rq:i:, the BAM record pgcat surject writes
+    // from it too: the read's place is the rescue's, and giraffe's MAPQ (near 0 for most such reads) is not about it.
+    const std::string_view rest(me, static_cast<size_t>(le - me));
+    if (const size_t at = rest.find("\trq:i:"); at != std::string_view::npos) {
+        int rq = 0;
+        size_t k = at + 6;
+        for (; k < rest.size() && rest[k] >= '0' && rest[k] <= '9'; ++k) rq = rq * 10 + (rest[k] - '0');
+        if (k > at + 6) mapq = rq;
+    }
     out.read_name = std::string_view(fld[0].first, fld[0].second);
     out.walk = std::string_view(fld[5].first, fld[5].second);
     out.mapq = mapq;

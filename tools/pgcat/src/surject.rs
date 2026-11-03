@@ -31,6 +31,10 @@
 //! pileup's: a snarl's reference bases between its boundary nodes, padded, those in a repeat merged) is aligned there
 //! as its allele: its own letters between the window's two anchors against the reference's, at ASM_COSTS (the truth
 //! sets' spelling) -- whatever walk and edits the graph alignment used. Its bases are placed by the graph elsewhere.
+//!
+//! An alignment `index-gaf --rescue` placed (its walk off the reference; tagged rs:Z:CONTIG:POS:STRAND:CIGAR and
+//! rq:i:MAPQ) is written as that alignment, of the read's letters as its walk and cs spell them (rescue::spell), and
+//! keeps its rs:Z: tag: a read found that way is one of the haplotype the reference differs from.
 
 use crate::reference::ReferencePath;
 use gbz::GBZ;
@@ -292,7 +296,7 @@ const CHAIN_MAX_STEP: u64 = 100_000;
 
 /// The cost of joining two blocks whose read and reference steps differ by `d` bases: minimap2's 0.01 w |d| +
 /// 0.5 log2 |d| at w 5 (an indel of d bases joins blocks of more than about d / 20 bases).
-fn join_cost(d: u64) -> f64 {
+pub(crate) fn join_cost(d: u64) -> f64 {
     if d == 0 { 0.0 } else { 0.05 * d as f64 + 0.5 * (d as f64).log2() }
 }
 
@@ -604,6 +608,8 @@ pub(crate) fn parse_walk(s: &str) -> Option<Vec<(usize, bool)>> {
 /// The contig as the projection needs it: its letters, and each node the path visits once, with where and whether
 /// reversed.
 pub(crate) struct Contig {
+    /// The contig's name in the graph (chr20).
+    pub(crate) name: String,
     pub(crate) seq: Vec<u8>,
     pub(crate) place: HashMap<usize, (u64, bool)>,
 }
@@ -630,7 +636,22 @@ pub(crate) fn load_contig(g: &GBZ, sample: &str, contig: &str) -> Result<(Contig
             place.insert(h.0, (r.pos[k] as u64, h.1 == gbz::support::Orientation::Reverse));
         }
     }
-    Ok((Contig { seq, place }, r.chrom))
+    Ok((Contig { name: contig.to_string(), seq, place }, r.chrom))
+}
+
+/// The qualities of a read's `rl` rebuilt letters in the BAM's orientation (`fwd`: the walk's letters as they are).
+/// bq covers the whole read; the aligned part (qstart..qend, on the read as sequenced) is what was rebuilt. The GAF
+/// holds no letters for unaligned read ends, so they are not in the record.
+fn qualities(bq: Option<&str>, qlen: usize, qstart: usize, qend: usize, rl: usize, minus: bool, fwd: bool) -> Vec<u8> {
+    let mut qual: Vec<u8> = match bq {
+        Some(q) if q.len() == qlen && qend <= qlen && qend - qstart == rl => q.as_bytes()[qstart..qend].to_vec(),
+        _ => vec![b'I'; rl],
+    };
+    if minus != !fwd {
+        // bq runs along the read as sequenced; the walk's letters along the read reversed when it is on `-`.
+        qual.reverse();
+    }
+    qual
 }
 
 /// One GAF line as a SAM record (without the newline), or None if it places no base on the contig.
@@ -648,6 +669,24 @@ fn surject_line(g: &GBZ, c: &Contig, sam_contig: &str, graph: bool, windows: &[(
     let cs = f.iter().find_map(|t| t.strip_prefix("cs:Z:"))?;
     let bq = f.iter().find_map(|t| t.strip_prefix("bq:Z:"));
     let walk = parse_walk(f[k + 5])?;
+    if let Some(tag) = f.iter().find_map(|t| t.strip_prefix("rs:Z:")) {
+        let (contig, pos, reverse, cigar) = crate::rescue::parse_tag(tag)?;
+        if contig != c.name {
+            return None;
+        }
+        let read = crate::rescue::spell(&walk, &|n| g.sequence(n).map(|s| s.to_vec()), pstart, cs)?;
+        let mapq: u32 = f.iter().find_map(|t| t.strip_prefix("rq:i:")).and_then(|v| v.parse().ok()).unwrap_or(0);
+        let qual = qualities(bq, qlen, qstart, qend, read.len(), minus, !reverse);
+        let seq: Vec<u8> = if reverse { read.iter().rev().map(|&x| comp(x)).collect() } else { read };
+        let cigar_s: String = cigar.iter().map(|&(op, n)| format!("{n}{}", op as char)).collect();
+        return Some(format!(
+            "{name}\t{}\t{sam_contig}\t{}\t{mapq}\t{cigar_s}\t*\t0\t0\t{}\t{}\trs:Z:{tag}",
+            if reverse { 16 } else { 0 },
+            pos + 1,
+            String::from_utf8_lossy(&seq),
+            String::from_utf8_lossy(&qual)
+        ));
+    }
     let lens: Vec<usize> = walk.iter().map(|&(n, _)| g.sequence_len(n).unwrap_or(0)).collect();
     let (mut w, mut off) = (0usize, pstart);
     while w < walk.len() && off >= lens[w] {
@@ -780,16 +819,7 @@ fn surject_line(g: &GBZ, c: &Contig, sam_contig: &str, graph: bool, windows: &[(
     }
     // The read in the BAM's orientation: a GAF read on `-` is the path's letters reverse-complemented.
     let seq: Vec<u8> = if fwd { read } else { read.iter().rev().map(|&x| comp(x)).collect() };
-    // bq covers the whole read; the aligned part (qstart..qend, on the read as sequenced) is what was rebuilt. The
-    // GAF holds no letters for unaligned read ends, so they are not in the record.
-    let mut qual: Vec<u8> = match bq {
-        Some(q) if q.len() == qlen && qend <= qlen && qend - qstart == rl => q.as_bytes()[qstart..qend].to_vec(),
-        _ => vec![b'I'; rl],
-    };
-    if minus != !fwd {
-        // bq runs along the read as sequenced; the walk's letters along the read reversed when it is on `-`.
-        qual.reverse();
-    }
+    let qual = qualities(bq, qlen, qstart, qend, rl, minus, fwd);
     let reference = |a: u64, b: u64| c.seq[a as usize..b as usize].to_vec();
     let (pos, cigar) = linearize_windows(&seq, &merged, &reference, c.seq.len() as u64, graph, windows)?;
     // Clipping on the read's alignment to the walk, in the BAM's orientation.

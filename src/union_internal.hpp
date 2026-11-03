@@ -137,8 +137,10 @@ struct SpanningReadIndex {
     // Every primary alignment-chunk read, by its index there: for counting what the reads spell, where no graph
     // read is needed (at injection the graph chunk does not yet hold the reads the GAF lacks).
     explicit SpanningReadIndex(const PhasingChunk& bam) : SpanningReadIndex(bam, nullptr) {}
+    // ... less the reads pgcat index-gaf --rescue placed (tagged rs:Z:): see spell_homozygous_calls.
+    static SpanningReadIndex anchored_reads(const PhasingChunk& bam) { return SpanningReadIndex(bam, nullptr, false); }
 
-    SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk* graph) {
+    SpanningReadIndex(const PhasingChunk& bam, const PhasingChunk* graph, bool rescued = true) {
         std::unordered_map<std::string_view, size_t> graph_read;
         if (graph != nullptr) {
             graph_read.reserve(graph->reads.size());
@@ -151,6 +153,7 @@ struct SpanningReadIndex {
             if ((r.alignment->core.flag & (BAM_FSECONDARY | BAM_FSUPPLEMENTARY | BAM_FDUP | BAM_FUNMAP)) != 0)
                 continue;
             if (r.alignment->core.qual < kLocusMinMapq) continue;
+            if (!rescued && bam_aux_get(r.alignment.get(), "rs") != nullptr) continue;
             if (graph == nullptr) {
                 kept.emplace_back(&r, bi);
                 continue;
