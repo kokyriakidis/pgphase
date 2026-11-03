@@ -48,6 +48,8 @@ jobs:
         with:
           manifest-path: tools/dromos/pixi.toml
           cache: true
+          # plegma's setup-pixi (when it runs) removes pixi at the end too: one cleanup is enough.
+          post-cleanup: false
 
       - name: Install dependencies
         run: |
