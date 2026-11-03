@@ -82,8 +82,10 @@ contig, from the graph alone, as SAM on standard output
       | samtools sort -o READS.bam && samtools index READS.bam
 
   --graph FILE              the GBZ graph the reads were aligned to
-  --gaf FILE                their alignments (GAF, or dromos index's output; plain,
-                            gzip or bgzip); they need cs, and bq for qualities
+  --gaf FILE                their alignments as GAF, with cs (and bq for
+                            qualities): vg convert -G or dromos gam-to-gaf writes
+                            them; plain, gzip or bgzip. dromos index's output keeps
+                            12 columns, no cs, and cannot be used
   --contig NAME             the reference contig (chr20)
   --reference-sample NAME   the sample whose path is the reference [CHM13]
   --sam-contig NAME         the contig's name in the SAM [<sample>#0#<contig>]
