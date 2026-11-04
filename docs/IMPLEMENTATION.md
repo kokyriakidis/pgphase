@@ -25,7 +25,7 @@ with Part I, Part I is right and Part II is stale.
 |---|---|
 | `collect-bam-variation` | the alignment arm: candidates and phasing from a BAM alone |
 | `collect-graph-variation` | **the pipeline this Part describes**: the catalog's sites phased from GAF evidence, with `--bam` adding union gap phasing |
-| `build-snarl-catalog` | builds the site catalogs from a GBZ graph (runs `pgcatalog build`) |
+| `build-snarl-catalog` | builds pgcatalog's per-contig `.pgsites` catalogs (runs `pgcatalog build`), which `collect-graph-variation` no longer reads: its catalog comes from `dromos catalog`. To be removed, with `index`, `tools/pgcatalog` and `tools/dromos`: dromos makes pgphase's inputs |
 | `index` | indexes the reads' graph alignments (GAM or GAF, `--reads`) by reference position, for `collect-graph-variation --gaf`: runs `pgcatalog ref-map` once per graph (kept beside it) and `dromos index` (github.com/kokyriakidis/dromos), which writes each alignment's 12 GAF columns, placed and sorted |
 
 `collect-graph-variation` additionally offers `--phase-reads-out`, a diagnostic
@@ -45,7 +45,7 @@ sample-specific sites ("Union gap phasing" below).
 
 ```
 pgphase collect-graph-variation \
-  --ref chm13.fa --sites sites.vcf.gz --gaf reads.coord.gaf.gz --bam reads.bam \
+  --ref chm13.fa --sites graph.CHM13.sites --gaf reads.coord.gaf.gz --bam reads.bam \
   -r 'CHM13#0#chr20' -o candidates.tsv \
   --phased-vcf-out phased.vcf --phased-bam-out phased.bam
 ```
@@ -675,11 +675,40 @@ Per chunk, in order:
 
 ### Catalog records
 
-`load_sites_for_region` skips a catalog line longer than 64 MB
-(`kMaxSiteRecordBytes`) before parsing it. Such records are snarls with
-hundreds of megabase-scale alleles (chr20: 130-700 MB lines, up to 436
-alleles of about 1 Mb); no read on HG002 chr12, chr18 or chr20 observes one,
-and parsing them, once per overlapping chunk, was 11% of a chr20 run.
+The site catalog is dromos's one file for the graph (`dromos catalog`; the format, DRMSITES version 1, is dromos's
+`docs/catalog-format.md`, and `dromos/sites.mojo` its reference reader). `site_catalog.cpp` reads it:
+
+- `SiteCatalogFile` is opened once per run (`SiteCatalogFile::open`, shared by every worker's `SiteCatalogHandle`):
+  the preamble checked in the specification's order (magic, size, version 1 alone, its FNV-1a hash, the recorded
+  size, where the index and header lie), the header read (zstd frame, content checksum), and each contig's index
+  frame read and checked the first time the contig is queried. A pgcatalog `.pgsites` file or folder is refused,
+  saying to make the catalog with `dromos catalog`.
+- `SiteCatalogReader` is a worker's: its zstd context and buffers. A region query finds the contig's blocks by two
+  binary searches (the first whose `reach`, the largest record end so far, is at least the start; the last whose
+  first POS is at most the end), reads each block whole, checks its CRC-32, and decodes its columns; the node
+  letters (SEQ, EXC), most of a block's bytes, only when a record of the block is kept.
+- Each record becomes the `GraphSite` the old reader parsed from the same record's VCF line (`dromos view` prints
+  pgcatalog view's text byte for byte): CHROM, POS, ID (`<start><end>` visits), REF and ALT spelled from the node
+  table (reverse visits reverse-complemented), the AT walks, LV and PS. A lone empty ALT gives no ALT, as the VCF
+  parser read an empty ALT field.
+- Skipped unread, as before, and counted in the load stats: a block whose `min_allele` (its records' shortest
+  allele, the padding base not counted) exceeds the GAF's `#max_span` for the contig, and a one-record block whose
+  `max_walk` exceeds 65,535 visits (the compact index's limit); then, record by record, a record overlapping the
+  query whose shortest allele exceeds `#max_span`, or with such a walk.
+- A chunk's records come in (POS, ID) order, so `finalize_graph_site_catalog_inplace` sorts only when they are not.
+
+Before the first chunk, `collect-graph-variation` logs the catalog's graph (file, fingerprint, node ids, reference
+sample, snarls source) and writes it to both VCF headers (`##pgphase_site_catalog=<...>`), then checks each FASTA
+contig it will process against the catalog's (`check_site_catalog_reference`, contigs in parallel): a FASTA contig
+shorter than the catalog's is refused; the MD5 of its first `length` bases (upper case) equal to the catalog's is a
+match (a FASTA contig longer than the graph's path, a warning). The MD5 may differ legitimately, since the catalog's
+is of the sequence the graph's reference path spells, N where it has no fragment: then the REF alleles of every record
+of about 32 blocks spread over the contig must be the FASTA's bases (a warning), or the run is refused. HPRC v2.1
+against CHM13 v2.0: 24 contigs match by MD5 (the 25 checked in about 11 s on 2 threads); chrY is refused, 3,013 of
+14,238 sampled REF alleles agreeing (none of 403 of 8 bp or more), at offsets that drift along the contig. Every GAF alignment a chunk reads must visit only nodes within
+the catalog's `graph.min_node`-`graph.max_node`, or the run stops: the alignments are of another graph.
+
+A tabix-indexed sites VCF is still read, line by line, as before.
 
 ### Test gates
 

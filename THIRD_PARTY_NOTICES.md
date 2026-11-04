@@ -55,8 +55,8 @@ pgcatalog is built by cargo from these crates (versions pinned in
 | `zstd`, `zstd-safe` | <https://github.com/gyscos/zstd-rs> | MIT |
 | `zstd-sys` | the same, bundling zstd (<https://github.com/facebook/zstd>) | BSD-3-Clause |
 
-pgphase itself links the system zstd library (BSD-3-Clause) to read `.pgsites`
-catalogs.
+pgphase itself links the system zstd library (BSD-3-Clause) to read dromos's site
+catalogs, and zlib for their checksums.
 
 ## dromos (`tools/dromos`)
 

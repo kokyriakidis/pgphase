@@ -15,8 +15,8 @@ haplotype sampling test data from
   -o output.tsv
 ```
 
-Expected output: **292 candidate variant sites** (53 on chr6, 239 on chr19),
-the same with `--sites test_data/graph/micb-kir3dl1.catalog`.
+Expected output: `test_data/expected/graph_micb_expected.tsv` (314 candidate
+variant sites), the same with `--sites test_data/graph/micb-kir3dl1.CHM13.sites`.
 
 To restrict to a single locus:
 
@@ -42,7 +42,8 @@ To restrict to a single locus:
 
 | File | Description |
 |------|-------------|
-| `micb-kir3dl1.catalog/` | Site catalogs from `build-snarl-catalog`: `chr6.pgsites` (202 sites), `chr19.pgsites` (715), and the contigs' snarls (`snarls/`), from which `make check` rebuilds them without vg |
+| `micb-kir3dl1.CHM13.sites` | The graph's site catalog from `dromos catalog` (dromos 73bb4b1): chr6 (202 sites) and chr19 (715) |
+| `micb-kir3dl1.snarls/` | The contigs' snarls (`vg snarls`), from which `dromos catalog` rebuilds the catalog without vg (`make check` does, given a dromos with the command as `DROMOS_CATALOG`) |
 | `micb-kir3dl1.sites.vcf.gz` | The same 917 sites as a sites-only VCF from `vg deconstruct -a` (ALTs in vg's order) |
 | `micb-kir3dl1.sites.vcf.gz.tbi` | Tabix index for sites VCF |
 | `micb-kir3dl1_HG003.coord.gaf.gz` | The GAF indexed by reference position, from `index` (`make check` rebuilds it) |
@@ -61,9 +62,10 @@ chunks and uses those coordinates for its region queries.
 ## Regenerating derived files
 
 ```bash
-# Site catalogs (requires vg and pgcatalog: make pgcatalog)
-./pgphase build-snarl-catalog --graph test_data/graph/micb-kir3dl1.gbz \
-  --reference-sample CHM13 --out test_data/graph/micb-kir3dl1.catalog
+# Site catalog (dromos 73bb4b1 or later; the committed snarls, so no vg)
+dromos catalog --graph test_data/graph/micb-kir3dl1.gbz --reference-sample CHM13 \
+  --snarls-cache test_data/graph/micb-kir3dl1.snarls \
+  --out test_data/graph/micb-kir3dl1.CHM13.sites
 
 # Reference-indexed GAF (requires pgcatalog)
 ./pgphase index --graph test_data/graph/micb-kir3dl1.gbz \

@@ -60,8 +60,10 @@ Requirements:
 
 - a C++17 compiler (GCC 8+ or Clang 7+)
 - [htslib](https://github.com/samtools/htslib) with headers, zstd, zlib and pthreads
-- [Rust](https://rustup.rs) (cargo), to build `pgcatalog`, which builds the site catalogs and the graph's reference map
-- [vg](https://github.com/vgteam/vg), only to build site catalogs
+- [dromos](https://github.com/kokyriakidis/dromos), whose `dromos catalog` makes the graph's site catalog (a dromos of
+  73bb4b1 or later: the `tools/dromos` pinned here predates the command)
+- [Rust](https://rustup.rs) (cargo), to build `pgcatalog`, which builds the graph's reference map for `pgphase index`
+- [vg](https://github.com/vgteam/vg), only for a site catalog of a graph without its distance index (`vg snarls`)
 - [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
 - [pixi](https://pixi.sh), to build [dromos](https://github.com/kokyriakidis/dromos), which indexes the reads'
   alignments (`pgphase index` runs it), and plegma, the noisy-region MSA (it fetches their Mojo toolchain);
@@ -87,10 +89,10 @@ libstdc++ of GCC 12 or newer); the bundle carries them.
 pgphase needs the reference FASTA, a site catalog built once from the graph, the reads' graph alignments indexed
 by reference position, and (recommended) the same reads' linear alignments as an indexed BAM.
 
-**1. Build the site catalogs**, once per graph:
+**1. Make the site catalog**, once per graph, with [dromos](https://github.com/kokyriakidis/dromos):
 
 ```bash
-pgphase build-snarl-catalog --graph graph.gbz --reference-sample CHM13
+dromos catalog --graph graph.gbz --reference-sample CHM13    # graph.CHM13.sites, one file for every contig
 ```
 
 **2. Index the reads' graph alignments** (GAF, or vg's GAM straight from vg Giraffe) by reference position:
@@ -105,7 +107,7 @@ pgphase index --graph graph.gbz --reads reads.gam --reference-sample CHM13    # 
 ```bash
 pgphase collect-graph-variation \
     --ref chm13.fa \
-    --sites graph.catalog \
+    --sites graph.CHM13.sites \
     --gaf reads.coord.gaf.gz \
     --bam reads.bam \
     -r 'CHM13#0#chr20' \
@@ -120,27 +122,35 @@ the catalog's sites ("union gap phasing"), the recommended mode.
 <details>
 <summary><b>More on the site catalog</b></summary>
 
-`build-snarl-catalog` writes `graph.catalog/<contig>.pgsites` (or, with `--out DIR`, `DIR/<contig>.pgsites`) for
-every reference contig: every snarl the reference path `CHM13#0#<contig>` passes through, at every nesting level,
-with all its alleles, in position order. It is what `vg deconstruct -a` reports, without the genotypes and allele
-counts, which need the haplotype names and take most of its time. `--sites graph.catalog` then gives pgphase every
-contig.
+`dromos catalog` writes one file, `graph.CHM13.sites` beside the graph (or `--out PATH`), for every reference contig:
+every snarl the reference path `CHM13#0#<contig>` passes through, at every nesting level, with all its alleles, in
+position order. It is what `vg deconstruct -a` reports, without the genotypes and allele counts, which need the
+haplotype names and take most of its time. `--sites graph.CHM13.sites` then gives pgphase every contig.
 
-- `--reference-sample` may be left out when the graph declares a single reference sample
-  (`pgcatalog reference-samples graph.gbz` lists them); HPRC graphs declare both CHM13 and GRCh38.
-- Contigs may be named either way: `chr20`, or the path name `CHM13#0#chr20`.
-- `--region chr20` (repeatable) builds chosen contigs, and `--region chr20:10000000-12000000` part of one, as
-  `chr20_10000000-12000000.pgsites`.
-- Each contig's snarls come from its own connected component (`vg chunk -C`, then `vg snarls`, several contigs at
-  a time) and are kept in the catalog's `snarls/` folder for later runs on the same graph.
+- `--reference-sample` may be left out when the graph declares a single reference sample; HPRC graphs declare both
+  CHM13 and GRCh38.
+- The snarls come from the graph's distance index (giraffe's `.dist` beside the graph, or `--dist`), else from
+  `vg snarls` (each contig's component, kept in `--snarls-cache` for later runs on the same graph).
+- `--region chr20` (repeatable) builds chosen contigs, and `--region chr20:10000000-12000000` part of one.
 
-On the HPRC v2.1 CHM13 graph (10 cores), all 25 contigs take about 31 minutes and the machine peaks at 64 GB; the
-catalogs total 1.5 GB (chr20's is 37 MB, against 656 MB as a sites-only VCF). `--level` trades time for size
-(zstd, default 6).
+On the HPRC v2.1 CHM13 graph, from its distance index, all 25 contigs take 190 s on 10 cores (peak 28 GB) and the
+catalog is 487 MB. Its format (dromos's `docs/catalog-format.md`): each contig's records in position blocks of
+zstd-compressed columns, an index per contig that a region query binary-searches, and a header naming the graph it
+was built from (its file, fingerprint, node ids and tags), the reference sample and the snarls' source.
+`dromos view graph.CHM13.sites chr20[:START-END]` prints it as VCF. pgphase also reads a bgzipped, tabix-indexed sites
+VCF (`dromos view graph.CHM13.sites chr20 | bgzip > chr20.sites.vcf.gz && tabix -p vcf chr20.sites.vcf.gz`).
 
-A `.pgsites` file holds the catalog's VCF lines in independently zstd-compressed position blocks with an index, so
-a region query reads only the blocks it needs. `pgcatalog view graph.catalog/chr20.pgsites [chr20:START-END]` prints
-it as VCF. pgphase also reads a bgzipped, tabix-indexed sites VCF (one file for every contig).
+pgphase reads the catalog's header once per run, refuses another format version or a damaged file, and writes the
+catalog's graph in its log and in the VCF headers (`##pgphase_site_catalog=<...>`), so a result names the graph and
+catalog it came from. It checks each FASTA contig it phases against the catalog's: its length, and the MD5 of its
+sequence. The catalog's MD5 is of what the graph's reference path spells (N where it has no bases, up to its last
+base), so it may differ from the FASTA's legitimately: then the REF alleles of the catalog's records, sampled along the
+contig, must be the FASTA's bases (a warning), or pgphase stops. HPRC v2.1's chrY is refused against CHM13 v2.0: its
+records' REF alleles are not CHM13 v2.0 chrY's bases at their positions. pgphase also stops when an alignment visits a
+node outside the catalog's graph.
+
+pgcatalog's per-contig `.pgsites` catalogs (`build-snarl-catalog`) are no longer read. `build-snarl-catalog` and
+`index`, with `tools/pgcatalog` and `tools/dromos`, are to be removed: dromos makes pgphase's inputs.
 
 </details>
 
@@ -166,7 +176,7 @@ apart by their first bytes; bgzip reads in parallel, gzip on one thread. HG002 H
 | Input | |
 |---|---|
 | `--ref FILE` | Reference FASTA, indexed |
-| `--sites PATH` | Site catalogs from `build-snarl-catalog` (the folder, or one `.pgsites` file), or a tabix-indexed sites VCF |
+| `--sites FILE` | The graph's site catalog, from `dromos catalog`, or a tabix-indexed sites VCF |
 | `--gaf FILE` | The reads' graph alignments, indexed by `pgphase index` |
 | `--bam FILE` | The same reads' linear alignments, indexed (optional, recommended) |
 
@@ -189,7 +199,7 @@ input alignment. The phased VCF is the same with or without these outputs.
 | Command | What it does |
 |---|---|
 | `collect-graph-variation` | Phase reads from their graph alignments, optionally with their linear alignments (`--bam`) |
-| `build-snarl-catalog` | Build the site catalogs from a GBZ graph (runs `pgcatalog build`) |
+| `build-snarl-catalog` | Build pgcatalog's per-contig `.pgsites` catalogs (runs `pgcatalog build`), which `collect-graph-variation` no longer reads (use `dromos catalog`); to be removed |
 | `index` | Index the reads' graph alignments by reference position (runs `pgcatalog ref-map` and `dromos index`) |
 | `collect-bam-variation` | Phase from linear alignments alone; a C++ port of [longcallD](https://github.com/yangao07/longcallD)'s phasing |
 

@@ -17,7 +17,8 @@ void print_main_help() {
               << "Commands:\n"
               << "  collect-graph-variation  Phase reads from graph alignments (GAF), optionally with a BAM\n"
               << "  collect-bam-variation    Phase reads from linear alignments (BAM/CRAM) only\n"
-              << "  build-snarl-catalog      Build the site catalogs from a GBZ graph (runs pgcatalog build)\n"
+              << "  build-snarl-catalog      Build pgcatalog's per-contig .pgsites catalogs (runs pgcatalog build);\n"
+              << "                           collect-graph-variation reads dromos catalog's instead (to be removed)\n"
               << "  index                    Index graph alignments (GAM or GAF) by reference position (runs dromos index)\n";
 }
 
