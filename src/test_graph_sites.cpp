@@ -62,7 +62,7 @@ static bool test_loader_rejects_bad_records_without_throwing() {
 using SiteKey = std::tuple<hts_pos_t, std::string, std::string, std::set<std::pair<std::string, std::string>>, int,
                            std::string>;
 
-// Sites as a set: ALT order is the builder's choice (vg's, or pgcatalog's by
+// Sites as a set: ALT order is the builder's choice (vg's, or dromos's by
 // haplotype count), and must not change what is loaded.
 static std::set<SiteKey> site_set(const GraphSiteCatalog& cat) {
     std::set<SiteKey> out;

@@ -268,7 +268,7 @@ void append_graph_site_from_vcf_data_line(const char* buf,
 }
 
 // The fewest bases any allele of a VCF data line spans, the padding base not
-// counted (alleles of unequal lengths carry one), as pgcatalog computes it; 0 when
+// counted (alleles of unequal lengths carry one), as dromos catalog computes it; 0 when
 // the line has no REF/ALT fields.
 hts_pos_t shortest_allele(const char* line, size_t len) {
     const char* end = line + len;
@@ -587,7 +587,7 @@ GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_te
         }
     }
     if (ref_i < 0) {
-        throw std::runtime_error("GBZ interval GFA did not contain a W line for contig: " + contig);
+        throw std::runtime_error("GFA text did not contain a W line for contig: " + contig);
     }
 
     const GfaWalkRecord& ref = walks[static_cast<size_t>(ref_i)];
@@ -781,7 +781,7 @@ bool graph_site_is_queryable(const GraphSite& site) {
     return site.eligible && graph_site_validation_skip_reason(site).empty();
 }
 
-// Build a "left+:right+" boundary query string for the GBZ FFI interval query.
+// A site's boundary nodes as "left+:right+" (its first queryable allele walk's first and last steps).
 std::string graph_site_between_query(const GraphSite& site) {
     if (!graph_site_is_queryable(site)) return "";
     const GraphWalk* query_walk = nullptr;

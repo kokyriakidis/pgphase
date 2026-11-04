@@ -40,9 +40,9 @@ void graph_query_report_match_stats() {
 namespace {
 
 // Compact handle encoding: pack (node_id, orientation) into a uint32_t.
-// Bit layout: [31:1] = node_id, [0] = reverse flag.
-// This matches the GBWT handle encoding (2*node_id + orientation), so
-// FFI-provided GBWT handles can be truncated directly to CompactHandle.
+// Bit layout: [31:1] = node_id, [0] = reverse flag (the GBWT's handle
+// encoding, 2*node_id + orientation). The handles come from the GAF path
+// fields of the indexed GAF and from the site catalog's allele walks.
 using CompactHandle = uint32_t;
 constexpr uint64_t kMaxCompactNodeId =
     static_cast<uint64_t>(std::numeric_limits<CompactHandle>::max() >> 1);

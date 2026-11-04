@@ -167,6 +167,9 @@ GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
 /// preamble and header checked), or a bgzipped VCF with a tabix index.
 void require_site_catalog(const std::string& path);
 
+/// The sites of a small graph given as GFA text (S and W lines): every bubble of
+/// the reference walk against the others. The unit tests' fixtures; pgphase
+/// itself reads the site catalog.
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
                                                        const std::string& reference_sample,
                                                        const std::string& contig);
