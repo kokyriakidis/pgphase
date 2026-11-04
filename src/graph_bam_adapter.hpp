@@ -214,10 +214,6 @@ void populate_graph_chunk_overlaps(std::vector<GraphChunkBuildResult>& graph_chu
 /// changes candidate phasing or joins phase sets.
 size_t rescue_unphased_graph_reads(PhasingChunk& chunk);
 
-/// Find a shared pure insertion motif up to eight bases; the first allele may
-/// be reference. Return zero for a compound or incompatible sequence pair.
-size_t tandem_insertion_motif_length(const std::string& first, const std::string& second);
-
 /// Retire validated HOM ALT and REF-absent substitution/deletion anchors after the
 /// initial solve, retaining the
 /// gauge and read assignments of phase sets with surviving heterozygotes.

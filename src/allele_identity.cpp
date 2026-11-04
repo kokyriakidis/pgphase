@@ -25,22 +25,6 @@ bool AlleleContrastKey::operator==(const AlleleContrastKey& other) const {
     return alleles == other.alleles;
 }
 
-void CandidateIdentityIndex::insert(const CandidateIdentityKey& key, size_t index) {
-    const auto [entry, inserted] = entries_.emplace(key, index);
-    if (!inserted && entry->second != std::optional<size_t>(index))
-        entry->second.reset();
-}
-
-std::optional<size_t> CandidateIdentityIndex::find(const CandidateIdentityKey& key) const {
-    const auto entry = entries_.find(key);
-    return entry == entries_.end() ? std::nullopt : entry->second;
-}
-
-const std::map<CandidateIdentityKey, std::optional<size_t>>&
-CandidateIdentityIndex::entries() const {
-    return entries_;
-}
-
 void MoleculeAlleleEvidence::add(size_t candidate_index, int allele, int query_index) {
     if (allele != 0 && allele != 1 && allele != kConflictingBamAllele) return;
     for (const SourceAlleleObservation& previous : observations_) {
@@ -68,23 +52,6 @@ int MoleculeAlleleEvidence::allele() const { return allele_; }
 int MoleculeAlleleEvidence::query_index() const { return query_index_; }
 const std::vector<SourceAlleleObservation>& MoleculeAlleleEvidence::observations() const {
     return observations_;
-}
-
-std::optional<CandidateIdentityMatch> match_candidate_identity(
-        const CandidateIdentityIndex& raw_index,
-        const CandidateIdentityIndex& sequence_index,
-        const CandidateIdentityKey& key) {
-    const auto raw = raw_index.entries().find(key);
-    const auto sequence = sequence_index.entries().find(key);
-    if (raw != raw_index.entries().end()) {
-        if (!raw->second || (sequence != sequence_index.entries().end() &&
-                             sequence->second != raw->second))
-            return std::nullopt;
-        return CandidateIdentityMatch{*raw->second, true};
-    }
-    if (sequence != sequence_index.entries().end() && sequence->second)
-        return CandidateIdentityMatch{*sequence->second, false};
-    return std::nullopt;
 }
 
 
@@ -162,27 +129,6 @@ std::optional<NormalizedAlleleContrast> normalize_allele_contrast(
     const bool reversed = key.alleles[1] < key.alleles[0];
     if (reversed) std::swap(key.alleles[0], key.alleles[1]);
     return NormalizedAlleleContrast{std::move(key), reversed};
-}
-
-std::optional<CandidateIdentityMatch> match_normalized_candidate_identity(
-        const CandidateIdentityIndex& raw_index,
-        const CandidateIdentityIndex& sequence_index,
-        const CandidateIdentityIndex& normalized_index,
-        const CandidateIdentityKey& key,
-        const std::optional<CandidateIdentityKey>& normalized_key) {
-    // Invalid reference context is never sufficient to certify a new alias.
-    if (!normalized_key) return match_candidate_identity(raw_index, sequence_index, key);
-    const auto normalized = normalized_index.entries().find(*normalized_key);
-    const bool exact_present = raw_index.entries().count(key) != 0 ||
-                               sequence_index.entries().count(key) != 0;
-    const auto exact = match_candidate_identity(raw_index, sequence_index, key);
-    if (normalized != normalized_index.entries().end()) {
-        if (!normalized->second || (exact_present &&
-            (!exact || exact->index != *normalized->second))) return std::nullopt;
-        if (exact) return exact;
-        return CandidateIdentityMatch{*normalized->second, false, true};
-    }
-    return exact;
 }
 
 bool supports_normalized_observation(int graph_allele,

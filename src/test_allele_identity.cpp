@@ -73,37 +73,6 @@ static bool check_molecule_evidence() {
     other_read.add(2, 0, 51);
     ok &= check(loci[first].allele() == 1 && loci[second].allele() == 0 &&
                 other_read.allele() == 0, "molecule: different alleles and reads remain independent");
-    const std::string reference = "CAAATG";
-    const auto base = [&](hts_pos_t pos) {
-        return pos >= 1 && pos <= static_cast<hts_pos_t>(reference.size())
-            ? reference[static_cast<size_t>(pos - 1)] : 'N';
-    };
-    const auto canonical = normalize_candidate_identity(1, "C", "CA", base);
-    CandidateIdentityIndex raw, selected, normalized;
-    normalized.insert(*canonical, 11);
-    const CandidateIdentityKey source1{2, static_cast<int>(VariantType::Insertion), 0, "A"};
-    const CandidateIdentityKey source2{3, static_cast<int>(VariantType::Insertion), 0, "A"};
-    const auto parent1 = match_normalized_candidate_identity(raw, selected, normalized,
-        source1, normalize_candidate_identity(3, "", "A", base));
-    const auto parent2 = match_normalized_candidate_identity(raw, selected, normalized,
-        source2, normalize_candidate_identity(4, "", "A", base));
-    ok &= check(parent1 && parent2 && parent1->index == parent2->index,
-                "molecule: repeat-shifted source descriptions share one unique destination");
-    if (parent1 && parent2) {
-        std::map<size_t, MoleculeAlleleEvidence> destinations;
-        destinations[parent1->index].add(2, 1, 42);
-        destinations[parent2->index].add(7, 1, 43);
-        ok &= check(destinations.size() == 1 && destinations.begin()->second.allele() == 1 &&
-                    destinations.begin()->second.query_index() == 0 &&
-                    destinations.begin()->second.observations().size() == 2,
-                    "molecule: normalized duplicate rows supply one vote with both sources retained");
-        destinations[parent2->index].add(9, 0, 44);
-        ok &= check(destinations.begin()->second.allele() == kConflictingBamAllele,
-                    "molecule: opposing normalized calls abstain at their shared destination");
-    }
-    normalized.insert(*canonical, 12);
-    ok &= check(!match_normalized_candidate_identity(raw, selected, normalized,
-        source1, canonical), "molecule: source merging cannot bypass an ambiguous graph destination");
     std::cout << "Molecule permutations: " << permutations << "\n";
     return ok;
 }
@@ -183,25 +152,6 @@ static bool check_normalization() {
             }
         }
     }
-    const CandidateIdentityKey source{3, static_cast<int>(VariantType::Insertion), 0, "A"};
-    CandidateIdentityIndex raw, sequence, normalized;
-    normalized.insert(*insertion, 7);
-    auto match = match_normalized_candidate_identity(raw, sequence, normalized, source, insertion);
-    ok &= check(match && match->index == 7 && match->is_normalized && !match->is_raw,
-                "normalize: unique shifted identity is a sequence match");
-    sequence.insert(source, 8);
-    ok &= check(!match_normalized_candidate_identity(raw, sequence, normalized, source, insertion),
-                "normalize: exact and canonical destinations must agree");
-    sequence = CandidateIdentityIndex{};
-    raw.insert(source, 7);
-    match = match_normalized_candidate_identity(raw, sequence, normalized, source, insertion);
-    ok &= check(match && match->is_raw && !match->is_normalized,
-                "normalize: agreeing indexes preserve an exact observation");
-    normalized.insert(*insertion, 9);
-    ok &= check(!match_normalized_candidate_identity(raw, sequence, normalized, source, insertion),
-                "normalize: exact match cannot bypass shifted duplicate ambiguity");
-    ok &= check(match_normalized_candidate_identity(raw, sequence, normalized, source, std::nullopt).has_value(),
-                "normalize: absent canonical context retains the established exact rule");
     ok &= check(supports_normalized_observation(0, 1, 8, 4, 0, 2, 0) &&
                 !supports_normalized_observation(0, 3, 8, 4, 0, 2, 0) &&
                 !supports_normalized_observation(0, 1, 6, 4, 3, 2, 0),
@@ -315,61 +265,6 @@ int main(int argc, char** argv) {
     ok &= check_allele_contrasts();
     ok &= check_molecule_evidence();
     ok &= check_normalization();
-    {
-        const CandidateIdentityKey allele{100, static_cast<int>(VariantType::Insertion), 0, "A"};
-        const CandidateIdentityKey other{100, static_cast<int>(VariantType::Insertion), 0, "AA"};
-        const CandidateIdentityKey compound{100, static_cast<int>(VariantType::Deletion), 2, "G"};
-        const CandidateIdentityKey other_compound{100, static_cast<int>(VariantType::Deletion), 2, "T"};
-        for (const bool reverse : {false, true}) {
-            CandidateIdentityIndex index;
-            index.insert(allele, reverse ? 1 : 0);
-            ok &= check(index.find(allele) == std::optional<size_t>(reverse ? 1 : 0),
-                        "identity: a unique candidate remains available");
-            index.insert(allele, reverse ? 1 : 0);
-            ok &= check(index.find(allele).has_value(),
-                        "identity: repeating the same row is idempotent");
-            index.insert(allele, reverse ? 0 : 1);
-            index.insert(allele, reverse ? 1 : 0);
-            ok &= check(!index.find(allele),
-                        "identity: duplicate rows abstain permanently in either order");
-            index.insert(other, 2);
-            index.insert(compound, 3);
-            index.insert(other_compound, 4);
-            ok &= check(index.find(other) == std::optional<size_t>(2) &&
-                        index.find(compound) == std::optional<size_t>(3) &&
-                        index.find(other_compound) == std::optional<size_t>(4),
-                        "identity: distinct insertion and replacement alleles remain separate");
-            ok &= check(!index.find({101, allele.type, allele.ref_len, allele.alt}),
-                        "identity: a missing candidate is not matched by proximity");
-        }
-        CandidateIdentityIndex raw, sequence;
-        const CandidateIdentityKey graph_key{100, allele.type, 1, ">1>4"};
-        raw.insert(graph_key, 0);
-        raw.insert(graph_key, 1);
-        sequence.insert(allele, 0);
-        sequence.insert(other, 1);
-        const auto first = match_candidate_identity(raw, sequence, allele);
-        const auto second = match_candidate_identity(raw, sequence, other);
-        ok &= check(first && second && first->index == 0 && second->index == 1 &&
-                    !first->is_raw && !second->is_raw,
-                    "identity: shared graph key cannot erase distinct selected alternatives");
-        ok &= check(!match_candidate_identity(raw, sequence, graph_key),
-                    "identity: ambiguous topology key cannot select the first graph row");
-        sequence.insert(allele, 2);
-        ok &= check(!match_candidate_identity(raw, sequence, allele),
-                    "identity: duplicate sequence descriptions cannot select the first row");
-        raw.insert(allele, 0);
-        ok &= check(!match_candidate_identity(raw, sequence, allele),
-                    "identity: unique raw entry cannot bypass ambiguous sequence identity");
-        raw.insert(other, 1);
-        const auto agreeing = match_candidate_identity(raw, sequence, other);
-        ok &= check(agreeing && agreeing->index == 1 && agreeing->is_raw,
-                    "identity: agreeing raw and sequence indexes retain a raw match");
-        CandidateIdentityIndex conflicting;
-        conflicting.insert(other, 3);
-        ok &= check(!match_candidate_identity(raw, conflicting, other),
-                    "identity: disagreeing unique indexes cannot borrow another allele gauge");
-    }
     if (ok) std::cout << "ALL PASS\n";
     return ok ? 0 : 1;
 }

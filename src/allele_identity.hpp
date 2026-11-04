@@ -41,22 +41,6 @@ std::optional<NormalizedAlleleContrast> normalize_allele_contrast(
     hts_pos_t pos, const std::string& ref, const std::string& first,
     const std::string& second, const std::function<char(hts_pos_t)>& reference_base);
 
-/// Multiple rows claiming one identity remain ambiguous regardless of insertion order.
-class CandidateIdentityIndex {
-public:
-    void insert(const CandidateIdentityKey& key, size_t index);
-    std::optional<size_t> find(const CandidateIdentityKey& key) const;
-    const std::map<CandidateIdentityKey, std::optional<size_t>>& entries() const;
-private:
-    std::map<CandidateIdentityKey, std::optional<size_t>> entries_;
-};
-
-struct CandidateIdentityMatch {
-    size_t index;
-    bool is_raw;
-    bool is_normalized = false;
-};
-
 struct SourceAlleleObservation {
     size_t candidate_index;
     int allele;
@@ -77,26 +61,11 @@ private:
     std::vector<SourceAlleleObservation> observations_;
 };
 
-/// Raw and selected-sequence identities must agree when both contain the key.
-std::optional<CandidateIdentityMatch> match_candidate_identity(
-    const CandidateIdentityIndex& raw_index,
-    const CandidateIdentityIndex& sequence_index,
-    const CandidateIdentityKey& key);
-
-
 /// Validate REF and left-align an edit using 1-based reference bases (N means unknown).
 /// Empty REF/ALT supports physical insertions/deletions; no reference allele is returned.
 std::optional<CandidateIdentityKey> normalize_candidate_identity(
     hts_pos_t pos, std::string ref, std::string alt,
     const std::function<char(hts_pos_t)>& reference_base);
-
-/// Exact matches cannot bypass a conflicting or ambiguous normalized identity.
-std::optional<CandidateIdentityMatch> match_normalized_candidate_identity(
-    const CandidateIdentityIndex& raw_index,
-    const CandidateIdentityIndex& sequence_index,
-    const CandidateIdentityIndex& normalized_index,
-    const CandidateIdentityKey& key,
-    const std::optional<CandidateIdentityKey>& normalized_key);
 
 /// A normalized alias requires an independent graph call and coverage of both edits.
 bool supports_normalized_observation(int graph_allele,

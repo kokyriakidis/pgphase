@@ -305,46 +305,16 @@ int main() {
     ok &= check(parent.allele_walks[1].size() == 3, "walk length");
     ok &= check(parent.allele_walks[1][1].node == 3, "walk node id parsed");
     ok &= check(parent.allele_walks[1][1].reverse, "walk orientation parsed");
-    ok &= check(graph_site_between_query(parent) == "1+:4+", "between query from boundary nodes");
-
-    const std::vector<GraphWalk> child_walks = {parse_graph_walk(">2>4>6"), parse_graph_walk(">2>5>6")};
 
     const GraphWalk walk = parse_graph_walk(">11<12>13");
     ok &= check(walk.size() == 3, "standalone walk length");
     ok &= check(graph_walk_to_string(walk) == ">11<12>13", "walk roundtrip");
-    ok &= check(graph_walk_to_string(reverse_graph_walk(walk)) == "<13>12<11",
-                "walk reverse orientation");
-    ok &= check(match_graph_allele_exact(parse_graph_walk(">2>5>6"), child_walks) == 1, "exact allele match");
-    ok &= check(match_graph_allele_exact(parse_graph_walk("<6<5<2"), child_walks) == 1,
-                "reverse exact allele match");
-    ok &= check(match_graph_allele_exact(parse_graph_walk(">2>6>6"), child_walks) == kGraphAlleleMissing,
-                "missing allele match");
-
-    const std::string gfa =
-        "S\t1\tA\n"
-        "S\t2\tC\n"
-        "S\t3\tG\n"
-        "S\t4\tT\n"
-        "W\tREF\t0\tchr1\t0\t3\t>1>2>4\n"
-        "W\tALT\t0\tchr1\t0\t3\t>1>3>4\n";
-    GraphSiteCatalog auto_catalog = load_graph_site_catalog_from_gfa_text(gfa, "REF", "chr1");
-    ok &= check(auto_catalog.sites.size() == 1, "automatic GFA catalog finds one anchored event");
-    ok &= check(auto_catalog.sites[0].allele_walks.size() == 2, "automatic event has ref and alt walks");
-    ok &= check(auto_catalog.sites[0].allele_traversals[0] == ">1>2>4",
-                "automatic event ref traversal");
-    ok &= check(auto_catalog.sites[0].allele_traversals[1] == ">1>3>4",
-                "automatic event alt traversal");
-    ok &= check(graph_site_between_query(auto_catalog.sites[0]) == "1+:4+",
-                "automatic event between boundary");
 
     GraphSite incompatible;
     incompatible.id = "incompatible";
-    incompatible.allele_traversals = {">1>2", ">3>4"};
     incompatible.allele_walks = {parse_graph_walk(">1>2"), parse_graph_walk(">3>4")};
     ok &= check(graph_site_validation_skip_reason(incompatible) == "incompatible_allele_boundaries",
                 "incompatible boundaries are invalid");
-    ok &= check(graph_site_between_query(incompatible).empty(),
-                "incompatible boundaries have no between query");
 
     ok &= test_site_catalog_sites();
     ok &= test_site_catalog_header();

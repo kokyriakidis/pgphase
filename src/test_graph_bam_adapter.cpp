@@ -58,23 +58,10 @@ static GraphSite make_site(const std::string& id,
     site.ref_beg = pos;
     site.ref_end = pos + 1;
     site.id = id;
-    site.allele_traversals = {allele0, allele1};
     site.allele_walks = {parse_graph_walk(allele0), parse_graph_walk(allele1)};
     site.skip_reason = graph_site_validation_skip_reason(site);
     site.eligible = site.skip_reason.empty();
     return site;
-}
-
-static bool test_tandem_insertion_motif_length() {
-    bool ok = true;
-    ok &= check(tandem_insertion_motif_length("", "GAAGGAAG") == 4, "complete source deletion uses a four-base fundamental motif");
-    ok &= check(tandem_insertion_motif_length("TTCC", "TTCCTTCC") == 4, "four-base repeat motif is callable");
-    ok &= check(tandem_insertion_motif_length("", "TTTAT") == 5, "reference versus five-base repeat is callable");
-    ok &= check(tandem_insertion_motif_length("AT", "ATATAT") == 2, "short motif uses its fundamental period");
-    ok &= check(tandem_insertion_motif_length("ATATATAGAG", "ATATATATAGAGAG") == 0, "compound MSA contrast is not a pure repeat");
-    ok &= check(tandem_insertion_motif_length("TTCC", "TTCCAAAA") == 0, "incompatible motifs abstain");
-    ok &= check(tandem_insertion_motif_length("TTCC", "TTCC") == 0, "identical insertion alleles abstain");
-    return ok;
 }
 
 // Overlap reads are paired by name even when a chunk's reads are not in name
@@ -429,7 +416,6 @@ int main(int argc, char** argv) {
         return ok ? 0 : 1;
     }
     bool ok = true;
-    ok &= test_tandem_insertion_motif_length();
     ok &= test_joint_candidate_loci();
     ok &= test_chunk_overlap_pairs_appended_reads();
     ok &= test_row_alleles();
@@ -707,7 +693,6 @@ int main(int argc, char** argv) {
         tri_site.ref_beg = 100;
         tri_site.ref_end = 101;
         tri_site.id = "tri";
-        tri_site.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
         tri_site.allele_walks = {parse_graph_walk(">1>2>3"),
                                  parse_graph_walk(">1>4>3"),
                                  parse_graph_walk(">1>5>3")};
@@ -753,7 +738,6 @@ int main(int argc, char** argv) {
         tri_both.chrom = tri_both.ref_contig = "chr1";
         tri_both.pos = tri_both.ref_beg = 100; tri_both.ref_end = 101;
         tri_both.id = "tri_both";
-        tri_both.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
         tri_both.allele_walks = {parse_graph_walk(">1>2>3"),
                                  parse_graph_walk(">1>4>3"),
                                  parse_graph_walk(">1>5>3")};
@@ -827,7 +811,6 @@ int main(int argc, char** argv) {
         multi.pos = multi.ref_beg = 100;
         multi.ref_end = 101;
         multi.id = "multi_default";
-        multi.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
         multi.allele_walks = {parse_graph_walk(">1>2>3"),
                               parse_graph_walk(">1>4>3"),
                               parse_graph_walk(">1>5>3")};
@@ -863,7 +846,6 @@ int main(int argc, char** argv) {
         tri_pf.chrom = tri_pf.ref_contig = "chr1";
         tri_pf.pos = tri_pf.ref_beg = 100; tri_pf.ref_end = 101;
         tri_pf.id = "tri_pf";
-        tri_pf.allele_traversals = {">1>2>3", ">1>4>3", ">1>5>3"};
         tri_pf.allele_walks = {parse_graph_walk(">1>2>3"),
                                parse_graph_walk(">1>4>3"),
                                parse_graph_walk(">1>5>3")};

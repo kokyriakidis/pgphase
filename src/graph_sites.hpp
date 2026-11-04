@@ -47,7 +47,6 @@ struct GraphSite {
     std::string id;              // ID (snarl identifier)
     std::string ref;
     std::vector<std::string> alts;
-    std::vector<std::string> allele_traversals;  // AT entries (the unit tests' GFA fixtures)
     std::vector<GraphWalk> allele_walks;          // parsed walks (one per allele)
     hts_pos_t ref_beg = 0;      // linearized ref interval start
     hts_pos_t ref_end = 0;      // linearized ref interval end
@@ -147,24 +146,10 @@ GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
 /// checked).
 void require_site_catalog(const std::string& path);
 
-/// The sites of a small graph given as GFA text (S and W lines): every bubble of
-/// the reference walk against the others. The unit tests' fixtures; pgphase
-/// itself reads the site catalog.
-GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
-                                                       const std::string& reference_sample,
-                                                       const std::string& contig);
-
+/// A walk as AT writes it (">1<2>3"), and back: the unit tests' fixtures.
 GraphWalk parse_graph_walk(std::string_view walk);
 
 std::string graph_walk_to_string(const GraphWalk& walk);
-
-GraphWalk reverse_graph_walk(const GraphWalk& walk);
-
-int match_graph_allele_exact(const GraphWalk& read_walk,
-                             const std::vector<GraphWalk>& allele_walks,
-                             bool* reverse_out = nullptr);
-
-std::string graph_site_between_query(const GraphSite& site);
 
 /// The same contig: "chr20" names any sample's ("CHM13#0#chr20"), but two
 /// pangenome path names must also name the same sample.

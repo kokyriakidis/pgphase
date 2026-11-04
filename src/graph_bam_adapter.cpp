@@ -1628,21 +1628,6 @@ double one_sided_wilson_upper_bound(int discordant, int total) {
 
 }  // namespace
 
-size_t tandem_insertion_motif_length(const std::string& first, const std::string& second) {
-    constexpr size_t kMaxMotifLength = 8;
-    if (second.empty() || first.size() >= second.size()) return 0;
-    for (size_t period = 1; period <= kMaxMotifLength && period <= second.size(); ++period) {
-        if (first.size() % period != 0 || second.size() % period != 0) continue;
-        const auto repeats = [&second, period](const std::string& sequence) {
-            for (size_t i = 0; i < sequence.size(); ++i)
-                if (sequence[i] != second[i % period]) return false;
-            return true;
-        };
-        if (repeats(first) && repeats(second)) return period;
-    }
-    return 0;
-}
-
 static int rescue_observed_allele(const ReadVariantProfile& profile,
                                   size_t offset,
                                   bool use_bam_observations) {
