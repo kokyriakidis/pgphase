@@ -46,7 +46,8 @@ Phaseable reads on the chromosome arms over chr6, chr12, chr16–chr21; minutes 
 
 - [Installation](#installation)
 - [Quick start](#quick-start)
-- [Inputs and outputs](#inputs-and-outputs)
+- [Inputs](#inputs)
+- [Outputs](#outputs)
 - [Commands and options](#commands-and-options)
 - [How it works](#how-it-works)
 - [Reproducing the paper](#reproducing-the-paper)
@@ -60,23 +61,19 @@ Requirements:
 
 - a C++17 compiler (GCC 8+ or Clang 7+)
 - [htslib](https://github.com/samtools/htslib) with headers, zstd, zlib and pthreads
-- [dromos](https://github.com/kokyriakidis/dromos), whose `dromos catalog` makes the graph's site catalog (a dromos of
-  73bb4b1 or later: the `tools/dromos` pinned here predates the command)
-- [Rust](https://rustup.rs) (cargo), to build `pgcatalog`, which builds the graph's reference map for `pgphase index`
-- [vg](https://github.com/vgteam/vg), only for a site catalog of a graph without its distance index (`vg snarls`)
 - [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
-- [pixi](https://pixi.sh), to build [dromos](https://github.com/kokyriakidis/dromos), which indexes the reads'
-  alignments (`pgphase index` runs it), and plegma, the noisy-region MSA (it fetches their Mojo toolchain);
-  without it, `make PLEGMA=0` builds pgphase with abPOA alone, and `pgphase index` needs a dromos on PATH.
-  plegma (`third_party/plegma`) is a private repository for now:
+- [pixi](https://pixi.sh), to build plegma, the noisy-region MSA (it fetches its Mojo toolchain); without it,
+  `make PLEGMA=0` builds pgphase with abPOA alone. plegma (`third_party/plegma`) is a private repository for now:
   without access to it, the recursive clone skips it and `make PLEGMA=0` builds the rest
+
+pgphase only phases: [dromos](https://github.com/kokyriakidis/dromos), installed on its own, makes its inputs from
+the graph ([Inputs](#inputs)).
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
 make third-party-libs   # WFA2-lib, abPOA and plegma
 make -j"$(nproc)"       # pgphase
-make pgcatalog dromos   # placed beside pgphase, which finds them there (then on PATH; PGCATALOG= and DROMOS= override)
 ./pgphase --version
 ```
 
@@ -86,27 +83,22 @@ libstdc++ of GCC 12 or newer); the bundle carries them.
 
 ## Quick start
 
-pgphase needs the reference FASTA, a site catalog built once from the graph, the reads' graph alignments indexed
-by reference position, and (recommended) the same reads' linear alignments as an indexed BAM.
+pgphase needs the reference FASTA, the graph's site catalog, the reads' graph alignments indexed by reference
+position, and (recommended) the same reads' linear alignments as an indexed BAM ([Inputs](#inputs)).
 
-**1. Make the site catalog**, once per graph, with [dromos](https://github.com/kokyriakidis/dromos):
-
-```bash
-dromos catalog --graph graph.gbz --reference-sample CHM13    # graph.CHM13.sites, one file for every contig
-```
-
-**2. Index the reads' graph alignments** (GAF, or vg's GAM straight from vg Giraffe) by reference position:
+**1. Make the inputs** with [dromos](https://github.com/kokyriakidis/dromos): the site catalog and `ref.fa`, the
+reference FASTA the graph spells (`dromos reference-fasta`), once per graph; the index once per sample:
 
 ```bash
-pgphase index --graph graph.gbz --reads reads.gaf.gz --reference-sample CHM13
-pgphase index --graph graph.gbz --reads reads.gam --reference-sample CHM13    # no vg convert needed
+dromos catalog --graph graph.gbz --reference-sample CHM13                              # graph.CHM13.sites
+dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz   # and its .tbi
 ```
 
-**3. Phase:**
+**2. Phase:**
 
 ```bash
 pgphase collect-graph-variation \
-    --ref chm13.fa \
+    --ref ref.fa \
     --sites graph.CHM13.sites \
     --gaf reads.coord.gaf.gz \
     --bam reads.bam \
@@ -119,26 +111,20 @@ pgphase collect-graph-variation \
 Leave out `--bam` to phase from the graph alignments alone; with it, the sample's own heterozygous variants join
 the catalog's sites ("union gap phasing"), the recommended mode.
 
+## Inputs
+
+pgphase reads what [dromos](https://github.com/kokyriakidis/dromos) makes from the GBZ graph the reads were aligned
+to (its README gives every option):
+
+| Input | Made by | |
+|---|---|---|
+| `--gaf FILE` | `dromos index` | The reads' graph alignments (a GAM, or a GAF plain, gzip or bgzip), each placed on the reference by the nodes of its walk on the reference sample's paths: its 12 GAF columns, sorted, bgzipped and tabix-indexed, with the longest alignment on each contig in the header (pgphase skips sites no read can traverse) |
+| `--sites FILE` | `dromos catalog` | The graph's site catalog, one file for every reference contig: every snarl the reference path passes through, at every nesting level, with all its alleles (what `vg deconstruct -a` reports, without genotypes); or a bgzipped, tabix-indexed sites VCF (`dromos view`) |
+| `--ref FILE` | `dromos reference-fasta` | The reference FASTA, indexed: the sequence the graph's reference paths spell. The published reference may differ from the graph's: HPRC v2.1's chrY is not `chm13v2.0.fa`'s, and pgphase refuses a contig whose bases are not the catalog's |
+| `--bam FILE` | a linear aligner | Optional, recommended: the same reads aligned to that reference (minimap2, pbmm2), sorted and indexed; `dromos surject` places the graph alignments on it instead |
+
 <details>
-<summary><b>More on the site catalog</b></summary>
-
-`dromos catalog` writes one file, `graph.CHM13.sites` beside the graph (or `--out PATH`), for every reference contig:
-every snarl the reference path `CHM13#0#<contig>` passes through, at every nesting level, with all its alleles, in
-position order. It is what `vg deconstruct -a` reports, without the genotypes and allele counts, which need the
-haplotype names and take most of its time. `--sites graph.CHM13.sites` then gives pgphase every contig.
-
-- `--reference-sample` may be left out when the graph declares a single reference sample; HPRC graphs declare both
-  CHM13 and GRCh38.
-- The snarls come from the graph's distance index (giraffe's `.dist` beside the graph, or `--dist`), else from
-  `vg snarls` (each contig's component, kept in `--snarls-cache` for later runs on the same graph).
-- `--region chr20` (repeatable) builds chosen contigs, and `--region chr20:10000000-12000000` part of one.
-
-On the HPRC v2.1 CHM13 graph, from its distance index, all 25 contigs take 190 s on 10 cores (peak 28 GB) and the
-catalog is 487 MB. Its format (dromos's `docs/catalog-format.md`): each contig's records in position blocks of
-zstd-compressed columns, an index per contig that a region query binary-searches, and a header naming the graph it
-was built from (its file, fingerprint, node ids and tags), the reference sample and the snarls' source.
-`dromos view graph.CHM13.sites chr20[:START-END]` prints it as VCF. pgphase also reads a bgzipped, tabix-indexed sites
-VCF (`dromos view graph.CHM13.sites chr20 | bgzip > chr20.sites.vcf.gz && tabix -p vcf chr20.sites.vcf.gz`).
+<summary><b>How pgphase checks the catalog</b></summary>
 
 pgphase reads the catalog's header once per run, refuses another format version or a damaged file, and writes the
 catalog's graph in its log and in the VCF headers (`##pgphase_site_catalog=<...>`), so a result names the graph and
@@ -149,36 +135,9 @@ contig, must be the FASTA's bases (a warning), or pgphase stops. HPRC v2.1's chr
 records' REF alleles are not CHM13 v2.0 chrY's bases at their positions. pgphase also stops when an alignment visits a
 node outside the catalog's graph.
 
-pgcatalog's per-contig `.pgsites` catalogs (`build-snarl-catalog`) are no longer read. `build-snarl-catalog` and
-`index`, with `tools/pgcatalog` and `tools/dromos`, are to be removed: dromos makes pgphase's inputs.
-
 </details>
 
-<details>
-<summary><b>More on indexing the alignments</b></summary>
-
-`pgphase index` places every alignment on the reference by the nodes of its walk that lie on the reference sample's
-paths, and writes `reads.coord.gaf.gz` (sorted, bgzipped) with its tabix index: each alignment's 12 GAF columns, all
-pgphase reads. Unmapped alignments, and those without a unique reference interval, are left out and counted. Header
-lines record the longest alignment on each contig, which pgphase uses to skip sites no read can traverse.
-
-It runs two programs: `pgcatalog ref-map`, once per graph, for where each node lies on the reference (kept beside
-the graph, `graph.gbz.CHM13.refmap`, for the next run; `--ref-map` gives one), and
-[dromos](https://github.com/kokyriakidis/dromos) `index`, which reads the GAM or GAF in one pass and sorts the index
-in memory (about 16 GB for a 30x human genome). The reads may be a GAM, or a GAF that is plain, gzip or bgzip, told
-apart by their first bytes; bgzip reads in parallel, gzip on one thread. HG002 HiFi on the HPRC graph (a 155 GB GAM,
-12.8 million alignments) takes 196 s on 10 cores.
-
-</details>
-
-## Inputs and outputs
-
-| Input | |
-|---|---|
-| `--ref FILE` | Reference FASTA, indexed |
-| `--sites FILE` | The graph's site catalog, from `dromos catalog`, or a tabix-indexed sites VCF |
-| `--gaf FILE` | The reads' graph alignments, indexed by `pgphase index` |
-| `--bam FILE` | The same reads' linear alignments, indexed (optional, recommended) |
+## Outputs
 
 | Output | |
 |---|---|
@@ -199,8 +158,6 @@ input alignment. The phased VCF is the same with or without these outputs.
 | Command | What it does |
 |---|---|
 | `collect-graph-variation` | Phase reads from their graph alignments, optionally with their linear alignments (`--bam`) |
-| `build-snarl-catalog` | Build pgcatalog's per-contig `.pgsites` catalogs (runs `pgcatalog build`), which `collect-graph-variation` no longer reads (use `dromos catalog`); to be removed |
-| `index` | Index the reads' graph alignments by reference position (runs `pgcatalog ref-map` and `dromos index`) |
 | `collect-bam-variation` | Phase from linear alignments alone; a C++ port of [longcallD](https://github.com/yangao07/longcallD)'s phasing |
 
 `collect-graph-variation` options:
@@ -268,8 +225,6 @@ Crossref. The scripts that run every tool and produce `results.json` are in
 make unit-tests       # unit tests
 make predicate-tests  # phasing, repeat and stitching predicates
 make parity-tests     # ported functions against longcallD's semantics
-make pgcatalog-tests  # pgcatalog unit tests
-make dromos-tests     # dromos unit tests
 make check            # end-to-end golden tests on test_data/, at 1 and 4 threads, per MSA
 ```
 
@@ -302,7 +257,6 @@ MIT; see [`LICENSE`](LICENSE). pgphase's alignment pipeline is derived from
 [longcallD](https://github.com/yangao07/longcallD) (MIT). It uses [htslib](https://github.com/samtools/htslib),
 [plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA),
 [WFA2-lib](https://github.com/smarco/WFA2-lib),
-[edlib](https://github.com/Martinsos/edlib), in pgcatalog the [gbz](https://github.com/jltsiren/gbz) library, and
-[dromos](https://github.com/kokyriakidis/dromos) (MIT), with [libdeflate](https://github.com/ebiggers/libdeflate) and
-[zstd](https://github.com/facebook/zstd);
+[edlib](https://github.com/Martinsos/edlib) and [zstd](https://github.com/facebook/zstd); its inputs are made by
+[dromos](https://github.com/kokyriakidis/dromos) (MIT);
 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them with their licences.

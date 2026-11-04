@@ -25,8 +25,13 @@ with Part I, Part I is right and Part II is stale.
 |---|---|
 | `collect-bam-variation` | the alignment arm: candidates and phasing from a BAM alone |
 | `collect-graph-variation` | **the pipeline this Part describes**: the catalog's sites phased from GAF evidence, with `--bam` adding union gap phasing |
-| `build-snarl-catalog` | builds pgcatalog's per-contig `.pgsites` catalogs (runs `pgcatalog build`), which `collect-graph-variation` no longer reads: its catalog comes from `dromos catalog`. To be removed, with `index`, `tools/pgcatalog` and `tools/dromos`: dromos makes pgphase's inputs |
-| `index` | indexes the reads' graph alignments (GAM or GAF, `--reads`) by reference position, for `collect-graph-variation --gaf`: runs `pgcatalog ref-map` once per graph (kept beside it) and `dromos index` (github.com/kokyriakidis/dromos), which writes each alignment's 12 GAF columns, placed and sorted |
+
+pgphase only phases. Its inputs are made by dromos (github.com/kokyriakidis/dromos) from the GBZ graph: the site
+catalog (`dromos catalog`), the reads' graph alignments indexed by reference position (`dromos index`: each
+alignment's 12 GAF columns, placed, sorted, bgzipped and tabix-indexed, with `#max_span` header lines), and the
+reference FASTA the graph's reference paths spell (`dromos reference-fasta`; HPRC v2.1's chrY is not
+`chm13v2.0.fa`'s). `index` and `build-snarl-catalog`, which ran dromos and pgcatalog, are gone: each says which
+dromos command replaces it.
 
 `collect-graph-variation` additionally offers `--phase-reads-out`, a diagnostic
 TSV of per-read phasing evidence; the equivalent BAM-arm outputs were removed in
@@ -57,13 +62,13 @@ the catalog's sites phase on GAF evidence alone and gaps stay open.
 
 Chunks are processed by a worker pool (`run_graph_chunk_batch` in
 `graph_collect.cpp`, one chunk at a time through `process_graph_chunk`), each
-worker holding its own GAF row source (a tabix-indexed GAF, or the legacy
-GBZ + GAF-base pair), FAI handle and, with `--bam`, its own BAM handles
+worker holding its own GAF row source (an `IndexedGafHandle` on the tabix-indexed
+GAF), FAI handle and, with `--bam`, its own BAM handles
 (`WorkerContext`):
 
 | step | call | what it contributes |
 |---|---|---|
-| 1 | `query_gbz_interval_gaf_ffi` | the GAF rows overlapping this chunk's interval |
+| 1 | `scan_indexed_gaf_chunk` | the GAF rows overlapping this chunk's interval |
 | 2 | `build_graph_chunk`; with `--bam`, `exclude_ref_absent_graph_snps` | the catalog's sites become candidates and GAF rows become read profiles. Before graph phasing, high-MAPQ BAM bases validate clean biallelic SNPs: a graph SNP with no callable REF and decisive ALT support is flagged for homozygous ALT reclassification after the initial solve when no physical deletion is observed, retaining its catalog alleles and counts. With a substantial physical deletion allele it is made ineligible. The chunk is rebuilt from the same GAF rows. Allele identity in the remaining graph sites is a **graph-walk identity**. |
 | 3 | `apply_graph_noise_filter` | reclassifies indels in homopolymer, repeat and low-complexity reference context, using a reference slice fetched per chunk |
 | 4 | with `--bam`, `inject_alignment_private_sites` | the alignment solve over the chunk's span; its clean and MSA-verified heterozygotes, and the reads only it holds, join the graph chunk unphased ("Union gap phasing" below) |
@@ -681,14 +686,14 @@ The site catalog is dromos's one file for the graph (`dromos catalog`; the forma
 - `SiteCatalogFile` is opened once per run (`SiteCatalogFile::open`, shared by every worker's `SiteCatalogHandle`):
   the preamble checked in the specification's order (magic, size, version 1 alone, its FNV-1a hash, the recorded
   size, where the index and header lie), the header read (zstd frame, content checksum), and each contig's index
-  frame read and checked the first time the contig is queried. A pgcatalog `.pgsites` file or folder is refused,
-  saying to make the catalog with `dromos catalog`.
+  frame read and checked the first time the contig is queried. A `.pgsites` file or folder (the per-contig
+  catalogs of pgcatalog, dromos's predecessor) is refused, saying to make the catalog with `dromos catalog`.
 - `SiteCatalogReader` is a worker's: its zstd context and buffers. A region query finds the contig's blocks by two
   binary searches (the first whose `reach`, the largest record end so far, is at least the start; the last whose
   first POS is at most the end), reads each block whole, checks its CRC-32, and decodes its columns; the node
   letters (SEQ, EXC), most of a block's bytes, only when a record of the block is kept.
 - Each record becomes the `GraphSite` the old reader parsed from the same record's VCF line (`dromos view` prints
-  pgcatalog view's text byte for byte): CHROM, POS, ID (`<start><end>` visits), REF and ALT spelled from the node
+  that line): CHROM, POS, ID (`<start><end>` visits), REF and ALT spelled from the node
   table (reverse visits reverse-complemented), the AT walks, LV and PS. A lone empty ALT gives no ALT, as the VCF
   parser read an empty ALT field.
 - Skipped unread, as before, and counted in the load stats: a block whose `min_allele` (its records' shortest
@@ -740,8 +745,6 @@ Off unless set; none changes the output.
 | `PGPHASE_DIAG=DIR` | Writes per-locus TSVs to DIR: union windows (`windows.*`), alignment-site injection, island blocks, the EM's reads |
 | `PGPHASE_EM_DUMP=DIR` | Writes each union EM solve's inputs (`em.TID.BEG.tsv`): sites, then every observation |
 | `PGPHASE_DEBUG_SITE=POS` | Traces, for the catalog site within 2 bp of POS, each read's boundary matching and the allele counts |
-| `PGCATALOG=PATH` | The pgcatalog that `build-snarl-catalog` and `index` run [beside pgphase, then on PATH] |
-| `DROMOS=PATH` | The dromos that `index` runs [beside pgphase, then on PATH] |
 
 ## Part II -- component reference
 
@@ -2321,7 +2324,7 @@ Two rules downstream of the MSA, for either backend:
   With the MSA rules above (tracts, splitting, confident reads), HG002 HiFi chr20 (vg surjected BAM) against c0077c8:
   arm truth hets phased 64,765 -> 64,819, unphased 160 -> 189, other alleles 914 -> 897, overlapping records 97 -> 5,
   missed 382 -> 410, false het loci 80 -> 59; hap.py (Q100) SNP F1 0.9993 -> 0.9994, INDEL 0.9904 -> 0.9905; reads
-  unchanged. On the graph-native BAM (`pgcatalog surject`): phased 64,810, other alleles 874, false het loci 58.
+  unchanged. On the graph-native BAM (`dromos surject`; measured on its predecessor's identical records): phased 64,810, other alleles 874, false het loci 58.
 - **A deletion and an insertion side by side on one haplotype are one record** (`merge_adjacent_deletion_insertion`,
   output): the MSA's alignment can describe a replacement as the two (chr18:830,100, TTTG deleted then AAAAAA
   inserted). Written apart, the insertion's padding base was the deletion's last deleted base. Merged only where both
