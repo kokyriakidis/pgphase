@@ -38,8 +38,8 @@ BODY = [
   'longcallD v0.0.11: `longcallD call --hifi -o phased.vcf -b phased.bam -t T REF BAM CHROM`',
   'pgphase: `pgphase collect-graph-variation --ref REF --bam BAM --sites CATALOG --gaf GAF -r CHROM --threads T '
   '-o candidates.tsv --phased-vcf-out phased.vcf --phased-bam-out phased.bam`',
-  'Catalog and GAF index: `pgphase build-snarl-catalog` on the GBZ graph; `vg convert -G` of the reads\' GAM, then '
-  '`pgphase index --graph GBZ --reference-sample CHM13`',
+  'Catalog and GAF index: `dromos catalog --graph GBZ --reference-sample CHM13`; `dromos index --graph GBZ '
+  '--reference-sample CHM13 GAM GAF`',
   'Truth labels: `minimap2 -ax lr:hqae -Y --cs --eqx -e 100 --secondary=no` of the reads to the maternal and, '
   'separately, the paternal haplotype of HG002 v1.1; then `hiphap -p -1 mat -2 pat -A 2 MATERNAL.sam PATERNAL.sam`, '
   'which compares the two alignments of each read and assigns it to one haplotype (HipHap aligns nothing itself)']),

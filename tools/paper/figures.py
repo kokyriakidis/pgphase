@@ -22,30 +22,31 @@ TIKZ_STYLES = "\\usetikzlibrary{plotmarks}\n\\tikzset{box/.style={draw, rounded 
               " inbox/.style={box, fill=gray!10}, outbox/.style={box, fill=gray!10, very thick}, arr/.style={-latex, thick}}"
 
 # ------------------------------------------------------------------------------- overview
-# Inputs and read alignment (other tools) on the left; inside the dashed pgphase boundary, the graph arm (blue
-# lane) and union gap phasing (orange lane, only with a BAM) meet in the global EM, then windows and a second EM
-# pass, then stitching, rescue and islands, and the outputs. Coordinates in cm, y upwards; a box is
+# Inputs and read alignment (other tools) on the left, then the inputs dromos makes from the graph (green lane);
+# inside the dashed pgphase boundary, the graph arm (blue lane) and union gap phasing (orange lane, only with a BAM)
+# meet in the global EM, then windows and a second EM pass, then stitching, rescue and islands, and the outputs. Coordinates in cm, y upwards; a box is
 # (x, y-centre, width, height, kind, lines).
 LANES = {  # x0, y0, x1, y1, fill (HTML hex), label at the top-left corner
     "align": (2.75, 0.15, 5.65, 3.92, "F1F1F1", "read alignment (other tools)"),
-    "graph": (6.15, 2.45, 12.35, 4.95, "E3EEF9", "graph arm"),
-    "union": (6.15, 0.15, 12.35, 2.05, "FCEBDD", "union gap phasing (with a BAM)"),
+    "dromos": (5.85, 2.3, 8.55, 4.95, "E6F2E6", "inputs (dromos)"),
+    "graph": (9.0, 2.45, 13.55, 4.95, "E3EEF9", "graph arm"),
+    "union": (9.0, 0.15, 13.55, 2.05, "FCEBDD", "union gap phasing (with a BAM)"),
 }
-PGPHASE_BOX = (5.85, -0.2, 21.0, 5.35)
+PGPHASE_BOX = (8.75, -0.2, 22.2, 5.35)
 BOXES = {
     "graph": (0.0, 4.15, 2.3, 0.85, "data", ["Pangenome graph", "(GBZ)"]),
     "reads": (0.0, 2.05, 2.3, 0.85, "data", ["Long reads"]),
     "gaf": (2.95, 3.0, 2.5, 0.85, "ext", ["Graph alignments", "(vg Giraffe; GAF)"]),
     "bam": (2.95, 0.95, 2.5, 0.85, "ext", ["Linear alignments", "(BAM)"]),
-    "catalog": (6.45, 4.15, 2.5, 0.85, "step", ["Site catalog", "(build-snarl-catalog)"]),
-    "index": (6.45, 3.0, 2.5, 0.85, "step", ["Indexed GAF", "(index)"]),
-    "clean": (9.45, 3.55, 2.6, 1.05, "step", ["Catalog alleles from", "read walks; k-means"]),
-    "solve": (7.9, 0.95, 2.9, 1.05, "step", ["Sample's own hets:", "candidates, MSA"]),
-    "em": (12.75, 2.3, 2.6, 1.3, "step", ["Global EM:", "site errors,", "verified joins"]),
-    "windows": (15.75, 3.2, 2.45, 0.95, "step", ["Local windows,", "EM pass 2"]),
-    "fill": (15.75, 1.4, 2.45, 0.95, "step", ["Stitching, rescue,", "islands"]),
-    "vcf": (18.65, 3.2, 2.1, 0.85, "out", ["Phased VCF"]),
-    "tags": (18.65, 1.4, 2.1, 0.85, "out", ["Read HP/PS tags"]),
+    "catalog": (5.95, 4.15, 2.5, 0.85, "ext", ["Site catalog", "(dromos catalog)"]),
+    "index": (5.95, 3.0, 2.5, 0.85, "ext", ["Indexed GAF", "(dromos index)"]),
+    "clean": (10.2, 3.55, 2.6, 1.05, "step", ["Catalog alleles from", "read walks; k-means"]),
+    "solve": (9.6, 0.95, 2.9, 1.05, "step", ["Sample's own hets:", "candidates, MSA"]),
+    "em": (13.95, 2.3, 2.6, 1.3, "step", ["Global EM:", "site errors,", "verified joins"]),
+    "windows": (16.95, 3.2, 2.45, 0.95, "step", ["Local windows,", "EM pass 2"]),
+    "fill": (16.95, 1.4, 2.45, 0.95, "step", ["Stitching, rescue,", "islands"]),
+    "vcf": (19.85, 3.2, 2.1, 0.85, "out", ["Phased VCF"]),
+    "tags": (19.85, 1.4, 2.1, 0.85, "out", ["Read HP/PS tags"]),
 }
 ARROWS = [("graph", "catalog"), ("graph", "gaf"), ("reads", "gaf"), ("reads", "bam"), ("gaf", "index"),
           ("catalog", "clean"), ("index", "clean"), ("bam", "solve"), ("clean", "em"), ("solve", "em"),

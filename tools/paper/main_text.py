@@ -121,10 +121,10 @@ BODY = [
 ('figure', 'overview'),
 ('sub', 'Site catalog and read evidence from a pangenome graph'),
 ('p',
- "The catalog is built once per graph, from a GBZ graph [@Siren2022] with `build-snarl-catalog`: each snarl "
+ "The catalog is built once per graph, from a GBZ graph [@Siren2022], by `dromos catalog`: each snarl "
  '[@Paten2018] of the graph is a site, whose reference allele is the walk of the reference path through it and '
  'whose alternative alleles are the distinct walks of the haplotype paths, ordered by the number of haplotypes '
- "that take them. The reads' graph alignments are indexed once by reference position (`index`). For each "
+ "that take them. The reads' graph alignments are indexed once by reference position (`dromos index`). For each "
  'chunk, every read with mapping quality 5 or more (1 or more when a BAM is given) that crosses a site contributes '
  'the allele whose walk its alignment follows. An allele is identified by its walk, so two reads carry the same '
  'allele exactly when they take the same path through the site. A multi-allelic site is split into one '
@@ -293,8 +293,9 @@ BODY = [
 ('p',
  'pgphase is written in C++17 on htslib, with abPOA [@Gao2021] for partial order alignment, WFA2-lib and edlib '
  'for pairwise alignment; its alignment pipeline is derived from longcallD [@Gao2026], whose MIT-licensed code it '
- 'ports and tests against. Catalog building and GAF indexing are done by pgcatalog, a Rust program that reads the '
- 'GBZ graph with the gbz library [@Siren2022]. Chunks are processed by a pool of worker threads, each with its own '
+ 'ports and tests against. Its inputs, the site catalog and the indexed GAF, are made by dromos '
+ '(https://github.com/kokyriakidis/dromos), a Mojo program that reads the GBZ graph with the gbz library '
+ '[@Siren2022]. Chunks are processed by a pool of worker threads, each with its own '
  'file handles, and joined in one sequential pass; output does not depend on the number of threads.'),
 
 ('sec', 'Results'),
@@ -439,8 +440,9 @@ BACK = [
 ]
 
 FIGURES = {
- "overview": "pgphase's pipeline. The reads are aligned by other tools (grey, dashed boxes); pgphase's steps lie inside the "
-             "dashed outline. The graph arm (blue) builds the graph's site catalog and phases its sites from the walks "
+ "overview": "pgphase's pipeline. The reads are aligned by other tools (grey, dashed boxes), and dromos makes the graph's "
+             "site catalog and indexes the graph alignments by reference position (green); pgphase's steps lie inside "
+             "the dashed outline. The graph arm (blue) phases the catalog's sites from the walks "
              "the reads' graph alignments take through them; union gap phasing (orange), which runs only when a "
              "linear alignment is given, adds the sample's own heterozygous variants. One expectation-maximization "
              "phases all sites, joining blocks only where reads verify the join; local windows and a second pass "
