@@ -114,8 +114,8 @@ bool graph_site_has_released_walk_storage(const GraphSite& site) {
 }
 
 // Create a CandidateVariant from a GraphSite and append it to the chunk.
-// Allele counts are initially zero; they are filled after parent-gated
-// observation counting.
+// Allele counts are initially zero; they are filled after observation
+// counting.
 void add_graph_candidate(GraphChunkBuildResult& out,
                          const GraphSite& site,
                          const std::string& key,
@@ -400,9 +400,8 @@ public:
     GraphChunkBuildResult build() {
         init_chunk();
         add_eligible_sites();
-        link_parent_sites();
         const std::vector<std::vector<SiteAlleleEntry>> allele_by_read_site = collect_read_alleles();
-        count_gated_observations(allele_by_read_site);
+        count_observations(allele_by_read_site);
         set_site_counts();
         drop_weak_alleles();
         decompose_sites();
@@ -444,8 +443,6 @@ private:
     // Per-site, per-allele strand counts -- accumulated from raw rows before dedup.
     std::vector<std::vector<int>> fwd_strand_counts_;
     std::vector<std::vector<int>> rev_strand_counts_;
-    std::vector<int> parent_candidate_;
-    std::vector<std::vector<int>> conditional_parent_alleles_;
     // Reads interned to contiguous ids.
     std::vector<std::string> read_id_to_name_;
     std::vector<int> read_max_mapq_;
@@ -502,28 +499,11 @@ private:
             allele_counts_.emplace_back(static_cast<size_t>(n_alleles), 0);
             fwd_strand_counts_.emplace_back(static_cast<size_t>(n_alleles), 0);
             rev_strand_counts_.emplace_back(static_cast<size_t>(n_alleles), 0);
-            parent_candidate_.push_back(-1);
-            conditional_parent_alleles_.push_back(site.conditional_parent_alleles);
             add_graph_candidate(out_, site, sid, allele_counts_.back(), kChunkTid);
         }
     }
 
-    // 2. Parent -> child snarl relationships. A nested snarl's observations
-    //    are only counted when the read also traverses a qualifying allele of
-    //    the parent snarl (conditional_parent_alleles, from the VCF PA field).
-    void link_parent_sites() {
-        for (size_t site_i = 0; site_i < catalog_.size(); ++site_i) {
-            const GraphSite& site = catalog_[site_i];
-            if (site.parent.empty()) continue;
-            const std::string key = graph_site_key_str(site);
-            auto child_it = site_to_candidate_.find(key);
-            auto parent_it = site_to_candidate_.find(site.parent);
-            if (child_it == site_to_candidate_.end() || parent_it == site_to_candidate_.end()) continue;
-            parent_candidate_[static_cast<size_t>(child_it->second)] = parent_it->second;
-        }
-    }
-
-    // 3. One pass over the rows: intern read names, track each read's best
+    // 2. One pass over the rows: intern read names, track each read's best
     //    MAPQ and collect its allele per site, sorted by site; a read seen at
     //    one site with two different alleles is a conflict there (-1).
     std::vector<std::vector<SiteAlleleEntry>> collect_read_alleles() {
@@ -597,57 +577,23 @@ private:
         return allele_by_read_site;
     }
 
-    // 4. Per-read observation lists and per-site allele and strand counts,
-    //    with parent gating. Counted so the cost of the gate is visible:
-    //    dropping an observation here leaves the site with no allele evidence
-    //    at all, which surfaces downstream as a "ref_only" filter rather than
-    //    as anything mentioning nesting.
-    void count_gated_observations(const std::vector<std::vector<SiteAlleleEntry>>& allele_by_read_site) {
-        const auto find_site_entry = [](const std::vector<SiteAlleleEntry>& v, int site_i)
-            -> const SiteAlleleEntry* {
-            auto it = std::lower_bound(v.begin(), v.end(), site_i,
-                                       [](const SiteAlleleEntry& e, int s) { return e.site_i < s; });
-            if (it != v.end() && it->site_i == site_i) return &*it;
-            return nullptr;
-        };
+    // 3. Per-read observation lists and per-site allele and strand counts.
+    void count_observations(const std::vector<std::vector<SiteAlleleEntry>>& allele_by_read_site) {
         const uint32_t n_reads = static_cast<uint32_t>(read_id_to_name_.size());
-        int64_t gate_no_parent_cand = 0, gate_no_parent_obs = 0, gate_allele_mismatch = 0, gate_kept = 0;
         read_obs_.assign(n_reads, {});
         for (uint32_t rid = 0; rid < n_reads; ++rid) {
-            const auto& by_site = allele_by_read_site[rid];
-            for (const auto& entry : by_site) {
+            for (const auto& entry : allele_by_read_site[rid]) {
                 const int site_i = entry.site_i;
                 const int packed = entry.packed;
                 if (packed < 0) continue;
                 const int allele = unpack_allele(packed);
                 const bool rev = unpack_reverse(packed);
-                const std::vector<int>& conditional = conditional_parent_alleles_[static_cast<size_t>(site_i)];
-                const int parent_i = parent_candidate_[static_cast<size_t>(site_i)];
-                if (!conditional.empty()) {
-                    if (parent_i < 0) { ++gate_no_parent_cand; continue; }
-                    const SiteAlleleEntry* parent_obs = find_site_entry(by_site, parent_i);
-                    if (!parent_obs || parent_obs->packed < 0) { ++gate_no_parent_obs; continue; }
-                    const int parent_allele = unpack_allele(parent_obs->packed);
-                    if (std::find(conditional.begin(), conditional.end(), parent_allele) == conditional.end()) {
-                        ++gate_allele_mismatch;
-                        continue;
-                    }
-                    ++gate_kept;
-                }
                 ++allele_counts_[static_cast<size_t>(site_i)][static_cast<size_t>(allele)];
                 auto& sc = rev ? rev_strand_counts_[static_cast<size_t>(site_i)]
                                : fwd_strand_counts_[static_cast<size_t>(site_i)];
                 ++sc[static_cast<size_t>(allele)];
                 read_obs_[rid].push_back(GraphProfileObservation{site_i, allele});
             }
-        }
-        if (opts_.verbose >= 1) {
-            const int64_t dropped = gate_no_parent_cand + gate_no_parent_obs + gate_allele_mismatch;
-            std::fprintf(stderr,
-                         "[parent-gate] kept %" PRId64 " dropped %" PRId64
-                         " (no parent candidate %" PRId64 ", parent unobserved %" PRId64
-                         ", parent allele mismatch %" PRId64 ")\n",
-                         gate_kept, dropped, gate_no_parent_cand, gate_no_parent_obs, gate_allele_mismatch);
         }
     }
 
@@ -676,7 +622,7 @@ private:
         }
     }
 
-    // 5. Phase 1 of the candidate filtering (three phases mirroring BAM §13
+    // 4. Phase 1 of the candidate filtering (three phases mirroring BAM §13
     //    het classification): drop individual alt alleles below min_alt_depth
     //    (noise walks). allele_remap_[site][old allele] = new allele (or -1
     //    if dropped); per-site counts recomputed from surviving alleles only;
@@ -758,7 +704,7 @@ private:
         std::vector<std::vector<int>> orig_idx;
     };
 
-    // 6. Phase 2: decompose each surviving site into biallelic (ref vs alt_i)
+    // 5. Phase 2: decompose each surviving site into biallelic (ref vs alt_i)
     //    pairs, mirroring the BAM path where every candidate is a single
     //    ref/alt pair. AF and depth filters are applied per pair; filtered
     //    pairs go to out.filtered_sites. A read observing ref contributes
@@ -936,7 +882,7 @@ private:
         allele_orig_idx_      = std::move(t.orig_idx);
     }
 
-    // 7. Phase 3: remap read observations to the new biallelic pair space.
+    // 6. Phase 3: remap read observations to the new biallelic pair space.
     //    Allele 0 (ref) fans out to all new pairs from its original site
     //    (allele 0 in each). Allele j (alt) maps to allele 1 in the one pair
     //    that holds alt j. Observations at pruned candidates are dropped.
@@ -987,7 +933,7 @@ private:
         }
     }
 
-    // 8. One read profile per read with observations, in read-name order for
+    // 7. One read profile per read with observations, in read-name order for
     //    deterministic output; a read seen at one candidate with two alleles
     //    loses that call.
     void add_read_profiles() {
@@ -1026,16 +972,14 @@ private:
 // Main entry point: convert graph-space allele observations into a PhasingChunk
 // (GraphChunkBuilder, one method per step):
 //   1. Enumerate eligible catalog sites -> initial multi-allelic candidates
-//   2. Wire parent->child snarl relationships for gating
-//   3. Single pass over rows: intern read names, collect per-read allele obs
-//   4. Parent-gated observation counting (child obs only counted when the
-//      read also observes a qualifying parent allele)
-//   5. Phase 1: drop individual alt alleles below min_alt_depth
-//   6. Phase 2: decompose multi-allelic sites into biallelic ref/alt pairs,
+//   2. Single pass over rows: intern read names, collect per-read allele obs
+//   3. Observation counting
+//   4. Phase 1: drop individual alt alleles below min_alt_depth
+//   5. Phase 2: decompose multi-allelic sites into biallelic ref/alt pairs,
 //      apply depth + AF filters per pair
-//   7. Classify surviving candidates (het/hom/low-cov/strand-bias), then
+//   6. Classify surviving candidates (het/hom/low-cov/strand-bias), then
 //      Phase 3: remap read observations to biallelic pair space, drop pruned
-//   8. Build ReadVariantProfile + cgranges index for k-means
+//   7. Build ReadVariantProfile + cgranges index for k-means
 GraphChunkBuildResult build_graph_chunk(const GraphSiteCatalogView& catalog,
                                         const std::vector<GraphReadAllele>& rows,
                                         const std::string& /*contig*/,
@@ -1131,8 +1075,7 @@ size_t supplement_phased_snp_branches(const GraphSiteCatalogView& catalog,
         if (found == sites.end()) continue;
         const GraphSite& site = *found->second;
         const size_t alt_i = static_cast<size_t>(graph_chunk.site_allele_orig_idx[ci][1]);
-        if (alt_i >= site.allele_walks.size() || site.allele_walks.size() <= 2 ||
-            !site.conditional_parent_alleles.empty()) continue;
+        if (alt_i >= site.allele_walks.size() || site.allele_walks.size() <= 2) continue;
         const GraphWalk& ref = site.allele_walks[0];
         const GraphWalk& alt = site.allele_walks[alt_i];
         if (ref.size() < 3 || ref.size() != alt.size()) continue;

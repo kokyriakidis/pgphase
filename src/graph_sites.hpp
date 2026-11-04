@@ -49,11 +49,8 @@ struct GraphSite {
     std::vector<std::string> alts;
     std::vector<std::string> allele_traversals;  // AT entries (the unit tests' GFA fixtures)
     std::vector<GraphWalk> allele_walks;          // parsed walks (one per allele)
-    int level = -1;              // snarl nesting level (LV info field)
-    std::string parent;          // parent snarl site key (PS info field)
     hts_pos_t ref_beg = 0;      // linearized ref interval start
     hts_pos_t ref_end = 0;      // linearized ref interval end
-    std::vector<int> conditional_parent_alleles;  // PA field: parent alleles that gate this child
     bool has_spanning_deletion = false;  // true if any ALT is '*'
     bool bam_alt_deletion_no_ref = false;
     bool bam_low_fraction_snp = false;

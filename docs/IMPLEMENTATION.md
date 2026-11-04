@@ -694,7 +694,9 @@ The site catalog is dromos's one file for the graph (`dromos catalog`; the forma
   letters (SEQ, EXC), most of a block's bytes, only when a record of the block is kept.
 - Each record becomes the `GraphSite` of the same record's VCF line (`dromos view` prints that line): CHROM, POS, ID
   (`<start><end>` visits), REF and ALT spelled from the node table (reverse visits reverse-complemented), the AT
-  walks, LV and PS. A lone empty ALT gives no ALT, as the sites VCF reader pgphase had read an empty ALT field.
+  walks. A lone empty ALT gives no ALT, as the sites VCF reader pgphase had read an empty ALT field. The LV and PS
+  columns (the snarl's nesting level and parent) are read past, their varints still checked: no stage uses them, and
+  dromos writes no PA (the parent alleles that once gated a nested site's reads).
 - Skipped unread, as before, and counted in the load stats: a block whose `min_allele` (its records' shortest
   allele, the padding base not counted) exceeds the GAF's `#max_span` for the contig, and a one-record block whose
   `max_walk` exceeds 65,535 visits (the compact index's limit); then, record by record, a record overlapping the

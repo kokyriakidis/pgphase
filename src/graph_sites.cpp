@@ -251,7 +251,6 @@ GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_te
             site.id = "auto_" + std::to_string(catalog.sites.size() + 1) + "_" +
                       step_key(ref_sub.front()) + "_" + step_key(ref_sub.back());
             site.ref = ".";
-            site.level = 0;
             site.ref_beg = site.pos;
             site.ref_end = ref_end < ref_positions.size() ? ref_positions[ref_end] + 1 : site.pos;
             site.allele_traversals.push_back(ref_text);

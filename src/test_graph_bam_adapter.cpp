@@ -550,10 +550,6 @@ int main(int argc, char** argv) {
         graph.chunk.candidates[0].phase_set = 0;
         ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 0,
                     "SNP branch: unphased candidates cannot gain stitching evidence");
-        graph = make_chunk();
-        catalog.sites[0].conditional_parent_alleles = {1};
-        ok &= check(supplement_phased_snp_branches(catalog.view_all(), rows, graph, opts) == 0,
-                    "SNP branch: conditional child cannot bypass parent gating");
     }
 
 
@@ -670,30 +666,6 @@ int main(int argc, char** argv) {
                     singleton.chunk.phase_sets[0] == kUnphasedReadPhaseSet,
                     "physical homozygote: singleton read labels require reassignment");
     }
-
-    GraphSiteCatalog conditional_catalog;
-    conditional_catalog.sites.push_back(make_site("parent", 100, ">10>11>12", ">10>13>12"));
-    GraphSite child = make_site("child", 110, ">20>21>22", ">20>23>22");
-    child.parent = "parent";
-    child.conditional_parent_alleles = {1};
-    conditional_catalog.sites.push_back(child);
-    std::vector<GraphReadAllele> conditional_rows = {
-        {"child", "chr1", 110, "child_only", 1},
-        {"parent", "chr1", 100, "with_parent", 1},
-        {"child", "chr1", 110, "with_parent", 1},
-    };
-    Options no_af_opts;
-    no_af_opts.min_depth = 1;
-    no_af_opts.min_alt_depth = 1;
-    no_af_opts.min_af = 0.0;
-    no_af_opts.max_af = 1.0;
-    GraphChunkBuildResult conditional_chunk =
-        build_graph_chunk(conditional_catalog.view_all(), conditional_rows, "chr1", 0, 200, 0, no_af_opts);
-    ok &= check(conditional_chunk.chunk.reads.size() == 1,
-                "conditional child-only graph read is missing");
-    ok &= check(!conditional_chunk.chunk.reads.empty() &&
-                conditional_chunk.chunk.reads[0].qname == "with_parent",
-                "conditional child with parent is retained");
 
     // --- AF / depth filter ---
     // Four sites: one het (passes), one hom-alt (AF=1.0 > max_af), one low-depth

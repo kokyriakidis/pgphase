@@ -145,8 +145,6 @@ private:
         uint64_t first = 0, last = 0;  ///< visits: id << 1 | reverse
         size_t walk0 = 0;              ///< its first walk in walks_
         size_t nwalk = 0;
-        uint64_t level = 0;
-        uint64_t ps_start = 0, ps_end = 0;
     };
 
     /// Reads contig k's block b (its CRC checked) and decodes its columns

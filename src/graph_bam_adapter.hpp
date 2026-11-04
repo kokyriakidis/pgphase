@@ -5,8 +5,8 @@
 // the shared phasing pipeline (k-means clustering, chunk stitching, VCF
 // output).  build_graph_chunk converts per-read allele observations from
 // graph_query into a PhasingChunk with CandidateVariant + ReadVariantProfile,
-// applying parent-snarl gating, multi-allelic→biallelic decomposition, and
-// three-phase depth/AF filtering along the way.
+// applying multi-allelic→biallelic decomposition and three-phase depth/AF
+// filtering along the way.
 
 #include "refined_alignment.hpp"
 #include "collect_types.hpp"
@@ -104,8 +104,8 @@ void phase_joint_graph_candidates(GraphChunkBuildResult& graph_chunk, const Opti
     const std::function<char(hts_pos_t)>& reference_base);
 
 // Convert graph-space allele observations into a PhasingChunk for phasing.
-// Applies parent-snarl gating, multi-allelic→biallelic decomposition,
-// and three-phase depth/AF filtering.
+// Applies multi-allelic→biallelic decomposition and three-phase depth/AF
+// filtering.
 /// Rebuild the read<->variant interval tree from chunk.read_var_profile. The
 /// tree is keyed by CANDIDATE INDEX, so anything that inserts, removes or
 /// reorders candidates must call this before the chunk is solved again.

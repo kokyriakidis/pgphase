@@ -528,11 +528,12 @@ void SiteCatalogReader::read_block(size_t k, size_t b) {
                 visits_.push_back(static_cast<uint64_t>(widx) << 1 | (x & 1));
             }
         }
-        r.level = lv.varint();
+        // The snarl's nesting level and parent (LV, PS) are read past: pgphase
+        // does not use them, but their columns must hold every record's.
+        lv.varint();
         if (r.flags & kFlagPs) {
-            const uint64_t base = (r.flags & kFlagReversed) ? r.last ^ 1 : r.first;
-            r.ps_start = base + static_cast<uint64_t>(unzigzag(ps.varint()));
-            r.ps_end = r.ps_start + static_cast<uint64_t>(unzigzag(ps.varint()));
+            ps.varint();
+            ps.varint();
         }
         records_.push_back(r);
     }
@@ -725,11 +726,6 @@ void SiteCatalogReader::append_sites(const std::string& contig_name, hts_pos_t b
                 for (size_t j = walks_[rr.walk0 + w]; j < walks_[rr.walk0 + w + 1]; ++j)
                     gw.push_back(GraphWalkStep{node_ids_[static_cast<size_t>(visits_[j] >> 1)], (visits_[j] & 1) != 0});
                 gw.push_back(GraphWalkStep{rr.last >> 1, (rr.last & 1) != 0});
-            }
-            s.level = static_cast<int>(rr.level);
-            if (rr.flags & kFlagPs) {
-                put_visit(s.parent, rr.ps_start);
-                put_visit(s.parent, rr.ps_end);
             }
             s.ref_beg = s.pos;
             s.ref_end = s.pos;
