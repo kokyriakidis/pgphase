@@ -29,12 +29,6 @@ bool plegma_built();
 /// std::runtime_error on a bad choice or model.
 void configure_msa(const Options& opts);
 
-/// The development loop's MSA settings, read once by each command before it runs: PGPHASE_MSA and
-/// PGPHASE_PLEGMA_MODEL override opts.msa and opts.msa_model; PGPHASE_PLEGMA_NOISE_RUN=N, PGPHASE_PLEGMA_TWO_DB=X and
-/// PGPHASE_PLEGMA_ROUNDS=E[,L] set the Options::plegma_* tuning. Nothing below the command reads the environment for
-/// a setting, so a test sets these through Options.
-void apply_msa_environment(Options& opts);
-
 /// Whether the run's noisy-region MSA is plegma's.
 bool use_plegma_msa();
 
@@ -45,7 +39,7 @@ std::string msa_description();
 std::string msa_backends();
 
 /// Whether the MSA's het calls stand without the reads' phasing (CandidateVariant::msa_genotyped): plegma with a
-/// homopolymer model (PGPHASE_PLEGMA_MODEL).
+/// homopolymer model (the built-in one, or --msa-model).
 bool msa_genotypes_alone();
 
 /// With PGPHASE_MSA_DUMP_READS set: the inputs of this thread's last plegma call ("clustered" or "phased", then per
@@ -69,7 +63,7 @@ struct PlegmaRows {
  *
  * read_seqs are base codes 0-4; read_covers the reads' noisy-region cover flags (both ends, the left or the right
  * end alone, or neither), as plegma's anchors; read_strands 1 for a read reverse to the reference (for the
- * homopolymer model PGPHASE_PLEGMA_MODEL names, shasta2's csv, when set). cons_seqs[c] is cluster c's consensus (codes); clu_read_ids[c] its
+ * homopolymer model). cons_seqs[c] is cluster c's consensus (codes); clu_read_ids[c] its
  * reads as read_ids names them, in input order, and rows[c][k] read k's rows. Returns the number of clusters (0 on
  * failure, or 1 or 2), at opts' scoring and min_af.
  */

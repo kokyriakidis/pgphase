@@ -95,21 +95,6 @@ bool plegma_built() {
 #endif
 }
 
-void apply_msa_environment(Options& opts) {
-    if (const char* env = std::getenv("PGPHASE_MSA"); env != nullptr && *env != 0) opts.msa = env;
-    if (const char* env = std::getenv("PGPHASE_PLEGMA_MODEL"); env != nullptr && *env != 0) opts.msa_model = env;
-    if (const char* run = std::getenv("PGPHASE_PLEGMA_NOISE_RUN")) opts.plegma_noise_run = std::atoi(run);
-    if (const char* db = std::getenv("PGPHASE_PLEGMA_TWO_DB"))
-        opts.plegma_two_lengths_db = static_cast<float>(std::atof(db));
-    if (const char* rounds = std::getenv("PGPHASE_PLEGMA_ROUNDS")) {
-        int edit = 50, likely = 20;
-        if (std::sscanf(rounds, "%d,%d", &edit, &likely) >= 1) {
-            opts.plegma_edit_rounds = edit;
-            opts.plegma_likely_rounds = likely;
-        }
-    }
-}
-
 void configure_msa(const Options& opts) {
     msa_configured = true;
     choose_msa(opts);
@@ -269,21 +254,16 @@ void remember_inputs(const char* kind, const PlegmaInput& in, const std::vector<
 /// 29,450 -> 29,446, arm reads +38 correct, -24 discordant; 12 dB 197 false for 29,441 true, 20 dB 186 for 29,430.
 constexpr float kClusteredTwoLengthsDb = 8.0f;
 
-/// pgphase's scoring and plegma's tuning (Options::plegma_*) as plegma's options; `two_lengths_db` the PS-aware path's
-/// 5 dB unless given (the no-PS path's is kClusteredTwoLengthsDb).
+/// pgphase's scoring as plegma's options, plegma's tuning its defaults; `two_lengths_db` the PS-aware path's 5 dB
+/// unless given (the no-PS path's is kClusteredTwoLengthsDb).
 plegma::Options options_of(const Options& opts, float two_lengths_db = 5.0f) {
-    plegma::Options options = plegma::Options()
-                                  .pinned(false)
-                                  .scoring(opts.match, opts.mismatch)
-                                  .gaps(opts.gap_open1, opts.gap_ext1, opts.gap_open2, opts.gap_ext2)
-                                  // On HG002 HiFi chr12, 18 and 20, 5 dB against plegma's 15: 22 fewer true hets of
-                                  // 28,259 for 77 fewer false of 282, the phasing as good.
-                                  .twoLengthsDb(two_lengths_db);
-    if (opts.plegma_noise_run >= 0) options.noiseRun(opts.plegma_noise_run);
-    if (opts.plegma_two_lengths_db >= 0.0f) options.twoLengthsDb(opts.plegma_two_lengths_db);
-    if (opts.plegma_edit_rounds >= 0)
-        options.polishRounds(opts.plegma_edit_rounds).likelyRounds(opts.plegma_likely_rounds);
-    return options;
+    return plegma::Options()
+        .pinned(false)
+        .scoring(opts.match, opts.mismatch)
+        .gaps(opts.gap_open1, opts.gap_ext1, opts.gap_open2, opts.gap_ext2)
+        // On HG002 HiFi chr12, 18 and 20, 5 dB against plegma's 15: 22 fewer true hets of
+        // 28,259 for 77 fewer false of 282, the phasing as good.
+        .twoLengthsDb(two_lengths_db);
 }
 
 /// plegma's clusters as pgphase's: consensus in base codes, reads by read_ids, each read's rows. Returns the

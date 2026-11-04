@@ -335,30 +335,6 @@ static bool test_place_unlinked_hets() {
     return ok;
 }
 
-// apply_msa_environment: the development loop's MSA settings land in Options, and nothing else reads them.
-static bool test_msa_environment() {
-    bool ok = true;
-    Options defaults;
-    apply_msa_environment(defaults);
-    ok &= check(defaults.msa.empty() && defaults.plegma_noise_run == -1 && defaults.plegma_edit_rounds == -1,
-                "msa environment: unset changes nothing");
-    setenv("PGPHASE_MSA", "abpoa", 1);
-    setenv("PGPHASE_PLEGMA_MODEL", "none", 1);
-    setenv("PGPHASE_PLEGMA_NOISE_RUN", "0", 1);
-    setenv("PGPHASE_PLEGMA_TWO_DB", "12", 1);
-    setenv("PGPHASE_PLEGMA_ROUNDS", "10", 1);
-    Options opts;
-    apply_msa_environment(opts);
-    ok &= check(opts.msa == "abpoa" && opts.msa_model == "none", "msa environment: backend and model");
-    ok &= check(opts.plegma_noise_run == 0 && opts.plegma_two_lengths_db == 12.0f, "msa environment: knobs");
-    ok &= check(opts.plegma_edit_rounds == 10 && opts.plegma_likely_rounds == 20,
-                "msa environment: rounds, likelihood rounds defaulted");
-    for (const char* v : {"PGPHASE_MSA", "PGPHASE_PLEGMA_MODEL", "PGPHASE_PLEGMA_NOISE_RUN", "PGPHASE_PLEGMA_TWO_DB",
-                          "PGPHASE_PLEGMA_ROUNDS"})
-        unsetenv(v);
-    return ok;
-}
-
 // graph_chunks_to_candidate_table: a catalog row's padded alleles become one minimal record in the row's phase; a row
 // written no record and an injected row without a het consensus give none.
 static bool test_graph_records() {
@@ -458,7 +434,6 @@ int main(int argc, char** argv) {
     ok &= test_chunk_overlap_pairs_appended_reads();
     ok &= test_row_alleles();
     ok &= test_place_unlinked_hets();
-    ok &= test_msa_environment();
     ok &= test_graph_records();
 
     {

@@ -1673,7 +1673,7 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
     std::array<std::vector<std::vector<uint8_t>>, 2> msa_seqs;
 
     const int n_full = static_cast<int>(full_ids.size());
-    // plegma (PGPHASE_MSA=plegma): each read its own rows against its cluster's consensus.
+    // plegma (--msa plegma, the default): each read its own rows against its cluster's consensus.
     const bool by_plegma = use_plegma_msa();
     std::array<std::vector<PlegmaRows>, 2> plegma_rows;
     int n_cons = 0;
@@ -1779,7 +1779,7 @@ int wfa_collect_noisy_aln_str_with_ps_hap(const Options& opts, bool sampling_rea
     std::array<int, 2>                           msa_seq_lens{0, 0};
     std::array<std::vector<PlegmaRows>, 2>       plegma_rows{};
 
-    // plegma (PGPHASE_MSA=plegma): both haplotypes in one call, which decides homopolymer lengths on both.
+    // plegma (--msa plegma, the default): both haplotypes in one call, which decides homopolymer lengths on both.
     if (use_plegma_msa()) {
         std::vector<int>      ps_ids;
         std::vector<uint8_t*> ps_seqs;

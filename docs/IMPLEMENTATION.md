@@ -2189,8 +2189,7 @@ A region returns `-1` when `collect_phase_set_with_both_haps` cannot find a phas
 
 The noisy-region MSA is [plegma](https://github.com/kokyriakidis/plegma) (`src/plegma_msa.cpp`, over plegma's C
 API) unless `--msa abpoa` chooses longcallD's abPOA, whose two paths the next sections describe. `configure_msa`
-chooses once per run, before any worker thread; `PGPHASE_MSA` and `PGPHASE_PLEGMA_MODEL` override `--msa` and
-`--msa-model` for the development loop. plegma takes the same reads and gives the same outputs (each cluster's
+chooses once per run, before any worker thread. plegma takes the same reads and gives the same outputs (each cluster's
 consensus, its reads, and each read's row against it, base codes 0-4 and 5 for a gap, as `make_cons_read_aln_str`
 takes them), with these differences:
 
@@ -3096,7 +3095,7 @@ The script passes the selected mode flag through to `pgphase` and keys same-posi
 
 The phased-BAM parity scripts this section described (`verify_refine_bam_parity.sh`,
 `verify_refine_regression.sh`) are no longer in the repository. On HG002 HiFi chr20:10-12 Mb (9,116 reads) the
-`--refine-aln` output of `PGPHASE_MSA=abpoa collect-bam-variation` held the same alignment as longcallD's for every
+`--refine-aln` output of `collect-bam-variation --msa abpoa` held the same alignment as longcallD's for every
 read (5,697 rewritten), and the same `HP` for 9,114 (2026-10-29). `collect-graph-variation --out-sam --refine-aln` is
 checked in `make check` (`scripts/check_aligned_output.py`).
 
