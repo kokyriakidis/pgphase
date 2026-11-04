@@ -42,28 +42,8 @@ Each submodule's licence travels with its source.
 licence: Copyright (c) 2025-2026 Paolo Carnevali; portions from Shasta, Copyright (c) 2023-2025 Paolo Carnevali and
 Copyright (c) 2018-2022 Chan Zuckerberg Initiative. `homopolymer-hifi-hg002.csv` is pgphase's own, in the same format.
 
-## pgcatalog (`tools/pgcatalog`)
+## System libraries
 
-pgcatalog is built by cargo from these crates (versions pinned in
-`tools/pgcatalog/Cargo.lock`), each with its licence in its source:
-
-| Crate | Project | Licence |
-|---|---|---|
-| `gbz`, `simple-sds` | Jouni Sirén (<https://github.com/jltsiren/gbwt-rs>, <https://github.com/jltsiren/simple-sds>) | MIT |
-| `rayon` | <https://github.com/rayon-rs/rayon> | MIT or Apache-2.0 |
-| `flate2` | <https://github.com/rust-lang/flate2-rs> | MIT or Apache-2.0 |
-| `zstd`, `zstd-safe` | <https://github.com/gyscos/zstd-rs> | MIT |
-| `zstd-sys` | the same, bundling zstd (<https://github.com/facebook/zstd>) | BSD-3-Clause |
-
-pgphase itself links the system zstd library (BSD-3-Clause) to read dromos's site
-catalogs, and zlib for their checksums.
-
-## dromos (`tools/dromos`)
-
-dromos (<https://github.com/kokyriakidis/dromos>), which `index` runs, is a
-git submodule: Copyright (c) 2026 Konstantinos Kyriakidis, MIT
-(`tools/dromos/LICENSE`). It is built by pixi in its pinned environment
-(`tools/dromos/pixi.lock`), links the Mojo runtime libraries that environment
-holds (as plegma does; the portable bundle carries them), and loads at run time
-libdeflate (<https://github.com/ebiggers/libdeflate>, MIT), libzstd
-(<https://github.com/facebook/zstd>, BSD-3-Clause) and zlib (zlib licence).
+pgphase links the system zstd library (<https://github.com/facebook/zstd>,
+BSD-3-Clause) to read dromos's site catalogs, and zlib (zlib licence) for their
+checksums.

@@ -93,29 +93,6 @@ else
   echo "[portable] warning: samtools not found (set SAMTOOLS=/path/to/samtools to bundle); --refine-aln needs samtools on PATH" >&2
 fi
 
-# pgcatalog (the site catalog builder) beside pgphase, where build-snarl-catalog
-# looks for it; built when cargo is available.
-if make -C "$ROOT_DIR" pgcatalog >/dev/null 2>&1; then
-  cp "$ROOT_DIR/pgcatalog" "$BIN_DIR/pgcatalog"
-  echo "[portable] bundled pgcatalog -> bin/pgcatalog"
-else
-  echo "[portable] warning: pgcatalog not built (needs Rust: make pgcatalog); build-snarl-catalog will look for pgcatalog on PATH" >&2
-fi
-
-# dromos (which pgphase index runs) beside pgphase, where pgphase index looks for
-# it, with its Mojo runtime libraries and the libdeflate and libzstd it loads at
-# run time (not in ldd's list); built when pixi is available.
-if make -C "$ROOT_DIR" dromos >/dev/null 2>&1; then
-  cp "$ROOT_DIR/dromos" "$BIN_DIR/dromos"
-  copy_libs_for_binary "$BIN_DIR/dromos" "dromos"
-  for lib in "$ROOT_DIR"/tools/dromos/.pixi/envs/default/lib/libdeflate.* "$ROOT_DIR"/tools/dromos/.pixi/envs/default/lib/libzstd.*; do
-    [[ -f "$lib" ]] && cp -L "$lib" "$LIB_DIR/"
-  done
-  echo "[portable] bundled dromos -> bin/dromos"
-else
-  echo "[portable] warning: dromos not built (needs pixi: make dromos); pgphase index will look for dromos on PATH" >&2
-fi
-
 # Create launcher that pins runtime library search to bundled libs first.
 if [[ "$OS_NAME" == "Linux" ]]; then
 cat > "$BIN_DIR/pgphase-portable" <<'EOF'
@@ -154,8 +131,6 @@ chmod +x "$BIN_DIR/pgphase-portable"
   echo "  bin/pgphase"
   echo "  bin/pgphase-portable"
   echo "  bin/samtools (when found at bundle time; needed for --refine-aln sort)"
-  echo "  bin/pgcatalog (when built: build-snarl-catalog, and pgphase index's reference map)"
-  echo "  bin/dromos (when built: index)"
   if [[ "$OS_NAME" == "Linux" ]]; then
     echo "  lib/*.so* (copied from ldd)"
   else

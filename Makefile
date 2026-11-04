@@ -6,9 +6,6 @@ THIRD_PARTY ?= $(abspath third_party)
 WFA2_ROOT ?= $(THIRD_PARTY)/WFA2-lib
 ABPOA_ROOT ?= $(THIRD_PARTY)/abPOA
 EDLIB_ROOT ?= $(THIRD_PARTY)/edlib/edlib
-# Rust is needed for pgcatalog (make pgcatalog). Prefer the rustup-managed toolchain
-# over any system-installed cargo.
-CARGO ?= $(firstword $(wildcard $(HOME)/.cargo/bin/cargo) cargo)
 
 CXXFLAGS ?= -O3 -std=c++17 -Wall -Wextra -MMD -MP
 WFA_CPPFLAGS = -I$(WFA2_ROOT)
@@ -23,8 +20,6 @@ ABPOA_LIB = $(ABPOA_ROOT)/lib/libabpoa.a
 SOURCES_CXX = src/main.cpp \
 	src/allele_identity.cpp \
 	src/collect_pipeline.cpp \
-	src/pgcatalog_command.cpp \
-	src/index_command.cpp \
 	src/graph_collect.cpp \
 	src/graph_records.cpp \
 	src/bam_digar.cpp \
@@ -76,7 +71,7 @@ PLEGMA_OBJS = src/plegma_msa.o $(MSA_MODEL_OBJ)
 
 -include $(patsubst %.cpp,%.d,$(SOURCES_CXX))
 
-.PHONY: all clean check paper paper-sync unit-tests predicate-tests parity-tests pgcatalog-tests dromos-tests upstream-parity-tests gap-dev-check third-party-libs portable-bundle release release-strict
+.PHONY: all clean check paper paper-sync unit-tests predicate-tests parity-tests upstream-parity-tests gap-dev-check third-party-libs portable-bundle release release-strict
 
 all: pgphase
 
@@ -187,32 +182,6 @@ $(EDLIB_OBJ): $(EDLIB_ROOT)/src/edlib.cpp
 pgphase: $(OBJS) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(WFA2_LIB) $(ABPOA_LIB) $(LDFLAGS)
 
-# pgcatalog builds the site catalogs (pgphase build-snarl-catalog runs it) and the
-# graph's reference map (pgphase index runs it); it is placed beside pgphase,
-# where pgphase looks first.
-PGCATALOG_SOURCES = tools/pgcatalog/Cargo.toml tools/pgcatalog/Cargo.lock $(wildcard tools/pgcatalog/src/*.rs)
-pgcatalog: $(PGCATALOG_SOURCES)
-	cd tools/pgcatalog && $(CARGO) build --release --locked
-	cp tools/pgcatalog/target/release/pgcatalog $@
-
-pgcatalog-tests:
-	cd tools/pgcatalog && $(CARGO) test --release --locked
-
-# dromos (tools/dromos, github.com/kokyriakidis/dromos; Mojo, built with pixi)
-# writes the index of the reads' graph alignments pgphase index makes; it is
-# placed beside pgphase, where pgphase index looks first.
-DROMOS_DIR ?= tools/dromos
-DROMOS_SOURCES = $(DROMOS_DIR)/pixi.toml $(DROMOS_DIR)/pixi.lock $(wildcard $(DROMOS_DIR)/dromos/*.mojo $(DROMOS_DIR)/cli/*.mojo)
-dromos: $(DROMOS_SOURCES)
-	@command -v $(PIXI) > /dev/null || { echo "dromos needs pixi (https://pixi.sh) to build" >&2; exit 1; }
-	@test -f $(DROMOS_DIR)/pixi.toml || { echo "dromos: git submodule update --init $(DROMOS_DIR)" >&2; exit 1; }
-	cd $(DROMOS_DIR) && $(PIXI) run build
-	cp $(DROMOS_DIR)/build/dromos $@
-
-dromos-tests:
-	cd $(DROMOS_DIR) && $(PIXI) run test
-
-
 test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o src/site_catalog.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
@@ -237,8 +206,8 @@ test_phase_predicates: src/test_phase_predicates.cpp third_party/catch2/catch.hp
 
 
 clean:
-	rm -f pgphase pgcatalog dromos test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_task_pool src/*.o src/*.d src/msa_models.cpp
-	rm -rf $(UPSTREAM_PHASE_DIR) tools/pgcatalog/target $(DROMOS_DIR)/build
+	rm -f pgphase test_union_phase test_phase_predicates test_port_parity test_upstream_phase test_graph_sites test_graph_bam_adapter test_noise_filter test_allele_identity test_task_pool src/*.o src/*.d src/msa_models.cpp
+	rm -rf $(UPSTREAM_PHASE_DIR)
 
 test_upstream_phase: src/test_upstream_phase.cpp src/test_upstream_phase_bridge.h $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o $(PLEGMA_OBJS) src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) -O1 -std=c++17 -Wall -Wextra -Isrc -I. -o $@ $< $(UPSTREAM_PHASE_DIR)/bridge.o $(UPSTREAM_PHASE_DIR)/assign_hap.o $(UPSTREAM_PHASE_DIR)/collect_var.o src/collect_phase.o src/collect_phase_noisy.o src/collect_output.o src/collect_var.o src/noise_filter.o src/align.o $(PLEGMA_OBJS) src/cgranges.o src/kalloc.o src/sdust.o $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB) -Wl,--gc-sections $(LDFLAGS)

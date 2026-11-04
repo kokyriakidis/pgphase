@@ -4,7 +4,6 @@
 
 #include "collect_pipeline.hpp"
 #include "graph_collect.hpp"
-#include "pgcatalog_command.hpp"
 #include "plegma_msa.hpp"
 #include "version.hpp"
 
@@ -17,9 +16,18 @@ void print_main_help() {
               << "Commands:\n"
               << "  collect-graph-variation  Phase reads from graph alignments (GAF), optionally with a BAM\n"
               << "  collect-bam-variation    Phase reads from linear alignments (BAM/CRAM) only\n"
-              << "  build-snarl-catalog      Build pgcatalog's per-contig .pgsites catalogs (runs pgcatalog build);\n"
-              << "                           collect-graph-variation reads dromos catalog's instead (to be removed)\n"
-              << "  index                    Index graph alignments (GAM or GAF) by reference position (runs dromos index)\n";
+              << "\n"
+              << "The site catalog and the indexed GAF are made by dromos (github.com/kokyriakidis/dromos):\n"
+              << "  dromos catalog --graph graph.gbz --reference-sample CHM13\n"
+              << "  dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz\n";
+}
+
+// Commands pgphase no longer has: the dromos command that replaces each.
+int removed_command(const std::string& command, const char* dromos_command) {
+    std::cerr << "error: pgphase " << command << " is gone: dromos makes pgphase's inputs"
+              << " (github.com/kokyriakidis/dromos).\n"
+              << "  " << dromos_command << "\n";
+    return 1;
 }
 
 } // namespace
@@ -38,10 +46,11 @@ int main(int argc, char* argv[]) {
             return collect_graph_variation(argc - 1, argv + 1);
         }
         if (argc > 1 && std::string(argv[1]) == "build-snarl-catalog") {
-            return run_pgcatalog("build", argc - 1, argv + 1, argv[0]);
+            return removed_command(argv[1], "dromos catalog --graph graph.gbz --reference-sample CHM13");
         }
         if (argc > 1 && std::string(argv[1]) == "index") {
-            return run_index(argc - 1, argv + 1, argv[0]);
+            return removed_command(
+                argv[1], "dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz");
         }
     } catch (const std::exception& e) {
         // Turn any uncaught error (bad CLI value, missing file, etc.) into a

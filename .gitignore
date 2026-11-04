@@ -103,11 +103,6 @@ __pycache__/
 .claude/
 .codex
 
-# Rust / Cargo build artifacts
-/pgcatalog
-/dromos
-tools/pgcatalog/target/
-
 # OS metadata
 .DS_Store
 Thumbs.db

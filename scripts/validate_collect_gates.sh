@@ -258,42 +258,24 @@ fi
 echo "ok: the phased VCF names the site catalog's graph"
 
 # dromos catalog rebuilds that catalog from its committed snarls (so without vg): the same records. It needs a dromos
-# with the catalog command (DROMOS_CATALOG; the pinned tools/dromos predates it, so it is skipped there).
-PGCATALOG="${PGCATALOG:-$ROOT/pgcatalog}"
-DROMOS="${DROMOS:-$ROOT/dromos}"
-DROMOS_CATALOG="${DROMOS_CATALOG:-$DROMOS}"
-if [[ -x "$DROMOS_CATALOG" ]] && "$DROMOS_CATALOG" catalog --help > /dev/null 2>&1; then
+# with the catalog command (DROMOS, else dromos on PATH; github.com/kokyriakidis/dromos), and is skipped without one.
+DROMOS="${DROMOS:-$(command -v dromos || true)}"
+if [[ -n "$DROMOS" && -x "$DROMOS" ]] && "$DROMOS" catalog --help > /dev/null 2>&1; then
   cat_out="$TMPDIR/pgphase_validate_catalog"
   rm -rf "$cat_out"
   mkdir -p "$cat_out"
   cp "$GRAPH_DIR/micb-kir3dl1.gbz" "$cat_out/"
   cp -r "$GRAPH_DIR/micb-kir3dl1.snarls" "$cat_out/micb-kir3dl1.snarls"
-  "$DROMOS_CATALOG" catalog --graph "$cat_out/micb-kir3dl1.gbz" --reference-sample CHM13 \
+  "$DROMOS" catalog --graph "$cat_out/micb-kir3dl1.gbz" --reference-sample CHM13 \
     --snarls-cache "$cat_out/micb-kir3dl1.snarls" --out "$cat_out/micb-kir3dl1.CHM13.sites" -t 2 2>/dev/null
   for c in chr6 chr19; do
-    "$DROMOS_CATALOG" view "$cat_out/micb-kir3dl1.CHM13.sites" "$c" > "$cat_out/$c.rebuilt.vcf"
-    "$DROMOS_CATALOG" view "$GRAPH_CATALOG" "$c" > "$cat_out/$c.committed.vcf"
+    "$DROMOS" view "$cat_out/micb-kir3dl1.CHM13.sites" "$c" > "$cat_out/$c.rebuilt.vcf"
+    "$DROMOS" view "$GRAPH_CATALOG" "$c" > "$cat_out/$c.committed.vcf"
     check_golden "dromos catalog $c records" "$cat_out/$c.rebuilt.vcf" "$cat_out/$c.committed.vcf" hash_file
   done
 else
-  echo "skip: no dromos with the catalog command (DROMOS_CATALOG); the site catalog rebuild is not checked"
+  echo "skip: no dromos with the catalog command (DROMOS, or dromos on PATH); the site catalog rebuild is not checked"
 fi
-
-# The reference-indexed GAF from the raw alignments (pgphase index: pgcatalog ref-map, then dromos index):
-# the same records and index (compared decompressed).
-if [[ -x "$PGCATALOG" && -x "$DROMOS" ]]; then
-  gaf_out="$TMPDIR/pgphase_validate_index"
-  rm -rf "$gaf_out"
-  mkdir -p "$gaf_out"
-  cp "$GRAPH_DIR/micb-kir3dl1.gbz" "$gaf_out/"
-  PGCATALOG="$PGCATALOG" DROMOS="$DROMOS" "$PGPHASE" index --graph "$gaf_out/micb-kir3dl1.gbz" \
-    --reads "$GRAPH_DIR/micb-kir3dl1_HG003.gaf" --reference-sample CHM13 --out "$gaf_out/reads.coord.gaf.gz" -t 2 2>/dev/null
-  check_golden "index records" "$gaf_out/reads.coord.gaf.gz" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" hash_gz
-  check_golden "index tabix index" "$gaf_out/reads.coord.gaf.gz.tbi" "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz.tbi" hash_gz
-else
-  echo "skip: pgcatalog or dromos not built (make pgcatalog dromos); the GAF index is not checked"
-fi
-
 
 for msa in "${MSAS[@]}"; do
   dir="$EXPECTED_DIR"

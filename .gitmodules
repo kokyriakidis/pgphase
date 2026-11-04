@@ -10,6 +10,3 @@
 [submodule "third_party/plegma"]
 	path = third_party/plegma
 	url = https://github.com/kokyriakidis/plegma.git
-[submodule "tools/dromos"]
-	path = tools/dromos
-	url = https://github.com/kokyriakidis/dromos
