@@ -618,7 +618,15 @@ Per chunk, in order:
      grouped; the two best-supported become one window contrasting the
      reference carrying one with the reference carrying the other.
    - *Overlaps.* Windows that overlap a haplotype window or a voting indel row
-     are skipped.
+     are skipped. Of windows that overlap one another, the first built is
+     kept, candidates tried by position, then source (alignment, two-allele,
+     catalog), then the reads carrying the allele (most first), then sequence:
+     a catalog site's ALTs compete for one window, and taken in the catalog's
+     ALT order they made the result depend on it (chr20:25,493,501, a T run
+     whose reads carry +1 T and +2 T: +2 T, 18 reads, in vg deconstruct's order,
+     +3 T, 7 reads, in dromos catalog's). The gates run the union fixture on
+     its catalog with every site's ALTs reversed and rotated
+     (`scripts/permute_catalog_alts.py`) and require the same output.
    - *Written.* A window over one catalog repeat-indel row (a simple insertion or deletion) that pass 2 phases at a
      learned error under 0.3, each side's reads a median of at most one edit from that side's sequence, writes the
      row with that genotype and block (`window_phased`; CAT stays REP_HET_INDEL). Without the edit limit, reads of

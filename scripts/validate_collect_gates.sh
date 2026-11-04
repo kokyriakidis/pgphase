@@ -218,6 +218,23 @@ union_gates() {
     "$TMPDIR/pgphase_validate_${msa}_union_t4.tsv" hash_file
   same_output "$msa union phased VCF, 1 and 4 threads," "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
     "$TMPDIR/pgphase_validate_${msa}_union_t4.phased.vcf" hash_vcf_stable
+  # The order a catalog lists a site's ALTs in carries nothing: the slice's catalog with every site's ALTs reversed,
+  # and rotated one place (scripts/permute_catalog_alts.py), must phase the same.
+  local order alts
+  for order in reverse rotate; do
+    alts="$TMPDIR/pgphase_validate_${msa}_union_alts_$order"
+    python3 "$ROOT/scripts/permute_catalog_alts.py" --order "$order" "$CHR20_DIR/chr20_25M.CHM13.sites" "$alts.sites"
+    run_graph -t 4 --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$alts.sites" \
+      --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
+      -o "$alts.tsv" --phased-vcf-out "$alts.phased.vcf" > /dev/null
+    if [[ "$(hash_file "$alts.tsv")" != "$(hash_file "$TMPDIR/pgphase_validate_${msa}_union_t1.tsv")" ||
+          "$(hash_vcf_stable "$alts.phased.vcf")" != \
+          "$(hash_vcf_stable "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf")" ]]; then
+      echo "error: $msa union output changes with the catalog's ALTs ${order}d ($alts.tsv, $alts.phased.vcf)" >&2
+      exit 1
+    fi
+  done
+  echo "ok: $msa union output does not depend on the catalog's ALT order"
   if ! python3 "$ROOT/scripts/check_aligned_output.py" --refined "$TMPDIR/pgphase_validate_${msa}_union_t1.sam" \
       --plain "$TMPDIR/pgphase_validate_${msa}_union_t4.sam" --ref "$CHR20_DIR/ref.fa.gz" --left-aligned; then
     echo "error: $msa union aligned output (--refine-aln): see scripts/check_aligned_output.py" >&2

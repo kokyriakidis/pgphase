@@ -7,9 +7,12 @@
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -1452,6 +1455,80 @@ static void test_length_window_sites() {
           "length windows: reads split by their length");
 }
 
+// An allele window over a catalog site with several ALTs is built from the best-supported one, whatever order the
+// catalog lists them in. A run of 11 T, half the reads carrying +3 T; the site's ALTs are +1 T, +2 T and +3 T, carried
+// by 1, 2 and 10 reads. +2 T's window splits the reads as well (a +3 T read is one edit nearer it than the reference,
+// enough for the two-edit margin), so a window taken from whichever ALT came first phased +2 T when the catalog listed
+// it before +3 T (chr20:25,493,501 under --msa abpoa: vg deconstruct's ALT order and dromos catalog's phased CTT and
+// CTTT).
+static void test_allele_window_alt_order() {
+    std::string ref;
+    uint32_t state = 7;
+    for (int i = 0; i < 600; ++i) {
+        state = state * 1103515245u + 12345u;
+        ref += "ACG"[(state >> 16) % 3];  // no T outside the run
+    }
+    ref.replace(300, 11, std::string(11, 'T'));
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 600;
+    bam.ref_seq = ref;
+    std::vector<std::string> names;
+    for (int r = 0; r < 20; ++r) {
+        names.push_back("run" + std::to_string(r));
+        ReadRecord rec = read_named(names.back(), 60);
+        if (r % 2 == 1) {
+            rec.alignment = make_alignment(names.back(), ref.substr(0, 311) + "TTT" + ref.substr(311),
+                {bam_cigar_gen(311, BAM_CMATCH), bam_cigar_gen(3, BAM_CINS), bam_cigar_gen(289, BAM_CMATCH)});
+        } else {
+            rec.alignment = make_alignment(names.back(), ref, {bam_cigar_gen(600, BAM_CMATCH)});
+        }
+        bam.reads.push_back(std::move(rec));
+    }
+    const std::array<int, 3> extra = {1, 2, 3}, carried_by = {1, 2, 10};
+    std::array<int, 3> order = {0, 1, 2};
+    do {
+        GraphChunkBuildResult gc;
+        PhasingChunk& graph = gc.chunk;
+        graph.ref_beg = 1;
+        graph.ref_end = 600;
+        GraphSiteMeta site;
+        site.pos = 300;  // the run's padding base, 1-based
+        site.ref = ref.substr(299, 12);
+        for (int k : order) site.alts.push_back(site.ref + std::string(static_cast<size_t>(extra[k]), 'T'));
+        // One row per ALT, in the catalog's order.
+        for (size_t j = 0; j < order.size(); ++j) {
+            CandidateVariant c;
+            c.key.tid = 0;
+            c.key.pos = 300;
+            c.key.type = VariantType::Insertion;
+            c.counts.category = VariantCategory::RepeatHetIndel;
+            c.counts.alt_cov = carried_by[static_cast<size_t>(order[j])];
+            graph.candidates.push_back(c);
+            gc.site_meta.push_back(site);
+            gc.site_allele_orig_idx.push_back({0, static_cast<int>(j) + 1});
+        }
+        for (const std::string& name : names) {
+            graph.reads.push_back(read_named(name, 60));
+            graph.read_var_profile.push_back(ReadVariantProfile{});
+        }
+        finish_chunk(graph);
+        const std::string listed = "+" + std::to_string(extra[static_cast<size_t>(order[0])]) + ",+" +
+                                   std::to_string(extra[static_cast<size_t>(order[1])]) + ",+" +
+                                   std::to_string(extra[static_cast<size_t>(order[2])]) + " T";
+        const std::vector<LocusWindowSite> windows = build_allele_window_sites(bam, gc, {});
+        check(windows.size() == 1, "allele windows, ALTs " + listed + ": one window, got " +
+                                       std::to_string(windows.size()));
+        if (windows.size() != 1) continue;
+        const long row = windows[0].catalog_row;
+        const std::optional<RowAllele> allele =
+            row >= 0 ? row_allele(gc, static_cast<size_t>(row)) : std::optional<RowAllele>{};
+        const bool plus3 = allele && *allele->alt == site.ref + "TTT";
+        check(plus3, "allele windows, ALTs " + listed + ": the window is +3 T's, the allele the reads carry");
+        check(windows[0].observations.size() == 20, "allele windows, ALTs " + listed + ": every read called");
+    } while (std::next_permutation(order.begin(), order.end()));
+}
+
 static void test_em_length_window_islands() {
     // An island-only window is no EM site, but phases the reads the solve
     // leaves unlabelled, in a block of its own at the window.
@@ -1520,6 +1597,7 @@ int main() {
     test_em_unverified_fallback(false);
     test_em_unverified_fallback(true);
     test_length_window_sites();
+    test_allele_window_alt_order();
     test_em_length_window_islands();
     if (failures != 0) {
         std::cerr << failures << " union phasing check(s) failed\n";

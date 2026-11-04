@@ -277,8 +277,11 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
     // voting rows and fall under `busy`.
     // Each candidate is a reference span [p0, p0 + ref_len) and the two allele
     // sequences that replace it on the two haplotypes.
+    // `source` 0 an alignment call, 1 a two-allele pair, 2 a catalog row; `support` the reads carrying it (a pair's,
+    // both alleles').
     struct Allele { hts_pos_t p0; int ref_len; std::string seq0; std::string seq1; long catalog_row = -1;
-                    const char* source = "alignment"; };
+                    int source = 0; int support = 0; };
+    static constexpr const char* kSourceName[] = {"alignment", "pair", "catalog"};
     // Trace (PGPHASE_TRACE): every allele window considered, built or not and why.
     const auto trace_allele = [](hts_pos_t a, hts_pos_t b, const char* source, const char* why,
                                  const std::string& detail) {
@@ -324,7 +327,7 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         }
         if (!is_acgt(c.key.alt) || (c.key.ref_len == 0 && c.key.alt.empty())) continue;
         alleles.push_back(Allele{c.key.pos - 1, c.key.ref_len, ref.slice(c.key.pos - 1, c.key.pos - 1 + c.key.ref_len),
-                                 c.key.alt});
+                                 c.key.alt, -1, 0, c.counts.alt_cov});
     }
     // Two-allele heterozygotes (1/2): at a repeat, the two haplotypes can carry
     // two different indels and no reference allele. Called against REF one at a
@@ -369,7 +372,8 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             for (char& ch : seq_a) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             for (char& ch : seq_b) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
             if (seq_a == seq_b) continue;
-            alleles.push_back(Allele{lo, static_cast<int>(hi - lo), std::move(seq_a), std::move(seq_b), -1, "pair"});
+            alleles.push_back(Allele{lo, static_cast<int>(hi - lo), std::move(seq_a), std::move(seq_b), -1, 1,
+                                     a.reads + b.reads});
         }
     }
     // The catalog's non-voting repeat indels, from their VCF-form alleles.
@@ -386,26 +390,37 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
             const int ref_len = static_cast<int>(allele->ref.size());
             std::string s0 = allele->ref, s1 = allele->alt;
             if (ref.slice(p0, p0 + ref_len) != s0) continue;
-            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci), "catalog"});
+            alleles.push_back(Allele{p0, ref_len, std::move(s0), std::move(s1), static_cast<long>(ci), 2,
+                                     c.counts.alt_cov});
         }
     }
-    std::sort(alleles.begin(), alleles.end(), [](const Allele& a, const Allele& b) { return a.p0 < b.p0; });
+    // The first window built takes its span (overlaps_previous_window below), so alleles competing for one span -- a
+    // catalog site's ALTs over its repeat -- are tried in a total order: by position, then source, then the
+    // best-supported allele first, then by sequence. Sorted by position alone, ties came in the order they were
+    // listed, and a catalog site's rows are listed in its ALT order: at chr20:25,493,501 (a T run, the reads carrying
+    // +1 T and +2 T) the window was built from +2 T (18 reads) with vg deconstruct's ALT order and from +3 T (7 reads)
+    // with dromos catalog's, and --msa abpoa phased CTTT where it had phased CTT.
+    std::sort(alleles.begin(), alleles.end(), [](const Allele& a, const Allele& b) {
+        return std::tie(a.p0, a.source, b.support, a.ref_len, a.seq0, a.seq1, a.catalog_row) <
+               std::tie(b.p0, b.source, a.support, b.ref_len, b.seq0, b.seq1, b.catalog_row);
+    });
     const SpanningReadIndex index(bam, graph);
     hts_pos_t last_end = -1;
     for (const Allele& al : alleles) {
         const hts_pos_t end0 = al.p0 + al.ref_len;
+        const char* source = kSourceName[al.source];
         const hts_pos_t w0 = std::max<hts_pos_t>(0, al.p0 - ref.repeat_left(al.p0) - kAlleleWindowFlank);
         const hts_pos_t w1 = end0 + ref.repeat_right(end0) + kAlleleWindowFlank;
         const std::string what = "allele=" + std::to_string(al.p0 + 1) + ":" + std::to_string(al.ref_len) + ":" +
                                  al.seq1.substr(0, 40);
-        if (w1 - w0 > kLocusMaxLength) { trace_allele(w0, w1, al.source, "too_long", what); continue; }
-        if (w0 < last_end) { trace_allele(w0, w1, al.source, "overlaps_previous_window", what); continue; }
-        if (overlaps_busy(w0, w1)) { trace_allele(w0, w1, al.source, "observed_by_em", what); continue; }
+        if (w1 - w0 > kLocusMaxLength) { trace_allele(w0, w1, source, "too_long", what); continue; }
+        if (w0 < last_end) { trace_allele(w0, w1, source, "overlaps_previous_window", what); continue; }
+        if (overlaps_busy(w0, w1)) { trace_allele(w0, w1, source, "observed_by_em", what); continue; }
         const std::string left = ref.slice(w0, al.p0), right = ref.slice(end0, w1);
         const std::string hap_ref = left + al.seq0 + right;
         const std::string hap_alt = left + al.seq1 + right;
         if (hap_ref == hap_alt || hap_ref.find('N') != std::string::npos) {
-            trace_allele(w0, w1, al.source, "same_or_n_haplotypes", what);
+            trace_allele(w0, w1, source, "same_or_n_haplotypes", what);
             continue;
         }
         LocusWindowSite site;
@@ -431,10 +446,10 @@ std::vector<LocusWindowSite> build_allele_window_sites(const PhasingChunk& bam,
         const int called = n0 + n1;
         const std::string sides = what + " sides=" + std::to_string(n0) + "/" + std::to_string(n1);
         if (std::min(n0, n1) < kLocusMinSide || std::min(n0, n1) < kLocusMinMinorFraction * called) {
-            trace_allele(w0, w1, al.source, "one_sided", sides);
+            trace_allele(w0, w1, source, "one_sided", sides);
             continue;
         }
-        trace_allele(w0, w1, al.source, "built", sides);
+        trace_allele(w0, w1, source, "built", sides);
         for (int s = 0; s < 2; ++s) {
             std::nth_element(edits[s].begin(), edits[s].begin() + static_cast<long>(edits[s].size() / 2), edits[s].end());
             site.median_edits[s] = edits[s][edits[s].size() / 2];
