@@ -9,7 +9,7 @@
 ///      be detected even when emitted with full repeat runs on both flanks.
 
 #include "noise_filter.hpp"
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 #include "collect_phase.hpp"  // kCand* / kLongcalldRepHetVar bitmask flags
 
 #include <iostream>

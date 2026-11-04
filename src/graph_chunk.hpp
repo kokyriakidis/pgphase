@@ -1,12 +1,15 @@
-#ifndef PGPHASE_GRAPH_BAM_ADAPTER_HPP
-#define PGPHASE_GRAPH_BAM_ADAPTER_HPP
+#ifndef PGPHASE_GRAPH_CHUNK_HPP
+#define PGPHASE_GRAPH_CHUNK_HPP
 
-// Bridge between the graph pipeline (snarl sites + allele walk matching) and
-// the shared phasing pipeline (k-means clustering, chunk stitching, VCF
-// output).  build_graph_chunk converts per-read allele observations from
-// graph_query into a PhasingChunk with CandidateVariant + ReadVariantProfile,
-// applying multi-allelic→biallelic decomposition and three-phase depth/AF
-// filtering along the way.
+// The graph chunk: one chunk of collect-graph-variation, its catalog sites
+// phased from the reads' graph alignments. build_graph_chunk turns the sites
+// and the reads' allele observations (graph_query) into a PhasingChunk with
+// CandidateVariant + ReadVariantProfile, the form the shared phasing code
+// (k-means clustering, chunk stitching, VCF output) takes, applying
+// multi-allelic→biallelic decomposition and three-phase depth/AF filtering
+// along the way; the rest are the graph-specific steps on that chunk (joint
+// candidates, the noise filter, rescue, physical validation with --bam) and
+// its output rows. No BAM is made of the graph alignments.
 
 #include "refined_alignment.hpp"
 #include "collect_types.hpp"

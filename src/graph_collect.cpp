@@ -11,7 +11,7 @@
 #include "collect_phase_noisy.hpp"
 #include "collect_types.hpp"
 #include "collect_var.hpp"
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
 #include "site_catalog.hpp"

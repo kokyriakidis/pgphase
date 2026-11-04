@@ -2,9 +2,9 @@
 #define PGPHASE_GRAPH_SITES_HPP
 
 // Snarl site catalog: reading the sites of dromos's one-file site catalog
-// (site_catalog.hpp), validating allele traversals, and providing the
-// GraphSiteCatalog used by graph_query for allele matching and
-// graph_bam_adapter for phasing.
+// (site_catalog.hpp), validating their allele walks, and providing the
+// GraphSiteCatalog used by graph_query for allele matching and by the graph
+// chunk (graph_chunk) for phasing.
 
 #include "collect_types.hpp"
 

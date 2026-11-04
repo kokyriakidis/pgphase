@@ -8,7 +8,7 @@
 // whole read x site matrix by EM, adding local haplotype windows over the
 // alignment's noisy loci. See docs/IMPLEMENTATION.md, "Union gap phasing".
 
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 
 #include <cstddef>
 #include <tuple>

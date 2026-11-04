@@ -1,7 +1,7 @@
 #include "trace.hpp"
 #include "collect_var.hpp"
 #include <map>
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"

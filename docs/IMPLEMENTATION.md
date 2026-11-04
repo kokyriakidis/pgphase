@@ -721,11 +721,10 @@ the catalog with `dromos catalog`.
 
 ### Test gates
 
-- `make unit-tests` builds and runs five binaries: `test_allele_identity`,
-  `test_graph_sites`, `test_graph_bam_adapter`, `test_noise_filter` and
-  `test_union_phase` (site
-  injection, the global EM, local windows). They use in-memory fixtures;
-  none reruns BAM/GAF regions.
+- `make unit-tests` builds and runs six binaries: `test_allele_identity`, `test_task_pool`,
+  `test_graph_sites` (the site catalog reader, on the committed catalogs), `test_graph_chunk`,
+  `test_noise_filter` and `test_union_phase` (site injection, the global EM, local windows).
+  Besides the catalogs they use in-memory fixtures; none reruns BAM/GAF regions.
 - `make predicate-tests` runs `test_phase_predicates` (Catch2): the phasing,
   homopolymer/repeat and stitch-orientation predicates.
 - `make parity-tests` runs `test_port_parity` (Catch2), which pins functions
@@ -2129,7 +2128,7 @@ together.
 `Options::anchored_stage2` defaults to **true** (`phasing_types.hpp:242`), and
 exactly one call site passes it -- `run_noisy_pass`
 (`collect_phase_noisy.cpp:2054`), which is stage 2. The stage-1 calls
-(`collect_var.cpp:2162` for the alignment arm, `graph_bam_adapter.cpp:1132` for
+(`collect_var.cpp:2162` for the alignment arm, `graph_chunk.cpp:1132` for
 the graph arm) take the parameter's own default of `false`, correctly: a first
 round has nothing to anchor to.
 

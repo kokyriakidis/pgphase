@@ -1,4 +1,4 @@
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 #include "graph_records.hpp"
 #include "plegma_msa.hpp"
 

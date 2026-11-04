@@ -44,7 +44,7 @@ of the sites the read was called at, 1-based inclusive), `read`, `hap` (0 unphas
 
 | stage | event | reason | where | meaning |
 |---|---|---|---|---|
-| graph | drop | `pair_low_depth`, `pair_high_af`, `pair_low_af` | graph_bam_adapter.cpp `decompose_sites` | a catalog site's REF/ALT pair below the depth or outside the allele-fraction bounds (a homozygous pair is `pair_high_af`) |
+| graph | drop | `pair_low_depth`, `pair_high_af`, `pair_low_af` | graph_chunk.cpp `decompose_sites` | a catalog site's REF/ALT pair below the depth or outside the allele-fraction bounds (a homozygous pair is `pair_high_af`) |
 | graph | merge | `duplicate_snarl_routed` | same | the pair duplicates another snarl's (minimal VCF identity): its reads go to that one |
 | graph | regenotype | `repeat_het_indel_not_phased` | `apply_graph_noise_filter` | a catalog indel in a homopolymer or repeat demoted to RepeatHetIndel: never phased, never written |
 | bam | drop | `pruned_category` | collect_var.cpp `prune_not_candidate_variants` | an alignment candidate deleted as LowCoverage, StrandBias or NonVariant (LowCoverage traced with 3+ ALT reads only) |

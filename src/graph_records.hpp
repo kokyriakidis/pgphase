@@ -4,7 +4,7 @@
 // The graph command's records (graph_records.cpp), apart from the run that produces the chunks (graph_collect.cpp).
 
 #include "bam_io_types.hpp"
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 
 #include <htslib/sam.h>
 

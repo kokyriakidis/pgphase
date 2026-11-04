@@ -7,7 +7,7 @@
  */
 
 #include "collect_types.hpp"
-#include "graph_bam_adapter.hpp"
+#include "graph_chunk.hpp"
 
 #include <memory>
 #include <string>

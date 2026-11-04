@@ -276,7 +276,7 @@ CandidateTable graph_chunks_to_candidate_table(
                 cand.counts.total_cov = total_cov;
                 cand.split_allele = n_new_alleles > 2;
                 // Preserve the strand split computed during biallelic decomposition
-                // (graph_bam_adapter.cpp). Candidates are biallelic here, so the
+                // (graph_chunk.cpp). Candidates are biallelic here, so the
                 // chunk candidate's forward/reverse fields already correspond to
                 // this ref/alt pair; copying them keeps REVERSE counts non-zero.
                 cand.counts.forward_ref = mcand.counts.forward_ref;

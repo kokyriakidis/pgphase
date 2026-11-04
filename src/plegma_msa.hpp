@@ -2,7 +2,7 @@
 
 /**
  * @file plegma_msa.hpp
- * @brief plegma as the noisy-region MSA (optional; abPOA stays the default).
+ * @brief plegma as the noisy-region MSA (the default; --msa abpoa chooses longcallD's abPOA).
  *
  * The default noisy-region MSA. Built with plegma unless `make PLEGMA=0` (third_party/plegma's build/libplegma.so,
  * from `pixi run build-capi`; PGPHASE_PLEGMA defined), chosen per run by --msa (abpoa: longcallD's abPOA). With
