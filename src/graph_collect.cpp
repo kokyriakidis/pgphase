@@ -14,6 +14,7 @@
 #include "graph_bam_adapter.hpp"
 #include "graph_query.hpp"
 #include "graph_sites.hpp"
+#include "site_catalog.hpp"
 #include "noise_filter.hpp"
 #include "union_phase.hpp"
 #include "task_pool.hpp"
@@ -493,22 +494,25 @@ static std::vector<GraphChunkBuildResult> process_graph_chunk_batch_indexed_gaf(
     int min_mapq,
     const std::unordered_map<std::string, std::string>& fai_full_to_suffix,
     const std::unordered_map<std::string, std::string>& chrom_remap,
+    const GraphNodeRange& graph_nodes,
     const Options& opts)
 {
     const std::string batch_contig = header->target_name[chunks[batch_begin].tid];
     const std::string query_contig = query_contig_of(batch_contig, fai_full_to_suffix);
     const auto open_rows = [&]() -> ChunkRowFetcher {
         auto handle = std::make_shared<IndexedGafHandle>(gaf_file);
-        return [handle, &query_contig, min_mapq](const RegionChunk& region, const GraphSiteCatalogView& view) {
+        return [handle, &query_contig, min_mapq, &graph_nodes](const RegionChunk& region,
+                                                                const GraphSiteCatalogView& view) {
             return scan_indexed_gaf_chunk(*handle, query_contig, std::max<hts_pos_t>(0, region.beg - 1),
-                                          region.end, view, min_mapq);
+                                          region.end, view, min_mapq, graph_nodes);
         };
     };
     return run_graph_chunk_batch(sites, max_span, chunks, batch_begin, batch_end, batch_contig, chrom_remap, opts,
                                  open_rows);
 }
 
-void run_collect_graph_variation(const Options& opts) {
+void run_collect_graph_variation(const Options& options) {
+    Options opts = options;
     configure_msa(opts);
     if (opts.verbose >= 1) std::fprintf(stderr, "[pgphase] noisy-region MSA: %s\n", msa_description().c_str());
     // The GAF must be bgzip-compressed and tabix-indexed on pgphase index's
@@ -636,6 +640,34 @@ void run_collect_graph_variation(const Options& opts) {
                   << opts.chunk_size << " bp, " << opts.threads << " thread(s))\n";
     }
 
+    // dromos's site catalog: opened once for the run (every worker's handle
+    // shares it), its graph named in the log and the VCF headers, its contigs
+    // checked against the FASTA's, and its node ids against the alignments'.
+    std::shared_ptr<const SiteCatalogFile> site_catalog;
+    GraphNodeRange graph_nodes;
+    if (is_site_catalog_file(opts.graph_sites)) {
+        site_catalog = SiteCatalogFile::open(opts.graph_sites);
+        std::cerr << "Sites from the " << site_catalog->identity_text() << "\n";
+        opts.vcf_header_extra.push_back(site_catalog->vcf_header_line());
+        graph_nodes.known = site_catalog->node_range(graph_nodes.min_node, graph_nodes.max_node);
+        std::vector<std::string> contigs;
+        for (const RegionChunk& c : chunks) {
+            const std::string name = header->target_name[c.tid];
+            if (contigs.empty() || contigs.back() != name) contigs.push_back(name);
+        }
+        std::sort(contigs.begin(), contigs.end());
+        contigs.erase(std::unique(contigs.begin(), contigs.end()), contigs.end());
+        bool refuse = false;
+        for (const SiteCatalogReferenceCheck& c :
+             check_site_catalog_reference(site_catalog, opts.ref_fasta, contigs, opts.threads)) {
+            if (!c.message.empty()) std::cerr << c.message << "\n";
+            refuse = refuse || c.refuse;
+        }
+        if (refuse)
+            throw std::runtime_error("the site catalog " + opts.graph_sites + " is not of the reference " +
+                                     opts.ref_fasta);
+    }
+
 
     // 8. Open output streams.
     std::ofstream variant_out(opts.output_tsv);
@@ -738,7 +770,7 @@ void run_collect_graph_variation(const Options& opts) {
         const pgphase_trace::Scope trace_scope(header->target_name[chunks[batch_begin].tid], -1);
         std::vector<GraphChunkBuildResult> graph_chunks = process_graph_chunk_batch_indexed_gaf(
             opts.graph_sites, max_span, chunks, batch_begin, batch_end, header.get(), opts.gaf_file,
-            opts.min_mapq, fai_full_to_suffix, chrom_remap, opts);
+            opts.min_mapq, fai_full_to_suffix, chrom_remap, graph_nodes, opts);
 
 
         if (emit_phase_reads) {

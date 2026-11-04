@@ -44,15 +44,26 @@ struct IndexedGafHandle {
 // Empty when the GAF has none.
 std::unordered_map<std::string, hts_pos_t> read_gaf_max_spans(const std::string& path);
 
+// The node ids of the graph the site catalog was built from (its header's
+// graph.min_node and graph.max_node): an alignment visiting a node outside
+// them is of another graph. Unknown for a sites VCF.
+struct GraphNodeRange {
+    bool known = false;
+    uint64_t min_node = 0;
+    uint64_t max_node = 0;
+};
+
 // Per-chunk query using a pre-opened IndexedGafHandle.
 // The GAF must have pgphase index's three leading coordinate columns (contig, start, end).
+// Throws when an alignment the chunk reads visits a node outside `graph_nodes`.
 std::vector<GraphReadAllele>
 scan_indexed_gaf_chunk(IndexedGafHandle& handle,
                        const std::string& contig,
                        hts_pos_t beg,
                        hts_pos_t end,
                        const GraphSiteCatalogView& catalog,
-                       int min_mapq);
+                       int min_mapq,
+                       const GraphNodeRange& graph_nodes = {});
 
 // Reports how much graph evidence the walk matcher accepted vs discarded.
 void graph_query_report_match_stats();

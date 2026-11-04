@@ -222,6 +222,7 @@ void write_variants_vcf_header(std::ostream& out, const Options& opts, const bam
     for (int32_t tid = 0; tid < header->n_targets; ++tid) {
         out << "##contig=<ID=" << header->target_name[tid] << ",length=" << header->target_len[tid] << ">\n";
     }
+    for (const std::string& line : opts.vcf_header_extra) out << line << "\n";
     out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
 }
 
@@ -259,6 +260,7 @@ void write_phased_variants_vcf_header(std::ostream& out, const Options& opts, co
     for (int32_t tid = 0; tid < header->n_targets; ++tid) {
         out << "##contig=<ID=" << header->target_name[tid] << ",length=" << header->target_len[tid] << ">\n";
     }
+    for (const std::string& line : opts.vcf_header_extra) out << line << "\n";
     out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n";
 }
 

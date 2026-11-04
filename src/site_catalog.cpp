@@ -1,12 +1,16 @@
 #include "site_catalog.hpp"
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <limits>
 #include <map>
+#include <sstream>
 #include <stdexcept>
+#include <thread>
 #include <unordered_set>
 
 #include <fcntl.h>
@@ -15,6 +19,8 @@
 
 #include <zlib.h>
 #include <zstd.h>
+
+#include <htslib/hts.h>
 
 namespace pgphase_collect {
 
@@ -152,6 +158,12 @@ char complement(char c) {
         case 't': return 'A';
         default: return 'N';
     }
+}
+
+std::string with_commas(uint64_t v) {
+    std::string s = std::to_string(v);
+    for (int i = static_cast<int>(s.size()) - 3; i > 0; i -= 3) s.insert(static_cast<size_t>(i), ",");
+    return s;
 }
 
 // Says something about a contig once per run (handles are per thread).
@@ -325,6 +337,19 @@ int SiteCatalogFile::find_contig(const std::string& name) const {
     return -1;
 }
 
+bool SiteCatalogFile::node_range(uint64_t& min_node, uint64_t& max_node) const {
+    const std::string a = property("graph.min_node"), b = property("graph.max_node");
+    if (a.empty() || b.empty()) return false;
+    try {
+        size_t ea = 0, eb = 0;
+        min_node = std::stoull(a, &ea);
+        max_node = std::stoull(b, &eb);
+        return ea == a.size() && eb == b.size() && min_node <= max_node;
+    } catch (const std::exception&) {
+        return false;
+    }
+}
+
 const SiteCatalogIndex& SiteCatalogFile::index(size_t k) const {
     std::call_once(index_once_[k], [&]() {
         const SiteCatalogContig& c = contigs_[k];
@@ -375,6 +400,51 @@ const SiteCatalogIndex& SiteCatalogFile::index(size_t k) const {
         index_[k] = std::move(x);
     });
     return *index_[k];
+}
+
+std::string SiteCatalogFile::identity_text() const {
+    std::ostringstream s;
+    const auto prop = [&](const char* key) {
+        const std::string v = property(key);
+        return v.empty() ? std::string("?") : v;
+    };
+    uint64_t records = 0;
+    for (const SiteCatalogContig& c : contigs_) records += c.records;
+    s << "site catalog " << path_ << " (dromos " << prop("dromos.version") << ", format " << kVersion
+      << "): graph " << prop("graph.file") << " (" << prop("graph.fingerprint");
+    const std::string pgg = property("gbz.pggname");
+    if (!pgg.empty()) s << ", pggname " << pgg;
+    s << "; " << prop("graph.nodes") << " nodes, ids " << prop("graph.min_node") << "-" << prop("graph.max_node")
+      << "), reference sample " << prop("reference.sample") << ", snarls from " << prop("snarls.source");
+    const std::string sf = property("snarls.file");
+    if (!sf.empty()) s << " " << sf;
+    s << "; " << contigs_.size() << " contigs, " << with_commas(records) << " records";
+    return s.str();
+}
+
+std::string SiteCatalogFile::vcf_header_line() const {
+    const auto quoted = [](const std::string& v) {
+        std::string q = "\"";
+        for (const char ch : v) {
+            if (ch == '"' || ch == '\\') q.push_back('\\');
+            q.push_back(ch);
+        }
+        return q + "\"";
+    };
+    std::string line = "##pgphase_site_catalog=<File=" + quoted(path_) + ",Format=\"DRMSITES " +
+                       std::to_string(kVersion) + "\"";
+    const std::pair<const char*, const char*> fields[] = {
+        {"Dromos", "dromos.version"},          {"Graph", "graph.file"},
+        {"Fingerprint", "graph.fingerprint"},  {"Pggname", "gbz.pggname"},
+        {"Nodes", "graph.nodes"},              {"MinNode", "graph.min_node"},
+        {"MaxNode", "graph.max_node"},         {"ReferenceSample", "reference.sample"},
+        {"Snarls", "snarls.source"},           {"SnarlsFile", "snarls.file"},
+    };
+    for (const auto& [name, key] : fields) {
+        const std::string v = property(key);
+        if (!v.empty()) line += std::string(",") + name + "=" + quoted(v);
+    }
+    return line + ">";
 }
 
 // --- SiteCatalogReader -------------------------------------------------------
@@ -670,6 +740,135 @@ void SiteCatalogReader::append_sites(const std::string& contig_name, hts_pos_t b
             out.sites.push_back(std::move(s));
         }
     }
+}
+
+void SiteCatalogReader::check_ref_alleles(size_t k, faidx_t* fai, const std::string& fasta_contig,
+                                          size_t max_blocks, size_t& records, size_t& agree) {
+    records = agree = 0;
+    const SiteCatalogIndex& ix = file_->index(k);
+    const size_t n = ix.blocks();
+    if (n == 0 || max_blocks == 0) return;
+    const size_t step = std::max<size_t>(1, n / max_blocks);
+    std::string ref;
+    for (size_t b = 0; b < n; b += step) {
+        read_block(k, b);
+        letters();
+        hts_pos_t got = 0;
+        const hts_pos_t from = static_cast<hts_pos_t>(ix.first_pos[b]) - 1;
+        char* seq = faidx_fetch_seq64(fai, fasta_contig.c_str(), from,
+                                      static_cast<hts_pos_t>(ix.max_end[b]) - 1, &got);
+        const std::string fasta = seq != nullptr && got > 0 ? std::string(seq, static_cast<size_t>(got)) : std::string();
+        std::free(seq);
+        for (const Record& r : records_) {
+            allele(r, 0, ref);
+            if (ref.empty()) continue;
+            ++records;
+            const hts_pos_t at = r.pos - 1 - from;
+            if (at < 0 || static_cast<size_t>(at) + ref.size() > fasta.size()) continue;
+            bool same = true;
+            for (size_t i = 0; i < ref.size() && same; ++i)
+                same = std::toupper(static_cast<unsigned char>(fasta[static_cast<size_t>(at) + i])) ==
+                       static_cast<unsigned char>(ref[i]);
+            if (same) ++agree;
+        }
+    }
+}
+
+// --- the reference check -----------------------------------------------------
+
+std::vector<SiteCatalogReferenceCheck> check_site_catalog_reference(
+    const std::shared_ptr<const SiteCatalogFile>& file, const std::string& fasta_path,
+    const std::vector<std::string>& fasta_contigs, int threads) {
+    std::vector<SiteCatalogReferenceCheck> checks(fasta_contigs.size());
+    std::atomic<size_t> next{0};
+    std::exception_ptr error;
+    std::mutex error_mu;
+    const auto work = [&]() {
+        try {
+            std::unique_ptr<faidx_t, void (*)(faidx_t*)> fai(fai_load(fasta_path.c_str()), fai_destroy);
+            if (!fai) throw std::runtime_error("cannot load the FASTA index of " + fasta_path);
+            SiteCatalogReader reader(file);
+            for (size_t i = next++; i < fasta_contigs.size(); i = next++) {
+                SiteCatalogReferenceCheck& c = checks[i];
+                c.fasta_contig = fasta_contigs[i];
+                c.catalog_contig = file->find_contig(c.fasta_contig);
+                if (c.catalog_contig < 0) continue;  // the reader warns when it is queried
+                const SiteCatalogContig& cc = file->contigs()[static_cast<size_t>(c.catalog_contig)];
+                const hts_pos_t fl = faidx_seq_len64(fai.get(), c.fasta_contig.c_str());
+                c.fasta_length = fl < 0 ? 0 : static_cast<uint64_t>(fl);
+                const std::string what = c.fasta_contig + " (catalog " + cc.chrom + ", " + with_commas(cc.length) +
+                                         " bp, MD5 " + cc.md5_hex() + ")";
+                if (cc.length > c.fasta_length) {
+                    c.refuse = true;
+                    c.message = "error: " + what + ": the FASTA's contig is " + with_commas(c.fasta_length) +
+                                " bp, shorter than the graph's reference path: the catalog is not of this reference";
+                    continue;
+                }
+                // The MD5 of the FASTA's first cc.length bases, upper case.
+                hts_md5_context* md5 = hts_md5_init();
+                if (md5 == nullptr) throw std::runtime_error("cannot allocate an MD5 context");
+                constexpr hts_pos_t kPiece = 4 << 20;
+                for (hts_pos_t at = 0; at < static_cast<hts_pos_t>(cc.length); at += kPiece) {
+                    const hts_pos_t to = std::min<hts_pos_t>(static_cast<hts_pos_t>(cc.length), at + kPiece) - 1;
+                    hts_pos_t got = 0;
+                    char* seq = faidx_fetch_seq64(fai.get(), c.fasta_contig.c_str(), at, to, &got);
+                    if (seq == nullptr || got != to - at + 1) {
+                        std::free(seq);
+                        hts_md5_destroy(md5);
+                        throw std::runtime_error("cannot read " + c.fasta_contig + " from " + fasta_path);
+                    }
+                    for (hts_pos_t j = 0; j < got; ++j)
+                        seq[j] = static_cast<char>(std::toupper(static_cast<unsigned char>(seq[j])));
+                    hts_md5_update(md5, seq, static_cast<unsigned long>(got));
+                    std::free(seq);
+                }
+                unsigned char digest[16];
+                hts_md5_final(digest, md5);
+                hts_md5_destroy(md5);
+                c.fasta_md5 = hex(digest, 16);
+                c.md5_matches = std::memcmp(digest, cc.md5.data(), 16) == 0;
+                if (c.md5_matches && cc.length == c.fasta_length) {
+                    c.message = c.fasta_contig + ": the FASTA's contig is the catalog's (" + with_commas(cc.length) +
+                                " bp, MD5 " + cc.md5_hex() + ")";
+                    continue;
+                }
+                if (c.md5_matches) {
+                    c.message = "warning: " + what + ": the graph's reference path ends at " +
+                                with_commas(cc.length) + " of the FASTA's " + with_commas(c.fasta_length) +
+                                " bp (the MD5 of those bases matches): no sites past it";
+                    continue;
+                }
+                // The MD5s differ: the graph's reference path need not spell
+                // the whole contig. Its records' REF alleles are the FASTA's
+                // bases when it is the same reference.
+                reader.check_ref_alleles(static_cast<size_t>(c.catalog_contig), fai.get(), c.fasta_contig, 32,
+                                         c.sampled_records, c.sampled_agree);
+                const std::string sampled = std::to_string(c.sampled_agree) + " of " +
+                                            std::to_string(c.sampled_records) + " records sampled";
+                if (c.sampled_agree < c.sampled_records) {
+                    c.refuse = true;
+                    c.message = "error: " + what + ": the FASTA's contig (" + with_commas(c.fasta_length) +
+                                " bp, MD5 of its first " + with_commas(cc.length) + " bases " + c.fasta_md5 +
+                                ") spells the REF of only " + sampled + ": the catalog is not of this reference";
+                    continue;
+                }
+                c.message = "warning: " + what + ": the FASTA's contig (" + with_commas(c.fasta_length) +
+                            " bp, MD5 of its first " + with_commas(cc.length) + " bases " + c.fasta_md5 +
+                            ") differs where the graph's reference path has no bases (N), or past its end; " +
+                            "it spells the REF of all " + sampled;
+            }
+        } catch (...) {
+            std::lock_guard<std::mutex> lock(error_mu);
+            if (!error) error = std::current_exception();
+        }
+    };
+    const size_t n = std::min<size_t>(static_cast<size_t>(std::max(1, threads)), fasta_contigs.size());
+    std::vector<std::thread> pool;
+    for (size_t t = 1; t < n; ++t) pool.emplace_back(work);
+    work();
+    for (std::thread& t : pool) t.join();
+    if (error) std::rethrow_exception(error);
+    return checks;
 }
 
 } // namespace pgphase_collect

@@ -144,9 +144,16 @@ static bool test_site_catalog_header() {
     ok &= check(f->find_contig("chr19") == 1 && f->find_contig("CHM13#0#chr19") == 1 &&
                     f->find_contig("GRCh38#0#chr19") == -1 && f->find_contig("chr20") == -1,
                 "contigs found by name or by the reference sample's path name");
+    uint64_t lo = 0, hi = 0;
+    ok &= check(f->node_range(lo, hi) && lo == 1 && hi == 2891, "the graph's node ids");
     ok &= check(f->property("graph.fingerprint") == "size=73920 fnv1a=9736178bc136e029" &&
                     f->property("reference.sample") == "CHM13" && f->property("no.such.key").empty(),
                 "properties");
+    const std::string line = f->vcf_header_line();
+    ok &= check(line.rfind("##pgphase_site_catalog=<File=", 0) == 0 &&
+                    line.find("Fingerprint=\"size=73920 fnv1a=9736178bc136e029\"") != std::string::npos &&
+                    line.back() == '>',
+                "the VCF header line names the graph");
     return ok;
 }
 
@@ -233,6 +240,58 @@ static bool test_site_catalog_index_search() {
             if (!ok) return false;
         }
     }
+    return ok;
+}
+
+// The catalog's contigs against a FASTA's: the same reference, one that runs
+// past the graph's path, one with bases where the graph has none (N), and
+// ones that are not the catalog's reference.
+static bool test_site_catalog_reference_check() {
+    bool ok = true;
+    const std::shared_ptr<const SiteCatalogFile> f = SiteCatalogFile::open(kCatalog);
+    const std::string ref = "test_data/graph/ref.fa.gz";
+    for (const SiteCatalogReferenceCheck& c :
+         check_site_catalog_reference(f, ref, {"CHM13#0#chr6", "CHM13#0#chr19"}, 2))
+        ok &= check(c.md5_matches && !c.refuse && c.catalog_contig >= 0, c.fasta_contig + ": " + c.message);
+
+    std::unique_ptr<faidx_t, void (*)(faidx_t*)> fai(fai_load(ref.c_str()), fai_destroy);
+    hts_pos_t len = 0;
+    char* raw = faidx_fetch_seq64(fai.get(), "CHM13#0#chr19", 0, 18941250, &len);
+    const std::string seq = raw != nullptr ? std::string(raw, static_cast<size_t>(len)) : std::string();
+    std::free(raw);
+    if (!check(seq.size() == 18941251, "chr19 read from the test FASTA")) return false;
+    SiteCatalogHandle h(kCatalog);
+    const GraphSiteCatalog sites = load_sites_for_region(h, "chr19", 1, 18941251);
+    if (!check(!sites.sites.empty(), "chr19's sites")) return false;
+    const GraphSite& first = sites.sites.front();
+
+    const auto checked = [&](const std::string& name, const std::string& contig_seq) {
+        const std::string p = tmp_path("pgphase_test_" + name + ".fa");
+        write_file(p, ">CHM13#0#chr19\n" + contig_seq + "\n");
+        std::remove((p + ".fai").c_str());
+        if (fai_build(p.c_str()) != 0) std::cerr << "cannot index " << p << "\n";
+        const SiteCatalogReferenceCheck c = check_site_catalog_reference(f, p, {"CHM13#0#chr19"}, 1).at(0);
+        std::remove(p.c_str());
+        std::remove((p + ".fai").c_str());
+        return c;
+    };
+    SiteCatalogReferenceCheck c = checked("longer", seq + "ACGT");
+    ok &= check(c.md5_matches && !c.refuse && c.message.find("ends at") != std::string::npos,
+                "a FASTA contig running past the graph's path: a warning (" + c.message + ")");
+    std::string s = seq;
+    ok &= check(s[100] == 'N', "the test FASTA's chr19 starts with N");
+    s[100] = 'A';
+    c = checked("gap", s);
+    ok &= check(!c.md5_matches && !c.refuse && c.sampled_records > 0 && c.sampled_agree == c.sampled_records,
+                "bases where the graph has none: a warning (" + c.message + ")");
+    s = seq;
+    const size_t at = static_cast<size_t>(first.pos - 1);
+    s[at] = s[at] == 'A' ? 'C' : 'A';
+    c = checked("ref", s);
+    ok &= check(!c.md5_matches && c.refuse && c.sampled_agree < c.sampled_records,
+                "a REF the FASTA does not spell: refused (" + c.message + ")");
+    c = checked("short", seq.substr(0, 1000));
+    ok &= check(c.refuse, "a FASTA contig shorter than the graph's path: refused (" + c.message + ")");
     return ok;
 }
 
@@ -338,6 +397,7 @@ int main() {
     ok &= test_site_catalog_header();
     ok &= test_site_catalog_refuses_damage();
     ok &= test_site_catalog_index_search();
+    ok &= test_site_catalog_reference_check();
 
     std::remove(path.c_str());
     if (ok) {

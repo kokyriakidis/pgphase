@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include <htslib/faidx.h>
+
 struct ZSTD_DCtx_s;
 
 namespace pgphase_collect {
@@ -80,6 +82,15 @@ public:
     int find_contig(const std::string& name) const;
     /// Contig k's index, read and checked the first time it is asked for.
     const SiteCatalogIndex& index(size_t k) const;
+    /// The graph's node id range (graph.min_node, graph.max_node); false when
+    /// the header does not give it.
+    bool node_range(uint64_t& min_node, uint64_t& max_node) const;
+
+    /// One line naming the graph and the catalog, for the log.
+    std::string identity_text() const;
+    /// The same as a VCF header line (##pgphase_site_catalog=<...>).
+    std::string vcf_header_line() const;
+
     /// Reads `size` bytes at `offset` into `out` (thread-safe: pread).
     void read_at(uint64_t offset, uint64_t size, std::string& out) const;
     uint64_t blocks_end() const { return blocks_end_; }
@@ -121,6 +132,11 @@ public:
     void append_sites(const std::string& contig, hts_pos_t beg, hts_pos_t end, hts_pos_t max_span,
                       GraphSiteCatalog& out);
 
+    /// Of up to `max_blocks` blocks spread over contig k, how many records'
+    /// REF the FASTA spells at their POS (`agree`) of how many (`records`).
+    void check_ref_alleles(size_t k, faidx_t* fai, const std::string& fasta_contig, size_t max_blocks,
+                           size_t& records, size_t& agree);
+
 private:
     struct Record {
         hts_pos_t pos = 0;
@@ -161,6 +177,28 @@ private:
     std::vector<size_t> node_starts_;
     std::string letters_;
 };
+
+/// The outcome of comparing one FASTA contig with the catalog's.
+struct SiteCatalogReferenceCheck {
+    std::string fasta_contig;
+    int catalog_contig = -1;  ///< -1: the catalog has no such contig
+    uint64_t fasta_length = 0;
+    std::string fasta_md5;    ///< of the FASTA's first min(length, catalog length) bases
+    bool md5_matches = false;
+    size_t sampled_records = 0, sampled_agree = 0;
+    bool refuse = false;      ///< not the catalog's reference
+    std::string message;      ///< one line for the log; empty when the catalog has no such contig
+};
+
+/// Checks each FASTA contig against the catalog's: its length, the MD5 of
+/// its sequence (upper case) against the catalog's, and when the MD5s differ
+/// (the graph's reference path need not spell the whole contig: the catalog
+/// spells N where it has no fragment, and stops at its last base) whether the
+/// FASTA spells the REF of the records of blocks spread over the contig.
+/// Contigs run `threads` at a time, each with its own FASTA index.
+std::vector<SiteCatalogReferenceCheck> check_site_catalog_reference(
+    const std::shared_ptr<const SiteCatalogFile>& file, const std::string& fasta_path,
+    const std::vector<std::string>& fasta_contigs, int threads);
 
 } // namespace pgphase_collect
 

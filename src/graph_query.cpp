@@ -404,6 +404,14 @@ struct GafScanTally {
 };
 constexpr size_t kGafTraceExampleReads = 3;
 
+// Alignments visiting a node outside the site catalog's graph.
+struct GafNodeCheck {
+    uint64_t min_node = 0, max_node = 0;
+    size_t outside = 0;
+    uint64_t example_node = 0;
+    std::string example_read;
+};
+
 template <typename EmitFn>
 size_t scan_gaf_line_compact(std::string_view line,
                              int first_gaf_column,
@@ -416,7 +424,8 @@ size_t scan_gaf_line_compact(std::string_view line,
                              std::vector<uint32_t>& site_marks,
                              uint32_t& mark_stamp,
                              EmitFn&& emit,
-                             GafScanTally* tally = nullptr) {
+                             GafScanTally* tally = nullptr,
+                             GafNodeCheck* nodes = nullptr) {
     if (line.empty() || line[0] == '#') return 0;
 
     GafCoreFields fields;
@@ -426,6 +435,17 @@ size_t scan_gaf_line_compact(std::string_view line,
         return 0;
     }
     if (!parse_gaf_path_compact(fields.walk, read_walk) || read_walk.empty()) return 0;
+    if (nodes != nullptr) {
+        for (const CompactHandle h : read_walk) {
+            const uint64_t node = h >> 1;
+            if (node >= nodes->min_node && node <= nodes->max_node) continue;
+            if (nodes->outside++ == 0) {
+                nodes->example_node = node;
+                nodes->example_read = std::string(fields.read_name);
+            }
+            break;
+        }
+    }
 
     candidates.clear();
     boundary_positions.clear();
@@ -619,7 +639,8 @@ scan_indexed_gaf_chunk(IndexedGafHandle& handle,
                        hts_pos_t beg,
                        hts_pos_t end,
                        const GraphSiteCatalogView& catalog,
-                       int min_mapq) {
+                       int min_mapq,
+                       const GraphNodeRange& graph_nodes) {
     if (contig.empty() || end <= beg) return {};
     if (catalog.empty()) return {};
 
@@ -651,6 +672,9 @@ scan_indexed_gaf_chunk(IndexedGafHandle& handle,
         ~KStringGuard() { if (line != nullptr) ks_free(line); }
     } line_guard{&line};
 
+    GafNodeCheck node_check;
+    node_check.min_node = graph_nodes.min_node;
+    node_check.max_node = graph_nodes.max_node;
     std::unique_ptr<GafScanTally> tally;
     if (pgphase_trace::on()) {
         tally = std::make_unique<GafScanTally>();
@@ -661,8 +685,16 @@ scan_indexed_gaf_chunk(IndexedGafHandle& handle,
         scan_gaf_line_compact(
             std::string_view(line.s, line.l), 3, compact_index, min_mapq, 0,
             read_walk, boundary_positions, candidates, site_marks, mark_stamp,
-            [&](size_t, GraphReadAllele&& row) { rows.push_back(std::move(row)); }, tally.get());
+            [&](size_t, GraphReadAllele&& row) { rows.push_back(std::move(row)); }, tally.get(),
+            graph_nodes.known ? &node_check : nullptr);
     }
+    if (node_check.outside > 0)
+        throw std::runtime_error(
+            "the GAF's alignment " + node_check.example_read + " visits node " +
+            std::to_string(node_check.example_node) + ", outside the node ids of the site catalog's graph (" +
+            std::to_string(graph_nodes.min_node) + "-" + std::to_string(graph_nodes.max_node) + "; " +
+            std::to_string(node_check.outside) + " alignments in " + contig + ":" + std::to_string(beg + 1) + "-" +
+            std::to_string(end) + "): the alignments and the catalog are of different graphs");
     // Trace: each site some read crossed (both boundary nodes on its walk) without matching exactly one allele
     // walk -- that read gives the site no call -- and the chunk's alignments under the MAPQ floor. A site over a
     // chunk edge is scanned, and traced, by both chunks.

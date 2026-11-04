@@ -244,11 +244,18 @@ count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_DIR/micb-
   --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
 check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
 
-# The same run on dromos's site catalog of the graph (dromos catalog: one file for both contigs): the same TSV.
+# The same run on dromos's site catalog of the graph (dromos catalog: one file for both contigs): the same TSV, and
+# the phased VCF's header names the catalog's graph.
 GRAPH_CATALOG="$GRAPH_DIR/micb-kir3dl1.CHM13.sites"
+g_vcf="$TMPDIR/pgphase_validate_graph.phased.vcf"
 count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_CATALOG" \
-  --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
+  --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv" --phased-vcf-out "$g_vcf")"
 check_golden "graph-only TSV on dromos's site catalog (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
+if ! grep -q '^##pgphase_site_catalog=<.*Fingerprint="size=73920 fnv1a=9736178bc136e029"' "$g_vcf"; then
+  echo "error: the phased VCF's header does not name the site catalog's graph" >&2
+  exit 1
+fi
+echo "ok: the phased VCF names the site catalog's graph"
 
 # dromos catalog rebuilds that catalog from its committed snarls (so without vg): the same records. It needs a dromos
 # with the catalog command (DROMOS_CATALOG; the pinned tools/dromos predates it, so it is skipped there).

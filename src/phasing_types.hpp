@@ -393,6 +393,8 @@ struct Options {
     /** Site catalog (collect-graph-variation): dromos's one-file catalog (dromos catalog), or a tabix-indexed sites
      *  VCF. */
     std::string graph_sites;
+    /** Lines the VCF headers carry before #CHROM: the site catalog's graph identity (collect-graph-variation). */
+    std::vector<std::string> vcf_header_extra;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
     // k-means to "{prefix}.chunk{id}.flags{flags}.tsv" for offline optimizer
