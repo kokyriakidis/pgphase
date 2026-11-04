@@ -20,9 +20,9 @@
 
 namespace pgphase_collect {
 
+#ifdef PGPHASE_PLEGMA
 static std::string error_token(std::string text);
 
-#ifdef PGPHASE_PLEGMA
 // The homopolymer models built in (src/msa_models.cpp, generated from models/ by make).
 extern const char kHifiHomopolymerModel[];
 extern const std::size_t kHifiHomopolymerModelSize;
@@ -368,12 +368,14 @@ namespace {
 thread_local std::string msa_failure;
 }
 
+#ifdef PGPHASE_PLEGMA
 // An error message as one trace token (spaces and tabs to underscores).
 static std::string error_token(std::string text) {
     for (char& ch : text)
         if (ch == ' ' || ch == '\t' || ch == '\n') ch = '_';
     return text;
 }
+#endif
 
 void note_msa_failure(std::string why) { msa_failure = std::move(why); }
 
