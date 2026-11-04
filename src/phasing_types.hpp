@@ -39,7 +39,6 @@ constexpr int kConflictingBamAllele = -2;
 // Default thresholds and window sizes for variant calling and phasing.
 constexpr int kDefaultMinMapq = 30;
 constexpr int kDefaultMinBaseq = 10;
-constexpr int kMinSvLen = 30;
 constexpr hts_pos_t kDefaultChunkSize = 500000;
 constexpr double kDefaultMaxVarRatioPerRead = 0.05;
 constexpr double kDefaultMaxNoisyFracPerRead = 0.5;
@@ -455,11 +454,6 @@ struct RegionChunk {
     int next_tid = -1;
     hts_pos_t next_beg = 0;
     hts_pos_t next_end = 0;
-
-    /** @brief True if `prev_chunk_id` points to the preceding chunk on the same contig. */
-    bool has_prev_region() const { return prev_chunk_id >= 0; }
-    /** @brief True if `next_chunk_id` points to the following chunk on the same contig. */
-    bool has_next_region() const { return next_chunk_id >= 0; }
 };
 
 /**

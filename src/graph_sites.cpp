@@ -449,8 +449,6 @@ SiteCatalogHandle::SiteCatalogHandle(const std::string& path) {
 }
 
 SiteCatalogHandle::~SiteCatalogHandle() = default;
-SiteCatalogHandle::SiteCatalogHandle(SiteCatalogHandle&& o) noexcept = default;
-SiteCatalogHandle& SiteCatalogHandle::operator=(SiteCatalogHandle&& o) noexcept = default;
 
 GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
                                        const std::string& contig,

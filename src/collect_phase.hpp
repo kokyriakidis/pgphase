@@ -49,13 +49,6 @@ constexpr uint32_t kCandNonAnchorHet         = 0x1000u;
 // Categories excluded from noisy-region containment checks.
 constexpr uint32_t kLongcalldNotCandVarCate =
     kLongcalldNonVar | kLongcalldLowCovVar | kLongcalldStrandBiasVar;
-// All het candidate categories.
-constexpr uint32_t kCandHetVarCate =
-    kCandCleanHetSnp | kCandCleanHetIndel | kCandNoisyCandHet;
-// Categories allowed to anchor k-means read assignment.  Narrower than the
-// germline mask on purpose: anchoring drives haplotype assignment, so a site
-// that is merely callable must not automatically get a vote.
-constexpr uint32_t kCandAnchorClean = kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom;
 // Clean germline categories (used for VCF INFO CLEAN flag and output gating).
 constexpr uint32_t kCandGermlineClean =
     kCandCleanHetSnp | kCandCleanHetIndel | kCandCleanHom | kCandNonAnchorHet;

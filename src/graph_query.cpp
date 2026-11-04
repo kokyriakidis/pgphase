@@ -609,24 +609,6 @@ IndexedGafHandle::~IndexedGafHandle() {
     if (fp != nullptr) hts_close(fp);
 }
 
-IndexedGafHandle::IndexedGafHandle(IndexedGafHandle&& o) noexcept
-    : fp(o.fp), tbx(o.tbx) {
-    o.fp  = nullptr;
-    o.tbx = nullptr;
-}
-
-IndexedGafHandle& IndexedGafHandle::operator=(IndexedGafHandle&& o) noexcept {
-    if (this != &o) {
-        if (tbx != nullptr) tbx_destroy(tbx);
-        if (fp != nullptr) hts_close(fp);
-        fp    = o.fp;
-        tbx   = o.tbx;
-        o.fp  = nullptr;
-        o.tbx = nullptr;
-    }
-    return *this;
-}
-
 void require_indexed_gaf(const std::string& indexed_gaf_file) {
     // Validate by constructing a handle (opens + loads index) then
     // immediately destroying it.  Throws on failure.

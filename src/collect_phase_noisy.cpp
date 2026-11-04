@@ -884,42 +884,6 @@ void derive_msa_candidate_strand_counts(PhasingChunk& chunk) {
     }
 }
 
-
-
-template <class ReferenceBase>
-static std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions_impl(
-        hts_pos_t pos, const std::string& alt, const ReferenceBase& reference) {
-    hts_pos_t left = pos, right = pos;
-    if (alt.empty()) return {left, right};
-    const auto equal_base = [](char ref, char inserted) {
-        return base_to_nt4(ref) <= 3 && base_to_nt4(ref) == base_to_nt4(inserted);
-    };
-    // Moving the edit one base rotates the insertion by one base. The
-    // crossed reference base must equal the base rotated out of the allele.
-    while (left > 1 && equal_base(reference(left - 1), alt[alt.size() - 1 -
-               static_cast<size_t>(pos - left) % alt.size()])) --left;
-    while (equal_base(reference(right), alt[static_cast<size_t>(right - pos) % alt.size()]))
-        ++right;
-    return {left, right};
-}
-
-std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
-        hts_pos_t pos, const std::string& alt, const PhasingChunk& chunk) {
-    return insertion_equivalent_positions_impl(pos, alt, [&chunk](hts_pos_t base) {
-        const hts_pos_t offset = base - chunk.ref_beg;
-        return offset >= 0 && offset < static_cast<hts_pos_t>(chunk.ref_seq.size())
-            ? chunk.ref_seq[static_cast<size_t>(offset)] : 'N';
-    });
-}
-
-std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
-        hts_pos_t pos, const std::string& alt, ReferenceCache& reference,
-        int tid, const bam_hdr_t* header) {
-    return insertion_equivalent_positions_impl(pos, alt, [&](hts_pos_t base) {
-        return reference.base(tid, base, header);
-    });
-}
-
 // ════════════════════════════════════════════════════════════════════════════
 // sort_noisy_regs
 // ════════════════════════════════════════════════════════════════════════════

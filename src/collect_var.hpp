@@ -101,11 +101,6 @@ VariantKey variant_key_from_digar(int tid, const DigarOp& op);
 // SNP/INS ALT tie-break uses nt4-encoded bytes, not raw ASCII order.
 void collapse_fuzzy_large_insertions(CandidateTable& variants, int min_sv_len);
 
-// Sort and drop rows whose VariantKey compares equal under exact_comp_var_site.
-// Used when concatenating per-window candidate tables — cross-chunk dedupe
-// must not fuzzy-merge large insertions (only per-chunk collapse does that).
-void collapse_exact_duplicate_variants(CandidateTable& variants);
-
 // Gather candidate keys from digars overlapping the chunk region, then
 // collapse fuzzy large insertions.  Output counts are still zero.
 void collect_candidate_sites_from_records(const RegionChunk& chunk,

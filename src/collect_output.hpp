@@ -92,24 +92,6 @@ void write_phased_variants_vcf_records(std::ostream& out,
                                        ReferenceCache& ref,
                                        const CandidateTable& variants);
 
-/**
- * @brief Writes `opts.output_tsv` (header + all rows) in one shot.
- * @param opts I/O paths and primary BAM.
- * @param fai FASTA index for `ReferenceCache`.
- * @param variants Full candidate table.
- * @throws std::runtime_error On BAM/header or output open failure.
- */
-void write_variants(const Options& opts, faidx_t* fai, const CandidateTable& variants);
-
-/**
- * @brief Writes `opts.output_vcf` if the path is non-empty; no-op otherwise.
- * @param opts Must include non-empty `output_vcf` when VCF is desired.
- * @param fai FASTA index.
- * @param variants Candidates to emit.
- * @throws std::runtime_error On BAM/header or VCF open failure when output is requested.
- */
-void write_variants_vcf(const Options& opts, faidx_t* fai, const CandidateTable& variants);
-
 } // namespace pgphase_collect
 
 #endif

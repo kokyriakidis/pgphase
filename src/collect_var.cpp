@@ -431,23 +431,6 @@ void collapse_fuzzy_large_insertions(CandidateTable& variants, int min_sv_len) {
     variants.resize(write_i);
 }
 
-void collapse_exact_duplicate_variants(CandidateTable& variants) {
-    std::sort(variants.begin(), variants.end(), [](const CandidateVariant& a, const CandidateVariant& b) {
-        return exact_comp_var_site(&a.key, &b.key) < 0;
-    });
-    if (variants.empty()) return;
-    size_t write_i = 1;
-    for (size_t read_i = 1; read_i < variants.size(); ++read_i) {
-        if (exact_comp_var_site(&variants[write_i - 1].key, &variants[read_i].key) == 0) {
-            variants[write_i - 1].lcd_make_variants_region_pass |= variants[read_i].lcd_make_variants_region_pass;
-            continue;
-        }
-        if (write_i != read_i) variants[write_i] = std::move(variants[read_i]);
-        ++write_i;
-    }
-    variants.resize(write_i);
-}
-
 /**
  * @brief Builds the raw candidate table from per-read digars for one chunk.
  *

@@ -133,8 +133,6 @@ struct SiteCatalogHandle {
     ~SiteCatalogHandle();
     SiteCatalogHandle(const SiteCatalogHandle&) = delete;
     SiteCatalogHandle& operator=(const SiteCatalogHandle&) = delete;
-    SiteCatalogHandle(SiteCatalogHandle&& o) noexcept;
-    SiteCatalogHandle& operator=(SiteCatalogHandle&& o) noexcept;
     explicit operator bool() const { return catalog != nullptr; }
 };
 

@@ -34,8 +34,6 @@ struct IndexedGafHandle {
     ~IndexedGafHandle();
     IndexedGafHandle(const IndexedGafHandle&) = delete;
     IndexedGafHandle& operator=(const IndexedGafHandle&) = delete;
-    IndexedGafHandle(IndexedGafHandle&& o) noexcept;
-    IndexedGafHandle& operator=(IndexedGafHandle&& o) noexcept;
     explicit operator bool() const { return fp && tbx; }
 };
 

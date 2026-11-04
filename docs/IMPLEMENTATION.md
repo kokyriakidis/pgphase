@@ -2673,7 +2673,7 @@ Stitching holds every `BamChunk` of the contig in memory simultaneously. `mid_fr
 
 Each chunk produces a candidate table with **`collapse_fuzzy_large_insertions` already applied inside that chunk** (same as longcallD `collect_all_cand_var_sites`). For each **`reg_chunk_i` batch** (see §4), the pipeline walks chunk tables in order and performs only an **exact-key** merge for duplicate `VariantKey` rows. There is **no** second `collapse_fuzzy_large_insertions` on the concatenated list, matching longcallD (candidate-site deduplication is per BAM/region chunk only; chunk-boundary stitching (§19) does not fuzzy-merge candidate sites).
 
-When exact duplicate keys collide across chunks, the earlier-sorted row is kept and the later row's `lcd_make_variants_region_pass` is OR-ed into it (`collapse_exact_duplicate_variants`, `collect_var.cpp:380-388`) -- the flagged row is not selected in preference, the flag is merged. This mirrors the active-region selection effect of longcallD `make_variants`: a duplicate from a neighboring chunk should not replace the candidate that belongs to the current active region. If both rows have the same pass state, the earlier row remains the winner and the pass flag is OR-ed.
+When exact duplicate keys collide across chunks (`merge_chunk_candidates` in `collect_pipeline.cpp`), the row inside its chunk's active region (`lcd_make_variants_region_pass`) replaces one outside it; otherwise the earlier row in chunk order is kept and the pass flags are OR-ed. This mirrors the active-region selection effect of longcallD `make_variants`: a duplicate from a neighboring chunk should not replace the candidate that belongs to the current active region.
 
 Example:
 

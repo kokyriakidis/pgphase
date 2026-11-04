@@ -24,17 +24,6 @@
 
 namespace pgphase_collect {
 
-/// Inclusive insertion positions producing the same reference edit, with the
-/// inserted motif rotated at each step. Reference boundaries and ambiguous
-/// bases stop the interval; no alignment or distance cutoff is involved.
-std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
-    hts_pos_t pos, const std::string& alt, const PhasingChunk& chunk);
-std::pair<hts_pos_t, hts_pos_t> insertion_equivalent_positions(
-    hts_pos_t pos, const std::string& alt, ReferenceCache& reference,
-    int tid, const bam_hdr_t* header);
-
-
-
 /// Extend MSA het profiles only if the expanded observations pass the existing AF gate.
 void add_msa_site_observations(const Options& opts,
                                 const std::vector<UnassignedMsaRead>& reads,

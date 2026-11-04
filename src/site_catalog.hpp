@@ -93,7 +93,6 @@ public:
 
     /// Reads `size` bytes at `offset` into `out` (thread-safe: pread).
     void read_at(uint64_t offset, uint64_t size, std::string& out) const;
-    uint64_t blocks_end() const { return blocks_end_; }
 
 private:
     std::string path_;

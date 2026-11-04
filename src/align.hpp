@@ -36,15 +36,8 @@ inline bool noisyIsRightGap(int c)   { return (c & kNoisyRightGap) != 0; }
 inline bool noisyIsNotCover(int c)   { return !(c & kNoisyLeftCover) && !(c & kNoisyRightCover); }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Alignment scoring constants for WFA2 and abPOA.
+// Alignment constants for WFA2 and abPOA (the scores are Options').
 // ════════════════════════════════════════════════════════════════════════════
-
-constexpr int kMatchScore     = 2;
-constexpr int kMismatchScore  = 6;
-constexpr int kGapOpen1Score  = 6;
-constexpr int kGapExt1Score   = 2;
-constexpr int kGapOpen2Score  = 24;
-constexpr int kGapExt2Score   = 1;
 
 constexpr int kGapLeftAln  = 1; // default: gaps placed at left-most position
 constexpr int kGapRightAln = 2;
@@ -58,8 +51,6 @@ constexpr int kWfaZdrop       = 2;
 
 constexpr int kWfaAffine1p = 0;
 constexpr int kWfaAffine2p = 1;
-
-constexpr double kPartialAlnRatio = 1.1; // max longer/shorter ratio for partial alignment
 
 // ════════════════════════════════════════════════════════════════════════════
 // AlnStr: alignment string representation for MSA consensus.

@@ -153,30 +153,6 @@ void write_variants_tsv_records(std::ostream& out,
 }
 
 /**
- * @brief Writes the full set of categorized variants to a TSV file.
- *
- * Opens the primary BAM file to obtain reference sequence names via the header,
- * configures the FASTA cache, and streams the full merged candidate set to `opts.output_tsv`.
- *
- * @param opts Program options containing I/O paths.
- * @param fai FASTA index for the reference genome.
- * @param variants The complete table of evaluated candidate variants.
- * @throws std::runtime_error If the BAM header cannot be read or `opts.output_tsv` cannot be opened.
- */
-void write_variants(const Options& opts, faidx_t* fai, const CandidateTable& variants) {
-    SamFile bam(opts.primary_bam_file(), 1, opts.ref_fasta);
-    std::unique_ptr<bam_hdr_t, HeaderDeleter> header(sam_hdr_read(bam.get()));
-    if (!header) throw std::runtime_error("failed to read BAM header");
-    ReferenceCache ref(fai);
-
-    std::ofstream out(opts.output_tsv);
-    if (!out) throw std::runtime_error("failed to open output: " + opts.output_tsv);
-
-    write_variants_tsv_header(out);
-    write_variants_tsv_records(out, header.get(), ref, variants);
-}
-
-/**
  * @brief Writes a valid VCF v4.2 header for candidate variants.
  *
  * Emits standard VCF pragmas, contig definitions from the BAM header,
@@ -690,32 +666,6 @@ void write_phased_variants_vcf_records(std::ostream& out,
         if (emit_ps) out << ':' << ps_val;
         out << '\n';
     }
-}
-
-/**
- * @brief Writes optional candidate-variant VCF output.
- *
- * If `opts.output_vcf` is non-empty, opens the path, writes the VCF header and all records;
- * otherwise does nothing.
- *
- * @param opts Program options (`output_vcf`, BAM path, reference FASTA).
- * @param fai FASTA index for reference bases.
- * @param variants Categorized candidates to serialize.
- * @throws std::runtime_error If the BAM header cannot be read or the VCF path cannot be opened.
- */
-void write_variants_vcf(const Options& opts, faidx_t* fai, const CandidateTable& variants) {
-    if (opts.output_vcf.empty()) return;
-
-    SamFile bam(opts.primary_bam_file(), 1, opts.ref_fasta);
-    std::unique_ptr<bam_hdr_t, HeaderDeleter> header(sam_hdr_read(bam.get()));
-    if (!header) throw std::runtime_error("failed to read BAM header");
-    ReferenceCache ref(fai);
-
-    std::ofstream out(opts.output_vcf);
-    if (!out) throw std::runtime_error("failed to open VCF output: " + opts.output_vcf);
-
-    write_variants_vcf_header(out, opts, header.get());
-    write_variants_vcf_records(out, opts, header.get(), ref, variants);
 }
 
 } // namespace pgphase_collect

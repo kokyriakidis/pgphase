@@ -331,19 +331,6 @@ NoisyReadInfo collect_noisy_read_info(const Options& opts, const PhasingChunk& c
     return info;
 }
 
-static inline DigarType bam_op_to_digar_type(int op) {
-    switch (op) {
-        case BAM_CEQUAL: return DigarType::Equal;
-        case BAM_CDIFF: return DigarType::Snp;
-        case BAM_CINS: return DigarType::Insertion;
-        case BAM_CDEL: return DigarType::Deletion;
-        case BAM_CSOFT_CLIP: return DigarType::SoftClip;
-        case BAM_CHARD_CLIP: return DigarType::HardClip;
-        case BAM_CREF_SKIP: return DigarType::RefSkip;
-        default: return DigarType::Equal;
-    }
-}
-
 static inline bool same_digar_for_merge(const DigarOp& a, const DigarOp& b) {
     const int aop = digar_type_to_bam_op(a.type);
     if (aop != BAM_CEQUAL && aop != BAM_CINS && aop != BAM_CDEL) return false;
