@@ -692,10 +692,9 @@ The site catalog is dromos's one file for the graph (`dromos catalog`; the forma
   binary searches (the first whose `reach`, the largest record end so far, is at least the start; the last whose
   first POS is at most the end), reads each block whole, checks its CRC-32, and decodes its columns; the node
   letters (SEQ, EXC), most of a block's bytes, only when a record of the block is kept.
-- Each record becomes the `GraphSite` the old reader parsed from the same record's VCF line (`dromos view` prints
-  that line): CHROM, POS, ID (`<start><end>` visits), REF and ALT spelled from the node
-  table (reverse visits reverse-complemented), the AT walks, LV and PS. A lone empty ALT gives no ALT, as the VCF
-  parser read an empty ALT field.
+- Each record becomes the `GraphSite` of the same record's VCF line (`dromos view` prints that line): CHROM, POS, ID
+  (`<start><end>` visits), REF and ALT spelled from the node table (reverse visits reverse-complemented), the AT
+  walks, LV and PS. A lone empty ALT gives no ALT, as the sites VCF reader pgphase had read an empty ALT field.
 - Skipped unread, as before, and counted in the load stats: a block whose `min_allele` (its records' shortest
   allele, the padding base not counted) exceeds the GAF's `#max_span` for the contig, and a one-record block whose
   `max_walk` exceeds 65,535 visits (the compact index's limit); then, record by record, a record overlapping the
@@ -705,7 +704,9 @@ The site catalog is dromos's one file for the graph (`dromos catalog`; the forma
 Before the first chunk, `collect-graph-variation` logs the catalog's graph (file, fingerprint, node ids, reference
 sample, snarls source) and writes it to both VCF headers (`##pgphase_site_catalog=<...>`), then checks each FASTA
 contig it will process against the catalog's (`check_site_catalog_reference`, contigs in parallel): a FASTA contig
-shorter than the catalog's is refused; the MD5 of its first `length` bases (upper case) equal to the catalog's is a
+shorter than the catalog's is refused, unless the catalog holds the contig in regions alone (`dromos catalog
+--region`) and the FASTA's contig reaches the last of them: then, with no MD5 to compare, the sampled REF alleles below
+decide (the gates' chr20 slice: a 25.5 Mb FASTA, a 66.2 Mb contig); the MD5 of its first `length` bases (upper case) equal to the catalog's is a
 match (a FASTA contig longer than the graph's path, a warning). The MD5 may differ legitimately, since the catalog's
 is of the sequence the graph's reference path spells, N where it has no fragment: then the REF alleles of every record
 of about 32 blocks spread over the contig must be the FASTA's bases (a warning), or the run is refused. HPRC v2.1
@@ -713,7 +714,8 @@ against CHM13 v2.0: 24 contigs match by MD5 (the 25 checked in about 11 s on 2 t
 14,238 sampled REF alleles agreeing (none of 403 of 8 bp or more), at offsets that drift along the contig. Every GAF alignment a chunk reads must visit only nodes within
 the catalog's `graph.min_node`-`graph.max_node`, or the run stops: the alignments are of another graph.
 
-A tabix-indexed sites VCF is still read, line by line, as before.
+The catalog is the only site input: a sites VCF (`vg deconstruct -a`, or `dromos view`'s) is refused, saying to make
+the catalog with `dromos catalog`.
 
 ### Test gates
 

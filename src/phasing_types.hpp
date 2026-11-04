@@ -390,8 +390,7 @@ struct Options {
 
     /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;
-    /** Site catalog (collect-graph-variation): dromos's one-file catalog (dromos catalog), or a tabix-indexed sites
-     *  VCF. */
+    /** Site catalog (collect-graph-variation): dromos's one-file catalog (dromos catalog). */
     std::string graph_sites;
     /** Lines the VCF headers carry before #CHROM: the site catalog's graph identity (collect-graph-variation). */
     std::vector<std::string> vcf_header_extra;

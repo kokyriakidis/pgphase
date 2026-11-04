@@ -9,7 +9,7 @@ and compares the output with `test_data/expected/union_chr20_expected.*`.
 ```bash
 ./pgphase collect-graph-variation \
   --ref   test_data/graph_chr20/ref.fa.gz \
-  --sites test_data/graph_chr20/chr20_25M.sites.vcf.gz \
+  --sites test_data/graph_chr20/chr20_25M.CHM13.sites \
   --gaf   test_data/graph_chr20/HG002_chr20_25M.coord.gaf.gz \
   --bam   test_data/graph_chr20/HG002_chr20_25M.bam \
   -o output.tsv --phased-vcf-out phased.vcf --phased-bam-out phased.bam
@@ -36,8 +36,7 @@ an `HP` tag. Without `--bam` the run phases from the graph alignments alone.
 | `ref.fa.gz.gzi` | 6.2 KB | bgzip index |
 | `HG002_chr20_25M.bam` | 12 MB | HiFi reads aligned to chr20 (contig = `chr20`, LN=25,500,000) |
 | `HG002_chr20_25M.bam.bai` | 17 KB | BAM index |
-| `chr20_25M.sites.vcf.gz` | 213 KB | Graph snarl sites VCF (tabix-indexed) |
-| `chr20_25M.sites.vcf.gz.tbi` | 488 B | Tabix index |
+| `chr20_25M.CHM13.sites` | 31 KB | The graph's site catalog of chr20:25,000,001-25,500,000 (`dromos catalog --region`): 6,963 sites |
 | `HG002_chr20_25M.coord.gaf.gz` | 5.6 MB | Coordinate-sorted GAF, HG002 HiFi (tabix-indexed) |
 | `HG002_chr20_25M.coord.gaf.gz.tbi` | 2.1 KB | Tabix index |
 
@@ -46,11 +45,13 @@ an `HP` tag. Without `--bam` the run phases from the graph alignments alone.
 **Reference FASTA**: The slice covers positions 25,000,001–25,500,000 on chr20.
 The contig is N-padded from position 1 so that FASTA coordinates match genome
 coordinates. This is required because pgphase tiles the reference into chunks
-and uses absolute positions for tabix queries against the sites VCF and GAF.
+and uses absolute positions for its queries of the site catalog and GAF.
 
-**Sites VCF**: Subset from the full CHM13 chr20 snarl catalog with
-`tabix ... CHM13#0#chr20:25000001-25500000`. The pipeline resolves
-`CHM13#0#chr20` → `chr20` via suffix matching.
+**Site catalog**: The catalog of the HPRC v2.1 CHM13 graph
+(`hprc-v2.1-mc-chm13-eval.gbz`, snarls from its distance index) holding the
+region alone: the records a query of the whole chr20 catalog returns there.
+Its contig is the graph's whole chr20 (66,210,255 bp); the FASTA reaches the
+region's end, and pgphase checks the records' REF alleles against it.
 
 **GAF**: Coordinate-sorted and bgzipped, indexed with `tabix -p bed`.
 The format has reference contig/start/end in columns 1–3.
@@ -78,10 +79,9 @@ padded = 'N'*25000000 + seq
 " | bgzip > ref.fa.gz
 samtools faidx ref.fa.gz
 
-# Sites VCF
-tabix sites_full.vcf.gz "CHM13#0#chr20:25000001-25500000" \
-    | bgzip > chr20_25M.sites.vcf.gz
-tabix -p vcf chr20_25M.sites.vcf.gz
+# Site catalog (dromos catalog, the graph's .dist beside it)
+dromos catalog --graph hprc-v2.1-mc-chm13-eval.gbz --reference-sample CHM13 \
+    --region chr20:25000001-25500000 --out chr20_25M.CHM13.sites
 
 # GAF
 tabix reads_full.coord.gaf.gz "chr20:25000001-25500000" \

@@ -1,17 +1,14 @@
 #ifndef PGPHASE_GRAPH_SITES_HPP
 #define PGPHASE_GRAPH_SITES_HPP
 
-// Snarl site catalog: reading the sites of a catalog (dromos's one-file site
-// catalog, site_catalog.hpp, or a sites-only VCF in the format of
-// `vg deconstruct -a`), validating allele
-// traversals, and providing the GraphSiteCatalog used by graph_query for allele
-// matching and graph_bam_adapter for phasing.
+// Snarl site catalog: reading the sites of dromos's one-file site catalog
+// (site_catalog.hpp), validating allele traversals, and providing the
+// GraphSiteCatalog used by graph_query for allele matching and
+// graph_bam_adapter for phasing.
 
 #include "collect_types.hpp"
 
-#include <htslib/tbx.h>
 #include <cstdint>
-#include <iosfwd>
 #include <map>
 #include <memory>
 #include <string>
@@ -41,19 +38,19 @@ using GraphWalk = std::vector<GraphWalkStep>;
 constexpr int kGraphAlleleMissing = -1;    // read doesn't span the site
 constexpr int kGraphAlleleAmbiguous = -2;  // read matches multiple alleles
 
-// A snarl variation site parsed from a VCF record.
+// A snarl variation site: one record of the site catalog, as its VCF line
+// (dromos view) gives it.
 struct GraphSite {
-    std::string chrom;          // VCF CHROM (pangenome path name)
+    std::string chrom;          // CHROM (pangenome path name)
     std::string ref_contig;     // suffix after last '#' (e.g. "chr20")
-    hts_pos_t pos = 0;          // VCF 1-based POS
-    std::string id;              // VCF ID field (snarl identifier)
+    hts_pos_t pos = 0;          // 1-based POS
+    std::string id;              // ID (snarl identifier)
     std::string ref;
     std::vector<std::string> alts;
-    std::vector<std::string> allele_traversals;  // raw AT field entries
+    std::vector<std::string> allele_traversals;  // AT entries (the unit tests' GFA fixtures)
     std::vector<GraphWalk> allele_walks;          // parsed walks (one per allele)
     int level = -1;              // snarl nesting level (LV info field)
     std::string parent;          // parent snarl site key (PS info field)
-    std::string root;            // root snarl (unused, reserved)
     hts_pos_t ref_beg = 0;      // linearized ref interval start
     hts_pos_t ref_end = 0;      // linearized ref interval end
     std::vector<int> conditional_parent_alleles;  // PA field: parent alleles that gate this child
@@ -76,10 +73,9 @@ struct GraphSiteCatalogView;
 /// here. `by_skip_reason` covers sites that parsed but failed structural
 /// validation; the other counters cover records that never became sites.
 struct GraphSiteLoadStats {
-    size_t data_lines = 0;         ///< non-header lines seen
-    size_t sites_parsed = 0;       ///< lines that became a GraphSite
-    size_t short_line = 0;         ///< fewer than the 8 mandatory VCF columns
-    size_t bad_position = 0;       ///< POS or END not a positive integer
+    size_t data_lines = 0;         ///< records read
+    size_t sites_parsed = 0;       ///< records that became a GraphSite
+    size_t bad_position = 0;       ///< POS not a positive integer
     size_t beyond_read_span = 0;   ///< every allele longer than any alignment on the contig: skipped
     size_t walk_too_long = 0;      ///< an allele walk over kMaxSiteWalkSteps nodes: never matched, skipped
     size_t unsupported_allele = 0; ///< symbolic <DEL>, or a character outside ACGTN*.
@@ -121,24 +117,13 @@ inline GraphSiteCatalogView GraphSiteCatalog::view_all() const {
     return v;
 }
 
-// When `filters` is non-empty only sites overlapping at least one filter are loaded.
-// For bgzipped VCFs with a .tbi/.csi index, tabix is used to seek directly to each
-// region; otherwise the file is streamed and non-overlapping lines are skipped.
-GraphSiteCatalog load_graph_site_catalog_from_vcf(
-    const std::string& path,
-    const std::vector<RegionFilter>& filters = {},
-    bool keep_allele_traversal_strings = true);
-
 class SiteCatalogReader;
 
-// RAII handle for a site catalog: dromos's site catalog (`dromos catalog`: one
-// file for every contig of the graph, its header read once per process and
-// shared; the handle holds its thread's reader), or a tabix-indexed sites VCF.
-// Opened once per thread, reused across chunks to avoid repeated file open /
-// index load.
+// RAII handle for dromos's site catalog (`dromos catalog`: one file for every
+// contig of the graph, its header read once per process and shared; the
+// handle holds its thread's reader). Opened once per thread, reused across
+// chunks.
 struct SiteCatalogHandle {
-    htsFile* fp  = nullptr;
-    tbx_t*   tbx = nullptr;
     std::unique_ptr<SiteCatalogReader> catalog;
     // The most graph bases any alignment on each contig spans (bare contig
     // name), from the GAF's #max_span lines. A site whose every allele is
@@ -153,18 +138,18 @@ struct SiteCatalogHandle {
     SiteCatalogHandle& operator=(const SiteCatalogHandle&) = delete;
     SiteCatalogHandle(SiteCatalogHandle&& o) noexcept;
     SiteCatalogHandle& operator=(SiteCatalogHandle&& o) noexcept;
-    explicit operator bool() const { return (fp && tbx) || catalog; }
+    explicit operator bool() const { return catalog != nullptr; }
 };
 
-/// Load sites overlapping the 1-based inclusive VCF interval [beg, end].
+/// Load sites overlapping the 1-based inclusive interval [beg, end].
 /// The returned catalog is finalized (sorted, validated). Callers querying
 /// zero-based APIs such as GAF must convert those coordinates separately.
 GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
                                        const std::string& contig,
                                        hts_pos_t beg, hts_pos_t end);
 
-/// Throws unless `path` is a usable site catalog: dromos's site catalog (its
-/// preamble and header checked), or a bgzipped VCF with a tabix index.
+/// Throws unless `path` is dromos's site catalog (its preamble and header
+/// checked).
 void require_site_catalog(const std::string& path);
 
 /// The sites of a small graph given as GFA text (S and W lines): every bubble of
@@ -173,9 +158,6 @@ void require_site_catalog(const std::string& path);
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
                                                        const std::string& reference_sample,
                                                        const std::string& contig);
-
-void write_graph_site_catalog_tsv(std::ostream& out, const GraphSiteCatalog& catalog);
-
 
 GraphWalk parse_graph_walk(std::string_view walk);
 

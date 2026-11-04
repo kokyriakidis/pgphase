@@ -18,61 +18,39 @@ static bool check(bool cond, const std::string& msg) {
     return cond;
 }
 
-static const GraphSite* find_site(const GraphSiteCatalog& catalog, const std::string& id) {
-    for (const GraphSite& site : catalog.sites) {
-        if (site.id == id) return &site;
-    }
-    return nullptr;
-}
-
-static bool test_loader_rejects_bad_records_without_throwing() {
-    // A catalog is external data: one corrupt record must cost that record, not
-    // the run, and every discard must be counted rather than silent.
-    const char* lines[] = {
-        "chr20\t100\ts1\tA\tG\t60\t.\tAT=>1>2,>1>3\n",          // fine
-        "chr20\tNOTANUMBER\ts2\tA\tG\t60\t.\tAT=>1>2,>1>3\n",   // POS not a number
-        "chr20\t0\ts3\tA\tG\t60\t.\tAT=>1>2,>1>3\n",            // POS not positive
-        "chr20\t300\ts4\tA\t<DEL>\t60\t.\tAT=>1>2,>1>3\n",      // symbolic allele
-        "chr20\t400\ts5\ta\tg\t60\t.\tAT=>1>2,>1>3\n",          // lower case
-        "chr20\t500\ts6\tA\n",                                     // short line
-        "chr20\t600\ts7\tA\tG\t60\t.\tAT=>1>2,>1>3;END=NOPE\n", // END not a number
-    };
-    const std::string path = "/tmp/pgphase_loader_test.vcf";
-    {
-        std::ofstream out(path);
-        out << "##fileformat=VCFv4.2\n#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
-        for (const char* l : lines) out << l;
-    }
-    const GraphSiteCatalog cat = load_graph_site_catalog_from_vcf(path, {}, true);
-    bool ok = true;
-    ok &= check(cat.stats.data_lines == 7, "every data line is counted");
-    ok &= check(cat.stats.sites_parsed == 2, "the two well-formed records survive parsing");
-    ok &= check(cat.stats.bad_position == 3, "two bad POS and one bad END are counted");
-    ok &= check(cat.stats.unsupported_allele == 1, "the symbolic allele is rejected");
-    ok &= check(cat.stats.short_line == 1, "the short line is counted");
-    // Case is normalised rather than carried through, so a lower-case allele
-    // still matches a candidate derived from an upper-case reference.
-    bool saw_upper = false;
-    for (const GraphSite& s : cat.sites)
-        if (s.pos == 400) saw_upper = (s.ref == "A" && s.alts.size() == 1 && s.alts[0] == "G");
-    ok &= check(saw_upper, "a lower-case allele is upper-cased at load");
-    return ok;
-}
-
-using SiteKey = std::tuple<hts_pos_t, std::string, std::string, std::set<std::pair<std::string, std::string>>, int,
-                           std::string>;
-
-// Sites as a set: ALT order is the builder's choice (vg's, or dromos's by
-// haplotype count), and must not change what is loaded.
-static std::set<SiteKey> site_set(const GraphSiteCatalog& cat) {
-    std::set<SiteKey> out;
+// A catalog's sites as a set (ALT order is the builder's choice: vg's, or
+// dromos's by haplotype count), hashed (FNV-1a): POS, ID, REF and its walk,
+// and each ALT with its walk.
+static uint64_t site_digest(const GraphSiteCatalog& cat) {
+    std::set<std::tuple<hts_pos_t, std::string, std::string, std::set<std::pair<std::string, std::string>>>> sites;
     for (const GraphSite& s : cat.sites) {
         std::set<std::pair<std::string, std::string>> alleles;
         for (size_t i = 0; i < s.alts.size(); ++i)
-            alleles.emplace(s.alts[i], i + 1 < s.allele_traversals.size() ? s.allele_traversals[i + 1] : "");
-        out.emplace(s.pos, s.id, s.ref, alleles, s.level, s.parent);
+            alleles.emplace(s.alts[i],
+                            i + 1 < s.allele_walks.size() ? graph_walk_to_string(s.allele_walks[i + 1]) : "");
+        sites.emplace(s.pos, s.id,
+                      s.ref + "|" + graph_walk_to_string(s.allele_walks.empty() ? GraphWalk{} : s.allele_walks[0]),
+                      alleles);
     }
-    return out;
+    uint64_t h = 1469598103934665603ULL;
+    const auto put = [&](const std::string& t) {
+        for (const unsigned char c : t) {
+            h ^= c;
+            h *= 1099511628211ULL;
+        }
+        h ^= 0xff;
+        h *= 1099511628211ULL;
+    };
+    for (const auto& [pos, id, ref, alleles] : sites) {
+        put(std::to_string(pos));
+        put(id);
+        put(ref);
+        for (const auto& [a, w] : alleles) {
+            put(a);
+            put(w);
+        }
+    }
+    return h;
 }
 
 static std::string tmp_path(const std::string& name) {
@@ -93,35 +71,35 @@ static void write_file(const std::string& path, const std::string& data) {
 }
 
 static const char* const kCatalog = "test_data/graph/micb-kir3dl1.CHM13.sites";
+static const char* const kRegionCatalog = "test_data/graph_chr20/chr20_25M.CHM13.sites";
 
-// The micb catalog as dromos catalog writes it (one file for both contigs) and
-// as vg deconstruct does (a tabix VCF): the same sites for whole contigs and
-// for regions, records overlapping a region included as tabix does.
-static bool test_site_catalog_matches_vcf() {
-    const std::string vcf = "test_data/graph/micb-kir3dl1.sites.vcf.gz";
+// The micb catalog as dromos catalog writes it (one file for both contigs):
+// the sites vg deconstruct -a reported for whole contigs and for regions,
+// records overlapping a region included as tabix did (the digests are of
+// vg's sites VCF, read by the sites VCF reader pgphase had until dromos's
+// catalog replaced it).
+static bool test_site_catalog_sites() {
     bool ok = true;
     require_site_catalog(kCatalog);
-    SiteCatalogHandle catalog(kCatalog), tabix(vcf);
-    struct Query { const char* contig; hts_pos_t beg, end; size_t expect; };
+    SiteCatalogHandle catalog(kCatalog);
+    struct Query { const char* contig; hts_pos_t beg, end; size_t sites; uint64_t digest; };
     const Query queries[] = {
-        {"CHM13#0#chr6", 1, 400000000, 202},
-        {"CHM13#0#chr19", 1, 400000000, 715},
-        {"CHM13#0#chr6", 31351180, 31351181, 0},  // inside the >16>32 record
-        {"CHM13#0#chr6", 31355000, 31357000, 0},
-        {"chr19", 18930000, 18935000, 0},         // bare contig name
+        {"CHM13#0#chr6", 1, 400000000, 202, 0xeb4c80d5cc53f3b8ULL},
+        {"CHM13#0#chr19", 1, 400000000, 715, 0xd13c1413c839370dULL},
+        {"CHM13#0#chr6", 31351180, 31351181, 1, 0x03c93e9f26c8ae80ULL},  // inside the >16>32 record
+        {"CHM13#0#chr6", 31355000, 31357000, 27, 0xa84f33dd1118909fULL},
+        {"chr19", 18930000, 18935000, 94, 0x2efe4d9cb837305fULL},         // bare contig name
     };
     for (const Query& q : queries) {
         const GraphSiteCatalog a = load_sites_for_region(catalog, q.contig, q.beg, q.end);
-        const GraphSiteCatalog b = load_sites_for_region(tabix, q.contig, q.beg, q.end);
         const std::string what = std::string(q.contig) + ":" + std::to_string(q.beg) + "-" + std::to_string(q.end);
-        ok &= check(!a.sites.empty(), what + ": sites loaded from the catalog");
-        ok &= check(q.expect == 0 || a.sites.size() == q.expect, what + ": every site of the contig");
-        ok &= check(site_set(a) == site_set(b), what + ": the same sites as the VCF");
+        ok &= check(a.sites.size() == q.sites, what + ": " + std::to_string(q.sites) + " sites (got " +
+                                                   std::to_string(a.sites.size()) + ")");
+        ok &= check(site_digest(a) == q.digest, what + ": the sites vg deconstruct reported");
     }
     ok &= check(load_sites_for_region(catalog, "CHM13#0#chrM", 1, 400000000).sites.empty(),
                 "a contig the catalog lacks has no sites");
-    ok &= check(load_sites_for_region(catalog, "GRCh38#0#chr6", 1, 400000000).sites.empty() &&
-                    load_sites_for_region(tabix, "GRCh38#0#chr6", 1, 400000000).sites.empty(),
+    ok &= check(load_sites_for_region(catalog, "GRCh38#0#chr6", 1, 400000000).sites.empty(),
                 "another sample's path has no sites in a CHM13 catalog");
     // Every thread's handle reads the one file opened for the process.
     SiteCatalogHandle second(kCatalog);
@@ -208,6 +186,14 @@ static bool test_site_catalog_refuses_damage() {
         error = e.what();
     }
     ok &= check(error.find("a folder") != std::string::npos, "a folder is refused (got '" + error + "')");
+    error.clear();
+    try {
+        SiteCatalogHandle h("test_data/graph/micb-kir3dl1_HG003.coord.gaf.gz");
+    } catch (const std::exception& e) {
+        error = e.what();
+    }
+    ok &= check(error.find("not dromos's site catalog") != std::string::npos,
+                "another file is refused (got '" + error + "')");
     return ok;
 }
 
@@ -292,78 +278,46 @@ static bool test_site_catalog_reference_check() {
                 "a REF the FASTA does not spell: refused (" + c.message + ")");
     c = checked("short", seq.substr(0, 1000));
     ok &= check(c.refuse, "a FASTA contig shorter than the graph's path: refused (" + c.message + ")");
+
+    // A catalog of a region (dromos catalog --region): chr20 of the HPRC graph
+    // (66,210,255 bp) against a FASTA that ends with the region, at 25.5 Mb.
+    const std::shared_ptr<const SiteCatalogFile> slice = SiteCatalogFile::open(kRegionCatalog);
+    ok &= check(slice->contigs().size() == 1 && slice->contigs()[0].regions.size() == 1 &&
+                    slice->contigs()[0].regions[0] == std::make_pair<uint64_t, uint64_t>(25000001, 25500000) &&
+                    slice->contigs()[0].records == 6963,
+                "the region catalog's region and records");
+    c = check_site_catalog_reference(slice, "test_data/graph_chr20/ref.fa.gz", {"chr20"}, 1).at(0);
+    ok &= check(!c.refuse && c.sampled_records > 0 && c.sampled_agree == c.sampled_records &&
+                    c.message.find("holding the catalog's regions") != std::string::npos,
+                "a FASTA contig reaching the catalog's regions: a warning (" + c.message + ")");
     return ok;
 }
 
 int main() {
-    const std::string path = "/tmp/pgphase_graph_sites_test.vcf";
-    {
-        std::ofstream out(path);
-        out << "##fileformat=VCFv4.2\n";
-        out << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n";
-        out << "chr20\t100\tparent\tA\tC,*\t.\tPASS\tLV=0;AT=>1>2>4,>1<3>4;X=Y\n";
-        out << "chr20\t110\tchild\tG\tT\t.\tPASS\tLV=1;PS=parent;AT=>2>4>6,>2>5>6\n";
-        out << "chrNested\t120\tnested\tG\tA,*\t.\tPASS\tLV=1;PS=parent;PA=1;RC=chr20;END=130;AT=>6>7>9,>6>8>9,*\n";
-        out << "chr20\t140\tbad\tA\tC\t.\tPASS\tLV=0;AT=>10>11,bad_walk\n";
-    }
-
     bool ok = true;
-    GraphSiteCatalog catalog = load_graph_site_catalog_from_vcf(path);
-    const GraphSite* parent = find_site(catalog, "parent");
-    const GraphSite* child = find_site(catalog, "child");
-    const GraphSite* nested = find_site(catalog, "nested");
-    const GraphSite* bad = find_site(catalog, "bad");
-    ok &= check(catalog.sites.size() == 4, "loaded four graph sites");
-    ok &= check(parent != nullptr, "parent site found");
-    ok &= check(child != nullptr, "child site found");
-    ok &= check(nested != nullptr, "nested site found");
-    ok &= check(bad != nullptr, "malformed site found");
-    ok &= check(parent != nullptr && parent->level == 0, "parent LV parsed");
-    ok &= check(parent != nullptr && parent->parent.empty(), "parent has no PS");
-    ok &= check(parent != nullptr && parent->has_spanning_deletion, "star allele detected");
-    ok &= check(parent != nullptr && parent->allele_traversals.size() == 2, "parent AT traversals parsed");
-    ok &= check(parent != nullptr && parent->allele_walks.size() == 2, "parent AT walks parsed");
-    ok &= check(parent != nullptr && parent->allele_walks[1].size() == 3, "parent second walk length");
-    ok &= check(parent != nullptr && parent->allele_walks[1][1].node == 3, "walk node id parsed");
-    ok &= check(parent != nullptr && parent->allele_walks[1][1].reverse, "walk orientation parsed");
-    ok &= check(parent != nullptr && graph_site_between_query(*parent) == "1+:4+",
-                "between query from boundary nodes");
-    ok &= check(child != nullptr && child->level == 1, "child LV parsed");
-    ok &= check(child != nullptr && child->parent == "parent", "child PS parsed");
-    ok &= check(child != nullptr && child->allele_traversals[1] == ">2>5>6", "child AT traversal parsed");
-    ok &= check(nested != nullptr && nested->ref_contig == "chr20", "nested RC parsed");
-    ok &= check(nested != nullptr && nested->ref_end == 130, "nested END parsed");
-    ok &= check(nested != nullptr && nested->conditional_parent_alleles.size() == 1 &&
-                nested->conditional_parent_alleles[0] == 1,
-                "nested PA parsed");
-    ok &= check(nested != nullptr && nested->allele_walks.size() == 3 &&
-                nested->allele_walks[2].empty(),
-                "star traversal kept as missing graph walk");
-    ok &= check(bad != nullptr && !bad->eligible, "malformed traversal makes site ineligible");
-    ok &= check(bad != nullptr && bad->skip_reason == "malformed_allele_traversal",
-                "malformed traversal skip reason");
+    GraphSite parent;
+    parent.id = "parent";
+    parent.alts = {"C", "*"};
+    parent.allele_walks = {parse_graph_walk(">1>2>4"), parse_graph_walk(">1<3>4")};
+    parent.skip_reason = graph_site_validation_skip_reason(parent);
+    parent.eligible = parent.skip_reason.empty();
+    ok &= check(parent.eligible, "a site with two walks between the same boundaries is eligible");
+    ok &= check(parent.allele_walks[1].size() == 3, "walk length");
+    ok &= check(parent.allele_walks[1][1].node == 3, "walk node id parsed");
+    ok &= check(parent.allele_walks[1][1].reverse, "walk orientation parsed");
+    ok &= check(graph_site_between_query(parent) == "1+:4+", "between query from boundary nodes");
 
-    std::ostringstream tsv;
-    write_graph_site_catalog_tsv(tsv, catalog);
-    ok &= check(tsv.str().find("HAS_STAR") != std::string::npos, "TSV header written");
-    ok &= check(tsv.str().find("child") != std::string::npos, "TSV row written");
+    const std::vector<GraphWalk> child_walks = {parse_graph_walk(">2>4>6"), parse_graph_walk(">2>5>6")};
 
     const GraphWalk walk = parse_graph_walk(">11<12>13");
     ok &= check(walk.size() == 3, "standalone walk length");
     ok &= check(graph_walk_to_string(walk) == ">11<12>13", "walk roundtrip");
     ok &= check(graph_walk_to_string(reverse_graph_walk(walk)) == "<13>12<11",
                 "walk reverse orientation");
-    ok &= check(child != nullptr &&
-                match_graph_allele_exact(parse_graph_walk(">2>5>6"),
-                                         child->allele_walks) == 1,
-                "exact allele match");
-    ok &= check(child != nullptr &&
-                match_graph_allele_exact(parse_graph_walk("<6<5<2"),
-                                         child->allele_walks) == 1,
+    ok &= check(match_graph_allele_exact(parse_graph_walk(">2>5>6"), child_walks) == 1, "exact allele match");
+    ok &= check(match_graph_allele_exact(parse_graph_walk("<6<5<2"), child_walks) == 1,
                 "reverse exact allele match");
-    ok &= check(child != nullptr &&
-                match_graph_allele_exact(parse_graph_walk(">2>6>6"),
-                                         child->allele_walks) == kGraphAlleleMissing,
+    ok &= check(match_graph_allele_exact(parse_graph_walk(">2>6>6"), child_walks) == kGraphAlleleMissing,
                 "missing allele match");
 
     const std::string gfa =
@@ -392,14 +346,12 @@ int main() {
     ok &= check(graph_site_between_query(incompatible).empty(),
                 "incompatible boundaries have no between query");
 
-    ok &= test_loader_rejects_bad_records_without_throwing();
-    ok &= test_site_catalog_matches_vcf();
+    ok &= test_site_catalog_sites();
     ok &= test_site_catalog_header();
     ok &= test_site_catalog_refuses_damage();
     ok &= test_site_catalog_index_search();
     ok &= test_site_catalog_reference_check();
 
-    std::remove(path.c_str());
     if (ok) {
         std::cout << "ALL PASS\n";
         return 0;

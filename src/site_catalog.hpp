@@ -194,7 +194,9 @@ struct SiteCatalogReferenceCheck {
 /// its sequence (upper case) against the catalog's, and when the MD5s differ
 /// (the graph's reference path need not spell the whole contig: the catalog
 /// spells N where it has no fragment, and stops at its last base) whether the
-/// FASTA spells the REF of the records of blocks spread over the contig.
+/// FASTA spells the REF of the records of blocks spread over the contig. A
+/// catalog of regions needs the FASTA's contig only to reach its last region;
+/// shorter than the graph's path, its records' REF alleles alone decide.
 /// Contigs run `threads` at a time, each with its own FASTA index.
 std::vector<SiteCatalogReferenceCheck> check_site_catalog_reference(
     const std::shared_ptr<const SiteCatalogFile>& file, const std::string& fasta_path,

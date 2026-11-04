@@ -10,20 +10,20 @@ haplotype sampling test data from
 ```bash
 ./pgphase collect-graph-variation \
   --ref test_data/graph/ref.fa.gz \
-  --sites test_data/graph/micb-kir3dl1.sites.vcf.gz \
+  --sites test_data/graph/micb-kir3dl1.CHM13.sites \
   --gaf test_data/graph/micb-kir3dl1_HG003.coord.gaf.gz \
   -o output.tsv
 ```
 
 Expected output: `test_data/expected/graph_micb_expected.tsv` (314 candidate
-variant sites), the same with `--sites test_data/graph/micb-kir3dl1.CHM13.sites`.
+variant sites).
 
 To restrict to a single locus:
 
 ```bash
 ./pgphase collect-graph-variation \
   --ref test_data/graph/ref.fa.gz \
-  --sites test_data/graph/micb-kir3dl1.sites.vcf.gz \
+  --sites test_data/graph/micb-kir3dl1.CHM13.sites \
   --gaf test_data/graph/micb-kir3dl1_HG003.coord.gaf.gz \
   --region "CHM13#0#chr6:31350873-31363898" \
   -o output.tsv
@@ -42,10 +42,8 @@ To restrict to a single locus:
 
 | File | Description |
 |------|-------------|
-| `micb-kir3dl1.CHM13.sites` | The graph's site catalog from `dromos catalog` (dromos 73bb4b1): chr6 (202 sites) and chr19 (715) |
+| `micb-kir3dl1.CHM13.sites` | The graph's site catalog from `dromos catalog` (dromos 73bb4b1): chr6 (202 sites) and chr19 (715), the 917 sites `vg deconstruct -a` reports |
 | `micb-kir3dl1.snarls/` | The contigs' snarls (`vg snarls`), from which `dromos catalog` rebuilds the catalog without vg (`make check` does, given a dromos as `DROMOS` or on PATH) |
-| `micb-kir3dl1.sites.vcf.gz` | The same 917 sites as a sites-only VCF from `vg deconstruct -a` (ALTs in vg's order) |
-| `micb-kir3dl1.sites.vcf.gz.tbi` | Tabix index for sites VCF |
 | `micb-kir3dl1_HG003.coord.gaf.gz` | The GAF indexed by reference position, from `dromos index` |
 | `micb-kir3dl1_HG003.coord.gaf.gz.tbi` | Its tabix index |
 | `ref.fa.gz` | Reference FASTA (bgzipped, N-padded to genome coordinates) |
@@ -70,11 +68,6 @@ dromos catalog --graph test_data/graph/micb-kir3dl1.gbz --reference-sample CHM13
 # Reference-indexed GAF, and its .tbi (dromos index)
 dromos index --graph test_data/graph/micb-kir3dl1.gbz --reference-sample CHM13 \
   test_data/graph/micb-kir3dl1_HG003.gaf test_data/graph/micb-kir3dl1_HG003.coord.gaf.gz
-
-# Sites VCF (requires vg, bgzip and tabix)
-vg deconstruct -a -P 'CHM13#0#' test_data/graph/micb-kir3dl1.gbz | cut -f1-8 \
-  | bgzip > test_data/graph/micb-kir3dl1.sites.vcf.gz
-tabix -p vcf test_data/graph/micb-kir3dl1.sites.vcf.gz
 
 # Reference FASTA (requires vg + samtools)
 # 1. Extract CHM13 paths from the GBZ

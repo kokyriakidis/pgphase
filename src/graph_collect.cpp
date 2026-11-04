@@ -249,7 +249,7 @@ static bool exclude_ref_absent_graph_snps(
 using ChunkRowFetcher =
     std::function<std::vector<GraphReadAllele>(const RegionChunk&, const GraphSiteCatalogView&)>;
 
-// One chunk, start to finish: its sites (tabix), its GAF rows, the graph
+// One chunk, start to finish: its sites (the site catalog), its GAF rows, the graph
 // chunk, the noise filter, union gap phasing's injected sites (with --bam),
 // the clean solve and the union solve. Diagnostic, off by default:
 // PGPHASE_TIMING=1 prints the chunk's seconds per stage to stderr.
@@ -346,7 +346,7 @@ static void process_graph_chunk(GraphChunkBuildResult& out,
 // Processes one batch of graph chunks in parallel (one thread pool per
 // reg_chunk_i batch, mirroring collect_chunk_batch_parallel in
 // collect_pipeline.cpp): each worker opens its own row source (open_rows),
-// sites VCF, reference index and, with --bam, BAM context, then takes chunks
+// site catalog reader, reference index and, with --bam, BAM context, then takes chunks
 // until none are left. Peak memory = threads x (reads_per_chunk +
 // sites_per_chunk). After all workers join: populate_graph_chunk_overlaps,
 // stitch_chunk_haps, the rescue and the island labels.
@@ -523,18 +523,17 @@ void run_collect_graph_variation(const Options& options) {
     const std::unordered_map<std::string, hts_pos_t> max_span = read_gaf_max_spans(opts.gaf_file);
 
     // 1. Reference FASTA index first — needed to resolve autosome contig names for
-    //    region filters, which are then passed to the VCF loader so only sites in the
-    //    requested regions are parsed (tabix-assisted for bgzipped + indexed VCFs).
+    //    the region filters the chunks are tiled from.
     std::unique_ptr<faidx_t, FaiDeleter> fai(load_reference_index(opts.ref_fasta));
     std::unique_ptr<bam_hdr_t, HeaderDeleter> header(build_synthetic_header(fai.get()));
 
-    // 2. Build a chrom alias map between the FASTA and VCF naming conventions.
-    //    Pangenome FASTAs use "SAMPLE#HAP#CHROM" (e.g. "CHM13#0#chr20") while graph VCFs
-    //    use the plain reference name ("chr20"), or vice versa.  We inspect the FAI names
-    //    and build a bidirectional suffix map so both directions resolve automatically.
+    // 2. Build a chrom alias map between the FASTA's and the site catalog's naming.
+    //    Pangenome FASTAs use "SAMPLE#HAP#CHROM" (e.g. "CHM13#0#chr20") while the catalog's
+    //    records name "CHM13#0#chr20" and its contigs "chr20", or vice versa.  We inspect the
+    //    FAI names and build a bidirectional suffix map so both directions resolve automatically.
     //
-    //    fai_suffix_to_full : "chr20" → "CHM13#0#chr20"  (used when VCF is short, FAI is full)
-    //    fai_full_to_suffix : "CHM13#0#chr20" → "chr20"  (used when VCF is full, FAI is short)
+    //    fai_suffix_to_full : "chr20" → "CHM13#0#chr20"  (sites short, FAI full)
+    //    fai_full_to_suffix : "CHM13#0#chr20" → "chr20"  (sites full, FAI short)
     std::unordered_map<std::string, std::string> fai_suffix_to_full;
     std::unordered_map<std::string, std::string> fai_full_to_suffix;
     {
@@ -591,7 +590,7 @@ void run_collect_graph_variation(const Options& options) {
     }
 
     // When no region filters were specified, build whole-chromosome filters for every
-    // FASTA contig so the VCF loader can use tabix instead of streaming the entire file.
+    // FASTA contig.
     if (region_filters.empty()) {
         const int nseq = faidx_nseq(fai.get());
         region_filters.reserve(static_cast<size_t>(nseq));
@@ -600,13 +599,13 @@ void run_collect_graph_variation(const Options& options) {
                 RegionFilter{true, std::string(faidx_iseq(fai.get(), i)), 1, -1});
     }
 
-    // 3. Build VCF-name → FAI-name chrom remap for per-chunk site normalization.
-    //    Sites are loaded per-chunk via tabix, so no global catalog is needed.
+    // 3. Build site-name → FAI-name chrom remap for per-chunk site normalization.
+    //    Sites are loaded per chunk from the catalog, so no global catalog is needed.
     std::unordered_map<std::string, std::string> chrom_remap;
     {
-        // VCF uses short name, FAI uses full ("chr20" → "CHM13#0#chr20")
+        // Sites use the short name, FAI the full ("chr20" → "CHM13#0#chr20")
         for (const auto& kv : fai_suffix_to_full) chrom_remap.emplace(kv.first, kv.second);
-        // VCF uses full name, FAI uses short ("CHM13#0#chr20" → "chr20")
+        // Sites use the full name, FAI the short ("CHM13#0#chr20" → "chr20")
         for (const auto& kv : fai_full_to_suffix) {
             if (faidx_has_seq(fai.get(), kv.second.c_str()))
                 chrom_remap.emplace(kv.first, kv.second);
@@ -643,30 +642,27 @@ void run_collect_graph_variation(const Options& options) {
     // dromos's site catalog: opened once for the run (every worker's handle
     // shares it), its graph named in the log and the VCF headers, its contigs
     // checked against the FASTA's, and its node ids against the alignments'.
-    std::shared_ptr<const SiteCatalogFile> site_catalog;
+    const std::shared_ptr<const SiteCatalogFile> site_catalog = SiteCatalogFile::open(opts.graph_sites);
     GraphNodeRange graph_nodes;
-    if (is_site_catalog_file(opts.graph_sites)) {
-        site_catalog = SiteCatalogFile::open(opts.graph_sites);
-        std::cerr << "Sites from the " << site_catalog->identity_text() << "\n";
-        opts.vcf_header_extra.push_back(site_catalog->vcf_header_line());
-        graph_nodes.known = site_catalog->node_range(graph_nodes.min_node, graph_nodes.max_node);
-        std::vector<std::string> contigs;
-        for (const RegionChunk& c : chunks) {
-            const std::string name = header->target_name[c.tid];
-            if (contigs.empty() || contigs.back() != name) contigs.push_back(name);
-        }
-        std::sort(contigs.begin(), contigs.end());
-        contigs.erase(std::unique(contigs.begin(), contigs.end()), contigs.end());
-        bool refuse = false;
-        for (const SiteCatalogReferenceCheck& c :
-             check_site_catalog_reference(site_catalog, opts.ref_fasta, contigs, opts.threads)) {
-            if (!c.message.empty()) std::cerr << c.message << "\n";
-            refuse = refuse || c.refuse;
-        }
-        if (refuse)
-            throw std::runtime_error("the site catalog " + opts.graph_sites + " is not of the reference " +
-                                     opts.ref_fasta);
+    std::cerr << "Sites from the " << site_catalog->identity_text() << "\n";
+    opts.vcf_header_extra.push_back(site_catalog->vcf_header_line());
+    graph_nodes.known = site_catalog->node_range(graph_nodes.min_node, graph_nodes.max_node);
+    std::vector<std::string> contigs;
+    for (const RegionChunk& c : chunks) {
+        const std::string name = header->target_name[c.tid];
+        if (contigs.empty() || contigs.back() != name) contigs.push_back(name);
     }
+    std::sort(contigs.begin(), contigs.end());
+    contigs.erase(std::unique(contigs.begin(), contigs.end()), contigs.end());
+    bool refuse = false;
+    for (const SiteCatalogReferenceCheck& c :
+         check_site_catalog_reference(site_catalog, opts.ref_fasta, contigs, opts.threads)) {
+        if (!c.message.empty()) std::cerr << c.message << "\n";
+        refuse = refuse || c.refuse;
+    }
+    if (refuse)
+        throw std::runtime_error("the site catalog " + opts.graph_sites + " is not of the reference " +
+                                 opts.ref_fasta);
 
 
     // 8. Open output streams.
@@ -936,7 +932,7 @@ static void print_graph_collect_help() {
         << "Required:\n"
         << "      --ref FILE                Reference FASTA (indexed)\n"
         << "      --sites FILE              The graph's site catalog, from dromos catalog (one file for\n"
-        << "                                every contig), or a bgzipped, tabix-indexed sites VCF\n"
+        << "                                every contig)\n"
         << "      --gaf FILE                The reads' GAF indexed by reference position, from\n"
         << "                                dromos index (bgzipped + tabix-indexed)\n"
         << "\n"

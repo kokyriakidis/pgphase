@@ -43,13 +43,14 @@ hash_file() {
   fi
 }
 
-# Phased VCF headers include ##fileDate=YYYYMMDD from run day; strip for stable golden compares.
+# Phased VCF headers include ##fileDate=YYYYMMDD from run day, and the site catalog's line its path; strip both for
+# stable golden compares (the catalog's line is checked on its own).
 hash_vcf_stable() {
   local f="$1"
   if command -v sha256sum >/dev/null 2>&1; then
-    grep -v '^##fileDate=' "$f" | sha256sum | awk '{print $1}'
+    grep -v -e '^##fileDate=' -e '^##pgphase_site_catalog=' "$f" | sha256sum | awk '{print $1}'
   elif command -v shasum >/dev/null 2>&1; then
-    grep -v '^##fileDate=' "$f" | shasum -a 256 | awk '{print $1}'
+    grep -v -e '^##fileDate=' -e '^##pgphase_site_catalog=' "$f" | shasum -a 256 | awk '{print $1}'
   else
     echo "error: no sha256 tool found (need sha256sum or shasum)" >&2
     exit 1
@@ -189,7 +190,7 @@ union_gates() {
     local refine=()
     [[ "$t" == 1 ]] && refine=(--refine-aln --left-align)
     count_u="$(if [[ "$t" == 1 ]]; then export PGPHASE_TRACE="$diag" PGPHASE_MSA_DUMP="$diag/msa_dump.tsv"; fi
-      run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.sites.vcf.gz" \
+      run_graph -t "$t" --msa "$msa" --ref "$CHR20_DIR/ref.fa.gz" --sites "$CHR20_DIR/chr20_25M.CHM13.sites" \
       --gaf "$CHR20_DIR/HG002_chr20_25M.coord.gaf.gz" --bam "$CHR20_DIR/HG002_chr20_25M.bam" \
       -o "$TMPDIR/pgphase_validate_${msa}_union_t$t.tsv" \
       --phased-vcf-out "$TMPDIR/pgphase_validate_${msa}_union_t$t.phased.vcf" \
@@ -200,6 +201,11 @@ union_gates() {
       check_golden "$msa union phased VCF" "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf" \
         "$dir/union_chr20_expected.phased.vcf" hash_vcf_stable "$msa"
       union_contracts "$msa" "$dir" "$diag"
+      if ! grep -q '^##pgphase_site_catalog=<.*Fingerprint="size=6109046984 fnv1a=41295040f651a360"' \
+          "$TMPDIR/pgphase_validate_${msa}_union_t1.phased.vcf"; then
+        echo "error: $msa union phased VCF's header does not name the site catalog's graph" >&2
+        exit 1
+      fi
       # The trace's own contract: columns, documented reasons, parseable details (scripts/check_trace.py).
       if ! python3 "$ROOT/scripts/check_trace.py" --trace "$diag" --doc "$ROOT/docs/TRACE.md"; then
         echo "error: $msa union trace: see scripts/check_trace.py and docs/TRACE.md" >&2
@@ -233,24 +239,21 @@ done
 
 # --- collect-graph-variation ---------------------------------------------------
 # Graph-only on the MICB-KIR3DL1 graph slice, and union gap phasing (--bam) on
-# the chr20:25.0-25.5 Mb slice. Both are compared with committed goldens, the
-# union run at 1 and 4 threads.
+# the chr20:25.0-25.5 Mb slice, each on dromos's site catalog of its graph
+# (dromos catalog). Both are compared with committed goldens, the union run at
+# 1 and 4 threads.
 GRAPH_DIR="${GRAPH_DIR:-$ROOT/test_data/graph}"
 CHR20_DIR="${CHR20_DIR:-$ROOT/test_data/graph_chr20}"
 GRAPH_EXPECTED_TSV="${GRAPH_EXPECTED_TSV:-$ROOT/test_data/expected/graph_micb_expected.tsv}"
 
-g_tsv="$TMPDIR/pgphase_validate_graph.tsv"
-count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_DIR/micb-kir3dl1.sites.vcf.gz" \
-  --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv")"
-check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
-
-# The same run on dromos's site catalog of the graph (dromos catalog: one file for both contigs): the same TSV, and
-# the phased VCF's header names the catalog's graph.
+# The micb catalog: one file for both contigs. The TSV is the one vg deconstruct's sites gave, and the phased VCF's
+# header names the catalog's graph.
 GRAPH_CATALOG="$GRAPH_DIR/micb-kir3dl1.CHM13.sites"
+g_tsv="$TMPDIR/pgphase_validate_graph.tsv"
 g_vcf="$TMPDIR/pgphase_validate_graph.phased.vcf"
 count_g="$(run_graph -t 2 --ref "$GRAPH_DIR/ref.fa.gz" --sites "$GRAPH_CATALOG" \
   --gaf "$GRAPH_DIR/micb-kir3dl1_HG003.coord.gaf.gz" -o "$g_tsv" --phased-vcf-out "$g_vcf")"
-check_golden "graph-only TSV on dromos's site catalog (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
+check_golden "graph-only TSV (sites=$count_g)" "$g_tsv" "$GRAPH_EXPECTED_TSV" hash_file
 if ! grep -q '^##pgphase_site_catalog=<.*Fingerprint="size=73920 fnv1a=9736178bc136e029"' "$g_vcf"; then
   echo "error: the phased VCF's header does not name the site catalog's graph" >&2
   exit 1

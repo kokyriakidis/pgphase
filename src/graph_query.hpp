@@ -46,7 +46,7 @@ std::unordered_map<std::string, hts_pos_t> read_gaf_max_spans(const std::string&
 
 // The node ids of the graph the site catalog was built from (its header's
 // graph.min_node and graph.max_node): an alignment visiting a node outside
-// them is of another graph. Unknown for a sites VCF.
+// them is of another graph. Unknown when the catalog's header does not give them.
 struct GraphNodeRange {
     bool known = false;
     uint64_t min_node = 0;

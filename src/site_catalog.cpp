@@ -798,6 +798,25 @@ std::vector<SiteCatalogReferenceCheck> check_site_catalog_reference(
                 c.fasta_length = fl < 0 ? 0 : static_cast<uint64_t>(fl);
                 const std::string what = c.fasta_contig + " (catalog " + cc.chrom + ", " + with_commas(cc.length) +
                                          " bp, MD5 " + cc.md5_hex() + ")";
+                // A catalog of regions (dromos catalog --region) needs the
+                // FASTA's contig only as far as its last region: shorter than
+                // the graph's path, it has no MD5 to compare, and its records'
+                // REF alleles decide.
+                uint64_t regions_end = 0;
+                for (const auto& region : cc.regions) regions_end = std::max(regions_end, region.second);
+                if (cc.length > c.fasta_length && !cc.regions.empty() && regions_end <= c.fasta_length) {
+                    reader.check_ref_alleles(static_cast<size_t>(c.catalog_contig), fai.get(), c.fasta_contig, 32,
+                                             c.sampled_records, c.sampled_agree);
+                    const std::string sampled = std::to_string(c.sampled_agree) + " of " +
+                                                std::to_string(c.sampled_records) + " records sampled";
+                    c.refuse = c.sampled_agree < c.sampled_records;
+                    c.message = (c.refuse ? "error: " : "warning: ") + what + ": the FASTA's contig is " +
+                                with_commas(c.fasta_length) + " bp, shorter than the graph's reference path but " +
+                                "holding the catalog's regions (to " + with_commas(regions_end) + "), and spells the " +
+                                "REF of " + (c.refuse ? "only " : "all ") + sampled +
+                                (c.refuse ? ": the catalog is not of this reference" : "");
+                    continue;
+                }
                 if (cc.length > c.fasta_length) {
                     c.refuse = true;
                     c.message = "error: " + what + ": the FASTA's contig is " + with_commas(c.fasta_length) +

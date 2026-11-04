@@ -120,7 +120,7 @@ to (its README gives every option):
 | Input | Made by | |
 |---|---|---|
 | `--gaf FILE` | `dromos index` | The reads' graph alignments (a GAM, or a GAF plain, gzip or bgzip), each placed on the reference by the nodes of its walk on the reference sample's paths: its 12 GAF columns, sorted, bgzipped and tabix-indexed, with the longest alignment on each contig in the header (pgphase skips sites no read can traverse) |
-| `--sites FILE` | `dromos catalog` | The graph's site catalog, one file for every reference contig: every snarl the reference path passes through, at every nesting level, with all its alleles (what `vg deconstruct -a` reports, without genotypes); or a bgzipped, tabix-indexed sites VCF (`dromos view`) |
+| `--sites FILE` | `dromos catalog` | The graph's site catalog, one file for every reference contig: every snarl the reference path passes through, at every nesting level, with all its alleles (what `vg deconstruct -a` reports, without genotypes); `dromos view` prints it as VCF. A sites VCF is not read |
 | `--ref FILE` | `dromos reference-fasta` | The reference FASTA, indexed: the sequence the graph's reference paths spell. The published reference may differ from the graph's: HPRC v2.1's chrY and chrM are not `chm13v2.0.fa`'s, and pgphase refuses a contig whose bases are not the catalog's |
 | `--bam FILE` | a linear aligner | Optional, recommended: the same reads aligned to that reference (minimap2, pbmm2), sorted and indexed; `dromos surject` places the graph alignments on it instead |
 
@@ -132,7 +132,8 @@ catalog's graph in its log and in the VCF headers (`##pgphase_site_catalog=<...>
 catalog it came from. It checks each FASTA contig it phases against the catalog's: its length, and the MD5 of its
 sequence. The catalog's MD5 is of what the graph's reference path spells (N where it has no bases, up to its last
 base), so it may differ from the FASTA's legitimately: then the REF alleles of the catalog's records, sampled along the
-contig, must be the FASTA's bases (a warning), or pgphase stops. HPRC v2.1's chrY is refused against CHM13 v2.0: its
+contig, must be the FASTA's bases (a warning), or pgphase stops. A catalog of regions (`dromos catalog --region`) needs
+the FASTA's contig only as far as its last region, its records' REF alleles deciding. HPRC v2.1's chrY is refused against CHM13 v2.0: its
 records' REF alleles are not CHM13 v2.0 chrY's bases at their positions. pgphase also stops when an alignment visits a
 node outside the catalog's graph.
 
