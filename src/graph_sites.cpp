@@ -1,4 +1,5 @@
 #include "graph_sites.hpp"
+#include "site_catalog.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -10,15 +11,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
-#include <fstream>
 #include <iostream>
-#include <mutex>
 #include <unordered_set>
 
-#include <dirent.h>
-#include <sys/stat.h>
 
-#include <zstd.h>
 
 #include <htslib/hts.h>
 #include <htslib/kstring.h>
@@ -132,12 +128,14 @@ bool chrom_names_match_vcf(const std::string& a, const std::string& b) {
 // Parse-time skip reasons (e.g. malformed_allele_traversal) are preserved
 // because the validator can't detect them from the stored empty walk.
 void finalize_graph_site_catalog_inplace(GraphSiteCatalog& catalog) {
-    std::stable_sort(catalog.sites.begin(), catalog.sites.end(),
-                     [](const GraphSite& lhs, const GraphSite& rhs) {
-                         if (lhs.chrom != rhs.chrom) return lhs.chrom < rhs.chrom;
-                         if (lhs.pos != rhs.pos) return lhs.pos < rhs.pos;
-                         return lhs.id < rhs.id;
-                     });
+    const auto before = [](const GraphSite& lhs, const GraphSite& rhs) {
+        if (lhs.chrom != rhs.chrom) return lhs.chrom < rhs.chrom;
+        if (lhs.pos != rhs.pos) return lhs.pos < rhs.pos;
+        return lhs.id < rhs.id;
+    };
+    // A catalog's records come in this order already (POS, then ID).
+    if (!std::is_sorted(catalog.sites.begin(), catalog.sites.end(), before))
+        std::stable_sort(catalog.sites.begin(), catalog.sites.end(), before);
     for (GraphSite& site : catalog.sites) {
         // Preserve parse-time skip reasons (e.g. malformed_allele_traversal)
         // that the structural validator cannot detect because the malformed
@@ -540,198 +538,7 @@ GraphSiteCatalog load_graph_site_catalog_from_vcf(
     return catalog;
 }
 
-// --- .pgsites catalogs ---------------------------------------------------------
-//
-// "PGSITES2", u64 header length + zstd(header text), zstd blocks of VCF lines,
-// then the index (u64 count; per block u64 first_pos, last_pos, max_end, offset,
-// compressed length, raw length, records, min_allele, max_walk) and the index's
-// u64 offset last. min_allele is the fewest bases any allele of the block's
-// records spans, max_walk the most nodes any of their allele walks visits: a
-// block whose records no read can be matched to is skipped unread.
-// max_end is the largest POS + len(REF) - 1 in the block: the record span tabix
-// uses for VCF, so a region query selects the same records either way. One file
-// holds one contig, named by the header's ##contig line.
-
-struct PgSitesFile {
-    struct Block { uint64_t first_pos, last_pos, max_end, offset, comp_len, raw_len, records, min_allele, max_walk; };
-    std::ifstream in;
-    std::string chrom;
-    std::vector<Block> blocks;
-};
-
-// One .pgsites file, or a folder of them opened as their contigs are queried.
-struct PgSitesCatalog {
-    std::string dir;  // empty for a single file
-    std::vector<std::unique_ptr<PgSitesFile>> files;
-    std::unordered_set<std::string> absent;  // contigs the folder has no file for
-};
-
 namespace {
-
-constexpr char kPgSitesMagic[8] = {'P', 'G', 'S', 'I', 'T', 'E', 'S', '2'};
-constexpr const char* kPgSitesExt = ".pgsites";
-
-bool is_directory(const std::string& path) {
-    struct stat st;
-    return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
-}
-
-// A .pgsites file of any version: the version is checked when it is opened.
-bool is_pgsites_file(const std::string& path) {
-    std::ifstream in(path, std::ios::binary);
-    char magic[8] = {};
-    return in.read(magic, 8) && std::memcmp(magic, kPgSitesMagic, 7) == 0;
-}
-
-bool has_pgsites_file(const std::string& dir) {
-    DIR* d = opendir(dir.c_str());
-    if (d == nullptr) return false;
-    bool found = false;
-    while (const dirent* e = readdir(d)) {
-        const std::string name = e->d_name;
-        if (name.size() > std::strlen(kPgSitesExt) &&
-            name.compare(name.size() - std::strlen(kPgSitesExt), std::string::npos, kPgSitesExt) == 0 &&
-            is_pgsites_file(dir + "/" + name)) {
-            found = true;
-            break;
-        }
-    }
-    closedir(d);
-    return found;
-}
-
-uint64_t read_u64(std::istream& in) {
-    unsigned char b[8];
-    if (!in.read(reinterpret_cast<char*>(b), 8)) throw std::runtime_error("truncated .pgsites file");
-    uint64_t v = 0;
-    for (int i = 7; i >= 0; --i) v = (v << 8) | b[i];
-    return v;
-}
-
-// Blocks holding a giant record are written with a long window (log 31), above
-// zstd's default decoding limit, so the limit is raised for every block.
-std::string zstd_decompress(const std::string& comp, size_t raw_len) {
-    struct Ctx {
-        ZSTD_DCtx* c = ZSTD_createDCtx();
-        Ctx() { ZSTD_DCtx_setParameter(c, ZSTD_d_windowLogMax, 31); }
-        ~Ctx() { ZSTD_freeDCtx(c); }
-    };
-    thread_local Ctx ctx;
-    std::string out(raw_len, '\0');
-    const size_t n = ZSTD_decompressDCtx(ctx.c, out.data(), raw_len, comp.data(), comp.size());
-    if (ZSTD_isError(n) || n != raw_len) throw std::runtime_error("corrupt .pgsites block");
-    return out;
-}
-
-std::unique_ptr<PgSitesFile> open_pgsites(const std::string& path) {
-    auto f = std::make_unique<PgSitesFile>();
-    f->in.open(path, std::ios::binary);
-    if (!f->in) throw std::runtime_error("failed to open site catalog: " + path);
-    char magic[8] = {};
-    if (!f->in.read(magic, 8) || std::memcmp(magic, kPgSitesMagic, 8) != 0)
-        throw std::runtime_error(path + ": an older .pgsites format; rebuild it with pgphase build-snarl-catalog");
-    const uint64_t header_len = read_u64(f->in);
-    std::string comp(header_len, '\0');
-    f->in.read(comp.data(), static_cast<std::streamsize>(header_len));
-    const unsigned long long raw = ZSTD_getFrameContentSize(comp.data(), comp.size());
-    if (raw == ZSTD_CONTENTSIZE_ERROR || raw == ZSTD_CONTENTSIZE_UNKNOWN)
-        throw std::runtime_error("corrupt .pgsites header: " + path);
-    const std::string header = zstd_decompress(comp, raw);
-    const size_t at = header.find("##contig=<ID=");
-    if (at == std::string::npos) throw std::runtime_error(".pgsites header has no ##contig: " + path);
-    const size_t b = at + 13;
-    f->chrom = header.substr(b, header.find_first_of(",>", b) - b);
-    f->in.seekg(-8, std::ios::end);
-    const uint64_t index_offset = read_u64(f->in);
-    f->in.seekg(static_cast<std::streamoff>(index_offset));
-    const uint64_t n = read_u64(f->in);
-    f->blocks.resize(n);
-    for (auto& blk : f->blocks) {
-        blk.first_pos = read_u64(f->in);
-        blk.last_pos = read_u64(f->in);
-        blk.max_end = read_u64(f->in);
-        blk.offset = read_u64(f->in);
-        blk.comp_len = read_u64(f->in);
-        blk.raw_len = read_u64(f->in);
-        blk.records = read_u64(f->in);
-        blk.min_allele = read_u64(f->in);
-        blk.max_walk = read_u64(f->in);
-    }
-    return f;
-}
-
-// The catalog's file for `contig`: from a folder, <contig>.pgsites, or for a
-// pangenome path name (CHM13#0#chr20) <chr20>.pgsites; null when there is none.
-PgSitesFile* pgsites_for_contig(PgSitesCatalog& cat, const std::string& contig) {
-    for (const auto& f : cat.files)
-        if (chrom_names_match_vcf(contig, f->chrom)) return f.get();
-    if (cat.dir.empty() || cat.absent.count(contig)) return nullptr;
-    std::vector<std::string> names = {contig};
-    if (chrom_suffix_match_key(contig) != contig) names.push_back(chrom_suffix_match_key(contig));
-    std::string other;  // a file found for the contig on another sample's path
-    for (const std::string& name : names) {
-        const std::string path = cat.dir + "/" + name + kPgSitesExt;
-        if (!is_pgsites_file(path)) continue;
-        cat.files.push_back(open_pgsites(path));
-        if (chrom_names_match_vcf(contig, cat.files.back()->chrom)) return cat.files.back().get();
-        other = path + " holds " + cat.files.back()->chrom;
-    }
-    cat.absent.insert(contig);
-    // Handles are per thread: say it once per run, not once per thread.
-    static std::mutex mu;
-    static std::unordered_set<std::string> warned;
-    std::lock_guard<std::mutex> lock(mu);
-    if (warned.insert(contig).second) {
-        std::cerr << "warning: no sites on " << contig << ": ";
-        if (other.empty()) std::cerr << "no " << chrom_suffix_match_key(contig) << kPgSitesExt << " in " << cat.dir << "\n";
-        else std::cerr << other << ", another reference\n";
-    }
-    return nullptr;
-}
-
-// Lines of the blocks that may overlap [beg, end], kept when the record's
-// [POS, POS + len(REF) - 1] overlaps it, as a tabix query would.
-void append_graph_sites_pgsites(PgSitesCatalog& cat, const std::string& contig, hts_pos_t beg, hts_pos_t end,
-                                hts_pos_t max_span, GraphSiteCatalog& catalog) {
-    PgSitesFile* f = pgsites_for_contig(cat, contig);
-    if (f == nullptr) return;
-    std::string comp;
-    for (const PgSitesFile::Block& blk : f->blocks) {
-        if (static_cast<hts_pos_t>(blk.first_pos) > end || static_cast<hts_pos_t>(blk.max_end) < beg) continue;
-        if (static_cast<hts_pos_t>(blk.min_allele) > max_span) {
-            catalog.stats.beyond_read_span += blk.records;
-            continue;
-        }
-        if (blk.records == 1 && blk.max_walk > kMaxSiteWalkSteps) {
-            ++catalog.stats.walk_too_long;
-            continue;
-        }
-        comp.resize(blk.comp_len);
-        f->in.seekg(static_cast<std::streamoff>(blk.offset));
-        if (!f->in.read(comp.data(), static_cast<std::streamsize>(blk.comp_len)))
-            throw std::runtime_error("truncated .pgsites block");
-        const std::string raw = zstd_decompress(comp, blk.raw_len);
-        size_t i = 0;
-        while (i < raw.size()) {
-            size_t nl = raw.find('\n', i);
-            if (nl == std::string::npos) nl = raw.size();
-            const char* line = raw.data() + i;
-            const size_t len = nl - i;
-            // POS is field 2, REF field 4.
-            const char* t1 = static_cast<const char*>(std::memchr(line, '\t', len));
-            const char* t2 = t1 ? static_cast<const char*>(std::memchr(t1 + 1, '\t', len - (t1 + 1 - line))) : nullptr;
-            const char* t3 = t2 ? static_cast<const char*>(std::memchr(t2 + 1, '\t', len - (t2 + 1 - line))) : nullptr;
-            const char* t4 = t3 ? static_cast<const char*>(std::memchr(t3 + 1, '\t', len - (t3 + 1 - line))) : nullptr;
-            if (t4 != nullptr) {
-                const hts_pos_t pos = std::strtoll(t1 + 1, nullptr, 10);
-                const hts_pos_t rec_end = pos + std::max<hts_pos_t>(1, t4 - (t3 + 1)) - 1;
-                if (pos <= end && rec_end >= beg && !unmatchable_record(line, len, max_span, catalog.stats))
-                    append_graph_site_from_vcf_data_line(line, len, catalog, false);
-            }
-            i = nl + 1;
-        }
-    }
-}
 
 bool has_tabix_index(const std::string& path) {
     tbx_t* tbx = tbx_index_load(path.c_str());
@@ -744,15 +551,19 @@ bool has_tabix_index(const std::string& path) {
 
 
 void require_site_catalog(const std::string& path) {
-    if (is_directory(path)) {
-        if (has_pgsites_file(path)) return;
-        throw std::runtime_error("site catalog folder has no .pgsites files: " + path);
+    if (is_site_catalog_file(path)) {
+        SiteCatalogFile::open(path);  // its preamble and header checked
+        return;
     }
-    if (is_pgsites_file(path) || has_tabix_index(path)) return;
-    throw std::runtime_error(
-        "site catalog must be a .pgsites file, a folder of them, or a bgzipped VCF with a tabix "
-        "index (.tbi or .csi): " + path);
+    refuse_pgcatalog_sites(path);
+    if (has_tabix_index(path)) return;
+    throw std::runtime_error("site catalog must be dromos's catalog (dromos catalog) or a bgzipped VCF with a "
+                             "tabix index (.tbi or .csi): " + path);
 }
+
+bool graph_chrom_names_match(const std::string& a, const std::string& b) { return chrom_names_match_vcf(a, b); }
+
+bool graph_allele_is_representable(const std::string& allele) { return allele_is_representable(allele); }
 
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
                                                        const std::string& reference_sample,
@@ -1029,16 +840,11 @@ void write_graph_site_catalog_tsv(std::ostream& out, const GraphSiteCatalog& cat
 // --- SiteCatalogHandle RAII implementation ---
 
 SiteCatalogHandle::SiteCatalogHandle(const std::string& path) {
-    if (is_directory(path)) {
-        pgsites = std::make_unique<PgSitesCatalog>();
-        pgsites->dir = path;
+    if (is_site_catalog_file(path)) {
+        catalog = std::make_unique<SiteCatalogReader>(SiteCatalogFile::open(path));
         return;
     }
-    if (is_pgsites_file(path)) {
-        pgsites = std::make_unique<PgSitesCatalog>();
-        pgsites->files.push_back(open_pgsites(path));
-        return;
-    }
+    refuse_pgcatalog_sites(path);
     fp = hts_open(path.c_str(), "r");
     if (fp == nullptr)
         throw std::runtime_error("failed to open sites VCF: " + path);
@@ -1056,7 +862,7 @@ SiteCatalogHandle::~SiteCatalogHandle() {
 }
 
 SiteCatalogHandle::SiteCatalogHandle(SiteCatalogHandle&& o) noexcept
-    : fp(o.fp), tbx(o.tbx), pgsites(std::move(o.pgsites)), max_span(std::move(o.max_span)) {
+    : fp(o.fp), tbx(o.tbx), catalog(std::move(o.catalog)), max_span(std::move(o.max_span)) {
     o.fp  = nullptr;
     o.tbx = nullptr;
 }
@@ -1067,7 +873,7 @@ SiteCatalogHandle& SiteCatalogHandle::operator=(SiteCatalogHandle&& o) noexcept 
         if (fp != nullptr) hts_close(fp);
         fp    = o.fp;
         tbx   = o.tbx;
-        pgsites = std::move(o.pgsites);
+        catalog = std::move(o.catalog);
         max_span = std::move(o.max_span);
         o.fp  = nullptr;
         o.tbx = nullptr;
@@ -1084,8 +890,8 @@ GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
     hts_pos_t max_span = std::numeric_limits<hts_pos_t>::max();
     const auto span = handle.max_span.find(chrom_suffix_match_key(contig));
     if (span != handle.max_span.end()) max_span = span->second;
-    if (handle.pgsites) {
-        append_graph_sites_pgsites(*handle.pgsites, contig, beg, end, max_span, catalog);
+    if (handle.catalog) {
+        handle.catalog->append_sites(contig, beg, end, max_span, catalog);
     } else {
         std::vector<RegionFilter> filters = {
             {true, contig, beg, end}

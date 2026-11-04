@@ -38,6 +38,7 @@ SOURCES_CXX = src/main.cpp \
 	src/collect_output.cpp \
 	src/graph_bam_adapter.cpp \
 	src/graph_sites.cpp \
+	src/site_catalog.cpp \
 	src/graph_query.cpp \
 	src/union_phase.cpp \
 	src/union_inject.cpp \
@@ -212,7 +213,7 @@ dromos-tests:
 	cd $(DROMOS_DIR) && $(PIXI) run test
 
 
-test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o
+test_graph_sites: src/test_graph_sites.cpp src/graph_sites.o src/site_catalog.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
@@ -221,13 +222,13 @@ test_allele_identity: src/test_allele_identity.cpp src/allele_identity.o
 test_task_pool: src/test_task_pool.cpp src/task_pool.hpp
 	$(CXX) $(CXXFLAGS) -o $@ $< -lpthread
 
-test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/graph_records.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_graph_bam_adapter: src/test_graph_bam_adapter.cpp src/graph_bam_adapter.o src/graph_records.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/site_catalog.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_union_phase: src/test_union_phase.cpp $(UNION_OBJS) src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_union_phase: src/test_union_phase.cpp $(UNION_OBJS) src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/site_catalog.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
+test_noise_filter: src/test_noise_filter.cpp src/graph_bam_adapter.o src/allele_identity.o src/noise_filter.o src/graph_sites.o src/site_catalog.o src/graph_query.o src/collect_phase.o src/collect_output.o src/cgranges.o src/kalloc.o src/sdust.o src/collect_var.o src/collect_phase_noisy.o src/align.o $(PLEGMA_OBJS) $(EDLIB_OBJ) $(WFA2_LIB) $(ABPOA_LIB)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Catch2 v2 is a single vendored header; -O1 keeps its compile time tolerable.

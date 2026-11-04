@@ -1,8 +1,9 @@
 #ifndef PGPHASE_GRAPH_SITES_HPP
 #define PGPHASE_GRAPH_SITES_HPP
 
-// Snarl site catalog: reading the sites of a catalog (pgcatalog .pgsites files, or a
-// sites-only VCF in the format of `vg deconstruct -a`), validating allele
+// Snarl site catalog: reading the sites of a catalog (dromos's one-file site
+// catalog, site_catalog.hpp, or a sites-only VCF in the format of
+// `vg deconstruct -a`), validating allele
 // traversals, and providing the GraphSiteCatalog used by graph_query for allele
 // matching and graph_bam_adapter for phasing.
 
@@ -128,17 +129,17 @@ GraphSiteCatalog load_graph_site_catalog_from_vcf(
     const std::vector<RegionFilter>& filters = {},
     bool keep_allele_traversal_strings = true);
 
-struct PgSitesCatalog;
+class SiteCatalogReader;
 
-// RAII handle for a site catalog: a tabix-indexed sites VCF, a .pgsites file
-// (the same VCF lines in independently zstd-compressed position blocks, written
-// by pgcatalog), or a folder of <contig>.pgsites files (pgcatalog build's output), each
-// opened when its contig is first queried. Opened once per thread, reused
-// across chunks to avoid repeated file open / index load.
+// RAII handle for a site catalog: dromos's site catalog (`dromos catalog`: one
+// file for every contig of the graph, its header read once per process and
+// shared; the handle holds its thread's reader), or a tabix-indexed sites VCF.
+// Opened once per thread, reused across chunks to avoid repeated file open /
+// index load.
 struct SiteCatalogHandle {
     htsFile* fp  = nullptr;
     tbx_t*   tbx = nullptr;
-    std::unique_ptr<PgSitesCatalog> pgsites;
+    std::unique_ptr<SiteCatalogReader> catalog;
     // The most graph bases any alignment on each contig spans (bare contig
     // name), from the GAF's #max_span lines. A site whose every allele is
     // longer cannot be traversed whole by any read, so it is not loaded; for a
@@ -152,7 +153,7 @@ struct SiteCatalogHandle {
     SiteCatalogHandle& operator=(const SiteCatalogHandle&) = delete;
     SiteCatalogHandle(SiteCatalogHandle&& o) noexcept;
     SiteCatalogHandle& operator=(SiteCatalogHandle&& o) noexcept;
-    explicit operator bool() const { return (fp && tbx) || pgsites; }
+    explicit operator bool() const { return (fp && tbx) || catalog; }
 };
 
 /// Load sites overlapping the 1-based inclusive VCF interval [beg, end].
@@ -162,8 +163,8 @@ GraphSiteCatalog load_sites_for_region(SiteCatalogHandle& handle,
                                        const std::string& contig,
                                        hts_pos_t beg, hts_pos_t end);
 
-/// Throws unless `path` is a usable site catalog: a bgzipped VCF with a tabix
-/// index, a .pgsites file, or a folder holding .pgsites files.
+/// Throws unless `path` is a usable site catalog: dromos's site catalog (its
+/// preamble and header checked), or a bgzipped VCF with a tabix index.
 void require_site_catalog(const std::string& path);
 
 GraphSiteCatalog load_graph_site_catalog_from_gfa_text(const std::string& gfa_text,
@@ -184,6 +185,14 @@ int match_graph_allele_exact(const GraphWalk& read_walk,
                              bool* reverse_out = nullptr);
 
 std::string graph_site_between_query(const GraphSite& site);
+
+/// The same contig: "chr20" names any sample's ("CHM13#0#chr20"), but two
+/// pangenome path names must also name the same sample.
+bool graph_chrom_names_match(const std::string& a, const std::string& b);
+
+/// An allele a site may have: sequence of A, C, G, T and N, the spanning
+/// deletion '*', or the missing '.'.
+bool graph_allele_is_representable(const std::string& allele);
 
 std::string graph_site_validation_skip_reason(const GraphSite& site);
 

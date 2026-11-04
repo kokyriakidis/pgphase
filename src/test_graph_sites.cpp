@@ -1,6 +1,9 @@
 #include "graph_sites.hpp"
+#include "site_catalog.hpp"
 
 #include <cstdio>
+#include <cstdlib>
+#include <random>
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -72,16 +75,33 @@ static std::set<SiteKey> site_set(const GraphSiteCatalog& cat) {
     return out;
 }
 
-// The micb catalog as pgcatalog writes it (a folder of <contig>.pgsites, or one
-// file) and as vg deconstruct does (a tabix VCF): the same sites for whole
-// contigs and for regions, records overlapping a region included as tabix does.
-static bool test_pgsites_catalog_matches_vcf() {
-    const std::string dir = "test_data/graph/micb-kir3dl1.catalog";
+static std::string tmp_path(const std::string& name) {
+    const char* dir = std::getenv("TMPDIR");
+    return std::string(dir != nullptr && *dir != '\0' ? dir : "/tmp") + "/" + name;
+}
+
+static std::string read_file(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::ostringstream s;
+    s << in.rdbuf();
+    return s.str();
+}
+
+static void write_file(const std::string& path, const std::string& data) {
+    std::ofstream out(path, std::ios::binary);
+    out << data;
+}
+
+static const char* const kCatalog = "test_data/graph/micb-kir3dl1.CHM13.sites";
+
+// The micb catalog as dromos catalog writes it (one file for both contigs) and
+// as vg deconstruct does (a tabix VCF): the same sites for whole contigs and
+// for regions, records overlapping a region included as tabix does.
+static bool test_site_catalog_matches_vcf() {
     const std::string vcf = "test_data/graph/micb-kir3dl1.sites.vcf.gz";
     bool ok = true;
-    require_site_catalog(dir);
-    require_site_catalog(dir + "/chr6.pgsites");
-    SiteCatalogHandle folder(dir), file(dir + "/chr6.pgsites"), tabix(vcf);
+    require_site_catalog(kCatalog);
+    SiteCatalogHandle catalog(kCatalog), tabix(vcf);
     struct Query { const char* contig; hts_pos_t beg, end; size_t expect; };
     const Query queries[] = {
         {"CHM13#0#chr6", 1, 400000000, 202},
@@ -91,23 +111,128 @@ static bool test_pgsites_catalog_matches_vcf() {
         {"chr19", 18930000, 18935000, 0},         // bare contig name
     };
     for (const Query& q : queries) {
-        const GraphSiteCatalog a = load_sites_for_region(folder, q.contig, q.beg, q.end);
+        const GraphSiteCatalog a = load_sites_for_region(catalog, q.contig, q.beg, q.end);
         const GraphSiteCatalog b = load_sites_for_region(tabix, q.contig, q.beg, q.end);
         const std::string what = std::string(q.contig) + ":" + std::to_string(q.beg) + "-" + std::to_string(q.end);
-        ok &= check(!a.sites.empty(), what + ": sites loaded from the folder");
+        ok &= check(!a.sites.empty(), what + ": sites loaded from the catalog");
         ok &= check(q.expect == 0 || a.sites.size() == q.expect, what + ": every site of the contig");
         ok &= check(site_set(a) == site_set(b), what + ": the same sites as the VCF");
-        if (std::string(q.contig).find("chr6") != std::string::npos)
-            ok &= check(site_set(load_sites_for_region(file, q.contig, q.beg, q.end)) == site_set(a),
-                        what + ": the single file loads as the folder does");
     }
-    ok &= check(load_sites_for_region(file, "CHM13#0#chr19", 1, 400000000).sites.empty(),
-                "a single contig's file has no sites on another contig");
-    ok &= check(load_sites_for_region(folder, "CHM13#0#chrM", 1, 400000000).sites.empty(),
-                "a contig without a file has no sites");
-    ok &= check(load_sites_for_region(folder, "GRCh38#0#chr6", 1, 400000000).sites.empty() &&
+    ok &= check(load_sites_for_region(catalog, "CHM13#0#chrM", 1, 400000000).sites.empty(),
+                "a contig the catalog lacks has no sites");
+    ok &= check(load_sites_for_region(catalog, "GRCh38#0#chr6", 1, 400000000).sites.empty() &&
                     load_sites_for_region(tabix, "GRCh38#0#chr6", 1, 400000000).sites.empty(),
                 "another sample's path has no sites in a CHM13 catalog");
+    // Every thread's handle reads the one file opened for the process.
+    SiteCatalogHandle second(kCatalog);
+    ok &= check(&catalog.catalog->file() == &second.catalog->file(), "handles share the opened catalog");
+    return ok;
+}
+
+// The header: the graph's identity and each contig's.
+static bool test_site_catalog_header() {
+    bool ok = true;
+    const std::shared_ptr<const SiteCatalogFile> f = SiteCatalogFile::open(kCatalog);
+    const std::vector<SiteCatalogContig>& c = f->contigs();
+    ok &= check(c.size() == 2 && c[0].name == "chr6" && c[1].name == "chr19", "contigs in natural order");
+    ok &= check(c.size() == 2 && c[0].chrom == "CHM13#0#chr6" && c[0].length == 31363898 &&
+                    c[0].records == 202 && c[0].md5_hex() == "a5b49a5f3e75bedbb6ce1a71871a525c",
+                "chr6's CHROM, length, records and MD5");
+    ok &= check(c.size() == 2 && c[1].length == 18941251 && c[1].records == 715 &&
+                    c[1].md5_hex() == "987a61a2c458a9ed426d5257295cb293",
+                "chr19's length, records and MD5");
+    ok &= check(f->find_contig("chr19") == 1 && f->find_contig("CHM13#0#chr19") == 1 &&
+                    f->find_contig("GRCh38#0#chr19") == -1 && f->find_contig("chr20") == -1,
+                "contigs found by name or by the reference sample's path name");
+    ok &= check(f->property("graph.fingerprint") == "size=73920 fnv1a=9736178bc136e029" &&
+                    f->property("reference.sample") == "CHM13" && f->property("no.such.key").empty(),
+                "properties");
+    return ok;
+}
+
+// A file that is not a version 1 catalog, or is damaged, is refused, saying why.
+static bool test_site_catalog_refuses_damage() {
+    bool ok = true;
+    const std::string good = read_file(kCatalog);
+    if (!check(good.size() > 200, "the test catalog is readable")) return false;
+    const auto refused = [&](const std::string& name, const std::string& data, const std::string& expect,
+                             bool on_query) {
+        const std::string p = tmp_path("pgphase_test_" + name + ".sites");
+        write_file(p, data);
+        std::string error;
+        try {
+            SiteCatalogHandle h(p);
+            if (on_query) {
+                load_sites_for_region(h, "chr6", 1, 400000000);
+                load_sites_for_region(h, "chr19", 1, 400000000);
+            }
+        } catch (const std::exception& e) {
+            error = e.what();
+        }
+        std::remove(p.c_str());
+        return check(error.find(expect) != std::string::npos,
+                     name + ": refused with '" + expect + "' (got '" + error + "')");
+    };
+    const uint64_t header_at = [&]() {
+        uint64_t v = 0;
+        for (int i = 7; i >= 0; --i) v = (v << 8) | static_cast<unsigned char>(good[24 + i]);
+        return v;
+    }();
+    std::string d = good;
+    d[8] = 2;
+    ok &= refused("version", d, "format version 2", false);
+    d = good;
+    d[17] ^= 1;
+    ok &= refused("preamble", d, "preamble's hash", false);
+    ok &= refused("truncated", good.substr(0, good.size() - 10), "truncated", false);
+    d = good;
+    d[header_at + 20] ^= 0x40;
+    ok &= refused("header", d, "its header", false);
+    d = good;
+    d[64] ^= 1;  // the first block's first byte
+    ok &= refused("block", d, "CRC differs", true);
+    d = good;
+    d.replace(0, 8, "PGSITES2");
+    ok &= refused("pgsites", d, "pgcatalog .pgsites", false);
+    std::string error;
+    try {
+        require_site_catalog("test_data/graph");
+    } catch (const std::exception& e) {
+        error = e.what();
+    }
+    ok &= check(error.find("a folder") != std::string::npos, "a folder is refused (got '" + error + "')");
+    return ok;
+}
+
+// The index's binary searches pick the blocks a linear scan does.
+static bool test_site_catalog_index_search() {
+    std::mt19937_64 rng(7);
+    bool ok = true;
+    for (int trial = 0; trial < 50; ++trial) {
+        SiteCatalogIndex ix;
+        uint64_t pos = 1 + rng() % 50, reach = 0;
+        const size_t n = 1 + rng() % 40;
+        for (size_t b = 0; b < n; ++b) {
+            ix.first_pos.push_back(pos);
+            // Mostly short records; now and then one reaching far ahead.
+            const uint64_t end = pos + (rng() % 8 == 0 ? rng() % 2000 : rng() % 60);
+            ix.max_end.push_back(end);
+            reach = std::max(reach, end);
+            ix.reach.push_back(reach);
+            pos += rng() % 3 == 0 ? 0 : rng() % 100;
+        }
+        for (int q = 0; q < 200; ++q) {
+            const uint64_t beg = 1 + rng() % (pos + 100), end = beg + rng() % 300;
+            std::vector<size_t> linear, searched;
+            for (size_t b = 0; b < n; ++b)
+                if (ix.first_pos[b] <= end && ix.max_end[b] >= beg) linear.push_back(b);
+            const auto [first, last] = ix.overlapping(beg, end);
+            for (size_t b = first; b < last; ++b)
+                if (ix.max_end[b] >= beg) searched.push_back(b);
+            ok &= check(linear == searched, "binary search on trial " + std::to_string(trial));
+            if (!ok) return false;
+        }
+    }
     return ok;
 }
 
@@ -209,7 +334,10 @@ int main() {
                 "incompatible boundaries have no between query");
 
     ok &= test_loader_rejects_bad_records_without_throwing();
-    ok &= test_pgsites_catalog_matches_vcf();
+    ok &= test_site_catalog_matches_vcf();
+    ok &= test_site_catalog_header();
+    ok &= test_site_catalog_refuses_damage();
+    ok &= test_site_catalog_index_search();
 
     std::remove(path.c_str());
     if (ok) {

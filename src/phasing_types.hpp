@@ -390,7 +390,8 @@ struct Options {
 
     /** Coordinate-indexed GAF of the reads' graph alignments (collect-graph-variation). */
     std::string gaf_file;
-    /** Site catalog (.pgsites folder or file, or sites VCF) from build-snarl-catalog (collect-graph-variation). */
+    /** Site catalog (collect-graph-variation): dromos's one-file catalog (dromos catalog), or a tabix-indexed sites
+     *  VCF. */
     std::string graph_sites;
     std::string debug_site; // CHR:POS, emits per-read digar hits to stderr
     // If non-empty, dump the per-read x per-variant allele matrix consumed by
