@@ -91,6 +91,7 @@ reference FASTA the graph spells (`dromos reference-fasta`), once per graph; the
 
 ```bash
 dromos catalog --graph graph.gbz --reference-sample CHM13                              # graph.CHM13.sites
+dromos reference-fasta --graph graph.gbz --reference-sample CHM13 -o ref.fa          # and its .fai
 dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz   # and its .tbi
 ```
 
@@ -120,7 +121,7 @@ to (its README gives every option):
 |---|---|---|
 | `--gaf FILE` | `dromos index` | The reads' graph alignments (a GAM, or a GAF plain, gzip or bgzip), each placed on the reference by the nodes of its walk on the reference sample's paths: its 12 GAF columns, sorted, bgzipped and tabix-indexed, with the longest alignment on each contig in the header (pgphase skips sites no read can traverse) |
 | `--sites FILE` | `dromos catalog` | The graph's site catalog, one file for every reference contig: every snarl the reference path passes through, at every nesting level, with all its alleles (what `vg deconstruct -a` reports, without genotypes); or a bgzipped, tabix-indexed sites VCF (`dromos view`) |
-| `--ref FILE` | `dromos reference-fasta` | The reference FASTA, indexed: the sequence the graph's reference paths spell. The published reference may differ from the graph's: HPRC v2.1's chrY is not `chm13v2.0.fa`'s, and pgphase refuses a contig whose bases are not the catalog's |
+| `--ref FILE` | `dromos reference-fasta` | The reference FASTA, indexed: the sequence the graph's reference paths spell. The published reference may differ from the graph's: HPRC v2.1's chrY and chrM are not `chm13v2.0.fa`'s, and pgphase refuses a contig whose bases are not the catalog's |
 | `--bam FILE` | a linear aligner | Optional, recommended: the same reads aligned to that reference (minimap2, pbmm2), sorted and indexed; `dromos surject` places the graph alignments on it instead |
 
 <details>
