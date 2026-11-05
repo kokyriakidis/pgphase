@@ -20,6 +20,7 @@
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
 #include "collect_var.hpp"
+#include "output_reconcile.hpp"
 #include "fisher_exact.hpp"
 #include "union_phase.hpp"
 

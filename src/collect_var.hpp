@@ -9,7 +9,6 @@
 
 #include "collect_types.hpp"
 
-#include <functional>
 #include <set>
 #include <vector>
 
@@ -19,26 +18,6 @@ extern "C" {
 
 namespace pgphase_collect {
 
-/// Drop records that put two DIFFERENT alleles on the SAME haplotype at one
-/// position (the POS each is written at, vcf_record_pos). Contained alleles lose to the complete one (a SNP against the
-/// insertion containing it); when neither contains the other, the better
-/// supported by allele depth wins, ties going to the shorter allele.
-/// Make two co-located records claiming one haplotype complementary, one allele
-/// per haplotype, the way longcallD's structure does by construction. Returns
-/// the number re-oriented.
-size_t make_colocated_alleles_complementary(CandidateTable& records, int min_alt_support);
-
-void drop_conflicting_haplotype_alleles(CandidateTable& records);
-
-/// A deletion and an insertion side by side on one haplotype (the insertion right after the deleted bases, or right
-/// before them) written as one record: the deletion's, its ALT the inserted bases. Returns the number merged.
-size_t merge_adjacent_deletion_insertion(CandidateTable& records);
-
-/// A long deletion or replacement (a catalog walk) a record inside it contradicts on one haplotype of a phase set -- it
-/// changes a base the walk deletes or keeps -- is dropped. Returns the number dropped.
-size_t drop_contradicted_walks(CandidateTable& records, const std::function<char(int, hts_pos_t)>& ref_base);
-
-// Move-only RAII owner for heap-allocated cgranges_t.
 struct CrangesOwner {
     cgranges_t* cr = nullptr;
     CrangesOwner() = default;
@@ -109,6 +88,9 @@ void collect_candidate_sites_from_records(const RegionChunk& chunk,
                                           int min_sv_len);
 
 // Fill allele/strand depth from digars vs sorted candidates.
+int get_var_site_start(const CandidateTable& v, hts_pos_t start, int n_total);
+int get_digar_ave_qual(const DigarOp& d, const std::vector<uint8_t>& qual);
+
 void collect_allele_counts_from_records(const std::vector<ReadRecord>& reads,
                                         CandidateTable& variants,
                                         int min_bq,
@@ -129,6 +111,7 @@ void variant_genomic_span(const VariantKey& key, hts_pos_t& var_start, hts_pos_t
 
 // Merge and filter read-level noisy intervals into chunk.noisy_regions.
 // Called after candidate sites and allele counts, before classification.
+std::vector<Interval> noisy_extension_intervals(const PhasingChunk& chunk);
 void pre_process_noisy_regs_pgphase(PhasingChunk& chunk, const Options& opts);
 
 // Expand noisy intervals using classified candidates and re-merge.
@@ -137,6 +120,8 @@ void post_process_noisy_regs_pgphase(PhasingChunk& chunk, const CandidateTable& 
 
 // Set category to NonVariant for sites fully contained in noisy spans (non-ONT).
 // With max_suppressing_len > 0, only spans up to that length suppress.
+void split_long_noisy_regions(PhasingChunk& chunk, const Options& opts);
+void dump_all_noisy_regions(const PhasingChunk& chunk, const Options& opts, const bam_hdr_t* header);
 void apply_noisy_containment_filter(PhasingChunk& chunk, int max_suppressing_len = 0);
 
 // Run sdust on chunk.ref_seq to fill low_complexity_regions.

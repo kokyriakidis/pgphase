@@ -14,6 +14,7 @@
 #include "collect_phase.hpp"
 #include "collect_phase_noisy.hpp"
 #include "collect_var.hpp"
+#include "output_reconcile.hpp"
 #include "noise_filter.hpp"
 #include "phasing_types.hpp"
 

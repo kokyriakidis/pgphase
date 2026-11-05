@@ -5,6 +5,7 @@
 #include "collect_output.hpp"
 #include "collect_phase.hpp"
 #include "collect_var.hpp"
+#include "output_reconcile.hpp"
 #include "noise_filter.hpp"
 #include "trace.hpp"
 
