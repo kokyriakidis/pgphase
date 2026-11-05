@@ -6,6 +6,7 @@
 
 #include "union_internal.hpp"
 
+#include <map>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -26,6 +27,8 @@ struct Selection {
     std::set<size_t> hom_fallback;    // of them, those catalog rows also describe: written where no record is
     std::unordered_map<size_t, const char*> row_reason;  // why a graph row is unwritten or 1/1 (stage trace)
     std::set<size_t> spelled_hom;     // clean het calls no read spells the reference at (spell_homozygous_calls)
+    // (position, letter) of each SNP of the catalog pairs the graph dropped as homozygous (graph_hom_pair_letters)
+    std::map<std::pair<hts_pos_t, char>, int> graph_hom_letters;  // -> the pair's ALT reads
     std::set<size_t> additive;        // calls adding a change to a catalog row's haplotype (find_additive_calls)
     std::vector<const char*> decision;  // per candidate (diagnostic only)
 };

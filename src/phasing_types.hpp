@@ -299,6 +299,11 @@ struct Options {
     /// apply_noisy_containment_filter). Union gap phasing's alignment solve.
     bool keep_calls_in_unresolved_noisy = false;
 
+    /// A clean hom SNP a noisy region suppressed for its MSA to recall is put
+    /// back when that region's MSA calls nothing (restore_failed_noisy_homs).
+    /// Union gap phasing's alignment solve.
+    bool restore_failed_noisy_homs = false;
+
     /// Anchored stage 2: the second k-means KEEPS stage 1's read labels and the
     /// consensus alleles stage 1 decided, and refines within that gauge instead
     /// of resetting and re-solving over the wider site set.
@@ -691,6 +696,11 @@ struct CandidateVariant {
     /// apply_noisy_containment_filter): never verified, so union phasing
     /// treats it as weak -- it phases and labels, but cannot carry a join.
     bool unresolved_noisy = false;
+    /// A clean hom SNP put back from a noisy region its MSA did not resolve
+    /// (restore_failed_noisy_homs): union injection writes it only where both
+    /// haplotypes of the alignment solve carry it and the graph's reads call
+    /// a catalog pair with its letter homozygous.
+    bool restored_noisy_hom = false;
     // Site identity from the graph catalog, independent of observed coverage.
     bool graph_site = false;
     /// A catalog row's site (graph_site_key_str of its GraphSite), shared by every row of a split multi-allelic site;
@@ -774,6 +784,9 @@ struct PhasingChunk {
     std::vector<Interval> low_complexity_regions;
     std::vector<int> ordered_read_ids;
     std::vector<Interval> noisy_regions;
+    // Clean hom SNPs inside noisy_regions, held back from the prune for their region's MSA to recall
+    // (Options::restore_failed_noisy_homs); restore_failed_noisy_homs puts back those of regions it did not resolve.
+    CandidateTable held_noisy_homs;
     std::vector<ReadRecord> reads;
     std::vector<std::vector<int>> up_ovlp_read_i;
     std::vector<std::vector<int>> down_ovlp_read_i;

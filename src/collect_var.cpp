@@ -1399,6 +1399,28 @@ static void write_classify_diag(const PhasingChunk& chunk, const std::string& di
     }
 }
 
+// The clean hom SNPs inside the chunk's noisy regions that are no candidate any longer -- suppressed for their
+// region's MSA to recall (apply_noisy_containment_filter), or masked by classification's per-read noisy windows
+// before those were merged into the regions -- set aside for restore_failed_noisy_homs, before the prune drops them.
+static void hold_noisy_homs(PhasingChunk& chunk) {
+    chunk.held_noisy_homs.clear();
+    if (chunk.noisy_regions.empty()) return;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> spans;
+    for (const Interval& r : chunk.noisy_regions) spans.emplace_back(r.beg, r.end);
+    std::sort(spans.begin(), spans.end());
+    std::vector<hts_pos_t> reach(spans.size());  // the furthest end of the spans up to each
+    for (size_t i = 0; i < spans.size(); ++i) reach[i] = std::max(spans[i].second, i ? reach[i - 1] : spans[i].second);
+    for (const CandidateVariant& cv : chunk.candidates) {
+        if (cv.counts.category != VariantCategory::NonVariant ||
+            cv.counts.candvarcate_initial != VariantCategory::CleanHom || cv.key.type != VariantType::Snp)
+            continue;
+        const auto it = std::upper_bound(spans.begin(), spans.end(), std::make_pair(cv.key.pos, cv.key.pos),
+                                         [](const auto& a, const auto& b) { return a.first < b.first; });
+        if (it == spans.begin() || reach[static_cast<size_t>(it - spans.begin()) - 1] < cv.key.pos) continue;
+        chunk.held_noisy_homs.push_back(cv);
+    }
+}
+
 void collect_var_classify(PhasingChunk& chunk,
                           const Options& opts,
                           const bam_hdr_t* header) {
@@ -1436,6 +1458,7 @@ void collect_var_classify(PhasingChunk& chunk,
     split_long_noisy_regions(chunk, opts);
     apply_noisy_containment_filter(chunk, opts.keep_calls_in_unresolved_noisy ? opts.max_noisy_reg_len : 0);
     if (!opts.diag_dir.empty()) write_classify_diag(chunk, opts.diag_dir);
+    if (opts.restore_failed_noisy_homs) hold_noisy_homs(chunk);
     prune_not_candidate_variants(chunk);
 
     dump_all_noisy_regions(chunk, opts, header);

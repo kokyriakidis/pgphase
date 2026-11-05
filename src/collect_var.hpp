@@ -166,6 +166,11 @@ void collect_var_classify(PhasingChunk& chunk,
 // Populates chunk.read_var_profile and chunk.read_var_cr.
 void collect_var_build_profiles(PhasingChunk& chunk, const Options& opts);
 
+// Each read's alleles at `variants` (sorted as chunk.candidates are), as collect_var_build_profiles records them for
+// the chunk's own candidates: one profile per read, indices into `variants`.
+std::vector<ReadVariantProfile> read_var_profiles_at(const Options& opts, const PhasingChunk& chunk,
+                                                     const CandidateTable& variants);
+
 // Steps 3.2-4: k-means phasing and noisy-region MSA recall.
 // Expects read profiles to be populated by collect_var_build_profiles.
 void collect_var_run_phasing(PhasingChunk& chunk, const Options& opts,

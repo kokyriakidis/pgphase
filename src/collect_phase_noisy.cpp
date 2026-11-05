@@ -224,7 +224,8 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist,
                       bool admit_all_in_region,
-                      const VariantKeySet* replace_sites) {
+                      const VariantKeySet* replace_sites,
+                      bool trace_admitted) {
     if (noisy_vars.empty()) return 0;
     // Region-trust mode: collect_noisy_vars1 already restricted which noisy
     // regions ran MSA to those overlapping a whitelisted window (the exact
@@ -288,8 +289,9 @@ int merge_var_profile(PhasingChunk& chunk,
                 continue;
             }
             set_noisy_category(new_vars[new_i], new_cats[new_i]);
-            pgphase_trace::candidate("msa", "call", new_vars[new_i], "admitted",
-                                     "cat=" + std::to_string(static_cast<int>(new_cats[new_i])));
+            if (trace_admitted)
+                pgphase_trace::candidate("msa", "call", new_vars[new_i], "admitted",
+                                         "cat=" + std::to_string(static_cast<int>(new_cats[new_i])));
             new_to_merged[order[new_i]] = static_cast<int>(merged_vars.size());
             merged_vars.push_back(std::move(new_vars[new_i++]));
             ++admitted;
@@ -686,11 +688,60 @@ int collect_noisy_vars1(PhasingChunk& chunk, const Options& opts, int noisy_reg_
 // collect_noisy_vars_step4
 // ════════════════════════════════════════════════════════════════════════════
 
+// A clean hom SNP held back for its noisy region's MSA to recall (PhasingChunk::held_noisy_homs) comes back as the
+// pileup called it when no MSA resolved the region -- no consensus (too few reads span it: chr6:32,495,446-32,505,330,
+// HLA-DRB, 0 of 13 reads full length), a split piece of few confident reads, too many reads, too long: nothing else
+// calls the locus then. chr6:32,502,269 A>G, 65 of 65 reads ALT at MAPQ 20 or more, the truth's hom: the pileup's call
+// pruned for the MSA, the MSA failed and the graph dropped its pair (pair_high_af), and nothing was written. Back as a
+// CleanHom candidate (restored_noisy_hom), with its reads' alleles, it is written as the alignment's other homs are, if
+// both haplotypes of the alignment solve carry it and the graph's reads call a catalog pair with its letter homozygous
+// (select_sites: an SV breakpoint or a deletion leaves one haplotype's reads alone there -- chr14's IGH, at half
+// depth, the truth .|1 -- and alignments through a repeat spell letters no haplotype has). Only regions no MSA
+// resolved, and no key a candidate already has.
+static void restore_failed_noisy_homs(PhasingChunk& chunk, const Options& opts, const std::vector<char>& resolved) {
+    CandidateTable held = std::move(chunk.held_noisy_homs);
+    chunk.held_noisy_homs.clear();
+    if (held.empty()) return;
+    std::vector<std::pair<hts_pos_t, hts_pos_t>> spans[2];  // regions not resolved, resolved
+    for (size_t i = 0; i < chunk.noisy_regions.size() && i < resolved.size(); ++i)
+        spans[resolved[i] ? 1 : 0].emplace_back(chunk.noisy_regions[i].beg, chunk.noisy_regions[i].end);
+    if (spans[0].empty()) return;
+    const auto covers = [](const std::vector<std::pair<hts_pos_t, hts_pos_t>>& s, hts_pos_t p) {
+        for (const auto& [b, e] : s)
+            if (b <= p && p <= e) return true;
+        return false;
+    };
+    CandidateTable back;
+    for (CandidateVariant& cv : held) {
+        if (!covers(spans[0], cv.key.pos) || covers(spans[1], cv.key.pos)) continue;
+        const auto it = std::lower_bound(chunk.candidates.begin(), chunk.candidates.end(), cv,
+                                         [](const CandidateVariant& a, const CandidateVariant& b) {
+                                             return exact_comp_var_site(&a.key, &b.key) < 0;
+                                         });
+        if (it != chunk.candidates.end() && exact_comp_var_site(&it->key, &cv.key) == 0) continue;
+        cv.counts.category = VariantCategory::CleanHom;
+        cv.lcd_var_i_to_cate = category_to_flag(VariantCategory::CleanHom);
+        cv.restored_noisy_hom = true;
+        pgphase_trace::candidate("bam", "restore", cv, "failed_msa_region",
+                                 "alt=" + std::to_string(cv.counts.alt_cov) + "/" +
+                                     std::to_string(cv.counts.total_cov));
+        back.push_back(std::move(cv));
+    }
+    if (back.empty()) return;
+    std::sort(back.begin(), back.end(), [](const CandidateVariant& a, const CandidateVariant& b) {
+        return exact_comp_cand_var(&a, &b) < 0;
+    });
+    const std::vector<ReadVariantProfile> profiles = read_var_profiles_at(opts, chunk, back);
+    const std::vector<VariantCategory> categories(back.size(), VariantCategory::CleanHom);
+    merge_var_profile(chunk, back, categories, profiles, nullptr, false, nullptr, /*trace_admitted=*/false);
+}
+
 // Attempt each region once per pass; newly admitted sites can help later regions.
 static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
                            const VariantKeySet* site_whitelist,
                            const std::vector<int>& regions,
-                           std::vector<bool>& done) {
+                           std::vector<bool>& done,
+                           std::vector<char>& resolved) {
     while (true) {
         bool any_done = false, any_new_var = false;
         const auto settle = [&](int reg_idx, int ret) {
@@ -712,6 +763,7 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
             opts.tasks->run_all(pending.size(), [&](size_t k) {
                 const pgphase_trace::Scope scope(trace_context);
                 calls[k] = compute_noisy_region(chunk, opts, pending[k], site_whitelist);
+                resolved[static_cast<size_t>(pending[k])] |= calls[k].status == 1;
                 // Held until applied: of the reads' rows only the digar rewrite reads any (record_msa_region takes
                 // each consensus's own row).
                 for (std::vector<AlnStr>& rows : calls[k].aln_strs)
@@ -722,7 +774,9 @@ static void run_noisy_pass(PhasingChunk& chunk, const Options& opts,
         } else {
             for (int reg_idx : regions) {
                 if (done[static_cast<size_t>(reg_idx)]) continue;
-                settle(reg_idx, collect_noisy_vars1(chunk, opts, reg_idx, site_whitelist));
+                NoisyRegionCall call = compute_noisy_region(chunk, opts, reg_idx, site_whitelist);
+                resolved[static_cast<size_t>(reg_idx)] |= call.status == 1;
+                settle(reg_idx, apply_noisy_region(chunk, opts, call, site_whitelist));
             }
         }
         if (any_new_var) {
@@ -744,7 +798,9 @@ void collect_noisy_vars_step4(PhasingChunk& chunk, const Options& opts,
     const int n_regs = static_cast<int>(chunk.noisy_regions.size());
 
     std::vector<bool> done(static_cast<size_t>(n_regs), false);
-    run_noisy_pass(chunk, opts, site_whitelist, sorted, done);
+    std::vector<char> resolved(static_cast<size_t>(n_regs), 0);
+    run_noisy_pass(chunk, opts, site_whitelist, sorted, done, resolved);
+    if (opts.restore_failed_noisy_homs) restore_failed_noisy_homs(chunk, opts, resolved);
 }
 
 } // namespace pgphase_collect

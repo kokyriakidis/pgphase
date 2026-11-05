@@ -54,6 +54,7 @@ struct FilteredGraphSite {
     int total_cov = 0;
     double allele_fraction = 0.0;
     std::string filter_reason;  // e.g. "ref_only", "low_depth", "high_af"
+    std::string ref, alt;       // a REF/ALT pair's alleles (the pair drops: low_depth, high_af, low_af)
 };
 
 // VCF-level metadata for a snarl site, stored per candidate so the output

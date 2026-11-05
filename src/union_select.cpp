@@ -52,6 +52,17 @@ constexpr double kIslandMaxAltShare = 0.7;
 
 // The share of its MSA region's reads an MSA hom's clusters must take for it to be written as a fallback hom.
 constexpr double kUnionFallbackHomMinClusteredShare = 0.8;
+// A hom put back from a noisy region its MSA did not resolve (restored_noisy_hom) is written only where a catalog pair
+// carrying its letter was dropped as homozygous by the graph's own reads (pair_high_af) with no read on REF and at
+// least this many on ALT, as well as on both of the alignment solve's haplotypes (select_sites).
+constexpr int kRestoredHomMinGraphAltReads = 20;
+// ... and that pair's ALT reads at least this share of the chunk's median depth: the graph's reads of both haplotypes.
+constexpr double kRestoredHomMinGraphDepthRatio = 0.6;
+// ... and its own reads mostly confident (this share at kConfidentReadMinMapq or more), or at full depth (this ratio of
+// the median or more): where its reads map at low MAPQ below full depth, a paralog's letter reads as a hom of this
+// copy (chr4:135.06 Mb, 41 reads of 63, 4 confident: 23 truth hets written 1/1; chr2:89.7 Mb, IGK).
+constexpr double kRestoredHomMinConfidentShare = 0.5;
+constexpr double kRestoredHomFullDepthRatio = 0.9;
 // Confident reads (MAPQ >= kConfidentReadMinMapq) an alignment hom call needs to be written 1/1.
 constexpr int kUnionHomMinConfidentReads = 5;
 // ... and the share of all its reads that are confident.
@@ -224,7 +235,9 @@ struct AlignmentSupport {
             // repeats of unusual depth (a VNTR at depth 13 on chr18); counted
             // here they pulled the median down and gated out ordinary sites
             // (chr12:133,056,148 at depth 81).
-            if (depth[bi] > 0 && !bam.candidates[bi].unresolved_noisy) depths.push_back(depth[bi]);
+            // Homs put back from regions their MSA did not resolve (restored_noisy_hom) alike.
+            if (depth[bi] > 0 && !bam.candidates[bi].unresolved_noisy && !bam.candidates[bi].restored_noisy_hom)
+                depths.push_back(depth[bi]);
         }
         if (!depths.empty()) {
             std::nth_element(depths.begin(), depths.begin() + depths.size() / 2, depths.end());
@@ -338,6 +351,7 @@ enum class CallPattern : uint8_t {
     HomFullDepth,       // full depth, at most one read on REF, any MAPQ: written
     HomBothHaplotypes,  // ALT on both of the solve's haplotypes, up to kUnionMaxDepthRatio: written
     HomLowMapq,         // none of those (a het whose other haplotype's reads went elsewhere looks so): held back
+    HomRestoredUnconfirmed,  // a hom put back from a failed MSA region, not on both haplotypes or not the graph's: held back
     HomUnderHetMsaRegion,  // an alignment hom inside a het MSA region: held back (the consensus sequences spell it)
     // Calls that are no het the union admits.
     NotHet,        // neither a clean het nor an MSA-verified one
@@ -362,6 +376,7 @@ const char* call_pattern_name(CallPattern p) {
     case CallPattern::HomFullDepth: return "hom_full_depth";
     case CallPattern::HomBothHaplotypes: return "hom_both_haplotypes";
     case CallPattern::HomLowMapq: return "hom_low_mapq";
+    case CallPattern::HomRestoredUnconfirmed: return "hom_restored_unconfirmed";
     case CallPattern::HomUnderHetMsaRegion: return "hom_under_het_msa_region";
     case CallPattern::NotHet: return "not_het";
     case CallPattern::NotGermline: return "not_germline";
@@ -387,6 +402,9 @@ struct CallEvidence {
     bool hom_confident = false;
     bool hom_full_depth = false;
     bool hom_both_haplotypes = false;
+    bool hom_restored = false;  // put back from a noisy region its MSA did not resolve (restored_noisy_hom)
+    bool graph_hom = false;     // ... its letter a catalog pair the graph dropped as homozygous (Selection::graph_hom_letters)
+    bool restored_reads = false;  // ... its reads mostly confident, or at full depth
     bool clean = false;
     bool msa = false;
     bool germline = false;
@@ -437,6 +455,15 @@ CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, c
                            n_reads >= kUnionHomFullDepthRatio * support.median_depth;
         e.hom_both_haplotypes = support.median_depth > 0.0 && n_reads <= kUnionMaxDepthRatio * support.median_depth &&
                                 support.alt_on_both_haplotypes(bi);
+        e.hom_restored = c.restored_noisy_hom;
+        if (e.hom_restored && c.key.type == VariantType::Snp && c.key.alt.size() == 1) {
+            const auto g = sel.graph_hom_letters.find(
+                {c.key.pos, static_cast<char>(std::toupper(static_cast<unsigned char>(c.key.alt[0])))});
+            e.graph_hom = g != sel.graph_hom_letters.end() && support.median_depth > 0.0 &&
+                          g->second >= kRestoredHomMinGraphDepthRatio * support.median_depth;
+            e.restored_reads = n_confident >= kRestoredHomMinConfidentShare * n_reads ||
+                               (support.median_depth > 0.0 && n_reads >= kRestoredHomFullDepthRatio * support.median_depth);
+        }
         return e;
     }
     if (!(e.clean || e.msa) || !e.germline || !e.in_chunk) return e;
@@ -486,6 +513,20 @@ CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, c
 CallPattern classify_call(const CallEvidence& e) {
     if (e.hom_in_het_region) return CallPattern::HomInHetMsaRegion;
     if (e.hom_call) {
+        // A hom put back from a noisy region its MSA did not resolve needs both haplotypes seen to carry it, and the
+        // graph's reads to confirm it. Such a region is mostly one reads do not span -- an SV breakpoint, a deletion,
+        // a VNTR longer than the reads -- and there one haplotype's reads alone can read as a hom: chr14:100.34-100.39
+        // Mb (IGH, half depth, the truth .|1), chr20:49.64 Mb (inside the truth's 4 kb deletion, depth 16 of 61),
+        // chr6:32.40 Mb (HLA-DRB, 10-16 confident reads). And the reads' alignments through a repeat spell letters no
+        // haplotype has: without a catalog pair the graph's reads call homozygous (no REF read,
+        // kRestoredHomMinGraphAltReads ALT), 350 of 465 such calls outside the benchmark were no truth hom (chr1:16.09
+        // Mb, chr10:129.3 Mb, chr19:57.9 Mb, chr2:232.3 Mb), against 2 truth homs inside it. The graph's pair at
+        // kRestoredHomMinGraphDepthRatio of the median or more, and the call's reads confident or at full depth
+        // (kRestoredHomMinConfidentShare, kRestoredHomFullDepthRatio): over chr1-5, 7, 8, 11 and the focus chunks, the
+        // homs so written over truth hets 43 -> 1 (chr7:102,314,346, low MAPQ at full depth), over half-called truth
+        // records 157 -> 7, at no truth record 288 -> 115; truth homs in the benchmark 176 -> 162.
+        if (e.hom_restored && !(e.hom_both_haplotypes && e.graph_hom && e.restored_reads))
+            return CallPattern::HomRestoredUnconfirmed;
         if (e.hom_confident) return CallPattern::HomConfident;
         if (e.hom_full_depth) return CallPattern::HomFullDepth;
         if (e.hom_both_haplotypes) return CallPattern::HomBothHaplotypes;
@@ -561,6 +602,9 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             continue;
         case CallPattern::HomLowMapq:
             decide(bi, "hom:few_confident_reads");
+            continue;
+        case CallPattern::HomRestoredUnconfirmed:
+            decide(bi, "hom:restored_unconfirmed");
             continue;
         case CallPattern::HomConfident:
         case CallPattern::HomFullDepth:
@@ -1184,11 +1228,29 @@ void unwrite_edge_rows_reads_lack(const GraphChunkBuildResult& graph_chunk, cons
 
 }  // namespace
 
+// The SNP letters of the catalog pairs the graph dropped as homozygous (pair_high_af) with no read on REF and
+// kRestoredHomMinGraphAltReads on ALT: each base where an equal-length pair's alleles differ, with the ALT's letter.
+static void graph_hom_pair_letters(const GraphChunkBuildResult& graph_chunk, Selection& sel) {
+    for (const FilteredGraphSite& f : graph_chunk.filtered_sites) {
+        if (f.filter_reason != "high_af" || f.ref_cov != 0 || f.alt_cov < kRestoredHomMinGraphAltReads ||
+            f.ref.size() != f.alt.size())
+            continue;
+        for (size_t i = 0; i < f.ref.size(); ++i) {
+            const char r = static_cast<char>(std::toupper(static_cast<unsigned char>(f.ref[i])));
+            const char a = static_cast<char>(std::toupper(static_cast<unsigned char>(f.alt[i])));
+            if (r == a) continue;
+            int& n = sel.graph_hom_letters[{f.pos + static_cast<hts_pos_t>(i), a}];
+            n = std::max(n, f.alt_cov);
+        }
+    }
+}
+
 Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, bool diagnostics) {
     const PhasingChunk& graph = graph_chunk.chunk;
     const VotingRows voting(graph_chunk);
     const AlignmentSupport support(bam);
     Selection sel;
+    graph_hom_pair_letters(graph_chunk, sel);
     suppress_rows_msa_reads_as_reference(graph, bam, sel);
     genotype_substitution_rows(graph_chunk, bam, sel);
     unwrite_indel_rows_msa_lacks(graph_chunk, bam, sel);

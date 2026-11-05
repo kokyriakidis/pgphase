@@ -121,22 +121,16 @@ static int profile_comp_ovlp_var_site(const LcdProfileSite* var1, const LcdProfi
  * Per-read candidate allele sweep: match each read's digars against sorted candidates.
  *
  * Visits reads in ordered_read_ids order when populated, else 0..n-1.
- * Populates `chunk.read_var_profile` and `chunk.read_var_cr` ([start_var_idx, end_var_idx+1) → read_i).
+ * Fills `profiles` (one per read, indices into `variants`) and, when given, `cr` ([start_var_idx, end_var_idx+1) →
+ * read_i, not indexed).
  */
-static void collect_read_var_profile(const Options& opts, PhasingChunk& chunk) {
-    const CandidateTable& variants = chunk.candidates;
+static void sweep_read_var_profiles(const Options& opts, const PhasingChunk& chunk, const CandidateTable& variants,
+                                    std::vector<ReadVariantProfile>& profiles, cgranges_t* cr) {
     const int n = static_cast<int>(variants.size());
-    chunk.read_var_profile.assign(chunk.reads.size(), ReadVariantProfile{});
+    profiles.assign(chunk.reads.size(), ReadVariantProfile{});
     for (size_t i = 0; i < chunk.reads.size(); ++i)
-        chunk.read_var_profile[i].read_id = static_cast<int>(i);
-
-    cgranges_t* cr = cr_init();
-
-    if (n == 0) {
-        cr_index(cr);
-        chunk.read_var_cr.reset(cr);
-        return;
-    }
+        profiles[i].read_id = static_cast<int>(i);
+    if (n == 0) return;
 
     for (int ord = 0; ord < read_order_visit_count(chunk); ++ord) {
         const int read_i = chunk.ordered_read_ids.empty()
@@ -235,13 +229,27 @@ static void collect_read_var_profile(const Options& opts, PhasingChunk& chunk) {
         if (noisy_cr != nullptr) cr_destroy(noisy_cr);
 
         if (cur.start_var_idx >= 0) {
-            cr_add(cr, "cr", cur.start_var_idx, cur.end_var_idx + 1,
-                   static_cast<int32_t>(read_i));
-            chunk.read_var_profile[read_i] = std::move(cur);
+            if (cr != nullptr)
+                cr_add(cr, "cr", cur.start_var_idx, cur.end_var_idx + 1,
+                       static_cast<int32_t>(read_i));
+            profiles[static_cast<size_t>(read_i)] = std::move(cur);
         }
     }
+}
+
+/// `chunk.read_var_profile` and `chunk.read_var_cr` over `chunk.candidates`.
+static void collect_read_var_profile(const Options& opts, PhasingChunk& chunk) {
+    cgranges_t* cr = cr_init();
+    sweep_read_var_profiles(opts, chunk, chunk.candidates, chunk.read_var_profile, cr);
     cr_index(cr);
     chunk.read_var_cr.reset(cr);
+}
+
+std::vector<ReadVariantProfile> read_var_profiles_at(const Options& opts, const PhasingChunk& chunk,
+                                                     const CandidateTable& variants) {
+    std::vector<ReadVariantProfile> profiles;
+    sweep_read_var_profiles(opts, chunk, variants, profiles, nullptr);
+    return profiles;
 }
 
 /// Record each read's allele at every overlapping candidate. Profiles use 0

@@ -787,6 +787,77 @@ static void test_confirm_catalog_snp_calls() {
           "confirm: graph-only call kept with a per-read error");
 }
 
+// A clean hom SNP put back from a noisy region its MSA did not resolve (restored_noisy_hom; chr6:32,502,269 in
+// HLA-DRB: 65 of 65 reads ALT, the MSA region no consensus, the graph's pair REF 0 / ALT 78) is written 1/1 only where
+// both haplotypes of the alignment solve carry it and the graph dropped a homozygous pair carrying its letter. With
+// one haplotype's reads alone (chr14's IGH at half depth, the truth .|1), or no such graph pair, it is held back; an
+// ordinary clean hom of the same reads is written as before.
+static void test_inject_restored_noisy_homs() {
+    std::string ref;
+    for (int i = 0; i < 600; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    for (size_t i : {199, 299, 399, 499}) ref[i] = 'A';  // REF A, ALT T at 200, 300, 400, 500
+
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 600;
+    finish_chunk(graph);
+    // The graph's homozygous pairs (pair_high_af): over 199-201 with T at 200 (REF 0 / ALT 30), at 300 (REF 0 /
+    // ALT 30) and at 500; none at 400.
+    gc.filtered_sites.push_back({"p200", "chr1", 199, 0, 30, 30, 1.0, "high_af", "CAG", "CTG"});
+    gc.filtered_sites.push_back({"p300", "chr1", 300, 0, 30, 30, 1.0, "high_af", "A", "T"});
+    gc.filtered_sites.push_back({"p500", "chr1", 500, 0, 30, 30, 1.0, "high_af", "A", "T"});
+    gc.filtered_sites.push_back({"p550", "chr1", 550, 0, 30, 30, 1.0, "high_af", "A", "T"});
+    // A pair with a REF read confirms nothing.
+    gc.filtered_sites.push_back({"p400", "chr1", 400, 1, 30, 31, 0.97, "high_af", "A", "T"});
+
+    const auto hom = [](hts_pos_t pos, bool restored) {
+        CandidateVariant c = snp(pos, VariantCategory::CleanHom, kCandCleanHom);
+        c.restored_noisy_hom = restored;
+        return c;
+    };
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 600;
+    bam.ref_seq = ref;
+    bam.candidates.push_back(hom(200, true));   // 0: both haplotypes, the graph's pair: written
+    bam.candidates.push_back(hom(300, true));   // 1: haplotype 1's reads only: held back
+    bam.candidates.push_back(hom(400, true));   // 2: both haplotypes, no confirming pair: held back
+    bam.candidates.push_back(hom(500, false));  // 3: an ordinary clean hom, haplotype 1's reads only: written
+    bam.candidates.push_back(hom(550, true));   // 4: both haplotypes, the graph's pair, six reads at MAPQ 5: held back
+    // Twelve reads at 200 and 400, six on each haplotype of phase set 1; twelve more at 300 and 500, all on
+    // haplotype 1 (the other haplotype's reads elsewhere). Every read ALT.
+    for (int r = 0; r < 12; ++r) {
+        bam.reads.push_back(read_named("a" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {1, -1, 1, -1}));
+        bam.read_var_profile.back().alleles[1] = -1;
+    }
+    for (int r = 12; r < 24; ++r) {
+        bam.reads.push_back(read_named("b" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 1, {1, -1, 1}));
+    }
+    for (int r = 24; r < 30; ++r) {  // half depth, low MAPQ (a paralog's letter)
+        bam.reads.push_back(read_named("c" + std::to_string(r), 5));
+        bam.read_var_profile.push_back(profile(r, 4, {1}));
+    }
+    finish_chunk(bam);
+    for (int r = 0; r < 30; ++r) {
+        bam.haps[static_cast<size_t>(r)] = r < 12 ? 1 + r % 2 : r < 24 ? 1 : 1 + r % 2;
+        bam.phase_sets[static_cast<size_t>(r)] = 1;
+    }
+    const Selection plan = plan_injection(gc, bam, true);
+    check(plan.hom_records.count(0) == 1 && plan.decision[0] == std::string("aln_hom"),
+          "restored hom: written where both haplotypes carry it and the graph's pair confirms it, got " +
+              std::string(plan.decision[0]));
+    check(plan.hom_records.count(1) == 0 && plan.decision[1] == std::string("hom:restored_unconfirmed"),
+          "restored hom: held back on one haplotype's reads, got " + std::string(plan.decision[1]));
+    check(plan.hom_records.count(2) == 0 && plan.decision[2] == std::string("hom:restored_unconfirmed"),
+          "restored hom: held back without a homozygous graph pair, got " + std::string(plan.decision[2]));
+    check(plan.hom_records.count(3) == 1, "restored hom: an ordinary clean hom is written as before");
+    check(plan.hom_records.count(4) == 0 && plan.decision[4] == std::string("hom:restored_unconfirmed"),
+          "restored hom: held back on low-MAPQ reads at half depth, got " + std::string(plan.decision[4]));
+}
+
 static void test_inject_island_only_sites() {
     // An MSA-verified het whose ALT only low-MAPQ reads carry fails the
     // confident-read rule: it enters as an island-only site (no germline
@@ -1586,6 +1657,7 @@ int main() {
     test_msa_absence_of_alt();
     test_confirm_catalog_snp_calls();
     test_inject_island_only_sites();
+    test_inject_restored_noisy_homs();
     test_inject_low_mapq_clean_het();
     test_inject_msa_allele_replaces_graph_row();
     test_inject_rows_msa_reads_as_reference();

@@ -753,8 +753,11 @@ private:
                                             "pair=" + pair_id + " ref_alt=" + std::to_string(pair_ref_c) + "/" +
                                                 std::to_string(alt_c));
                     }
-                    out_.filtered_sites.push_back({pair_id, meta_chrom, meta_pos,
-                                                   pair_ref_c, alt_c, total_c, af, std::move(drop_reason)});
+                    const GraphSiteMeta& pm = out_.site_meta[i];
+                    const size_t pai = static_cast<size_t>(orig_alt - 1);
+                    out_.filtered_sites.push_back({pair_id, meta_chrom, meta_pos, pair_ref_c, alt_c, total_c, af,
+                                                   std::move(drop_reason), pm.ref,
+                                                   pai < pm.alts.size() ? pm.alts[pai] : std::string()});
                     continue;
                 }
 

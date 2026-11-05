@@ -227,7 +227,8 @@ int merge_var_profile(PhasingChunk& chunk,
                       const std::vector<ReadVariantProfile>& noisy_rvp,
                       const VariantKeySet* site_whitelist = nullptr,
                       bool admit_all_in_region = false,
-                      const VariantKeySet* replace_sites = nullptr);
+                      const VariantKeySet* replace_sites = nullptr,
+                      bool trace_admitted = true);
 
 } // namespace pgphase_collect
 
