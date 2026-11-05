@@ -843,12 +843,18 @@ The main source files are:
 collect_pipeline.cpp   region parsing, BED/autosome filters, chunk neighbours, streaming run
                        (`run_collect_bam_variation`), getopt CLI wrapper (`collect_bam_variation`),
                        WorkerContext batch workers
-collect_var.cpp        candidate sites, allele counts, noisy-region prep/post-process,
-                       Fisher/strand (ONT), classify_cand_vars, collect_read_var_profile,
-                       calls into collect_phase k-means
+collect_var.cpp        candidate sites, allele counts, Fisher/strand (ONT),
+                       classify_cand_vars, low-AF rescue, calls into collect_phase k-means
+noisy_regions.cpp      noisy-region interval prep/post-process, splitting, containment filter
+read_profiles.cpp      sparse ReadVariantProfile construction and cgranges indexing
 bam_digar.cpp          BAM/CRAM iteration, filters, EQX/MD/cs/ref digars, per-read noisy windows
-collect_output.cpp     TSV, optional projected VCF/phased VCF, read-support TSV,
-                       phase-read TSV, phased alignment helpers
+collect_output.cpp     TSV, optional projected VCF/phased VCF, phased alignment helpers
+output_reconcile.cpp   co-located allele reconciliation, conflicting-haplotype pruning,
+                       adjacent del+ins merging, contradicted-walk pruning
+collect_phase_noisy.cpp Step 4 noisy-region sorting, read collection, merge_var_profile, k-means driver
+msa_candidates.cpp     MSA consensus candidate extraction, co-located allele folding, slice allele calling
+graph_chunk.cpp        GraphChunkBuilder, 3-phase multi-allelic->biallelic decomposition, noise filter
+graph_post.cpp         physical SNP validation, branch supplementation, joint phasing, read rescue
 collect_phase.cpp      assign_hap_based_on_germline_het_vars_kmeans (longcallD assign_hap.c),
                        stitch_chunk_haps / flip_chunk_hap (longcallD stitch_var_main / flip_variant_hap)
 collect_phase.hpp      kCand* flags (incl. kCandGermlineClean, kCandGermlineVarCate), assign_hap decl.,

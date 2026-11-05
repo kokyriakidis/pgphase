@@ -1,18 +1,17 @@
 <h1 align="center">pgphase</h1>
 
-<p align="center"><b>Pangenome graph-aware phasing of long reads</b></p>
+<p align="center"><b>Pangenome graph-aware phasing and variant calling for long reads</b></p>
 
 <p align="center">
   <a href="https://github.com/kokyriakidis/pgphase/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/kokyriakidis/pgphase/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
-pgphase assigns every long read (PacBio HiFi or ONT) to the parental haplotype it was sequenced from, writing
-haplotype (`HP`) and phase set (`PS`) tags for each read and a phased VCF. It phases at the known alleles of a
-pangenome graph, observed directly in the reads' graph alignments, together with the sample's own heterozygous
-variants, which it finds in the reads' linear alignments. **No separate variant caller is needed.**
+**pgphase** assigns long sequencing reads (PacBio HiFi and Oxford Nanopore) to their parental haplotypes (`HP` and `PS` BAM tags) and emits a phased germline VCF (`GT:DP:AD:VAF:GQ:PS`). It combines known pangenome alleles observed directly on graph walks (`GAF`) with sample-private variants discovered and resolved via haplotype-aware partial-order MSA on linear alignments (`BAM`/`CRAM`)—**requiring no external variant caller**.
 
 ![pgphase pipeline](docs/images/pipeline.svg)
+
+---
 
 ## Highlights
 
@@ -42,60 +41,81 @@ Phaseable reads on the chromosome arms over chr6, chr12, chr16–chr21; minutes 
 
 <!-- results:end -->
 
+### Whole-Genome HG002 Variant & Phasing Summary (`chr1`–`chr22`)
+
+Evaluated with `hap.py` and `whatshap compare` against the GIAB Q100 v1.1 truth set across all 22 autosomes:
+
+| Metric | Value | Details |
+|---|---:|---|
+| **SNP F1** | **0.9980** | Precision `0.9986`, Recall `0.9975` (`3,301,088` TP, `4,759` FP, `8,391` FN) |
+| **INDEL F1** | **0.9890** | Precision `0.9913`, Recall `0.9868` (`775,659` TP, `6,774` FP, `10,410` FN) |
+| **Chromosome Arms Phasing** | **36 switches** | `72` flips across `2,875,772` phased heterozygous truth sites (`0.0013%` switch rate) |
+| **Centromeric / Satellite Phasing** | **70 switches** | `21` flips across `58,880` phased heterozygous truth sites |
+
+---
+
 ## Contents
 
 - [Installation](#installation)
-- [Quick start](#quick-start)
+- [Quick Start](#quick-start)
 - [Inputs](#inputs)
 - [Outputs](#outputs)
-- [Commands and options](#commands-and-options)
-- [How it works](#how-it-works)
-- [Reproducing the paper](#reproducing-the-paper)
+- [Commands and Options](#commands-and-options)
+- [How It Works](#how-it-works)
+- [Architecture and Tracing](#architecture-and-tracing)
+- [Reproducing the Paper](#reproducing-the-paper)
 - [Testing](#testing)
 - [Citing](#citing)
-- [Licence and acknowledgements](#licence-and-acknowledgements)
+- [License and Acknowledgements](#license-and-acknowledgements)
+
+---
 
 ## Installation
 
-Requirements:
+### Prerequisites
 
-- a C++17 compiler (GCC 8+ or Clang 7+)
-- [htslib](https://github.com/samtools/htslib) with headers, zstd, zlib and pthreads
-- [samtools](https://github.com/samtools/samtools), only for `collect-bam-variation --refine-aln`
-- [pixi](https://pixi.sh), to build plegma, the noisy-region MSA (it fetches its Mojo toolchain); without it,
-  `make PLEGMA=0` builds pgphase with abPOA alone. plegma (`third_party/plegma`) is a private repository for now:
-  without access to it, the recursive clone skips it and `make PLEGMA=0` builds the rest
+- **C++17 compiler** (`GCC 8+` or `Clang 7+`)
+- **[htslib](https://github.com/samtools/htslib)** (with `libzstd`, `zlib`, and `pthreads`)
+- **[dromos](https://github.com/kokyriakidis/dromos)** (constructs the pangenome site catalog, reference FASTA, and coordinate-indexed GAF from a `.gbz` graph)
+- **[samtools](https://github.com/samtools/samtools)** *(optional; only required for `collect-bam-variation --refine-aln`)*
+- **[pixi](https://pixi.sh)** *(optional; builds [plegma](https://github.com/kokyriakidis/plegma), the default noisy-region MSA engine; build with `make PLEGMA=0` to use `abPOA` alone)*
 
-pgphase only phases: [dromos](https://github.com/kokyriakidis/dromos), installed on its own, makes its inputs from
-the graph ([Inputs](#inputs)).
+### Build from Source
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
-make third-party-libs   # WFA2-lib, abPOA and plegma
-make -j"$(nproc)"       # pgphase
+make third-party-libs   # builds WFA2-lib, abPOA, and plegma
+make -j"$(nproc)"       # builds ./pgphase
 ./pgphase --version
 ```
 
-`make portable-bundle` writes a self-contained binary with its shared libraries to `dist/pgphase-<os>-<arch>/`.
-plegma's library and the Mojo runtime it needs are a few MB in `third_party/plegma/build/` (glibc 2.35 and the
-libstdc++ of GCC 12 or newer); the bundle carries them.
-
-## Quick start
-
-pgphase needs the reference FASTA, the graph's site catalog, the reads' graph alignments indexed by reference
-position, and (recommended) the same reads' linear alignments as an indexed BAM ([Inputs](#inputs)).
-
-**1. Make the inputs** with [dromos](https://github.com/kokyriakidis/dromos): the site catalog and `ref.fa`, the
-reference FASTA the graph spells (`dromos reference-fasta`), once per graph; the index once per sample:
+To package a self-contained redistributable bundle (including shared libraries and runtime dependencies) into `dist/pgphase-<os>-<arch>/`:
 
 ```bash
-dromos catalog --graph graph.gbz --reference-sample CHM13                              # graph.CHM13.sites
-dromos reference-fasta --graph graph.gbz --reference-sample CHM13 -o ref.fa          # and its .fai
-dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz   # and its .tbi
+make portable-bundle
 ```
 
-**2. Phase:**
+---
+
+## Quick Start
+
+### 1. Prepare Graph Inputs with `dromos`
+
+Generate the site catalog and graph reference FASTA once per pangenome graph (`.gbz`), and index the sample's graph alignments (`.gam` or `.gaf`) once per sample:
+
+```bash
+# Once per pangenome graph:
+dromos catalog --graph graph.gbz --reference-sample CHM13                        # writes graph.CHM13.sites
+dromos reference-fasta --graph graph.gbz --reference-sample CHM13 -o ref.fa      # writes ref.fa + ref.fa.fai
+
+# Once per sample:
+dromos index --graph graph.gbz --reference-sample CHM13 reads.gam reads.coord.gaf.gz  # writes bgzipped GAF + .tbi
+```
+
+### 2. Run Union Graph + Alignment Phasing *(Recommended)*
+
+Pass both `--gaf` and `--bam` to `collect-graph-variation` to phase catalog sites jointly with sample-specific variants and noisy-region MSA calls:
 
 ```bash
 pgphase collect-graph-variation \
@@ -103,146 +123,149 @@ pgphase collect-graph-variation \
     --sites graph.CHM13.sites \
     --gaf reads.coord.gaf.gz \
     --bam reads.bam \
-    -r 'CHM13#0#chr20' \
-    -o candidates.tsv \
     --phased-vcf-out phased.vcf \
-    --phased-bam-out phased.bam
+    --phased-bam-out phased.bam \
+    -o candidates.tsv \
+    -t 16
 ```
 
-Leave out `--bam` to phase from the graph alignments alone; with it, the sample's own heterozygous variants join
-the catalog's sites ("union gap phasing"), the recommended mode.
+### 3. Alternative Modes
+
+- **Graph-only phasing** (no linear BAM required): omit `--bam` from `collect-graph-variation`.
+- **Linear-only phasing** (BAM/CRAM only, no pangenome graph):
+  ```bash
+  pgphase collect-bam-variation \
+      --ref ref.fa \
+      --bam reads.bam \
+      --hifi \
+      --phased-vcf-out phased.vcf \
+      -b phased.bam \
+      -o candidates.tsv \
+      -t 16
+  ```
+
+---
 
 ## Inputs
 
-pgphase reads what [dromos](https://github.com/kokyriakidis/dromos) makes from the GBZ graph the reads were aligned
-to (its README gives every option):
-
-| Input | Made by | |
+| Flag | Source | Description |
 |---|---|---|
-| `--gaf FILE` | `dromos index` | The reads' graph alignments (a GAM, or a GAF plain, gzip or bgzip), each placed on the reference by the nodes of its walk on the reference sample's paths: its 12 GAF columns, sorted, bgzipped and tabix-indexed, with the longest alignment on each contig in the header (pgphase skips sites no read can traverse) |
-| `--sites FILE` | `dromos catalog` | The graph's site catalog, one file for every reference contig: every snarl the reference path passes through, at every nesting level, with all its alleles (what `vg deconstruct -a` reports, without genotypes); `dromos view` prints it as VCF. A sites VCF is not read |
-| `--ref FILE` | `dromos reference-fasta` | The reference FASTA, indexed: the sequence the graph's reference paths spell. The published reference may differ from the graph's: HPRC v2.1's chrY and chrM are not `chm13v2.0.fa`'s, and pgphase refuses a contig whose bases are not the catalog's |
-| `--bam FILE` | a linear aligner | Optional, recommended: the same reads aligned to that reference (minimap2, pbmm2), sorted and indexed; `dromos surject` places the graph alignments on it instead |
+| `--gaf FILE` | `dromos index` | Coordinate-sorted, bgzipped, and tabix-indexed 12-column GAF placed onto the reference sample's paths (includes `#max_span` header metadata). |
+| `--sites FILE` | `dromos catalog` | Binary snarl site catalog covering all reference contigs and nesting levels (inspectable as VCF via `dromos view`). |
+| `--ref FILE` | `dromos reference-fasta` | Indexed reference FASTA matching the reference paths spelled by the graph. |
+| `--bam FILE` | Linear aligner / `dromos surject` | Indexed BAM/CRAM of the same reads aligned to `--ref` (via `minimap2`, `pbmm2`, or `dromos surject`). Enables union gap phasing. |
 
 <details>
-<summary><b>How pgphase checks the catalog</b></summary>
+<summary><b>Catalog and Reference Integrity Checks</b></summary>
 
-pgphase reads the catalog's header once per run, refuses another format version or a damaged file, and writes the
-catalog's graph in its log and in the VCF headers (`##pgphase_site_catalog=<...>`), so a result names the graph and
-catalog it came from. It checks each FASTA contig it phases against the catalog's: its length, and the MD5 of its
-sequence. The catalog's MD5 is of what the graph's reference path spells (N where it has no bases, up to its last
-base), so it may differ from the FASTA's legitimately: then the REF alleles of the catalog's records, sampled along the
-contig, must be the FASTA's bases (a warning), or pgphase stops. A catalog of regions (`dromos catalog --region`) needs
-the FASTA's contig only as far as its last region, its records' REF alleles deciding. HPRC v2.1's chrY is refused against CHM13 v2.0: its
-records' REF alleles are not CHM13 v2.0 chrY's bases at their positions. pgphase also stops when an alignment visits a
-node outside the catalog's graph.
+On startup, `pgphase` validates the `.sites` header and records provenance in the log and VCF headers (`##pgphase_site_catalog=<...>`). For each phased contig, it verifies sequence length and MD5 against the catalog, falling back to checking catalog REF alleles against the FASTA bases when N-masking differs. It aborts immediately if a reference contig mismatches the catalog (e.g., HPRC v2.1 `chrY` vs. `chm13v2.0.fa`) or if a GAF walk visits a node ID outside the catalog's graph.
 
 </details>
 
+---
+
 ## Outputs
 
-| Output | |
+| Flag | Description |
 |---|---|
-| `--phased-vcf-out FILE` | Heterozygous calls, phased (`GT:DP:AD:VAF:GQ:PS`) |
-| `--phased-bam-out FILE` | One unaligned record per read seen, with `HP` and `PS` tags when phased |
-| `--out-bam FILE` | The `--bam` records of the regions processed, each phased read with `HP` and `PS`, sorted and indexed (`--out-cram`, `--out-sam` alike) |
-| `--refine-aln` | With `--out-bam`: each read's alignment in the noisy regions the MSA resolved rewritten from its alignment to their consensus, as longcallD's `--refine-aln` (`NM`, `MD` and `cs` recomputed); for haplotype-aware tools such as DeepVariant |
-| `--left-align` | With `--out-bam`: every record's insertions and deletions left-aligned, as minimap2 and pbmm2 place them; with `--refine-aln`, the input DeepVariant called best from (chr20 HG002 HiFi, Q100 truth: indel F1 0.9589 -> 0.9739, SNP 0.9942 -> 0.9954) |
-| `-o FILE` | Every candidate site with its allele counts, category and phase |
-| `-v FILE` | The candidate sites as a VCF |
+| `--phased-vcf-out FILE` | Phased heterozygous variants in VCF format (`GT:DP:AD:VAF:GQ:PS`). |
+| `--phased-bam-out FILE` | Lightweight unaligned BAM containing one record per read with `HP` and `PS` tags. |
+| `--out-bam FILE` | Aligned BAM/CRAM/SAM (`--out-cram`, `--out-sam`) over the processed regions with `HP` and `PS` tags, sorted and indexed. |
+| `--refine-aln` | Used with `--out-bam`: rewrites read alignments inside resolved noisy regions from their haplotype consensus alignments (`NM`, `MD`, and `cs` updated). |
+| `--left-align` | Used with `--out-bam`: left-aligns all indels to match `minimap2`/`pbmm2` conventions for downstream callers such as DeepVariant. |
+| `-o, --output FILE` | Candidate site table (TSV) with allele depths, classification categories, and phase assignments. |
+| `-v, --vcf-output FILE` | Unphased candidate VCF across all retained candidate categories. |
 
-`--out-bam` takes one `--bam`, and the regions in its header's contig order. A refined alignment is checked against the
-read's bases and the reference before it is written; one that fails, a read with a hard clip or a mate, keeps its
-input alignment. The phased VCF is the same with or without these outputs.
+---
 
-## Commands and options
+## Commands and Options
 
-| Command | What it does |
+| Subcommand | Purpose |
 |---|---|
-| `collect-graph-variation` | Phase reads from their graph alignments, optionally with their linear alignments (`--bam`) |
-| `collect-bam-variation` | Phase from linear alignments alone; a C++ port of [longcallD](https://github.com/yangao07/longcallD)'s phasing |
+| `collect-graph-variation` | Phase reads from pangenome graph alignments (`--gaf` + `--sites`), optionally combined with linear alignments (`--bam`). |
+| `collect-bam-variation` | Phase reads from linear alignments (`--bam`) alone. |
 
-`collect-graph-variation` options:
+### Key Options (`collect-graph-variation`)
 
 | Option | Description | Default |
 |---|---|---|
-| `-t INT` | Worker threads | all cores |
-| `-q INT` | Minimum mapping quality | 5 (1 with `--bam`) |
-| `-D INT` | Minimum total depth | 5 |
-| `--min-alt-depth INT` | Minimum alternative-allele depth | 2 |
-| `--min-af FLOAT` / `--max-af FLOAT` | Allele fraction band of a heterozygous site | 0.20 / 0.80 |
-| `--chunk-size INT` | Region chunk size | 500000 (1000000 with `--bam`) |
-| `-r STR` / `--region-file FILE` | Restrict to regions | whole genome |
-| `--hifi` / `--ont` | Read technology | `--hifi` |
-| `--msa NAME` | Noisy-region MSA: `plegma`, or `abpoa` (longcallD's) | `plegma` |
-| `--msa-model FILE` | plegma's homopolymer model (shasta2 csv), or `none` | built in: HiFi; ONT R10.4.1 with `--ont` |
+| `-t, --threads INT` | Worker threads | all cores |
+| `-q, --min-mapq INT` | Minimum read mapping quality | `5` (`1` with `--bam`) |
+| `-D, --min-depth INT` | Minimum total site depth | `5` |
+| `--min-alt-depth INT` | Minimum alternate allele depth | `2` |
+| `--min-af` / `--max-af FLOAT` | Heterozygous allele fraction bounds | `0.20` / `0.80` |
+| `--chunk-size INT` | Genomic window chunk size (bp) | `500000` (`1000000` with `--bam`) |
+| `-r, --region STR` | Restrict to genomic region (repeatable) | whole genome |
+| `--region-file FILE` | Restrict to regions in BED file | — |
+| `--autosome` | Restrict to autosomes (`chr1`–`chr22` / `1`–`22`) | off |
+| `--hifi` / `--ont` | Read error profile (`--ont` enables Fisher strand-bias screen) | `--hifi` |
+| `--msa NAME` | Noisy-region MSA engine (`plegma` or `abpoa`) | `plegma` |
+| `--msa-model FILE` | `plegma` homopolymer length model (CSV) or `none` | built-in (`HiFi` / `ONT R10.4.1`) |
 
-`pgphase <command> --help` lists every option, including diagnostic outputs.
+Run `pgphase <command> --help` for the complete list of options and diagnostic flags.
 
-Without graph alignments, `collect-bam-variation` phases from the linear alignments alone, as longcallD does:
+---
+
+## How It Works
+
+1. **Direct Graph Allele Observation**: Each snarl in the site catalog defines a locus; each read's allele is read directly from the nodes traversed by its GAF walk. Clean catalog sites are initially phased via iterative k-means clustering.
+2. **Sample-Private & Noisy-Region Recall (`--bam`)**: Linear alignments are scanned in parallel chunks to discover sample-private variants and assemble dense/repetitive intervals via haplotype-resolved partial-order MSA ([plegma](https://github.com/kokyriakidis/plegma) with empirical homopolymer models in [`models/`](models/README.md)).
+3. **Joint Expectation-Maximization (EM)**: Catalog sites and alignment-derived sites are unified into a joint haplotype solver that estimates per-site phases and empirical error rates with hierarchical shrinkage.
+4. **Read-Verified Block Bridging**: Phase blocks are bridged only when multiple multi-marker reads provide concordant support across reliable anchors; collapsed duplications, low-MAPQ loci, and 1 bp homopolymer shifts can label reads without falsely joining phase blocks.
+5. **Local Window & Island Read Rescue**: Remaining unplaced reads are assigned using local haplotype consensus windows (`edlib`), oriented secondary sites, and isolated read-only blocks.
+
+Full algorithmic specifications, thresholds, and invariants are documented in [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md).
+
+---
+
+## Architecture and Tracing
+
+The `src/` codebase is organized by pipeline stage so that each step can be inspected and traced independently:
+
+| Stage | Source Files | Responsibility |
+|---|---|---|
+| **Graph & Catalog** | `graph_collect.cpp`, `site_catalog.cpp`, `graph_query.cpp`, `graph_chunk.cpp`, `graph_post.cpp`, `graph_records.cpp` | Site catalog loading, indexed GAF querying, multi-allelic→biallelic decomposition, physical SNP validation, read rescue, and graph VCF/BAM emission. |
+| **Linear Discovery & Noisy Regions** | `collect_pipeline.cpp`, `bam_digar.cpp`, `collect_var.cpp`, `noisy_regions.cpp`, `read_profiles.cpp`, `noise_filter.cpp` | BAM CIGAR→DIGAR conversion, candidate discovery, low-complexity/noisy interval merging and splitting, variant classification, and sparse read profile indexing. |
+| **Noisy-Region MSA** | `collect_phase_noisy.cpp`, `msa_candidates.cpp`, `align.cpp`, `plegma_msa.cpp` | Iterative noisy-region clustering, WFA2/abPOA/plegma consensus generation, co-located allele folding, and sequence-slice allele calling. |
+| **Phasing & Union EM** | `collect_phase.cpp`, `union_phase.cpp`, `union_inject.cpp`, `union_select.cpp`, `union_em.cpp`, `union_windows.cpp`, `union_reads.cpp` | Clean/noisy k-means phasing, cross-chunk stitching, private site injection, joint EM block phasing, local window read calling, and island rescue. |
+| **Output & Reconciliation** | `collect_output.cpp`, `output_reconcile.cpp`, `collect_bam_output.cpp`, `refined_alignment.cpp` | Co-located allele reconciliation, conflicting-haplotype pruning, del+ins merging, VCF/TSV formatting, and `--refine-aln` / `--left-align` BAM rewriting. |
+
+### Stage-Level Diagnostic Tracing (`PGPHASE_TRACE`)
+
+Set `PGPHASE_TRACE=<dir>` (optionally restricted to `PGPHASE_TRACE_REGION=chr:beg-end`) to write structured per-stage decision logs (`candidates.tsv`, `events.tsv`, and `reads.tsv`) across `"discover"`, `"noisy_reg"`, `"classify"`, `"msa"`, `"phase"`, `"stitch"`, `"graph"`, `"inject"`, `"em"`, `"window"`, `"rescue"`, and `"output"`:
 
 ```bash
-pgphase collect-bam-variation --ref ref.fa --bam reads.bam --hifi \
-    -o candidates.tsv --phased-vcf-out phased.vcf -b phased.bam
+PGPHASE_TRACE=/tmp/trace PGPHASE_TRACE_REGION="CHM13#0#chr20:25490000-25500000" \
+    ./pgphase collect-graph-variation ...
 ```
 
-## How it works
+---
 
-1. **Known alleles from the graph.** Each snarl of the graph is a site; a read's allele there is the walk its graph
-   alignment takes, observed without calling. The catalog's clean sites are phased first by k-means clustering of
-   the reads, as in longcallD.
-2. **The sample's own variants.** With `--bam`, each chunk is also solved from the linear alignments: candidate
-   variants, and noisy regions resolved by partial-order multiple sequence alignment
-   ([plegma](https://github.com/kokyriakidis/plegma), one consensus per haplotype, homopolymer lengths decided by
-   a model of how the reads report them; [`models/`](models/README.md)). Its heterozygous variants join the
-   catalog's sites.
-3. **One expectation-maximization over all sites** learns each site's phase and error rate, shrunk toward the
-   error of sites of the same kind.
-4. **Joins the reads verify.** Two blocks are joined only when several reads carry evidence on both sides at
-   reliable sites; collapsed duplications, poorly mapped sites and one-base length differences label reads but
-   join nothing.
-5. **The remaining reads** are labelled from local haplotype windows, the orientation of excluded sites and
-   island blocks that never join anything.
+## Reproducing the Paper
 
-[`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md) describes every rule and threshold as the code implements it.
-
-## Reproducing the paper
-
-The manuscript lives in `tools/paper/`: the text in `main_text.py` and `supplement.py`, the references in
-`refs.py`, and every table, figure and quoted number, including the [Highlights](#highlights) above, computed from
-`tools/paper/results.json` by `tables.py`.
+The manuscript source and figure/table generators live in `tools/paper/` (`main_text.py`, `supplement.py`, `tables.py`, `figures.py`, and `results.json`):
 
 ```bash
-make paper        # regenerates paper/ (an Overleaf project), build/paper/ (HTML, PDFs) and this README's results
-make paper-sync   # pushes the committed paper/ to the Overleaf project (FORCE=1 the first time)
+make paper        # regenerates paper/ (Overleaf TeX), build/paper/ (HTML + PDFs), and README highlights
+make paper-sync   # syncs paper/ to the Overleaf git remote
 ```
 
-Edit `tools/paper/`, not the generated `paper/`. `python3 tools/paper/check_refs.py` checks every DOI against
-Crossref. The scripts that run every tool and produce `results.json` are in
-[pgphase-dev](https://github.com/kokyriakidis/pgphase-dev).
+---
 
 ## Testing
 
 ```bash
-make unit-tests       # unit tests
-make predicate-tests  # phasing, repeat and stitching predicates
-make parity-tests     # ported functions against longcallD's semantics
-make check            # end-to-end golden tests on test_data/, at 1 and 4 threads, per MSA
+make unit-tests       # fast unit tests (allele identity, graph sites, graph chunk, noise filter, union phase)
+make predicate-tests  # Catch2 phasing, repeat, and reconciliation predicate suite
+make parity-tests     # longcallD semantic parity suite
+make check            # end-to-end golden regression & contract checks (1 and 4 threads, plegma & abpoa)
 ```
 
-`make check` runs each golden test once with plegma (`test_data/expected/plegma/`) and once with `--msa abpoa`
-against longcallD's outputs (`test_data/expected/`); `UPDATE_GOLDEN=plegma make check` rewrites plegma's goldens
-after an intended change. On the union fixture it also checks contracts that need no truth set
-(`scripts/check_contracts.py`): VCF order, REF bases, no two records on one haplotype over the same bases, and every
-MSA region's consensus pair spelled by the records; a violation not already listed in `union_chr20_contracts.tsv`
-fails.
-
-`make upstream-parity-tests LONGCALLD_ROOT=/path/to/longcallD` compiles longcallD's original C and checks the
-ported phasing functions against it.
+---
 
 ## Citing
 
-If you use pgphase, please cite it (see [`CITATION.cff`](CITATION.cff)):
+If you use `pgphase` in your research, please cite (see [`CITATION.cff`](CITATION.cff)):
 
 ```bibtex
 @software{pgphase,
@@ -253,12 +276,8 @@ If you use pgphase, please cite it (see [`CITATION.cff`](CITATION.cff)):
 }
 ```
 
-## Licence and acknowledgements
+---
 
-MIT; see [`LICENSE`](LICENSE). pgphase's alignment pipeline is derived from
-[longcallD](https://github.com/yangao07/longcallD) (MIT). It uses [htslib](https://github.com/samtools/htslib),
-[plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA),
-[WFA2-lib](https://github.com/smarco/WFA2-lib),
-[edlib](https://github.com/Martinsos/edlib) and [zstd](https://github.com/facebook/zstd); its inputs are made by
-[dromos](https://github.com/kokyriakidis/dromos) (MIT);
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists them with their licences.
+## License and Acknowledgements
+
+Released under the [MIT License](LICENSE). `pgphase`'s linear alignment pipeline builds on [longcallD](https://github.com/yangao07/longcallD) (MIT) and integrates [htslib](https://github.com/samtools/htslib), [plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA), [WFA2-lib](https://github.com/smarco/WFA2-lib), [edlib](https://github.com/Martinsos/edlib), and [zstd](https://github.com/facebook/zstd). Graph inputs are produced by [dromos](https://github.com/kokyriakidis/dromos) (MIT). Full third-party notices are provided in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
