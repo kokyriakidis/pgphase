@@ -858,6 +858,72 @@ static void test_inject_restored_noisy_homs() {
           "restored hom: held back on low-MAPQ reads at half depth, got " + std::string(plan.decision[4]));
 }
 
+// An MSA SNP whose letter the other consensus carries as the anchor letter of its insertion on the next base
+// (chr1:4,067,363: one consensus A>G, the other A>GG, the SNP left to the insertion's anchor) has every read ALT, both
+// haplotypes': with no read on REF it is admitted as a het (het_anchor_folded), not held back as a few-confident
+// island. With the insertion anchored on another letter it stays an island.
+static void test_inject_snp_folded_into_other_consensus_anchor() {
+    std::string ref;
+    for (int i = 0; i < 400; ++i) ref += "ACGT"[(i * 7 + i / 3) % 4];
+    ref[199] = 'A';
+    ref[299] = 'A';
+
+    GraphChunkBuildResult gc;
+    PhasingChunk& graph = gc.chunk;
+    graph.ref_beg = 1;
+    graph.ref_end = 400;
+    finish_chunk(graph);
+
+    const auto msa_snp = [](hts_pos_t pos) {
+        CandidateVariant c = snp(pos, VariantCategory::NoisyCandHet, kCandNoisyCandHet);
+        c.key.alt = "G";
+        c.msa_verified = true;
+        c.msa_cons_allele = {0, 1};  // the second consensus's
+        return c;
+    };
+    const auto msa_ins = [](hts_pos_t pos, uint8_t anchor) {
+        CandidateVariant ins;
+        ins.key.tid = 0;
+        ins.key.pos = pos;
+        ins.key.type = VariantType::Insertion;
+        ins.key.ref_len = 0;
+        ins.key.alt = "G";
+        ins.alt_ref_base = anchor;
+        ins.counts.category = VariantCategory::NoisyCandHet;
+        ins.lcd_var_i_to_cate = kCandNoisyCandHet;
+        ins.msa_verified = true;
+        ins.msa_cons_allele = {1, 0};  // the first consensus's
+        return ins;
+    };
+    PhasingChunk bam;
+    bam.ref_beg = 1;
+    bam.ref_end = 400;
+    bam.ref_seq = ref;
+    bam.candidates.push_back(msa_snp(200));     // 0: G, the insertion after it anchored on G
+    bam.candidates.push_back(msa_ins(201, 2));  // 1: +G after a G anchor (A>GG)
+    bam.candidates.push_back(msa_snp(300));     // 2: G, the insertion after it anchored on A
+    bam.candidates.push_back(msa_ins(301, 0));  // 3: +G after the reference's A
+    // Twelve reads: every one G at both SNPs; the first six (the first consensus's) carry the insertions.
+    for (int r = 0; r < 12; ++r) {
+        const int ins = r < 6 ? 1 : 0;
+        bam.reads.push_back(read_named("r" + std::to_string(r), 60));
+        bam.read_var_profile.push_back(profile(r, 0, {1, ins, 1, ins}));
+    }
+    finish_chunk(bam);
+    for (int r = 0; r < 12; ++r) {
+        bam.haps[static_cast<size_t>(r)] = r < 6 ? 1 : 2;
+        bam.phase_sets[static_cast<size_t>(r)] = 1;
+    }
+    const Selection plan = plan_injection(gc, bam, true);
+    const std::set<size_t> planned(plan.selected.begin(), plan.selected.end());
+    check(planned.count(0) == 1 && plan.island_only.count(0) == 0 && plan.low_mapq_only.count(0) == 0,
+          "anchor-folded SNP: admitted as a het, got " + std::string(plan.decision[0]));
+    check(planned.count(1) == 1 && plan.island_only.count(1) == 0, "anchor-folded SNP: its insertion admitted");
+    check(plan.island_only.count(2) == 1 && plan.decision[2] == std::string("island:few_confident_reads"),
+          "anchor-folded SNP: one beside an insertion anchored on another letter stays an island, got " +
+              std::string(plan.decision[2]));
+}
+
 static void test_inject_island_only_sites() {
     // An MSA-verified het whose ALT only low-MAPQ reads carry fails the
     // confident-read rule: it enters as an island-only site (no germline
@@ -1658,6 +1724,7 @@ int main() {
     test_confirm_catalog_snp_calls();
     test_inject_island_only_sites();
     test_inject_restored_noisy_homs();
+    test_inject_snp_folded_into_other_consensus_anchor();
     test_inject_low_mapq_clean_het();
     test_inject_msa_allele_replaces_graph_row();
     test_inject_rows_msa_reads_as_reference();

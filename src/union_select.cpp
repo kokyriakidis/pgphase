@@ -329,6 +329,32 @@ static bool under_other_consensus_deletion(const PhasingChunk& bam, const Candid
     return false;
 }
 
+// Whether an MSA SNP's letter is, on its other consensus, the anchor letter of an indel on the next base: the MSA leaves
+// a mismatch beside a gap to the gap (make_cand_vars_from_baln0, mismatch_beside_gap), so the consensus carrying both
+// reports the indel alone, anchored on the SNP's letter (alt_ref_base), and the SNP comes from the other consensus
+// only -- an "MSA het" whose letter both haplotypes carry. (A deletion so anchored is merged with the SNP into one
+// record, merge_msa_snp_and_anchored_deletion; an insertion is not: a site's read slice ends at its last reference
+// base.)
+// The indel's index, or -1.
+static long snp_letter_anchors_other_consensus_indel(const PhasingChunk& bam, size_t bi) {
+    const CandidateVariant& c = bam.candidates[bi];
+    if (c.key.type != VariantType::Snp || c.key.alt.size() != 1 || !c.msa_verified) return -1;
+    const std::array<int8_t, 2>& own = c.msa_cons_allele;
+    if (own[0] < 0 || own[1] < 0 || own[0] + own[1] != 1) return -1;
+    const size_t other = own[0] == 1 ? 1 : 0;  // the consensus without the SNP
+    const char letter = static_cast<char>(std::toupper(static_cast<unsigned char>(c.key.alt[0])));
+    const auto partner = [&](const CandidateVariant& d) {
+        const std::array<int8_t, 2>& dc = d.msa_cons_allele;
+        return &d != &c && d.msa_verified && d.key.type != VariantType::Snp && d.key.pos == c.key.pos + 1 &&
+               d.alt_ref_base < 4 && "ACGT"[d.alt_ref_base] == letter && dc[other] == 1 && dc[1 - other] == 0;
+    };
+    for (size_t j = bi; j-- > 0 && bam.candidates[j].key.pos + 3 >= c.key.pos;)
+        if (partner(bam.candidates[j])) return static_cast<long>(j);
+    for (size_t j = bi + 1; j < bam.candidates.size() && bam.candidates[j].key.pos <= c.key.pos + 3; ++j)
+        if (partner(bam.candidates[j])) return static_cast<long>(j);
+    return -1;
+}
+
 // Whether an alignment candidate lies strictly inside a region the MSA resolved into two different consensus
 // sequences (MsaRegion::het).
 static bool in_het_msa_region(const PhasingChunk& bam, const CandidateVariant& c) {
@@ -359,6 +385,7 @@ enum class CallPattern : uint8_t {
     OutsideChunk,  // beyond the graph chunk's reference span
     // Heterozygous calls.
     Het,                      // a clean or confidently read MSA het at ordinary depth: admitted
+    HetAnchorFolded,          // an MSA SNP whose letter anchors the other consensus's indel, no read on REF: admitted
     CleanHetLowMapq,          // a clean het read at low MAPQ: admitted, flagged low_mapq_only
     GatedOverRows,            // a gated het a catalog row describes: held back (the row stands)
     MsaHetLowMapq,            // an MSA het without confident reads on both alleles: island, not written
@@ -382,6 +409,7 @@ const char* call_pattern_name(CallPattern p) {
     case CallPattern::NotGermline: return "not_germline";
     case CallPattern::OutsideChunk: return "outside_chunk";
     case CallPattern::Het: return "het";
+    case CallPattern::HetAnchorFolded: return "het_anchor_folded";
     case CallPattern::CleanHetLowMapq: return "clean_het_low_mapq";
     case CallPattern::GatedOverRows: return "gated_over_rows";
     case CallPattern::MsaHetLowMapq: return "msa_het_low_mapq";
@@ -410,6 +438,7 @@ struct CallEvidence {
     bool germline = false;
     bool in_chunk = false;
     bool confident = false;      // a het's two alleles on confident reads (or the under-deletion exception)
+    bool anchor_folded = false;  // ... an MSA SNP whose letter the other consensus's indel is anchored on
     bool few_confident = false;  // an MSA het without them
     bool depth_gated = false;    // over kUnionMaxDepthRatio of the median
     double depth_ratio = 0.0;
@@ -474,6 +503,23 @@ CallEvidence call_evidence(const PhasingChunk& graph, const PhasingChunk& bam, c
     e.confident = support.confidently_supported(bi) ||
                   (e.msa && under_other_consensus_deletion(bam, c) &&
                    support.confident_on_leading(bi)[0] >= kUnionMinConfidentAlleleReads);
+    // An MSA SNP whose letter the other consensus carries as an indel's anchor (snp_letter_anchors_other_consensus_indel):
+    // every read is ALT, both haplotypes', so REF has none to give and the two-allele rule held it back as an island --
+    // chr1:4,067,363 A>G, 66 of 66 reads ALT at MAPQ 30 or more on both haplotypes, the truth's 1|1, and only A>GG
+    // (the insertion, anchored on G) written. Confident with no read on REF, kUnionHomMinConfidentReads confident
+    // ALT reads and the indel itself confidently read (else the SNP alone spells the indel's haplotype without its
+    // letter: chr9:39,618,644, the insertion's reads 51 of 71 at MAPQ < 10): written as a het, on the haplotype the indel leaves free (the EM takes no site all of whose reads
+    // agree; write_skewed_msa_hets writes it unphased and phase_by_alignment_solve places it by the MSA clusters' reads,
+    // against the indel). At chr1:243,527,200 that is the truth's other haplotype (A>G,T 2|1 with C>CG).
+    const long partner = !e.confident && e.msa ? snp_letter_anchors_other_consensus_indel(bam, bi) : -1;
+    if (partner >= 0) {
+        const auto ref = support.observed[bi].find(0);
+        const auto alt = support.confident[bi].find(1);
+        e.anchor_folded = (ref == support.observed[bi].end() || ref->second == 0) &&
+                          alt != support.confident[bi].end() && alt->second >= kUnionHomMinConfidentReads &&
+                          support.confidently_supported(static_cast<size_t>(partner));
+        e.confident = e.anchor_folded;
+    }
     e.few_confident = !e.clean && !e.confident;
     e.depth_gated = support.median_depth > 0.0 && support.depth[bi] > kUnionMaxDepthRatio * support.median_depth;
     const double share = support.alt_share(bi);
@@ -539,7 +585,10 @@ CallPattern classify_call(const CallEvidence& e) {
                             : CallPattern::OutsideChunk;
     if (!e.germline) return CallPattern::NotGermline;
     if (!e.in_chunk) return CallPattern::OutsideChunk;
-    if (!e.few_confident && !e.depth_gated) return e.confident ? CallPattern::Het : CallPattern::CleanHetLowMapq;
+    if (!e.few_confident && !e.depth_gated)
+        return e.anchor_folded ? CallPattern::HetAnchorFolded
+               : e.confident   ? CallPattern::Het
+                               : CallPattern::CleanHetLowMapq;
     if (!e.rows.empty()) return CallPattern::GatedOverRows;
     if (e.few_confident)
         return e.depth_ratio >= kUnionHomFullDepthRatio && e.depth_ratio <= kUnionMaxDepthRatio && e.split
@@ -666,6 +715,7 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             sel.selected.push_back(bi);
             continue;
         case CallPattern::Het:
+        case CallPattern::HetAnchorFolded:
         case CallPattern::CleanHetLowMapq:
             break;
         }
