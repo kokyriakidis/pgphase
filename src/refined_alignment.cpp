@@ -1,3 +1,4 @@
+#include "haploid.hpp"
 #include "refined_alignment.hpp"
 #include "aligned_read_writer.hpp"
 
@@ -447,7 +448,11 @@ void AlignedReadWriter::write_contig(const std::string& contig,
                     rewritten = true;
                 }
                 const auto [hap, ps] = label(qname);
-                set_label_tags(b.get(), hap, ps);
+                // On one copy (pgphase_haploid) a read has no haplotype to carry.
+                if (pgphase_haploid::at(contig, b->core.pos + 1))
+                    set_label_tags(b.get(), 0, 0);
+                else
+                    set_label_tags(b.get(), hap, ps);
             } else {
                 set_label_tags(b.get(), 0, 0);
             }

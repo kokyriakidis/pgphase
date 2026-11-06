@@ -1,0 +1,7 @@
+# GRCh38 pseudo-autosomal regions, BED (0-based, half-open), for --par-bed.
+# Source: the GRC PAR table (1-based chrX:10,001-2,781,479 and 155,701,383-156,030,895;
+# chrY:10,001-2,781,479 and 56,887,903-57,217,415), start decremented by one.
+chrX	10000	2781479
+chrX	155701382	156030895
+chrY	10000	2781479
+chrY	56887902	57217415

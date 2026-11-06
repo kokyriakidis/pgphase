@@ -6,6 +6,7 @@
  * for SQ names may throw `std::runtime_error` on I/O failure.
  */
 
+#include "haploid.hpp"
 #include "trace.hpp"
 #include "collect_output.hpp"
 
@@ -622,10 +623,28 @@ void write_phased_variants_vcf_records(std::ostream& out,
             is_hom = gt1 >= 0 && gt1 == gt2;
         }
 
+        // One copy (pgphase_haploid): a het there is the allele most of the site's reads carry, written homozygous and
+        // unphased, or no record when that is REF -- DeepVariant's --haploid_contigs genotype (the het's likelihood set
+        // to 0) in read counts, as this writer has no genotype likelihoods. Ties go to the higher allele.
+        const bool haploid = pgphase_haploid::at(chrom, key.pos);
+        if (haploid && gt1 != gt2) {
+            const auto reads_of = [&](int a) -> int {
+                if (a < 0) return -1;
+                if (multiallelic)
+                    return a < static_cast<int>(candidate.counts.alle_covs.size()) ? candidate.counts.alle_covs[a] : 0;
+                return a == 0 ? core.ad_ref : core.ad_alt;
+            };
+            const int r1 = reads_of(gt1), r2 = reads_of(gt2);
+            const int keep = r1 > r2 || (r1 == r2 && gt1 > gt2) ? gt1 : gt2;
+            if (keep <= 0) continue;
+            gt1 = gt2 = keep;
+            is_hom = true;
+        }
+
         // A site the phaser keeps for the reads but not for the VCF
         // (vcf_unphased: unverified calls, high learned error) is written
         // unphased.
-        const hts_pos_t ps_val = candidate.vcf_unphased ? 0 : candidate.phase_set;
+        const hts_pos_t ps_val = candidate.vcf_unphased || haploid ? 0 : candidate.phase_set;
         char gt_sep = '|';
         if (ps_val == 0) {
             gt_sep = '/';

@@ -154,6 +154,22 @@ pgphase collect-graph-variation \
 | `--sites FILE` | `dromos catalog` | Binary snarl site catalog covering all reference contigs and nesting levels (inspectable as VCF via `dromos view`). |
 | `--ref FILE` | `dromos reference-fasta` | Indexed reference FASTA matching the reference paths spelled by the graph. |
 | `--bam FILE` | Linear aligner / `dromos surject` | Indexed BAM/CRAM of the same reads aligned to `--ref` (via `minimap2`, `pbmm2`, or `dromos surject`). Enables union gap phasing. |
+| `--haploid-contigs LIST` | The sample | Contigs the sample carries one copy of, comma-separated: `chrX,chrY` for an XY sample. Outside the PAR no het is called there (below). |
+| `--par-bed FILE` | `data/par/` | Pseudo-autosomal regions of those contigs, kept diploid: `data/par/chm13v2.0_PAR.bed` (CHM13) or `data/par/GRCh38_PAR.bed`. |
+
+<details>
+<summary><b>XY samples: <code>--haploid-contigs chrX,chrY --par-bed data/par/chm13v2.0_PAR.bed</code></b></summary>
+
+Outside the PAR, an XY sample has one copy of chrX and chrY, so a site there is REF or ALT and never het. With the flags,
+pgphase builds one MSA consensus from all of a noisy region's reads there (two clusters would split one sequence by its
+homopolymer or repeat-length noise), writes a homozygous call its reads read at low MAPQ (no het's other haplotype can
+look so there), writes any remaining het as the allele most of its reads carry, homozygous and unphased (no record when
+that is REF, as DeepVariant's `--haploid_contigs` does), and gives the reads there no `HP`/`PS`. Genotypes stay
+diploid-coded (`1/1`), as DeepVariant writes them: hap.py scores them against haploid truth, and WhatsHap rejects a VCF
+that mixes ploidies. HG002 chrX (Q100 v5.0q, hap.py): 3,749 errors -> 1,012, against DeepVariant 1.10 with its own
+haploid flags at 1,268.
+
+</details>
 
 <details>
 <summary><b>Catalog and Reference Integrity Checks</b></summary>

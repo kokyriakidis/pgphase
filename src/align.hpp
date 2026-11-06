@@ -240,7 +240,8 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                          bool collect_ref_read_aln_str,
                                          std::array<int, 2>& clu_n_seqs,
                                          std::array<std::vector<int>, 2>& clu_read_ids,
-                                         std::array<std::vector<AlnStr>, 2>& aln_strs);
+                                         std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                         int max_n_cons = 2);
 
 /**
  * @brief Build MSA alignment strings for a noisy region (haplotype-aware path).

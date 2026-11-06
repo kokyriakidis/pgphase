@@ -687,6 +687,27 @@ Per chunk, in order:
       co-segregation, the MSA's own verdict, base qualities; HiPhase's
       graph realignment calls these reads as badly as ours).
 
+### Haploid regions (`--haploid-contigs`, `--par-bed`)
+
+`pgphase_haploid` (`haploid.hpp`) holds the contigs an XY sample carries one copy of and their PAR, configured once
+before any worker starts; `at(contig, pos)` matches a contig by its name after the last `#`. Four places read it:
+
+1. The union's alignment solve (`collect_noisy_reg_aln_strs`, via `Options::solve_contig`): a noisy region wholly on
+   one copy takes the no-phase-set path with one cluster (`plegma_msa_cons`, `max_n_cons` 1). Its reads carry one
+   sequence; two clusters split it by noise, each consensus then a different false allele (HG002 chrX: 362 of 716
+   INDEL FPs were such MSA hets, written hom by the writer at the wrong length).
+2. `select_sites`: a hom call held back as `hom_low_mapq` is written (`hom_haploid`). That gate keeps a het whose
+   other haplotype's reads mapped elsewhere from reading as a hom; on one copy there is no het (HG002 chrX benchmark:
+   548 truth homs against 60 false sites behind it).
+3. `write_phased_variants_vcf_records`: a het is the allele most of its reads carry, `k/k` with no PS, or no record
+   when that is REF (ties to the higher allele) -- DeepVariant's `--haploid_contigs` rule in read counts.
+4. Read tags: `flush_graph_phase_bam_after_merge` (by the phase set's anchor) and the aligned output (by the record's
+   position) write no `HP`/`PS` there.
+
+HG002 chrX, hap.py vcfeval against Q100 v5.0q (truth: non-PAR haploid `1`, no het): errors 3,749 -> 2,086 (3) ->
+1,544 (+2) -> 1,012 (+1); runtime 258 -> 143 s. DeepVariant 1.10 with `--haploid_contigs chrX,chrY --par_regions_bed`:
+1,268. PAR calls unchanged (6,316 records); reads tagged in non-PAR 90,557 -> 0.
+
 ### Catalog records
 
 The site catalog is dromos's one file for the graph (`dromos catalog`; the format, DRMSITES version 1, is dromos's

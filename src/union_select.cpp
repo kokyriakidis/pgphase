@@ -1,6 +1,7 @@
 // Union gap phasing, stage 1a: the injection plan. Which of the alignment solve's candidates enter the graph chunk,
 // as what, and how the catalog's rows are written beside them (plan_injection); union_inject.cpp applies it.
 
+#include "haploid.hpp"
 #include "union_select.hpp"
 
 #include "noise_filter.hpp"
@@ -377,6 +378,7 @@ enum class CallPattern : uint8_t {
     HomFullDepth,       // full depth, at most one read on REF, any MAPQ: written
     HomBothHaplotypes,  // ALT on both of the solve's haplotypes, up to kUnionMaxDepthRatio: written
     HomLowMapq,         // none of those (a het whose other haplotype's reads went elsewhere looks so): held back
+    HomHaploid,         // ... on one copy (pgphase_haploid), where no het can look so: written
     HomRestoredUnconfirmed,  // a hom put back from a failed MSA region, not on both haplotypes or not the graph's: held back
     HomUnderHetMsaRegion,  // an alignment hom inside a het MSA region: held back (the consensus sequences spell it)
     // Calls that are no het the union admits.
@@ -403,6 +405,7 @@ const char* call_pattern_name(CallPattern p) {
     case CallPattern::HomFullDepth: return "hom_full_depth";
     case CallPattern::HomBothHaplotypes: return "hom_both_haplotypes";
     case CallPattern::HomLowMapq: return "hom_low_mapq";
+    case CallPattern::HomHaploid: return "hom_haploid";
     case CallPattern::HomRestoredUnconfirmed: return "hom_restored_unconfirmed";
     case CallPattern::HomUnderHetMsaRegion: return "hom_under_het_msa_region";
     case CallPattern::NotHet: return "not_het";
@@ -429,6 +432,7 @@ struct CallEvidence {
     bool hom_call = false;           // ... in the chunk, outside het MSA regions
     bool hom_confident = false;
     bool hom_full_depth = false;
+    bool haploid = false;  // on one copy (pgphase_haploid)
     bool hom_both_haplotypes = false;
     bool hom_restored = false;  // put back from a noisy region its MSA did not resolve (restored_noisy_hom)
     bool graph_hom = false;     // ... its letter a catalog pair the graph dropped as homozygous (Selection::graph_hom_letters)
@@ -576,6 +580,7 @@ CallPattern classify_call(const CallEvidence& e) {
         if (e.hom_confident) return CallPattern::HomConfident;
         if (e.hom_full_depth) return CallPattern::HomFullDepth;
         if (e.hom_both_haplotypes) return CallPattern::HomBothHaplotypes;
+        if (e.haploid) return CallPattern::HomHaploid;
         return CallPattern::HomLowMapq;
     }
     // A hom call that is no het either: outside the chunk, or (in it) inside a het MSA region.
@@ -608,7 +613,7 @@ CallPattern classify_call(const CallEvidence& e) {
 // The rows the MSA regions already genotyped (sel.unwritten_rows, sel.hom_rows) come in set.
 void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const AlignmentSupport& support,
                   const VotingRows& voting, const std::vector<GraphSiteMeta>& graph_meta, bool record_decisions,
-                  Selection& sel) {
+                  Selection& sel, const char* contig) {
     if (record_decisions) sel.decision.assign(bam.candidates.size(), "");
     std::vector<CallPattern> pattern(bam.candidates.size(), CallPattern::NotHet);
     const auto decide = [&](size_t bi, const char* why) {
@@ -642,6 +647,7 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
     for (size_t bi = 0; bi < bam.candidates.size(); ++bi) {
         const CandidateVariant& c = bam.candidates[bi];
         CallEvidence e = call_evidence(graph, bam, support, voting, sel, bi);
+        e.haploid = e.hom_call && contig != nullptr && pgphase_haploid::at(contig, c.key.pos);
         const CallPattern p = pattern[bi] = classify_call(e);
         switch (p) {
         case CallPattern::HomInHetMsaRegion:
@@ -657,7 +663,8 @@ void select_sites(const PhasingChunk& graph, const PhasingChunk& bam, const Alig
             continue;
         case CallPattern::HomConfident:
         case CallPattern::HomFullDepth:
-        case CallPattern::HomBothHaplotypes: {
+        case CallPattern::HomBothHaplotypes:
+        case CallPattern::HomHaploid: {
             // The alignment's own homozygous calls, written 1/1 as the MSA's are (no vote, no read calls), and the
             // MSA's in a region whose two consensus sequences agree (the het regions' are above; the alignment's call
             // there is pruned for the region's noise and re-called by the MSA: chr20:148,906 G>A, 62 of 64 reads). The
@@ -1295,7 +1302,8 @@ static void graph_hom_pair_letters(const GraphChunkBuildResult& graph_chunk, Sel
     }
 }
 
-Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, bool diagnostics) {
+Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, bool diagnostics,
+                         const char* contig) {
     const PhasingChunk& graph = graph_chunk.chunk;
     const VotingRows voting(graph_chunk);
     const AlignmentSupport support(bam);
@@ -1308,7 +1316,7 @@ Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const Phasing
     unwrite_edge_rows_reads_lack(graph_chunk, bam, sel);
     spell_homozygous_calls(graph, bam, sel);
     find_additive_calls(graph_chunk, bam, voting, sel);
-    select_sites(graph, bam, support, voting, graph_chunk.site_meta, diagnostics, sel);
+    select_sites(graph, bam, support, voting, graph_chunk.site_meta, diagnostics, sel, contig);
     return sel;
 }
 

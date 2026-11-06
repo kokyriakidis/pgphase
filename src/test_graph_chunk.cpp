@@ -5,6 +5,7 @@
 #include "collect_phase.hpp"
 #include "collect_output.hpp"
 #include "collect_var.hpp"
+#include "haploid.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1299,6 +1300,45 @@ int main(int argc, char** argv) {
                 ok &= check(vcf.str().find("\t2\t.\tTG\tCA\t") !=
                                 std::string::npos,
                             "MNP writer: complete REF describes the graph allele");
+
+                // pgphase_haploid: on one copy a het is the allele most of its reads carry, written hom and unphased,
+                // or no record when that is REF.
+                {
+                    const std::string par_path = std::string(fasta_path) + ".par.bed";
+                    {
+                        std::ofstream par(par_path);
+                        par << "# PAR\nchr1\t0\t1\nchr2\t0\t12\n";
+                    }
+                    pgphase_haploid::configure({"CHM13#0#chr1"}, par_path);
+                    ok &= check(pgphase_haploid::enabled() && !pgphase_haploid::at("chr1", 1) &&
+                                    pgphase_haploid::at("chr1", 2) && pgphase_haploid::at("CHM13#0#chr1", 12) &&
+                                    !pgphase_haploid::at("chr2", 2),
+                                "haploid: a contig by its name after the last '#', its PAR diploid, others diploid");
+                    std::ostringstream tie_vcf;
+                    write_phased_variants_vcf_records(tie_vcf, Options{}, header.get(), ref, {candidate});
+                    ok &= check(tie_vcf.str().find("\tGT:DP:AD:VAF:GQ\t1/1:10:5,5:") != std::string::npos,
+                                "haploid writer: a het is written hom and unphased, a tie to the ALT");
+                    CandidateVariant mostly_ref = candidate;
+                    mostly_ref.counts.ref_cov = 7;
+                    mostly_ref.counts.alt_cov = 3;
+                    std::ostringstream ref_vcf;
+                    write_phased_variants_vcf_records(ref_vcf, Options{}, header.get(), ref, {mostly_ref});
+                    ok &= check(ref_vcf.str().empty(), "haploid writer: a het most of whose reads carry REF, no record");
+                    pgphase_haploid::configure({}, "");
+                    std::ostringstream diploid_vcf;
+                    write_phased_variants_vcf_records(diploid_vcf, Options{}, header.get(), ref, {mostly_ref});
+                    ok &= check(!pgphase_haploid::enabled() && diploid_vcf.str().find("\t1|0:") != std::string::npos,
+                                "haploid writer: unconfigured, the het stands");
+                    bool threw = false;
+                    try {
+                        pgphase_haploid::configure({"chr1"}, par_path + ".missing");
+                    } catch (const std::runtime_error&) {
+                        threw = true;
+                    }
+                    ok &= check(threw, "haploid: an unreadable --par-bed is an error");
+                    pgphase_haploid::configure({}, "");
+                    std::remove(par_path.c_str());
+                }
                 Options replacement_opts;
                 replacement_opts.min_sv_len = 1;
                 candidate.key.type = VariantType::Deletion;

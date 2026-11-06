@@ -253,7 +253,8 @@ void flush_graph_phase_bam_after_merge(
     sam_hdr_t* phase_bam_hdr,
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
     const std::unordered_set<std::string>* next_chunk_qnames,
-    std::unordered_set<std::string>& emitted_read_names);
+    std::unordered_set<std::string>& emitted_read_names,
+    const char* contig = nullptr);
 
 // Phase-sites TSV output (used by tests).
 void write_graph_phase_sites_tsv_header(std::ostream& out);

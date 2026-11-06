@@ -805,6 +805,7 @@ size_t inject_alignment_private_sites(GraphChunkBuildResult& graph_chunk,
     }
     Options solve_opts = union_alignment_options(opts);
     solve_opts.catalog_loci = &catalog_loci;
+    if (contig_name != nullptr) solve_opts.solve_contig = contig_name;
     auto bam = std::make_unique<PhasingChunk>(process_chunk(region, solve_opts, context));
     // Trace: each graph read's label in the alignment solve (its k-means haplotype and phase set).
     if (pgphase_trace::on()) {

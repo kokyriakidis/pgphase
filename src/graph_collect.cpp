@@ -1,4 +1,5 @@
 #include <tuple>
+#include "haploid.hpp"
 #include "aligned_read_writer.hpp"
 #include "plegma_msa.hpp"
 #include "graph_collect.hpp"
@@ -610,6 +611,10 @@ void run_collect_graph_variation(const Options& options) {
         }
     }
 
+    if (!opts.par_bed.empty() && opts.haploid_contigs.empty())
+        throw std::runtime_error("--par-bed needs --haploid-contigs");
+    pgphase_haploid::configure(opts.haploid_contigs, opts.par_bed);
+
     // 5. contig name → FAI-order tid (used when remapping candidate tids for output).
     std::unordered_map<std::string, int> contig_to_tid;
     contig_to_tid.reserve(static_cast<size_t>(header->n_targets));
@@ -878,7 +883,7 @@ void run_collect_graph_variation(const Options& options) {
             }
             flush_graph_phase_bam_after_merge(
                 phased_bam_fp.get(), phased_bam_hdr.get(),
-                phased_bam_rows, nullptr, phased_bam_emitted);
+                phased_bam_rows, nullptr, phased_bam_emitted, header->target_name[chunks[batch_begin].tid]);
         }
 
         batch_begin = batch_end;
@@ -960,6 +965,9 @@ static void print_graph_collect_help() {
         << "      --min-af FLOAT            Minimum allele fraction [0.20]\n"
         << "      --max-af FLOAT            Maximum allele fraction [0.80]\n"
         << "      --min-sv-len INT          Min SV length for SVTYPE/SVLEN tags [30]\n"
+        << "      --haploid-contigs LIST    Contigs the sample carries one copy of, comma-separated\n"
+        << "                                (an XY sample: chrX,chrY); no het calls there\n"
+        << "      --par-bed FILE            BED of their pseudo-autosomal regions, kept diploid\n"
         << "      --chunk-size INT          Region chunk size [500000; 1000000 with --bam]\n"
         << "  -r, --region STR              Restrict to region (may be repeated)\n"
         << "      --region-file FILE        BED file of regions\n"
@@ -996,6 +1004,8 @@ enum GraphCollectOption {
     kGcMinAf,
     kGcMaxAf,
     kGcMinSvLen,
+    kGcHaploidContigs,
+    kGcParBed,
     kGcChunkSize,
     kGcPhasedVcf,
     kGcGafFile,
@@ -1062,6 +1072,8 @@ int collect_graph_variation(int argc, char* argv[]) {
         {"min-af",            required_argument, nullptr, kGcMinAf},
         {"max-af",            required_argument, nullptr, kGcMaxAf},
         {"min-sv-len",        required_argument, nullptr, kGcMinSvLen},
+        {"haploid-contigs",   required_argument, nullptr, kGcHaploidContigs},
+        {"par-bed",           required_argument, nullptr, kGcParBed},
         {"chunk-size",        required_argument, nullptr, kGcChunkSize},
         {"region",            required_argument, nullptr, 'r'},
         {"region-file",       required_argument, nullptr, kGcRegionFile},
@@ -1120,6 +1132,14 @@ int collect_graph_variation(int argc, char* argv[]) {
             case kGcMinAf:        opts.min_af = parse_double_arg(optarg, "--min-af"); break;
             case kGcMaxAf:        opts.max_af = parse_double_arg(optarg, "--max-af"); break;
             case kGcMinSvLen:     opts.min_sv_len = parse_int_arg(optarg, "--min-sv-len"); break;
+            case kGcHaploidContigs: {
+                std::string list = optarg;
+                for (char& ch : list) if (ch == ',') ch = ' ';
+                std::istringstream names(list);
+                for (std::string name; names >> name;) opts.haploid_contigs.push_back(name);
+                break;
+            }
+            case kGcParBed:       opts.par_bed = optarg; break;
             case kGcChunkSize:
                 opts.chunk_size = parse_ll_arg(optarg, "--chunk-size");
                 chunk_size_explicit = true;

@@ -1,0 +1,6 @@
+# T2T-CHM13v2.0 pseudo-autosomal regions, BED (0-based, half-open), for --par-bed.
+# Source: human-pangenomics T2T/CHM13/assemblies/analysis_set/chm13v2.0_PAR.bed (copied 2026-11-06).
+chrX	0	2394410
+chrX	153925834	154259566
+chrY	0	2458320
+chrY	62122809	62460029

@@ -37,7 +37,9 @@ struct Selection {
 /// spellings, then the alignment candidates selected (select_sites). Reads the graph chunk and the alignment solve and
 /// changes neither, so a test can plan on a fixture and inspect the plan. `diagnostics` keeps each candidate's
 /// decision (Selection::decision) for write_injection_diagnostics.
-Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, bool diagnostics);
+/// `contig` (may be null) places the chunk for pgphase_haploid.
+Selection plan_injection(const GraphChunkBuildResult& graph_chunk, const PhasingChunk& bam, bool diagnostics,
+                         const char* contig = nullptr);
 
 /// Diagnostic, PGPHASE_DIAG=DIR: each alignment candidate's injection decision (inj.TID.BEG.tsv), each read's calls in
 /// the alignment solve (alnreads.TID.BEG.tsv) and the graph chunk's rows before the merge (graph.TID.BEG.tsv).

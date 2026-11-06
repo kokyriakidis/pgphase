@@ -349,6 +349,11 @@ struct Options {
     bool output_ambiguous_bases = false;
     bool include_filtered = false;
     bool autosome = false;
+    /// --haploid-contigs / --par-bed (see haploid.hpp); applied through pgphase_haploid, configured from these.
+    std::vector<std::string> haploid_contigs;
+    std::string par_bed;
+    /// The contig of the union's alignment solve (set per chunk on its Options copy), for pgphase_haploid.
+    std::string solve_contig;
     bool input_is_list = false;
     std::string region_file;
     std::vector<std::string> regions;

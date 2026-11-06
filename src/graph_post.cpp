@@ -5,6 +5,7 @@
  *        overlap linking, unphased read rescue, and read/BAM/TSV output helpers.
  */
 
+#include "haploid.hpp"
 #include "trace.hpp"
 #include "collect_var.hpp"
 #include <map>
@@ -1203,7 +1204,8 @@ void flush_graph_phase_bam_after_merge(
     sam_hdr_t* phase_bam_hdr,
     std::unordered_map<std::string, PhaseReadOutputRow>& rows_by_read,
     const std::unordered_set<std::string>* next_chunk_qnames,
-    std::unordered_set<std::string>& emitted_read_names) {
+    std::unordered_set<std::string>& emitted_read_names,
+    const char* contig) {
     std::vector<std::pair<std::string, PhaseReadOutputRow>> drained;
     drained.reserve(rows_by_read.size());
     for (auto it = rows_by_read.begin(); it != rows_by_read.end(); ) {
@@ -1226,12 +1228,11 @@ void flush_graph_phase_bam_after_merge(
                                      kv.second.has_phased_assignment ? kv.second.phase_set : -1, kv.second.copies,
                                      kv.second.trace);
         if (phase_bam_out && phase_bam_hdr) {
-            const int hap =
-                kv.second.has_phased_assignment ? kv.second.hap : 0;
-            const hts_pos_t ps =
-                kv.second.has_phased_assignment
-                    ? kv.second.phase_set
-                    : static_cast<hts_pos_t>(-1);
+            // On one copy (pgphase_haploid) a read has no haplotype to carry: its phase set anchored there, no tags.
+            const bool phased = kv.second.has_phased_assignment &&
+                                !(contig != nullptr && pgphase_haploid::at(contig, kv.second.phase_set));
+            const int hap = phased ? kv.second.hap : 0;
+            const hts_pos_t ps = phased ? kv.second.phase_set : static_cast<hts_pos_t>(-1);
             write_bam_record(phase_bam_out, phase_bam_hdr, kv.first, hap, ps);
         }
     }

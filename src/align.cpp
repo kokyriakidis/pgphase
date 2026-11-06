@@ -7,6 +7,7 @@
  * detection, BAM re-writing, or somatic calling are not ported.
  */
 
+#include "haploid.hpp"
 #include "align.hpp"
 #include "plegma_msa.hpp"
 #include "bam_digar.hpp"
@@ -1625,7 +1626,8 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
                                          bool collect_ref_read_aln_str,
                                          std::array<int, 2>& clu_n_seqs,
                                          std::array<std::vector<int>, 2>& clu_read_ids,
-                                         std::array<std::vector<AlnStr>, 2>& aln_strs) {
+                                         std::array<std::vector<AlnStr>, 2>& aln_strs,
+                                         int max_n_cons) {
     // Collect full-cover reads.
     std::vector<int>       full_ids;
     std::vector<uint8_t*>  full_seqs;
@@ -1667,7 +1669,7 @@ int wfa_collect_noisy_aln_str_no_ps_hap(const Options& opts, NoisyReadInfo& info
         // Strands may be absent (a caller filling NoisyReadInfo by hand): plegma then takes them as unknown.
         if (!info.strands.empty())
             for (int id : full_ids) full_strands.push_back(info.strands[static_cast<size_t>(id)]);
-        n_cons = plegma_msa_cons(opts, full_ids, full_seqs, full_lens, full_covers, full_strands, 2, cons_seqs,
+        n_cons = plegma_msa_cons(opts, full_ids, full_seqs, full_lens, full_covers, full_strands, max_n_cons, cons_seqs,
                                  clu_n_seqs, clu_read_ids, plegma_rows);
         cons_lens.resize(cons_seqs.size());
         for (std::size_t ci = 0; ci < cons_seqs.size(); ++ci) cons_lens[ci] = static_cast<int>(cons_seqs[ci].size());
@@ -2156,6 +2158,14 @@ int collect_noisy_reg_aln_strs(const Options& opts, const PhasingChunk& chunk,
         if (n_ps_full < kMinPhaseSetReadFraction * n_full_reads) ps = -1;
     }
 
+    // One copy (pgphase_haploid): the region's reads all carry the same sequence, so they make one consensus, from all of
+    // them, phase sets aside -- two clusters there split one sequence by its noise (a homopolymer's or a repeat's
+    // length), and each cluster's consensus is then a different false allele. plegma only.
+    const bool haploid = use_plegma_msa() && !opts.solve_contig.empty() &&
+                         pgphase_haploid::at(opts.solve_contig, noisy_reg_beg) &&
+                         pgphase_haploid::at(opts.solve_contig, noisy_reg_end);
+    if (haploid) ps = -1;
+
     int n_cons = 0;
     if (opts.verbose >= 1) {
         // Region bounds and the branch label make this line directly comparable
@@ -2185,7 +2195,7 @@ int collect_noisy_reg_aln_strs(const Options& opts, const PhasingChunk& chunk,
     } else if (n_full_reads >= opts.min_depth) {
         n_cons = wfa_collect_noisy_aln_str_no_ps_hap(
             opts, info, ref_seq_vec.data(), ref_seq_len, collect_ref_read_aln_str,
-            clu_n_seqs, clu_read_ids, aln_strs);
+            clu_n_seqs, clu_read_ids, aln_strs, haploid ? 1 : 2);
     } else {
         note_msa_failure("too_few_full_reads full=" + std::to_string(n_full_reads) + " of=" +
                          std::to_string(info.n_reads) + " min=" + std::to_string(opts.min_depth));

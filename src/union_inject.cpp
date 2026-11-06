@@ -176,7 +176,7 @@ size_t inject_alignment_sites(GraphChunkBuildResult& graph_chunk, const PhasingC
                               const char* contig_name) {
     PhasingChunk& graph = graph_chunk.chunk;
     static const char* const diag_dir = std::getenv("PGPHASE_DIAG");
-    Selection sel = plan_injection(graph_chunk, bam, diag_dir != nullptr);
+    Selection sel = plan_injection(graph_chunk, bam, diag_dir != nullptr, contig_name);
     for (const size_t ci : sel.unwritten_rows)
         if (ci < graph_chunk.site_meta.size()) graph_chunk.site_meta[ci].no_record = true;
     for (const size_t ci : sel.hom_rows)
