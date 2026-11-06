@@ -29,9 +29,8 @@ extern "C" {
 #include "alignment/cigar.h"
 }
 
-// edlib X-gap counting used for noisy-region read sampling.
-// Ported here for strict parity.
-#include "edlib.h"
+// karan: the X-gap counts of noisy-region read sampling.
+#include "karan.h"
 
 // abPOA
 #include "abpoa.h"
@@ -1293,34 +1292,33 @@ int abpoa_aln_msa_cons(const Options& opts, int n_reads,
 // Partial-overlap abPOA MSA consensus (reads may not span full region).
 // ════════════════════════════════════════════════════════════════════════════
 
-// edlib X-gap counting for noisy-region read sampling.
-
-static int edlibAlignmentToXGAPS(const unsigned char* const alignment, const int alignmentLength) {
-    // Convert edlib alignment to X-gap count:
-    // mismatch counts as 1; insert/delete counts as 1 per run (gap-open events).
-    int n_gaps = 0, n_mismatch = 0;
-    for (int i = 0; i < alignmentLength; i++) {
-        if (alignment[i] == EDLIB_EDOP_MATCH) {
-            continue;
-        } else if (alignment[i] == EDLIB_EDOP_MISMATCH) {
-            n_mismatch++;
-        } else if (alignment[i] == EDLIB_EDOP_INSERT || alignment[i] == EDLIB_EDOP_DELETE) {
-            if (i == 0 || alignment[i - 1] != alignment[i]) n_gaps++;
-        }
-    }
-    return n_mismatch + n_gaps;
-}
-
-static int edlib_xgaps(const uint8_t* target, int tlen, const uint8_t* query, int qlen) {
-    EdlibAlignResult result = edlibAlign((const char*)query, qlen, (const char*)target, tlen,
-                                         edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_PATH, NULL, 0));
-    if (result.status != EDLIB_STATUS_OK) {
-        edlibFreeAlignResult(result);
+// longcallD's edlib_xgaps on karan, for noisy-region read sampling: of an optimal
+// unit-cost global alignment, each mismatch counts 1 and each run of insertions
+// or deletions 1 (gap-open events). An empty side counts 0, as edlib, which
+// traces no path then, counted it; -1 when the pair cannot be aligned.
+static int karan_xgaps(const uint8_t* target, int tlen, const uint8_t* query, int qlen) {
+    if (tlen <= 0 || qlen <= 0) return 0;
+    thread_local karan::Aligner aligner;
+    std::string cigar;
+    try {
+        cigar = aligner.align(std::string_view(reinterpret_cast<const char*>(target), static_cast<size_t>(tlen)),
+                              std::string_view(reinterpret_cast<const char*>(query), static_cast<size_t>(qlen)),
+                              karan::Costs::edit(), karan::Mode::global(), {}, karan::Ties::right)
+                    .cigar;
+    } catch (const std::exception&) {
         return -1;
     }
-    int n_x_gaps = edlibAlignmentToXGAPS(result.alignment, result.alignmentLength);
-    edlibFreeAlignResult(result);
-    return n_x_gaps;
+    int n_gaps = 0, n_mismatch = 0, len = 0;
+    for (const char c : cigar) {
+        if (c >= '0' && c <= '9') {
+            len = len * 10 + (c - '0');
+            continue;
+        }
+        if (c == 'X') n_mismatch += len;
+        else if (c == 'I' || c == 'D') ++n_gaps;  // a CIGAR run is one gap-open event
+        len = 0;
+    }
+    return n_mismatch + n_gaps;
 }
 
 // Extract aligned region begin/end from a SAM CIGAR string.
@@ -1408,10 +1406,10 @@ static int cal_wfa_partial_aln_beg_end(const int ext_direction, const Options& o
 
     int min_len = std::min(tlen, qlen);
     if (ext_direction == kExtAlnLeftToRight) {
-        int x_gaps = edlib_xgaps(target, min_len, query, min_len);
+        int x_gaps = karan_xgaps(target, min_len, query, min_len);
         if (x_gaps > min_len * 0.10) return 0;
     } else {
-        int x_gaps = edlib_xgaps(target + tlen - min_len, min_len, query + qlen - min_len, min_len);
+        int x_gaps = karan_xgaps(target + tlen - min_len, min_len, query + qlen - min_len, min_len);
         if (x_gaps > min_len * 0.10) return 0;
     }
 
@@ -1439,7 +1437,7 @@ static int collect_partial_aln_beg_end(const Options& opts, const int sampling_r
             (noisyIsLeftCover(query_full_cover) && noisyIsRightGap(query_full_cover)) ||
             (noisyIsRightCover(query_full_cover) && noisyIsLeftGap(query_full_cover))) {
             if (sampling_reads) {
-                int x_gaps = edlib_xgaps(target, tlen, query, qlen);
+                int x_gaps = karan_xgaps(target, tlen, query, qlen);
                 if (x_gaps > std::min(tlen, qlen) * 0.10) return 0;
             }
             return 1;

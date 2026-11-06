@@ -20,8 +20,6 @@
 #include "task_pool.hpp"
 #include "trace.hpp"
 
-#include "edlib.h"
-
 #include <algorithm>
 #include <array>
 #include <cmath>

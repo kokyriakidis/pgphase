@@ -4,9 +4,9 @@
 [submodule "third_party/abPOA"]
 	path = third_party/abPOA
 	url = https://github.com/yangao07/abPOA.git
-[submodule "third_party/edlib"]
-	path = third_party/edlib
-	url = https://github.com/Martinsos/edlib.git
+[submodule "third_party/karan"]
+	path = third_party/karan
+	url = https://github.com/kokyriakidis/karan.git
 [submodule "third_party/plegma"]
 	path = third_party/plegma
 	url = https://github.com/kokyriakidis/plegma.git

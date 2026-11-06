@@ -11,7 +11,7 @@
 #include <cmath>
 #include <map>
 
-#include "edlib.h"
+#include "karan.h"
 
 namespace pgphase_collect {
 
@@ -36,13 +36,11 @@ QueryAt query_at(const bam1_t* b, hts_pos_t ref_pos) {
     return {};
 }
 
+// The unit-cost global edit distance (karan). One aligner per thread keeps its
+// working memory from call to call.
 int locus_edit_distance(const std::string& a, const std::string& b) {
-    EdlibAlignResult r = edlibAlign(a.data(), static_cast<int>(a.size()), b.data(),
-                                    static_cast<int>(b.size()),
-                                    edlibNewAlignConfig(-1, EDLIB_MODE_NW, EDLIB_TASK_DISTANCE, nullptr, 0));
-    const int d = r.editDistance;
-    edlibFreeAlignResult(r);
-    return d;
+    thread_local karan::Aligner aligner;
+    return static_cast<int>(aligner.distance(b, a));
 }
 
 // The sequence with the least total edit distance to the others; the first
