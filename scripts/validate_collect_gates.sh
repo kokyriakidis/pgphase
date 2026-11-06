@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Regression gates: collect-bam-variation and collect-graph-variation against fixture golden outputs, once per
 # noisy-region MSA this pgphase has: plegma (the default; goldens in test_data/expected/plegma) and abPOA (--msa
-# abpoa; test_data/expected, longcallD's outputs: the port's parity check). UPDATE_GOLDEN=plegma rewrites plegma's
+# abpoa; test_data/expected, longcallD's outputs: the port's parity check, save one ONT record that karan's X-gap tie
+# rule changes, docs/IMPLEMENTATION.md §27.5). UPDATE_GOLDEN=plegma rewrites plegma's
 # goldens from this build's outputs.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
