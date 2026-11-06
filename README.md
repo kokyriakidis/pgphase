@@ -166,7 +166,7 @@ homopolymer or repeat-length noise), writes a homozygous call its reads read at 
 look so there), writes any remaining het as the allele most of its reads carry, homozygous and unphased (no record when
 that is REF, as DeepVariant's `--haploid_contigs` does), and gives the reads there no `HP`/`PS`. Genotypes stay
 diploid-coded (`1/1`), as DeepVariant writes them: hap.py scores them against haploid truth, and WhatsHap rejects a VCF
-that mixes ploidies. HG002 chrX (Q100 v5.0q, hap.py): 3,749 errors -> 1,012, against DeepVariant 1.10 with its own
+that mixes ploidies. HG002 chrX (Q100 v5.0q, hap.py): 3,749 errors -> 1,008, against DeepVariant 1.10 with its own
 haploid flags at 1,268.
 
 </details>

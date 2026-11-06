@@ -698,15 +698,24 @@ before any worker starts; `at(contig, pos)` matches a contig by its name after t
    INDEL FPs were such MSA hets, written hom by the writer at the wrong length).
 2. `select_sites`: a hom call held back as `hom_low_mapq` is written (`hom_haploid`). That gate keeps a het whose
    other haplotype's reads mapped elsewhere from reading as a hom; on one copy there is no het (HG002 chrX benchmark:
-   548 truth homs against 60 false sites behind it).
+   548 truth homs against 60 false sites behind it). A hom put back from an MSA region that failed needs the graph's
+   pair and confident reads there, not ALT on both haplotypes, which one copy never shows (chrX: +4 benchmark homs;
+   outside it +39 truth records, -55 others).
 3. `write_phased_variants_vcf_records`: a het is the allele most of its reads carry, `k/k` with no PS, or no record
    when that is REF (ties to the higher allele) -- DeepVariant's `--haploid_contigs` rule in read counts.
 4. Read tags: `flush_graph_phase_bam_after_merge` (by the phase set's anchor) and the aligned output (by the record's
    position) write no `HP`/`PS` there.
 
 HG002 chrX, hap.py vcfeval against Q100 v5.0q (truth: non-PAR haploid `1`, no het): errors 3,749 -> 2,086 (3) ->
-1,544 (+2) -> 1,012 (+1); runtime 258 -> 143 s. DeepVariant 1.10 with `--haploid_contigs chrX,chrY --par_regions_bed`:
-1,268. PAR calls unchanged (6,316 records); reads tagged in non-PAR 90,557 -> 0.
+1,544 (+2) -> 1,012 (+1) -> 1,008 (restored homs); runtime 258 -> 140 s. DeepVariant 1.10 with `--haploid_contigs
+chrX,chrY --par_regions_bed`: 1,268. PAR calls unchanged (6,316 records); reads tagged in non-PAR 90,557 -> 0.
+
+Rejected: admitting MAPQ 0 reads to the alignment solve on one copy (Giraffe gives MAPQ 0 inside chrX:47.8-52.1 Mb,
+the SSX/GAGE snarl, where pbmm2 gives 60 at some sites): SNP FN -93 but FP +158, INDEL FP +31; 1,092 errors.
+What stays missed on chrX is mostly placement: reads Giraffe aligns to a non-reference copy of a duplication the graph
+did not align to CHM13 (47-48, 114 Mb) are unplaced and dropped by `dromos index`/`surject` (pbmm2's placements of
+the 1,091 such chrX reads would take 1,012 -> 926), and reads placed on a paralog 140-230 kb away (100.9, 151.5 Mb;
+Giraffe fits the other copy's haplotypes better, pbmm2 gives MAPQ 1 there).
 
 ### Catalog records
 

@@ -575,7 +575,8 @@ CallPattern classify_call(const CallEvidence& e) {
         // (kRestoredHomMinConfidentShare, kRestoredHomFullDepthRatio): over chr1-5, 7, 8, 11 and the focus chunks, the
         // homs so written over truth hets 43 -> 1 (chr7:102,314,346, low MAPQ at full depth), over half-called truth
         // records 157 -> 7, at no truth record 288 -> 115; truth homs in the benchmark 176 -> 162.
-        if (e.hom_restored && !(e.hom_both_haplotypes && e.graph_hom && e.restored_reads))
+        // On one copy (pgphase_haploid) there is no second haplotype to see it on: the graph's pair and the reads.
+        if (e.hom_restored && !((e.hom_both_haplotypes || e.haploid) && e.graph_hom && e.restored_reads))
             return CallPattern::HomRestoredUnconfirmed;
         if (e.hom_confident) return CallPattern::HomConfident;
         if (e.hom_full_depth) return CallPattern::HomFullDepth;
