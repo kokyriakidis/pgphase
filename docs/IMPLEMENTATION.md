@@ -591,6 +591,7 @@ Per chunk, in order:
    - *Haplotype sequences.* Seed labels come from the pass-1 phased sites: a
      read is labelled in a phase set when its votes there differ by at least 2
      and agree at least 90%. The two haplotype sequences are edit-distance
+     (unit-cost, global; karan's `Aligner::distance`, `locus_edit_distance`)
      medoids of up to 10 seeded reads per side, from the dominant phase set.
      When fewer than two seeds exist on either side, or the two seeded medoids
      are identical (the seeds all came from one haplotype), the spanning reads
@@ -2459,7 +2460,10 @@ Implementation details aligned to longcallD:
 - **Call order parity:** `collect_reg_ref_bseq` runs before `collect_noisy_reg_reads` so read extraction uses the clipped noisy boundaries.
 - **Read-id parity in abPOA paths:** global read ids (not local vector indices) are passed through PS and no-PS MSA helper calls.
 - **One-consensus handling parity:** single-consensus outputs treat the cluster/read-row mapping as in longcallD wrappers.
-- **Boundary parity helpers:** partial-alignment trimming uses the ported longcallD `edlib_xgaps` + WFA boundary functions.
+- **Boundary parity helpers:** partial-alignment trimming uses longcallD's X-gap screen (its `edlib_xgaps`, here
+  `karan_xgaps` on karan) + the ported WFA boundary functions. The X-gap count (mismatches plus gap runs) is read
+  off one optimal unit-cost alignment, so it depends on which of several equally optimal alignments the aligner
+  spells: karan spells WFA2-lib's (`Ties::right`), edlib traced its own, and the two counts can differ (§27.5).
 - **Homopolymer veto parity:** insertion homopolymer checks use the longcallD anchor behavior (`ref_pos-1`).
 - **Allele-match threshold parity:** `is_match_aln_str` compares `n_eq >= len * cons_sim_thres` as floating-point arithmetic, matching longcallD and avoiding integer truncation at noisy insertion alleles.
 
@@ -3349,6 +3353,18 @@ scoring, pivot choice, and phase-set links in `collect_phase.cpp`.
 - The previous approximation path for partial alignment boundaries was removed.
 - longcallD functions were ported directly: `edlib_xgaps`, `cal_wfa_partial_aln_beg_end`,
   `collect_partial_aln_beg_end`.
+- `edlib_xgaps` now runs on karan (`karan_xgaps`): the same unit-cost global alignment and count, an empty side
+  counting 0 as with edlib. Of equally optimal alignments karan spells WFA2-lib's CIGAR (`Ties::right`: the latest
+  edit, a substitution before a reference letter alone before a query letter alone); edlib took a gap before a
+  substitution, and above about 1.8 kb split the pair by Hirschberg. Only the abPOA paths (`--msa abpoa`) call it.
+- abPOA's X-gap tie rule is therefore karan's, no longer longcallD-exact. On the ONT fixture one read's count is 25
+  under karan and 26 under edlib (edit distance 37 both, threshold 25.8), so the read is now sampled, and the abPOA
+  ONT golden (`test_data/expected/ont_collect_expected.{tsv,phased.vcf}`) differs from longcallD's output at
+  chr11:1399327 T>C: AD 6,20 -> 5,21, GT 1|1 unchanged. The abPOA union golden
+  (`test_data/expected/union_chr20_expected.{tsv,phased.vcf}`) changes at chr20:25453144 C>CA: AD 25,17 -> 24,17,
+  GT 0|1 unchanged, one read now left out (count 8 under karan, which splits an end gap edlib kept whole, `10=3I`,
+  into mismatches and short gaps; 3 under edlib; edit distance 8 both, threshold 4.4). On HG002 HiFi chr20 with
+  `--msa abpoa`, 2 of 11,270 sampling decisions flip (238 counts differ); the default plegma path never calls it.
 - In both PS and no-PS abPOA paths, cluster/read-id plumbing was aligned to longcallD:
   global read ids are passed through to abPOA helpers, and incorrect local->global remapping was removed.
 - One-consensus handling now mirrors longcallD cluster population behavior.
@@ -3423,6 +3439,8 @@ bash scripts/compare_phased_vcf.sh chr11 --hifi
 
 This is the current strict parity baseline for phased-het `GT:PS` output between `pgphase` and
 longcallD on the provided `chr11` ONT/HiFi test datasets.
+Since the X-gap screen moved to karan (§27.5), the abPOA ONT golden differs from longcallD's output at one
+hom-ALT record's allele depths (chr11:1399327); no `GT:PS` changes.
 
 ##### 28. Runtime Error Conditions and Guard Rails
 

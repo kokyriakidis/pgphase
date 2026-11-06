@@ -78,14 +78,14 @@ Evaluated with `hap.py` and `whatshap compare` against the GIAB Q100 v1.1 truth 
 - **[htslib](https://github.com/samtools/htslib)** (with `libzstd`, `zlib`, and `pthreads`)
 - **[dromos](https://github.com/kokyriakidis/dromos)** (constructs the pangenome site catalog, reference FASTA, and coordinate-indexed GAF from a `.gbz` graph)
 - **[samtools](https://github.com/samtools/samtools)** *(optional; only required for `collect-bam-variation --refine-aln`)*
-- **[pixi](https://pixi.sh)** *(optional; builds [plegma](https://github.com/kokyriakidis/plegma), the default noisy-region MSA engine; build with `make PLEGMA=0` to use `abPOA` alone)*
+- **[pixi](https://pixi.sh)** (fetches the Mojo toolchain that builds [karan](https://github.com/kokyriakidis/karan), the pairwise aligner, and [plegma](https://github.com/kokyriakidis/plegma), the default noisy-region MSA engine; `make PLEGMA=0` builds without plegma, using `abPOA` alone)
 
 ### Build from Source
 
 ```bash
 git clone --recursive https://github.com/kokyriakidis/pgphase.git
 cd pgphase
-make third-party-libs   # builds WFA2-lib, abPOA, and plegma
+make third-party-libs   # builds WFA2-lib, abPOA, karan, and plegma
 make -j"$(nproc)"       # builds ./pgphase
 ./pgphase --version
 ```
@@ -212,7 +212,7 @@ Run `pgphase <command> --help` for the complete list of options and diagnostic f
 2. **Sample-Private & Noisy-Region Recall (`--bam`)**: Linear alignments are scanned in parallel chunks to discover sample-private variants and assemble dense/repetitive intervals via haplotype-resolved partial-order MSA ([plegma](https://github.com/kokyriakidis/plegma) with empirical homopolymer models in [`models/`](models/README.md)).
 3. **Joint Expectation-Maximization (EM)**: Catalog sites and alignment-derived sites are unified into a joint haplotype solver that estimates per-site phases and empirical error rates with hierarchical shrinkage.
 4. **Read-Verified Block Bridging**: Phase blocks are bridged only when multiple multi-marker reads provide concordant support across reliable anchors; collapsed duplications, low-MAPQ loci, and 1 bp homopolymer shifts can label reads without falsely joining phase blocks.
-5. **Local Window & Island Read Rescue**: Remaining unplaced reads are assigned using local haplotype consensus windows (`edlib`), oriented secondary sites, and isolated read-only blocks.
+5. **Local Window & Island Read Rescue**: Remaining unplaced reads are assigned using local haplotype consensus windows (edit distances by [karan](https://github.com/kokyriakidis/karan)), oriented secondary sites, and isolated read-only blocks.
 
 Full algorithmic specifications, thresholds, and invariants are documented in [`docs/IMPLEMENTATION.md`](docs/IMPLEMENTATION.md).
 
@@ -226,7 +226,7 @@ The `src/` codebase is organized by pipeline stage so that each step can be insp
 |---|---|---|
 | **Graph & Catalog** | `graph_collect.cpp`, `site_catalog.cpp`, `graph_query.cpp`, `graph_chunk.cpp`, `graph_post.cpp`, `graph_records.cpp` | Site catalog loading, indexed GAF querying, multi-allelic→biallelic decomposition, physical SNP validation, read rescue, and graph VCF/BAM emission. |
 | **Linear Discovery & Noisy Regions** | `collect_pipeline.cpp`, `bam_digar.cpp`, `collect_var.cpp`, `noisy_regions.cpp`, `read_profiles.cpp`, `noise_filter.cpp` | BAM CIGAR→DIGAR conversion, candidate discovery, low-complexity/noisy interval merging and splitting, variant classification, and sparse read profile indexing. |
-| **Noisy-Region MSA** | `collect_phase_noisy.cpp`, `msa_candidates.cpp`, `align.cpp`, `plegma_msa.cpp` | Iterative noisy-region clustering, WFA2/abPOA/plegma consensus generation, co-located allele folding, and sequence-slice allele calling. |
+| **Noisy-Region MSA** | `collect_phase_noisy.cpp`, `msa_candidates.cpp`, `align.cpp`, `plegma_msa.cpp` | Iterative noisy-region clustering, karan X-gap read screening, WFA2/abPOA/plegma consensus generation, co-located allele folding, and sequence-slice allele calling. |
 | **Phasing & Union EM** | `collect_phase.cpp`, `union_phase.cpp`, `union_inject.cpp`, `union_select.cpp`, `union_em.cpp`, `union_windows.cpp`, `union_reads.cpp` | Clean/noisy k-means phasing, cross-chunk stitching, private site injection, joint EM block phasing, local window read calling, and island rescue. |
 | **Output & Reconciliation** | `collect_output.cpp`, `output_reconcile.cpp`, `collect_bam_output.cpp`, `refined_alignment.cpp` | Co-located allele reconciliation, conflicting-haplotype pruning, del+ins merging, VCF/TSV formatting, and `--refine-aln` / `--left-align` BAM rewriting. |
 
@@ -280,4 +280,4 @@ If you use `pgphase` in your research, please cite (see [`CITATION.cff`](CITATIO
 
 ## License and Acknowledgements
 
-Released under the [MIT License](LICENSE). `pgphase`'s linear alignment pipeline builds on [longcallD](https://github.com/yangao07/longcallD) (MIT) and integrates [htslib](https://github.com/samtools/htslib), [plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA), [WFA2-lib](https://github.com/smarco/WFA2-lib), [edlib](https://github.com/Martinsos/edlib), and [zstd](https://github.com/facebook/zstd). Graph inputs are produced by [dromos](https://github.com/kokyriakidis/dromos) (MIT). Full third-party notices are provided in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+Released under the [MIT License](LICENSE). `pgphase`'s linear alignment pipeline builds on [longcallD](https://github.com/yangao07/longcallD) (MIT) and integrates [htslib](https://github.com/samtools/htslib), [plegma](https://github.com/kokyriakidis/plegma), [abPOA](https://github.com/yangao07/abPOA), [WFA2-lib](https://github.com/smarco/WFA2-lib), [karan](https://github.com/kokyriakidis/karan), and [zstd](https://github.com/facebook/zstd). Graph inputs are produced by [dromos](https://github.com/kokyriakidis/dromos) (MIT). Full third-party notices are provided in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

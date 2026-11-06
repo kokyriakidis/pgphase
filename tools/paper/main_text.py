@@ -291,8 +291,8 @@ BODY = [
 
 ('sub', 'Implementation'),
 ('p',
- 'pgphase is written in C++17 on htslib, with abPOA [@Gao2021] for partial order alignment, WFA2-lib and edlib '
- 'for pairwise alignment; its alignment pipeline is derived from longcallD [@Gao2026], whose MIT-licensed code it '
+ 'pgphase is written in C++17 on htslib, with abPOA [@Gao2021] for partial order alignment, WFA2-lib and karan '
+ '(https://github.com/kokyriakidis/karan) for pairwise alignment; its alignment pipeline is derived from longcallD [@Gao2026], whose MIT-licensed code it '
  'ports and tests against. Its inputs, the site catalog and the indexed GAF, are made by dromos '
  '(https://github.com/kokyriakidis/dromos), a Mojo program that reads the GBZ graph with the gbz library '
  '[@Siren2022]. Chunks are processed by a pool of worker threads, each with its own '

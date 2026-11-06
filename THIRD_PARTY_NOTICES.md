@@ -30,7 +30,7 @@ Functions that keep their upstream names cite the upstream source location.
 | `WFA2-lib` | WFA2-lib, Copyright (c) 2017 Santiago Marco-Sola | `third_party/WFA2-lib/LICENSE` |
 | `abPOA` | abPOA, Copyright (c) 2020 Yan Gao | `third_party/abPOA/LICENSE` |
 | `plegma` | plegma, Copyright (c) 2026 Konstantinos Kyriakidis (MIT); with its submodules karan and sporos | `third_party/plegma/LICENSE` |
-| `edlib` | edlib, Copyright (c) 2014 Martin Šošić | `third_party/edlib/LICENSE` |
+| `karan` | karan, Copyright (c) 2026 Konstantinos Kyriakidis (MPL-2.0); pairwise alignment | `third_party/karan/LICENSE` |
 | `catch2` | Catch2 (tests only), Boost Software License 1.0 | upstream |
 
 Each submodule's licence travels with its source.
